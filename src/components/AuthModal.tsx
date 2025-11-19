@@ -107,7 +107,7 @@ export default function AuthModal() {
           <ActionSheetItem
             icon={
               <Image
-                src="/assets/WhatsApp_Balck.png"
+                src="/assets/Social=WhatsApp,Style=Original.svg"
                 alt="WhatsApp"
                 width={24}
                 height={24}
