@@ -28,7 +28,7 @@
   max-width: 90vw; /* Responsive: don't exceed viewport on small screens */
   aspect-ratio: 220 / 80; /* maintain logo proportions (220x80 original) */
   position: relative;
-  min-width: 280px; /* Minimum size to ensure visibility */
+  min-width: 200px; /* Minimum size to ensure visibility */
 }
 
 .tagline {
