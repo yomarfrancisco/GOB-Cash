@@ -109,8 +109,8 @@ export default function AuthModal() {
               <Image
                 src="/assets/Social=WhatsApp,Style=Original.svg"
                 alt="WhatsApp"
-                width={24}
-                height={24}
+                width={26}
+                height={26}
                 style={{ objectFit: 'contain' }}
                 unoptimized
               />
