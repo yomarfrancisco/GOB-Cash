@@ -10,7 +10,7 @@ import '@/styles/amount-sheet.css'
 type AmountSheetProps = {
   open: boolean
   onClose: () => void
-  mode: 'deposit' | 'withdraw' | 'send' | 'depositCard' // for header text (e.g., "Buy", "Withdraw")
+  mode: 'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert' // for header text (e.g., "Buy", "Withdraw", "Convert")
   flowType?: 'payment' | 'transfer' // default 'payment'
   balanceZAR?: number // show at top small "R200.00 balance"
   fxRateZARperUSDT?: number // default 18.10 if undefined
@@ -18,7 +18,7 @@ type AmountSheetProps = {
   onSubmit?: (payload: {
     amountZAR: number
     amountUSDT?: number
-    mode?: 'deposit' | 'withdraw' | 'send' | 'depositCard'
+    mode?: 'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'
   }) => void
   onAmountSubmit?: (amountZAR: number) => void // simpler callback for send/transfer flow
 }
@@ -97,8 +97,16 @@ export default function AmountSheet({
     ? 'Buy' 
     : mode === 'withdraw' 
     ? 'Withdraw' 
+    : mode === 'convert'
+    ? 'Convert'
     : 'Send'
-  const defaultCtaLabel = mode === 'depositCard' ? 'Deposit' : mode === 'send' ? 'Send' : 'Transfer USDT'
+  const defaultCtaLabel = mode === 'depositCard' 
+    ? 'Deposit' 
+    : mode === 'send' 
+    ? 'Send' 
+    : mode === 'convert'
+    ? 'Convert'
+    : 'Transfer USDT'
   const finalCtaLabel = ctaLabel || defaultCtaLabel
   const isPositive = amountZAR > 0
 
@@ -132,6 +140,7 @@ export default function AmountSheet({
             onSubmit={handleSubmit}
             ctaLabel={finalCtaLabel}
             hideCTA
+            isConvertMode={mode === 'convert'}
           />
         </div>
         <div className="amount-cta" style={{ ['--cta-h' as any]: '88px' }}>

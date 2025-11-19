@@ -11,6 +11,7 @@ type AmountKeypadProps = {
   onSubmit: () => void // CTA
   ctaLabel: string // e.g. "Transfer USDT"
   hideCTA?: boolean // if true, don't render the CTA (moved to parent)
+  isConvertMode?: boolean // if true, show "0% transaction fee" instead of "excl. 2.5–6.5% transaction fee"
 }
 
 export default function AmountKeypad({
@@ -22,6 +23,7 @@ export default function AmountKeypad({
   onSubmit,
   ctaLabel,
   hideCTA = false,
+  isConvertMode = false,
 }: AmountKeypadProps) {
   const handleNumber = (num: string) => {
     const current = value || '0'
@@ -78,7 +80,9 @@ export default function AmountKeypad({
       </div>
       {!hideCTA && (
         <div className="amount-keypad__footer" style={{ ['--cta-h' as any]: '88px' }}>
-          <div className="amount-keypad__fee-note">excl. 2.5–6.5% transaction fee</div>
+          <div className="amount-keypad__fee-note">
+            {isConvertMode ? '0% transaction fee' : 'excl. 2.5–6.5% transaction fee'}
+          </div>
           <button className="amount-keypad__cta" onClick={onSubmit} type="button">
             {ctaLabel}
             <span className="amount-keypad__cta-arrow">→</span>
@@ -87,7 +91,7 @@ export default function AmountKeypad({
       )}
       {hideCTA && (
         <div className="amount-keypad__fee-note" style={{ paddingTop: '12px', textAlign: 'center' }}>
-          excl. 2.5–6.5% transaction fee
+          {isConvertMode ? '0% transaction fee' : 'excl. 2.5–6.5% transaction fee'}
         </div>
       )}
     </div>

@@ -12,9 +12,10 @@ import '@/styles/bottom-glass.css'
 interface BottomGlassBarProps {
   currentPath?: string
   onDollarClick?: () => void // Keep for backward compatibility, but will use store if not provided
+  onRequestAgent?: () => void // Callback for "Request cash agent" button
 }
 
-export default function BottomGlassBar({ currentPath = '/', onDollarClick }: BottomGlassBarProps) {
+export default function BottomGlassBar({ currentPath = '/', onDollarClick, onRequestAgent }: BottomGlassBarProps) {
   const isHome = currentPath === '/'
   const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
   const { isAuthed, requireAuth } = useAuthStore()
@@ -96,7 +97,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             </button>
             <div className="nav-label">Agents</div>
           </div>
-          <FinancialInboxSheet />
+          <FinancialInboxSheet onRequestAgent={onRequestAgent} />
           <div className="nav-item">
             <Link 
               href="/profile" 

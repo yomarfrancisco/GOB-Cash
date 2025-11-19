@@ -7,11 +7,15 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
 
+type FinancialInboxSheetProps = {
+  onRequestAgent?: () => void
+}
+
 /**
  * Unified Financial Inbox Sheet - switches between inbox list and chat view
  * Single ActionSheet that changes content based on inboxViewMode
  */
-export default function FinancialInboxSheet() {
+export default function FinancialInboxSheet({ onRequestAgent }: FinancialInboxSheetProps) {
   const { 
     isInboxOpen, 
     inboxViewMode, 
@@ -154,8 +158,11 @@ export default function FinancialInboxSheet() {
             <button
               className={listStyles.launchButton}
               onClick={() => {
-                console.log('Request cash agent clicked')
-                // TODO: implement request cash agent flow
+                if (onRequestAgent) {
+                  onRequestAgent()
+                } else {
+                  console.log('Request cash agent clicked')
+                }
               }}
               type="button"
             >

@@ -75,7 +75,7 @@ export default function Home() {
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
   const [openDepositSuccess, setOpenDepositSuccess] = useState(false)
   const [openBankTransferDetails, setOpenBankTransferDetails] = useState(false)
-  const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard'>('deposit')
+  const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('deposit')
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
   const [sendRecipient, setSendRecipient] = useState('')
@@ -264,7 +264,14 @@ export default function Home() {
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
             <TopGlassBar onScanClick={() => setIsScannerOpen(true)} />
-            <BottomGlassBar currentPath="/" onDollarClick={() => open()} />
+            <BottomGlassBar 
+              currentPath="/" 
+              onDollarClick={() => open()} 
+              onRequestAgent={() => {
+                setAmountMode('convert')
+                setTimeout(() => setOpenAmount(true), 220)
+              }}
+            />
           </div>
 
           {/* Scanner - toggle between overlay and sheet implementations */}
