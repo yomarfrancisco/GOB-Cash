@@ -24,7 +24,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 300px; /* Balanced size - prominent but not too large */
+  width: 240px; /* Balanced size - prominent but not too large */
   max-width: 90vw; /* Responsive: don't exceed viewport on small screens */
   aspect-ratio: 220 / 80; /* maintain logo proportions (220x80 original) */
   position: relative;
