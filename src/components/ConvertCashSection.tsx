@@ -23,7 +23,7 @@ export default function ConvertCashSection() {
           </button>
         </div>
         <p className={styles.mapHeaderSub}>
-          Exchange hard cash and receive stablecoins directly from verified agents.
+          Convert hard cash into USDT directly from verified agents.
         </p>
       </div>
 
