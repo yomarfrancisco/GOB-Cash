@@ -3,26 +3,39 @@
 import { useState, FormEvent } from 'react'
 import Image from 'next/image'
 import { useAuthStore } from '@/store/auth'
+import ActionSheet from './ActionSheet'
+import ActionSheetItem from './ActionSheetItem'
 import styles from './AuthModal.module.css'
 
 export default function AuthModal() {
-  const { authOpen, authMode, closeAuth, completeAuth, setAuthMode } = useAuthStore()
-  const [email, setEmail] = useState('')
+  const { authOpen, authView, closeAuth, completeAuth, setAuthView } = useAuthStore()
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({})
+  const [errors, setErrors] = useState<{ phone?: string; password?: string; confirmPassword?: string }>({})
 
   if (!authOpen) return null
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleGoogleAuth = () => {
+    // UX-only: just set isAuthed and close
+    completeAuth()
+  }
+
+  const handleWhatsAppClick = () => {
+    setAuthView('whatsapp-signin')
+    setErrors({})
+    setPhone('')
+    setPassword('')
+    setConfirmPassword('')
+  }
+
+  const handleWhatsAppSubmit = (e: FormEvent) => {
     e.preventDefault()
     const newErrors: typeof errors = {}
 
     // Basic validation
-    if (!email.trim()) {
-      newErrors.email = 'Email is required'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Please enter a valid email'
+    if (!phone.trim()) {
+      newErrors.phone = 'Phone number is required'
     }
 
     if (!password.trim()) {
@@ -31,7 +44,7 @@ export default function AuthModal() {
       newErrors.password = 'Password must be at least 6 characters'
     }
 
-    if (authMode === 'signup') {
+    if (authView === 'whatsapp-signup') {
       if (!confirmPassword.trim()) {
         newErrors.confirmPassword = 'Please confirm your password'
       } else if (password !== confirmPassword) {
@@ -48,135 +61,202 @@ export default function AuthModal() {
     setErrors({})
     completeAuth()
     // Reset form
-    setEmail('')
+    setPhone('')
     setPassword('')
     setConfirmPassword('')
   }
 
-  const handleGoogleAuth = () => {
-    // For now, treat Google auth the same as regular sign-in
-    completeAuth()
-    setEmail('')
-    setPassword('')
-    setConfirmPassword('')
-  }
-
-  const switchMode = (mode: 'signin' | 'signup') => {
-    setAuthMode(mode)
+  const goBack = () => {
+    setAuthView('provider-list')
     setErrors({})
-    setEmail('')
+    setPhone('')
     setPassword('')
     setConfirmPassword('')
   }
 
-  return (
-    <div className={styles.overlay} onClick={closeAuth}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <button className={styles.closeButton} onClick={closeAuth} aria-label="Close">
-          <Image src="/assets/clear.svg" alt="" width={18} height={18} />
-        </button>
+  const switchWhatsAppMode = (mode: 'whatsapp-signin' | 'whatsapp-signup') => {
+    setAuthView(mode)
+    setErrors({})
+    setPassword('')
+    setConfirmPassword('')
+  }
 
-        <div className={styles.content}>
-          <h2 className={styles.title}>
-            {authMode === 'signin' ? 'Sign in' : 'Create an account'}
-          </h2>
-
-          <form onSubmit={handleSubmit} className={styles.form}>
-            <div className={styles.inputGroup}>
-              <input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value)
-                  if (errors.email) setErrors({ ...errors, email: undefined })
-                }}
-                className={styles.input}
-                autoComplete="email"
+  // Provider list view
+  if (authView === 'provider-list') {
+    return (
+      <ActionSheet open={authOpen} onClose={closeAuth} title="Sign in to continue" size="compact">
+        <p className={styles.subcopy}>
+          Create a secure account so we can keep track of your cash-to-crypto transfers.
+        </p>
+        <div style={{ marginTop: '8px' }}>
+          <ActionSheetItem
+            icon={
+              <span className={styles.googleIcon}>G</span>
+            }
+            title="Continue with Google"
+            caption="Sign in with your Google account"
+            onClick={handleGoogleAuth}
+          />
+          <ActionSheetItem
+            icon={
+              <Image
+                src="/assets/WhatsApp_Balck.png"
+                alt="WhatsApp"
+                width={24}
+                height={24}
+                style={{ objectFit: 'contain' }}
+                unoptimized
               />
-              {errors.email && <span className={styles.error}>{errors.email}</span>}
-            </div>
-
-            <div className={styles.inputGroup}>
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  if (errors.password) setErrors({ ...errors, password: undefined })
-                }}
-                className={styles.input}
-                autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'}
-              />
-              {errors.password && <span className={styles.error}>{errors.password}</span>}
-            </div>
-
-            {authMode === 'signup' && (
-              <div className={styles.inputGroup}>
-                <input
-                  type="password"
-                  placeholder="Confirm password"
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value)
-                    if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: undefined })
-                  }}
-                  className={styles.input}
-                  autoComplete="new-password"
-                />
-                {errors.confirmPassword && <span className={styles.error}>{errors.confirmPassword}</span>}
-              </div>
-            )}
-
-            <button type="submit" className={styles.primaryButton}>
-              {authMode === 'signin' ? 'Sign in' : 'Create account'}
-            </button>
-          </form>
-
-          <div className={styles.divider}>
-            <span className={styles.dividerText}>or</span>
-          </div>
-
-          <button onClick={handleGoogleAuth} className={styles.googleButton}>
-            <span className={styles.googleIcon}>G</span>
-            <span>Continue with Google</span>
-          </button>
-
-          <div className={styles.footer}>
-            {authMode === 'signin' ? (
-              <>
-                <button
-                  type="button"
-                  className={styles.linkButton}
-                  onClick={() => {
-                    // Placeholder for forgot password
-                    console.log('Forgot password clicked (not implemented yet)')
-                  }}
-                >
-                  Forgot your password?
-                </button>
-                <button
-                  type="button"
-                  className={styles.linkButton}
-                  onClick={() => switchMode('signup')}
-                >
-                  New here? Create an account
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className={styles.linkButton}
-                onClick={() => switchMode('signin')}
-              >
-                Already have an account? Sign in
-              </button>
-            )}
-          </div>
+            }
+            title="Continue with WhatsApp"
+            caption="Use your WhatsApp number"
+            onClick={handleWhatsAppClick}
+          />
         </div>
+        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
+          <button onClick={closeAuth} className={styles.notNowButton}>
+            Not now
+          </button>
+        </div>
+      </ActionSheet>
+    )
+  }
+
+  // WhatsApp sign-in view
+  if (authView === 'whatsapp-signin') {
+    return (
+      <ActionSheet open={authOpen} onClose={closeAuth} title="Sign in with WhatsApp" size="tall">
+        <p className={styles.subcopy}>
+          Enter your WhatsApp number and password to continue.
+        </p>
+        <form onSubmit={handleWhatsAppSubmit} className={styles.form}>
+          <div className={styles.inputGroup}>
+            <input
+              type="tel"
+              placeholder="+27 82 123 4567"
+              value={phone}
+              onChange={(e) => {
+                setPhone(e.target.value)
+                if (errors.phone) setErrors({ ...errors, phone: undefined })
+              }}
+              className={styles.input}
+              autoComplete="tel"
+            />
+            {errors.phone && <span className={styles.error}>{errors.phone}</span>}
+          </div>
+
+          <div className={styles.inputGroup}>
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                if (errors.password) setErrors({ ...errors, password: undefined })
+              }}
+              className={styles.input}
+              autoComplete="current-password"
+            />
+            {errors.password && <span className={styles.error}>{errors.password}</span>}
+          </div>
+
+          <button type="submit" className={styles.primaryButton}>
+            Sign in
+          </button>
+        </form>
+
+        <div className={styles.footer}>
+          <button
+            type="button"
+            className={styles.linkButton}
+            onClick={() => {
+              // Placeholder for forgot password
+              console.log('Forgot password clicked (not implemented yet)')
+            }}
+          >
+            Forgot your password?
+          </button>
+          <button
+            type="button"
+            className={styles.linkButton}
+            onClick={() => switchWhatsAppMode('whatsapp-signup')}
+          >
+            New here? Create an account
+          </button>
+          <button type="button" className={styles.backButton} onClick={goBack}>
+            ← Back
+          </button>
+        </div>
+      </ActionSheet>
+    )
+  }
+
+  // WhatsApp sign-up view
+  return (
+    <ActionSheet open={authOpen} onClose={closeAuth} title="Create an account with WhatsApp" size="tall">
+      <form onSubmit={handleWhatsAppSubmit} className={styles.form}>
+        <div className={styles.inputGroup}>
+          <input
+            type="tel"
+            placeholder="+27 82 123 4567"
+            value={phone}
+            onChange={(e) => {
+              setPhone(e.target.value)
+              if (errors.phone) setErrors({ ...errors, phone: undefined })
+            }}
+            className={styles.input}
+            autoComplete="tel"
+          />
+          {errors.phone && <span className={styles.error}>{errors.phone}</span>}
+        </div>
+
+        <div className={styles.inputGroup}>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value)
+              if (errors.password) setErrors({ ...errors, password: undefined })
+            }}
+            className={styles.input}
+            autoComplete="new-password"
+          />
+          {errors.password && <span className={styles.error}>{errors.password}</span>}
+        </div>
+
+        <div className={styles.inputGroup}>
+          <input
+            type="password"
+            placeholder="Confirm password"
+            value={confirmPassword}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value)
+              if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: undefined })
+            }}
+            className={styles.input}
+            autoComplete="new-password"
+          />
+          {errors.confirmPassword && <span className={styles.error}>{errors.confirmPassword}</span>}
+        </div>
+
+        <button type="submit" className={styles.primaryButton}>
+          Create account
+        </button>
+      </form>
+
+      <div className={styles.footer}>
+        <button
+          type="button"
+          className={styles.linkButton}
+          onClick={() => switchWhatsAppMode('whatsapp-signin')}
+        >
+          Already have an account? Sign in
+        </button>
+        <button type="button" className={styles.backButton} onClick={goBack}>
+          ← Back
+        </button>
       </div>
-    </div>
+    </ActionSheet>
   )
 }
-

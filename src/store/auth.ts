@@ -1,14 +1,14 @@
 import { create } from 'zustand'
 
-type AuthMode = 'signin' | 'signup'
+type AuthView = 'provider-list' | 'whatsapp-signin' | 'whatsapp-signup'
 
 interface AuthState {
   isAuthed: boolean
   authOpen: boolean
-  authMode: AuthMode
-  openAuth: (mode?: AuthMode) => void
+  authView: AuthView
+  openAuth: () => void
   closeAuth: () => void
-  setAuthMode: (mode: AuthMode) => void
+  setAuthView: (view: AuthView) => void
   completeAuth: () => void
   requireAuth: (onAuthed: () => void) => void
 }
@@ -16,15 +16,15 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthed: false,
   authOpen: false,
-  authMode: 'signin',
-  openAuth: (mode = 'signin') => set({ authOpen: true, authMode: mode }),
+  authView: 'provider-list',
+  openAuth: () => set({ authOpen: true, authView: 'provider-list' }),
   closeAuth: () => set({ authOpen: false }),
-  setAuthMode: (mode) => set({ authMode: mode }),
+  setAuthView: (view) => set({ authView: view }),
   completeAuth: () => set({ isAuthed: true, authOpen: false }),
   requireAuth: (onAuthed) => {
     const { isAuthed, openAuth } = get()
     if (!isAuthed) {
-      openAuth('signin')
+      openAuth()
     } else {
       onAuthed()
     }

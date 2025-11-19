@@ -16,14 +16,14 @@ export default function ConvertCashSection() {
       <div className={styles.mapHeader}>
         <div className={styles.headerRow}>
           <h2 id="convert-title" className={styles.mapHeaderTitle}>
-            Stokvels around you
+            Convert cash to crypto
           </h2>
           <button className={styles.helpBtn} aria-label="Help">
             ?
           </button>
         </div>
         <p className={styles.mapHeaderSub}>
-          Join a group saving toward a shared goal — or start your own.
+          Deposit cash and receive stablecoins directly from verified agents and partner branches.
         </p>
       </div>
 
