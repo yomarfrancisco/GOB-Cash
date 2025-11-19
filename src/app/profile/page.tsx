@@ -22,6 +22,7 @@ import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3 } fro
 import Avatar from '@/components/Avatar'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
+import PaymentsSheet from '@/components/PaymentsSheet'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -31,6 +32,7 @@ export default function ProfilePage() {
   const { profile } = useUserProfileStore()
   const { setMode } = useWalletMode()
   const { open: openSupport } = useSupportSheet()
+  const [openPayments, setOpenPayments] = useState(false)
   const [openDeposit, setOpenDeposit] = useState(false)
   const [openWithdraw, setOpenWithdraw] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
@@ -47,6 +49,8 @@ export default function ProfilePage() {
   const [selectedCryptoDepositWallet, setSelectedCryptoDepositWallet] = useState<DepositCryptoWallet | null>(null)
   const [showCryptoAddressSheet, setShowCryptoAddressSheet] = useState(false)
 
+  const openPaymentsSheet = useCallback(() => setOpenPayments(true), [])
+  const closePaymentsSheet = useCallback(() => setOpenPayments(false), [])
   const openDepositSheet = useCallback(() => setOpenDeposit(true), [])
   const openDirectPaymentSheet = useCallback(() => setOpenDirectPayment(true), [])
   const closeDirectPayment = useCallback(() => setOpenDirectPayment(false), [])
@@ -259,8 +263,8 @@ export default function ProfilePage() {
 
               {/* Buttons */}
               <div className="profile-actions">
-                <button className="btn profile-edit" onClick={openDepositSheet}>
-                  Cash in
+                <button className="btn profile-edit" onClick={openPaymentsSheet}>
+                  Payments
                 </button>
                 <button
                   className="btn profile-inbox"
@@ -364,6 +368,23 @@ export default function ProfilePage() {
       </div>
 
       {/* Sheets */}
+      <PaymentsSheet
+        open={openPayments}
+        onClose={closePaymentsSheet}
+        onPayment={() => {
+          setFlowType('payment')
+          setTimeout(() => setOpenDirectPayment(true), 220)
+        }}
+        onTransfer={() => {
+          setFlowType('transfer')
+          setAmountMode('send')
+          setSendMethod('brics')
+          setTimeout(() => setOpenAmount(true), 220)
+        }}
+        onDeposit={() => {
+          setTimeout(() => setOpenDeposit(true), 220)
+        }}
+      />
       <DepositSheet
         open={openDirectPayment}
         onClose={closeDirectPayment}
