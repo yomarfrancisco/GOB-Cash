@@ -1,0 +1,155 @@
+/* Hide ActionSheet's default header for whatsapp-signin */
+.as-sheet.whatsapp-signin .as-header {
+  display: none;
+}
+
+.whatsapp-signin-sheet {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  transform: none !important;
+  will-change: auto;
+}
+
+.whatsapp-signin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sheet-header-offset, 64px) 20px 16px 20px;
+  position: relative;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.whatsapp-signin-back {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.whatsapp-signin-title {
+  font: 300 22px/1.2 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: -0.22px;
+  margin: 0;
+  color: #0a0a0a;
+  text-align: center;
+  flex: 1;
+}
+
+.whatsapp-signin-fields {
+  padding: 8px 20px max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transform: none !important;
+}
+
+.whatsapp-signin-row {
+  display: block;
+  margin: 22px 0;
+}
+
+.whatsapp-signin-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #0a0a0a;
+  font-size: 16px;
+}
+
+.whatsapp-signin-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 16px;
+  padding: 6px 0;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+  box-shadow: none;
+  color: #0a0a0a;
+  font-family: inherit;
+  font-weight: 300;
+}
+
+.whatsapp-signin-input::placeholder {
+  color: #999;
+  opacity: 0.6;
+}
+
+.whatsapp-signin-underline {
+  height: 1px;
+  background: #000;
+  opacity: 0.85;
+}
+
+.whatsapp-signin-row:nth-of-type(2) .whatsapp-signin-underline {
+  opacity: 0.35;
+}
+
+.whatsapp-signin-links {
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.whatsapp-signin-link {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 14px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-align: left;
+}
+
+.whatsapp-signin-link:hover {
+  color: #000;
+}
+
+.whatsapp-signin-link:active {
+  opacity: 0.7;
+}
+
+.whatsapp-signin-button {
+  width: calc(100% - 40px);
+  margin: 24px 20px max(24px, env(safe-area-inset-bottom));
+  padding: 16px;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.whatsapp-signin-button:hover {
+  opacity: 0.9;
+}
+
+.whatsapp-signin-button:active {
+  opacity: 0.8;
+}
+

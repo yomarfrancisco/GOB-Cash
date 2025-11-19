@@ -5,7 +5,9 @@ import Image from 'next/image'
 import { useAuthStore } from '@/store/auth'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
+import Image from 'next/image'
 import styles from './AuthModal.module.css'
+import '@/styles/whatsapp-signin-sheet.css'
 
 export default function AuthModal() {
   const { authOpen, authView, closeAuth, completeAuth, setAuthView } = useAuthStore()
@@ -127,67 +129,84 @@ export default function AuthModal() {
   // WhatsApp sign-in view
   if (authView === 'whatsapp-signin') {
     return (
-      <ActionSheet open={authOpen} onClose={closeAuth} title="Sign in with WhatsApp" size="tall">
-        <p className={styles.subcopy}>
-          Enter your WhatsApp number and password to continue.
-        </p>
-        <form onSubmit={handleWhatsAppSubmit} className={styles.form}>
-          <div className={styles.inputGroup}>
-            <input
-              type="tel"
-              placeholder="+27 82 123 4567"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value)
-                if (errors.phone) setErrors({ ...errors, phone: undefined })
-              }}
-              className={styles.input}
-              autoComplete="tel"
-            />
-            {errors.phone && <span className={styles.error}>{errors.phone}</span>}
+      <ActionSheet open={authOpen} onClose={closeAuth} title="" size="tall" className="whatsapp-signin">
+        <div className="whatsapp-signin-sheet">
+          <div className="whatsapp-signin-header">
+            <button className="whatsapp-signin-back" onClick={goBack} aria-label="Back">
+              <Image
+                src="/assets/back_ui.svg"
+                alt="Back"
+                width={24}
+                height={24}
+              />
+            </button>
+            <h3 className="whatsapp-signin-title">Sign in with WhatsApp</h3>
+            <div style={{ width: '32px' }} /> {/* Spacer for center alignment */}
           </div>
+          <form onSubmit={handleWhatsAppSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div className="whatsapp-signin-fields">
+              <label className="whatsapp-signin-row">
+                <span className="whatsapp-signin-label">WhatsApp number</span>
+                <input
+                  type="tel"
+                  className="whatsapp-signin-input"
+                  placeholder="+27 82 123 4567"
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(e.target.value)
+                    if (errors.phone) setErrors({ ...errors, phone: undefined })
+                  }}
+                  autoComplete="tel"
+                />
+                <div className="whatsapp-signin-underline" />
+                {errors.phone && <span className={styles.error}>{errors.phone}</span>}
+              </label>
 
-          <div className={styles.inputGroup}>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value)
-                if (errors.password) setErrors({ ...errors, password: undefined })
-              }}
-              className={styles.input}
-              autoComplete="current-password"
-            />
-            {errors.password && <span className={styles.error}>{errors.password}</span>}
-          </div>
+              <label className="whatsapp-signin-row">
+                <span className="whatsapp-signin-label">Password</span>
+                <input
+                  type="password"
+                  className="whatsapp-signin-input"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    if (errors.password) setErrors({ ...errors, password: undefined })
+                  }}
+                  autoComplete="current-password"
+                />
+                <div className="whatsapp-signin-underline" />
+                {errors.password && <span className={styles.error}>{errors.password}</span>}
+              </label>
 
-          <button type="submit" className={styles.primaryButton}>
-            Sign in
-          </button>
-        </form>
-
-        <div className={styles.footer}>
-          <button
-            type="button"
-            className={styles.linkButton}
-            onClick={() => {
-              // Placeholder for forgot password
-              console.log('Forgot password clicked (not implemented yet)')
-            }}
-          >
-            Forgot your password?
-          </button>
-          <button
-            type="button"
-            className={styles.linkButton}
-            onClick={() => switchWhatsAppMode('whatsapp-signup')}
-          >
-            New here? Create an account
-          </button>
-          <button type="button" className={styles.backButton} onClick={goBack}>
-            ← Back
-          </button>
+              <div className="whatsapp-signin-links">
+                <button
+                  type="button"
+                  className="whatsapp-signin-link"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    // Placeholder for forgot password
+                    console.log('Forgot password clicked (not implemented yet)')
+                  }}
+                >
+                  Forgot your password?
+                </button>
+                <button
+                  type="button"
+                  className="whatsapp-signin-link"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    switchWhatsAppMode('whatsapp-signup')
+                  }}
+                >
+                  New here? Create an account
+                </button>
+              </div>
+            </div>
+            <button type="submit" className="whatsapp-signin-button">
+              Sign in
+            </button>
+          </form>
         </div>
       </ActionSheet>
     )
