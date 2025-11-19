@@ -30,6 +30,8 @@ import { useNotificationStore } from '@/store/notifications'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { useAuthStore } from '@/store/auth'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
+import MapSending from '@/components/MapSending'
+import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -89,6 +91,16 @@ export default function Home() {
   const [openDepositCryptoWallet, setOpenDepositCryptoWallet] = useState(false)
   const [selectedCryptoDepositWallet, setSelectedCryptoDepositWallet] = useState<DepositCryptoWallet | null>(null)
   const [showCryptoAddressSheet, setShowCryptoAddressSheet] = useState(false)
+  // Convert cash flow state
+  const [convertNotificationState, setConvertNotificationState] = useState<{
+    type: 'request_sent' | 'request_accepted'
+    amount: number
+    handle: string
+    agentHandle?: string
+  } | null>(null)
+  const [openMapSending, setOpenMapSending] = useState(false)
+  const [convertAmount, setConvertAmount] = useState(0)
+  const [convertAgentHandle, setConvertAgentHandle] = useState('$kerry')
 
   // Register onSelect handler for global Transact sheet
   useEffect(() => {
@@ -261,6 +273,12 @@ export default function Home() {
     <div className="app-shell">
       <div className="mobile-frame">
         <div className="dashboard-container" style={{ position: 'relative' }}>
+          {/* Convert notification banner */}
+          <ConvertNotificationBanner
+            notification={convertNotificationState}
+            onDismiss={() => setConvertNotificationState(null)}
+          />
+
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
             <TopGlassBar onScanClick={() => setIsScannerOpen(true)} />
@@ -374,6 +392,31 @@ export default function Home() {
           setDepositAmountZAR(amountZAR)
           setOpenAmount(false)
           setTimeout(() => setOpenDepositSuccess(true), 220)
+        } : amountMode === 'convert' ? ({ amountZAR }) => {
+          // Convert flow: close keypad, show notifications, then open map
+          setConvertAmount(amountZAR)
+          setOpenAmount(false)
+          // Show first notification immediately
+          setConvertNotificationState({
+            type: 'request_sent',
+            amount: amountZAR,
+            handle: '$ygor', // Stub handle
+          })
+          // After 2 seconds, show second notification
+          setTimeout(() => {
+            setConvertNotificationState({
+              type: 'request_accepted',
+              amount: amountZAR,
+              handle: '$ygor',
+              agentHandle: '$kerry',
+            })
+            setConvertAgentHandle('$kerry')
+            // After another 2 seconds, open map
+            setTimeout(() => {
+              setConvertNotificationState(null)
+              setOpenMapSending(true)
+            }, 2000)
+          }, 2000)
         } : amountMode !== 'send' ? ({ amountZAR, amountUSDT }) => {
           setOpenAmount(false)
           console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
@@ -419,6 +462,13 @@ export default function Home() {
       <BankTransferDetailsSheet
         open={openBankTransferDetails}
         onClose={closeBankTransferDetails}
+      />
+      <MapSending
+        open={openMapSending}
+        onClose={() => setOpenMapSending(false)}
+        amount={convertAmount}
+        agentHandle={convertAgentHandle}
+        mode="convert"
       />
       <AgentListSheet
         open={isAgentSheetOpen}
