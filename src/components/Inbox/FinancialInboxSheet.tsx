@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { CirclePlus } from 'lucide-react'
+import { Glasses } from 'lucide-react'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import listStyles from './FinancialInboxListSheet.module.css'
@@ -20,103 +20,64 @@ export default function FinancialInboxSheet() {
     goBackToInbox 
   } = useFinancialInboxStore()
 
-  // Mock conversation data (same as in ListSheet)
-  // Order: Ama first, then new groups, then existing groups
-  const conversations = [
-    // 1. Ama — Stokvel Treasurer (DM, first entry)
+  // Cash agents data - static demo content
+  const agents = [
     {
-      id: 'brics',
+      id: 'ama',
       name: 'Ama — Stokvel Treasurer',
-      avatar: '/assets/Brics-girl-blue.png',
-      preview: 'Welcome! I can help you join or start a Stokvel.',
+      avatar: '/assets/avatar - profile (5).png',
+      preview: 'Welcome! I can help you join a group or find a trusted cash agent.',
       time: '16:09',
+      isOnline: true,
       unread: true,
     },
-    // 2-6. New Stokvel groups (using stokvel1-5.png images)
     {
-      id: 'stokvel_books',
-      name: 'Study Squad',
-      avatar: '/assets/stokvel1.png',
-      preview: '12 members · Goal: Textbook fund for semester',
-      time: '16:01',
-      unread: false,
-    },
-    {
-      id: 'stokvel_sneakers',
-      name: 'Kasi Kicks Collective',
-      avatar: '/assets/stokvel2.png',
-      preview: '8 members · Goal: Sneaker drop savings pot',
-      time: '15:40',
-      unread: false,
-    },
-    {
-      id: 'stokvel_braam',
-      name: 'Braam Hustle Crew',
-      avatar: '/assets/stokvel3.png',
-      preview: '19 members · Goal: Side-gig and equipment pool',
-      time: '14:55',
-      unread: false,
-    },
-    {
-      id: 'stokvel_girls',
-      name: 'Girls Night Pot',
-      avatar: '/assets/stokvel4.png',
-      preview: '6 members · Goal: Weekend experiences fund',
-      time: '14:22',
-      unread: false,
-    },
-    {
-      id: 'stokvel_moms',
-      name: 'New Moms Support Fund',
-      avatar: '/assets/stokvel5.png',
-      preview: '5 members · Goal: Baby essentials & emergencies',
-      time: '13:48',
-      unread: false,
-    },
-    // 7+. Existing Stokvel groups (preserved from before)
-    {
-      id: 'user-1',
-      name: 'Sandton Side-Hustle Fund',
+      id: 'kerry',
+      name: '$kerry',
       avatar: '/assets/avatar - profile (1).png',
-      preview: '9 members • Goal: R5,000 weekly gig capital',
+      preview: 'Available for cash pickup in Sandton.',
       time: '15:30',
+      isOnline: false,
       unread: false,
     },
     {
-      id: 'user-2',
-      name: 'Creators Equipment Club',
+      id: 'simi_love',
+      name: '$simi_love',
       avatar: '/assets/avatar - profile (2).png',
-      preview: '13 members • Goal: Camera & studio gear',
+      preview: 'Online · can meet at your bank branch.',
       time: '14:45',
+      isOnline: true,
       unread: false,
     },
     {
-      id: 'user-3',
-      name: 'Student Essentials Stokvel',
+      id: 'ariel',
+      name: '$ariel',
       avatar: '/assets/avatar - profile (3).png',
-      preview: '7 members • Goal: Textbooks & transport',
+      preview: 'Verified agent · specialises in larger amounts.',
       time: '13:20',
+      isOnline: false,
       unread: false,
     },
     {
-      id: 'user-4',
-      name: 'December Travel Pot',
+      id: 'dana',
+      name: '$dana',
       avatar: '/assets/avatar - profile (4).png',
-      preview: '11 members • Goal: Year-end holiday savings',
+      preview: 'Cash drop-off near Rosebank / Sandton.',
       time: '12:15',
+      isOnline: false,
       unread: false,
     },
   ]
 
   const handleRowClick = (id: string) => {
-    if (id === 'brics') {
+    if (id === 'ama') {
       openChatSheet('portfolio-manager')
     }
     // Other rows are static for now
   }
 
   // Determine title based on view mode
-  const sheetTitle = inboxViewMode === 'inbox' ? 'Stokvels around you' : ''
+  const sheetTitle = inboxViewMode === 'inbox' ? 'Cash agents around you' : ''
 
   return (
     <ActionSheet
@@ -130,7 +91,7 @@ export default function FinancialInboxSheet() {
         // Inbox list view
         <>
           <div className={listStyles.content}>
-            <p className={listStyles.subtitle}>Explore real groups with real goals — pick one that matches you.</p>
+            <p className={listStyles.subtitle}>Explore verified cash agents around you to convert physical cash into crypto.</p>
             <div className={listStyles.divider} />
             
             {/* Search bar */}
@@ -144,24 +105,24 @@ export default function FinancialInboxSheet() {
               <input
                 type="text"
                 className={listStyles.searchInput}
-                placeholder="Search Stokvels"
+                placeholder="Search cash agents"
               />
             </div>
 
-            {/* Conversation list - scrollable */}
+            {/* Agent list - scrollable */}
             <div className={listStyles.conversationList}>
-              {conversations.map((conversation) => (
+              {agents.map((agent) => (
                 <button
-                  key={conversation.id}
+                  key={agent.id}
                   className={listStyles.inboxRow}
-                  onClick={() => handleRowClick(conversation.id)}
+                  onClick={() => handleRowClick(agent.id)}
                   type="button"
                 >
                   <div className={listStyles.inboxRowLeft}>
                     <div className={listStyles.avatarWrapper}>
                       <Image
-                        src={conversation.avatar}
-                        alt={conversation.name}
+                        src={agent.avatar}
+                        alt={agent.name}
                         width={64}
                         height={64}
                         className={listStyles.avatar}
@@ -170,16 +131,16 @@ export default function FinancialInboxSheet() {
                     </div>
                     <div className={listStyles.inboxTextBlock}>
                       <div className={listStyles.inboxHeader}>
-                        <div className={listStyles.inboxTitle}>{conversation.name}</div>
+                        <div className={listStyles.inboxTitle}>{agent.name}</div>
                         <div className={listStyles.inboxTimeRow}>
-                          <div className={listStyles.inboxTime}>{conversation.time}</div>
-                          {conversation.unread && (
+                          <div className={listStyles.inboxTime}>{agent.time}</div>
+                          {agent.unread && (
                             <div className={listStyles.unreadDot} />
                           )}
                         </div>
                       </div>
                       <div className={listStyles.inboxPreview}>
-                        {conversation.preview}
+                        {agent.preview}
                       </div>
                     </div>
                   </div>
@@ -193,13 +154,13 @@ export default function FinancialInboxSheet() {
             <button
               className={listStyles.launchButton}
               onClick={() => {
-                console.log('Launch clicked')
-                // TODO: implement launch mission flow
+                console.log('Request cash agent clicked')
+                // TODO: implement request cash agent flow
               }}
               type="button"
             >
-              <CirclePlus className={listStyles.launchIcon} />
-              <span>Start a Stokvel</span>
+              <Glasses className={listStyles.launchIcon} />
+              <span>Request cash agent</span>
             </button>
           </div>
         </>
