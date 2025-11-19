@@ -80,8 +80,8 @@ export default function TopNotifications() {
 
   const visibleNotifications = notifications.filter((n) => visibleIds.has(n.id))
 
-  // Hide notifications when financial inbox sheet is open to prevent overlap
-  if (isInboxOpen || visibleNotifications.length === 0) {
+  // Hide notifications only if there are none (don't hide when inbox is open - we'll close inbox before showing convert notifications)
+  if (visibleNotifications.length === 0) {
     return null
   }
 

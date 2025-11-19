@@ -1,7 +1,7 @@
 .mapSendingOverlay {
   position: fixed;
   inset: 0;
-  z-index: 10000;
+  z-index: 10001; /* Higher than ActionSheet (10000) and notifications (9999) */
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);

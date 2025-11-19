@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import ReactDOM from 'react-dom'
 import Image from 'next/image'
 import '@/styles/notifications.css'
 
@@ -44,8 +45,11 @@ export default function ConvertNotificationBanner({ notification, onDismiss }: C
     ? `${notification.handle} has requested to convert ${formatAmount(notification.amount)} in cash to crypto.`
     : `${notification.agentHandle} has accepted your request and is coming to meet you to convert cash to crypto.`
 
-  return (
-    <div className="notifications-container" role="status" aria-live="polite">
+  // Render via portal to ensure it's always on top
+  if (typeof window === 'undefined') return null
+
+  return ReactDOM.createPortal(
+    <div className="notifications-container" style={{ zIndex: 10002 }} role="status" aria-live="polite">
       <div className="notification-item">
         <div className="notification-avatar">
           <Image
@@ -67,7 +71,8 @@ export default function ConvertNotificationBanner({ notification, onDismiss }: C
           <div className="notif__detail">{body}</div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

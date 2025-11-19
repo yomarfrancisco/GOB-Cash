@@ -32,6 +32,7 @@ import { useAuthStore } from '@/store/auth'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import MapSending from '@/components/MapSending'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
+import { useFinancialInboxStore } from '@/state/financialInbox'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -42,6 +43,7 @@ export default function Home() {
   const [helperWalletKey, setHelperWalletKey] = useState<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | null>(null)
   const cardStackRef = useRef<CardStackHandle>(null)
   const { setOnSelect, open } = useTransactSheet()
+  const { closeInbox } = useFinancialInboxStore()
 
   // Debug: verify card and map widths match - instrument parent chain
   useEffect(() => {
@@ -393,30 +395,38 @@ export default function Home() {
           setOpenAmount(false)
           setTimeout(() => setOpenDepositSuccess(true), 220)
         } : amountMode === 'convert' ? ({ amountZAR }) => {
-          // Convert flow: close keypad, show notifications, then open map
+          // Convert flow: close ALL modals first (inbox + keypad), then show notifications, then open map
           setConvertAmount(amountZAR)
-          setOpenAmount(false)
-          // Show first notification immediately
-          setConvertNotificationState({
-            type: 'request_sent',
-            amount: amountZAR,
-            handle: '$ygor', // Stub handle
-          })
-          // After 2 seconds, show second notification
+          // Close both modals immediately
+          closeInbox() // Close "Cash agents around you" inbox
+          setOpenAmount(false) // Close keypad
+          
+          // Small delay to ensure modals are fully closed before showing notifications
           setTimeout(() => {
+            // Show first notification
             setConvertNotificationState({
-              type: 'request_accepted',
+              type: 'request_sent',
               amount: amountZAR,
-              handle: '$ygor',
-              agentHandle: '$kerry',
+              handle: '$ygor', // Stub handle
             })
-            setConvertAgentHandle('$kerry')
-            // After another 2 seconds, open map
+            
+            // After 2 seconds, show second notification
             setTimeout(() => {
-              setConvertNotificationState(null)
-              setOpenMapSending(true)
+              setConvertNotificationState({
+                type: 'request_accepted',
+                amount: amountZAR,
+                handle: '$ygor',
+                agentHandle: '$kerry',
+              })
+              setConvertAgentHandle('$kerry')
+              
+              // After another 2 seconds, open map (notifications will auto-dismiss)
+              setTimeout(() => {
+                setConvertNotificationState(null)
+                setOpenMapSending(true)
+              }, 2000)
             }, 2000)
-          }, 2000)
+          }, 100) // Small delay to ensure modals are closed
         } : amountMode !== 'send' ? ({ amountZAR, amountUSDT }) => {
           setOpenAmount(false)
           console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
