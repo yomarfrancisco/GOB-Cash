@@ -1,0 +1,182 @@
+/* Card Overlays: Labels, Allocation Pill, Risk Bar */
+
+/* Top-right card label */
+.card-label {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.84);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Bottom-left allocation pill (replaces APY badge) */
+.card-allocation-pill {
+  position: absolute;
+  left: 16px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 10px; /* Slightly reduced to accommodate icon */
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0.7;
+  transition: opacity 160ms ease-out;
+}
+
+.card-allocation-pill--visible {
+  opacity: 1;
+}
+
+.card-allocation-pill__inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px; /* Space between arrow and percentage text */
+}
+
+.card-allocation-pill__arrow,
+.card-allocation-pill__inner svg {
+  display: block;
+  flex-shrink: 0;
+  opacity: 1 !important;
+}
+
+.card-allocation-pill__inner svg polygon {
+  opacity: 1 !important;
+  fill-opacity: 1 !important;
+}
+
+.card-allocation-pill__neutral-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #cccccc;
+  flex-shrink: 0;
+}
+
+.card-allocation-pill__text {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: -0.09px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-allocation-pill {
+    transition: none;
+  }
+}
+
+/* Bottom-right health bar group */
+.card-health-group {
+  position: absolute;
+  right: 16px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.card-health-label {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: -0.09px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+}
+
+.health-value {
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.health-value--visible {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .health-value {
+    transition: none;
+  }
+}
+
+.card-health-bar-container {
+  width: 80px;
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  position: relative;
+}
+
+.card-health-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 260ms cubic-bezier(0.33, 1, 0.68, 1); /* easeOutCubic fallback */
+  transform-origin: left center;
+}
+
+/* Micro-pulse animation for visibility */
+@keyframes healthPulse {
+  0% {
+    filter: brightness(1);
+    transform: scaleY(1);
+  }
+  35% {
+    filter: brightness(1.12);
+    transform: scaleY(1.06);
+  }
+  100% {
+    filter: brightness(1);
+    transform: scaleY(1);
+  }
+}
+
+.card-health-bar-fill--changing {
+  animation: healthPulse 180ms ease-out;
+}
+
+/* Disable CSS transition when JS tween is active (reduced motion fallback) */
+@media (prefers-reduced-motion: reduce) {
+  .card-health-bar-fill {
+    transition: none;
+  }
+  .card-health-bar-fill--changing {
+    animation: none;
+  }
+}
+
+/* Health level colors (monotone) */
+.card-health-bar-fill--good {
+  background: #22C55E;
+}
+
+.card-health-bar-fill--moderate {
+  background: #F59E0B;
+}
+
+.card-health-bar-fill--fragile {
+  background: #EF4444;
+}
+

@@ -1,0 +1,39 @@
+/* Payment option styles for Direct USDT Payment sheet */
+.payment-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.icon-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
+  color: #111;
+}
+
+.text-wrap h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0a0a0a;
+}
+
+.text-wrap p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* Override ActionSheetItem icon styles for direct-payment variant */
+.asi-icon {
+  color: #111;
+}
+

@@ -1,0 +1,350 @@
+/* Currency chip at top-left (no badge background) */
+/* Kill any inherited chip/badge styling */
+.card-currency-chip,
+.card-currency-chip * {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  backdrop-filter: none !important;
+}
+
+.card-currency-chip {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 2;
+  pointer-events: none;
+  transform: none !important; /* prevent ancestor scaling */
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0;
+  padding: 0;
+}
+
+/* Ensure there is NO background, shadow, or rounded container */
+.card-currency-chip::before,
+.card-currency-chip::after {
+  content: none !important;
+}
+
+/* Currency chip container - higher specificity */
+.card .card-currency-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent !important;
+  border: 0;
+  padding: 0;
+}
+
+/* Flag wrap: flex container for flag + currency code */
+.flag-wrap {
+  display: inline-flex;
+  align-items: center; /* vertical centering */
+  gap: 6px;
+  background: transparent; /* ensure no gray mask */
+  border: 0;
+  padding: 0;
+}
+
+/* Lock the flag size and prevent shrink/clipping - higher specificity */
+.card .card-currency-chip .flag-icon,
+.card .card-currency-chip img.flag-icon {
+  width: 29px !important;
+  height: 20px !important;
+  flex-shrink: 0;
+  object-fit: contain !important;
+  background: transparent;
+  border: 0;
+  display: block;
+  overflow: visible !important; /* do NOT clip SVG */
+  border-radius: 2px; /* optional, to match SA flag feel */
+}
+
+/* Currency code - vertical align with flag */
+.card .card-currency-chip .currency-code {
+  display: inline-flex;
+  align-items: center; /* vertical align with flag */
+  line-height: 1;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+
+/* Slight bump on wider phones */
+@media (min-width: 391px) {
+  .card .card-currency-chip .flag-icon,
+  .card .card-currency-chip img.flag-icon {
+    width: 32px !important;
+    height: 22px !important;
+  }
+}
+
+.card-amounts {
+  position: absolute;
+  left: 16px; /* match original Pepe overlay position */
+  top: 48px; /* match original Pepe overlay position */
+  color: #f5f5f5; /* match original Pepe color */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  font-family: 'Inter', -apple-system, sans-serif; /* match original Pepe font */
+  line-height: 1;
+  pointer-events: none; /* text overlay not clickable */
+  z-index: 10; /* ensure amounts sit above card image */
+}
+
+/* Shift amount block down to make space for currency badge */
+.card-amounts--shifted {
+  transform: translateY(18px);
+}
+
+/* Top line: ZAR */
+.card-amounts__zar {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums; /* prevents jitter on transitions */
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Amount topline wrapper for flash animation */
+.amount-topline {
+  display: inline-flex;
+  align-items: baseline;
+  color: rgba(255, 255, 255, 0.92);
+  /* keep existing font sizes: 52px int/dot, 36px cents */
+}
+
+/* Flash animations */
+@keyframes flashUpColor {
+  0% {
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: none;
+  }
+  15% {
+    color: #22c55e;
+    text-shadow: 0 0 0.6px rgba(34, 197, 94, 0.75);
+  }
+  85% {
+    color: #22c55e;
+    text-shadow: 0 0 0.6px rgba(34, 197, 94, 0.35);
+  }
+  100% {
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: none;
+  }
+}
+
+@keyframes flashDownColor {
+  0% {
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: none;
+  }
+  15% {
+    color: #ef4444;
+    text-shadow: 0 0 0.6px rgba(239, 68, 68, 0.75);
+  }
+  85% {
+    color: #ef4444;
+    text-shadow: 0 0 0.6px rgba(239, 68, 68, 0.35);
+  }
+  100% {
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: none;
+  }
+}
+
+.amount-topline.flash-up {
+  animation: flashUpColor 700ms ease-in-out 1;
+}
+
+.amount-topline.flash-down {
+  animation: flashDownColor 700ms ease-in-out 1;
+}
+
+.card-amounts__symbol {
+  font-size: 52px; /* match main amount size for visual consistency */
+  font-weight: 400; /* match original Pepe weight */
+  opacity: 1;
+  margin-right: 2px;
+}
+
+/* Major line (R amount) */
+.card-amounts__zar.amount-headline {
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 400;
+  font-variation-settings: "wght" 400;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.card-amounts__whole {
+  font-size: 52px; /* match original Pepe card-balance-amount */
+  font-weight: 400; /* match original Pepe weight */
+  letter-spacing: 0.21px; /* match original Pepe letter-spacing */
+  line-height: 1;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+/* Decimal dot — same size and weight as integer */
+.card-amounts__dot {
+  font-size: 52px; /* match main amount size (same as integer) */
+  font-weight: 400; /* match original Pepe weight */
+  line-height: 1;
+  display: inline-block;
+  transform: none; /* no baseline drift */
+  margin-left: 1px;
+  vertical-align: baseline;
+}
+
+/* Cents — smaller, baseline aligned */
+.card-amounts__cents {
+  font-size: 36px; /* match original Pepe card-balance-amount-decimal */
+  font-weight: 400; /* match original Pepe weight */
+  letter-spacing: 0.21px; /* match original Pepe letter-spacing */
+  opacity: 1;
+  display: inline-block;
+  transform: none; /* remove translateY to match original */
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Amount headline wrapper (for proper baseline alignment) */
+.amount-headline {
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.amt-prefix {
+  /* Uses card-amounts__symbol styles */
+}
+
+.amt-int {
+  font-size: 52px; /* match original Pepe card-balance-amount */
+  font-weight: 400; /* match original Pepe weight */
+  letter-spacing: 0.21px; /* match original Pepe letter-spacing */
+  line-height: 1;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+.amt-dot {
+  font-size: 52px; /* match main amount size (same as integer) */
+  font-weight: 400; /* match original Pepe weight */
+  line-height: 1;
+  display: inline-block;
+  transform: none;
+  margin-left: 1px;
+  vertical-align: baseline;
+}
+
+.amt-cents {
+  font-size: 36px; /* match original Pepe card-balance-amount-decimal */
+  font-weight: 400; /* match original Pepe weight */
+  letter-spacing: 0.21px; /* match original Pepe letter-spacing */
+  opacity: 1;
+  display: inline-block;
+  transform: none; /* remove translateY to match original */
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Second line: USDT (minor line) */
+.card-amounts__usdt {
+  margin-top: 4px; /* match original gap from card-balance-section */
+  font-size: 20px; /* clamp(16px, 3.4vw, 22px) equivalent */
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.01em;
+  opacity: 0.9;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+/* Prevent layout shift during card stack transitions */
+.card-amounts,
+.card-amounts * {
+  will-change: transform;
+}
+
+/* Per-card position overrides (if needed) */
+.card-amounts--pepe {
+  left: 16px;
+  top: 48px;
+}
+
+.card-amounts--yield {
+  left: 16px;
+  top: 48px;
+}
+
+.card-amounts--savings {
+  left: 16px;
+  top: 48px;
+}
+
+/* Responsive: adjust shift and truncate text on narrow screens */
+@media (max-width: 360px) {
+  .card-amounts--shifted {
+    transform: translateY(22px);
+  }
+
+  .card-zar-label {
+    max-width: 2.5ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Yield badge positioning (moved from old overlay) */
+.card-yield-badge {
+  position: absolute;
+  bottom: 20px;
+  left: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px; /* reduced horizontal padding since "APY" is shorter */
+  border-radius: 12px;
+  background: rgba(34, 139, 34, 0.9);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.card-yield-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #90ee90;
+  display: inline-block;
+}
+
+/* GOB card specific styling */
+.card-yield-badge--gob {
+  background: rgba(102, 137, 145, 0.9) !important;
+}
+
+.card-yield-percentage {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f5f5f5;
+  letter-spacing: -0.09px;
+}
+
+.card-yield-text {
+  font-size: 13px;
+  font-weight: 300;
+  color: #f5f5f5;
+  opacity: 0.9;
+  letter-spacing: -0.09px;
+}
+

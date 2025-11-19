@@ -1,0 +1,82 @@
+.content {
+  padding: 16px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+/* QR Block - matching ShareProfileSheet */
+.qrContainer {
+  width: 260px;
+  height: 260px;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  margin-top: 48px; /* Push QR down to account for close button row */
+  margin-bottom: 16px;
+}
+
+.qrImage {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+}
+
+.qrPlaceholder {
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: 400;
+}
+
+/* Address text - smaller and more readable */
+.addressText {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #000000;
+  text-align: center;
+  margin: 16px 0 16px;
+  letter-spacing: 0.01em;
+  word-break: break-all;
+  max-width: 100%;
+  padding: 0 8px;
+}
+
+/* Divider - matching ShareProfileSheet */
+.divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 8px 0 4px;
+}
+
+/* Coin icon wrapper */
+.coinIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #f5f5f5;
+}
+
+.coinIconImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+

@@ -1,0 +1,48 @@
+.fab {
+  position: absolute;
+  right: 16px;
+  bottom: 24px;
+  z-index: 40; /* above content but below nav overlays if needed */
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+}
+
+.avatarInner {
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); /* match existing FAB shadow */
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate3d(0, 0, 0);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fab:hover .avatarInner {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.fab:active .avatarInner {
+  transform: scale(1.02);
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 600px) {
+  .fab {
+    right: 16px;
+    bottom: 88px; /* sit just above bottom nav / pink $ button */
+  }
+}
+

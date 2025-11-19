@@ -1,0 +1,166 @@
+/* Financial Inbox Chat Sheet - unified with inbox sheet */
+
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* No background - ActionSheet provides the white background */
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Username row - ActionSheet provides the close button, so we start with username row */
+.usernameRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 20px 14px 20px; /* Top padding to account for ActionSheet's close button space */
+  flex-shrink: 0;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.avatar {
+  width: 38px; /* Notification-style avatar size */
+  height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #fff; /* White background for BRICS girl */
+  flex-shrink: 0;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.name {
+  font-size: 15px; /* Body text size, not oversized */
+  font-weight: 400; /* Normal weight */
+  color: #000;
+  flex: 1;
+}
+
+/* Divider line - faint bluish-gray, full width */
+.divider {
+  height: 1px;
+  background: #E8E8ED; /* Light bluish-grey divider */
+  margin: 0 0 24px 0; /* Increased spacing below divider for more breathing room */
+  flex-shrink: 0;
+}
+
+/* Message area - wider margins for more content width */
+.messageArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 16px 20px; /* Wider horizontal margins, content starts below divider */
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.messageWrapper {
+  display: flex;
+  align-items: flex-end; /* Align avatar to bottom of bubble, not top */
+  gap: 8px;
+  width: 100%;
+}
+
+.messageAvatar {
+  width: 31px; /* Map footer avatar size */
+  height: 31px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #fff; /* White background for BRICS girl */
+  flex-shrink: 0;
+}
+
+.messageAvatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bubbleContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  max-width: calc(100% - 39px); /* Match input width - avatar (31px) + gap (8px) */
+}
+
+.messageBubble {
+  background: #F3F3F9; /* Exact Figma bubble color */
+  border-radius: 16px; /* Fully rounded corners */
+  padding: 16px 20px; /* Increased padding for more breathing room (top/bottom: 16px, left/right: 20px) */
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 400; /* Normal weight */
+  color: #000;
+  max-width: 100%;
+  word-wrap: break-word;
+  width: 100%; /* Take full width of container to match input */
+}
+
+.timestamp {
+  font-size: 12px;
+  color: #8E8E93; /* Light bluish-grey timestamp */
+  align-self: flex-end;
+  padding-right: 4px;
+  margin-top: 2px;
+}
+
+/* Input bar - no divider line above, wider margins */
+.inputBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px; /* Wider margins to match message area and maximize input width */
+  background: #fff;
+  flex-shrink: 0;
+  /* No border-top - removed divider line */
+}
+
+.attachButton {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  background: #E6E6EB; /* Exact Figma input background */
+  border: none;
+  border-radius: 24px;
+  padding: 12px 16px;
+  font-size: 15px;
+  color: #000;
+  outline: none;
+  max-width: calc(100% - 36px); /* Match bubble width - paperclip (24px) + gap (12px) */
+  min-width: 0; /* Allow flex shrinking */
+}
+
+.input::placeholder {
+  color: rgba(142, 142, 147, 0.6); /* Light placeholder with reduced opacity */
+}
+

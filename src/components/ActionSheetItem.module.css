@@ -1,0 +1,7 @@
+.chevron {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  /* SVG uses fill="black" which matches design */
+}
+

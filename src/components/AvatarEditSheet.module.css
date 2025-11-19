@@ -1,0 +1,169 @@
+/* Done button - gray, neutral style */
+.doneBtn {
+  padding: 8px 16px;
+  background: #E9E9EB;
+  color: #666;
+  border: 0;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms ease, opacity 150ms ease;
+  flex-shrink: 0;
+}
+
+.doneBtn:hover {
+  background: #D1D1D6;
+}
+
+.doneBtn:active {
+  background: #C7C7CC;
+}
+
+/* Body content - centered, mobile constraints */
+.body {
+  padding: 24px 24px max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 64px;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Avatar container */
+.avatarContainer {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.avatarWrapper {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #1a1a1a;
+}
+
+.avatarImg {
+  object-fit: cover;
+  object-position: center;
+}
+
+.initial {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  font-weight: 300;
+  letter-spacing: -0.23px;
+  color: rgba(245, 245, 245, 0.96);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Delete chip (top-right) */
+.deleteChip {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #171717;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+  z-index: 2;
+}
+
+.deleteChip:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.deleteChip:active {
+  transform: scale(0.95);
+}
+
+/* Camera chip (bottom-right) */
+.cameraChip {
+  position: absolute;
+  bottom: -8px;
+  right: -8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  color: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+  z-index: 2;
+}
+
+.cameraChip:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.cameraChip:active {
+  transform: scale(0.95);
+}
+
+/* Hidden file input */
+.fileInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Read-only meta section */
+.meta {
+  width: 100%;
+  max-width: 384px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.metaRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metaLabel {
+  font-size: 14px;
+  font-weight: 400;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.metaValue {
+  font-size: 16px;
+  font-weight: 500;
+  color: #0a0a0a;
+  line-height: 1.4;
+}
+

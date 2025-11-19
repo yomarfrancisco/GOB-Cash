@@ -1,0 +1,47 @@
+/* Number Roll (Odometer/Slot Machine) Animation */
+
+.number-roll {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.number-roll__static {
+  display: inline-block;
+}
+
+.number-roll__digit-wrapper {
+  display: inline-block;
+  position: relative;
+  height: 1em;
+  overflow: hidden;
+  vertical-align: baseline;
+}
+
+.number-roll__digit-column {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+
+.number-roll--animating .number-roll__digit-column {
+  will-change: transform;
+}
+
+.number-roll:not(.number-roll--animating) .number-roll__digit-column {
+  will-change: auto;
+}
+
+.number-roll__digit {
+  display: block;
+  height: 1em;
+  line-height: 1em;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .number-roll__digit-column {
+    transition: none !important;
+  }
+}
+

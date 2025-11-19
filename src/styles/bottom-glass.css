@@ -1,0 +1,65 @@
+/* FAB Mode Indicator Styles - Always black container */
+.fab-dollar {
+  background: #000 !important; /* Always black circular container in both modes */
+  transition: background-color 120ms linear; /* mild for user-initiated toggles */
+  /* Avoid shadow/transform transitions on route change */
+  will-change: auto;
+  position: relative;
+  overflow: hidden;
+}
+
+/* FAB content layers for AI takeover animation */
+.fab-content-base {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.fab-content-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transform: translateY(100%);
+  opacity: 0;
+  transition: transform 400ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms ease-in-out;
+  pointer-events: none;
+}
+
+.fab-content-overlay--visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.fab-dollar-icon {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+}
+
+/* AI avatar container in FAB overlay - white circular background */
+.fab-avatar-container {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* FAB takeover avatar - same aspect ratio as notification, but zoomed in */
+.fab-avatar-image {
+  width: 72px; /* Match container size to preserve same aspect ratio as notification */
+  height: 72px;
+  object-fit: cover;
+  object-position: center; /* Match notification's default object-position */
+  transform: scale(1.5); /* ~50% zoom to make it larger while keeping same crop point */
+}
+

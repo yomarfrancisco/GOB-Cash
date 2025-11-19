@@ -1,0 +1,161 @@
+/* Hide ActionSheet's default header for send-details */
+.as-sheet.send-details .as-header {
+  display: none;
+}
+
+.send-details-sheet {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  /* Ensure no transforms on input container during animation */
+  transform: none !important;
+  will-change: auto;
+}
+
+.send-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sheet-header-offset, 64px) 20px 16px 20px;
+  position: relative;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.send-details-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 27px;
+  background: #E9E9EB;
+  display: grid;
+  place-items: center;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  transition: background 150ms ease;
+  flex-shrink: 0;
+}
+
+.send-details-close:hover {
+  background: #D1D1D6;
+}
+
+.send-details-close:active {
+  background: #C7C7CC;
+}
+
+.send-details-title {
+  font: 300 22px/1.2 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: -0.22px;
+  margin: 0;
+  color: #0a0a0a;
+  text-align: center;
+  flex: 1;
+}
+
+.send-details-subtitle {
+  font: 400 16px/1.2 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: -0.23px;
+  margin: 4px 0 0;
+  color: #0a0a0a;
+  text-align: center;
+}
+
+.send-details-pay {
+  padding: 8px 16px;
+  background: #000;
+  color: #fff;
+  border: 0;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms ease, opacity 150ms ease;
+  flex-shrink: 0;
+}
+
+.send-details-pay:hover:not(:disabled) {
+  background: #333;
+}
+
+.send-details-pay:active:not(:disabled) {
+  background: #111;
+}
+
+.send-details-pay:disabled {
+  background: #E9E9EB;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Full-width content; no card look on mobile */
+@media (max-width: 480px) {
+  .send-details-fields {
+    padding: 20px;
+    background: #fff;
+    border-radius: 0; /* no rounded panel */
+  }
+}
+
+.send-details-fields {
+  padding: 8px 20px max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Ensure no transforms on input container during animation */
+  transform: none !important;
+}
+
+/* Rows */
+.send-details-row {
+  display: block;
+  margin: 22px 0;
+}
+
+/* Labels */
+.send-details-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #0a0a0a;
+  font-size: 16px;
+}
+
+/* Inputs: kill iOS rounded/inner shadow styles */
+.send-details-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 16px;
+  padding: 6px 0;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0; /* critical: no rounded corners on iOS */
+  box-shadow: none;
+  color: #0a0a0a;
+  font-family: inherit;
+  font-weight: 300;
+}
+
+.send-details-input::placeholder {
+  color: #999;
+  opacity: 0.6;
+}
+
+/* Flat underline (horizontal line) */
+.send-details-underline {
+  height: 1px;
+  background: #000;
+  opacity: 0.85;
+}
+
+/* Optional: slightly lighter underline for the second row */
+.send-details-row:nth-of-type(2) .send-details-underline {
+  opacity: 0.35;
+}
+

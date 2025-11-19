@@ -1,0 +1,242 @@
+/* Financial Inbox Sheet - unified for both inbox and chat views */
+
+.financialInboxSheet :global(.as-title) {
+  text-align: center !important;
+}
+
+.content {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.subtitle {
+  font-size: 13px;
+  font-weight: 300;
+  color: rgba(0, 0, 0, 0.5);
+  text-align: center;
+  margin: 0 24px 16px;
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+}
+
+.divider {
+  height: 1px;
+  background: #e5e5ea;
+  margin: 0 24px 16px;
+  flex-shrink: 0;
+}
+
+/* Search bar */
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #e5e5ea;
+  border-radius: 24px;
+  margin: 0 24px 16px;
+  flex-shrink: 0;
+}
+
+.searchIcon {
+  width: 16px;
+  height: 16px;
+  color: #8e8e93;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: #000;
+  padding: 0;
+}
+
+.searchInput::placeholder {
+  color: rgba(142, 142, 147, 0.5); /* Light placeholder with 0.5 opacity */
+}
+
+/* Conversation list - scrollable */
+.conversationList {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
+  min-height: 0;
+  /* Add bottom padding so last items aren't hidden behind footer */
+  padding-bottom: 16px;
+}
+
+/* Inbox row - matches Figma Inbox layout */
+.inboxRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: 0;
+  padding: 12px 24px;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 150ms ease;
+  text-align: left;
+  border-bottom: 1px solid #e5e5ea;
+}
+
+.inboxRow:last-child {
+  border-bottom: none;
+}
+
+.inboxRow:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.inboxRow:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.inboxRowLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.avatarWrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.inboxTextBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.inboxHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inboxTitle {
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.25;
+  color: #000;
+  margin: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inboxTimeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.inboxTime {
+  font-size: 14px;
+  font-weight: 400;
+  color: #8e8e93;
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+}
+
+.unreadDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #007AFF; /* iOS blue */
+  flex-shrink: 0;
+}
+
+.inboxPreview {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Modal footer - sticky at bottom with opaque background */
+.modalFooter {
+  position: sticky;
+  bottom: 0;
+  background-color: #fff; /* Solid background so list items are not visible "through" the CTA */
+  padding: 12px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 2;
+  border-top: 1px solid #e5e5ea; /* Subtle divider above footer */
+}
+
+.launchButton {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 999px;
+  background: #000;
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.32px;
+  line-height: 16.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.launchButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.launchButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.launchIcon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}

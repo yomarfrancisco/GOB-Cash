@@ -1,0 +1,274 @@
+/* Dynamic height for mobile Safari */
+:root {
+  --sheet-max-h: min(90svh, calc(100svh - env(safe-area-inset-top) - 8px));
+  /* header + title + close btn ~118px, CTA ~88px; tune below via vars */
+  --hdr-h: 118px;
+  --cta-h: 88px;
+}
+
+.as-root {
+  position: fixed;
+  inset: 0;
+  z-index: 10000; /* Higher than notifications (9999) to ensure sheet appears on top */
+  overflow: hidden; /* Prevent square overlay from showing above rounded sheet */
+}
+
+.as-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: saturate(110%) blur(1px);
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+.as-sheet {
+  position: absolute;
+  left: 50%;
+  right: 0;
+  bottom: 0;
+  max-width: 430px;
+  width: 100%;
+  background: #fff;
+  border-radius: 32px 32px 0 0;
+  box-shadow:
+    0 -4px 100px rgba(0, 0, 0, 0.25),
+    0 20px 60px rgba(0, 0, 0, 0.35);
+  outline: 1px solid rgba(255, 255, 255, 0.06);
+  transform: translateX(-50%) translateY(0);
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+  animation: slideUp 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Chatbot sheet specific: no bottom padding, flush with bottom */
+.as-sheet.chatbot-sheet {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  border-radius: 24px 24px 0 0;
+  background: #000; /* Match Chatbase dark theme */
+}
+
+/* Inbox sheet: ensure full height for DM view */
+.as-sheet.inbox-sheet {
+  max-height: 85vh;
+}
+
+/* Financial inbox sheet - unified height for both inbox and chat views */
+.as-sheet.financialInboxSheet {
+  max-height: 85vh; /* Match the standard tall sheet height */
+  overflow: hidden; /* Prevent square background from showing */
+  background: #fff;
+}
+
+/* Override the tall class max-height when combined with financialInboxSheet */
+.as-sheet-tall.financialInboxSheet {
+  max-height: 85vh !important;
+}
+
+/* Remove default as-body padding for financial inbox sheet - let internal container control spacing */
+.as-sheet.financialInboxSheet .as-body {
+  padding: 0; /* Remove default 24px padding so internal container controls all spacing */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Compact sheets (default) - for Edit Profile, Name & Handle, Social Links, Help & Support, etc. */
+.as-sheet-compact {
+  max-height: 65vh;
+  min-height: auto;
+}
+
+/* Tall sheets - for Amount keypad, Success/confirmation, Bank deposit details */
+.as-sheet-tall {
+  max-height: 85vh;
+  min-height: auto;
+}
+
+/* Amount sheet container - ensure it uses tall variant */
+.as-sheet.amount {
+  max-height: 85vh;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateX(-50%) translateY(100%);
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Grabber removed per design */
+
+.as-header {
+  position: relative;
+  padding: var(--sheet-header-offset, 64px) 24px 0 24px;
+  flex-shrink: 0;
+}
+
+.as-title {
+  font: 300 22px/1.2 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: -0.22px;
+  margin: 0;
+  color: #0a0a0a;
+  text-align: left;
+}
+
+.as-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 27px;
+  background: #E9E9EB;
+  display: grid;
+  place-items: center;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  transition: background 150ms ease;
+}
+
+.as-close:hover {
+  background: #D1D1D6;
+}
+
+.as-close:active {
+  background: #C7C7CC;
+}
+
+.as-close img {
+  width: 18px;
+  height: 18px;
+}
+
+.as-close-only {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: background 0.2s;
+}
+
+.as-close-only:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
+.as-close-only img {
+  width: 18px;
+  height: 18px;
+}
+
+.as-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 24px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Scrollable content area inside the amount sheet */
+.amount-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-height: 0;
+  /* Add bottom padding so the grid never sits under the CTA */
+  padding-bottom: calc(var(--cta-h, 88px) + env(safe-area-inset-bottom) + 32px);
+}
+
+/* Sticky CTA pinned to the visual bottom of the sheet */
+.amount-cta {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom) + 10px);
+  z-index: 2;
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+
+.asi {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: 0;
+  padding: 24px;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 150ms ease;
+  text-align: left;
+}
+
+.asi + .asi {
+  margin-top: 0;
+}
+
+.asi:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.asi:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.asi-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.asi-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 34px;
+  background: #E9E9EB;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.asi-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.asi-title {
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.25;
+  color: #000;
+  margin: 0;
+}
+
+.asi-caption {
+  font: 300 13px/1.35 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: -0.09px;
+  color: #666;
+  margin: 0;
+}
+

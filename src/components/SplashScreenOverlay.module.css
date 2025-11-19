@@ -1,0 +1,33 @@
+.wrap {
+  position: fixed;
+  inset: 0;
+  background: #fff; /* true white */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 9999;
+  pointer-events: none; /* allow background to hydrate/interact if needed */
+  /* ~4s total: 3.5s delay + 0.5s fade */
+  animation: fadeOut 0.5s ease-in-out 3.5s forwards;
+}
+
+.logoWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 238px; /* 280px * 0.85 = 238px, −15% */
+  aspect-ratio: 220 / 80; /* maintain logo proportions (220x80 original) */
+  position: relative;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+

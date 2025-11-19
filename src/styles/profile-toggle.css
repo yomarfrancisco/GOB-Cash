@@ -1,0 +1,54 @@
+.autonomy-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 280px;
+  max-width: 90vw;
+  height: 44px;
+  padding: 4px;
+  border-radius: 9999px;
+  background: #f2f2f3;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.autonomy-toggle .seg {
+  flex: 1;
+  height: 36px;
+  border-radius: 9999px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.autonomy-toggle .seg--active {
+  background: #111;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.autonomy-toggle .seg:hover:not(.seg--active) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .autonomy-toggle {
+    background: #1f1f22;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .autonomy-toggle .seg {
+    color: #eaeaea;
+  }
+
+  .autonomy-toggle .seg--active {
+    background: #eaeaea;
+    color: #111;
+  }
+}
+

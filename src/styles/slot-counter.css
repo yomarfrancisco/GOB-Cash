@@ -1,0 +1,66 @@
+/* Slot Counter Animation */
+
+.slot-counter {
+  display: inline-block;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+/* Prevent unintended bolding inside rollers */
+.slot-counter__major,
+.slot-counter__digit,
+.slot-counter__digit-column,
+.slot-counter__digit-wrapper {
+  font-weight: 400 !important;
+  font-variation-settings: "wght" 400 !important;
+}
+
+.slot-counter__major {
+  display: inline-block;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+.slot-counter__dot {
+  display: inline-block;
+}
+
+.slot-counter__cents {
+  display: inline-block;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+/* Digit column animation (for per-digit slot effect) */
+.slot-counter__digit-wrapper {
+  display: inline-block;
+  position: relative;
+  height: 1em;
+  overflow: hidden;
+  vertical-align: baseline;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+.slot-counter__digit-column {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+
+.slot-counter__digit {
+  display: block;
+  height: 1em;
+  line-height: 1em;
+  text-align: center;
+  flex-shrink: 0;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot-counter__digit-column {
+    transition: none !important;
+  }
+}
+

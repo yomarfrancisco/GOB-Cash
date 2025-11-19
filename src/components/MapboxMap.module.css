@@ -1,0 +1,146 @@
+.mapShell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+  z-index: 2;
+}
+
+/* Standalone mode (for debug page) */
+.mapShell:not([class*='map']) {
+  height: 512px;
+}
+
+@media (min-width: 390px) {
+  .mapShell:not([class*='map']) {
+    height: 560px;
+  }
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+}
+
+.debug {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  right: 8px;
+  max-height: 40%;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ddd;
+  font: 12px/1.4 ui-monospace, Menlo, monospace;
+  padding: 8px;
+  border-radius: 8px;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+.fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* User marker container */
+.userMarker {
+  position: relative;
+  width: 108px; /* keep current size */
+  height: 108px;
+  transform: translate(-50%, -50%); /* center on lngLat */
+  pointer-events: none; /* not interactive */
+  background: transparent; /* explicitly no background to prevent square */
+}
+
+/* Character image */
+.userImg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* Circular pulse — drawn only on the pseudo-element */
+.userMarker::before {
+  content: '';
+  position: absolute;
+  inset: -18px; /* grow outside the icon */
+  border-radius: 9999px; /* force perfect circle */
+  background: radial-gradient(
+    rgba(60, 160, 120, 0.35) 0%,
+    rgba(60, 160, 120, 0.2) 40%,
+    rgba(60, 160, 120, 0.1) 60%,
+    rgba(60, 160, 120, 0) 100%
+  );
+  animation: pulse 2s ease-out infinite;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+/* Optional "dot" ring behind the image (subtle) */
+.userMarker::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.85;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 0.25;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+/* Branch marker (blue pin) */
+.branchMarker {
+  width: 30px;
+  height: 30px;
+  position: relative;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+}
+
+.branchMarker::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  background: #3b82f6; /* blue color */
+  border-radius: 50% 50% 50% 0;
+  transform: translateX(-50%) rotate(-45deg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.branchMarker::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px #3b82f6;
+}
+

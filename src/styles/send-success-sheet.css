@@ -1,0 +1,12 @@
+/* Hide ActionSheet's default header for send-success */
+.as-sheet.send-success .as-header {
+  display: none;
+}
+
+/* Set height for success sheet (82vh) */
+.as-sheet.send-success {
+  height: 82vh;
+  max-height: 82vh;
+  min-height: 82vh;
+}
+

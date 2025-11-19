@@ -1,0 +1,232 @@
+.transferSheet {
+  display: flex;
+  flex-direction: column;
+  height: 560px;
+  max-height: 65vh;
+  overflow: hidden;
+}
+
+/* Title row */
+.headerMain {
+  padding: 64px 24px 0 24px;
+  flex-shrink: 0;
+}
+
+.title {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 22px;
+  font-weight: 300;
+  color: #0a0a0a;
+  margin: 0;
+  text-align: left;
+  letter-spacing: -0.22px;
+  line-height: 1.2;
+}
+
+.content {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Section */
+.section {
+  padding: 8px 24px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionLabel {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #8E8E93;
+  margin-bottom: 4px;
+  text-transform: none; /* Normal case, not all caps */
+}
+
+.walletRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.walletRow:hover {
+  opacity: 0.7;
+}
+
+.walletRow:active {
+  opacity: 0.5;
+}
+
+.walletRowLeft {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.cardThumbnail {
+  width: 72px;
+  height: 45px;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.cardImage {
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.walletText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.walletName {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: #000;
+  line-height: 1.3;
+}
+
+.walletBalance {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: #000;
+  line-height: 1.3;
+  letter-spacing: -0.09px;
+}
+
+.walletMeta {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: rgba(0, 0, 0, 0.5);
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.chevron {
+  color: rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+/* Wallet picker dropdown */
+.walletPicker {
+  margin-top: 4px;
+  margin-left: 0;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.walletPickerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fff;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.walletPickerRow:last-child {
+  border-bottom: none;
+}
+
+.walletPickerRow:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.walletPickerRow:active:not(:disabled) {
+  background: #eeeeee;
+}
+
+.walletPickerRow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.selectedIndicator {
+  font-size: 18px;
+  color: #007AFF;
+  font-weight: 600;
+}
+
+/* Footer */
+.footer {
+  padding: 16px 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.instantTransfer {
+  text-align: center;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: #007AFF;
+  letter-spacing: -0.09px;
+}
+
+.nextButton {
+  width: 272px;
+  height: 56px;
+  border-radius: 56px;
+  background: #E5E5EA;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #000;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.nextButton:hover {
+  background: #d1d1d6;
+}
+
+.nextButton:active {
+  background: #c7c7cc;
+  transform: scale(0.98);
+}

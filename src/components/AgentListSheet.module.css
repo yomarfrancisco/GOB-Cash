@@ -1,0 +1,179 @@
+.agentListSheet :global(.as-title) {
+  text-align: center !important;
+}
+
+.content {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.subtitle {
+  font-size: 13px;
+  font-weight: 300;
+  color: rgba(0, 0, 0, 0.5);
+  text-align: center;
+  margin: 0 24px 16px;
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+}
+
+.divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.1);
+  margin: 0 24px 8px;
+}
+
+/* Agent row - matches ActionSheetItem layout */
+.agentRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: 0;
+  padding: 24px;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 150ms ease;
+  text-align: left;
+}
+
+.agentRow:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.agentRow:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.agentRowLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.avatarWrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 34px;
+  background: #E9E9EB;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 34px;
+}
+
+.agentTextBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.agentHandle {
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.25;
+  color: #000;
+  margin: 0;
+}
+
+.insuranceRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.insuranceText {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+  flex-shrink: 0;
+}
+
+.coverageBar {
+  width: 70px;
+  height: 4px;
+  background: #e5e5e5;
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.coverageBarFill {
+  height: 100%;
+  background: #34c759;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.ratingRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+.ratingValue {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+}
+
+.starIcon {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.reviewCount {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+}
+
+.whatsappButton {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.whatsappButton:hover {
+  opacity: 0.7;
+}
+
+.whatsappButton:active {
+  opacity: 0.5;
+}
+
+.whatsappIcon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}

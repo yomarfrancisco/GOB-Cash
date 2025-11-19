@@ -1,0 +1,212 @@
+/* Notifications Container */
+.notifications-container {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  z-index: 9999;
+  pointer-events: none;
+  padding: 8px 16px;
+  box-sizing: border-box;
+}
+
+/* Individual Notification Item */
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 16px 18px;
+  margin-bottom: 8px;
+  background: rgba(166, 166, 166, 0.7);
+  backdrop-filter: blur(150px);
+  -webkit-backdrop-filter: blur(150px);
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  pointer-events: auto;
+  cursor: pointer;
+  animation: slideDownFadeIn 200ms ease-out forwards;
+  transform: translateY(-100%);
+  opacity: 0;
+  color: #000;
+  font-family: "Acumin VF", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+  position: relative;
+  height: auto; /* Allow height to expand for 1-3 lines */
+  min-height: 56px; /* Keep a sensible minimum */
+}
+
+/* Dark overlay effect */
+.notification-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(#333, #333);
+  opacity: 0.3;
+  border-radius: 24px;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  z-index: 0;
+}
+
+.notification-item > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes slideDownFadeIn {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.notification-item:active {
+  opacity: 0.8;
+}
+
+/* Avatar - clean, no halos or borders */
+.notification-avatar {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: transparent; /* No white background by default */
+  padding: 0;
+  margin: 0;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+
+/* AI manager avatar needs white background for transparent PNG */
+.notification-avatar--ai {
+  background: #ffffff; /* White circular background for BRICS girl */
+}
+
+.notification-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* No zoom for notification avatars - keep original size */
+
+/* Content */
+.notification-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.notification-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 0;
+}
+
+.notification-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  color: #000;
+  flex: 1;
+}
+
+.notification-body {
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 20px;
+  color: #000;
+  letter-spacing: -0.4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Multi-line detail with 3-line clamp */
+.notif__detail {
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  /* multi-line clamp to 3 lines with ellipsis */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* allow wrapping */
+  white-space: normal;
+  word-break: break-word;
+  color: #000;
+  letter-spacing: -0.4px;
+  margin: 0;
+  padding: 0;
+}
+
+/* Meta (timestamp only - no dismiss button) */
+.notification-meta {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.notification-timestamp {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+/* Safe area insets for iOS */
+@supports (padding: max(0px)) {
+  .notifications-container {
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+}
+
+/* Identity-based visual distinction - NO HALOS/GLOWS */
+.notification--ai .notification-avatar {
+  /* No special styling - let the Brics girl avatar speak for itself */
+}
+
+.notification--member .notification-avatar {
+  /* No halo - clean avatar */
+}
+
+.notification--co-op .notification-avatar {
+  /* No halo - clean avatar */
+}
+
+.notification--system .notification-avatar {
+  /* No special styling */
+}
+
+.notification--user .notification-avatar {
+  /* No special styling */
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .notification-item {
+    animation: none;
+    transform: translateY(0);
+    opacity: 1;
+  }
+  
+  /* Ensure smooth height changes without snapping */
+  .notification-item {
+    transition: height 0.2s ease-out;
+  }
+}
+

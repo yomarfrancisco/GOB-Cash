@@ -1,0 +1,85 @@
+/**
+ * Card Flip-Up Animation
+ * 
+ * This centralizes the existing card flip-up animation used in CardStack.
+ * Adjust here to change or disable globally.
+ * 
+ * Animation timing:
+ * - Transition duration: 300ms ease
+ * - Properties: transform, opacity, box-shadow, width, height, left, top
+ * 
+ * To disable: Set transition to 'none' on .card class below.
+ */
+
+/* Card Stack Container */
+.stack {
+  position: relative;
+  width: 100%;
+  max-width: 398px;
+  height: 320px; /* Increased to accommodate 4 cards: depth 3 at top 150px + height 168px = 318px */
+  margin: 16px auto; /* Restore original top margin for spacing to wallet header */
+  box-sizing: border-box;
+  overflow: visible; /* Allow cards to extend slightly if needed, but width calc prevents overflow */
+}
+
+/* Base Card Styles with Animation */
+.card {
+  position: absolute;
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1), 0px 8px 28px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 300ms ease, opacity 300ms ease, box-shadow 300ms ease, width 300ms ease, height 300ms ease, left 300ms ease, top 300ms ease;
+  will-change: transform, left, top, width, height;
+}
+
+.card.no-hover {
+  pointer-events: none;
+}
+
+.card:hover:not(.no-hover) {
+  transform: translateY(-4px);
+}
+
+/* Position Classes */
+.pos-top {
+  z-index: 3;
+  left: 0;
+  top: 0;
+  width: 100%;
+  max-width: 398px;
+  height: 238px;
+}
+
+.pos-mid {
+  z-index: 2;
+  left: 16px;
+  top: 50px;
+  width: calc(100% - 32px);
+  max-width: 366px;
+  height: 213px;
+}
+
+.pos-back {
+  z-index: 1;
+  left: 32px;
+  top: 100px;
+  width: calc(100% - 64px);
+  max-width: 334px;
+  height: 193px;
+}
+
+/* Cycling Animation (Exit) */
+.card.cycling-out {
+  transform: translateY(-120%);
+  opacity: 0;
+}
+
+/* Accessibility: respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+}
+
+

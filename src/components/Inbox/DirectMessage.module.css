@@ -1,0 +1,275 @@
+/* DirectMessage Component Styles */
+/* Adapted to work inside ActionSheet container */
+/* Font import moved to globals.css */
+
+.directMessage {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background-color: #fff;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.frameParent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* User message (right-aligned) */
+.frameWrapper {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.dmMessageParent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: 75%;
+}
+
+.dmMessage {
+  background-color: #1a1a1a;
+  border-radius: 18px;
+  padding: 12px 16px;
+  border-bottom-right-radius: 4px;
+}
+
+.description {
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.dealerHasAccepted {
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.dmTimestamp {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #666;
+  padding-right: 4px;
+}
+
+.ico24UiAllDone {
+  width: 16px;
+  height: 16px;
+}
+
+/* AI message (left-aligned with avatar) */
+.avatarDmParent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.avatarDm {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.appIcon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dmMessageGroup,
+.dmMessageContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 75%;
+}
+
+.directMessageDmMessage,
+.dmMessage2 {
+  background-color: #f0f0f0;
+  border-radius: 18px;
+  padding: 12px 16px;
+  border-bottom-left-radius: 4px;
+}
+
+.description2 {
+  color: #000;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.dealerHasAccepted2 {
+  color: #000;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.time,
+.directMessageTime {
+  font-size: 12px;
+  color: #666;
+  padding-left: 4px;
+}
+
+/* Date chip */
+.component1 {
+  align-self: center;
+  background-color: #f0f0f0;
+  border-radius: 12px;
+  padding: 6px 12px;
+  margin: 8px 0;
+}
+
+.component1 .dealerHasAccepted {
+  color: #666;
+  font-size: 12px;
+}
+
+/* Input bar - positioned at bottom of sheet */
+.commentInput {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  border-top: 1px solid #e0e0e0;
+  padding: 12px 16px;
+  z-index: 10;
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.inputAndIcons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ico24UiAttachmentDia {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.button {
+  flex: 1;
+  background-color: #f0f0f0;
+  border-radius: 24px;
+  padding: 12px 16px;
+  border: none;
+  font-size: 15px;
+  color: #000;
+  outline: none;
+}
+
+.button::placeholder {
+  color: #999;
+}
+
+.sendButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #000;
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.sendButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Header - now positioned relative since ActionSheet provides backdrop */
+.messageHeader {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 10;
+  flex-shrink: 0;
+  margin-bottom: 16px;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ico24ArrowsBackUi {
+  width: 24px;
+  height: 24px;
+}
+
+.profileHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.avatarProfile {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #fff;
+}
+
+.usernameProfileWrapper {
+  flex: 1;
+}
+
+.usernameProfile {
+  display: flex;
+  align-items: center;
+}
+
+.textInput {
+  display: flex;
+  align-items: center;
+}
+
+.text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #000;
+}
+
