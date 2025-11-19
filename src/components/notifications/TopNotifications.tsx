@@ -9,6 +9,7 @@ import { resolveAvatarForActor, isAiManager } from '@/lib/notifications/identity
 import { handleMapFromNotification } from '@/lib/notifications/mapNotificationRouter'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { useFinancialInboxStore } from '@/state/financialInbox'
+import { useAuthStore } from '@/store/auth'
 import '@/styles/notifications.css'
 
 const MAX_VISIBLE = 2
@@ -18,6 +19,7 @@ export default function TopNotifications() {
   const router = useRouter()
   const { notifications, dismissNotification } = useNotificationStore()
   const { isInboxOpen } = useFinancialInboxStore() // Check if financial inbox is open
+  const { isSignedIn, openSignIn } = useAuthStore()
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set())
 
   // Show notifications up to MAX_VISIBLE
@@ -51,6 +53,14 @@ export default function TopNotifications() {
   }, [notifications, dismissNotification])
 
   const handleTap = (notification: NotificationItem) => {
+    // If not signed in, show sign-in modal instead of navigating
+    if (!isSignedIn) {
+      openSignIn()
+      dismissNotification(notification.id)
+      return
+    }
+
+    // If signed in, allow navigation
     if (notification.routeOnTap) {
       router.push(notification.routeOnTap)
     } else {

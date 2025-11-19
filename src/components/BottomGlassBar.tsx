@@ -7,6 +7,7 @@ import { useWalletMode } from '@/state/walletMode'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useFinancialInboxStore } from '@/state/financialInbox'
+import { useAuthStore } from '@/store/auth'
 import FinancialInboxSheet from './Inbox/FinancialInboxSheet'
 import '@/styles/bottom-glass.css'
 
@@ -23,6 +24,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isAutonomousMode = mode === 'autonomous'
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const { isInboxOpen, openInbox, closeInbox } = useFinancialInboxStore()
+  const { isSignedIn, openSignIn } = useAuthStore()
   
   const handleCenterButtonClick = () => {
     if (isAutonomousMode) {
@@ -106,7 +108,16 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           </div>
           <FinancialInboxSheet />
           <div className="nav-item">
-            <Link href="/profile" aria-label="Profile">
+            <Link 
+              href="/profile" 
+              aria-label="Profile"
+              onClick={(e) => {
+                if (!isSignedIn) {
+                  e.preventDefault()
+                  openSignIn()
+                }
+              }}
+            >
               <Image 
                 src="/assets/nav/user-outlined.svg" 
                 alt="Profile" 

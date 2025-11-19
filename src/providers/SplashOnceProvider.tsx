@@ -4,20 +4,12 @@ import { useEffect, useState } from 'react'
 import SplashScreenOverlay from '@/components/SplashScreenOverlay'
 
 export default function SplashOnceProvider({ children }: { children: React.ReactNode }) {
-  const [showSplash, setShowSplash] = useState(false)
+  const [showSplash, setShowSplash] = useState(true)
 
   useEffect(() => {
-    try {
-      const seen = sessionStorage.getItem('gob_splash_shown')
-      if (!seen) {
-        setShowSplash(true)
-        sessionStorage.setItem('gob_splash_shown', '1')
-        const t = setTimeout(() => setShowSplash(false), 4000)
-        return () => clearTimeout(t)
-      }
-    } catch {
-      // Ignore sessionStorage errors (e.g., in private browsing)
-    }
+    // Always show splash for 2 seconds on initial load
+    const t = setTimeout(() => setShowSplash(false), 2000)
+    return () => clearTimeout(t)
   }, [])
 
   return (

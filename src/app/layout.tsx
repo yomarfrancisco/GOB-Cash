@@ -15,6 +15,7 @@ import SocialLinksSheet from '@/components/SocialLinksSheet'
 import ProfileDescriptionSheet from '@/components/ProfileDescriptionSheet'
 import SupportSheet from '@/components/SupportSheet'
 import ShareProfileSheet from '@/components/ShareProfileSheet'
+import SignInModal from '@/components/auth/SignInModal'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -75,6 +76,8 @@ export default function RootLayout({
               <SupportSheet />
               {/* Global Share Profile Sheet */}
               <ShareProfileSheet />
+              {/* Global Sign-In Modal */}
+              <SignInModal />
             </WalletAllocProvider>
           </WalletModeProvider>
         </SplashOnceProvider>
