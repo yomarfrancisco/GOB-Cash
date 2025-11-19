@@ -77,7 +77,7 @@ export default function FinancialInboxSheet() {
   }
 
   // Determine title based on view mode
-  const sheetTitle = inboxViewMode === 'inbox' ? 'Agents around you' : ''
+  const sheetTitle = inboxViewMode === 'inbox' ? 'Cash agents around you' : ''
 
   return (
     <ActionSheet
@@ -91,7 +91,7 @@ export default function FinancialInboxSheet() {
         // Inbox list view
         <>
           <div className={listStyles.content}>
-            <p className={listStyles.subtitle}>Explore verified cash agents around you to convert physical cash into crypto.</p>
+            <p className={listStyles.subtitle}>Explore verified cash agents near you who can help you convert cash to crypto.</p>
             <div className={listStyles.divider} />
             
             {/* Search bar */}
@@ -105,7 +105,7 @@ export default function FinancialInboxSheet() {
               <input
                 type="text"
                 className={listStyles.searchInput}
-                placeholder="Search agents"
+                placeholder="Search cash agents"
               />
             </div>
 
@@ -160,7 +160,7 @@ export default function FinancialInboxSheet() {
               type="button"
             >
               <HatGlasses className={listStyles.launchIcon} />
-              <span>Request agent</span>
+              <span>Request cash agent</span>
             </button>
           </div>
         </>
@@ -180,14 +180,14 @@ export default function FinancialInboxSheet() {
             <div className={chatStyles.avatar}>
               <Image
                 src="/assets/Brics-girl-blue.png"
-                alt="Ama — Stokvel Treasurer"
+                alt="Ama — Investment Manager"
                 width={38}
                 height={38}
                 className={chatStyles.avatarImage}
                 unoptimized
               />
             </div>
-            <div className={chatStyles.name}>Ama — Stokvel Treasurer</div>
+            <div className={chatStyles.name}>Ama — Investment Manager</div>
           </div>
 
           {/* Divider line */}
@@ -208,7 +208,7 @@ export default function FinancialInboxSheet() {
               </div>
               <div className={chatStyles.bubbleContainer}>
                 <div className={chatStyles.messageBubble}>
-                  Hi, I&apos;m Ama, your Stokvel Treasurer 👋   I can help you make your first deposit, join a Stokvel, or start a new group with friends.   What would you like to do first?
+                  Hi, I&apos;m Ama, your Investment Manager 👋   I can help you make your first deposit, find a cash agent, or convert cash to crypto.   What would you like to do first?
                 </div>
                 <div className={chatStyles.timestamp}>14:09</div>
               </div>

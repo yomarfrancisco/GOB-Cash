@@ -3,8 +3,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import clsx from 'clsx'
-import { useWalletMode } from '@/state/walletMode'
-import { useTransactSheet } from '@/store/useTransactSheet'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
@@ -17,29 +15,19 @@ interface BottomGlassBarProps {
 }
 
 export default function BottomGlassBar({ currentPath = '/', onDollarClick }: BottomGlassBarProps) {
-  const { open } = useTransactSheet()
   const isHome = currentPath === '/'
   const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
   const { isAuthed, requireAuth } = useAuthStore()
-  // Use auth state: autonomous when signed out, manual when signed in
-  const isAutonomousMode = !isAuthed
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const { isInboxOpen, openInbox, closeInbox } = useFinancialInboxStore()
   
   const handleCenterButtonClick = () => {
-    requireAuth(() => {
-      if (isAutonomousMode) {
-        if (isInboxOpen) {
-          closeInbox()
-        } else {
-          // Open Financial Inbox sheet
-          openInbox()
-        }
-      } else {
-        const handler = onDollarClick ?? (() => open())
-        handler()
-      }
-    })
+    // Always open Agents inbox, regardless of auth state
+    if (isInboxOpen) {
+      closeInbox()
+    } else {
+      openInbox()
+    }
   }
 
   return (
@@ -74,7 +62,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 'is-autonomous': !isAuthed,
                 'fab-highlighted': isHighlighted,
               })}
-              aria-label={isAutonomousMode ? 'Open BRICS chat' : 'Transact'}
+              aria-label="Open Agents"
               onClick={handleCenterButtonClick}
               onTouchStart={handleCenterButtonClick}
               type="button"
@@ -106,7 +94,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 </div>
               </div>
             </button>
-            <div className="nav-label">{isAutonomousMode ? 'Financial Inbox' : 'Direct payment'}</div>
+            <div className="nav-label">Agents</div>
           </div>
           <FinancialInboxSheet />
           <div className="nav-item">
