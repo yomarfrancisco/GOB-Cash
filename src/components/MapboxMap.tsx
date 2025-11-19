@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import ReactDOM from 'react-dom/client'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { Feature, LineString } from 'geojson'
 import styles from './MapboxMap.module.css'
 import { useMapHighlightStore } from '@/state/mapHighlight'
 import { DEMO_AGENTS } from '@/lib/demo/demoAgents'
+import YouAreHere from './YouAreHere'
 // static import so Next bundles it and gives us a stable .src
 import userIcon from '../../public/assets/character.png'
 
@@ -58,6 +60,7 @@ export default function MapboxMap({
   const [userLngLat, setUserLngLat] = useState<[number, number] | null>(null)
   const [routeData, setRouteData] = useState<Feature<LineString> | null>(null)
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  const youAreHereMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const savedCenterRef = useRef<[number, number] | null>(null)
   const savedZoomRef = useRef<number | null>(null)
   const highlightMarkerRef = useRef<mapboxgl.Marker | null>(null)
@@ -210,6 +213,25 @@ export default function MapboxMap({
         } else {
           userMarkerRef.current!.setLngLat([lng, lat])
         }
+
+        // Add "You are here" bubble above the user marker
+        let bubbleEl = youAreHereMarkerRef.current?.getElement()
+        if (!bubbleEl) {
+          bubbleEl = document.createElement('div')
+          bubbleEl.style.zIndex = '9999'
+          const root = ReactDOM.createRoot(bubbleEl)
+          root.render(<YouAreHere />)
+          
+          youAreHereMarkerRef.current = new mapboxgl.Marker({
+            element: bubbleEl,
+            anchor: 'bottom',
+            offset: [0, -40], // Position above the avatar PNG
+          })
+            .setLngLat([lng, lat])
+            .addTo(map)
+        } else {
+          youAreHereMarkerRef.current!.setLngLat([lng, lat])
+        }
       }
 
       let centeredOnce = false
@@ -343,6 +365,11 @@ export default function MapboxMap({
       if (userMarkerRef.current) {
         userMarkerRef.current.remove()
         userMarkerRef.current = null
+      }
+      // Clean up "You are here" bubble marker
+      if (youAreHereMarkerRef.current) {
+        youAreHereMarkerRef.current.remove()
+        youAreHereMarkerRef.current = null
       }
       log('cleanup—remove map')
       if (mapRef.current) {
