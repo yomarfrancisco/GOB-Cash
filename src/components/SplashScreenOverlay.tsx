@@ -14,7 +14,7 @@ export default function SplashScreenOverlay() {
             fill
             style={{ objectFit: 'contain' }}
             priority
-            sizes="(max-width: 600px) 80vw, 280px"
+            sizes="(max-width: 600px) 90vw, 400px"
           />
         </div>
         <p className={styles.tagline}>Convert cash to crypto</p>

@@ -25,7 +25,7 @@
   justify-content: center;
   align-items: center;
   width: 100%;
-  max-width: 280px; /* Restored original size for prominence */
+  max-width: 400px; /* Large, prominent size for splash screen */
   aspect-ratio: 220 / 80; /* maintain logo proportions (220x80 original) */
   position: relative;
 }
