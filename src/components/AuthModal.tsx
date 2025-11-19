@@ -5,7 +5,6 @@ import Image from 'next/image'
 import { useAuthStore } from '@/store/auth'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
-import Image from 'next/image'
 import styles from './AuthModal.module.css'
 import '@/styles/whatsapp-signin-sheet.css'
 
