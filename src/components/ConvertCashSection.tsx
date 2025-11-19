@@ -23,7 +23,7 @@ export default function ConvertCashSection() {
           </button>
         </div>
         <p className={styles.mapHeaderSub}>
-          Deposit cash and receive stablecoins directly from verified agents and partner branches.
+          Exchange hard cash and receive stablecoins directly from verified agents.
         </p>
       </div>
 
