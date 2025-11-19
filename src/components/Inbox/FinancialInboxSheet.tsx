@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { Glasses } from 'lucide-react'
+import { HatGlasses } from 'lucide-react'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import listStyles from './FinancialInboxListSheet.module.css'
@@ -25,7 +25,7 @@ export default function FinancialInboxSheet() {
     {
       id: 'ama',
       name: 'Ama — Stokvel Treasurer',
-      avatar: '/assets/avatar - profile (5).png',
+      avatar: '/assets/Brics-girl-blue.png',
       preview: 'Welcome! I can help you join a group or find a trusted cash agent.',
       time: '16:09',
       isOnline: true,
@@ -159,7 +159,7 @@ export default function FinancialInboxSheet() {
               }}
               type="button"
             >
-              <Glasses className={listStyles.launchIcon} />
+              <HatGlasses className={listStyles.launchIcon} />
               <span>Request cash agent</span>
             </button>
           </div>
