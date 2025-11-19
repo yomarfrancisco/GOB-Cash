@@ -17,14 +17,14 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 12px; /* Reduced gap between logo and tagline */
 }
 
 .logoWrapper {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 400px; /* Fixed width for large, prominent size */
+  width: 300px; /* Balanced size - prominent but not too large */
   max-width: 90vw; /* Responsive: don't exceed viewport on small screens */
   aspect-ratio: 220 / 80; /* maintain logo proportions (220x80 original) */
   position: relative;
