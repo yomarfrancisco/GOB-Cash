@@ -24,10 +24,11 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100%;
-  max-width: 400px; /* Large, prominent size for splash screen */
+  width: 400px; /* Fixed width for large, prominent size */
+  max-width: 90vw; /* Responsive: don't exceed viewport on small screens */
   aspect-ratio: 220 / 80; /* maintain logo proportions (220x80 original) */
   position: relative;
+  min-width: 280px; /* Minimum size to ensure visibility */
 }
 
 .tagline {
