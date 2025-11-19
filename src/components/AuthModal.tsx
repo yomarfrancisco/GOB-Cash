@@ -91,7 +91,14 @@ export default function AuthModal() {
         <div style={{ marginTop: '8px' }}>
           <ActionSheetItem
             icon={
-              <span className={styles.googleIcon}>G</span>
+              <Image
+                src="/assets/Group.svg"
+                alt="Google"
+                width={24}
+                height={24}
+                style={{ objectFit: 'contain' }}
+                unoptimized
+              />
             }
             title="Continue with Google"
             caption="Sign in with your Google account"
@@ -112,11 +119,6 @@ export default function AuthModal() {
             caption="Use your WhatsApp number"
             onClick={handleWhatsAppClick}
           />
-        </div>
-        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
-          <button onClick={closeAuth} className={styles.notNowButton}>
-            Not now
-          </button>
         </div>
       </ActionSheet>
     )

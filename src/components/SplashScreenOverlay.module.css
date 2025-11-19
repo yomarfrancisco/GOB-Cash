@@ -12,33 +12,14 @@
   pointer-events: none; /* allow background to hydrate/interact if needed */
 }
 
-.content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px; /* Reduced gap between logo and tagline */
-}
-
 .logoWrapper {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 240px; /* Balanced size - prominent but not too large */
-  max-width: 90vw; /* Responsive: don't exceed viewport on small screens */
+  width: 100%;
+  max-width: 238px; /* Original size: 280px * 0.85 = 238px */
   aspect-ratio: 220 / 80; /* maintain logo proportions (220x80 original) */
   position: relative;
-  min-width: 200px; /* Minimum size to ensure visibility */
-}
-
-.tagline {
-  font-family: 'Acumin VF', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 15px;
-  font-weight: 400;
-  color: #000;
-  text-align: center;
-  margin: 0;
-  letter-spacing: -0.1px;
 }
 
 @keyframes fadeOut {
