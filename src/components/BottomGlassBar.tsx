@@ -24,20 +24,22 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isAutonomousMode = mode === 'autonomous'
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const { isInboxOpen, openInbox, closeInbox } = useFinancialInboxStore()
-  const { isSignedIn, openSignIn } = useAuthStore()
+  const { isAuthed, requireAuth } = useAuthStore()
   
   const handleCenterButtonClick = () => {
-    if (isAutonomousMode) {
-      if (isInboxOpen) {
-        closeInbox()
+    requireAuth(() => {
+      if (isAutonomousMode) {
+        if (isInboxOpen) {
+          closeInbox()
+        } else {
+          // Open Financial Inbox sheet
+          openInbox()
+        }
       } else {
-        // Open Financial Inbox sheet
-        openInbox()
+        const handler = onDollarClick ?? (() => open())
+        handler()
       }
-    } else {
-      const handler = onDollarClick ?? (() => open())
-      handler()
-    }
+    })
   }
 
   return (
@@ -112,9 +114,11 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               href="/profile" 
               aria-label="Profile"
               onClick={(e) => {
-                if (!isSignedIn) {
+                if (!isAuthed) {
                   e.preventDefault()
-                  openSignIn()
+                  requireAuth(() => {
+                    // After auth, user can click again to navigate
+                  })
                 }
               }}
             >

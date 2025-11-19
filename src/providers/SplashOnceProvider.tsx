@@ -7,8 +7,8 @@ export default function SplashOnceProvider({ children }: { children: React.React
   const [showSplash, setShowSplash] = useState(true)
 
   useEffect(() => {
-    // Always show splash for 2 seconds on initial load
-    const t = setTimeout(() => setShowSplash(false), 2000)
+    // Always show splash for 4 seconds on initial load
+    const t = setTimeout(() => setShowSplash(false), 4000)
     return () => clearTimeout(t)
   }, [])
 

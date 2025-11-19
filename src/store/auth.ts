@@ -1,18 +1,33 @@
 import { create } from 'zustand'
 
+type AuthMode = 'signin' | 'signup'
+
 interface AuthState {
-  isSignedIn: boolean
-  isSignInOpen: boolean
-  openSignIn: () => void
-  closeSignIn: () => void
-  completeFakeSignIn: () => void
+  isAuthed: boolean
+  authOpen: boolean
+  authMode: AuthMode
+  openAuth: (mode?: AuthMode) => void
+  closeAuth: () => void
+  setAuthMode: (mode: AuthMode) => void
+  completeAuth: () => void
+  requireAuth: (onAuthed: () => void) => void
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  isSignedIn: false,
-  isSignInOpen: false,
-  openSignIn: () => set({ isSignInOpen: true }),
-  closeSignIn: () => set({ isSignInOpen: false }),
-  completeFakeSignIn: () => set({ isSignedIn: true, isSignInOpen: false }),
+export const useAuthStore = create<AuthState>((set, get) => ({
+  isAuthed: false,
+  authOpen: false,
+  authMode: 'signin',
+  openAuth: (mode = 'signin') => set({ authOpen: true, authMode: mode }),
+  closeAuth: () => set({ authOpen: false }),
+  setAuthMode: (mode) => set({ authMode: mode }),
+  completeAuth: () => set({ isAuthed: true, authOpen: false }),
+  requireAuth: (onAuthed) => {
+    const { isAuthed, openAuth } = get()
+    if (!isAuthed) {
+      openAuth('signin')
+    } else {
+      onAuthed()
+    }
+  },
 }))
 

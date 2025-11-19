@@ -19,7 +19,7 @@ export default function TopNotifications() {
   const router = useRouter()
   const { notifications, dismissNotification } = useNotificationStore()
   const { isInboxOpen } = useFinancialInboxStore() // Check if financial inbox is open
-  const { isSignedIn, openSignIn } = useAuthStore()
+  const { isAuthed, requireAuth } = useAuthStore()
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set())
 
   // Show notifications up to MAX_VISIBLE
@@ -53,20 +53,20 @@ export default function TopNotifications() {
   }, [notifications, dismissNotification])
 
   const handleTap = (notification: NotificationItem) => {
-    // If not signed in, show sign-in modal instead of navigating
-    if (!isSignedIn) {
-      openSignIn()
+    requireAuth(() => {
+      // If authed, allow navigation
+      if (notification.routeOnTap) {
+        router.push(notification.routeOnTap)
+      } else {
+        router.push('/transactions')
+      }
       dismissNotification(notification.id)
-      return
+    })
+    
+    // If not authed, requireAuth will open the modal, but we still dismiss the notification
+    if (!isAuthed) {
+      dismissNotification(notification.id)
     }
-
-    // If signed in, allow navigation
-    if (notification.routeOnTap) {
-      router.push(notification.routeOnTap)
-    } else {
-      router.push('/transactions')
-    }
-    dismissNotification(notification.id)
   }
 
   // Dismiss handler removed - notifications auto-dismiss after 3s or on tap
