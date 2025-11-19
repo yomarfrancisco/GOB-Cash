@@ -24,7 +24,7 @@ export default function FinancialInboxSheet() {
   const agents = [
     {
       id: 'ama',
-      name: 'Ama — Stokvel Treasurer',
+      name: 'Ama — Investment Manager',
       avatar: '/assets/Brics-girl-blue.png',
       preview: 'Welcome! I can help you join a group or find a trusted cash agent.',
       time: '16:09',
@@ -77,7 +77,7 @@ export default function FinancialInboxSheet() {
   }
 
   // Determine title based on view mode
-  const sheetTitle = inboxViewMode === 'inbox' ? 'Cash agents around you' : ''
+  const sheetTitle = inboxViewMode === 'inbox' ? 'Agents around you' : ''
 
   return (
     <ActionSheet
@@ -105,7 +105,7 @@ export default function FinancialInboxSheet() {
               <input
                 type="text"
                 className={listStyles.searchInput}
-                placeholder="Search cash agents"
+                placeholder="Search agents"
               />
             </div>
 
@@ -160,7 +160,7 @@ export default function FinancialInboxSheet() {
               type="button"
             >
               <HatGlasses className={listStyles.launchIcon} />
-              <span>Request cash agent</span>
+              <span>Request agent</span>
             </button>
           </div>
         </>
