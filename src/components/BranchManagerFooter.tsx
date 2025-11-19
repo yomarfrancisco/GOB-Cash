@@ -71,7 +71,7 @@ export default function BranchManagerFooter({ onWhatsAppClick }: BranchManagerFo
         </div>
         <div className={styles.textContainer}>
           <span className={styles.count}>4</span>
-          <span className={styles.label}>active Stokvels nearby</span>
+          <span className={styles.label}>verified agents nearby</span>
         </div>
       </div>
       <div className={styles.whatsappIconWrapper}>
