@@ -184,19 +184,19 @@ export default function ProfilePage() {
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">8,122</div>
-                    <div className="stat-sub">Joined</div>
+                    <div className="stat-sub">Clients</div>
                   </div>
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">556</div>
-                    <div className="stat-sub">Launched</div>
+                    <div className="stat-sub">Trips</div>
                   </div>
                 </div>
                 <div className="network-pill">
                   <div className="network-track">
                     <div className="network-fill" />
                   </div>
-                  <div className="network-label">Groups</div>
+                  <div className="network-label">Insurance</div>
                 </div>
               </div>
 
