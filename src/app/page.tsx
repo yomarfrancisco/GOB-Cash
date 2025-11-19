@@ -28,6 +28,8 @@ import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import { useNotificationStore } from '@/store/notifications'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
+import { useAuthStore } from '@/store/auth'
+import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -203,15 +205,17 @@ export default function Home() {
   const fundsAvailableZAR = alloc.totalCents / 100
   const formattedFunds = formatZAR(fundsAvailableZAR)
 
-  // Get wallet mode to gate animations
-  const { mode } = useWalletMode()
+  // Get auth state to determine behavior (replaces mode toggle)
+  const { isAuthed } = useAuthStore()
+  // Effective mode: autonomous when signed out, manual when signed in
+  const effectiveMode = isAuthed ? 'manual' : 'autonomous'
 
   // Initialize portfolio store from wallet allocation
   useEffect(() => {
     initPortfolioFromAlloc(alloc.cashCents, alloc.ethCents, alloc.pepeCents, alloc.totalCents)
   }, [alloc.cashCents, alloc.ethCents, alloc.pepeCents, alloc.totalCents])
 
-  // Initialize AI action cycle - only run in autonomous mode
+  // Initialize AI action cycle - only run when NOT signed in (autonomous behavior)
   useAiActionCycle(cardStackRef, {
     getCash,
     getEth,
@@ -219,7 +223,7 @@ export default function Home() {
     setCash,
     setEth,
     setPepe,
-  }, mode === 'autonomous')
+  }, !isAuthed)
 
   // Demo notification engine - only run in demo mode
   const pushNotification = useNotificationStore((state) => state.pushNotification)
@@ -249,28 +253,9 @@ export default function Home() {
     }
   }, [pushNotification])
 
-  // Manual mode titles per card
-  const MANUAL_TITLES: Record<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc', { title: string; subtitle: string }> = {
-    savings: { title: 'ZAR wallet', subtitle: 'South African business account' },
-    mzn: { title: 'MZN wallet', subtitle: 'Mozambique business account' },
-    pepe: { title: 'PEPE wallet', subtitle: 'PEPE investment account' },
-    yield: { title: 'ETH wallet', subtitle: 'ETH investment account' },
-    btc: { title: 'BTC wallet', subtitle: 'BTC investment account' },
-  }
-
-  // Get title and subtitle based on mode and current top card
-  const getHeadings = () => {
-    if (mode === 'manual') {
-      return MANUAL_TITLES[topCardType]
-    }
-    // autonomous (existing behavior)
-    return {
-      title: 'Crypto Stokvel',
-      subtitle: `R${formattedFunds.major}${formattedFunds.cents === '00' ? '' : ` ${formattedFunds.cents}`} available`,
-    }
-  }
-
-  const { title, subtitle } = getHeadings()
+  // Get title and subtitle - always use card definitions (same for both modes)
+  const cardDef = getCardDefinition(topCardType)
+  const { title, subtitle } = cardDef
 
   return (
     <div className="app-shell">

@@ -11,12 +11,10 @@ import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
 import { formatUSDT } from '@/lib/money'
-import AutonomyToggle from '@/components/AutonomyToggle'
 import { useActivityStore } from '@/store/activity'
 import { useProfileEditSheet } from '@/store/useProfileEditSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
-import { useWalletMode } from '@/state/walletMode'
 import { useSupportSheet } from '@/store/useSupportSheet'
 import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3 } from 'lucide-react'
 import Avatar from '@/components/Avatar'
@@ -30,7 +28,6 @@ export default function ProfilePage() {
   const { open: openProfileEdit } = useProfileEditSheet()
   const { setOnSelect, open } = useTransactSheet()
   const { profile } = useUserProfileStore()
-  const { setMode } = useWalletMode()
   const { open: openSupport } = useSupportSheet()
   const [openPayments, setOpenPayments] = useState(false)
   const [openDeposit, setOpenDeposit] = useState(false)
@@ -146,11 +143,6 @@ export default function ProfilePage() {
                 />
                 <h1 className="profile-name">{profile.fullName}</h1>
                 <div className="profile-handle">{profile.userHandle}</div>
-
-                {/* Autonomous mode toggle */}
-                <div style={{ marginTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
-                  <AutonomyToggle />
-                </div>
 
                 {/* Bio */}
                 <p className="profile-bio">
@@ -339,9 +331,6 @@ export default function ProfilePage() {
                       } catch {
                         // Ignore sessionStorage errors
                       }
-
-                      // Reset wallet mode to Manual
-                      setMode('manual')
 
                       // Clear profile state (optional - depends on requirements)
                       // For now, we'll keep profile data but could reset if needed

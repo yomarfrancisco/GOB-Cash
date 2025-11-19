@@ -20,11 +20,11 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const { open } = useTransactSheet()
   const isHome = currentPath === '/'
   const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
-  const { mode } = useWalletMode()
-  const isAutonomousMode = mode === 'autonomous'
+  const { isAuthed, requireAuth } = useAuthStore()
+  // Use auth state: autonomous when signed out, manual when signed in
+  const isAutonomousMode = !isAuthed
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const { isInboxOpen, openInbox, closeInbox } = useFinancialInboxStore()
-  const { isAuthed, requireAuth } = useAuthStore()
   
   const handleCenterButtonClick = () => {
     requireAuth(() => {
@@ -70,11 +70,11 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           <div className="dollar-sign-container">
             <button
               className={clsx('dollar-sign-contained', 'fab-dollar', {
-                'is-manual': mode === 'manual',
-                'is-autonomous': mode === 'autonomous',
+                'is-manual': isAuthed,
+                'is-autonomous': !isAuthed,
                 'fab-highlighted': isHighlighted,
               })}
-              aria-label={isAutonomousMode ? 'Open BRICS chat' : `Transact (${mode} mode)`}
+              aria-label={isAutonomousMode ? 'Open BRICS chat' : 'Transact'}
               onClick={handleCenterButtonClick}
               onTouchStart={handleCenterButtonClick}
               type="button"
