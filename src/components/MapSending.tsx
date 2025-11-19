@@ -105,45 +105,46 @@ export default function MapSending({ open, onClose, amount, agentHandle, mode = 
         </div>
 
         {/* Bottom sheet */}
-        <ActionSheet open={true} onClose={onClose} title="" size="tall" className={styles.bottomSheet}>
-          <div className={styles.bottomSheetContent}>
-            <div className={styles.agentInfo}>
-              <div className={styles.agentAvatar}>
-                <Image
-                  src={agent.avatar}
-                  alt={agent.name}
-                  width={60}
-                  height={60}
-                  className={styles.agentAvatarImage}
-                  unoptimized
-                />
-              </div>
-              <div className={styles.agentDetails}>
-                <div className={styles.agentName}>{agent.name}</div>
-                <div className={styles.agentMeta}>
-                  <span className={styles.agentRating}>⭐ {agent.rating}</span>
-                  <span className={styles.agentDistance}>{agent.distance} · {agent.time}</span>
+        <div className={styles.bottomSheet}>
+          <ActionSheet open={true} onClose={onClose} title="" size="tall">
+            <div className={styles.bottomSheetContent}>
+              <div className={styles.agentInfo}>
+                <div className={styles.agentAvatar}>
+                  <Image
+                    src={agent.avatar}
+                    alt={agent.name}
+                    width={60}
+                    height={60}
+                    className={styles.agentAvatarImage}
+                    unoptimized
+                  />
+                </div>
+                <div className={styles.agentDetails}>
+                  <div className={styles.agentName}>{agent.name}</div>
+                  <div className={styles.agentMeta}>
+                    <span className={styles.agentRating}>⭐ {agent.rating}</span>
+                    <span className={styles.agentDistance}>{agent.distance} · {agent.time}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className={styles.amountInfo}>
-              <div className={styles.amountLabel}>Amount</div>
-              <div className={styles.amountValue}>{formatAmount(amount)}</div>
-            </div>
+              <div className={styles.amountInfo}>
+                <div className={styles.amountLabel}>Amount</div>
+                <div className={styles.amountValue}>{formatAmount(amount)}</div>
+              </div>
 
-            <div className={styles.addressInfo}>
-              <div className={styles.addressLabel}>Meeting location</div>
-              <div className={styles.addressValue}>123 Sandton Drive, Sandton, 2196</div>
-            </div>
+              <div className={styles.addressInfo}>
+                <div className={styles.addressLabel}>Meeting location</div>
+                <div className={styles.addressValue}>123 Sandton Drive, Sandton, 2196</div>
+              </div>
 
-            <div className={styles.insuranceBar}>
-              <div className={styles.insuranceLabel}>Insured up to R50,000</div>
-            </div>
+              <div className={styles.insuranceBar}>
+                <div className={styles.insuranceLabel}>Insured up to R50,000</div>
+              </div>
 
-            <button className={styles.acceptButton} onClick={handleAcceptRequest} type="button">
-              Accept request
-            </button>
+              <button className={styles.acceptButton} onClick={handleAcceptRequest} type="button">
+                Accept request
+              </button>
             </div>
           </ActionSheet>
         </div>
