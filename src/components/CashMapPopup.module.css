@@ -73,12 +73,8 @@
   background: rgba(255, 255, 255, 1);
 }
 
-/* Footer content - bottom region */
-.footerContent {
-  background: #fff;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-  display: flex;
-  flex-direction: column;
+/* Footer content - bottom region with rounded card styling */
+.mapSheetOuter {
   z-index: 10;
   /* Subtle delayed slide-in */
   transform: translateY(10%);
@@ -93,48 +89,31 @@
   }
 }
 
-.footerHeader {
-  padding: 20px 24px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.footerTitle {
-  font-size: 18px;
-  font-weight: 600;
-  color: #000;
-  text-align: center;
-  margin: 0;
-}
-
-.footerBody {
-  padding: 0;
+.mapSheetInner {
+  margin: 8px 8px 16px;
+  padding: 16px 16px 12px;
+  border-radius: 24px;
+  background-color: #ffffff;
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
-  flex: 1;
-  overflow-y: auto;
 }
 
-.footerSubtitle {
-  font-size: 13px;
-  font-weight: 300;
-  color: rgba(0, 0, 0, 0.5);
+.sheetTitle {
+  margin: 0 0 12px;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  font-weight: 400;
   text-align: center;
-  margin: 16px 24px;
-  letter-spacing: -0.09px;
-  line-height: 1.35;
-}
-
-.footerDivider {
-  height: 1px;
-  background: rgba(0, 0, 0, 0.1);
-  margin: 0 24px 8px;
+  color: #000;
+  line-height: 1.4;
 }
 
 .agentRowButton {
   width: 100%;
   background: transparent;
   border: none;
-  padding: 24px;
+  padding: 0;
   cursor: pointer;
   text-align: left;
   transition: background 150ms ease;

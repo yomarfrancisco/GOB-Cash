@@ -79,13 +79,9 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
 
         {/* Footer content - bottom region with single $kerryy row */}
         {showAgentCard && (
-          <div className={styles.footerContent}>
-            <div className={styles.footerHeader}>
-              <h3 className={styles.footerTitle}>Talk to an agent</h3>
-            </div>
-            <div className={styles.footerBody}>
-              <p className={styles.footerSubtitle}>Message a trusted branch manager on WhatsApp.</p>
-              <div className={styles.footerDivider} />
+          <div className={styles.mapSheetOuter}>
+            <div className={styles.mapSheetInner}>
+              <h2 className={styles.sheetTitle}>An agent is on its way to meet you</h2>
               
               <button
                 className={styles.agentRowButton}
