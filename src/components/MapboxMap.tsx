@@ -803,29 +803,69 @@ export default function MapboxMap({
       return
     }
 
-    if (!map.getSource(srcId)) {
-      map.addSource(srcId, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [routeData] },
-      })
-    } else {
-      const src = map.getSource(srcId) as mapboxgl.GeoJSONSource
-      src.setData({ type: 'FeatureCollection', features: [routeData] })
+    // Helper function to add/update route (only when style is ready)
+    const addRoute = () => {
+      if (!map.isStyleLoaded()) {
+        log('route-user-branch: style not loaded, waiting...')
+        return false
+      }
+
+      try {
+        if (!map.getSource(srcId)) {
+          map.addSource(srcId, {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [routeData] },
+          })
+        } else {
+          const src = map.getSource(srcId) as mapboxgl.GeoJSONSource
+          src.setData({ type: 'FeatureCollection', features: [routeData] })
+        }
+
+        if (!map.getLayer(layerId)) {
+          map.addLayer({
+            id: layerId,
+            type: 'line',
+            source: srcId,
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-color': '#111111',
+              'line-opacity': 0.85,
+              'line-width': 4,
+              'line-blur': 0.5,
+            },
+          })
+        }
+        return true
+      } catch (error) {
+        log(`route-user-branch: error adding source/layer: ${error}`)
+        return false
+      }
     }
 
-    if (!map.getLayer(layerId)) {
-      map.addLayer({
-        id: layerId,
-        type: 'line',
-        source: srcId,
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#111111',
-          'line-opacity': 0.85,
-          'line-width': 4,
-          'line-blur': 0.5,
-        },
-      })
+    // Try to add immediately if style is loaded
+    if (addRoute()) {
+      return // Success
+    }
+
+    // Style not ready - wait for load event
+    const onLoad = () => {
+      addRoute()
+    }
+
+    const onStyleData = () => {
+      // Re-add route after style change
+      if (map.isStyleLoaded()) {
+        addRoute()
+      }
+    }
+
+    map.once('load', onLoad)
+    map.on('styledata', onStyleData)
+
+    // Cleanup
+    return () => {
+      map.off('load', onLoad)
+      map.off('styledata', onStyleData)
     }
   }, [routeData])
 
@@ -838,54 +878,90 @@ export default function MapboxMap({
     const routeId = `${containerId || 'map'}-route`
     const layerId = `${routeId}-line`
 
-    // Remove existing route if any
-    if (map.getLayer(layerId)) map.removeLayer(layerId)
-    if (map.getSource(routeId)) map.removeSource(routeId)
+    // Helper function to add route (only when style is ready)
+    const addRoute = () => {
+      if (!map.isStyleLoaded()) {
+        log('route: style not loaded, waiting...')
+        return false
+      }
 
-    // Add route source
-    map.addSource(routeId, {
-      type: 'geojson',
-      data: {
-        type: 'Feature',
-        geometry: {
-          type: 'LineString',
-          coordinates: routeCoordinates,
-        },
-        properties: {},
-      },
-    })
+      try {
+        // Remove existing route if any (before re-adding)
+        if (map.getLayer(layerId)) map.removeLayer(layerId)
+        if (map.getSource(routeId)) map.removeSource(routeId)
 
-    // Add route layer
-    map.addLayer({
-      id: layerId,
-      type: 'line',
-      source: routeId,
-      layout: {
-        'line-cap': 'round',
-        'line-join': 'round',
-      },
-      paint: {
-        'line-color': '#FF4D4D',
-        'line-width': 4,
-        'line-opacity': 0.9,
-      },
-    })
+        // Add route source
+        map.addSource(routeId, {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: routeCoordinates,
+            },
+            properties: {},
+          },
+        })
 
-    log(`route line added: ${routeCoordinates.length} points`)
+        // Add route layer
+        map.addLayer({
+          id: layerId,
+          type: 'line',
+          source: routeId,
+          layout: {
+            'line-cap': 'round',
+            'line-join': 'round',
+          },
+          paint: {
+            'line-color': '#FF4D4D',
+            'line-width': 4,
+            'line-opacity': 0.9,
+          },
+        })
 
-    // Fit bounds to show both markers
-    const bounds = new mapboxgl.LngLatBounds()
-    routeCoordinates.forEach(([lng, lat]) => bounds.extend([lng, lat]))
-    map.fitBounds(bounds, {
-      padding: 80,
-      maxZoom: 14,
-      duration: 0, // No animation
-    })
+        log(`route line added: ${routeCoordinates.length} points`)
 
-    log(`fitted bounds to route`)
+        // Fit bounds to show both markers
+        const bounds = new mapboxgl.LngLatBounds()
+        routeCoordinates.forEach(([lng, lat]) => bounds.extend([lng, lat]))
+        map.fitBounds(bounds, {
+          padding: 80,
+          maxZoom: 14,
+          duration: 0, // No animation
+        })
+
+        log(`fitted bounds to route`)
+        return true
+      } catch (error) {
+        log(`route: error adding source/layer: ${error}`)
+        return false
+      }
+    }
+
+    // Try to add immediately if style is loaded
+    if (addRoute()) {
+      return // Success, cleanup handled below
+    }
+
+    // Style not ready - wait for load event
+    const onLoad = () => {
+      addRoute()
+    }
+
+    const onStyleData = () => {
+      // Re-add route after style change
+      if (map.isStyleLoaded()) {
+        addRoute()
+      }
+    }
+
+    map.once('load', onLoad)
+    map.on('styledata', onStyleData)
 
     // Cleanup
     return () => {
+      map.off('load', onLoad)
+      map.off('styledata', onStyleData)
       if (map.getLayer(layerId)) map.removeLayer(layerId)
       if (map.getSource(routeId)) map.removeSource(routeId)
     }

@@ -197,8 +197,10 @@ export function useAiActionCycle(
         })
 
         // 1) Flip forward to target
-        await cardStackRef.current.flipToCard(targetType, 'forward')
-        await sleep(FLIP_MS + 50)
+        if (cardStackRef.current && cardStackRef.current.flipToCard) {
+          await cardStackRef.current.flipToCard(targetType, 'forward')
+          await sleep(FLIP_MS + 50)
+        }
 
         // 2) Batch update ALL holdings in portfolio store atomically
         // This triggers health/allocation tweens at t=0ms
@@ -300,8 +302,10 @@ export function useAiActionCycle(
         await sleep(SLOT_MS)
 
         // 5) Flip back to Cash (reverse direction)
-        await cardStackRef.current.flipToCard('savings', 'back')
-        await sleep(FLIP_MS + 50)
+        if (cardStackRef.current && cardStackRef.current.flipToCard) {
+          await cardStackRef.current.flipToCard('savings', 'back')
+          await sleep(FLIP_MS + 50)
+        }
 
         // 6) After flip back completes + delay, update cash (triggers slot animation)
         await sleep(CASH_UPDATE_DELAY_MS)
