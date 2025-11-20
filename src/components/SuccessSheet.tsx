@@ -98,8 +98,8 @@ export default function SuccessSheet({
       
       pushNotification({
         kind: 'payment_received',
-        title: 'Deposit received',
-        body: `You deposited R${numericAmount.toFixed(2)}.`,
+        title: 'Deposit received at HQ',
+        body: `Your cash deposit of R${numericAmount.toFixed(2)} has been received and secured at GoBankless HQ.`,
         amount: {
           currency: 'ZAR',
           value: numericAmount,

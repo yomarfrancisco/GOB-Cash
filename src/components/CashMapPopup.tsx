@@ -41,7 +41,8 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   const [cashFlowState, setCashFlowState] = useState<CashFlowState>('IDLE')
   const [showDepositSuccess, setShowDepositSuccess] = useState(false)
   const [confirmButtonDisabled, setConfirmButtonDisabled] = useState(false)
-  const [currentDealerLocation, setCurrentDealerLocation] = useState({ lng: 28.0567, lat: -26.1069 })
+  const [notificationsSent, setNotificationsSent] = useState<Set<CashFlowState>>(new Set())
+  const [currentDealerLocation, setCurrentDealerLocation] = useState({ lng: 28.0560, lat: -26.1070 }) // Start at HQ
   const [distance, setDistance] = useState(7.8)
   const [etaMinutes, setEtaMinutes] = useState(20)
   const [arrivalNotificationShown, setArrivalNotificationShown] = useState(false)
@@ -51,6 +52,15 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   const expiryTimerRef = useRef<NodeJS.Timeout | null>(null)
   const { pushNotification } = useNotificationStore()
   
+  // HQ coordinate
+  const HQ_COORD = useMemo(
+    () => ({
+      lng: 28.0560,
+      lat: -26.1070,
+    }),
+    []
+  )
+
   // User location (static for now - could be from geolocation)
   const userLocation = useMemo(
     () => ({
@@ -60,13 +70,13 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     []
   )
   
-  // Initial dealer location (Kerry) - will be animated
+  // Initial dealer location (Kerry) - will be animated (starts at HQ)
   const initialDealerLocation = useMemo(
     () => ({
-      lng: 28.0567, // Sandton-ish
-      lat: -26.1069,
+      lng: HQ_COORD.lng,
+      lat: HQ_COORD.lat,
     }),
-    []
+    [HQ_COORD.lng, HQ_COORD.lat]
   )
   
   // User marker using character.png
@@ -95,11 +105,24 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     }),
     [currentDealerLocation.lng, currentDealerLocation.lat]
   )
+
+  // HQ marker
+  const hqMarker: Marker = useMemo(
+    () => ({
+      id: 'hq-location',
+      lng: HQ_COORD.lng,
+      lat: HQ_COORD.lat,
+      kind: 'branch' as const, // Use branch kind for HQ icon
+      label: 'HQ',
+      name: 'GoBankless HQ',
+    }),
+    [HQ_COORD.lng, HQ_COORD.lat]
+  )
   
   // Stable markers array
   const markers = useMemo(
-    () => [userMarker, dealerMarker],
-    [userMarker, dealerMarker]
+    () => [userMarker, dealerMarker, hqMarker],
+    [userMarker, dealerMarker, hqMarker]
   )
   
   // Route coordinates for the line - direction depends on state
@@ -108,16 +131,16 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
       // Return trip: from current dealer location to HQ
       return [
         [currentDealerLocation.lng, currentDealerLocation.lat],
-        [initialDealerLocation.lng, initialDealerLocation.lat],
+        [HQ_COORD.lng, HQ_COORD.lat],
       ]
     } else {
-      // Outbound trip: from user to current dealer location
+      // Outbound trip: from HQ to current dealer location (toward user)
       return [
-        [userLocation.lng, userLocation.lat],
+        [HQ_COORD.lng, HQ_COORD.lat],
         [currentDealerLocation.lng, currentDealerLocation.lat],
       ]
     }
-  }, [cashFlowState, userLocation.lng, userLocation.lat, currentDealerLocation.lng, currentDealerLocation.lat, initialDealerLocation.lng, initialDealerLocation.lat])
+  }, [cashFlowState, currentDealerLocation.lng, currentDealerLocation.lat, HQ_COORD.lng, HQ_COORD.lat])
 
   // Calculate distance between two points (Haversine formula)
   const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number) => {
@@ -142,8 +165,8 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
 
     const startTime = Date.now()
     const duration = 8000 // 8 seconds for warp speed
-    const startLng = initialDealerLocation.lng
-    const startLat = initialDealerLocation.lat
+    const startLng = HQ_COORD.lng
+    const startLat = HQ_COORD.lat
     const endLng = userLocation.lng
     const endLat = userLocation.lat
 
@@ -184,7 +207,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         animationRef.current = null
       }
     }
-  }, [cashFlowState, initialDealerLocation, userLocation, calculateDistance])
+  }, [cashFlowState, HQ_COORD.lng, HQ_COORD.lat, userLocation, calculateDistance])
 
   // Return animation (user → HQ)
   useEffect(() => {
@@ -196,8 +219,8 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     const duration = 8000 // 8 seconds for warp speed
     const startLng = userLocation.lng
     const startLat = userLocation.lat
-    const endLng = initialDealerLocation.lng
-    const endLat = initialDealerLocation.lat
+    const endLng = HQ_COORD.lng
+    const endLat = HQ_COORD.lat
 
     const animate = () => {
       const elapsed = Date.now() - startTime
@@ -236,20 +259,40 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         returnAnimationRef.current = null
       }
     }
-  }, [cashFlowState, initialDealerLocation, userLocation, calculateDistance])
+  }, [cashFlowState, HQ_COORD.lng, HQ_COORD.lat, userLocation, calculateDistance])
 
-  // Handle arrival: show notification only
+  // Notifications for each state transition
   useEffect(() => {
-    if (cashFlowState !== 'ARRIVED') return
-
-    if (!arrivalNotificationShown) {
-      setArrivalNotificationShown(true)
-      
-      // Show notification
+    if (cashFlowState === 'MATCHED_EN_ROUTE' && !notificationsSent.has('MATCHED_EN_ROUTE')) {
+      setNotificationsSent((prev) => new Set(prev).add('MATCHED_EN_ROUTE'))
       pushNotification({
         kind: 'request_sent',
-        title: 'Complete your deposit',
-        body: '$kerryy has arrived',
+        title: 'Cash-in agent on the way',
+        body: '$kerryy is on the way to collect your cash.',
+        actor: {
+          type: 'system',
+          id: 'system',
+          name: 'System',
+        },
+      })
+    } else if (cashFlowState === 'ARRIVED' && !notificationsSent.has('ARRIVED')) {
+      setNotificationsSent((prev) => new Set(prev).add('ARRIVED'))
+      pushNotification({
+        kind: 'request_sent',
+        title: 'Dealer has arrived',
+        body: 'Meet $kerryy and deposit your cash. Ask them to confirm PIN 0747.',
+        actor: {
+          type: 'system',
+          id: 'system',
+          name: 'System',
+        },
+      })
+    } else if (cashFlowState === 'IN_TRANSIT_TO_HQ' && !notificationsSent.has('IN_TRANSIT_TO_HQ')) {
+      setNotificationsSent((prev) => new Set(prev).add('IN_TRANSIT_TO_HQ'))
+      pushNotification({
+        kind: 'request_sent',
+        title: 'Cash in transit to HQ',
+        body: 'Your deposit is on its way to GoBankless HQ.',
         actor: {
           type: 'system',
           id: 'system',
@@ -257,7 +300,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         },
       })
     }
-  }, [cashFlowState, arrivalNotificationShown, pushNotification])
+  }, [cashFlowState, notificationsSent, pushNotification])
 
   // Auto-open SuccessSheet when COMPLETED
   useEffect(() => {
@@ -302,11 +345,12 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
       setShowDepositSuccess(false)
       setArrivalNotificationShown(false)
       setConfirmButtonDisabled(false)
-      setCurrentDealerLocation(initialDealerLocation)
+      setNotificationsSent(new Set())
+      setCurrentDealerLocation({ lng: HQ_COORD.lng, lat: HQ_COORD.lat })
       setDistance(7.8)
       setEtaMinutes(20)
     }
-  }, [open, cashFlowState, initialDealerLocation])
+  }, [open, cashFlowState, HQ_COORD.lng, HQ_COORD.lat])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -363,6 +407,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   // Show distance/ETA badges when not at destination
   const showDistanceBadges = cashFlowState === 'MATCHED_EN_ROUTE' || cashFlowState === 'IN_TRANSIT_TO_HQ'
   const isAtDestination = cashFlowState === 'ARRIVED' || cashFlowState === 'COMPLETED'
+  const isReturnTrip = cashFlowState === 'IN_TRANSIT_TO_HQ'
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" size="tall" className={styles.cashMapPopup}>
@@ -410,7 +455,9 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
                     </div>
                   </div>
                   <div className={styles.etaPill}>
-                    <span className={styles.etaLabel}>Arriving in</span>
+                    <span className={styles.etaLabel}>
+                      {isReturnTrip ? 'Arriving at HQ in' : 'Arriving in'}
+                    </span>
                     <span className={styles.etaTime}>{etaMinutes} min</span>
                   </div>
                 </>
@@ -480,7 +527,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         subtitleOverride={`You deposited R ${amount.toLocaleString('en-ZA', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-        })} with your GoBankless agent.`}
+        })} with your GoBankless agent. Your cash is now secured at GoBankless HQ.`}
         receiptOverride="Proof of deposit will be emailed to you."
       />
     </ActionSheet>
