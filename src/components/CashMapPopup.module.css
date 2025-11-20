@@ -73,12 +73,84 @@
   pointer-events: none; /* Allow map interaction, re-enable on children */
 }
 
-/* Floating close button */
-.cashMapClose {
+/* Top bar overlay - contains distance pill, ETA pill, and close button */
+.mapTopBar {
   position: absolute;
-  top: 16px;
+  top: 12px;
+  left: 16px;
   right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
   z-index: 100;
+  pointer-events: none; /* Bar itself doesn't catch events */
+}
+
+/* Allow inner controls (pills + close) to stay clickable */
+.mapTopBar > * {
+  pointer-events: auto;
+}
+
+/* Distance pill: white */
+.kmPill {
+  height: 40px;
+  min-width: 72px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: 'Acumin VF', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: 18px;
+  color: #000;
+  letter-spacing: -0.22px;
+  line-height: 1.1;
+}
+
+.kmValue {
+  font-weight: 300;
+}
+
+.kmUnit {
+  font-size: 12px;
+  margin-left: 3px;
+}
+
+/* ETA pill: black */
+.etaPill {
+  height: 40px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background-color: #000;
+  box-shadow: 0px -4px 100px rgba(0, 0, 0, 0.25), 0px 6px 36px rgba(86, 86, 86, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  font-family: 'Acumin VF', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: 14px;
+  color: #fff;
+}
+
+.etaLabel {
+  letter-spacing: 0.03em;
+  font-weight: 500;
+}
+
+.etaTime {
+  letter-spacing: 0.03em;
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+/* Floating close button - now inside mapTopBar */
+.cashMapClose {
+  margin-left: auto; /* Push to far right */
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -92,7 +164,7 @@
   cursor: pointer;
   transition: background 0.2s;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  pointer-events: auto; /* Re-enable clicks */
+  flex-shrink: 0;
 }
 
 .cashMapClose:active {
@@ -202,5 +274,15 @@
   opacity: 0.18;
 }
 
-/* Agent detail sheet animation - handled in CashAgentDetailSheet.module.css */
+/* Responsive adjustments for narrow screens */
+@media (max-width: 360px) {
+  .kmPill {
+    font-size: 16px;
+  }
+
+  .etaPill {
+    font-size: 12px;
+    padding-inline: 10px;
+  }
+}
 

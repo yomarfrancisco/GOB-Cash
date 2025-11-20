@@ -76,10 +76,20 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
 
         {/* Overlay - contains close button and card */}
         <div className={styles.agentPopupOverlay}>
-          {/* Floating close button */}
-          <button className={styles.cashMapClose} onClick={onClose} aria-label="Close">
-            <Image src="/assets/clear.svg" alt="" width={18} height={18} />
-          </button>
+          {/* Top bar with distance, ETA, and close button */}
+          <div className={styles.mapTopBar}>
+            <div className={styles.kmPill}>
+              <span className={styles.kmValue}>7.8</span>
+              <span className={styles.kmUnit}>km</span>
+            </div>
+            <div className={styles.etaPill}>
+              <span className={styles.etaLabel}>Arriving in</span>
+              <span className={styles.etaTime}>20 min</span>
+            </div>
+            <button className={styles.cashMapClose} onClick={onClose} aria-label="Close">
+              <Image src="/assets/clear.svg" alt="" width={18} height={18} />
+            </button>
+          </div>
 
           {/* Footer content - bottom region with single $kerryy row */}
           {showAgentCard && (
