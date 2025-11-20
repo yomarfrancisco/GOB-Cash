@@ -28,12 +28,16 @@
   height: 100%;
   flex: 1 1 auto;
   min-height: 0;
-  /* Map fills the popup's content area */
+  display: flex;
+  flex-direction: column;
+  /* Map at top, footer at bottom */
 }
 
 .mapContainer {
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  position: relative;
 }
 
 /* Make the Mapbox container + canvas follow the popup radius */
@@ -69,13 +73,79 @@
   background: rgba(255, 255, 255, 1);
 }
 
-.mapContainer {
-  position: relative;
-  width: 100%;
-  height: 100%;
+/* Footer content - bottom region */
+.footerContent {
+  background: #fff;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  /* Subtle delayed slide-in */
+  transform: translateY(10%);
+  opacity: 0;
+  animation: footerSlideIn 220ms ease-out forwards;
+}
+
+@keyframes footerSlideIn {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.footerHeader {
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.footerTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #000;
+  text-align: center;
+  margin: 0;
+}
+
+.footerBody {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
   flex: 1;
-  min-height: 0;
-  z-index: 1;
+  overflow-y: auto;
+}
+
+.footerSubtitle {
+  font-size: 13px;
+  font-weight: 300;
+  color: rgba(0, 0, 0, 0.5);
+  text-align: center;
+  margin: 16px 24px;
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+}
+
+.footerDivider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.1);
+  margin: 0 24px 8px;
+}
+
+.agentRowButton {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 24px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 150ms ease;
+}
+
+.agentRowButton:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.agentRowButton:active {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .foldOverlays {

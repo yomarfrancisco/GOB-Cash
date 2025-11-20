@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import MapboxMap, { type Marker } from './MapboxMap'
-import CashAgentDetailSheet from './CashAgentDetailSheet'
+import AgentSummaryRow from './AgentSummaryRow'
 import styles from './CashMapPopup.module.css'
 
 type CashMapPopupProps = {
@@ -14,58 +14,16 @@ type CashMapPopupProps = {
   showAgentCard?: boolean
 }
 
-// Agent marker for map (same as homepage would show)
-const agentMarker: Marker = {
-  id: 'agent-on-way',
-  lng: 28.0567, // Sandton-ish
-  lat: -26.1069,
-  kind: 'member',
-  label: '$kerry',
-  avatar: '/assets/avatar - profile (1).png',
-  name: '$kerry',
+// Single $kerryy agent data - matches AgentListSheet format
+const KERRYY_AGENT = {
+  id: 'kerryy',
+  username: '$kerryy',
+  avatar: '/assets/avatar_agent5.png',
+  insured: 'R49k',
+  rating: 4.1,
+  reviewCount: 1322,
+  progress: 98,
 }
-
-// Agent data lookup
-const AGENT_DATA: Record<string, { avatar: string; name: string; rating: number; distance: string; time: string; address: string; insured: string }> = {
-  '$kerry': {
-    avatar: '/assets/avatar - profile (1).png',
-    name: '$kerry',
-    rating: 4.8,
-    distance: '8',
-    time: '20',
-    address: '123 Sandton Drive, Sandton, 2196',
-    insured: 'R50,000',
-  },
-  '$simi_love': {
-    avatar: '/assets/avatar - profile (2).png',
-    name: '$simi_love',
-    rating: 4.9,
-    distance: '5',
-    time: '15',
-    address: '123 Sandton Drive, Sandton, 2196',
-    insured: 'R50,000',
-  },
-  '$ariel': {
-    avatar: '/assets/avatar - profile (3).png',
-    name: '$ariel',
-    rating: 4.7,
-    distance: '12',
-    time: '25',
-    address: '123 Sandton Drive, Sandton, 2196',
-    insured: 'R50,000',
-  },
-  '$dana': {
-    avatar: '/assets/avatar - profile (4).png',
-    name: '$dana',
-    rating: 4.6,
-    distance: '10',
-    time: '22',
-    address: '123 Sandton Drive, Sandton, 2196',
-    insured: 'R50,000',
-  },
-}
-
-const DEFAULT_AGENT = AGENT_DATA['$kerry']
 
 export default function CashMapPopup({ open, onClose, amount, showAgentCard = false }: CashMapPopupProps) {
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
@@ -81,11 +39,9 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     name: '$kerryy',
   }
 
-  const formatAmount = (amount: number) => {
-    return `R${amount.toLocaleString('en-ZA', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`
+  const handleWhatsAppClick = () => {
+    if (typeof window === 'undefined') return
+    window.open('https://wa.me/27823306256', '_blank')
   }
 
   return (
@@ -95,7 +51,8 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         <button className={styles.cashMapClose} onClick={onClose} aria-label="Close">
           <Image src="/assets/clear.svg" alt="" width={18} height={18} />
         </button>
-        {/* Map container - direct container for Mapbox */}
+        
+        {/* Map container - top region */}
         <div className={styles.mapContainer} id={mapContainerId} />
         <MapboxMap
           containerId={mapContainerId}
@@ -120,11 +77,26 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           />
         </div>
 
-        {/* Agent details sheet - nested popup on top of map */}
-        <CashAgentDetailSheet
-          open={showAgentCard}
-          onClose={onClose}
-        />
+        {/* Footer content - bottom region with single $kerryy row */}
+        {showAgentCard && (
+          <div className={styles.footerContent}>
+            <div className={styles.footerHeader}>
+              <h3 className={styles.footerTitle}>Talk to an agent</h3>
+            </div>
+            <div className={styles.footerBody}>
+              <p className={styles.footerSubtitle}>Message a trusted branch manager on WhatsApp.</p>
+              <div className={styles.footerDivider} />
+              
+              <button
+                className={styles.agentRowButton}
+                onClick={handleWhatsAppClick}
+                type="button"
+              >
+                <AgentSummaryRow agent={KERRYY_AGENT} showWhatsappIcon={true} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </ActionSheet>
   )
