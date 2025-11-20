@@ -29,17 +29,18 @@
   height: 100%;
   flex: 1 1 auto;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
   background: transparent; /* Allow map to show through behind card */
-  /* Map at top, footer at bottom */
+  overflow: hidden; /* Important so the map clips to rounded corners */
+  border-radius: 32px 32px 0 0; /* Match popup border radius */
 }
 
+/* Map wrapper - fills entire popup behind card */
 .mapContainer {
+  position: absolute;
+  inset: 0; /* top: 0; right: 0; bottom: 0; left: 0 */
   width: 100%;
-  flex: 1;
-  min-height: 0;
-  position: relative;
+  height: 100%;
+  z-index: 0;
 }
 
 /* Make the Mapbox container + canvas follow the popup radius */
@@ -77,7 +78,8 @@
 
 /* Footer content - bottom region with rounded card styling */
 .mapSheetOuter {
-  z-index: 10;
+  position: relative;
+  z-index: 1;
   background: transparent; /* Allow map to show through */
   /* Subtle delayed slide-in */
   transform: translateY(10%);
@@ -93,6 +95,8 @@
 }
 
 .mapSheetInner {
+  position: relative;
+  z-index: 1;
   margin: 8px 8px 16px;
   padding: 0;
   border-radius: 24px;
