@@ -276,6 +276,9 @@ export default function MapboxMap({
           // (optional) keep map centered on the user when first found
           if (!centeredOnce) {
             centeredOnce = true
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('[camera]', 'variant=', variant, 'reason=geolocate-first-center', [lng, lat])
+            }
             map.setCenter([lng, lat])
             // Set user location state (will trigger zoom effect)
             setUserLngLat([lng, lat])
@@ -408,7 +411,7 @@ export default function MapboxMap({
         mapRef.current = null
       }
     }
-  }, [styleUrl, containerId, showDebug, routeCoordinates, variant]) // Include variant in deps
+  }, [styleUrl, containerId, showDebug, variant]) // Removed routeCoordinates - handled in separate effect
 
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
@@ -589,6 +592,9 @@ export default function MapboxMap({
       cameraLockedUntilRef.current = Date.now() + totalLockDuration
 
       // Pan to highlight location using flyTo for smoother animation
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[camera]', 'variant=', variant, 'reason=highlight-flyTo', [highlight.lng, highlight.lat])
+      }
       map.flyTo({
         center: [highlight.lng, highlight.lat],
         zoom: Math.max(zoom, 15), // Zoom in if needed
@@ -634,6 +640,9 @@ export default function MapboxMap({
       // Lock camera during return flight as well
       cameraLockedUntilRef.current = Date.now() + 1000 // 1 second for return flight
       
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[camera]', 'variant=', variant, 'reason=highlight-return-flyTo', savedCenterRef.current)
+      }
       map.flyTo({
         center: savedCenterRef.current,
         zoom: savedZoomRef.current,
@@ -709,7 +718,13 @@ export default function MapboxMap({
     // Debounce micro-bursts from geolocate with rAF
     requestAnimationFrame(() => {
       // Make sure center is the user (in case geolocate ran earlier)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[camera]', 'variant=', variant, 'reason=user-centered-zoom-setCenter', [userLng, userLat])
+      }
       map.setCenter([userLng, userLat])
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[camera]', 'variant=', variant, 'reason=user-centered-zoom-easeTo', targetZoom)
+      }
       map.easeTo({ zoom: targetZoom, duration: 500 })
       if (process.env.NODE_ENV !== 'production') {
         console.debug(
@@ -1015,6 +1030,9 @@ export default function MapboxMap({
         // Fit bounds to the geometry (all points in the route)
         const bounds = new mapboxgl.LngLatBounds()
         coords.forEach(([lng, lat]) => bounds.extend([lng, lat]))
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[camera]', 'variant=', variant, 'reason=popup-route-fitBounds', coords.length, 'points')
+        }
         map.fitBounds(bounds, {
           padding: 80,
           maxZoom: 14,
@@ -1043,7 +1061,7 @@ export default function MapboxMap({
       addPopupRoute()
     } else {
       map.once('load', onLoad)
-      map.on('styledata', onStyleData)
+      map.once('styledata', onStyleData) // Use once to prevent listener accumulation
     }
 
     // Cleanup

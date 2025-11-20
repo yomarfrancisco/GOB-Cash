@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import MapboxMap, { type Marker } from './MapboxMap'
@@ -29,43 +29,64 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
   
   // User location (static for now - could be from geolocation)
-  const userLocation = {
-    lng: 28.0483, // Slightly different from dealer for visibility
-    lat: -26.1075,
-  }
+  const userLocation = useMemo(
+    () => ({
+      lng: 28.0483, // Slightly different from dealer for visibility
+      lat: -26.1075,
+    }),
+    []
+  )
   
   // Dealer location (Kerry)
-  const dealerLocation = {
-    lng: 28.0567, // Sandton-ish
-    lat: -26.1069,
-  }
+  const dealerLocation = useMemo(
+    () => ({
+      lng: 28.0567, // Sandton-ish
+      lat: -26.1069,
+    }),
+    []
+  )
   
   // User marker using character.png
-  const userMarker: Marker = {
-    id: 'user-location',
-    lng: userLocation.lng,
-    lat: userLocation.lat,
-    kind: 'member', // Will use character.png
-    label: 'You',
-    name: 'You',
-  }
+  const userMarker: Marker = useMemo(
+    () => ({
+      id: 'user-location',
+      lng: userLocation.lng,
+      lat: userLocation.lat,
+      kind: 'member' as const, // Will use character.png
+      label: 'You',
+      name: 'You',
+    }),
+    [userLocation.lng, userLocation.lat]
+  )
   
   // Dealer marker using avatar_agent5.png (circular)
-  const dealerMarker: Marker = {
-    id: 'agent-on-way',
-    lng: dealerLocation.lng,
-    lat: dealerLocation.lat,
-    kind: 'dealer', // Special kind for circular avatar marker
-    label: '$kerryy',
-    avatar: '/assets/avatar_agent5.png',
-    name: '$kerryy',
-  }
+  const dealerMarker: Marker = useMemo(
+    () => ({
+      id: 'agent-on-way',
+      lng: dealerLocation.lng,
+      lat: dealerLocation.lat,
+      kind: 'dealer' as const, // Special kind for circular avatar marker
+      label: '$kerryy',
+      avatar: '/assets/avatar_agent5.png',
+      name: '$kerryy',
+    }),
+    [dealerLocation.lng, dealerLocation.lat]
+  )
+  
+  // Stable markers array
+  const markers = useMemo(
+    () => [userMarker, dealerMarker],
+    [userMarker, dealerMarker]
+  )
   
   // Route coordinates for the line between user and dealer
-  const routeCoordinates: [number, number][] = [
-    [userLocation.lng, userLocation.lat],
-    [dealerLocation.lng, dealerLocation.lat],
-  ]
+  const routeCoordinates = useMemo<[number, number][]>(
+    () => [
+      [userLocation.lng, userLocation.lat],
+      [dealerLocation.lng, dealerLocation.lat],
+    ],
+    [userLocation.lng, userLocation.lat, dealerLocation.lng, dealerLocation.lat]
+  )
 
   const handleWhatsAppClick = () => {
     if (typeof window === 'undefined') return
@@ -80,7 +101,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           <div className={styles.mapContainer} id={mapContainerId} />
           <MapboxMap
             containerId={mapContainerId}
-            markers={[userMarker, dealerMarker]}
+            markers={markers}
             styleUrl="mapbox://styles/mapbox/navigation-night-v1"
             routeCoordinates={routeCoordinates}
             variant="popup"
