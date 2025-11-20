@@ -30,7 +30,7 @@ import { useNotificationStore } from '@/store/notifications'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { useAuthStore } from '@/store/auth'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
-import CashAgentOnTheWay from '@/components/CashAgentOnTheWay'
+import CashMapPopup from '@/components/CashMapPopup'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 
@@ -100,9 +100,8 @@ export default function Home() {
     handle: string
     agentHandle?: string
   } | null>(null)
-  const [cashFlowState, setCashFlowState] = useState<'idle' | 'agent_on_the_way'>('idle')
+  const [showCashMapPopup, setShowCashMapPopup] = useState(false)
   const [convertAmount, setConvertAmount] = useState(0)
-  const [convertAgentHandle, setConvertAgentHandle] = useState('$kerry')
 
   // Register onSelect handler for global Transact sheet
   useEffect(() => {
@@ -395,38 +394,16 @@ export default function Home() {
           setOpenAmount(false)
           setTimeout(() => setOpenDepositSuccess(true), 220)
         } : amountMode === 'convert' ? ({ amountZAR }) => {
-          // Convert flow: close ALL modals first (inbox + keypad), then show notifications, then open map
+          // Convert flow: close keypad and inbox, then show map popup
           setConvertAmount(amountZAR)
           // Close both modals immediately
           closeInbox() // Close "Cash agents around you" inbox
           setOpenAmount(false) // Close keypad
           
-          // Small delay to ensure modals are fully closed before showing notifications
+          // Small delay to ensure modals are fully closed, then show map popup
           setTimeout(() => {
-            // Show first notification
-            setConvertNotificationState({
-              type: 'request_sent',
-              amount: amountZAR,
-              handle: '$ygor', // Stub handle
-            })
-            
-            // After 2 seconds, show second notification
-            setTimeout(() => {
-              setConvertNotificationState({
-                type: 'request_accepted',
-                amount: amountZAR,
-                handle: '$ygor',
-                agentHandle: '$kerry',
-              })
-              setConvertAgentHandle('$kerry')
-              
-              // After another 2 seconds, transition to agent_on_the_way state (notifications will auto-dismiss)
-              setTimeout(() => {
-                setConvertNotificationState(null)
-                setCashFlowState('agent_on_the_way')
-              }, 2000)
-            }, 2000)
-          }, 100) // Small delay to ensure modals are closed
+            setShowCashMapPopup(true)
+          }, 220) // Match other modal transitions
         } : amountMode !== 'send' ? ({ amountZAR, amountUSDT }) => {
           setOpenAmount(false)
           console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
@@ -473,13 +450,11 @@ export default function Home() {
         open={openBankTransferDetails}
         onClose={closeBankTransferDetails}
       />
-      {cashFlowState === 'agent_on_the_way' && (
-        <CashAgentOnTheWay
-          amount={convertAmount}
-          agentHandle={convertAgentHandle}
-          onClose={() => setCashFlowState('idle')}
-        />
-      )}
+      <CashMapPopup
+        open={showCashMapPopup}
+        onClose={() => setShowCashMapPopup(false)}
+        amount={convertAmount}
+      />
       <AgentListSheet
         open={isAgentSheetOpen}
         onClose={() => setIsAgentSheetOpen(false)}
