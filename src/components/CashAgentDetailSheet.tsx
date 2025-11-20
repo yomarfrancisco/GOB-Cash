@@ -1,6 +1,5 @@
 'use client'
 
-import ActionSheet from './ActionSheet'
 import AgentSummaryRow from './AgentSummaryRow'
 import styles from './CashAgentDetailSheet.module.css'
 
@@ -26,8 +25,13 @@ export default function CashAgentDetailSheet({ open, onClose }: CashAgentDetailS
     window.open('https://wa.me/27823306256', '_blank')
   }
 
+  if (!open) return null
+
   return (
-    <ActionSheet open={open} onClose={onClose} title="Talk to an agent" size="compact" className={styles.agentDetailSheet}>
+    <div className={styles.agentDetailSheet} onClick={(e) => e.stopPropagation()}>
+      <div className={styles.header}>
+        <h3 className={styles.title}>Talk to an agent</h3>
+      </div>
       <div className={styles.content}>
         <p className={styles.subtitle}>Message a trusted branch manager on WhatsApp.</p>
         <div className={styles.divider} />
@@ -40,7 +44,7 @@ export default function CashAgentDetailSheet({ open, onClose }: CashAgentDetailS
           <AgentSummaryRow agent={KERRYY_AGENT} showWhatsappIcon={true} />
         </button>
       </div>
-    </ActionSheet>
+    </div>
   )
 }
 

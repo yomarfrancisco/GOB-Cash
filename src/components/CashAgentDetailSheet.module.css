@@ -1,12 +1,49 @@
 /* Agent Detail Sheet - nested inside map popup, reusing AgentListSheet styles */
-.agentDetailSheet :global(.as-title) {
-  text-align: center !important;
+.agentDetailSheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  border-radius: 32px 32px 0 0;
+  z-index: 10; /* Must sit above the map canvas */
+  box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.18);
+  /* Subtle delayed slide-in */
+  transform: translateY(10%);
+  opacity: 0;
+  animation: agentCardIn 220ms ease-out forwards;
+  display: flex;
+  flex-direction: column;
+  max-height: 50vh;
+  overflow: hidden;
+}
+
+@keyframes agentCardIn {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.header {
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #000;
+  text-align: center;
+  margin: 0;
 }
 
 .content {
   padding: 0;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .subtitle {
@@ -14,7 +51,7 @@
   font-weight: 300;
   color: rgba(0, 0, 0, 0.5);
   text-align: center;
-  margin: 0 24px 16px;
+  margin: 16px 24px;
   letter-spacing: -0.09px;
   line-height: 1.35;
 }
@@ -42,47 +79,4 @@
 
 .agentRowButton:active {
   background: rgba(0, 0, 0, 0.04);
-}
-
-/* Override ActionSheet positioning to be nested inside map popup */
-.agentDetailSheet {
-  position: absolute !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  top: auto !important;
-  transform: none !important;
-  z-index: 10 !important;
-}
-
-.agentDetailSheet :global(.as-root) {
-  position: absolute !important;
-  inset: 0 !important;
-  z-index: 10 !important;
-  pointer-events: none; /* Allow clicks to pass through backdrop to map popup */
-}
-
-.agentDetailSheet :global(.as-backdrop) {
-  display: none !important; /* No backdrop for nested sheet */
-}
-
-.agentDetailSheet :global(.as-sheet) {
-  position: absolute !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  top: auto !important;
-  max-height: auto !important;
-  height: auto !important;
-  pointer-events: auto; /* Re-enable pointer events for sheet content */
-  transform: translateY(10%);
-  opacity: 0;
-  animation: agentCardIn 220ms ease-out forwards;
-}
-
-@keyframes agentCardIn {
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
