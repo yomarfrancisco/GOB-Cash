@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
+import { useRequireAuth } from '@/hooks/useRequireAuth'
 
 type TopGlassBarProps = {
   onScanClick?: () => void
@@ -12,6 +13,7 @@ export default function TopGlassBar({ onScanClick }: TopGlassBarProps = {}) {
   const pathname = usePathname()
   const isActivityPage = pathname === '/activity'
   const { open } = useShareProfileSheet()
+  const { guardAuthed } = useRequireAuth()
 
   return (
     <div className="page-title-gobankless">
