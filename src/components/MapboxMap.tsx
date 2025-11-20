@@ -798,8 +798,13 @@ export default function MapboxMap({
 
     if (!routeData) {
       // Remove if previously added
-      if (map.getLayer(layerId)) map.removeLayer(layerId)
-      if (map.getSource(srcId)) map.removeSource(srcId)
+      try {
+        if (map.getLayer(layerId)) map.removeLayer(layerId)
+        if (map.getSource(srcId)) map.removeSource(srcId)
+      } catch (error) {
+        // Map might be destroyed or style not ready
+        log(`route-user-branch: error removing layer/source: ${error}`)
+      }
       return
     }
 
@@ -811,7 +816,16 @@ export default function MapboxMap({
       }
 
       try {
-        if (!map.getSource(srcId)) {
+        // Safe check for existing source
+        let sourceExists = false
+        try {
+          sourceExists = !!map.getSource(srcId)
+        } catch (e) {
+          // getSource failed, assume it doesn't exist
+          sourceExists = false
+        }
+
+        if (!sourceExists) {
           map.addSource(srcId, {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [routeData] },
@@ -821,7 +835,16 @@ export default function MapboxMap({
           src.setData({ type: 'FeatureCollection', features: [routeData] })
         }
 
-        if (!map.getLayer(layerId)) {
+        // Safe check for existing layer
+        let layerExists = false
+        try {
+          layerExists = !!map.getLayer(layerId)
+        } catch (e) {
+          // getLayer failed, assume it doesn't exist
+          layerExists = false
+        }
+
+        if (!layerExists) {
           map.addLayer({
             id: layerId,
             type: 'line',
@@ -887,8 +910,16 @@ export default function MapboxMap({
 
       try {
         // Remove existing route if any (before re-adding)
-        if (map.getLayer(layerId)) map.removeLayer(layerId)
-        if (map.getSource(routeId)) map.removeSource(routeId)
+        try {
+          if (map.getLayer(layerId)) map.removeLayer(layerId)
+        } catch (e) {
+          // getLayer failed, layer might not exist or map not ready
+        }
+        try {
+          if (map.getSource(routeId)) map.removeSource(routeId)
+        } catch (e) {
+          // getSource failed, source might not exist or map not ready
+        }
 
         // Add route source
         map.addSource(routeId, {
@@ -960,10 +991,27 @@ export default function MapboxMap({
 
     // Cleanup
     return () => {
-      map.off('load', onLoad)
-      map.off('styledata', onStyleData)
-      if (map.getLayer(layerId)) map.removeLayer(layerId)
-      if (map.getSource(routeId)) map.removeSource(routeId)
+      const mapInstance = mapRef.current
+      if (!mapInstance) return // Map already destroyed
+      
+      try {
+        mapInstance.off('load', onLoad)
+        mapInstance.off('styledata', onStyleData)
+      } catch (e) {
+        // Event listeners might already be removed
+      }
+
+      try {
+        if (mapInstance.getLayer(layerId)) mapInstance.removeLayer(layerId)
+      } catch (e) {
+        // Layer might not exist or map destroyed
+      }
+
+      try {
+        if (mapInstance.getSource(routeId)) mapInstance.removeSource(routeId)
+      } catch (e) {
+        // Source might not exist or map destroyed
+      }
     }
   }, [routeCoordinates, containerId])
 
