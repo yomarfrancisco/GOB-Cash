@@ -34,6 +34,7 @@ interface Props {
   fitToMarkers?: boolean
   styleUrl?: string // e.g. "mapbox://styles/mapbox/light-v11"
   showDebug?: boolean
+  routeCoordinates?: [number, number][] // Optional route line coordinates
 }
 
 const DEBUG_MAP =
@@ -50,6 +51,7 @@ export default function MapboxMap({
   fitToMarkers = true,
   styleUrl = DEFAULT_MAP_STYLE,
   showDebug = DEBUG_MAP,
+  routeCoordinates,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -68,6 +70,7 @@ export default function MapboxMap({
   const highlightMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const agentMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const cameraLockedUntilRef = useRef<number>(0) // Timestamp when camera lock expires
+  const routeCoordinatesRef = useRef<[number, number][] | undefined>(routeCoordinates)
   
   const highlight = useMapHighlightStore((state) => state.highlight)
   
@@ -379,7 +382,7 @@ export default function MapboxMap({
         mapRef.current = null
       }
     }
-  }, [styleUrl, containerId, showDebug]) // Minimal deps - only styleUrl and containerId
+  }, [styleUrl, containerId, showDebug, routeCoordinates]) // Include routeCoordinates in deps
 
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
@@ -404,38 +407,74 @@ export default function MapboxMap({
       return
     }
 
-    // Add new markers - use avatar markers for members/co-op, default pin for branches/dealers
+    // Add new markers - use avatar markers for members/co-op, circular for dealers, character.png for user, default pin for branches
     log(`adding ${markers.length} markers`)
     markers.forEach((m) => {
       let marker: mapboxgl.Marker
       
-      if (m.kind === 'member' || m.kind === 'co_op') {
-        // Create avatar marker
+      if (m.kind === 'dealer') {
+        // Dealer marker: circular avatar with white border (48x48px)
         const el = document.createElement('div')
-        el.className = 'map-avatar-marker'
-        el.style.width = '40px'
-        el.style.height = '40px'
+        el.style.width = '48px'
+        el.style.height = '48px'
         el.style.borderRadius = '50%'
         el.style.overflow = 'hidden'
-        el.style.background = '#ffffff'
-        el.style.border = 'none'
-        el.style.boxShadow = 'none'
-        
-        const img = document.createElement('img')
-        img.src = m.avatar || '/assets/avatar_agent5.png'
-        img.alt = m.name || m.label || ''
-        img.style.width = '100%'
-        img.style.height = '100%'
-        img.style.objectFit = 'cover'
-        img.style.display = 'block'
-        el.appendChild(img)
+        el.style.border = '2px solid white'
+        el.style.backgroundImage = `url("${m.avatar || '/assets/avatar_agent5.png'}")`
+        el.style.backgroundSize = 'cover'
+        el.style.backgroundPosition = 'center'
+        el.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)'
         
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
           .setLngLat([m.lng, m.lat])
-          .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label || m.name || ''))
           .addTo(mapRef.current!)
+      } else if (m.kind === 'member' || m.kind === 'co_op') {
+        // Check if this is the user marker (no avatar, should use character.png)
+        if (!m.avatar && m.id === 'user-location') {
+          // User marker: use character.png
+          const el = document.createElement('div')
+          el.className = styles.userMarker
+          const img = document.createElement('img')
+          img.className = styles.userImg
+          img.alt = 'You are here'
+          const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
+          img.src = userIconUrl
+          img.decoding = 'async'
+          img.loading = 'eager'
+          img.referrerPolicy = 'no-referrer'
+          el.appendChild(img)
+          
+          marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([m.lng, m.lat])
+            .addTo(mapRef.current!)
+        } else {
+          // Regular member/co-op marker: avatar
+          const el = document.createElement('div')
+          el.className = 'map-avatar-marker'
+          el.style.width = '40px'
+          el.style.height = '40px'
+          el.style.borderRadius = '50%'
+          el.style.overflow = 'hidden'
+          el.style.background = '#ffffff'
+          el.style.border = 'none'
+          el.style.boxShadow = 'none'
+          
+          const img = document.createElement('img')
+          img.src = m.avatar || '/assets/avatar_agent5.png'
+          img.alt = m.name || m.label || ''
+          img.style.width = '100%'
+          img.style.height = '100%'
+          img.style.objectFit = 'cover'
+          img.style.display = 'block'
+          el.appendChild(img)
+          
+          marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([m.lng, m.lat])
+            .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label || m.name || ''))
+            .addTo(mapRef.current!)
+        }
       } else {
-        // Default Mapbox pin for branches/dealers
+        // Default Mapbox pin for branches
         marker = new mapboxgl.Marker()
           .setLngLat([m.lng, m.lat])
           .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label ?? ''))
@@ -789,6 +828,68 @@ export default function MapboxMap({
       })
     }
   }, [routeData])
+
+  // Effect to add route line when routeCoordinates are provided (popup map only)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !loadedRef.current) return
+    if (!routeCoordinates || routeCoordinates.length < 2) return
+
+    const routeId = `${containerId || 'map'}-route`
+    const layerId = `${routeId}-line`
+
+    // Remove existing route if any
+    if (map.getLayer(layerId)) map.removeLayer(layerId)
+    if (map.getSource(routeId)) map.removeSource(routeId)
+
+    // Add route source
+    map.addSource(routeId, {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: routeCoordinates,
+        },
+        properties: {},
+      },
+    })
+
+    // Add route layer
+    map.addLayer({
+      id: layerId,
+      type: 'line',
+      source: routeId,
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+      },
+      paint: {
+        'line-color': '#FF4D4D',
+        'line-width': 4,
+        'line-opacity': 0.9,
+      },
+    })
+
+    log(`route line added: ${routeCoordinates.length} points`)
+
+    // Fit bounds to show both markers
+    const bounds = new mapboxgl.LngLatBounds()
+    routeCoordinates.forEach(([lng, lat]) => bounds.extend([lng, lat]))
+    map.fitBounds(bounds, {
+      padding: 80,
+      maxZoom: 14,
+      duration: 0, // No animation
+    })
+
+    log(`fitted bounds to route`)
+
+    // Cleanup
+    return () => {
+      if (map.getLayer(layerId)) map.removeLayer(layerId)
+      if (map.getSource(routeId)) map.removeSource(routeId)
+    }
+  }, [routeCoordinates, containerId])
 
   // If containerId is provided, we don't render our own container
   // Fallback and debug overlay will be rendered as siblings in the parent

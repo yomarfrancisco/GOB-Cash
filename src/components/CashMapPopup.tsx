@@ -28,16 +28,44 @@ const KERRYY_AGENT = {
 export default function CashMapPopup({ open, onClose, amount, showAgentCard = false }: CashMapPopupProps) {
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
   
-  // Agent marker for map (same as homepage would show)
-  const agentMarker: Marker = {
-    id: 'agent-on-way',
+  // User location (static for now - could be from geolocation)
+  const userLocation = {
+    lng: 28.0483, // Slightly different from dealer for visibility
+    lat: -26.1075,
+  }
+  
+  // Dealer location (Kerry)
+  const dealerLocation = {
     lng: 28.0567, // Sandton-ish
     lat: -26.1069,
-    kind: 'member',
+  }
+  
+  // User marker using character.png
+  const userMarker: Marker = {
+    id: 'user-location',
+    lng: userLocation.lng,
+    lat: userLocation.lat,
+    kind: 'member', // Will use character.png
+    label: 'You',
+    name: 'You',
+  }
+  
+  // Dealer marker using avatar_agent5.png (circular)
+  const dealerMarker: Marker = {
+    id: 'agent-on-way',
+    lng: dealerLocation.lng,
+    lat: dealerLocation.lat,
+    kind: 'dealer', // Special kind for circular avatar marker
     label: '$kerryy',
     avatar: '/assets/avatar_agent5.png',
     name: '$kerryy',
   }
+  
+  // Route coordinates for the line between user and dealer
+  const routeCoordinates: [number, number][] = [
+    [userLocation.lng, userLocation.lat],
+    [dealerLocation.lng, dealerLocation.lat],
+  ]
 
   const handleWhatsAppClick = () => {
     if (typeof window === 'undefined') return
@@ -52,8 +80,9 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           <div className={styles.mapContainer} id={mapContainerId} />
           <MapboxMap
             containerId={mapContainerId}
-            markers={[agentMarker]}
+            markers={[userMarker, dealerMarker]}
             styleUrl="mapbox://styles/mapbox/navigation-night-v1"
+            routeCoordinates={routeCoordinates}
           />
           {/* Paper/fold overlays - same as homepage, positioned over map */}
           <div className={styles.foldOverlays}>
