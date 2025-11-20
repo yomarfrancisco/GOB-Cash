@@ -100,7 +100,8 @@ export default function Home() {
     handle: string
     agentHandle?: string
   } | null>(null)
-  const [showCashMapPopup, setShowCashMapPopup] = useState(false)
+  const [isMapOpen, setIsMapOpen] = useState(false)
+  const [isAgentCardVisible, setIsAgentCardVisible] = useState(false)
   const [convertAmount, setConvertAmount] = useState(0)
 
   // Register onSelect handler for global Transact sheet
@@ -266,6 +267,24 @@ export default function Home() {
     }
   }, [pushNotification])
 
+  // Agent card visibility timing - show after map is open
+  useEffect(() => {
+    if (!isMapOpen) {
+      setIsAgentCardVisible(false)
+      return
+    }
+    // Once the map is up, show the agent card a moment later
+    const timeout = setTimeout(() => {
+      setIsAgentCardVisible(true)
+    }, 400) // ~0.4s feels good
+    return () => clearTimeout(timeout)
+  }, [isMapOpen])
+
+  const handleCloseMapPopup = () => {
+    setIsMapOpen(false)
+    setIsAgentCardVisible(false)
+  }
+
   // Get title and subtitle - always use card definitions (same for both modes)
   const cardDef = getCardDefinition(topCardType)
   const { title, subtitle } = cardDef
@@ -400,9 +419,13 @@ export default function Home() {
           closeInbox() // Close "Cash agents around you" inbox
           setOpenAmount(false) // Close keypad
           
+          // Reset states first
+          setIsMapOpen(false)
+          setIsAgentCardVisible(false)
+          
           // Small delay to ensure modals are fully closed, then show map popup
           setTimeout(() => {
-            setShowCashMapPopup(true)
+            setIsMapOpen(true)
           }, 220) // Match other modal transitions
         } : amountMode !== 'send' ? ({ amountZAR, amountUSDT }) => {
           setOpenAmount(false)
@@ -451,9 +474,10 @@ export default function Home() {
         onClose={closeBankTransferDetails}
       />
       <CashMapPopup
-        open={showCashMapPopup}
-        onClose={() => setShowCashMapPopup(false)}
+        open={isMapOpen}
+        onClose={handleCloseMapPopup}
         amount={convertAmount}
+        showAgentCard={isAgentCardVisible}
       />
       <AgentListSheet
         open={isAgentSheetOpen}

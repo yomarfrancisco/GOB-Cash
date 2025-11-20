@@ -10,6 +10,7 @@ type CashMapPopupProps = {
   open: boolean
   onClose: () => void
   amount: number
+  showAgentCard?: boolean
 }
 
 // Agent marker for map (same as homepage would show)
@@ -23,14 +24,76 @@ const agentMarker: Marker = {
   name: '$kerry',
 }
 
-export default function CashMapPopup({ open, onClose, amount }: CashMapPopupProps) {
+// Agent data lookup
+const AGENT_DATA: Record<string, { avatar: string; name: string; rating: number; distance: string; time: string; address: string; insured: string }> = {
+  '$kerry': {
+    avatar: '/assets/avatar - profile (1).png',
+    name: '$kerry',
+    rating: 4.8,
+    distance: '8',
+    time: '20',
+    address: '123 Sandton Drive, Sandton, 2196',
+    insured: 'R50,000',
+  },
+  '$simi_love': {
+    avatar: '/assets/avatar - profile (2).png',
+    name: '$simi_love',
+    rating: 4.9,
+    distance: '5',
+    time: '15',
+    address: '123 Sandton Drive, Sandton, 2196',
+    insured: 'R50,000',
+  },
+  '$ariel': {
+    avatar: '/assets/avatar - profile (3).png',
+    name: '$ariel',
+    rating: 4.7,
+    distance: '12',
+    time: '25',
+    address: '123 Sandton Drive, Sandton, 2196',
+    insured: 'R50,000',
+  },
+  '$dana': {
+    avatar: '/assets/avatar - profile (4).png',
+    name: '$dana',
+    rating: 4.6,
+    distance: '10',
+    time: '22',
+    address: '123 Sandton Drive, Sandton, 2196',
+    insured: 'R50,000',
+  },
+}
+
+const DEFAULT_AGENT = AGENT_DATA['$kerry']
+
+export default function CashMapPopup({ open, onClose, amount, showAgentCard = false }: CashMapPopupProps) {
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
+  
+  // Use default agent for now
+  const agent = DEFAULT_AGENT
+
+  // Agent marker for map (same as homepage would show)
+  const agentMarker: Marker = {
+    id: 'agent-on-way',
+    lng: 28.0567, // Sandton-ish
+    lat: -26.1069,
+    kind: 'member',
+    label: agent.name,
+    avatar: agent.avatar,
+    name: agent.name,
+  }
 
   const formatAmount = (amount: number) => {
     return `R${amount.toLocaleString('en-ZA', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`
+  }
+
+  const handleAcceptAgent = () => {
+    console.log('Accept agent clicked', { amount, agent })
+    // TODO: implement accept agent flow
+    onClose()
   }
 
   return (
@@ -64,6 +127,41 @@ export default function CashMapPopup({ open, onClose, amount }: CashMapPopupProp
             priority
           />
         </div>
+
+        {/* Agent details card - nested popup on top of map */}
+        {showAgentCard && (
+          <div className={styles.agentCard}>
+            <div className={styles.agentHandleRow}>
+              <Image
+                src={agent.avatar}
+                alt={agent.name}
+                width={60}
+                height={60}
+                className={styles.avatar}
+                unoptimized
+              />
+              <div>
+                <div className={styles.agentHandle}>{agent.name}</div>
+                <div className={styles.meta}>
+                  {agent.rating} ★ · {agent.distance} km away · {agent.time} min
+                </div>
+              </div>
+            </div>
+            <div className={styles.meetingLocationLabel}>MEETING LOCATION</div>
+            <div className={styles.meetingLocationValue}>
+              {agent.address}
+            </div>
+            <div className={styles.insurancePill}>
+              DEPOSIT INSURANCE
+              <span className={styles.insuranceAmount}>
+                {agent.insured}
+              </span>
+            </div>
+            <button className={styles.acceptButton} onClick={handleAcceptAgent}>
+              Accept request
+            </button>
+          </div>
+        )}
       </div>
     </ActionSheet>
   )
