@@ -78,15 +78,17 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         <div className={styles.agentPopupOverlay}>
           {/* Top bar with distance, ETA, and close button */}
           <div className={styles.mapTopBar}>
-            <div className={styles.kmPill}>
-              <div className={styles.kmValue}>
-                <span className={styles.kmNumber}>7.8</span>
-                <span className={styles.kmUnit}>km</span>
+            <div className={styles.chipRow}>
+              <div className={styles.kmPill}>
+                <div className={styles.kmValue}>
+                  <span className={styles.kmNumber}>7.8</span>
+                  <span className={styles.kmUnit}>km</span>
+                </div>
               </div>
-            </div>
-            <div className={styles.etaPill}>
-              <span className={styles.etaLabel}>Arriving in</span>
-              <span className={styles.etaTime}>20 min</span>
+              <div className={styles.etaPill}>
+                <span className={styles.etaLabel}>Arriving in</span>
+                <span className={styles.etaTime}>20 min</span>
+              </div>
             </div>
             <button className={styles.cashMapClose} onClick={onClose} aria-label="Close">
               <Image src="/assets/clear.svg" alt="" width={18} height={18} />
@@ -99,7 +101,8 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
               <div className={styles.mapSheetInner}>
                 {/* Title section */}
                 <div className={styles.titleSection}>
-                  <h2 className={styles.sheetTitle}>A dealer is coming to meet you</h2>
+                  <div className={styles.titleText}>A dealer is coming to meet you</div>
+                  <div className={styles.divider}></div>
                 </div>
                 
                 {/* Agent summary section */}
