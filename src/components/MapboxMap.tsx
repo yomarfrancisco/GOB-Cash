@@ -63,6 +63,7 @@ export default function MapboxMap({
   const logsRef = useRef<string[]>([])
   const [logs, setLogs] = useState<string[]>([])
   const [hasError, setHasError] = useState(false)
+  const [isMapLoaded, setIsMapLoaded] = useState(false)
   const [userLngLat, setUserLngLat] = useState<[number, number] | null>(null)
   const [routeData, setRouteData] = useState<Feature<LineString> | null>(null)
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
@@ -187,6 +188,7 @@ export default function MapboxMap({
     // Register event listeners - NO state updates inside
     map.on('load', () => {
       loadedRef.current = true
+      setIsMapLoaded(true)
       log('event: load')
 
       // Only add geolocation, branch marker, and user marker logic for landing maps
@@ -410,12 +412,14 @@ export default function MapboxMap({
         mapRef.current.remove()
         mapRef.current = null
       }
+      loadedRef.current = false
+      setIsMapLoaded(false)
     }
   }, [styleUrl, containerId, showDebug, variant]) // Removed routeCoordinates - handled in separate effect
 
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
-    if (!mapRef.current || !loadedRef.current || !markers) return
+    if (!mapRef.current || !isMapLoaded || !markers) return
 
     const log = (message: string) => {
       const timestamped = `${new Date().toISOString()}  ${message}`
@@ -527,7 +531,7 @@ export default function MapboxMap({
         })
       })
     }
-  }, [markers, showDebug])
+  }, [markers, showDebug, isMapLoaded])
   
   // Add demo agent markers when in demo mode
   useEffect(() => {
