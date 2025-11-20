@@ -5,7 +5,7 @@ import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import MapboxMap, { type Marker } from './MapboxMap'
 import AgentSummaryRow from './AgentSummaryRow'
-import CashSafetyModal from './cash/CashSafetyModal'
+import SuccessSheet from './SuccessSheet'
 import { useNotificationStore } from '@/store/notifications'
 import styles from './CashMapPopup.module.css'
 
@@ -39,7 +39,7 @@ const KERRYY_AGENT = {
 export default function CashMapPopup({ open, onClose, amount, showAgentCard = false, onComplete }: CashMapPopupProps) {
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
   const [cashFlowState, setCashFlowState] = useState<CashFlowState>('IDLE')
-  const [showSafetyModal, setShowSafetyModal] = useState(false)
+  const [showDepositSuccess, setShowDepositSuccess] = useState(false)
   const [currentDealerLocation, setCurrentDealerLocation] = useState({ lng: 28.0567, lat: -26.1069 })
   const [distance, setDistance] = useState(7.8)
   const [etaMinutes, setEtaMinutes] = useState(20)
@@ -47,7 +47,6 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   
   const animationRef = useRef<number | null>(null)
   const expiryTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const modalDelayTimerRef = useRef<NodeJS.Timeout | null>(null)
   const { pushNotification } = useNotificationStore()
   
   // User location (static for now - could be from geolocation)
@@ -181,7 +180,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     }
   }, [cashFlowState, initialDealerLocation, userLocation, calculateDistance])
 
-  // Handle arrival: show notification and open modal
+  // Handle arrival: show notification
   useEffect(() => {
     if (cashFlowState === 'ARRIVED' && !arrivalNotificationShown) {
       setArrivalNotificationShown(true)
@@ -197,19 +196,6 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           name: 'System',
         },
       })
-
-      // Open safety modal after delay
-      modalDelayTimerRef.current = setTimeout(() => {
-        setShowSafetyModal(true)
-        setCashFlowState('AWAITING_CONFIRMATION')
-      }, 1500)
-    }
-
-    return () => {
-      if (modalDelayTimerRef.current) {
-        clearTimeout(modalDelayTimerRef.current)
-        modalDelayTimerRef.current = null
-      }
     }
   }, [cashFlowState, arrivalNotificationShown, pushNotification])
 
@@ -220,12 +206,11 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   }, [cashFlowState])
 
   useEffect(() => {
-    if (cashFlowState === 'ARRIVED' || cashFlowState === 'AWAITING_CONFIRMATION') {
+    if (cashFlowState === 'ARRIVED') {
       expiryTimerRef.current = setTimeout(() => {
         // Use ref to check current state (avoid stale closure)
         if (cashFlowStateRef.current !== 'COMPLETED') {
           setCashFlowState('EXPIRED')
-          setShowSafetyModal(false)
           onClose()
         }
       }, 120000) // 2 minutes
@@ -247,7 +232,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     } else if (!open) {
       // Reset on close
       setCashFlowState('IDLE')
-      setShowSafetyModal(false)
+      setShowDepositSuccess(false)
       setArrivalNotificationShown(false)
       setCurrentDealerLocation(initialDealerLocation)
       setDistance(7.8)
@@ -264,9 +249,6 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
       if (expiryTimerRef.current) {
         clearTimeout(expiryTimerRef.current)
       }
-      if (modalDelayTimerRef.current) {
-        clearTimeout(modalDelayTimerRef.current)
-      }
     }
   }, [])
 
@@ -275,36 +257,23 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     window.open('https://wa.me/27823306256', '_blank')
   }
 
-  const handleSafetyConfirm = () => {
+  const handleConfirmCashDeposited = () => {
+    // Mark flow as completed and show success sheet
+    setShowDepositSuccess(true)
     setCashFlowState('COMPLETED')
-    setShowSafetyModal(false)
+  }
+
+  const handleCloseDepositSuccess = () => {
+    setShowDepositSuccess(false)
+    setCashFlowState('IDLE')
+    // Close the map popup and reset flow
     if (onComplete) {
       onComplete()
     }
     onClose()
   }
 
-  const handleSafetyModalClose = () => {
-    // Don't close map, just close modal
-    setShowSafetyModal(false)
-    // Keep state as ARRIVED so we can re-open modal later
-    if (cashFlowState === 'AWAITING_CONFIRMATION') {
-      setCashFlowState('ARRIVED')
-    }
-  }
-
-  // Re-open modal when popup re-opens if dealer has arrived
-  useEffect(() => {
-    if (open && cashFlowState === 'ARRIVED' && !showSafetyModal) {
-      const timer = setTimeout(() => {
-        setShowSafetyModal(true)
-        setCashFlowState('AWAITING_CONFIRMATION')
-      }, 1000)
-      return () => clearTimeout(timer)
-    }
-  }, [open, cashFlowState, showSafetyModal])
-
-  const isArrived = cashFlowState === 'ARRIVED' || cashFlowState === 'AWAITING_CONFIRMATION'
+  const isArrived = cashFlowState === 'ARRIVED'
   const cardTitle = isArrived ? 'Your dealer has arrived' : 'A dealer is coming to meet you'
   const arrivalTime = new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
 
@@ -390,20 +359,40 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
                     <AgentSummaryRow agent={KERRYY_AGENT} showWhatsappIcon={true} />
                   </button>
                 </div>
+
+                {/* Confirm button - only show when dealer has arrived */}
+                {cashFlowState === 'ARRIVED' && (
+                  <div className={styles.confirmButtonSection}>
+                    <button
+                      className={styles.confirmButton}
+                      onClick={handleConfirmCashDeposited}
+                      type="button"
+                    >
+                      Confirm cash was deposited
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Safety Modal */}
-      <CashSafetyModal
-        open={showSafetyModal}
-        onClose={handleSafetyModalClose}
-        onConfirm={handleSafetyConfirm}
-        dealerHandle="$kerryy"
-        pinCode="0747"
-        amount={amount}
+      {/* Success Sheet */}
+      <SuccessSheet
+        open={showDepositSuccess}
+        onClose={handleCloseDepositSuccess}
+        amountZAR={`R ${amount.toLocaleString('en-ZA', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`}
+        kind="deposit"
+        autoDownloadReceipt={false}
+        headlineOverride="Cash deposit confirmed"
+        subtitleOverride={`You deposited R ${amount.toLocaleString('en-ZA', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} with your GoBankless agent.`}
       />
     </ActionSheet>
   )

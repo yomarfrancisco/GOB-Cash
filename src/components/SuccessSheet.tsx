@@ -13,6 +13,8 @@ type SuccessSheetProps = {
   autoDownloadReceipt?: boolean // default true
   kind?: 'send' | 'deposit' // default 'send'
   flowType?: 'payment' | 'transfer' // default 'payment'
+  headlineOverride?: string // Optional override for deposit headline
+  subtitleOverride?: string // Optional override for deposit subtitle
 }
 
 export default function SuccessSheet({
@@ -23,6 +25,8 @@ export default function SuccessSheet({
   autoDownloadReceipt = true,
   kind = 'send',
   flowType = 'payment',
+  headlineOverride,
+  subtitleOverride,
 }: SuccessSheetProps) {
   const pushNotification = useNotificationStore((state) => state.pushNotification)
 
@@ -121,9 +125,11 @@ export default function SuccessSheet({
           {kind === 'deposit' ? (
             <>
               <p id="success-title" className="success-headline" aria-live="polite">
-                Deposit successful
+                {headlineOverride ?? 'Cash deposit confirmed'}
               </p>
-              <p className="success-target">You deposited {amountZAR}.</p>
+              <p className="success-target">
+                {subtitleOverride ?? `You deposited ${amountZAR} with your GoBankless agent.`}
+              </p>
             </>
           ) : (
             <>
