@@ -183,7 +183,9 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
 
   // Handle arrival: show notification and auto-open PIN sheet after delay
   useEffect(() => {
-    if (cashFlowState === 'ARRIVED' && !arrivalNotificationShown) {
+    if (cashFlowState !== 'ARRIVED') return
+
+    if (!arrivalNotificationShown) {
       setArrivalNotificationShown(true)
       
       // Show notification
@@ -205,12 +207,13 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     }
 
     return () => {
+      // Only clean up if the sheet hasn't opened yet
       if (depositPinSheetTimerRef.current) {
         clearTimeout(depositPinSheetTimerRef.current)
         depositPinSheetTimerRef.current = null
       }
     }
-  }, [cashFlowState, arrivalNotificationShown, pushNotification])
+  }, [cashFlowState])
 
   // Auto-expiry TTL
   const cashFlowStateRef = useRef(cashFlowState)
