@@ -944,7 +944,7 @@ export default function MapboxMap({
   // Now uses Mapbox Directions API for road-following route
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !loadedRef.current) return
+    if (!map || !isMapLoaded) return
     if (!routeCoordinates || routeCoordinates.length < 2) return
 
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
@@ -1093,7 +1093,7 @@ export default function MapboxMap({
         // Source might not exist or map destroyed
       }
     }
-  }, [routeCoordinates, containerId])
+  }, [routeCoordinates, containerId, isMapLoaded])
 
   // If containerId is provided, we don't render our own container
   // Fallback and debug overlay will be rendered as siblings in the parent
