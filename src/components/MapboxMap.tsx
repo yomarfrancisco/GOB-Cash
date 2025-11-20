@@ -13,6 +13,8 @@ import YouAreHere from './YouAreHere'
 // static import so Next bundles it and gives us a stable .src
 import userIcon from '../../public/assets/character.png'
 
+const DEFAULT_MAP_STYLE = 'mapbox://styles/mapbox/navigation-day-v1'
+
 export type Marker = {
   id: string
   lng: number
@@ -46,7 +48,7 @@ export default function MapboxMap({
   initialZoom = 14,
   markers = [],
   fitToMarkers = true,
-  styleUrl = 'mapbox://styles/mapbox/streets-v12',
+  styleUrl = DEFAULT_MAP_STYLE,
   showDebug = DEBUG_MAP,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -143,7 +145,7 @@ export default function MapboxMap({
     log('construct map')
     const map = new mapboxgl.Map({
       container: container,
-      style: 'mapbox://styles/mapbox/navigation-day-v1',
+      style: styleUrl,
       center: initialCenter,
       zoom: initialZoom,
       attributionControl: false,
