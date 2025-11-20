@@ -2,8 +2,8 @@
 /* The className is applied to .as-sheet, so we can target it directly */
 .cashMapPopup {
   overflow: hidden !important; /* Important: map fills & inherits border radius */
-  max-height: 90vh !important; /* Increased from 85vh by ~6% (close to 20% of usable space) */
-  height: 90vh !important;
+  max-height: 85vh !important; /* Match keypad popup height */
+  height: 85vh !important;
 }
 
 /* Override as-body to remove padding and fill height */
