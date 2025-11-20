@@ -1,0 +1,272 @@
+/* Map bottom sheet - tall popup (75-80% height) */
+.mapSheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 75vh;
+  max-height: 75vh;
+  border-radius: 24px 24px 0 0;
+  overflow: hidden;
+  z-index: 10010; /* Above ActionSheet (10000) but below agent sheet */
+  background: #efece7;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.mapSheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  z-index: 10;
+  position: relative;
+}
+
+.closeButton {
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.closeButton:active {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.mapSheetTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #000000;
+  text-align: center;
+  flex: 1;
+  margin: 0;
+  padding: 0 12px;
+}
+
+.mapCard {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+  background: #efece7;
+}
+
+.mapInnerContainer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* Fold overlays - same as homepage */
+.fold1,
+.fold2 {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: multiply;
+  opacity: 0.22;
+  pointer-events: none;
+  object-fit: cover;
+  z-index: 3; /* Above map */
+}
+
+.fold2 {
+  opacity: 0.18;
+}
+
+/* Agent details sheet - on top of map */
+.agentSheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 280px;
+  max-height: 50vh;
+  border-radius: 24px 24px 0 0;
+  background: #ffffff;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+  z-index: 10020; /* Above map sheet - highest modal */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.agentSheetContent {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  max-height: 50vh;
+}
+
+/* Title row */
+.titleRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deliverTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0;
+}
+
+.distanceTime {
+  font-size: 14px;
+  color: #666666;
+}
+
+/* Agent identity */
+.agentInfo {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.agentAvatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #ffffff;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.agentAvatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.agentDetails {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agentName {
+  font-size: 18px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.agentRatingRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: #666666;
+}
+
+.ratingValue {
+  font-weight: 600;
+}
+
+.starIcon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.reviewCount {
+  color: #999999;
+}
+
+.insuranceBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 8px;
+}
+
+.insuranceLabel {
+  font-size: 12px;
+  color: #22c55e;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.insuranceAmount {
+  font-size: 14px;
+  color: #22c55e;
+  font-weight: 600;
+}
+
+/* Meeting location */
+.meetingLocation {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.locationLabel {
+  font-size: 12px;
+  color: #666666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.locationAddress {
+  font-size: 16px;
+  color: #000000;
+  font-weight: 500;
+}
+
+/* Accept request button */
+.acceptButton {
+  width: 100%;
+  padding: 16px;
+  background: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 8px;
+}
+
+.acceptButton:active {
+  background: #333333;
+}
+
+.acceptButton:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+}
+
+/* Swipe down indicator */
+.agentSheet::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+

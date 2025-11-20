@@ -30,7 +30,7 @@ import { useNotificationStore } from '@/store/notifications'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { useAuthStore } from '@/store/auth'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
-import MapSending from '@/components/MapSending'
+import CashAgentOnTheWay from '@/components/CashAgentOnTheWay'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 
@@ -100,7 +100,7 @@ export default function Home() {
     handle: string
     agentHandle?: string
   } | null>(null)
-  const [openMapSending, setOpenMapSending] = useState(false)
+  const [cashFlowState, setCashFlowState] = useState<'idle' | 'agent_on_the_way'>('idle')
   const [convertAmount, setConvertAmount] = useState(0)
   const [convertAgentHandle, setConvertAgentHandle] = useState('$kerry')
 
@@ -420,10 +420,10 @@ export default function Home() {
               })
               setConvertAgentHandle('$kerry')
               
-              // After another 2 seconds, open map (notifications will auto-dismiss)
+              // After another 2 seconds, transition to agent_on_the_way state (notifications will auto-dismiss)
               setTimeout(() => {
                 setConvertNotificationState(null)
-                setOpenMapSending(true)
+                setCashFlowState('agent_on_the_way')
               }, 2000)
             }, 2000)
           }, 100) // Small delay to ensure modals are closed
@@ -473,13 +473,13 @@ export default function Home() {
         open={openBankTransferDetails}
         onClose={closeBankTransferDetails}
       />
-      <MapSending
-        open={openMapSending}
-        onClose={() => setOpenMapSending(false)}
-        amount={convertAmount}
-        agentHandle={convertAgentHandle}
-        mode="convert"
-      />
+      {cashFlowState === 'agent_on_the_way' && (
+        <CashAgentOnTheWay
+          amount={convertAmount}
+          agentHandle={convertAgentHandle}
+          onClose={() => setCashFlowState('idle')}
+        />
+      )}
       <AgentListSheet
         open={isAgentSheetOpen}
         onClose={() => setIsAgentSheetOpen(false)}
