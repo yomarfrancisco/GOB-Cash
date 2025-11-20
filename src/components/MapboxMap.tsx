@@ -36,6 +36,7 @@ interface Props {
   showDebug?: boolean
   routeCoordinates?: [number, number][] // Optional route line coordinates
   variant?: 'landing' | 'popup' // Map variant: 'landing' for homepage, 'popup' for modal maps
+  hqCoord?: { lng: number; lat: number } // Optional HQ coordinate for dedicated stable marker
 }
 
 const DEBUG_MAP =
@@ -54,6 +55,7 @@ export default function MapboxMap({
   showDebug = DEBUG_MAP,
   routeCoordinates,
   variant = 'landing',
+  hqCoord,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -72,6 +74,7 @@ export default function MapboxMap({
   const savedZoomRef = useRef<number | null>(null)
   const highlightMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const agentMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
+  const hqMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const cameraLockedUntilRef = useRef<number>(0) // Timestamp when camera lock expires
   const routeCoordinatesRef = useRef<[number, number][] | undefined>(routeCoordinates)
   
@@ -507,20 +510,8 @@ export default function MapboxMap({
             .addTo(mapRef.current!)
         }
       } else if (m.kind === 'branch') {
-        // Branch/HQ marker: custom icon using safe.png
-        const el = document.createElement('div')
-        el.style.width = '48px'
-        el.style.height = '48px'
-        el.style.borderRadius = '8px'
-        el.style.overflow = 'hidden'
-        el.style.border = '2px solid white'
-        el.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)'
-        el.style.backgroundImage = 'url("/assets/safe.png")'
-        el.style.backgroundSize = 'cover'
-        el.style.backgroundPosition = 'center'
-        el.style.backgroundColor = '#f5f5f5'
-        
-        marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+        // Branch marker: default Mapbox pin (HQ is handled separately via hqCoord prop)
+        marker = new mapboxgl.Marker()
           .setLngLat([m.lng, m.lat])
           .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label ?? m.name ?? ''))
           .addTo(mapRef.current!)
@@ -550,6 +541,51 @@ export default function MapboxMap({
       })
     }
   }, [markers, showDebug, isMapLoaded])
+
+  // Dedicated stable HQ marker effect (independent of animated markers)
+  useEffect(() => {
+    if (!isMapLoaded || !mapRef.current || !hqCoord) return
+
+    // Create once
+    if (!hqMarkerRef.current) {
+      const el = document.createElement('div')
+      el.style.width = '32px'
+      el.style.height = '32px'
+      el.style.borderRadius = '16px'
+      el.style.overflow = 'hidden'
+      el.style.backgroundColor = 'transparent'
+      el.style.display = 'flex'
+      el.style.alignItems = 'center'
+      el.style.justifyContent = 'center'
+
+      const img = document.createElement('img')
+      img.src = '/assets/safe.png'
+      img.alt = 'GoBankless HQ'
+      img.style.width = '100%'
+      img.style.height = '100%'
+      img.style.objectFit = 'contain'
+      img.style.display = 'block'
+
+      el.appendChild(img)
+
+      hqMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([hqCoord.lng, hqCoord.lat])
+        .addTo(mapRef.current)
+    } else {
+      // If HQ_COORD ever changes in future, keep it in sync
+      hqMarkerRef.current.setLngLat([hqCoord.lng, hqCoord.lat])
+    }
+  }, [isMapLoaded, hqCoord?.lng, hqCoord?.lat])
+
+  // Cleanup HQ marker on unmount only
+  useEffect(() => {
+    return () => {
+      if (hqMarkerRef.current) {
+        hqMarkerRef.current.remove()
+        hqMarkerRef.current = null
+      }
+    }
+  }, [])
   
   // Add demo agent markers when in demo mode
   useEffect(() => {

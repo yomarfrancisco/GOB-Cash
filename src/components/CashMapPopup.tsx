@@ -106,23 +106,10 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     [currentDealerLocation.lng, currentDealerLocation.lat]
   )
 
-  // HQ marker
-  const hqMarker: Marker = useMemo(
-    () => ({
-      id: 'hq-location',
-      lng: HQ_COORD.lng,
-      lat: HQ_COORD.lat,
-      kind: 'branch' as const, // Use branch kind for HQ icon
-      label: 'HQ',
-      name: 'GoBankless HQ',
-    }),
-    [HQ_COORD.lng, HQ_COORD.lat]
-  )
-  
-  // Stable markers array
-  const markers = useMemo(
-    () => [userMarker, dealerMarker, hqMarker],
-    [userMarker, dealerMarker, hqMarker]
+  // Stable markers array (HQ marker handled separately in MapboxMap)
+  const markers = useMemo<Marker[]>(
+    () => [userMarker, dealerMarker],
+    [userMarker, dealerMarker]
   )
   
   // Static routes - computed once per leg, not on every position update
@@ -433,6 +420,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
             styleUrl="mapbox://styles/mapbox/navigation-night-v1"
             routeCoordinates={routeCoordinates}
             variant="popup"
+            hqCoord={{ lng: HQ_COORD.lng, lat: HQ_COORD.lat }}
           />
           {/* Paper/fold overlays - same as homepage, positioned over map */}
           <div className={styles.foldOverlays}>
