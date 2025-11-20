@@ -1,6 +1,6 @@
 'use client'
 
-import { Mail, PhoneForwarded } from 'lucide-react'
+import { Mail, PhoneForwarded, MessageSquare } from 'lucide-react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
