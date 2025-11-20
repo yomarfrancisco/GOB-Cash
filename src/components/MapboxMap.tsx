@@ -35,6 +35,7 @@ interface Props {
   styleUrl?: string // e.g. "mapbox://styles/mapbox/light-v11"
   showDebug?: boolean
   routeCoordinates?: [number, number][] // Optional route line coordinates
+  variant?: 'landing' | 'popup' // Map variant: 'landing' for homepage, 'popup' for modal maps
 }
 
 const DEBUG_MAP =
@@ -52,6 +53,7 @@ export default function MapboxMap({
   styleUrl = DEFAULT_MAP_STYLE,
   showDebug = DEBUG_MAP,
   routeCoordinates,
+  variant = 'landing',
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -108,6 +110,27 @@ export default function MapboxMap({
     const lat2 = toRad(b[1])
     const s = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
     return 2 * R * Math.asin(Math.sqrt(s))
+  }
+
+  // Shared helper to fetch driving route from Mapbox Directions API
+  const fetchDrivingRoute = async (
+    start: [number, number],
+    end: [number, number],
+    token: string,
+  ): Promise<LineString | null> => {
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full&access_token=${token}`
+    
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return null
+      
+      const json = await res.json()
+      const geom = json?.routes?.[0]?.geometry
+      return geom?.type === 'LineString' ? geom : null
+    } catch (error) {
+      log(`fetchDrivingRoute: error: ${error}`)
+      return null
+    }
   }
 
   // Initialize map exactly once
@@ -546,6 +569,9 @@ export default function MapboxMap({
     const map = mapRef.current
     if (!map || !loadedRef.current) return
 
+    // Do not run highlight logic for popup maps - prevents jitter from homepage notifications
+    if (variant === 'popup') return
+
     if (highlight) {
       // Save current map state
       const center = map.getCenter()
@@ -619,7 +645,7 @@ export default function MapboxMap({
       savedCenterRef.current = null
       savedZoomRef.current = null
     }
-  }, [highlight])
+  }, [highlight, variant])
 
   // Effect to keep nearest branch in view while user stays centered
   useEffect(() => {
@@ -738,13 +764,10 @@ export default function MapboxMap({
       return
     }
 
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${userLng},${userLat};${nearest.lng},${nearest.lat}?geometries=geojson&overview=full&access_token=${token}`
-
-    fetch(url)
-      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-      .then((json) => {
-        const geom = json?.routes?.[0]?.geometry
-        if (geom?.type === 'LineString') {
+    // Use shared helper
+    fetchDrivingRoute([userLng, userLat], [nearest.lng, nearest.lat], token)
+      .then((geom) => {
+        if (geom && geom.type === 'LineString') {
           setRouteData({ type: 'Feature', geometry: geom, properties: {} })
           if (process.env.NODE_ENV !== 'production') {
             console.debug('[map] directions route loaded', {
@@ -893,23 +916,56 @@ export default function MapboxMap({
   }, [routeData])
 
   // Effect to add route line when routeCoordinates are provided (popup map only)
+  // Now uses Mapbox Directions API for road-following route
   useEffect(() => {
     const map = mapRef.current
     if (!map || !loadedRef.current) return
     if (!routeCoordinates || routeCoordinates.length < 2) return
 
-    const routeId = `${containerId || 'map'}-route`
-    const layerId = `${routeId}-line`
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+    if (!token) {
+      log('popup-route: no Mapbox token, cannot fetch driving route')
+      return
+    }
 
-    // Helper function to add route (only when style is ready)
-    const addRoute = () => {
+    const routeId = `${containerId || 'map'}-popup-route`
+    const layerId = `${routeId}-line`
+    let cancelled = false
+
+    const addPopupRoute = async () => {
       if (!map.isStyleLoaded()) {
-        log('route: style not loaded, waiting...')
-        return false
+        log('popup-route: style not loaded, waiting...')
+        return
       }
 
+      const start = routeCoordinates[0]
+      const end = routeCoordinates[routeCoordinates.length - 1]
+
+      log(`popup-route: fetching driving route from [${start[0]}, ${start[1]}] to [${end[0]}, ${end[1]}]`)
+
+      const geom = await fetchDrivingRoute(start, end, token)
+
+      if (!geom || cancelled) {
+        if (!cancelled) {
+          log('popup-route: failed to fetch driving route, using straight line fallback')
+          // Fallback to straight line if Directions API fails
+          const fallbackGeom: LineString = {
+            type: 'LineString',
+            coordinates: [start, end],
+          }
+          await addRouteToMap(fallbackGeom)
+        }
+        return
+      }
+
+      await addRouteToMap(geom)
+    }
+
+    const addRouteToMap = async (geom: LineString) => {
+      if (cancelled) return
+
       try {
-        // Remove existing route if any (before re-adding)
+        // Safe remove existing route
         try {
           if (map.getLayer(layerId)) map.removeLayer(layerId)
         } catch (e) {
@@ -921,15 +977,12 @@ export default function MapboxMap({
           // getSource failed, source might not exist or map not ready
         }
 
-        // Add route source
+        // Add route source with road-following geometry
         map.addSource(routeId, {
           type: 'geojson',
           data: {
             type: 'Feature',
-            geometry: {
-              type: 'LineString',
-              coordinates: routeCoordinates,
-            },
+            geometry: geom,
             properties: {},
           },
         })
@@ -950,47 +1003,46 @@ export default function MapboxMap({
           },
         })
 
-        log(`route line added: ${routeCoordinates.length} points`)
+        const coords = (geom.coordinates as [number, number][])
+        log(`popup-route: road-following route added with ${coords.length} points`)
 
-        // Fit bounds to show both markers
+        // Fit bounds to the geometry (all points in the route)
         const bounds = new mapboxgl.LngLatBounds()
-        routeCoordinates.forEach(([lng, lat]) => bounds.extend([lng, lat]))
+        coords.forEach(([lng, lat]) => bounds.extend([lng, lat]))
         map.fitBounds(bounds, {
           padding: 80,
           maxZoom: 14,
           duration: 0, // No animation
         })
 
-        log(`fitted bounds to route`)
-        return true
+        log(`popup-route: fitted bounds to route`)
       } catch (error) {
-        log(`route: error adding source/layer: ${error}`)
-        return false
+        log(`popup-route: error adding route: ${error}`)
       }
     }
 
-    // Try to add immediately if style is loaded
-    if (addRoute()) {
-      return // Success, cleanup handled below
-    }
-
-    // Style not ready - wait for load event
+    // Wait for style to load, then fetch and add route
     const onLoad = () => {
-      addRoute()
+      addPopupRoute()
     }
 
     const onStyleData = () => {
       // Re-add route after style change
       if (map.isStyleLoaded()) {
-        addRoute()
+        addPopupRoute()
       }
     }
 
-    map.once('load', onLoad)
-    map.on('styledata', onStyleData)
+    if (map.isStyleLoaded()) {
+      addPopupRoute()
+    } else {
+      map.once('load', onLoad)
+      map.on('styledata', onStyleData)
+    }
 
     // Cleanup
     return () => {
+      cancelled = true
       const mapInstance = mapRef.current
       if (!mapInstance) return // Map already destroyed
       
@@ -1040,4 +1092,5 @@ export default function MapboxMap({
     </div>
   )
 }
+
 

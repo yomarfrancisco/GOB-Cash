@@ -83,6 +83,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
             markers={[userMarker, dealerMarker]}
             styleUrl="mapbox://styles/mapbox/navigation-night-v1"
             routeCoordinates={routeCoordinates}
+            variant="popup"
           />
           {/* Paper/fold overlays - same as homepage, positioned over map */}
           <div className={styles.foldOverlays}>
