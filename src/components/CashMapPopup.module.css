@@ -23,24 +23,29 @@
   display: none !important; /* Remove header completely */
 }
 
-.cashMapPopupInner {
+/* Root container for the popup */
+.agentPopupRoot {
   position: relative;
   width: 100%;
   height: 100%;
-  flex: 1 1 auto;
-  min-height: 0;
-  background: transparent; /* Allow map to show through behind card */
-  overflow: hidden; /* Important so the map clips to rounded corners */
-  border-radius: 32px 32px 0 0; /* Match popup border radius */
+  border-radius: 32px 32px 0 0;
+  overflow: hidden;
 }
 
-/* Map wrapper - fills entire popup behind card */
-.mapContainer {
+/* Map container - fills entire popup as background */
+.agentPopupMap {
   position: absolute;
-  inset: 0; /* top: 0; right: 0; bottom: 0; left: 0 */
+  inset: 0;
   width: 100%;
   height: 100%;
   z-index: 0;
+}
+
+.mapContainer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 /* Make the Mapbox container + canvas follow the popup radius */
@@ -49,6 +54,18 @@
   border-radius: 32px 32px 0 0 !important; /* Match popup top corners */
   width: 100% !important;
   height: 100% !important;
+}
+
+/* Overlay - contains close button and card, uses flexbox to position card at bottom */
+.agentPopupOverlay {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end; /* Push card to bottom */
+  pointer-events: none; /* Allow map interaction, re-enable on children */
 }
 
 /* Floating close button */
@@ -70,6 +87,7 @@
   cursor: pointer;
   transition: background 0.2s;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  pointer-events: auto; /* Re-enable clicks */
 }
 
 .cashMapClose:active {
@@ -81,6 +99,7 @@
   position: relative;
   z-index: 1;
   background: transparent; /* Allow map to show through */
+  pointer-events: auto; /* Re-enable clicks on card */
   /* Subtle delayed slide-in */
   transform: translateY(10%);
   opacity: 0;
@@ -97,7 +116,7 @@
 .mapSheetInner {
   position: relative;
   z-index: 1;
-  margin: 8px 8px 16px;
+  margin: 0 16px 24px;
   padding: 0;
   border-radius: 24px;
   background-color: #ffffff;
@@ -105,6 +124,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  pointer-events: auto; /* Re-enable clicks */
 }
 
 /* Title section - top status area */
@@ -157,6 +177,8 @@
   inset: 0;
   pointer-events: none;
   z-index: 2;
+  width: 100%;
+  height: 100%;
 }
 
 /* Fold overlays - same as homepage */

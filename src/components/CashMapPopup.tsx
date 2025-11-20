@@ -46,59 +46,64 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" size="tall" className={styles.cashMapPopup}>
-      <div className={styles.cashMapPopupInner}>
-        {/* Floating close button */}
-        <button className={styles.cashMapClose} onClick={onClose} aria-label="Close">
-          <Image src="/assets/clear.svg" alt="" width={18} height={18} />
-        </button>
-        
-        {/* Map container - top region */}
-        <div className={styles.mapContainer} id={mapContainerId} />
-        <MapboxMap
-          containerId={mapContainerId}
-          markers={[agentMarker]}
-          styleUrl="mapbox://styles/mapbox/navigation-night-v1"
-        />
-        {/* Paper/fold overlays - same as homepage, positioned over map */}
-        <div className={styles.foldOverlays}>
-          <Image
-            src="/assets/fold1.png"
-            alt=""
-            fill
-            className={styles.fold1}
-            priority
+      <div className={styles.agentPopupRoot}>
+        {/* Map container - fills entire popup */}
+        <div className={styles.agentPopupMap}>
+          <div className={styles.mapContainer} id={mapContainerId} />
+          <MapboxMap
+            containerId={mapContainerId}
+            markers={[agentMarker]}
+            styleUrl="mapbox://styles/mapbox/navigation-night-v1"
           />
-          <Image
-            src="/assets/fold2.png"
-            alt=""
-            fill
-            className={styles.fold2}
-            priority
-          />
+          {/* Paper/fold overlays - same as homepage, positioned over map */}
+          <div className={styles.foldOverlays}>
+            <Image
+              src="/assets/fold1.png"
+              alt=""
+              fill
+              className={styles.fold1}
+              priority
+            />
+            <Image
+              src="/assets/fold2.png"
+              alt=""
+              fill
+              className={styles.fold2}
+              priority
+            />
+          </div>
         </div>
 
-        {/* Footer content - bottom region with single $kerryy row */}
-        {showAgentCard && (
-          <div className={styles.mapSheetOuter}>
-            <div className={styles.mapSheetInner}>
-              {/* Title section */}
-              <div className={styles.titleSection}>
-                <h2 className={styles.sheetTitle}>A dealer is coming to meet you</h2>
-              </div>
-              
-              {/* Agent summary section */}
-              <div className={styles.agentSection}>
-                <button
-                  className={styles.agentRowButton}
-                  onClick={handleWhatsAppClick}
-                  type="button"
-                >
-                  <AgentSummaryRow agent={KERRYY_AGENT} showWhatsappIcon={true} />
-                </button>
+        {/* Overlay - contains close button and card */}
+        <div className={styles.agentPopupOverlay}>
+          {/* Floating close button */}
+          <button className={styles.cashMapClose} onClick={onClose} aria-label="Close">
+            <Image src="/assets/clear.svg" alt="" width={18} height={18} />
+          </button>
+
+          {/* Footer content - bottom region with single $kerryy row */}
+          {showAgentCard && (
+            <div className={styles.mapSheetOuter}>
+              <div className={styles.mapSheetInner}>
+                {/* Title section */}
+                <div className={styles.titleSection}>
+                  <h2 className={styles.sheetTitle}>A dealer is coming to meet you</h2>
+                </div>
+                
+                {/* Agent summary section */}
+                <div className={styles.agentSection}>
+                  <button
+                    className={styles.agentRowButton}
+                    onClick={handleWhatsAppClick}
+                    type="button"
+                  >
+                    <AgentSummaryRow agent={KERRYY_AGENT} showWhatsappIcon={true} />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </ActionSheet>
   )
