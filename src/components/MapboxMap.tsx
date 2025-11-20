@@ -189,109 +189,112 @@ export default function MapboxMap({
       loadedRef.current = true
       log('event: load')
 
-      const geolocate = new mapboxgl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-        showUserLocation: false, // hide default dot
-        showAccuracyCircle: false,
-      })
+      // Only add geolocation, branch marker, and user marker logic for landing maps
+      if (variant === 'landing') {
+        // Add branch marker (Sandton City)
+        const branchLngLat: [number, number] = [28.054167, -26.108333]
+        const branchEl = document.createElement('div')
+        branchEl.className = styles.branchMarker
+        new mapboxgl.Marker(branchEl).setLngLat(branchLngLat).addTo(map)
+        log(`branch marker added at [${branchLngLat[0]}, ${branchLngLat[1]}]`)
 
-      map.addControl(geolocate, 'top-right')
+        const geolocate = new mapboxgl.GeolocateControl({
+          positionOptions: { enableHighAccuracy: true },
+          trackUserLocation: true,
+          showUserLocation: false, // hide default dot
+          showAccuracyCircle: false,
+        })
 
-      // Add branch marker (Sandton City)
-      const branchLngLat: [number, number] = [28.054167, -26.108333]
-      const branchEl = document.createElement('div')
-      branchEl.className = styles.branchMarker
-      new mapboxgl.Marker(branchEl).setLngLat(branchLngLat).addTo(map)
-      log(`branch marker added at [${branchLngLat[0]}, ${branchLngLat[1]}]`)
+        map.addControl(geolocate, 'top-right')
 
-      // Helper to (re)place custom user marker
-      function upsertUserMarker(lng: number, lat: number) {
-        // create DOM element once
-        let el = userMarkerRef.current?.getElement()
-        if (!el) {
-          el = document.createElement('div')
-          el.className = styles.userMarker
-          // add our PNG as <img> to preserve sharpness on retina
-          const img = document.createElement('img')
-          img.className = styles.userImg
-          img.alt = 'You are here'
-          // Use static import if available, else fall back to public path:
-          const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
-          img.src = userIconUrl
-          // Helpful diagnostics the first time we deploy
-          img.addEventListener('load', () =>
-            log(
-              `[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`
+        // Helper to (re)place custom user marker (using const arrow function to avoid ES5 strict mode error)
+        const upsertUserMarker = (lng: number, lat: number) => {
+          // create DOM element once
+          let el = userMarkerRef.current?.getElement()
+          if (!el) {
+            el = document.createElement('div')
+            el.className = styles.userMarker
+            // add our PNG as <img> to preserve sharpness on retina
+            const img = document.createElement('img')
+            img.className = styles.userImg
+            img.alt = 'You are here'
+            // Use static import if available, else fall back to public path:
+            const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
+            img.src = userIconUrl
+            // Helpful diagnostics the first time we deploy
+            img.addEventListener('load', () =>
+              log(
+                `[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`
+              )
             )
-          )
-          img.addEventListener('error', (e) =>
-            console.error('[user-icon] failed to load', userIconUrl, e)
-          )
-          img.decoding = 'async'
-          img.loading = 'eager'
-          img.referrerPolicy = 'no-referrer'
-          el.appendChild(img)
-          userMarkerRef.current = new mapboxgl.Marker({
-            element: el,
-            anchor: 'center',
-          })
-            .setLngLat([lng, lat])
-            .addTo(map)
-        } else {
-          userMarkerRef.current!.setLngLat([lng, lat])
+            img.addEventListener('error', (e) =>
+              console.error('[user-icon] failed to load', userIconUrl, e)
+            )
+            img.decoding = 'async'
+            img.loading = 'eager'
+            img.referrerPolicy = 'no-referrer'
+            el.appendChild(img)
+            userMarkerRef.current = new mapboxgl.Marker({
+              element: el,
+              anchor: 'center',
+            })
+              .setLngLat([lng, lat])
+              .addTo(map)
+          } else {
+            userMarkerRef.current!.setLngLat([lng, lat])
+          }
+
+          // Add "You are here" bubble above the user marker
+          let bubbleEl = youAreHereMarkerRef.current?.getElement()
+          if (!bubbleEl) {
+            bubbleEl = document.createElement('div')
+            bubbleEl.style.zIndex = '9999'
+            const root = ReactDOM.createRoot(bubbleEl)
+            root.render(<YouAreHere />)
+            
+            youAreHereMarkerRef.current = new mapboxgl.Marker({
+              element: bubbleEl,
+              anchor: 'bottom',
+              offset: [0, -40], // Position above the avatar PNG
+            })
+              .setLngLat([lng, lat])
+              .addTo(map)
+          } else {
+            youAreHereMarkerRef.current!.setLngLat([lng, lat])
+          }
         }
 
-        // Add "You are here" bubble above the user marker
-        let bubbleEl = youAreHereMarkerRef.current?.getElement()
-        if (!bubbleEl) {
-          bubbleEl = document.createElement('div')
-          bubbleEl.style.zIndex = '9999'
-          const root = ReactDOM.createRoot(bubbleEl)
-          root.render(<YouAreHere />)
-          
-          youAreHereMarkerRef.current = new mapboxgl.Marker({
-            element: bubbleEl,
-            anchor: 'bottom',
-            offset: [0, -40], // Position above the avatar PNG
-          })
-            .setLngLat([lng, lat])
-            .addTo(map)
-        } else {
-          youAreHereMarkerRef.current!.setLngLat([lng, lat])
-        }
+        let centeredOnce = false
+
+        geolocate.on('geolocate', (e: any) => {
+          const lng = e.coords.longitude
+          const lat = e.coords.latitude
+
+          // Update custom user marker on every geolocate event
+          upsertUserMarker(lng, lat)
+
+          // (optional) keep map centered on the user when first found
+          if (!centeredOnce) {
+            centeredOnce = true
+            map.setCenter([lng, lat])
+            // Set user location state (will trigger zoom effect)
+            setUserLngLat([lng, lat])
+            console.log('[Mapbox] Centered on user:', { lng, lat })
+          } else {
+            // Update user location state for route recalculation
+            setUserLngLat([lng, lat])
+          }
+        })
+
+        // Trigger geolocate after a short delay
+        setTimeout(() => {
+          try {
+            geolocate.trigger()
+          } catch (err) {
+            console.warn('[Mapbox] Geolocate trigger failed', err)
+          }
+        }, 500)
       }
-
-      let centeredOnce = false
-
-      geolocate.on('geolocate', (e: any) => {
-        const lng = e.coords.longitude
-        const lat = e.coords.latitude
-
-        // Update custom user marker on every geolocate event
-        upsertUserMarker(lng, lat)
-
-        // (optional) keep map centered on the user when first found
-        if (!centeredOnce) {
-          centeredOnce = true
-          map.setCenter([lng, lat])
-          // Set user location state (will trigger zoom effect)
-          setUserLngLat([lng, lat])
-          console.log('[Mapbox] Centered on user:', { lng, lat })
-        } else {
-          // Update user location state for route recalculation
-          setUserLngLat([lng, lat])
-        }
-      })
-
-      // Trigger geolocate after a short delay
-      setTimeout(() => {
-        try {
-          geolocate.trigger()
-        } catch (err) {
-          console.warn('[Mapbox] Geolocate trigger failed', err)
-        }
-      }, 500)
 
       // Trigger resize after load - use requestAnimationFrame to avoid reflow
       requestAnimationFrame(() => {
@@ -405,7 +408,7 @@ export default function MapboxMap({
         mapRef.current = null
       }
     }
-  }, [styleUrl, containerId, showDebug, routeCoordinates]) // Include routeCoordinates in deps
+  }, [styleUrl, containerId, showDebug, routeCoordinates, variant]) // Include variant in deps
 
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
@@ -526,6 +529,7 @@ export default function MapboxMap({
   // Add demo agent markers when in demo mode
   useEffect(() => {
     if (!mapRef.current || !loadedRef.current) return
+    if (variant === 'popup') return // no demo agents on popup
     if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') return
     
     // Add demo agents as persistent markers
@@ -562,7 +566,7 @@ export default function MapboxMap({
     return () => {
       // Don't remove demo agents on cleanup - they should persist
     }
-  }, [demoAgentMarkers])
+  }, [demoAgentMarkers, variant])
 
   // Effect to handle map highlighting from notifications
   useEffect(() => {
@@ -652,6 +656,7 @@ export default function MapboxMap({
     const map = mapRef.current
     if (!map) return
     if (!loadedRef.current) return // ensure map is fully loaded
+    if (variant === 'popup') return // popup: no auto-zoom logic
     if (!userLngLat) return
     if (!markers?.length) return
 
@@ -719,13 +724,14 @@ export default function MapboxMap({
         )
       }
     })
-  }, [userLngLat, markers]) // not depending on initialZoom/Center; we only care once user+markers exist
+  }, [userLngLat, markers, variant]) // not depending on initialZoom/Center; we only care once user+markers exist
 
   // Effect 1: Fetch route from user to nearest branch
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     if (!loadedRef.current) return
+    if (variant !== 'landing') return // only landing uses user→branch route
     if (!userLngLat) return
     if (!markers?.length) return
 
@@ -809,7 +815,7 @@ export default function MapboxMap({
           console.debug('[map] directions fetch failed; using fallback line')
         }
       })
-  }, [userLngLat, markers])
+  }, [userLngLat, markers, variant])
 
   // Effect 2: Draw / update route layer
   useEffect(() => {
