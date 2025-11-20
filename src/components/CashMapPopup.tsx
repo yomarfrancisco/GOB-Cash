@@ -40,15 +40,15 @@ export default function CashMapPopup({ open, onClose, amount }: CashMapPopupProp
         <button className={styles.cashMapClose} onClick={onClose} aria-label="Close">
           <Image src="/assets/clear.svg" alt="" width={18} height={18} />
         </button>
-        {/* Map container */}
-        <div className={styles.mapCard}>
-          <div className={styles.mapInnerContainer} id={mapContainerId} />
-          <MapboxMap
-            containerId={mapContainerId}
-            markers={[agentMarker]}
-            styleUrl="mapbox://styles/mapbox/streets-v12"
-          />
-          {/* Paper/fold overlays - same as homepage */}
+        {/* Map container - direct container for Mapbox */}
+        <div className={styles.mapContainer} id={mapContainerId} />
+        <MapboxMap
+          containerId={mapContainerId}
+          markers={[agentMarker]}
+          styleUrl="mapbox://styles/mapbox/streets-v12"
+        />
+        {/* Paper/fold overlays - same as homepage, positioned over map */}
+        <div className={styles.foldOverlays}>
           <Image
             src="/assets/fold1.png"
             alt=""

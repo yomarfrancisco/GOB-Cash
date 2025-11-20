@@ -1,7 +1,7 @@
 /* Cash Map Popup - uses ActionSheet shell */
 /* The className is applied to .as-sheet, so we can target it directly */
 .cashMapPopup {
-  overflow: hidden !important; /* Important: map fills & inherits border radius */
+  overflow: hidden !important; /* Critical for clipping */
   max-height: 85vh !important; /* Match keypad popup height */
   height: 85vh !important;
   border-radius: 32px 32px 0 0 !important; /* Match ActionSheet border radius */
@@ -17,15 +17,31 @@
   overflow: hidden;
 }
 
+/* Remove any header that might create a flat edge */
+.cashMapPopup :global(.as-header) {
+  display: none !important; /* Remove header completely */
+}
+
 .cashMapPopupInner {
   position: relative;
   width: 100%;
   height: 100%;
   flex: 1 1 auto;
   min-height: 0;
-  border-radius: inherit; /* Inherit border radius from parent */
-  overflow: hidden; /* Ensure content respects border radius */
   /* Map fills the popup's content area */
+}
+
+.mapContainer {
+  width: 100%;
+  height: 100%;
+}
+
+/* Make the Mapbox container + canvas follow the popup radius */
+.cashMapPopup :global(.mapboxgl-map),
+.cashMapPopup :global(.mapboxgl-canvas) {
+  border-radius: 32px 32px 0 0 !important; /* Match popup top corners */
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* Floating close button */
@@ -53,22 +69,20 @@
   background: rgba(255, 255, 255, 1);
 }
 
-.mapCard {
+.mapContainer {
   position: relative;
   width: 100%;
   height: 100%;
-  /* Ensure border-radius matches parent popup */
-  border-radius: inherit;
-  overflow: hidden;
-  background: #efece7;
+  flex: 1;
+  min-height: 0;
+  z-index: 1;
 }
 
-.mapInnerContainer {
+.foldOverlays {
   position: absolute;
   inset: 0;
-  z-index: 1;
-  border-radius: inherit; /* Ensure map respects border radius */
-  overflow: hidden; /* Clip map to rounded corners */
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* Fold overlays - same as homepage */
