@@ -81,15 +81,21 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         {showAgentCard && (
           <div className={styles.mapSheetOuter}>
             <div className={styles.mapSheetInner}>
-              <h2 className={styles.sheetTitle}>An agent is on its way to meet you</h2>
+              {/* Title section */}
+              <div className={styles.titleSection}>
+                <h2 className={styles.sheetTitle}>A dealer is coming to meet you</h2>
+              </div>
               
-              <button
-                className={styles.agentRowButton}
-                onClick={handleWhatsAppClick}
-                type="button"
-              >
-                <AgentSummaryRow agent={KERRYY_AGENT} showWhatsappIcon={true} />
-              </button>
+              {/* Agent summary section */}
+              <div className={styles.agentSection}>
+                <button
+                  className={styles.agentRowButton}
+                  onClick={handleWhatsAppClick}
+                  type="button"
+                >
+                  <AgentSummaryRow agent={KERRYY_AGENT} showWhatsappIcon={true} />
+                </button>
+              </div>
             </div>
           </div>
         )}
