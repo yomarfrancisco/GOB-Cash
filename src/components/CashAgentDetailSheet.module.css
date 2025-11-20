@@ -6,7 +6,7 @@
   bottom: 0;
   padding: 16px 20px 24px;
   background: #fff;
-  border-radius: 24px 24px 0 0;
+  border-radius: 32px 32px 0 0;
   z-index: 10; /* Must sit above the map canvas */
   box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.18);
   /* Subtle delayed slide-in */
@@ -22,88 +22,220 @@
   }
 }
 
-.divider {
-  height: 1px;
-  background: rgba(0, 0, 0, 0.08);
-  margin: 16px 0;
-}
-
-.meetingLocation {
-  margin-bottom: 16px;
-}
-
-.meetingLocationLabel {
-  font-size: 12px;
-  color: #666666;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-  font-weight: 500;
-}
-
-.meetingLocationRow {
+/* Handle row with chevron */
+.handleRow {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 0 12px;
 }
 
-.locationIcon {
-  color: #666666;
-  flex-shrink: 0;
-  margin-top: 2px;
+.handleIcon {
+  color: rgba(0, 0, 0, 0.3);
 }
 
-.meetingLocationValue {
-  font-size: 16px;
-  color: #000000;
-  font-weight: 500;
-  line-height: 1.4;
-  flex: 1;
-}
-
-.insurancePill {
+/* Title row with ETA pill */
+.titleRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: rgba(34, 197, 94, 0.1);
+  margin-bottom: 12px;
+}
+
+.titleText {
+  font-size: 22px;
+  font-weight: 300;
+  color: #000000;
+  line-height: 1.3;
+  flex: 1;
+  padding-right: 12px;
+}
+
+.etaPill {
+  background: #f2f2f7;
+  color: #000000;
+  padding: 6px 12px;
   border-radius: 12px;
-  margin-bottom: 16px;
-}
-
-.insuranceLabel {
-  font-size: 12px;
-  color: #22c55e;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.insuranceAmount {
   font-size: 14px;
-  font-weight: 600;
-  color: #22c55e;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.acceptButton {
+/* Progress bar */
+.progressBar {
+  width: 100%;
+  height: 2px;
+  background: #e5e5ea;
+  border-radius: 1px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  width: 30%; /* Progress indicator - adjust as needed */
+  background: #000000;
+  border-radius: 1px;
+}
+
+/* Dealer card */
+.dealerRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dealerAvatarWrapper {
+  flex-shrink: 0;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #E9E9EB;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dealerAvatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dealerInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dealerUsername {
+  font-size: 18px;
+  font-weight: 600;
+  color: #000000;
+  line-height: 1.25;
+}
+
+.dealerRatingRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.ratingValue {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+}
+
+.starIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.reviewCount {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+}
+
+.dealerLicenseRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.licenseLabel {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+}
+
+.licenseBar {
+  width: 100%;
+  height: 4px;
+  background: #e5e5e5;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.licenseBarFill {
+  height: 100%;
+  background: #34c759;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.messageButton {
   width: 100%;
   padding: 16px;
-  background: #000000;
-  color: #ffffff;
+  background: #e5e5ea;
+  color: #000000;
   border: none;
   border-radius: 16px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+.messageButton:active {
+  background: #d1d1d6;
+}
+
+.lockIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  color: #000000;
+}
+
+.cancelButton {
+  width: 100%;
+  padding: 14px;
+  background: #ffffff;
+  color: #ff3b30;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
   transition: background 0.2s;
 }
 
-.acceptButton:active {
-  background: #333333;
-}
-
-.acceptButton:disabled {
-  background: #cccccc;
-  cursor: not-allowed;
+.cancelButton:active {
+  background: #f5f5f5;
 }
 

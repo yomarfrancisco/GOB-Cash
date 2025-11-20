@@ -107,6 +107,12 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     onClose()
   }
 
+  const handleCancelRequest = () => {
+    console.log('Cancel request clicked')
+    // TODO: implement cancel request flow
+    onClose()
+  }
+
   return (
     <ActionSheet open={open} onClose={onClose} title="" size="tall" className={styles.cashMapPopup}>
       <div className={styles.cashMapPopupInner}>
@@ -119,7 +125,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         <MapboxMap
           containerId={mapContainerId}
           markers={[agentMarker]}
-          styleUrl="mapbox://styles/mapbox/streets-v12"
+          styleUrl="mapbox://styles/mapbox/navigation-night-v1"
         />
         {/* Paper/fold overlays - same as homepage, positioned over map */}
         <div className={styles.foldOverlays}>
@@ -144,6 +150,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           <CashAgentDetailSheet
             agent={agentForRow}
             onAccept={handleAcceptAgent}
+            onCancel={handleCancelRequest}
           />
         )}
       </div>
