@@ -219,7 +219,6 @@ export default function Home() {
   const formattedFunds = formatZAR(fundsAvailableZAR)
 
   // Get auth state to determine behavior (replaces mode toggle)
-  const { isAuthed } = useAuthStore()
   // Effective mode: autonomous when signed out, manual when signed in
   const effectiveMode = isAuthed ? 'manual' : 'autonomous'
 
