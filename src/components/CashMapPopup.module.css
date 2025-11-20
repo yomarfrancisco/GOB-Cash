@@ -23,6 +23,11 @@
   display: none !important; /* Remove header completely */
 }
 
+/* Hide ActionSheet's default close button - we use our own floating close button */
+.cashMapPopup :global(.as-close-only) {
+  display: none !important;
+}
+
 /* Root container for the popup */
 .agentPopupRoot {
   position: relative;
