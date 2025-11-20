@@ -125,22 +125,33 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     [userMarker, dealerMarker, hqMarker]
   )
   
-  // Route coordinates for the line - direction depends on state
+  // Static routes - computed once per leg, not on every position update
+  const hqToUserRoute = useMemo<[number, number][]>(
+    () => [
+      [HQ_COORD.lng, HQ_COORD.lat],
+      [userLocation.lng, userLocation.lat],
+    ],
+    [HQ_COORD.lng, HQ_COORD.lat, userLocation.lng, userLocation.lat]
+  )
+
+  const userToHqRoute = useMemo<[number, number][]>(
+    () => [
+      [userLocation.lng, userLocation.lat],
+      [HQ_COORD.lng, HQ_COORD.lat],
+    ],
+    [HQ_COORD.lng, HQ_COORD.lat, userLocation.lng, userLocation.lat]
+  )
+
+  // Route coordinates - switch between static routes based on state
   const routeCoordinates = useMemo<[number, number][]>(() => {
-    if (cashFlowState === 'IN_TRANSIT_TO_HQ') {
-      // Return trip: from current dealer location to HQ
-      return [
-        [currentDealerLocation.lng, currentDealerLocation.lat],
-        [HQ_COORD.lng, HQ_COORD.lat],
-      ]
+    if (cashFlowState === 'IN_TRANSIT_TO_HQ' || cashFlowState === 'COMPLETED') {
+      // Return trip: user → HQ
+      return userToHqRoute
     } else {
-      // Outbound trip: from HQ to current dealer location (toward user)
-      return [
-        [HQ_COORD.lng, HQ_COORD.lat],
-        [currentDealerLocation.lng, currentDealerLocation.lat],
-      ]
+      // Outbound trip: HQ → user (for MATCHED_EN_ROUTE and ARRIVED)
+      return hqToUserRoute
     }
-  }, [cashFlowState, currentDealerLocation.lng, currentDealerLocation.lat, HQ_COORD.lng, HQ_COORD.lat])
+  }, [cashFlowState, hqToUserRoute, userToHqRoute])
 
   // Calculate distance between two points (Haversine formula)
   const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number) => {
@@ -404,10 +415,11 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   const cardTitle = getCardTitle()
   const arrivalTime = new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
   
-  // Show distance/ETA badges when not at destination
-  const showDistanceBadges = cashFlowState === 'MATCHED_EN_ROUTE' || cashFlowState === 'IN_TRANSIT_TO_HQ'
-  const isAtDestination = cashFlowState === 'ARRIVED' || cashFlowState === 'COMPLETED'
+  // Show distance/ETA badges when en route or at client (ARRIVED shows 0.0 km)
+  const showDistanceBadges = cashFlowState === 'MATCHED_EN_ROUTE' || cashFlowState === 'ARRIVED' || cashFlowState === 'IN_TRANSIT_TO_HQ'
+  const isAtDestination = cashFlowState === 'COMPLETED'
   const isReturnTrip = cashFlowState === 'IN_TRANSIT_TO_HQ'
+  const isArrivedAtClient = cashFlowState === 'ARRIVED'
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" size="tall" className={styles.cashMapPopup}>
@@ -454,12 +466,18 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
                       <span className={styles.kmUnit}>km</span>
                     </div>
                   </div>
-                  <div className={styles.etaPill}>
-                    <span className={styles.etaLabel}>
-                      {isReturnTrip ? 'Arriving at HQ in' : 'Arriving in'}
-                    </span>
-                    <span className={styles.etaTime}>{etaMinutes} min</span>
-                  </div>
+                  {isArrivedAtClient ? (
+                    <div className={styles.etaPill} style={{ minWidth: 'auto', padding: '12px 16px' }}>
+                      <span className={styles.etaLabel}>Arrived</span>
+                    </div>
+                  ) : (
+                    <div className={styles.etaPill}>
+                      <span className={styles.etaLabel}>
+                        {isReturnTrip ? 'Arriving at HQ in' : 'Arriving in'}
+                      </span>
+                      <span className={styles.etaTime}>{etaMinutes} min</span>
+                    </div>
+                  )}
                 </>
               )}
               {isAtDestination && (
@@ -523,12 +541,12 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         })}`}
         kind="deposit"
         autoDownloadReceipt={false}
-        headlineOverride="Cash deposit confirmed"
-        subtitleOverride={`You deposited R ${amount.toLocaleString('en-ZA', {
+        headlineOverride="Cash conversion confirmed"
+        subtitleOverride={`You converted R ${amount.toLocaleString('en-ZA', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-        })} with your GoBankless agent. Your cash is now secured at GoBankless HQ.`}
-        receiptOverride="Proof of deposit will be emailed to you."
+        })} in cash to crypto.`}
+        receiptOverride="Proof of payment will be emailed to you."
       />
     </ActionSheet>
   )

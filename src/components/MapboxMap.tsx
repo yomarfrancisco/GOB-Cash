@@ -506,8 +506,26 @@ export default function MapboxMap({
             .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label || m.name || ''))
             .addTo(mapRef.current!)
         }
+      } else if (m.kind === 'branch') {
+        // Branch/HQ marker: custom icon using safe.png
+        const el = document.createElement('div')
+        el.style.width = '48px'
+        el.style.height = '48px'
+        el.style.borderRadius = '8px'
+        el.style.overflow = 'hidden'
+        el.style.border = '2px solid white'
+        el.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)'
+        el.style.backgroundImage = 'url("/assets/safe.png")'
+        el.style.backgroundSize = 'cover'
+        el.style.backgroundPosition = 'center'
+        el.style.backgroundColor = '#f5f5f5'
+        
+        marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([m.lng, m.lat])
+          .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label ?? m.name ?? ''))
+          .addTo(mapRef.current!)
       } else {
-        // Default Mapbox pin for branches
+        // Default Mapbox pin for other types
         marker = new mapboxgl.Marker()
           .setLngLat([m.lng, m.lat])
           .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label ?? ''))

@@ -127,10 +127,10 @@ export default function SuccessSheet({
           {kind === 'deposit' ? (
             <>
               <p id="success-title" className="success-headline" aria-live="polite">
-                {headlineOverride ?? 'Cash deposit confirmed'}
+                {headlineOverride ?? 'Cash conversion confirmed'}
               </p>
               <p className="success-target">
-                {subtitleOverride ?? `You deposited ${amountZAR} with your GoBankless agent.`}
+                {subtitleOverride ?? `You converted ${amountZAR} in cash to crypto.`}
               </p>
             </>
           ) : (
