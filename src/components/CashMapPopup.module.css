@@ -94,9 +94,8 @@
 
 /* Distance pill: white */
 .kmPill {
-  height: 40px;
-  min-width: 72px;
-  padding: 8px 10px;
+  height: 56px; /* Match ETA pill height */
+  min-width: 64px;
   border-radius: 16px;
   background-color: #fff;
   border: 1px solid #ddd;
@@ -104,36 +103,46 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 8px 12px;
   text-align: center;
   font-family: 'Acumin VF', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  font-size: 18px;
   color: #000;
-  letter-spacing: -0.22px;
-  line-height: 1.1;
 }
 
 .kmValue {
+  display: flex;
+  flex-direction: column; /* Force 7.8 above km */
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+}
+
+.kmNumber {
+  font-size: 22px;
+  letter-spacing: -0.22px;
   font-weight: 300;
 }
 
 .kmUnit {
-  font-size: 12px;
-  margin-left: 3px;
+  font-size: 13px;
+  margin-top: 2px;
 }
 
 /* ETA pill: black */
 .etaPill {
-  height: 40px;
-  padding: 8px 12px;
+  height: 56px; /* Match km pill height */
+  min-width: 140px;
   border-radius: 16px;
   background-color: #000;
   box-shadow: 0px -4px 100px rgba(0, 0, 0, 0.25), 0px 6px 36px rgba(86, 86, 86, 0.2);
   display: flex;
   align-items: center;
-  gap: 6px;
+  padding: 12px 16px;
   box-sizing: border-box;
+  gap: 8px;
+  text-align: left;
   font-family: 'Acumin VF', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  font-size: 14px;
+  font-size: 16px;
   color: #fff;
 }
 
@@ -145,7 +154,7 @@
 .etaTime {
   letter-spacing: 0.03em;
   font-weight: 500;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 /* Floating close button - now inside mapTopBar */

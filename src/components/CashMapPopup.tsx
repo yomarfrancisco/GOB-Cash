@@ -79,8 +79,10 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           {/* Top bar with distance, ETA, and close button */}
           <div className={styles.mapTopBar}>
             <div className={styles.kmPill}>
-              <span className={styles.kmValue}>7.8</span>
-              <span className={styles.kmUnit}>km</span>
+              <div className={styles.kmValue}>
+                <span className={styles.kmNumber}>7.8</span>
+                <span className={styles.kmUnit}>km</span>
+              </div>
             </div>
             <div className={styles.etaPill}>
               <span className={styles.etaLabel}>Arriving in</span>
