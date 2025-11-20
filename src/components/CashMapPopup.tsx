@@ -39,7 +39,7 @@ const KERRYY_AGENT = {
 export default function CashMapPopup({ open, onClose, amount, showAgentCard = false, onComplete }: CashMapPopupProps) {
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
   const [cashFlowState, setCashFlowState] = useState<CashFlowState>('IDLE')
-  const [showDepositSuccess, setShowDepositSuccess] = useState(false)
+  const [showDepositPinSheet, setShowDepositPinSheet] = useState(false)
   const [currentDealerLocation, setCurrentDealerLocation] = useState({ lng: 28.0567, lat: -26.1069 })
   const [distance, setDistance] = useState(7.8)
   const [etaMinutes, setEtaMinutes] = useState(20)
@@ -47,6 +47,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   
   const animationRef = useRef<number | null>(null)
   const expiryTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const depositPinSheetTimerRef = useRef<NodeJS.Timeout | null>(null)
   const { pushNotification } = useNotificationStore()
   
   // User location (static for now - could be from geolocation)
@@ -180,7 +181,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     }
   }, [cashFlowState, initialDealerLocation, userLocation, calculateDistance])
 
-  // Handle arrival: show notification
+  // Handle arrival: show notification and auto-open PIN sheet after delay
   useEffect(() => {
     if (cashFlowState === 'ARRIVED' && !arrivalNotificationShown) {
       setArrivalNotificationShown(true)
@@ -196,6 +197,18 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           name: 'System',
         },
       })
+
+      // Auto-open PIN sheet after 1-2 second delay
+      depositPinSheetTimerRef.current = setTimeout(() => {
+        setShowDepositPinSheet(true)
+      }, 1200) // 1.2 seconds
+    }
+
+    return () => {
+      if (depositPinSheetTimerRef.current) {
+        clearTimeout(depositPinSheetTimerRef.current)
+        depositPinSheetTimerRef.current = null
+      }
     }
   }, [cashFlowState, arrivalNotificationShown, pushNotification])
 
@@ -232,7 +245,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     } else if (!open) {
       // Reset on close
       setCashFlowState('IDLE')
-      setShowDepositSuccess(false)
+      setShowDepositPinSheet(false)
       setArrivalNotificationShown(false)
       setCurrentDealerLocation(initialDealerLocation)
       setDistance(7.8)
@@ -249,6 +262,9 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
       if (expiryTimerRef.current) {
         clearTimeout(expiryTimerRef.current)
       }
+      if (depositPinSheetTimerRef.current) {
+        clearTimeout(depositPinSheetTimerRef.current)
+      }
     }
   }, [])
 
@@ -257,14 +273,8 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     window.open('https://wa.me/27823306256', '_blank')
   }
 
-  const handleConfirmCashDeposited = () => {
-    // Mark flow as completed and show success sheet
-    setShowDepositSuccess(true)
-    setCashFlowState('COMPLETED')
-  }
-
-  const handleCloseDepositSuccess = () => {
-    setShowDepositSuccess(false)
+  const handleDepositPinSheetClose = () => {
+    setShowDepositPinSheet(false)
     setCashFlowState('IDLE')
     // Close the map popup and reset flow
     if (onComplete) {
@@ -359,40 +369,25 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
                     <AgentSummaryRow agent={KERRYY_AGENT} showWhatsappIcon={true} />
                   </button>
                 </div>
-
-                {/* Confirm button - only show when dealer has arrived */}
-                {cashFlowState === 'ARRIVED' && (
-                  <div className={styles.confirmButtonSection}>
-                    <button
-                      className={styles.confirmButton}
-                      onClick={handleConfirmCashDeposited}
-                      type="button"
-                    >
-                      Confirm cash was deposited
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Success Sheet */}
+      {/* Deposit PIN Success Sheet */}
       <SuccessSheet
-        open={showDepositSuccess}
-        onClose={handleCloseDepositSuccess}
+        open={showDepositPinSheet}
+        onClose={handleDepositPinSheetClose}
         amountZAR={`R ${amount.toLocaleString('en-ZA', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`}
         kind="deposit"
         autoDownloadReceipt={false}
-        headlineOverride="Cash deposit confirmed"
-        subtitleOverride={`You deposited R ${amount.toLocaleString('en-ZA', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })} with your GoBankless agent.`}
+        headlineOverride="PIN 0747"
+        subtitleOverride="Ask your dealer to confirm the PIN."
+        receiptOverride="Proof of deposit will be emailed to you."
       />
     </ActionSheet>
   )

@@ -15,6 +15,7 @@ type SuccessSheetProps = {
   flowType?: 'payment' | 'transfer' // default 'payment'
   headlineOverride?: string // Optional override for deposit headline
   subtitleOverride?: string // Optional override for deposit subtitle
+  receiptOverride?: string // Optional override for receipt line
 }
 
 export default function SuccessSheet({
@@ -27,6 +28,7 @@ export default function SuccessSheet({
   flowType = 'payment',
   headlineOverride,
   subtitleOverride,
+  receiptOverride,
 }: SuccessSheetProps) {
   const pushNotification = useNotificationStore((state) => state.pushNotification)
 
@@ -143,7 +145,9 @@ export default function SuccessSheet({
           )}
         </div>
         <div className="success-spacer" />
-        <p className="success-receipt">Proof of payment will be emailed to you</p>
+        <p className="success-receipt">
+          {receiptOverride ?? 'Proof of payment will be emailed to you'}
+        </p>
         <button className="success-btn" onClick={onClose}>
           Got it
         </button>
