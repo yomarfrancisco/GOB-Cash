@@ -473,12 +473,17 @@ export default function Home() {
         open={openBankTransferDetails}
         onClose={closeBankTransferDetails}
       />
-      <CashMapPopup
-        open={isMapOpen}
-        onClose={handleCloseMapPopup}
-        amount={convertAmount}
-        showAgentCard={isAgentCardVisible}
-      />
+              <CashMapPopup
+                open={isMapOpen}
+                onClose={handleCloseMapPopup}
+                amount={convertAmount}
+                showAgentCard={isAgentCardVisible}
+                onComplete={() => {
+                  // Reset convert flow state when deposit is completed
+                  setConvertAmount(0)
+                  setConvertNotificationState(null)
+                }}
+              />
       <AgentListSheet
         open={isAgentSheetOpen}
         onClose={() => setIsAgentSheetOpen(false)}

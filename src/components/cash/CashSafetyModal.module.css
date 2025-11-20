@@ -1,0 +1,165 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modalContent {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 32px 24px 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.closeButton {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.closeButton:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.closeButton:active {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.title {
+  font-family: 'Acumin VF', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0 0 32px;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.stepsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.stepIcon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  transition: background 0.3s ease;
+}
+
+.stepIcon:has(.checkIcon) {
+  background: #22c55e;
+}
+
+.checkIcon {
+  color: #ffffff;
+  stroke-width: 3;
+}
+
+.loaderIcon {
+  color: #999999;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.stepContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stepTitle {
+  font-family: 'Acumin VF', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #000000;
+  line-height: 1.4;
+}
+
+.stepSubtext {
+  font-family: 'Acumin VF', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #666666;
+  line-height: 1.4;
+}
+
+.confirmButton {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Acumin VF', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.confirmButtonDisabled {
+  background: #ffe5e5;
+  color: #cc6666;
+  cursor: not-allowed;
+}
+
+.confirmButtonEnabled {
+  background: #ff4d4d;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.confirmButtonEnabled:hover {
+  background: #ff3333;
+}
+
+.confirmButtonEnabled:active {
+  background: #e63939;
+}
+
+.confirmButton:disabled {
+  cursor: not-allowed;
+}
+

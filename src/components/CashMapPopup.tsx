@@ -1,17 +1,28 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import MapboxMap, { type Marker } from './MapboxMap'
 import AgentSummaryRow from './AgentSummaryRow'
+import CashSafetyModal from './cash/CashSafetyModal'
+import { useNotificationStore } from '@/store/notifications'
 import styles from './CashMapPopup.module.css'
+
+type CashFlowState =
+  | 'IDLE'
+  | 'MATCHED_EN_ROUTE'
+  | 'ARRIVED'
+  | 'AWAITING_CONFIRMATION'
+  | 'COMPLETED'
+  | 'EXPIRED'
 
 type CashMapPopupProps = {
   open: boolean
   onClose: () => void
   amount: number
   showAgentCard?: boolean
+  onComplete?: () => void // Called when deposit is confirmed
 }
 
 // Single $kerryy agent data - matches AgentListSheet format
@@ -25,8 +36,19 @@ const KERRYY_AGENT = {
   progress: 98,
 }
 
-export default function CashMapPopup({ open, onClose, amount, showAgentCard = false }: CashMapPopupProps) {
+export default function CashMapPopup({ open, onClose, amount, showAgentCard = false, onComplete }: CashMapPopupProps) {
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
+  const [cashFlowState, setCashFlowState] = useState<CashFlowState>('IDLE')
+  const [showSafetyModal, setShowSafetyModal] = useState(false)
+  const [currentDealerLocation, setCurrentDealerLocation] = useState({ lng: 28.0567, lat: -26.1069 })
+  const [distance, setDistance] = useState(7.8)
+  const [etaMinutes, setEtaMinutes] = useState(20)
+  const [arrivalNotificationShown, setArrivalNotificationShown] = useState(false)
+  
+  const animationRef = useRef<number | null>(null)
+  const expiryTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const modalDelayTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const { pushNotification } = useNotificationStore()
   
   // User location (static for now - could be from geolocation)
   const userLocation = useMemo(
@@ -37,8 +59,8 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     []
   )
   
-  // Dealer location (Kerry)
-  const dealerLocation = useMemo(
+  // Initial dealer location (Kerry) - will be animated
+  const initialDealerLocation = useMemo(
     () => ({
       lng: 28.0567, // Sandton-ish
       lat: -26.1069,
@@ -59,18 +81,18 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     [userLocation.lng, userLocation.lat]
   )
   
-  // Dealer marker using avatar_agent5.png (circular)
+  // Dealer marker using avatar_agent5.png (circular) - uses animated location
   const dealerMarker: Marker = useMemo(
     () => ({
       id: 'agent-on-way',
-      lng: dealerLocation.lng,
-      lat: dealerLocation.lat,
+      lng: currentDealerLocation.lng,
+      lat: currentDealerLocation.lat,
       kind: 'dealer' as const, // Special kind for circular avatar marker
       label: '$kerryy',
       avatar: '/assets/avatar_agent5.png',
       name: '$kerryy',
     }),
-    [dealerLocation.lng, dealerLocation.lat]
+    [currentDealerLocation.lng, currentDealerLocation.lat]
   )
   
   // Stable markers array
@@ -79,19 +101,212 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     [userMarker, dealerMarker]
   )
   
-  // Route coordinates for the line between user and dealer
+  // Route coordinates for the line between user and dealer - uses animated location
   const routeCoordinates = useMemo<[number, number][]>(
     () => [
       [userLocation.lng, userLocation.lat],
-      [dealerLocation.lng, dealerLocation.lat],
+      [currentDealerLocation.lng, currentDealerLocation.lat],
     ],
-    [userLocation.lng, userLocation.lat, dealerLocation.lng, dealerLocation.lat]
+    [userLocation.lng, userLocation.lat, currentDealerLocation.lng, currentDealerLocation.lat]
   )
+
+  // Calculate distance between two points (Haversine formula)
+  const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371 // Earth's radius in km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180
+    const dLng = ((lng2 - lng1) * Math.PI) / 180
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
+  }, [])
+
+  // Warp-speed dealer movement animation
+  useEffect(() => {
+    if (cashFlowState !== 'MATCHED_EN_ROUTE') {
+      // Reset to initial position when not en route
+      setCurrentDealerLocation(initialDealerLocation)
+      setDistance(7.8)
+      setEtaMinutes(20)
+      return
+    }
+
+    const startTime = Date.now()
+    const duration = 8000 // 8 seconds for warp speed
+    const startLng = initialDealerLocation.lng
+    const startLat = initialDealerLocation.lat
+    const endLng = userLocation.lng
+    const endLat = userLocation.lat
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      
+      // Ease-out function for smooth deceleration
+      const eased = 1 - Math.pow(1 - progress, 3)
+
+      // Interpolate position
+      const currentLng = startLng + (endLng - startLng) * eased
+      const currentLat = startLat + (endLat - startLat) * eased
+
+      setCurrentDealerLocation({ lng: currentLng, lat: currentLat })
+
+      // Update distance and ETA
+      const remainingDist = calculateDistance(currentLat, currentLng, endLat, endLng)
+      setDistance(Math.max(0, parseFloat(remainingDist.toFixed(1))))
+      setEtaMinutes(Math.max(0, Math.round((remainingDist / 7.8) * 20)))
+
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate)
+      } else {
+        // Arrived!
+        setCurrentDealerLocation({ lng: endLng, lat: endLat })
+        setDistance(0)
+        setEtaMinutes(0)
+        setCashFlowState('ARRIVED')
+      }
+    }
+
+    animationRef.current = requestAnimationFrame(animate)
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+        animationRef.current = null
+      }
+    }
+  }, [cashFlowState, initialDealerLocation, userLocation, calculateDistance])
+
+  // Handle arrival: show notification and open modal
+  useEffect(() => {
+    if (cashFlowState === 'ARRIVED' && !arrivalNotificationShown) {
+      setArrivalNotificationShown(true)
+      
+      // Show notification
+      pushNotification({
+        kind: 'request_sent',
+        title: 'Complete your deposit',
+        body: '$kerryy has arrived',
+        actor: {
+          type: 'system',
+          id: 'system',
+          name: 'System',
+        },
+      })
+
+      // Open safety modal after delay
+      modalDelayTimerRef.current = setTimeout(() => {
+        setShowSafetyModal(true)
+        setCashFlowState('AWAITING_CONFIRMATION')
+      }, 1500)
+    }
+
+    return () => {
+      if (modalDelayTimerRef.current) {
+        clearTimeout(modalDelayTimerRef.current)
+        modalDelayTimerRef.current = null
+      }
+    }
+  }, [cashFlowState, arrivalNotificationShown, pushNotification])
+
+  // Auto-expiry TTL
+  const cashFlowStateRef = useRef(cashFlowState)
+  useEffect(() => {
+    cashFlowStateRef.current = cashFlowState
+  }, [cashFlowState])
+
+  useEffect(() => {
+    if (cashFlowState === 'ARRIVED' || cashFlowState === 'AWAITING_CONFIRMATION') {
+      expiryTimerRef.current = setTimeout(() => {
+        // Use ref to check current state (avoid stale closure)
+        if (cashFlowStateRef.current !== 'COMPLETED') {
+          setCashFlowState('EXPIRED')
+          setShowSafetyModal(false)
+          onClose()
+        }
+      }, 120000) // 2 minutes
+    }
+
+    return () => {
+      if (expiryTimerRef.current) {
+        clearTimeout(expiryTimerRef.current)
+        expiryTimerRef.current = null
+      }
+    }
+  }, [cashFlowState, onClose])
+
+  // Initialize state when popup opens
+  useEffect(() => {
+    if (open && cashFlowState === 'IDLE') {
+      setCashFlowState('MATCHED_EN_ROUTE')
+      setArrivalNotificationShown(false)
+    } else if (!open) {
+      // Reset on close
+      setCashFlowState('IDLE')
+      setShowSafetyModal(false)
+      setArrivalNotificationShown(false)
+      setCurrentDealerLocation(initialDealerLocation)
+      setDistance(7.8)
+      setEtaMinutes(20)
+    }
+  }, [open, cashFlowState, initialDealerLocation])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+      }
+      if (expiryTimerRef.current) {
+        clearTimeout(expiryTimerRef.current)
+      }
+      if (modalDelayTimerRef.current) {
+        clearTimeout(modalDelayTimerRef.current)
+      }
+    }
+  }, [])
 
   const handleWhatsAppClick = () => {
     if (typeof window === 'undefined') return
     window.open('https://wa.me/27823306256', '_blank')
   }
+
+  const handleSafetyConfirm = () => {
+    setCashFlowState('COMPLETED')
+    setShowSafetyModal(false)
+    if (onComplete) {
+      onComplete()
+    }
+    onClose()
+  }
+
+  const handleSafetyModalClose = () => {
+    // Don't close map, just close modal
+    setShowSafetyModal(false)
+    // Keep state as ARRIVED so we can re-open modal later
+    if (cashFlowState === 'AWAITING_CONFIRMATION') {
+      setCashFlowState('ARRIVED')
+    }
+  }
+
+  // Re-open modal when popup re-opens if dealer has arrived
+  useEffect(() => {
+    if (open && cashFlowState === 'ARRIVED' && !showSafetyModal) {
+      const timer = setTimeout(() => {
+        setShowSafetyModal(true)
+        setCashFlowState('AWAITING_CONFIRMATION')
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [open, cashFlowState, showSafetyModal])
+
+  const isArrived = cashFlowState === 'ARRIVED' || cashFlowState === 'AWAITING_CONFIRMATION'
+  const cardTitle = isArrived ? 'Your dealer has arrived' : 'A dealer is coming to meet you'
+  const arrivalTime = new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" size="tall" className={styles.cashMapPopup}>
@@ -130,16 +345,25 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           {/* Top bar with distance, ETA, and close button */}
           <div className={styles.mapTopBar}>
             <div className={styles.chipRow}>
-              <div className={styles.kmPill}>
-                <div className={styles.kmValue}>
-                  <span className={styles.kmNumber}>7.8</span>
-                  <span className={styles.kmUnit}>km</span>
+              {!isArrived && (
+                <>
+                  <div className={styles.kmPill}>
+                    <div className={styles.kmValue}>
+                      <span className={styles.kmNumber}>{distance.toFixed(1)}</span>
+                      <span className={styles.kmUnit}>km</span>
+                    </div>
+                  </div>
+                  <div className={styles.etaPill}>
+                    <span className={styles.etaLabel}>Arriving in</span>
+                    <span className={styles.etaTime}>{etaMinutes} min</span>
+                  </div>
+                </>
+              )}
+              {isArrived && (
+                <div className={styles.etaPill}>
+                  <span className={styles.etaLabel}>{arrivalTime}</span>
                 </div>
-              </div>
-              <div className={styles.etaPill}>
-                <span className={styles.etaLabel}>Arriving in</span>
-                <span className={styles.etaTime}>20 min</span>
-              </div>
+              )}
             </div>
             <button className={styles.cashMapClose} onClick={onClose} aria-label="Close">
               <Image src="/assets/clear.svg" alt="" width={18} height={18} />
@@ -147,12 +371,12 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           </div>
 
           {/* Footer content - bottom region with single $kerryy row */}
-          {showAgentCard && (
+          {(showAgentCard || cashFlowState !== 'IDLE') && (
             <div className={styles.mapSheetOuter}>
               <div className={styles.mapSheetInner}>
                 {/* Title section */}
                 <div className={styles.titleSection}>
-                  <div className={styles.titleText}>A dealer is coming to meet you</div>
+                  <div className={styles.titleText}>{cardTitle}</div>
                   <div className={styles.divider}></div>
                 </div>
                 
@@ -171,6 +395,16 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           )}
         </div>
       </div>
+
+      {/* Safety Modal */}
+      <CashSafetyModal
+        open={showSafetyModal}
+        onClose={handleSafetyModalClose}
+        onConfirm={handleSafetyConfirm}
+        dealerHandle="$kerryy"
+        pinCode="0747"
+        amount={amount}
+      />
     </ActionSheet>
   )
 }
