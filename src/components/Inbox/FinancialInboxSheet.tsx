@@ -82,7 +82,7 @@ export default function FinancialInboxSheet({ onRequestAgent }: FinancialInboxSh
   }
 
   // Determine title based on view mode
-  const sheetTitle = inboxViewMode === 'inbox' ? 'Cash agents around you' : ''
+  const sheetTitle = inboxViewMode === 'inbox' ? 'Inbox' : ''
 
   return (
     <ActionSheet
@@ -96,7 +96,7 @@ export default function FinancialInboxSheet({ onRequestAgent }: FinancialInboxSh
         // Inbox list view
         <>
           <div className={listStyles.content}>
-            <p className={listStyles.subtitle}>Explore verified cash agents near you who can help you convert cash to crypto.</p>
+            <p className={listStyles.subtitle}>Connect with verified cash agents and community members</p>
             <div className={listStyles.divider} />
             
             {/* Search bar */}

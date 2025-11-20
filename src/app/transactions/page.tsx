@@ -1,8 +1,10 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
+import { useAuthStore } from '@/store/auth'
 
 // Demo transaction data
 const transactions = [
@@ -38,6 +40,14 @@ const transactions = [
 
 export default function TransactionsPage() {
   const router = useRouter()
+  const { isAuthed } = useAuthStore()
+  
+  // Redirect unauthenticated users to home
+  useEffect(() => {
+    if (!isAuthed) {
+      router.replace('/')
+    }
+  }, [isAuthed, router])
 
   const handleDollarClick = () => {
     // TODO: Wire to transaction modal if needed

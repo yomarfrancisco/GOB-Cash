@@ -23,9 +23,18 @@ import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import PaymentsSheet from '@/components/PaymentsSheet'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
+import { useAuthStore } from '@/store/auth'
 
 export default function ProfilePage() {
   const router = useRouter()
+  const { isAuthed } = useAuthStore()
+  
+  // Redirect unauthenticated users to home
+  useEffect(() => {
+    if (!isAuthed) {
+      router.replace('/')
+    }
+  }, [isAuthed, router])
   const activityCount = useActivityStore((s) => s.items.length)
   const { open: openProfileEdit } = useProfileEditSheet()
   const { setOnSelect, open } = useTransactSheet()

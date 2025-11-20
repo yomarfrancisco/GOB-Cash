@@ -42,6 +42,7 @@ export default function Home() {
   const [helperWalletKey, setHelperWalletKey] = useState<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | null>(null)
   const cardStackRef = useRef<CardStackHandle>(null)
   const { setOnSelect, open } = useTransactSheet()
+  const { isAuthed, requireAuth } = useAuthStore()
 
   // Debug: verify card and map widths match - instrument parent chain
   useEffect(() => {
@@ -303,9 +304,12 @@ export default function Home() {
             <BottomGlassBar 
               currentPath="/" 
               onDollarClick={() => {
-                // NOTE: Dollar FAB now opens the amount sheet directly (skip "Cash agents around you" inbox)
-                setAmountMode('convert')
-                setTimeout(() => setOpenAmount(true), 220)
+                // Guard: require auth before opening amount sheet
+                requireAuth(() => {
+                  // NOTE: Dollar FAB now opens the amount sheet directly (skip "Cash agents around you" inbox)
+                  setAmountMode('convert')
+                  setTimeout(() => setOpenAmount(true), 220)
+                })
               }}
             />
           </div>

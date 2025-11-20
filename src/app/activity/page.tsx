@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
+import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import styles from './activity.module.css'
 
@@ -90,8 +91,17 @@ function ActivitySection({ title, items }: { title: string; items: ActivityItem[
 }
 
 export default function ActivityPage() {
+  const router = useRouter()
+  const { isAuthed } = useAuthStore()
   const allItems = useActivityStore((s) => s.all())
   const { today, last7Days, last30Days } = useMemo(() => groupByTimePeriod(allItems), [allItems])
+  
+  // Redirect unauthenticated users to home
+  useEffect(() => {
+    if (!isAuthed) {
+      router.replace('/')
+    }
+  }, [isAuthed, router])
 
   return (
     <div className="app-shell">

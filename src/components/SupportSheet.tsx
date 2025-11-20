@@ -39,15 +39,7 @@ export default function SupportSheet() {
         onClick={handleEmail}
       />
       <ActionSheetItem
-        icon={
-          <Image
-            src="/assets/WhatsApp_Balck.png"
-            alt="WhatsApp"
-            width={22}
-            height={22}
-            style={{ objectFit: 'contain' }}
-          />
-        }
+        icon={<MessageSquare size={22} strokeWidth={2} style={{ color: '#111' }} />}
         title="WhatsApp"
         caption="Chat with us on WhatsApp for quick help."
         onClick={handleWhatsApp}

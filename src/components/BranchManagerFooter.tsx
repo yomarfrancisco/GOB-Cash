@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { MessageSquare } from 'lucide-react'
 import styles from './BranchManagerFooter.module.css'
 
 type BranchManagerFooterProps = {
@@ -75,12 +76,11 @@ export default function BranchManagerFooter({ onWhatsAppClick }: BranchManagerFo
         </div>
       </div>
       <div className={styles.whatsappIconWrapper}>
-        <Image
-          src="/assets/WhatsApp_Balck.png"
-          alt="WhatsApp"
-          width={27}
-          height={27}
+        <MessageSquare
+          size={24}
+          strokeWidth={2}
           className={styles.whatsappIcon}
+          style={{ color: '#111' }}
         />
       </div>
     </div>

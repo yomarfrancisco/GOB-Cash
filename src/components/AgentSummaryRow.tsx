@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { MessageSquare } from 'lucide-react'
 import styles from './AgentSummaryRow.module.css'
 
 type Agent = {
@@ -69,15 +70,14 @@ export default function AgentSummaryRow({ agent, showWhatsappIcon = false, onWha
         <button
           className={styles.whatsappButton}
           onClick={handleWhatsAppClick}
-          aria-label={`Contact ${agent.username} via WhatsApp`}
+          aria-label={`Contact ${agent.username} via message`}
           type="button"
         >
-          <Image
-            src="/assets/WhatsApp_Balck.png"
-            alt="WhatsApp"
-            width={24}
-            height={24}
+          <MessageSquare
+            size={20}
+            strokeWidth={2}
             className={styles.whatsappIcon}
+            style={{ color: '#111' }}
           />
         </button>
       )}

@@ -98,14 +98,14 @@ export default function AmountSheet({
     : mode === 'withdraw' 
     ? 'Withdraw' 
     : mode === 'convert'
-    ? 'Convert'
+    ? 'Cash-to-crypto'
     : 'Send'
   const defaultCtaLabel = mode === 'depositCard' 
     ? 'Deposit' 
     : mode === 'send' 
     ? 'Send' 
     : mode === 'convert'
-    ? 'Convert'
+    ? 'Request agent'
     : 'Transfer USDT'
   const finalCtaLabel = ctaLabel || defaultCtaLabel
   const isPositive = amountZAR > 0
