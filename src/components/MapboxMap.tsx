@@ -548,25 +548,14 @@ export default function MapboxMap({
 
     // Create once
     if (!hqMarkerRef.current) {
-      const el = document.createElement('div')
-      el.style.width = '32px'
-      el.style.height = '32px'
-      el.style.borderRadius = '16px'
-      el.style.overflow = 'hidden'
-      el.style.backgroundColor = 'transparent'
-      el.style.display = 'flex'
-      el.style.alignItems = 'center'
-      el.style.justifyContent = 'center'
-
-      const img = document.createElement('img')
-      img.src = '/assets/safe.png'
-      img.alt = 'GoBankless HQ'
-      img.style.width = '100%'
-      img.style.height = '100%'
-      img.style.objectFit = 'contain'
-      img.style.display = 'block'
-
-      el.appendChild(img)
+      const el = document.createElement('img')
+      el.src = '/assets/safe.png'
+      el.alt = 'GoBankless HQ'
+      el.style.width = '120px'
+      el.style.height = '120px'
+      el.style.objectFit = 'contain'
+      el.style.background = 'transparent'
+      el.style.display = 'block'
 
       hqMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([hqCoord.lng, hqCoord.lat])
