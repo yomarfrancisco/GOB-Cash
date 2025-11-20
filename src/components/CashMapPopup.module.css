@@ -1,28 +1,26 @@
 /* Cash Map Popup - uses ActionSheet shell */
+/* The className is applied to .as-sheet, so we can target it directly */
 .cashMapPopup {
-  /* ActionSheet already provides the popup shell, rounded corners, shadow, etc. */
-  overflow: hidden; /* Important: map fills & inherits border radius */
-}
-
-/* Override ActionSheet tall height to be ~20% taller (85vh * 1.2 = 102vh, but cap at reasonable max) */
-.cashMapPopup :global(.as-sheet-tall) {
+  overflow: hidden !important; /* Important: map fills & inherits border radius */
   max-height: 90vh !important; /* Increased from 85vh by ~6% (close to 20% of usable space) */
-  height: 90vh;
+  height: 90vh !important;
 }
 
 /* Override as-body to remove padding and fill height */
 .cashMapPopup :global(.as-body) {
-  padding: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  padding: 0 !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden;
 }
 
 .cashMapPopupInner {
   position: relative;
   width: 100%;
   height: 100%;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   /* Map fills the popup's content area */
 }
