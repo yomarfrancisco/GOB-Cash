@@ -1,0 +1,109 @@
+/* Agent Detail Sheet - nested inside map popup */
+.agentDetailSheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 16px 20px 24px;
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  z-index: 10; /* Must sit above the map canvas */
+  box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.18);
+  /* Subtle delayed slide-in */
+  transform: translateY(10%);
+  opacity: 0;
+  animation: agentCardIn 220ms ease-out forwards;
+}
+
+@keyframes agentCardIn {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 16px 0;
+}
+
+.meetingLocation {
+  margin-bottom: 16px;
+}
+
+.meetingLocationLabel {
+  font-size: 12px;
+  color: #666666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.meetingLocationRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.locationIcon {
+  color: #666666;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.meetingLocationValue {
+  font-size: 16px;
+  color: #000000;
+  font-weight: 500;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.insurancePill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.insuranceLabel {
+  font-size: 12px;
+  color: #22c55e;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.insuranceAmount {
+  font-size: 14px;
+  font-weight: 600;
+  color: #22c55e;
+}
+
+.acceptButton {
+  width: 100%;
+  padding: 16px;
+  background: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.acceptButton:active {
+  background: #333333;
+}
+
+.acceptButton:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+}
+

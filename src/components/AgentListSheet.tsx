@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
+import AgentSummaryRow from './AgentSummaryRow'
 import styles from './AgentListSheet.module.css'
 
 type Agent = {
@@ -73,61 +74,11 @@ export default function AgentListSheet({ open, onClose }: AgentListSheetProps) {
         {AGENTS.map((agent) => (
           <button
             key={agent.id}
-            className={styles.agentRow}
+            className={styles.agentRowButton}
             onClick={handleWhatsAppClick}
             type="button"
           >
-            <div className={styles.agentRowLeft}>
-              <div className={styles.avatarWrapper}>
-                <Image
-                  src={agent.avatar}
-                  alt={agent.username}
-                  width={56}
-                  height={56}
-                  className={styles.avatar}
-                />
-              </div>
-              <div className={styles.agentTextBlock}>
-                <div className={styles.agentHandle}>{agent.username}</div>
-                <div className={styles.insuranceRow}>
-                  <span className={styles.insuranceText}>Insured up to {agent.insured}</span>
-                  <div className={styles.coverageBar}>
-                    <div
-                      className={styles.coverageBarFill}
-                      style={{ width: `${agent.progress}%` }}
-                    />
-                  </div>
-                </div>
-                <div className={styles.ratingRow}>
-                  <span className={styles.ratingValue}>{agent.rating}</span>
-                  <Image
-                    src="/assets/profile/star.svg"
-                    alt="Star"
-                    width={14}
-                    height={14}
-                    className={styles.starIcon}
-                  />
-                  <span className={styles.reviewCount}>({agent.reviewCount.toLocaleString()})</span>
-                </div>
-              </div>
-            </div>
-            <button
-              className={styles.whatsappButton}
-              onClick={(e) => {
-                e.stopPropagation()
-                handleWhatsAppClick()
-              }}
-              aria-label={`Contact ${agent.username} via WhatsApp`}
-              type="button"
-            >
-              <Image
-                src="/assets/WhatsApp_Balck.png"
-                alt="WhatsApp"
-                width={24}
-                height={24}
-                className={styles.whatsappIcon}
-              />
-            </button>
+            <AgentSummaryRow agent={agent} showWhatsappIcon={true} />
           </button>
         ))}
       </div>

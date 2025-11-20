@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import MapboxMap, { type Marker } from './MapboxMap'
+import CashAgentDetailSheet from './CashAgentDetailSheet'
 import styles from './CashMapPopup.module.css'
 
 type CashMapPopupProps = {
@@ -69,8 +70,18 @@ const DEFAULT_AGENT = AGENT_DATA['$kerry']
 export default function CashMapPopup({ open, onClose, amount, showAgentCard = false }: CashMapPopupProps) {
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
   
-  // Use default agent for now
-  const agent = DEFAULT_AGENT
+  // Use default agent for now - convert to AgentSummaryRow format
+  const agentData = DEFAULT_AGENT
+  const agentForRow = {
+    id: 'kerry',
+    username: agentData.name,
+    avatar: agentData.avatar,
+    insured: agentData.insured,
+    rating: 4.8, // Default rating
+    reviewCount: 1322, // Default review count
+    progress: 98, // Default progress
+    address: agentData.address,
+  }
 
   // Agent marker for map (same as homepage would show)
   const agentMarker: Marker = {
@@ -78,9 +89,9 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     lng: 28.0567, // Sandton-ish
     lat: -26.1069,
     kind: 'member',
-    label: agent.name,
-    avatar: agent.avatar,
-    name: agent.name,
+    label: agentData.name,
+    avatar: agentData.avatar,
+    name: agentData.name,
   }
 
   const formatAmount = (amount: number) => {
@@ -91,7 +102,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   }
 
   const handleAcceptAgent = () => {
-    console.log('Accept agent clicked', { amount, agent })
+    console.log('Accept agent clicked', { amount, agent: agentForRow })
     // TODO: implement accept agent flow
     onClose()
   }
@@ -128,39 +139,12 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
           />
         </div>
 
-        {/* Agent details card - nested popup on top of map */}
+        {/* Agent details sheet - nested popup on top of map */}
         {showAgentCard && (
-          <div className={styles.agentCard}>
-            <div className={styles.agentHandleRow}>
-              <Image
-                src={agent.avatar}
-                alt={agent.name}
-                width={60}
-                height={60}
-                className={styles.avatar}
-                unoptimized
-              />
-              <div>
-                <div className={styles.agentHandle}>{agent.name}</div>
-                <div className={styles.meta}>
-                  {agent.rating} ★ · {agent.distance} km away · {agent.time} min
-                </div>
-              </div>
-            </div>
-            <div className={styles.meetingLocationLabel}>MEETING LOCATION</div>
-            <div className={styles.meetingLocationValue}>
-              {agent.address}
-            </div>
-            <div className={styles.insurancePill}>
-              DEPOSIT INSURANCE
-              <span className={styles.insuranceAmount}>
-                {agent.insured}
-              </span>
-            </div>
-            <button className={styles.acceptButton} onClick={handleAcceptAgent}>
-              Accept request
-            </button>
-          </div>
+          <CashAgentDetailSheet
+            agent={agentForRow}
+            onAccept={handleAcceptAgent}
+          />
         )}
       </div>
     </ActionSheet>

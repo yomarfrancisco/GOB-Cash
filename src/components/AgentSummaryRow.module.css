@@ -1,65 +1,27 @@
-.agentListSheet :global(.as-title) {
-  text-align: center !important;
-}
-
-.content {
-  padding: 0;
+/* Agent Row - extracted from AgentListSheet for reuse */
+.agentRow {
   display: flex;
-  flex-direction: column;
-}
-
-.subtitle {
-  font-size: 13px;
-  font-weight: 300;
-  color: rgba(0, 0, 0, 0.5);
-  text-align: center;
-  margin: 0 24px 16px;
-  letter-spacing: -0.09px;
-  line-height: 1.35;
-}
-
-.divider {
-  height: 1px;
-  background: rgba(0, 0, 0, 0.1);
-  margin: 0 24px 8px;
-}
-
-/* Wrapper button for agent row in list */
-.agentRowButton {
-  width: 100%;
-  background: transparent;
-  border: none;
-  padding: 24px;
-  cursor: pointer;
-  text-align: left;
-  transition: background 150ms ease;
-}
-
-.agentRowButton:hover {
-  background: rgba(0, 0, 0, 0.02);
-}
-
-.agentRowButton:active {
-  background: rgba(0, 0, 0, 0.04);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
+  border-bottom: none; /* Border handled by parent if needed */
 }
 
 .agentRowLeft {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   flex: 1;
-  min-width: 0;
 }
 
 .avatarWrapper {
+  flex-shrink: 0;
   width: 56px;
   height: 56px;
-  border-radius: 34px;
-  background: #E9E9EB;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
+  border-radius: 50%;
   overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .avatar {
@@ -173,3 +135,4 @@
   height: 24px;
   object-fit: contain;
 }
+
