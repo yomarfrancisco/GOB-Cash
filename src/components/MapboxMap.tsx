@@ -551,8 +551,8 @@ export default function MapboxMap({
       const el = document.createElement('img')
       el.src = '/assets/safe.png'
       el.alt = 'GoBankless HQ'
-      el.style.width = '120px'
-      el.style.height = '120px'
+      el.style.width = '80px'
+      el.style.height = '80px'
       el.style.objectFit = 'contain'
       el.style.background = 'transparent'
       el.style.display = 'block'
