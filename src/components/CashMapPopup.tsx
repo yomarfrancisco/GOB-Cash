@@ -70,28 +70,15 @@ const DEFAULT_AGENT = AGENT_DATA['$kerry']
 export default function CashMapPopup({ open, onClose, amount, showAgentCard = false }: CashMapPopupProps) {
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
   
-  // Use default agent for now - convert to AgentSummaryRow format
-  const agentData = DEFAULT_AGENT
-  const agentForRow = {
-    id: 'kerry',
-    username: agentData.name,
-    avatar: agentData.avatar,
-    insured: agentData.insured,
-    rating: 4.8, // Default rating
-    reviewCount: 1322, // Default review count
-    progress: 98, // Default progress
-    address: agentData.address,
-  }
-
   // Agent marker for map (same as homepage would show)
   const agentMarker: Marker = {
     id: 'agent-on-way',
     lng: 28.0567, // Sandton-ish
     lat: -26.1069,
     kind: 'member',
-    label: agentData.name,
-    avatar: agentData.avatar,
-    name: agentData.name,
+    label: '$kerryy',
+    avatar: '/assets/avatar_agent5.png',
+    name: '$kerryy',
   }
 
   const formatAmount = (amount: number) => {
@@ -99,18 +86,6 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`
-  }
-
-  const handleAcceptAgent = () => {
-    console.log('Accept agent clicked', { amount, agent: agentForRow })
-    // TODO: implement accept agent flow
-    onClose()
-  }
-
-  const handleCancelRequest = () => {
-    console.log('Cancel request clicked')
-    // TODO: implement cancel request flow
-    onClose()
   }
 
   return (
@@ -146,13 +121,10 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         </div>
 
         {/* Agent details sheet - nested popup on top of map */}
-        {showAgentCard && (
-          <CashAgentDetailSheet
-            agent={agentForRow}
-            onAccept={handleAcceptAgent}
-            onCancel={handleCancelRequest}
-          />
-        )}
+        <CashAgentDetailSheet
+          open={showAgentCard}
+          onClose={onClose}
+        />
       </div>
     </ActionSheet>
   )
