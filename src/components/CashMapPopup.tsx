@@ -35,18 +35,13 @@ export default function CashMapPopup({ open, onClose, amount }: CashMapPopupProp
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" size="tall" className={styles.cashMapPopup}>
-      <div className={styles.cashMapPopupHeader}>
-        <button className={styles.popupClose} onClick={onClose} aria-label="Close">
+      <div className={styles.cashMapPopupInner}>
+        {/* Floating close button */}
+        <button className={styles.cashMapClose} onClick={onClose} aria-label="Close">
           <Image src="/assets/clear.svg" alt="" width={18} height={18} />
         </button>
-        <div className={styles.popupTitle}>
-          Convert {formatAmount(amount)} cash to crypto
-        </div>
-        <div style={{ width: '18px' }} /> {/* Spacer for center alignment */}
-      </div>
-      <div className={styles.cashMapPopupMap}>
+        {/* Map container */}
         <div className={styles.mapCard}>
-          {/* Map container - Mapbox will attach here */}
           <div className={styles.mapInnerContainer} id={mapContainerId} />
           <MapboxMap
             containerId={mapContainerId}

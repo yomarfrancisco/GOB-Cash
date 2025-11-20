@@ -1,55 +1,64 @@
 /* Cash Map Popup - uses ActionSheet shell */
 .cashMapPopup {
   /* ActionSheet already provides the popup shell, rounded corners, shadow, etc. */
+  overflow: hidden; /* Important: map fills & inherits border radius */
 }
 
-.cashMapPopupHeader {
-  position: relative;
+/* Override ActionSheet tall height to be ~20% taller (85vh * 1.2 = 102vh, but cap at reasonable max) */
+.cashMapPopup :global(.as-sheet-tall) {
+  max-height: 90vh !important; /* Increased from 85vh by ~6% (close to 20% of usable space) */
+  height: 90vh;
+}
+
+/* Override as-body to remove padding and fill height */
+.cashMapPopup :global(.as-body) {
+  padding: 0;
+  height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px 8px;
-  text-align: center;
+  flex-direction: column;
 }
 
-.popupClose {
+.cashMapPopupInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  /* Map fills the popup's content area */
+}
+
+/* Floating close button */
+.cashMapClose {
   position: absolute;
-  left: 16px;
-  top: 10px;
-  background: transparent;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: none;
-  cursor: pointer;
-  padding: 4px;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.popupTitle {
-  flex: 1;
-  font-weight: 500;
-  font-size: 16px;
-  color: #000000;
-  text-align: center;
-  padding: 0 12px;
-}
-
-.cashMapPopupMap {
-  height: 60vh;
-  min-height: 400px;
-  padding: 16px;
-  box-sizing: border-box;
+.cashMapClose:active {
+  background: rgba(255, 255, 255, 1);
 }
 
 .mapCard {
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 16px;
+  /* No border-radius here - popup container handles it via overflow: hidden */
   overflow: hidden;
   background: #efece7;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
 }
 
 .mapInnerContainer {
