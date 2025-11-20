@@ -67,7 +67,11 @@ export default function TopGlassBar({ onScanClick }: TopGlassBarProps = {}) {
             <Image src="/assets/core/scan.svg" alt="Scan" className="icon" width={24} height={24} />
           </button>
           <button
-            onClick={open}
+            onClick={() => {
+              guardAuthed(() => {
+                open()
+              })
+            }}
             className="icon-button"
             aria-label="Share profile"
             type="button"
