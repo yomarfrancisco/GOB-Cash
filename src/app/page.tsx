@@ -13,7 +13,6 @@ import SuccessSheet from '@/components/SuccessSheet'
 import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
 import { formatUSDT } from '@/lib/money'
 import { useWalletAlloc } from '@/state/walletAlloc'
-import { useAiActionCycle } from '@/lib/animations/useAiActionCycle'
 import { formatZAR } from '@/lib/formatCurrency'
 import { initPortfolioFromAlloc } from '@/lib/portfolio/initPortfolio'
 import ConvertCashSection from '@/components/ConvertCashSection'
@@ -29,6 +28,7 @@ import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import { useNotificationStore } from '@/store/notifications'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { useAuthStore } from '@/store/auth'
+import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import CashMapPopup from '@/components/CashMapPopup'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
@@ -42,7 +42,7 @@ export default function Home() {
   const [helperWalletKey, setHelperWalletKey] = useState<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | null>(null)
   const cardStackRef = useRef<CardStackHandle>(null)
   const { setOnSelect, open } = useTransactSheet()
-  const { isAuthed, requireAuth } = useAuthStore()
+  const { guardAuthed, isAuthed } = useRequireAuth()
 
   // Debug: verify card and map widths match - instrument parent chain
   useEffect(() => {
@@ -218,24 +218,13 @@ export default function Home() {
   const fundsAvailableZAR = alloc.totalCents / 100
   const formattedFunds = formatZAR(fundsAvailableZAR)
 
-  // Get auth state to determine behavior (replaces mode toggle)
-  // Effective mode: autonomous when signed out, manual when signed in
-  const effectiveMode = isAuthed ? 'manual' : 'autonomous'
-
   // Initialize portfolio store from wallet allocation
   useEffect(() => {
     initPortfolioFromAlloc(alloc.cashCents, alloc.ethCents, alloc.pepeCents, alloc.totalCents)
   }, [alloc.cashCents, alloc.ethCents, alloc.pepeCents, alloc.totalCents])
 
-  // Initialize AI action cycle - only run when NOT signed in (autonomous behavior)
-  useAiActionCycle(cardStackRef, {
-    getCash,
-    getEth,
-    getPepe,
-    setCash,
-    setEth,
-    setPepe,
-  }, !isAuthed)
+  // NOTE: Removed effectiveMode and autonomous behavior - all users must be authenticated
+  // AI action cycle is disabled - users must sign up first
 
   // Demo notification engine - only run in demo mode
   const pushNotification = useNotificationStore((state) => state.pushNotification)
@@ -299,13 +288,16 @@ export default function Home() {
 
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
-            <TopGlassBar onScanClick={() => setIsScannerOpen(true)} />
+            <TopGlassBar onScanClick={() => {
+              guardAuthed(() => {
+                setIsScannerOpen(true)
+              })
+            }} />
             <BottomGlassBar 
               currentPath="/" 
               onDollarClick={() => {
-                // Guard: require auth before opening amount sheet
-                requireAuth(() => {
-                  // NOTE: Dollar FAB now opens the amount sheet directly (skip "Cash agents around you" inbox)
+                // NOTE: $ button always opens cash-to-crypto keypad (no manual/autonomous branching)
+                guardAuthed(() => {
                   setAmountMode('convert')
                   setTimeout(() => setOpenAmount(true), 220)
                 })
@@ -331,6 +323,7 @@ export default function Home() {
                     <div
                       className="help-icon"
                       onClick={() => {
+                        // ? info chips remain accessible without auth (read-only information)
                         if (!topCardType) return
                         setHelperWalletKey(topCardType)
                         setIsHelperOpen(true)
@@ -354,12 +347,24 @@ export default function Home() {
                 </div>
 
                 {/* Card Stack */}
-                <CardStack ref={cardStackRef} onTopCardChange={setTopCardType} />
+                <CardStack 
+                  ref={cardStackRef} 
+                  onTopCardChange={setTopCardType}
+                  onCardClick={() => {
+                    guardAuthed(() => {
+                      // Card click allowed after auth
+                    })
+                  }}
+                />
               </div>
 
               {/* Explore savings circles section with shared shell - directly under .content */}
               <ConvertCashSection />
-              <BranchManagerFooter onWhatsAppClick={() => setIsAgentSheetOpen(true)} />
+              <BranchManagerFooter onWhatsAppClick={() => {
+                guardAuthed(() => {
+                  setIsAgentSheetOpen(true)
+                })
+              }} />
 
             </div>
           </div>

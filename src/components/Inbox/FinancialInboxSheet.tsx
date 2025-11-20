@@ -75,6 +75,8 @@ export default function FinancialInboxSheet({ onRequestAgent }: FinancialInboxSh
   ]
 
   const handleRowClick = (id: string) => {
+    // NOTE: Row clicks are auth-gated in parent component
+    // This handler only handles navigation logic after auth
     if (id === 'ama') {
       openChatSheet('portfolio-manager')
     }

@@ -104,6 +104,7 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'PEPE' | 'MZN' | 'BTC'> 
 interface CardStackProps {
   onTopCardChange?: (cardType: CardType) => void
   flipControllerRef?: React.MutableRefObject<{ pause: () => void; resume: () => void } | null>
+  onCardClick?: () => void // Optional auth guard wrapper for card clicks
 }
 
 export type CardStackHandle = {
@@ -113,7 +114,7 @@ export type CardStackHandle = {
 
 const FLIP_DURATION_MS = FLIP_MS
 
-const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef }, ref) {
+const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, onCardClick }, ref) {
   // Dynamic order initialization based on cards.length
   const initialOrder = Array.from({ length: cardsData.length }, (_, i) => i)
   const [order, setOrder] = useState<number[]>(initialOrder)
@@ -283,6 +284,11 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const handleCardClick = (index: number) => {
     // Only respond if this card is the top card (order[0])
     if (order[0] === index && !isAnimating) {
+      // If parent provides onCardClick (auth guard), call it first
+      if (onCardClick) {
+        onCardClick()
+      }
+      // Internal cycling logic (always runs if card is top card)
       cycle()
     }
   }

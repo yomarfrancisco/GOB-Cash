@@ -24,6 +24,7 @@ import PaymentsSheet from '@/components/PaymentsSheet'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
+import { useRequireAuth } from '@/hooks/useRequireAuth'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -41,6 +42,7 @@ export default function ProfilePage() {
   const { profile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
   const { openInbox, closeInbox, isInboxOpen } = useFinancialInboxStore()
+  const { guardAuthed } = useRequireAuth()
   const [openPayments, setOpenPayments] = useState(false)
   const [openDeposit, setOpenDeposit] = useState(false)
   const [openWithdraw, setOpenWithdraw] = useState(false)
@@ -48,7 +50,7 @@ export default function ProfilePage() {
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
-  const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send'>('deposit')
+  const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
   const [sendRecipient, setSendRecipient] = useState('')
@@ -137,7 +139,16 @@ export default function ProfilePage() {
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
             <TopGlassBar />
-            <BottomGlassBar currentPath="/profile" onDollarClick={() => open()} />
+            <BottomGlassBar 
+              currentPath="/profile" 
+              onDollarClick={() => {
+                // NOTE: $ button always opens cash-to-crypto keypad (same as home page)
+                guardAuthed(() => {
+                  setAmountMode('convert')
+                  setTimeout(() => setOpenAmount(true), 220)
+                })
+              }} 
+            />
           </div>
 
           {/* Scrollable content */}
@@ -267,12 +278,23 @@ export default function ProfilePage() {
 
               {/* Buttons */}
               <div className="profile-actions">
-                <button className="btn profile-edit" onClick={openPaymentsSheet}>
+                <button 
+                  className="btn profile-edit" 
+                  onClick={() => {
+                    guardAuthed(() => {
+                      openPaymentsSheet()
+                    })
+                  }}
+                >
                   Payments
                 </button>
                 <button
                   className="btn profile-inbox"
-                  onClick={openWithdrawSheet}
+                  onClick={() => {
+                    guardAuthed(() => {
+                      openWithdrawSheet()
+                    })
+                  }}
                 >
                   Cash out
                 </button>
@@ -284,7 +306,11 @@ export default function ProfilePage() {
                 <div className="profile-settings-card">
                   <button
                     className="profile-settings-row"
-                    onClick={() => router.push('/activity')}
+                    onClick={() => {
+                      guardAuthed(() => {
+                        router.push('/activity')
+                      })
+                    }}
                     type="button"
                   >
                     <div className="profile-settings-left">
@@ -297,7 +323,11 @@ export default function ProfilePage() {
                   </button>
                   <button
                     className="profile-settings-row"
-                    onClick={openProfileEdit}
+                    onClick={() => {
+                      guardAuthed(() => {
+                        openProfileEdit()
+                      })
+                    }}
                     type="button"
                   >
                     <div className="profile-settings-left">
@@ -310,7 +340,11 @@ export default function ProfilePage() {
                   </button>
                   <button
                     className="profile-settings-row"
-                    onClick={openInbox}
+                    onClick={() => {
+                      guardAuthed(() => {
+                        openInbox()
+                      })
+                    }}
                     type="button"
                   >
                     <div className="profile-settings-left">
@@ -323,7 +357,11 @@ export default function ProfilePage() {
                   </button>
                   <button
                     className="profile-settings-row"
-                    onClick={() => console.log('Linked bank accounts')}
+                    onClick={() => {
+                      guardAuthed(() => {
+                        console.log('Linked bank accounts')
+                      })
+                    }}
                     type="button"
                   >
                     <div className="profile-settings-left">
@@ -336,7 +374,11 @@ export default function ProfilePage() {
                   </button>
                   <button
                     className="profile-settings-row"
-                    onClick={openSupport}
+                    onClick={() => {
+                      guardAuthed(() => {
+                        openSupport()
+                      })
+                    }}
                     type="button"
                   >
                     <div className="profile-settings-left">
