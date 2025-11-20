@@ -4,30 +4,26 @@ import Image from 'next/image'
 import Link from 'next/link'
 import clsx from 'clsx'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
-import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
-import FinancialInboxSheet from './Inbox/FinancialInboxSheet'
 import '@/styles/bottom-glass.css'
 
 interface BottomGlassBarProps {
   currentPath?: string
-  onDollarClick?: () => void // Keep for backward compatibility, but will use store if not provided
-  onRequestAgent?: () => void // Callback for "Request cash agent" button
+  onDollarClick?: () => void // NOTE: Dollar FAB now opens the amount sheet directly. The old "Cash agents around you" sheet is now accessible from Settings → Inbox.
+  onRequestAgent?: () => void // Deprecated: no longer used, kept for backward compatibility
 }
 
-export default function BottomGlassBar({ currentPath = '/', onDollarClick, onRequestAgent }: BottomGlassBarProps) {
+export default function BottomGlassBar({ currentPath = '/', onDollarClick }: BottomGlassBarProps) {
   const isHome = currentPath === '/'
   const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
   const { isAuthed, requireAuth } = useAuthStore()
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
-  const { isInboxOpen, openInbox, closeInbox } = useFinancialInboxStore()
   
   const handleCenterButtonClick = () => {
-    // Always open Agents inbox, regardless of auth state
-    if (isInboxOpen) {
-      closeInbox()
-    } else {
-      openInbox()
+    // NOTE: Dollar FAB now opens the amount sheet directly (via onDollarClick callback)
+    // The old "Cash agents around you" sheet is now accessible from Settings → Inbox
+    if (onDollarClick) {
+      onDollarClick()
     }
   }
 
@@ -97,7 +93,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick, onReq
             </button>
             <div className="nav-label">Agents</div>
           </div>
-          <FinancialInboxSheet onRequestAgent={onRequestAgent} />
+          {/* NOTE: FinancialInboxSheet is now only rendered from Profile → Settings → Inbox */}
           <div className="nav-item">
             <Link 
               href="/profile" 

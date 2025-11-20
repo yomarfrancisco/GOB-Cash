@@ -32,7 +32,6 @@ import { useAuthStore } from '@/store/auth'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import CashMapPopup from '@/components/CashMapPopup'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
-import { useFinancialInboxStore } from '@/state/financialInbox'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -43,7 +42,6 @@ export default function Home() {
   const [helperWalletKey, setHelperWalletKey] = useState<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | null>(null)
   const cardStackRef = useRef<CardStackHandle>(null)
   const { setOnSelect, open } = useTransactSheet()
-  const { closeInbox } = useFinancialInboxStore()
 
   // Debug: verify card and map widths match - instrument parent chain
   useEffect(() => {
@@ -304,8 +302,8 @@ export default function Home() {
             <TopGlassBar onScanClick={() => setIsScannerOpen(true)} />
             <BottomGlassBar 
               currentPath="/" 
-              onDollarClick={() => open()} 
-              onRequestAgent={() => {
+              onDollarClick={() => {
+                // NOTE: Dollar FAB now opens the amount sheet directly (skip "Cash agents around you" inbox)
                 setAmountMode('convert')
                 setTimeout(() => setOpenAmount(true), 220)
               }}
@@ -413,11 +411,10 @@ export default function Home() {
           setOpenAmount(false)
           setTimeout(() => setOpenDepositSuccess(true), 220)
         } : amountMode === 'convert' ? ({ amountZAR }) => {
-          // Convert flow: close keypad and inbox, then show map popup
+          // Convert flow: close keypad, then show map popup
           setConvertAmount(amountZAR)
-          // Close both modals immediately
-          closeInbox() // Close "Cash agents around you" inbox
-          setOpenAmount(false) // Close keypad
+          // Close keypad modal
+          setOpenAmount(false)
           
           // Reset states first
           setIsMapOpen(false)

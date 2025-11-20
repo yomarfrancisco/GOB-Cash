@@ -1,19 +1,20 @@
 'use client'
 
 import Image from 'next/image'
-import { HatGlasses } from 'lucide-react'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
 
 type FinancialInboxSheetProps = {
-  onRequestAgent?: () => void
+  onRequestAgent?: () => void // Deprecated: no longer used, kept for backward compatibility
 }
 
 /**
  * Unified Financial Inbox Sheet - switches between inbox list and chat view
  * Single ActionSheet that changes content based on inboxViewMode
+ * NOTE: This sheet is now accessible from Profile → Settings → Inbox.
+ * The "Request cash agent" button has been removed.
  */
 export default function FinancialInboxSheet({ onRequestAgent }: FinancialInboxSheetProps) {
   const { 
@@ -153,23 +154,7 @@ export default function FinancialInboxSheet({ onRequestAgent }: FinancialInboxSh
             </div>
           </div>
 
-          {/* Sticky bottom button - positioned relative to as-body */}
-          <div className={listStyles.modalFooter}>
-            <button
-              className={listStyles.launchButton}
-              onClick={() => {
-                if (onRequestAgent) {
-                  onRequestAgent()
-                } else {
-                  console.log('Request cash agent clicked')
-                }
-              }}
-              type="button"
-            >
-              <HatGlasses className={listStyles.launchIcon} />
-              <span>Request cash agent</span>
-            </button>
-          </div>
+          {/* NOTE: "Request cash agent" button removed - this sheet is now read-only inbox view */}
         </>
       ) : (
         // Chat view

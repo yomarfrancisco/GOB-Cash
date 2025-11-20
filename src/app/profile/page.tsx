@@ -16,11 +16,13 @@ import { useProfileEditSheet } from '@/store/useProfileEditSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useSupportSheet } from '@/store/useSupportSheet'
-import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3 } from 'lucide-react'
+import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import PaymentsSheet from '@/components/PaymentsSheet'
+import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
+import { useFinancialInboxStore } from '@/state/financialInbox'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -29,6 +31,7 @@ export default function ProfilePage() {
   const { setOnSelect, open } = useTransactSheet()
   const { profile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
+  const { openInbox, closeInbox, isInboxOpen } = useFinancialInboxStore()
   const [openPayments, setOpenPayments] = useState(false)
   const [openDeposit, setOpenDeposit] = useState(false)
   const [openWithdraw, setOpenWithdraw] = useState(false)
@@ -298,6 +301,19 @@ export default function ProfilePage() {
                   </button>
                   <button
                     className="profile-settings-row"
+                    onClick={openInbox}
+                    type="button"
+                  >
+                    <div className="profile-settings-left">
+                      <div className="profile-settings-icon">
+                        <Inbox size={22} strokeWidth={2} style={{ color: '#111' }} />
+                      </div>
+                      <span className="profile-settings-label">Inbox</span>
+                    </div>
+                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                  </button>
+                  <button
+                    className="profile-settings-row"
                     onClick={() => console.log('Linked bank accounts')}
                     type="button"
                   >
@@ -453,6 +469,8 @@ export default function ProfilePage() {
           wallet={selectedCryptoDepositWallet}
         />
       )}
+      {/* NOTE: FinancialInboxSheet is now accessible from Settings → Inbox */}
+      <FinancialInboxSheet />
     </div>
   )
 }
