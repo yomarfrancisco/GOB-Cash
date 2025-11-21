@@ -41,10 +41,37 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
 
         {/* Tile 2: Verified Dealer */}
         <div className={styles.tile}>
-          <div className={styles.helperAvatarWrapper}>
-            <img src="/assets/Union.svg" alt="" className={styles.helperUnionBg} />
-            <img src="/assets/avatar_agent5.png" alt="Verified dealer" className={styles.helperAvatarImg} />
-            <img src="/assets/verified.svg" alt="Verified" className={styles.helperVerifiedBadge} />
+          <div className={styles.verifiedMarker}>
+            <div className={styles.markerBackground}>
+              <Image
+                src="/assets/Union.svg"
+                alt="Location marker"
+                fill
+                className={styles.markerImage}
+                sizes="56px"
+                unoptimized
+              />
+            </div>
+            <div className={styles.avatarWrapper}>
+              <Image
+                src="/assets/avatar_agent5.png"
+                alt="Verified dealer"
+                fill
+                className={styles.avatarImage}
+                sizes="40px"
+                unoptimized
+              />
+            </div>
+            <div className={styles.verifiedBadgeWrapper}>
+              <Image
+                src="/assets/verified.svg"
+                alt="Verified"
+                fill
+                className={styles.verifiedBadge}
+                sizes="14px"
+                unoptimized
+              />
+            </div>
           </div>
           <h3 className={styles.tileTitle}>Connect with verified dealers</h3>
           <p className={styles.tileLine1}>
