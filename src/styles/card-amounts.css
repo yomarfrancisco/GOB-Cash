@@ -96,15 +96,10 @@
 }
 
 /* Neutralize link styling inside card amounts to prevent iOS Safari auto-detection flash */
-.card-amounts,
-.card-amounts *,
+/* Only target <a> tags that Safari might auto-create, preserve original colors for other elements */
 .card-amounts a {
-  color: inherit !important;
+  color: rgba(255, 255, 255, 0.92) !important;
   text-decoration: none !important;
-}
-
-/* Prevent accidental clicks on auto-linked numbers */
-.card-amounts a {
   pointer-events: none;
 }
 
