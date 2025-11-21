@@ -23,6 +23,7 @@ import { useWalletMode } from '@/state/walletMode'
 import { ScanOverlay } from '@/components/ScanOverlay'
 import { ScanQrSheet } from '@/components/ScanQrSheet'
 import WalletHelperSheet from '@/components/WalletHelperSheet'
+import MapHelperSheet from '@/components/MapHelperSheet'
 import InternalTransferSheet from '@/components/InternalTransferSheet'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
@@ -41,6 +42,7 @@ export default function Home() {
   const [topCardType, setTopCardType] = useState<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc'>('savings')
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const [helperWalletKey, setHelperWalletKey] = useState<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | null>(null)
+  const [isMapHelperOpen, setIsMapHelperOpen] = useState(false)
   const cardStackRef = useRef<CardStackHandle>(null)
   const { setOnSelect, open } = useTransactSheet()
   const { guardAuthed, isAuthed } = useRequireAuth()
@@ -372,7 +374,7 @@ export default function Home() {
               </div>
 
               {/* Explore savings circles section with shared shell - directly under .content */}
-              <ConvertCashSection />
+              <ConvertCashSection onHelpClick={() => setIsMapHelperOpen(true)} />
               <BranchManagerFooter onWhatsAppClick={() => {
                 guardAuthed(() => {
                   setIsAgentSheetOpen(true)
@@ -512,6 +514,10 @@ export default function Home() {
           setIsHelperOpen(false)
           setHelperWalletKey(null)
         }}
+      />
+      <MapHelperSheet
+        isOpen={isMapHelperOpen}
+        onClose={() => setIsMapHelperOpen(false)}
       />
       <InternalTransferSheet
         open={openInternalTransfer}

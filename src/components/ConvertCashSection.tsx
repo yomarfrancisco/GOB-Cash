@@ -10,7 +10,11 @@ const sandtonBranch: Marker = {
   label: 'Sandton City Branch',
 }
 
-export default function ConvertCashSection() {
+type ConvertCashSectionProps = {
+  onHelpClick?: () => void
+}
+
+export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionProps) {
   return (
     <section className={`sectionShell ${styles.mapSectionShell}`} aria-labelledby="convert-title">
       <div className={styles.mapHeader}>
@@ -18,7 +22,12 @@ export default function ConvertCashSection() {
           <h2 id="convert-title" className={styles.mapHeaderTitle}>
             Convert cash to crypto
           </h2>
-          <button className={styles.helpBtn} aria-label="Help">
+          <button 
+            className={styles.helpBtn} 
+            aria-label="Help"
+            onClick={onHelpClick}
+            type="button"
+          >
             ?
           </button>
         </div>

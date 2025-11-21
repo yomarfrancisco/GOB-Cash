@@ -1,0 +1,121 @@
+/* Map Helper Sheet - matches WalletHelperSheet layout exactly */
+
+.content {
+  padding: 24px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(85vh - 100px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Subtitle - matches Inbox modal subtitle styling */
+.subtitle {
+  font-size: 13px;
+  font-weight: 300;
+  color: rgba(0, 0, 0, 0.5);
+  text-align: center;
+  margin: 0 24px 16px;
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+}
+
+/* Divider - matches Inbox modal divider */
+.divider {
+  height: 1px;
+  background: #e5e5ea;
+  margin: 0 24px 16px;
+  flex-shrink: 0;
+}
+
+/* Tile base styles - identical to WalletHelperSheet */
+.tile {
+  width: 100%;
+  border-radius: 24px;
+  background: #f2f2f7;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+/* Tile 1: Map Preview */
+.mapPreviewContainer {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.mapPreview {
+  width: 100%;
+  height: 140px;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #e5e5ea;
+}
+
+.mapImage {
+  object-fit: cover;
+  object-position: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Tile 2: Avatar Container */
+.avatarContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.dealerAvatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Tile 3 & 4: Icon Container */
+.iconContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 8px;
+  color: #0a0a0a;
+}
+
+.icon {
+  color: #0a0a0a;
+  opacity: 0.8;
+}
+
+/* Tile titles - identical to WalletHelperSheet */
+.tileTitle {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 24px;
+  font-weight: 500;
+  color: #0a0a0a;
+  margin: 8px 0 0 0;
+  text-align: center;
+}
+
+.tileLine1 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(10, 10, 10, 0.7);
+  margin: 2px 0 0 0;
+  text-align: center;
+  line-height: 1.5;
+}
+
