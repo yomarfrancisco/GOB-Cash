@@ -38,6 +38,7 @@ const KERRYY_AGENT = {
 
 export default function CashMapPopup({ open, onClose, amount, showAgentCard = false, onComplete }: CashMapPopupProps) {
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
+  const [mapReady, setMapReady] = useState(false)
   const [cashFlowState, setCashFlowState] = useState<CashFlowState>('IDLE')
   const [showDepositSuccess, setShowDepositSuccess] = useState(false)
   const [confirmButtonDisabled, setConfirmButtonDisabled] = useState(false)
@@ -332,6 +333,39 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     }
   }, [cashFlowState, onClose])
 
+  // Wait for map container to exist in DOM before rendering MapboxMap
+  useEffect(() => {
+    if (!open) {
+      setMapReady(false)
+      return
+    }
+
+    let retryTimer: NodeJS.Timeout | null = null
+
+    // Wait for ActionSheet portal to mount and container to be available
+    const timer = setTimeout(() => {
+      const container = document.getElementById(mapContainerId)
+      if (container) {
+        setMapReady(true)
+      } else {
+        // Retry if container not found
+        retryTimer = setTimeout(() => {
+          const retryContainer = document.getElementById(mapContainerId)
+          if (retryContainer) {
+            setMapReady(true)
+          }
+        }, 200)
+      }
+    }, 100)
+
+    return () => {
+      clearTimeout(timer)
+      if (retryTimer) {
+        clearTimeout(retryTimer)
+      }
+    }
+  }, [open, mapContainerId])
+
   // Initialize state when popup opens
   useEffect(() => {
     if (open && cashFlowState === 'IDLE') {
@@ -347,6 +381,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
       setCurrentDealerLocation({ lng: HQ_COORD.lng, lat: HQ_COORD.lat })
       setDistance(7.8)
       setEtaMinutes(20)
+      setMapReady(false) // Reset map ready state
     }
   }, [open, cashFlowState, HQ_COORD.lng, HQ_COORD.lat])
 
@@ -414,14 +449,16 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         {/* Map container - fills entire popup */}
         <div className={styles.agentPopupMap}>
           <div className={styles.mapContainer} id={mapContainerId} />
-          <MapboxMap
-            containerId={mapContainerId}
-            markers={markers}
-            styleUrl="mapbox://styles/mapbox/navigation-night-v1"
-            routeCoordinates={routeCoordinates}
-            variant="popup"
-            hqCoord={{ lng: HQ_COORD.lng, lat: HQ_COORD.lat }}
-          />
+          {mapReady && (
+            <MapboxMap
+              containerId={mapContainerId}
+              markers={markers}
+              styleUrl="mapbox://styles/mapbox/navigation-night-v1"
+              routeCoordinates={routeCoordinates}
+              variant="popup"
+              hqCoord={{ lng: HQ_COORD.lng, lat: HQ_COORD.lat }}
+            />
+          )}
           {/* Paper/fold overlays - same as homepage, positioned over map */}
           <div className={styles.foldOverlays}>
             <Image

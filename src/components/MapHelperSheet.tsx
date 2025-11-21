@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
-import { MessageSquare, Package, Plane } from 'lucide-react'
+import { MessageSquare, Package, Plane, Helicopter } from 'lucide-react'
 import styles from './MapHelperSheet.module.css'
 
 type MapHelperSheetProps = {
@@ -80,7 +80,7 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
         {/* Tile 4: Courier Services */}
         <div className={styles.tile}>
           <div className={styles.iconContainer}>
-            <Plane size={32} strokeWidth={2} className={styles.icon} />
+            <Helicopter size={32} strokeWidth={2} className={styles.icon} />
           </div>
           <h3 className={styles.tileTitle}>Request cash courier services</h3>
           <p className={styles.tileLine1}>

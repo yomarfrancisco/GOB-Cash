@@ -13,35 +13,47 @@
 
 .headerRow {
   display: flex;
-  gap: 12px;
+  gap: 20px; /* Match wallet-header gap */
   align-items: center;
   justify-content: space-between;
   padding: 0;
 }
 
 .mapHeaderTitle {
-  font-family: Figtree, system-ui;
-  font-weight: 300;
-  font-size: 22px;
-  letter-spacing: 0.08px;
+  font-size: 22px; /* Match wallet-title */
+  letter-spacing: 0.08px; /* Match wallet-title */
+  font-weight: 300; /* Match wallet-title */
+  color: #000; /* Match wallet-title */
   margin: 0;
+  /* Remove Figtree - use default font stack to match wallet-title */
 }
 
 .helpBtn {
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 1px solid #e2e2e2;
-  background: #fff;
+  height: 20px; /* Match help-icon */
+  width: 20px; /* Match help-icon */
+  border-radius: 50%; /* Match help-icon */
+  border: 2px solid #007AFF; /* Match help-icon */
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(10, 10, 10, 0.7);
-  font-size: 14px;
-  font-weight: 600;
+  color: #007AFF; /* Match help-icon */
+  font-size: 14px; /* Match help-icon */
+  font-weight: 600; /* Match help-icon */
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
+  background: transparent; /* Match help-icon (no white background) */
+  transition: all 0.2s ease; /* Add transition for hover/active */
+}
+
+.helpBtn:hover {
+  background-color: #007AFF;
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.helpBtn:active {
+  transform: scale(0.95);
 }
 
 .mapHeaderSub {
