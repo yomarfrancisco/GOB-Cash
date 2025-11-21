@@ -73,8 +73,8 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
               />
             </div>
           </div>
-          <h3 className={styles.tileTitle}>Connect with verified dealers</h3>
-          <p className={styles.tileLine1}>
+          <h3 className={styles.verifiedDealerTitle}>Connect with verified dealers</h3>
+          <p className={styles.verifiedDealerLine1}>
             Tap on verified avatars to visit their profile and send a direct message
           </p>
         </div>
