@@ -42,28 +42,27 @@
   gap: 8px;
 }
 
-/* Tile 1: Map Preview */
-.mapPreviewContainer {
-  position: relative;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
+/* Map preview container — MUST be relative with fixed height */
 .mapPreview {
+  position: relative;
   width: 100%;
   height: 140px;
-  border-radius: 16px;
+  border-radius: 24px;
   overflow: hidden;
-  position: relative;
+  margin-bottom: 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   background: #e5e5ea;
 }
 
+/* This mirrors .cardImage from WalletHelperSheet */
 .mapImage {
-  /* Next.js Image with fill prop handles positioning automatically */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  /* no extra margins, so it completely fills .mapPreview */
 }
 
 /* Tile 2: Avatar Container */

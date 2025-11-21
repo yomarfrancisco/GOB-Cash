@@ -24,17 +24,16 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
 
         {/* Tile 1: Map Preview */}
         <div className={styles.tile}>
-          <div className={styles.mapPreviewContainer}>
-            <div className={styles.mapPreview}>
-              <Image
-                src="/assets/map2.png"
-                alt="Map preview"
-                fill
-                style={{ objectFit: 'cover', objectPosition: 'center' }}
-                sizes="100%"
-                unoptimized
-              />
-            </div>
+          <div className={styles.mapPreview}>
+            <Image
+              src="/assets/map2.png"
+              alt="Map preview"
+              fill
+              className={styles.mapImage}
+              sizes="100%"
+              priority
+              unoptimized
+            />
           </div>
           <h3 className={styles.tileTitle}>Discover dealers around you</h3>
           <p className={styles.tileLine1}>Use the map to see who is near you</p>
