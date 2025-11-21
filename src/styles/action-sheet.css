@@ -76,6 +76,14 @@
   height: 100%;
 }
 
+/* Remove default as-body padding for whatsapp-signin sheet - let internal container control spacing */
+.as-sheet.whatsapp-signin .as-body {
+  padding: 0; /* Remove default 24px padding so internal container controls all spacing */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 /* Compact sheets (default) - for Edit Profile, Name & Handle, Social Links, Help & Support, etc. */
 .as-sheet-compact {
   max-height: 65vh;

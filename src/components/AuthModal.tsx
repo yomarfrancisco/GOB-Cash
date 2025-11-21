@@ -129,8 +129,10 @@ export default function AuthModal() {
   if (authView === 'whatsapp-signin') {
     return (
       <ActionSheet open={authOpen} onClose={closeAuth} title="" size="tall" className="whatsapp-signin">
-        <div className="whatsapp-signin-sheet">
-          <div className="whatsapp-signin-header">
+        <div className={styles.root}>
+          <div className={styles.bg} />
+          <div className={`whatsapp-signin-sheet ${styles.content}`}>
+            <div className="whatsapp-signin-header">
             <button className="whatsapp-signin-back" onClick={goBack} aria-label="Back">
               <Image
                 src="/assets/back_ui.svg"
@@ -206,6 +208,7 @@ export default function AuthModal() {
               Sign in
             </button>
           </form>
+          </div>
         </div>
       </ActionSheet>
     )
