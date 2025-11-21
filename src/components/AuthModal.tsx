@@ -2,8 +2,7 @@
  * AuthModal - Full-bleed hand artwork background with password gate
  * 
  * Shows the hand artwork as a full-bleed background with a password form overlay.
- * Visual gate only - password submission is a no-op for now.
- * All interactions trigger this single image sheet.
+ * Validates password against member password and authenticates on success.
  */
 
 'use client'
@@ -15,18 +14,35 @@ import { useAuthStore } from '@/store/auth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
+const MEMBER_PASSWORD = 'brics2025'
+
 export default function AuthModal() {
-  const { authOpen, closeAuth } = useAuthStore()
+  const { authOpen, closeAuth, completeAuth } = useAuthStore()
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const isDisabled = password.trim().length === 0
+  const isDisabled = password.trim().length === 0 || isSubmitting
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (isDisabled) return
-    // TODO: later: integrate with real auth
-    console.log('password submitted')
+
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      if (password.trim() !== MEMBER_PASSWORD) {
+        setError('Incorrect member password')
+        return
+      }
+
+      // ✅ Success: mark user as authed and close modal
+      completeAuth()
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (!authOpen) return null
@@ -43,8 +59,11 @@ export default function AuthModal() {
                   type={showPassword ? 'text' : 'password'}
                   className={styles.input}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    setError(null) // Clear error when user types
+                  }}
+                  placeholder="Member password"
                 />
                 <button
                   type="button"
@@ -62,6 +81,11 @@ export default function AuthModal() {
                 </button>
               </div>
             </label>
+            {error && (
+              <p className={styles.errorText}>
+                {error}
+              </p>
+            )}
             <button
               type="submit"
               className={clsx(styles.primaryButton, {
