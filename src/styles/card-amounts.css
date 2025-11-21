@@ -95,6 +95,19 @@
   z-index: 10; /* ensure amounts sit above card image */
 }
 
+/* Neutralize link styling inside card amounts to prevent iOS Safari auto-detection flash */
+.card-amounts,
+.card-amounts *,
+.card-amounts a {
+  color: inherit !important;
+  text-decoration: none !important;
+}
+
+/* Prevent accidental clicks on auto-linked numbers */
+.card-amounts a {
+  pointer-events: none;
+}
+
 /* Shift amount block down to make space for currency badge */
 .card-amounts--shifted {
   transform: translateY(18px);

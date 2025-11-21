@@ -38,7 +38,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head />
+      <head>
+        {/* Disable iOS Safari phone number auto-detection to avoid blue/underlined flashes */}
+        <meta name="format-detection" content="telephone=no" />
+      </head>
       <body className={inter.className}>
         <script
           dangerouslySetInnerHTML={{

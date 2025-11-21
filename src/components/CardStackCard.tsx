@@ -359,7 +359,7 @@ export default function CardStackCard({
 
       {/* Amount display with SlotCounter (shifted down) - only show for top card */}
       {depth === 0 && (
-        <div className={`card-amounts card-amounts--${card.type} card-amounts--shifted`}>
+        <div className={`card-amounts card-amounts--${card.type} card-amounts--shifted`} suppressHydrationWarning>
           <div
             className={clsx('card-amounts__zar amount-headline amount-topline', {
               'flash-up': flashDirection === 'up',
@@ -368,6 +368,7 @@ export default function CardStackCard({
             })}
             aria-label={`${zar.toFixed(2)} rand`}
             onAnimationEnd={onFlashEnd}
+            suppressHydrationWarning
           >
             <SlotCounter
               value={zar}
@@ -377,16 +378,16 @@ export default function CardStackCard({
               onStart={() => {
                 // Flash direction is already computed and set
               }}
-              renderMajor={(major) => <span className="amt-int card-amounts__whole">{major}</span>}
+              renderMajor={(major) => <span className="amt-int card-amounts__whole" suppressHydrationWarning>{major}</span>}
               renderCents={(cents) => (
                 <>
-                  <span className="amt-dot card-amounts__dot">.</span>
-                  <span className="amt-cents card-amounts__cents">{cents}</span>
+                  <span className="amt-dot card-amounts__dot" suppressHydrationWarning>.</span>
+                  <span className="amt-cents card-amounts__cents" suppressHydrationWarning>{cents}</span>
                 </>
               )}
             />
           </div>
-          <div className="card-amounts__usdt" aria-label={`${usdt.toFixed(2)} USDT`}>
+          <div className="card-amounts__usdt" aria-label={`${usdt.toFixed(2)} USDT`} suppressHydrationWarning>
             <SlotCounter value={usdt} format={formatUSDT} durationMs={700} className="card-amounts__usdt-value" />
             <span style={{ marginLeft: '4px' }}>USDT</span>
           </div>
