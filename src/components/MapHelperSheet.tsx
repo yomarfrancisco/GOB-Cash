@@ -82,7 +82,7 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
         {/* Tile 3: Community Chat */}
         <div className={styles.tile}>
           <div className={styles.iconContainer}>
-            <MessageSquare size={32} strokeWidth={2} className={styles.icon} />
+            <MessageSquare size={30} strokeWidth={2} className={styles.icon} />
           </div>
           <h3 className={styles.tileTitle}>Say hi to the community</h3>
           <p className={styles.tileLine1}>
@@ -93,7 +93,7 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
         {/* Tile 4: Courier Services */}
         <div className={styles.tile}>
           <div className={styles.iconContainer}>
-            <Helicopter size={32} strokeWidth={2} className={styles.icon} />
+            <Helicopter size={30} strokeWidth={2} className={styles.icon} />
           </div>
           <h3 className={styles.tileTitle}>Request cash courier services</h3>
           <p className={styles.tileLine1}>
