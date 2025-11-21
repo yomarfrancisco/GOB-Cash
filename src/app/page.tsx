@@ -13,6 +13,7 @@ import SuccessSheet from '@/components/SuccessSheet'
 import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
 import { formatUSDT } from '@/lib/money'
 import { useWalletAlloc } from '@/state/walletAlloc'
+import { useAiActionCycle } from '@/lib/animations/useAiActionCycle'
 import { formatZAR } from '@/lib/formatCurrency'
 import { initPortfolioFromAlloc } from '@/lib/portfolio/initPortfolio'
 import ConvertCashSection from '@/components/ConvertCashSection'
@@ -223,8 +224,20 @@ export default function Home() {
     initPortfolioFromAlloc(alloc.cashCents, alloc.ethCents, alloc.pepeCents, alloc.totalCents)
   }, [alloc.cashCents, alloc.ethCents, alloc.pepeCents, alloc.totalCents])
 
-  // NOTE: Removed effectiveMode and autonomous behavior - all users must be authenticated
-  // AI action cycle is disabled - users must sign up first
+  // Initialize AI action cycle - only run when NOT signed in (autonomous demo behavior)
+  // When user signs in, isAuthed becomes true and animations stop
+  useAiActionCycle(
+    cardStackRef,
+    {
+      getCash,
+      getEth,
+      getPepe,
+      setCash,
+      setEth,
+      setPepe,
+    },
+    !isAuthed // enable only when NOT authenticated
+  )
 
   // Demo notification engine - only run in demo mode
   const pushNotification = useNotificationStore((state) => state.pushNotification)
