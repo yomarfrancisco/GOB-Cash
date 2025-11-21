@@ -35,8 +35,8 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
               unoptimized
             />
           </div>
-          <h3 className={styles.tileTitle}>Discover dealers around you</h3>
-          <p className={styles.tileLine1}>Use the map to see who is near you</p>
+          <h3 className={styles.mapTitle}>Discover dealers around you</h3>
+          <p className={styles.mapSubtext}>Use the map to see who is near you</p>
         </div>
 
         {/* Tile 2: Verified Dealer */}
