@@ -48,7 +48,7 @@ export default function TopGlassBar({ onScanClick }: TopGlassBarProps = {}) {
         />
       ) : (
         <Image
-          src="/assets/The_firm.png"
+          src="/assets/core/gobankless-logo.png"
           alt="GoBankless"
           className="gobankless-logo"
           width={220}
