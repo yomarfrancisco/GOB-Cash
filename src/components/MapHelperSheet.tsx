@@ -27,20 +27,12 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
           <div className={styles.mapPreviewContainer}>
             <div className={styles.mapPreview}>
               <Image
-                src="/assets/map-preview.jpg"
+                src="/assets/map2.png"
                 alt="Map preview"
                 fill
                 className={styles.mapImage}
                 sizes="100%"
                 unoptimized
-                onError={(e) => {
-                  // Fallback: if map preview doesn't exist, use a placeholder color
-                  const target = e.target as HTMLImageElement
-                  target.style.display = 'none'
-                  if (target.parentElement) {
-                    target.parentElement.style.backgroundColor = '#e5e5ea'
-                  }
-                }}
               />
             </div>
           </div>
