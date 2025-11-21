@@ -1,14 +1,13 @@
 /**
- * AuthModal - Full-screen image takeover
+ * AuthModal - Full-bleed hand artwork background
  * 
- * Visual test: Shows only the background image in a full-screen ActionSheet.
+ * Shows the hand artwork as a full-bleed background filling the entire ActionSheet.
+ * No forms, no buttons - just the artwork as the sheet background.
  * All interactions trigger this single image sheet.
- * No forms, no buttons, no sign-in logic - just the image.
  */
 
 'use client'
 
-import Image from 'next/image'
 import { useAuthStore } from '@/store/auth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
@@ -19,16 +18,9 @@ export default function AuthModal() {
   if (!authOpen) return null
 
   return (
-    <ActionSheet open={authOpen} onClose={closeAuth} title="" size="tall" className={styles.fullscreenImageSheet}>
-      <div className={styles.imageContainer}>
-        <Image
-          src="/assets/sign up - first contact.png"
-          alt=""
-          fill
-          style={{ objectFit: 'contain' }}
-          priority
-          unoptimized
-        />
+    <ActionSheet open={authOpen} onClose={closeAuth} title="" size="tall" className="handAuthSheet">
+      <div className={styles.handAuthWrapper}>
+        <div className={styles.handAuthRoot} />
       </div>
     </ActionSheet>
   )

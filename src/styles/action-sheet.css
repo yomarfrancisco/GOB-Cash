@@ -84,16 +84,15 @@
   height: 100%;
 }
 
-/* Full-screen image sheet - remove padding and ensure full height */
-.as-sheet.fullscreenImageSheet .as-body {
+/* Full-bleed hand artwork sheet - remove padding and ensure full height */
+.as-sheet.handAuthSheet .as-body {
   padding: 0;
   height: 100%;
   overflow: hidden;
+  margin: 0;
 }
 
-.as-sheet.fullscreenImageSheet {
-  max-height: 100vh !important;
-  height: 100vh;
+.as-sheet.handAuthSheet {
   border-radius: 32px 32px 0 0;
 }
 
