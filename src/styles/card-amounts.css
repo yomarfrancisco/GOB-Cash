@@ -256,6 +256,27 @@
   font-variant-numeric: tabular-nums lining-nums;
 }
 
+/* Compact sizing when amount exceeds 99999.99 */
+.amount-topline--compact .amt-int,
+.amount-topline--compact .card-amounts__whole {
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: 0.21px;
+}
+
+.amount-topline--compact .amt-dot,
+.amount-topline--compact .card-amounts__dot {
+  font-size: 36px;
+  font-weight: 400;
+}
+
+.amount-topline--compact .amt-cents,
+.amount-topline--compact .card-amounts__cents {
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: 0.21px;
+}
+
 /* Second line: USDT (minor line) */
 .card-amounts__usdt {
   margin-top: 4px; /* match original gap from card-balance-section */

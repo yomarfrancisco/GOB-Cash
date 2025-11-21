@@ -358,6 +358,7 @@ export default function CardStackCard({
             className={clsx('card-amounts__zar amount-headline amount-topline', {
               'flash-up': flashDirection === 'up',
               'flash-down': flashDirection === 'down',
+              'amount-topline--compact': zar > 99999.99,
             })}
             aria-label={`${zar.toFixed(2)} rand`}
             onAnimationEnd={onFlashEnd}
