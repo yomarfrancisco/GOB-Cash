@@ -65,54 +65,44 @@
   /* no extra margins, so it completely fills .mapPreview */
 }
 
-/* Tile 2: Avatar with Blue Marker & Verified Badge */
-.avatarLocation {
+/* Tile 2: Avatar with Blue Marker & Verified Badge - Helper Sheet Only */
+.helperAvatarWrapper {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 70px;
+  height: 70px;
   margin: 0 auto 8px;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
 }
 
-.union {
+.helperUnionBg {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 72px;
+  height: 72px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 1;
-}
-
-.unionSvg {
   object-fit: contain;
-  object-position: center;
 }
 
-.avatarWithVerification {
+.helperAvatarImg {
   position: relative;
-  width: 48px;
-  height: 48px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avatarImage {
   width: 48px;
   height: 48px;
   border-radius: 50%;
   object-fit: cover;
+  z-index: 2;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.verifiedBadge {
+.helperVerifiedBadge {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
+  top: -2px;
+  right: -2px;
   z-index: 3;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
