@@ -30,7 +30,7 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
                 src="/assets/map2.png"
                 alt="Map preview"
                 fill
-                className={styles.mapImage}
+                style={{ objectFit: 'cover', objectPosition: 'center' }}
                 sizes="100%"
                 unoptimized
               />
