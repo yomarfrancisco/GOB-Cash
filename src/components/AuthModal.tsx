@@ -38,14 +38,13 @@ export default function AuthModal() {
         <div className={styles.content}>
           <form className={styles.form} onSubmit={handleSubmit}>
             <label className={styles.field}>
-              <span className={styles.fieldLabel}>Password</span>
               <div className={styles.inputShell}>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   className={styles.input}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder=""
+                  placeholder="Password"
                 />
                 <button
                   type="button"

@@ -201,7 +201,10 @@
 }
 
 .input::placeholder {
-  color: #999;
+  opacity: 0.5;
+  font-weight: 500;
+  letter-spacing: -0.23px;
+  color: #000;
 }
 
 .eyeButton {
