@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
+import { useAuthStore } from '@/store/auth'
 
 export type WalletAlloc = {
   totalCents: number // total funds in cents; funds-available display derives from this
@@ -34,6 +35,7 @@ interface WalletAllocContextType {
 
 const WalletAllocContext = createContext<WalletAllocContextType | undefined>(undefined)
 
+// Normal initial values (for authenticated users)
 const initial: WalletAlloc = {
   totalCents: 610300, // R6,103.00
   cashCents: 549270, // 90% of total
@@ -43,9 +45,42 @@ const initial: WalletAlloc = {
   btcCents: 0,
 }
 
+// Demo initial values (for unauthenticated users - 5M USDT equivalent)
+const FX_USD_ZAR_DEFAULT = 18.1
+const DEMO_TOTAL_USDT = 5_000_000
+const DEMO_TOTAL_ZAR = DEMO_TOTAL_USDT * FX_USD_ZAR_DEFAULT // 90,500,000 ZAR
+const DEMO_TOTAL_CENTS = Math.floor(DEMO_TOTAL_ZAR * 100) // 9,050,000,000 cents
+
+const demoInitial: WalletAlloc = {
+  totalCents: DEMO_TOTAL_CENTS,
+  cashCents: Math.floor(DEMO_TOTAL_ZAR * 0.90 * 100), // 90% = 81,450,000 ZAR
+  ethCents: Math.floor(DEMO_TOTAL_ZAR * 0.05 * 100),  // 5% = 4,525,000 ZAR
+  pepeCents: Math.floor(DEMO_TOTAL_ZAR * 0.05 * 100), // 5% = 4,525,000 ZAR
+  mznCents: 0,
+  btcCents: 0,
+}
+
 export function WalletAllocProvider({ children }: { children: ReactNode }) {
-  const [alloc, setAlloc] = useState<WalletAlloc>(initial)
+  const { isAuthed } = useAuthStore()
+  // Initialize based on current auth state
+  // Default to demo values (for unauthenticated users)
+  const [alloc, setAlloc] = useState<WalletAlloc>(() => {
+    // Check auth state on initial mount (using getState to avoid hook rules)
+    const authState = useAuthStore.getState()
+    return authState.isAuthed ? initial : demoInitial
+  })
   const [isRebalancing, setRebalancing] = useState(false)
+
+  // Update alloc when auth state changes
+  useEffect(() => {
+    if (!isAuthed) {
+      // User signed out: switch to demo values
+      setAlloc(demoInitial)
+    } else {
+      // User signed in: switch to normal values
+      setAlloc(initial)
+    }
+  }, [isAuthed])
 
   const applyAiAction = useCallback(
     (action: { from: 'cash' | 'eth' | 'pepe'; to: 'cash' | 'eth' | 'pepe'; cents: number }) => {
