@@ -94,6 +94,9 @@
 
 .as-sheet.handAuthSheet {
   border-radius: 32px 32px 0 0;
+  height: 85vh;
+  max-height: 85vh;
+  padding-bottom: 0; /* Remove default bottom padding to prevent white space */
 }
 
 /* Compact sheets (default) - for Edit Profile, Name & Handle, Social Links, Help & Support, etc. */

@@ -129,7 +129,7 @@
 .handAuthRoot {
   width: 100%;
   height: 100%;
-  border-radius: 32px;
+  border-radius: 32px 32px 0 0; /* Match parent sheet border radius */
   overflow: hidden;
   background-image: url('/assets/sign up - first contact.png');
   background-size: cover;
