@@ -35,10 +35,10 @@ interface WalletAllocContextType {
 const WalletAllocContext = createContext<WalletAllocContextType | undefined>(undefined)
 
 const initial: WalletAlloc = {
-  totalCents: 271500000, // R2,715,000.00 (150,000 USDT @ 18.1 FX)
-  cashCents: 244350000, // 90% of total
-  ethCents: 8145000, // 3% of total
-  pepeCents: 19005000, // 7% of total
+  totalCents: 2715000000, // R27,150,000.00 (1,500,000 USDT @ 18.1 FX)
+  cashCents: 2443500000, // 90% of total
+  ethCents: 81450000, // 3% of total
+  pepeCents: 190050000, // 7% of total
   mznCents: 0,
   btcCents: 0,
 }

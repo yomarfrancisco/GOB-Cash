@@ -141,6 +141,12 @@ export default function CardStackCard({
   const usdt = zar / FX_USD_ZAR_DEFAULT
   const pct = allocPct(cents)
 
+  // Check if ANY card exceeds threshold - if so, apply compact sizing to ALL cards for consistency
+  const cashZAR = alloc.cashCents / 100
+  const ethZAR = alloc.ethCents / 100
+  const pepeZAR = alloc.pepeCents / 100
+  const shouldUseCompactSizing = cashZAR > 99999.99 || ethZAR > 99999.99 || pepeZAR > 99999.99
+
   // Get portfolio data for this card
   // Use direct selector for reactivity (Zustand will re-render when holdings[symbol] changes)
   const symbol = CARD_TO_SYMBOL[card.type]
@@ -358,7 +364,7 @@ export default function CardStackCard({
             className={clsx('card-amounts__zar amount-headline amount-topline', {
               'flash-up': flashDirection === 'up',
               'flash-down': flashDirection === 'down',
-              'amount-topline--compact': zar > 99999.99,
+              'amount-topline--compact': shouldUseCompactSizing,
             })}
             aria-label={`${zar.toFixed(2)} rand`}
             onAnimationEnd={onFlashEnd}
