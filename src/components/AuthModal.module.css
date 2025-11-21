@@ -134,7 +134,7 @@
   overflow: hidden;
   background-image: url('/assets/sign up - first contact.png');
   background-size: cover;
-  background-position: center;
+  background-position: center 60%; /* Move image down slightly (from center to 60% from top) */
   background-repeat: no-repeat;
 }
 

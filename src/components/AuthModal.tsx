@@ -63,7 +63,7 @@ export default function AuthModal() {
                     setPassword(e.target.value)
                     setError(null) // Clear error when user types
                   }}
-                  placeholder="Member password"
+                  placeholder="Password"
                 />
                 <button
                   type="button"
