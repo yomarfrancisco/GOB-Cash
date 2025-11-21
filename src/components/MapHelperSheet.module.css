@@ -10,15 +10,15 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Subtitle - matches Inbox modal subtitle styling */
+/* Subtitle - matches WalletHelperSheet description styling */
 .subtitle {
-  font-size: 13px;
-  font-weight: 300;
-  color: rgba(0, 0, 0, 0.5);
-  text-align: center;
-  margin: 0 24px 16px;
-  letter-spacing: -0.09px;
-  line-height: 1.35;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(10, 10, 10, 0.7);
+  margin: 0 0 4px 0;
+  text-align: left;
 }
 
 /* Divider - matches Inbox modal divider */
