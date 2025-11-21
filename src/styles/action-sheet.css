@@ -84,6 +84,19 @@
   height: 100%;
 }
 
+/* Full-screen image sheet - remove padding and ensure full height */
+.as-sheet.fullscreenImageSheet .as-body {
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.as-sheet.fullscreenImageSheet {
+  max-height: 100vh !important;
+  height: 100vh;
+  border-radius: 32px 32px 0 0;
+}
+
 /* Compact sheets (default) - for Edit Profile, Name & Handle, Social Links, Help & Support, etc. */
 .as-sheet-compact {
   max-height: 65vh;
