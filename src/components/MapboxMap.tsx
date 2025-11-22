@@ -200,6 +200,16 @@ export default function MapboxMap({
       setIsMapLoaded(true)
       log('event: load')
 
+      // For landing variant, explicitly set SADC viewport after map loads
+      if (variant === 'landing') {
+        // Ensure SADC viewport is set explicitly after map is fully loaded
+        map.jumpTo({
+          center: initialCenter,
+          zoom: initialZoom,
+        })
+        log(`SADC viewport set: center=[${initialCenter[0]}, ${initialCenter[1]}], zoom=${initialZoom}`)
+      }
+
       // Only add geolocation, branch marker, and user marker logic for landing maps
       if (variant === 'landing') {
         // Add branch marker (Sandton City)
@@ -433,23 +443,25 @@ export default function MapboxMap({
       loadedRef.current = false
       setIsMapLoaded(false)
     }
-  }, [styleUrl, containerId, showDebug, variant]) // Removed routeCoordinates - handled in separate effect
+  }, [styleUrl, containerId, showDebug, variant, initialCenter, initialZoom]) // Include initialCenter/initialZoom for SADC viewport
 
   // Enable landing animations after 10-second hold period
+  // Timer starts only after map is loaded (isMapLoaded === true)
   useEffect(() => {
     if (variant !== 'landing') return
+    if (!isMapLoaded) return // Wait for map to load first
 
     const holdMs = 10000 // 10 seconds
     const timer = setTimeout(() => {
       setLandingAnimationsEnabled(true)
       landingAnimationsEnabledRef.current = true // Update ref so handler can access it
       if (process.env.NODE_ENV !== 'production') {
-        console.log('[MapboxMap] Landing animations enabled after 10s hold')
+        console.log('[MapboxMap] Landing animations enabled after 10s hold (map loaded)')
       }
     }, holdMs)
 
     return () => clearTimeout(timer)
-  }, [variant])
+  }, [variant, isMapLoaded])
 
   // Keep ref in sync with state
   useEffect(() => {
