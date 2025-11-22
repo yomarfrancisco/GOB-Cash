@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useNotificationStore } from '@/store/notifications'
 import '@/styles/success-sheet.css'
@@ -137,12 +138,14 @@ export default function SuccessSheet({
     <ActionSheet open={open} onClose={onClose} title="" className="send-success" size="tall">
       <div className="success-sheet" role="dialog" aria-labelledby="success-title">
         <div className="success-header">
-          <img
+          <Image
             src="/assets/checkmark_circle.svg"
             alt="success"
             className="success-icon"
             width={56}
             height={56}
+            priority
+            unoptimized
           />
           {kind === 'deposit' ? (
             <>
