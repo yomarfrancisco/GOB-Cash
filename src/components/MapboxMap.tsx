@@ -68,6 +68,10 @@ export default function MapboxMap({
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const [userLngLat, setUserLngLat] = useState<[number, number] | null>(null)
   const [routeData, setRouteData] = useState<Feature<LineString> | null>(null)
+  // Animation hold: disable landing animations for first 10 seconds to show SADC viewport
+  const [landingAnimationsEnabled, setLandingAnimationsEnabled] = useState(
+    variant !== 'landing' // animations always on for non-landing variants
+  )
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const youAreHereMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const savedCenterRef = useRef<[number, number] | null>(null)
@@ -424,6 +428,21 @@ export default function MapboxMap({
     }
   }, [styleUrl, containerId, showDebug, variant]) // Removed routeCoordinates - handled in separate effect
 
+  // Enable landing animations after 10-second hold period
+  useEffect(() => {
+    if (variant !== 'landing') return
+
+    const holdMs = 10000 // 10 seconds
+    const timer = setTimeout(() => {
+      setLandingAnimationsEnabled(true)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[MapboxMap] Landing animations enabled after 10s hold')
+      }
+    }, holdMs)
+
+    return () => clearTimeout(timer)
+  }, [variant])
+
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
     if (!mapRef.current || !isMapLoaded || !markers) return
@@ -630,6 +649,9 @@ export default function MapboxMap({
     // Do not run highlight logic for popup maps - prevents jitter from homepage notifications
     if (variant === 'popup') return
 
+    // Don't run highlight animations during the initial SADC hold period
+    if (variant === 'landing' && !landingAnimationsEnabled) return
+
     if (highlight) {
       // Save current map state
       const center = map.getCenter()
@@ -709,7 +731,7 @@ export default function MapboxMap({
       savedCenterRef.current = null
       savedZoomRef.current = null
     }
-  }, [highlight, variant])
+  }, [highlight, variant, landingAnimationsEnabled])
 
   // Effect to keep nearest branch in view while user stays centered
   useEffect(() => {
@@ -717,6 +739,10 @@ export default function MapboxMap({
     if (!map) return
     if (!loadedRef.current) return // ensure map is fully loaded
     if (variant === 'popup') return // popup: no auto-zoom logic
+    
+    // Don't auto-zoom until landing animations are enabled (after 10s hold)
+    if (variant === 'landing' && !landingAnimationsEnabled) return
+    
     if (!userLngLat) return
     if (!markers?.length) return
 
@@ -790,7 +816,7 @@ export default function MapboxMap({
         )
       }
     })
-  }, [userLngLat, markers, variant]) // not depending on initialZoom/Center; we only care once user+markers exist
+  }, [userLngLat, markers, variant, landingAnimationsEnabled]) // not depending on initialZoom/Center; we only care once user+markers exist
 
   // Effect 1: Fetch route from user to nearest branch
   useEffect(() => {
