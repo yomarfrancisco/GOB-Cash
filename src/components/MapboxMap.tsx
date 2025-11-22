@@ -279,15 +279,19 @@ export default function MapboxMap({
           upsertUserMarker(lng, lat)
 
           // (optional) keep map centered on the user when first found
+          // Skip auto-center for landing variant when fitToMarkers is false (fixed viewport mode)
           if (!centeredOnce) {
             centeredOnce = true
             if (process.env.NODE_ENV !== 'production') {
               console.log('[camera]', 'variant=', variant, 'reason=geolocate-first-center', [lng, lat])
             }
-            map.setCenter([lng, lat])
+            // Only auto-center if fitToMarkers is true (default behavior) or not landing variant
+            if (fitToMarkers || variant !== 'landing') {
+              map.setCenter([lng, lat])
+              console.log('[Mapbox] Centered on user:', { lng, lat })
+            }
             // Set user location state (will trigger zoom effect)
             setUserLngLat([lng, lat])
-            console.log('[Mapbox] Centered on user:', { lng, lat })
           } else {
             // Update user location state for route recalculation
             setUserLngLat([lng, lat])

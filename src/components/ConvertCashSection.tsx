@@ -26,6 +26,10 @@ const BRANCH_MARKERS: Marker[] = [
   label: branch.title,
 }))
 
+// SADC region default viewport for homepage map
+const SADC_CENTER: [number, number] = [30, -23] // [lng, lat] - central SADC
+const SADC_ZOOM = 4.2
+
 type ConvertCashSectionProps = {
   onHelpClick?: () => void
 }
@@ -63,6 +67,9 @@ export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionPr
             markers={[sandtonBranch, ...BRANCH_MARKERS]}
             styleUrl="mapbox://styles/mapbox/navigation-day-v1"
             variant="landing"
+            initialCenter={SADC_CENTER}
+            initialZoom={SADC_ZOOM}
+            fitToMarkers={false}
           />
 
           {/* Paper/fold overlays as siblings, not children of map container */}
