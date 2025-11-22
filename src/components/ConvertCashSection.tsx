@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import styles from './ConvertCashSection.module.css'
 import MapboxMap, { type Marker } from './MapboxMap'
+import { useAuthStore } from '@/store/auth'
 
 const sandtonBranch: Marker = {
   id: 'branch-sandton-city',
@@ -35,6 +36,8 @@ type ConvertCashSectionProps = {
 }
 
 export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionProps) {
+  const isAuthed = useAuthStore((s) => s.isAuthed)
+
   return (
     <section className={`sectionShell ${styles.mapSectionShell}`} aria-labelledby="convert-title">
       <div className={styles.mapHeader}>
@@ -70,6 +73,7 @@ export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionPr
             initialCenter={SADC_CENTER}
             initialZoom={SADC_ZOOM}
             fitToMarkers={false}
+            isAuthed={isAuthed}
           />
 
           {/* Paper/fold overlays as siblings, not children of map container */}

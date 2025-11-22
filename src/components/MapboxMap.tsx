@@ -37,12 +37,17 @@ interface Props {
   routeCoordinates?: [number, number][] // Optional route line coordinates
   variant?: 'landing' | 'popup' // Map variant: 'landing' for homepage, 'popup' for modal maps
   hqCoord?: { lng: number; lat: number } // Optional HQ coordinate for dedicated stable marker
+  isAuthed?: boolean // If true, disable animations for landing map (static SADC view)
 }
 
 const DEBUG_MAP =
   process.env.NEXT_PUBLIC_DEBUG_MAP === '1' ||
   (typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('debugMap') === '1')
+
+// SADC region default viewport constants
+const SADC_CENTER: [number, number] = [30, -23] // [lng, lat] - central SADC region
+const SADC_ZOOM = 4.2 // region-level zoom
 
 export default function MapboxMap({
   className,
@@ -56,6 +61,7 @@ export default function MapboxMap({
   routeCoordinates,
   variant = 'landing',
   hqCoord,
+  isAuthed = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -74,6 +80,7 @@ export default function MapboxMap({
   )
   // Use ref so geolocation handler closure can access current value
   const landingAnimationsEnabledRef = useRef(landingAnimationsEnabled)
+  const isAuthedRef = useRef(isAuthed)
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const youAreHereMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const savedCenterRef = useRef<[number, number] | null>(null)
@@ -305,8 +312,8 @@ export default function MapboxMap({
             // Only auto-center if:
             // 1. fitToMarkers is true (default behavior), OR
             // 2. not landing variant, OR
-            // 3. landing variant but animations are enabled (after 10s hold)
-            const shouldCenter = fitToMarkers || variant !== 'landing' || landingAnimationsEnabledRef.current
+            // 3. landing variant but animations are enabled (after 10s hold) AND user is not logged in
+            const shouldCenter = fitToMarkers || variant !== 'landing' || (landingAnimationsEnabledRef.current && !isAuthedRef.current)
             if (shouldCenter) {
               map.setCenter([lng, lat])
               console.log('[Mapbox] Centered on user:', { lng, lat })
@@ -443,7 +450,7 @@ export default function MapboxMap({
       loadedRef.current = false
       setIsMapLoaded(false)
     }
-  }, [styleUrl, containerId, showDebug, variant, initialCenter, initialZoom]) // Include initialCenter/initialZoom for SADC viewport
+  }, [styleUrl, containerId, showDebug, variant, initialCenter, initialZoom, isAuthed]) // Include initialCenter/initialZoom for SADC viewport, isAuthed for geolocation handler
 
   // Enable landing animations after 10-second hold period
   // Timer starts only after map is loaded (isMapLoaded === true)
@@ -463,10 +470,33 @@ export default function MapboxMap({
     return () => clearTimeout(timer)
   }, [variant, isMapLoaded])
 
-  // Keep ref in sync with state
+  // Keep refs in sync with state
   useEffect(() => {
     landingAnimationsEnabledRef.current = landingAnimationsEnabled
   }, [landingAnimationsEnabled])
+
+  useEffect(() => {
+    isAuthedRef.current = isAuthed
+  }, [isAuthed])
+
+  // Reset camera to static SADC view when user becomes logged in
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !loadedRef.current) return
+    if (variant !== 'landing') return
+
+    // When user becomes authed, jump to the static SADC view (no animation)
+    // Using jumpTo for instantaneous camera change (per Mapbox GL JS docs)
+    if (isAuthed) {
+      map.jumpTo({
+        center: SADC_CENTER,
+        zoom: SADC_ZOOM,
+      })
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[MapboxMap] Reset to static SADC view (user logged in)')
+      }
+    }
+  }, [isAuthed, variant])
 
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
@@ -674,6 +704,9 @@ export default function MapboxMap({
     // Do not run highlight logic for popup maps - prevents jitter from homepage notifications
     if (variant === 'popup') return
 
+    // Completely disable highlight animations for logged-in users on landing map
+    if (variant === 'landing' && isAuthed) return
+
     // Don't run highlight animations during the initial SADC hold period
     if (variant === 'landing' && !landingAnimationsEnabled) return
 
@@ -756,7 +789,7 @@ export default function MapboxMap({
       savedCenterRef.current = null
       savedZoomRef.current = null
     }
-  }, [highlight, variant, landingAnimationsEnabled])
+  }, [highlight, variant, landingAnimationsEnabled, isAuthed])
 
   // Effect to keep nearest branch in view while user stays centered
   useEffect(() => {
@@ -764,6 +797,9 @@ export default function MapboxMap({
     if (!map) return
     if (!loadedRef.current) return // ensure map is fully loaded
     if (variant === 'popup') return // popup: no auto-zoom logic
+    
+    // Completely disable auto-zoom and auto-center for logged-in users on landing map
+    if (variant === 'landing' && isAuthed) return
     
     // Don't auto-zoom until landing animations are enabled (after 10s hold)
     if (variant === 'landing' && !landingAnimationsEnabled) return
@@ -841,7 +877,7 @@ export default function MapboxMap({
         )
       }
     })
-  }, [userLngLat, markers, variant, landingAnimationsEnabled]) // not depending on initialZoom/Center; we only care once user+markers exist
+  }, [userLngLat, markers, variant, landingAnimationsEnabled, isAuthed]) // not depending on initialZoom/Center; we only care once user+markers exist
 
   // Effect 1: Fetch route from user to nearest branch
   useEffect(() => {
