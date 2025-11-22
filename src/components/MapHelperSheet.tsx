@@ -84,9 +84,9 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
           <div className={styles.iconContainer}>
             <MessageSquare size={30} strokeWidth={2} className={styles.icon} />
           </div>
-          <h3 className={styles.tileTitle}>Say hi to the community</h3>
+          <h3 className={styles.tileTitle}>Agree on logistics</h3>
           <p className={styles.tileLine1}>
-            Introduce yourself with your name, city, and your competitive advantage as a dealer
+            Confirm time and place for cash collection before requesting
           </p>
         </div>
 
