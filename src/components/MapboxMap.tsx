@@ -79,7 +79,8 @@ export default function MapboxMap({
     variant !== 'landing' // animations always on for non-landing variants
   )
   // Use ref so geolocation handler closure can access current value
-  const landingAnimationsEnabledRef = useRef(landingAnimationsEnabled)
+  // Initialize refs once based on variant - don't reset on every change
+  const landingAnimationsEnabledRef = useRef(variant !== 'landing' ? true : landingAnimationsEnabled)
   const isAuthedRef = useRef(isAuthed)
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const youAreHereMarkerRef = useRef<mapboxgl.Marker | null>(null)
@@ -314,6 +315,7 @@ export default function MapboxMap({
             // 1. fitToMarkers is true (default behavior), OR
             // 2. not landing variant (popup maps always allow centering), OR
             // 3. landing variant but camera can move (after 10s lock AND animations enabled AND not authed)
+            // Note: This handler only runs for landing maps (inside variant === 'landing' check)
             const shouldCenter = fitToMarkers || variant !== 'landing' || (variant === 'landing' && canMoveCamera())
             if (shouldCenter) {
               map.setCenter([lng, lat])
@@ -480,30 +482,26 @@ export default function MapboxMap({
     return () => clearTimeout(timer)
   }, [variant, isMapLoaded]) // Removed isAuthed from dependencies to prevent timer reset
 
-  // Reset refs per variant to prevent cross-instance contamination
-  // This ensures popup maps don't inherit landing map's lock state
+  // Initialize refs once per variant mount - don't reset on every state change
+  // This prevents jitter while still isolating popup maps from landing map state
   useEffect(() => {
     if (variant === 'popup') {
-      // Popup maps: always allow movement, no locks
+      // Popup maps: always allow movement, no locks - set once at mount
       staticLockUntilRef.current = 0
       landingAnimationsEnabledRef.current = true
-      // isAuthedRef doesn't matter for popup, but reset for clarity
-      isAuthedRef.current = false
-    } else {
-      // Landing maps: initialize based on current state
-      landingAnimationsEnabledRef.current = landingAnimationsEnabled
-      isAuthedRef.current = isAuthed
-      // staticLockUntilRef will be set by the 10-second timer effect
     }
-  }, [variant, landingAnimationsEnabled, isAuthed])
+    // For landing maps, refs are updated by the 10-second timer and auth effects
+    // Don't sync here to avoid unnecessary re-renders
+  }, [variant]) // Only run on variant change, not on every state change
 
-  // Keep refs in sync with state (for landing maps only)
+  // Keep landingAnimationsEnabled ref in sync (only for landing maps, only when state changes)
   useEffect(() => {
     if (variant === 'landing') {
       landingAnimationsEnabledRef.current = landingAnimationsEnabled
     }
   }, [variant, landingAnimationsEnabled])
 
+  // Keep isAuthed ref in sync (only for landing maps, only when prop changes)
   useEffect(() => {
     if (variant === 'landing') {
       isAuthedRef.current = isAuthed
