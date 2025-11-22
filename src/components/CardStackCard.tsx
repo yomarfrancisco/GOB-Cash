@@ -10,8 +10,7 @@ import { usePortfolioStore } from '@/store/portfolio'
 import { useTweenNumber } from '@/lib/animations/useTweenNumber'
 import { useTwoStageTween } from '@/lib/animations/useTwoStageTween'
 import clsx from 'clsx'
-import { TriangleUp } from './icons/TriangleUp'
-import { TriangleDown } from './icons/TriangleDown'
+import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -190,11 +189,8 @@ export default function CardStackCard({
   const animatedHealth = prefersReducedMotion ? portfolioHealth : healthTweenResult.value
   const isHealthAnimating = prefersReducedMotion ? false : healthTweenResult.isAnimating
 
-  // Visibility states for allocation readout
-  const [showAllocationValue, setShowAllocationValue] = useState(false)
+  // Visibility states for health bar
   const prevHealthRef = useRef(portfolioHealth)
-  const prevAllocationRef = useRef(portfolioAllocationPct)
-  const allocationVisibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const healthPulseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [isHealthBarChanging, setIsHealthBarChanging] = useState(false)
 
@@ -226,54 +222,10 @@ export default function CardStackCard({
     }
   }, [portfolioHealth, prefersReducedMotion])
 
-  // Track arrow direction based on allocation change
-  const [arrowDirection, setArrowDirection] = useState<'up' | 'down' | 'none'>('none')
-
-  // Detect allocation changes and trigger visibility
-  useEffect(() => {
-    const prevPct = prevAllocationRef.current
-    const currentPct = portfolioAllocationPct
-
-    if (currentPct !== prevPct) {
-      // Determine arrow direction based on change
-      // Temporary stub: compare current vs previous allocation percentage
-      // TODO: Replace with real price delta logic
-      if (prevPct !== undefined) {
-        const change = currentPct - prevPct
-        if (change > 0) {
-          setArrowDirection('up')
-        } else if (change < 0) {
-          setArrowDirection('down')
-        } else {
-          setArrowDirection('none')
-        }
-      } else {
-        // First render: default to 'up' if allocation exists
-        setArrowDirection(currentPct > 0 ? 'up' : 'none')
-      }
-
-      // Show allocation value
-      setShowAllocationValue(true)
-
-      // Clear existing timeout
-      if (allocationVisibilityTimeoutRef.current) {
-        clearTimeout(allocationVisibilityTimeoutRef.current)
-      }
-
-      // Hide allocation value after 1400ms
-      allocationVisibilityTimeoutRef.current = setTimeout(() => {
-        setShowAllocationValue(false)
-      }, 1400)
-
-      prevAllocationRef.current = currentPct
-    }
-
-    return () => {
-      if (allocationVisibilityTimeoutRef.current) {
-        clearTimeout(allocationVisibilityTimeoutRef.current)
-      }
-    }
-  }, [portfolioAllocationPct])
+  // Get card definition for annual yield
+  const cardDef = getCardDefinition(card.type)
+  const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
+  const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
 
   return (
     <div
@@ -397,18 +349,14 @@ export default function CardStackCard({
       {/* Top-right card label */}
       <div className="card-label">{CARD_LABELS[card.type]}</div>
 
-      {/* Bottom-left allocation pill */}
-      <div
-        className={clsx('card-allocation-pill', {
-          'card-allocation-pill--visible': showAllocationValue,
-        })}
-      >
-        <span className="card-allocation-pill__inner">
-          {arrowDirection === 'up' && <TriangleUp size={18} color="#29ff63" />}
-          {arrowDirection === 'down' && <TriangleDown size={18} color="#ff4d4d" />}
-          {arrowDirection === 'none' && <div className="card-allocation-pill__neutral-dot" />}
-          <span className="card-allocation-pill__text">
-            {animatedAllocationPct.toFixed(0)}%
+      {/* Bottom-left annual yield pill */}
+      <div className="card-allocation-pill">
+        <span className="card-allocation-pill__text">
+          <span className="card-allocation-pill__yield-strong">
+            {formattedAnnualYield}%
+          </span>{' '}
+          <span className="card-allocation-pill__yield-label">
+            annual yield
           </span>
         </span>
       </div>
