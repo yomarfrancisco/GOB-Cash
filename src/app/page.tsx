@@ -291,7 +291,14 @@ export default function Home() {
 
   // Get title and subtitle - always use card definitions (same for both modes)
   const cardDef = getCardDefinition(topCardType)
-  const { title, subtitle } = cardDef
+  const { title } = cardDef
+  
+  // Calculate total ZAR amount across all cards for subtitle
+  const totalZAR = alloc.totalCents / 100
+  const subtitle = `R ${totalZAR.toLocaleString('en-ZA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} available`
 
   return (
     <div className="app-shell">

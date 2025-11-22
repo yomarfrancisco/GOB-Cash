@@ -13,28 +13,28 @@ export interface CardDefinition {
 export const CARD_DEFINITIONS: Record<CardType, CardDefinition> = {
   savings: {
     id: 'savings',
-    title: 'ZAR wallet',
-    subtitle: 'South African business account',
+    title: 'Adaptive wallet',
+    subtitle: '', // Subtitle is calculated dynamically in page.tsx
   },
   mzn: {
     id: 'mzn',
-    title: 'MZN wallet',
-    subtitle: 'Mozambique business account',
+    title: 'Adaptive wallet',
+    subtitle: '', // Subtitle is calculated dynamically in page.tsx
   },
   pepe: {
     id: 'pepe',
-    title: 'PEPE wallet',
-    subtitle: 'PEPE investment account',
+    title: 'Adaptive wallet',
+    subtitle: '', // Subtitle is calculated dynamically in page.tsx
   },
   yield: {
     id: 'yield',
-    title: 'ETH wallet',
-    subtitle: 'ETH investment account',
+    title: 'Adaptive wallet',
+    subtitle: '', // Subtitle is calculated dynamically in page.tsx
   },
   btc: {
     id: 'btc',
-    title: 'BTC wallet',
-    subtitle: 'BTC investment account',
+    title: 'Adaptive wallet',
+    subtitle: '', // Subtitle is calculated dynamically in page.tsx
   },
 }
 
