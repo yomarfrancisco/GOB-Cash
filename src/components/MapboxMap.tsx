@@ -454,9 +454,11 @@ export default function MapboxMap({
 
   // Enable landing animations after 10-second hold period
   // Timer starts only after map is loaded (isMapLoaded === true)
+  // For authenticated users, animations stay disabled (static SADC view)
   useEffect(() => {
     if (variant !== 'landing') return
     if (!isMapLoaded) return // Wait for map to load first
+    if (isAuthed) return // Never enable animations for authenticated users
 
     const holdMs = 10000 // 10 seconds
     const timer = setTimeout(() => {
@@ -468,7 +470,7 @@ export default function MapboxMap({
     }, holdMs)
 
     return () => clearTimeout(timer)
-  }, [variant, isMapLoaded])
+  }, [variant, isMapLoaded, isAuthed])
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -480,6 +482,7 @@ export default function MapboxMap({
   }, [isAuthed])
 
   // Reset camera to static SADC view when user becomes logged in
+  // Also ensure authenticated users always maintain SADC view (prevent any zoom/pan)
   useEffect(() => {
     const map = mapRef.current
     if (!map || !loadedRef.current) return
@@ -492,8 +495,11 @@ export default function MapboxMap({
         center: SADC_CENTER,
         zoom: SADC_ZOOM,
       })
+      // Disable animations immediately for authenticated users
+      setLandingAnimationsEnabled(false)
+      landingAnimationsEnabledRef.current = false
       if (process.env.NODE_ENV !== 'production') {
-        console.log('[MapboxMap] Reset to static SADC view (user logged in)')
+        console.log('[MapboxMap] Reset to static SADC view (user logged in), animations disabled')
       }
     }
   }, [isAuthed, variant])
