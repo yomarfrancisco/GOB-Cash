@@ -1,0 +1,29 @@
+.totalChange {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.totalChangeUp {
+  color: #29ff63;
+}
+
+.totalChangeDown {
+  color: #ff4d4d;
+}
+
+.totalChangeFlat {
+  color: #8e8e93;
+}
+
+.neutralDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #cccccc;
+  flex-shrink: 0;
+  display: inline-block;
+}
+

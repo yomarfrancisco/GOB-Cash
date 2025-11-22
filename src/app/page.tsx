@@ -34,6 +34,7 @@ import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import CashMapPopup from '@/components/CashMapPopup'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
+import TotalChangeBadge from '@/components/TotalChangeBadge'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -295,10 +296,49 @@ export default function Home() {
   
   // Calculate total ZAR amount across all cards for subtitle
   const totalZAR = alloc.totalCents / 100
-  const subtitle = `R ${totalZAR.toLocaleString('en-ZA', {
+  const subtitleText = `R ${totalZAR.toLocaleString('en-ZA', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} available`
+
+  // Calculate demo-friendly daily % change based on allocations and UTC date
+  const calculateDailyChange = (): number => {
+    const ethZAR = alloc.ethCents / 100
+    const pepeZAR = alloc.pepeCents / 100
+    let pctChange = 0
+
+    if (totalZAR > 0) {
+      // 1) Risk share (how much is in ETH + PEPE)
+      const riskShare = (ethZAR + pepeZAR) / totalZAR // 0 to ~0.10
+
+      // 2) Max move scaled by risk share
+      const maxMove = 7 // max +/-7% in absolute terms
+      const baseMove = riskShare * maxMove // e.g. 10% risk → 0.7% max move
+
+      // 3) Deterministic sign based on UTC date, so it's stable for that day
+      const today = new Date()
+      const daySeed =
+        today.getUTCFullYear() * 1000 +
+        today.getUTCMonth() * 50 +
+        today.getUTCDate()
+      const sign = daySeed % 2 === 0 ? 1 : -1
+
+      // 4) Final value
+      pctChange = baseMove * sign
+
+      // Treat tiny values as flat, to avoid noise
+      if (Math.abs(pctChange) < 0.2) {
+        pctChange = 0
+      }
+
+      // Round to 1 decimal place
+      pctChange = Math.round(pctChange * 10) / 10
+    }
+
+    return pctChange
+  }
+
+  const dailyChange = calculateDailyChange()
 
   return (
     <div className="app-shell">
@@ -367,7 +407,10 @@ export default function Home() {
                       ?
                     </div>
                   </div>
-                  <p className="wallet-subtitle">{subtitle}</p>
+                  <div className="wallet-subtitle-container">
+                    <span className="wallet-subtitle">{subtitleText}</span>
+                    <TotalChangeBadge pctChange={dailyChange} />
+                  </div>
                 </div>
 
                 {/* Card Stack */}
