@@ -21,6 +21,9 @@ type AmountSheetProps = {
     mode?: 'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'
   }) => void
   onAmountSubmit?: (amountZAR: number) => void // simpler callback for send/transfer flow
+  showDualButtons?: boolean // if true, show "Cash" and "Card" buttons instead of single CTA
+  onCashSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Cash button
+  onCardSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Card button
 }
 
 export default function AmountSheet({
@@ -33,6 +36,9 @@ export default function AmountSheet({
   ctaLabel,
   onSubmit,
   onAmountSubmit,
+  showDualButtons = false,
+  onCashSubmit,
+  onCardSubmit,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
 
@@ -91,6 +97,36 @@ export default function AmountSheet({
     }
   }
 
+  const handleCashSubmit = () => {
+    // Same as current handleSubmit - triggers cash convert flow
+    if (onCashSubmit) {
+      onCashSubmit({
+        amountZAR: amountZAR,
+        amountUSDT: amountUSDT,
+        mode: 'convert',
+      })
+    } else if (onSubmit) {
+      // Fallback to existing onSubmit for backward compatibility
+      onSubmit({
+        amountZAR: amountZAR,
+        amountUSDT: amountUSDT,
+        mode: 'convert',
+      })
+    }
+  }
+
+  const handleCardSubmit = () => {
+    // New handler for card payment flow
+    if (onCardSubmit) {
+      onCardSubmit({
+        amountZAR: amountZAR,
+        amountUSDT: amountUSDT,
+        mode: 'convert',
+      })
+    }
+    // TODO: Implement card payment flow
+  }
+
   const modeLabel = flowType === 'transfer' 
     ? 'Transfer' 
     : mode === 'deposit' || mode === 'depositCard' 
@@ -98,7 +134,7 @@ export default function AmountSheet({
     : mode === 'withdraw' 
     ? 'Withdraw' 
     : mode === 'convert'
-    ? 'Cash-to-crypto'
+    ? 'Convert to crypto'
     : 'Send'
   const defaultCtaLabel = mode === 'depositCard' 
     ? 'Deposit' 
@@ -143,16 +179,37 @@ export default function AmountSheet({
             isConvertMode={mode === 'convert'}
           />
         </div>
-        <div className="amount-cta" style={{ ['--cta-h' as any]: '88px' }}>
-          <button 
-            className="amount-keypad__cta" 
-            onClick={handleSubmit} 
-            type="button"
-            disabled={!isPositive}
-          >
-            {finalCtaLabel}
-            <span className="amount-keypad__cta-arrow">→</span>
-          </button>
+        <div className={`amount-cta ${showDualButtons ? 'amount-cta--dual' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+          {showDualButtons ? (
+            <>
+              <button 
+                className="amount-keypad__cta amount-keypad__cta--cash" 
+                onClick={handleCashSubmit} 
+                type="button"
+                disabled={!isPositive}
+              >
+                Cash
+              </button>
+              <button 
+                className="amount-keypad__cta amount-keypad__cta--card" 
+                onClick={handleCardSubmit} 
+                type="button"
+                disabled={!isPositive}
+              >
+                Card
+              </button>
+            </>
+          ) : (
+            <button 
+              className="amount-keypad__cta" 
+              onClick={handleSubmit} 
+              type="button"
+              disabled={!isPositive}
+            >
+              {finalCtaLabel}
+              <span className="amount-keypad__cta-arrow">→</span>
+            </button>
+          )}
         </div>
       </div>
     </ActionSheet>

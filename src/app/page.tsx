@@ -429,12 +429,9 @@ export default function Home() {
         balanceZAR={200}
         fxRateZARperUSDT={18.1}
         ctaLabel={amountMode === 'depositCard' ? 'Deposit' : amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
-        onSubmit={amountMode === 'depositCard' ? ({ amountZAR }) => {
-          setDepositAmountZAR(amountZAR)
-          setOpenAmount(false)
-          setTimeout(() => setOpenDepositSuccess(true), 220)
-        } : amountMode === 'convert' ? ({ amountZAR }) => {
-          // Convert flow: close keypad, then show map popup
+        showDualButtons={amountMode === 'convert'}
+        onCashSubmit={amountMode === 'convert' ? ({ amountZAR }) => {
+          // Cash convert flow: close keypad, then show map popup
           setConvertAmount(amountZAR)
           // Close keypad modal
           setOpenAmount(false)
@@ -447,7 +444,17 @@ export default function Home() {
           setTimeout(() => {
             setIsMapOpen(true)
           }, 220) // Match other modal transitions
-        } : amountMode !== 'send' ? ({ amountZAR, amountUSDT }) => {
+        } : undefined}
+        onCardSubmit={amountMode === 'convert' ? ({ amountZAR }) => {
+          // TODO: Implement card payment flow
+          setOpenAmount(false)
+          console.log('Card payment flow - TODO', { amountZAR })
+        } : undefined}
+        onSubmit={amountMode === 'depositCard' ? ({ amountZAR }) => {
+          setDepositAmountZAR(amountZAR)
+          setOpenAmount(false)
+          setTimeout(() => setOpenDepositSuccess(true), 220)
+        } : amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
           setOpenAmount(false)
           console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
         } : undefined}

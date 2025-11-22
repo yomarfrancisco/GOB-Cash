@@ -190,5 +190,19 @@
   line-height: 1;
 }
 
+/* Dual button container */
+.amount-cta--dual {
+  display: flex;
+  gap: 12px; /* Space between buttons */
+  padding: 0 24px;
+}
+
+/* Individual button in dual mode */
+.amount-keypad__cta--cash,
+.amount-keypad__cta--card {
+  flex: 1; /* Each button takes 50% width minus gap */
+  width: auto; /* Override 100% width */
+}
+
 /* Override ActionSheet height for amount sheet - now handled by .as-sheet.amount */
 
