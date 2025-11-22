@@ -73,6 +73,7 @@ export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionPr
             initialCenter={SADC_CENTER}
             initialZoom={SADC_ZOOM}
             fitToMarkers={false}
+            isAuthed={isAuthed}
           />
 
           {/* Paper/fold overlays as siblings, not children of map container */}

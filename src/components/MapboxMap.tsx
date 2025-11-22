@@ -37,12 +37,17 @@ interface Props {
   routeCoordinates?: [number, number][] // Optional route line coordinates
   variant?: 'landing' | 'popup' // Map variant: 'landing' for homepage, 'popup' for modal maps
   hqCoord?: { lng: number; lat: number } // Optional HQ coordinate for dedicated stable marker
+  isAuthed?: boolean // If true, disable animations for landing map (static SADC view)
 }
 
 const DEBUG_MAP =
   process.env.NEXT_PUBLIC_DEBUG_MAP === '1' ||
   (typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('debugMap') === '1')
+
+// SADC region default viewport constants
+const SADC_CENTER: [number, number] = [30, -23] // [lng, lat] - central SADC region
+const SADC_ZOOM = 4.2 // region-level zoom
 
 export default function MapboxMap({
   className,
@@ -56,6 +61,7 @@ export default function MapboxMap({
   routeCoordinates,
   variant = 'landing',
   hqCoord,
+  isAuthed = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -428,9 +434,10 @@ export default function MapboxMap({
     }
   }, [styleUrl, containerId, showDebug, variant]) // Removed routeCoordinates - handled in separate effect
 
-  // Enable landing animations after 10-second hold period
+  // Enable landing animations after 10-second hold period (only for unauthenticated users)
   useEffect(() => {
     if (variant !== 'landing') return
+    if (isAuthed) return // Don't enable animations for authenticated users
 
     const holdMs = 10000 // 10 seconds
     const timer = setTimeout(() => {
@@ -441,7 +448,27 @@ export default function MapboxMap({
     }, holdMs)
 
     return () => clearTimeout(timer)
-  }, [variant])
+  }, [variant, isAuthed])
+
+  // Reset camera to static SADC view when user becomes logged in
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !loadedRef.current) return
+    if (variant !== 'landing') return
+
+    // When user becomes authed, jump to the static SADC view (no animation)
+    if (isAuthed) {
+      map.jumpTo({
+        center: SADC_CENTER,
+        zoom: SADC_ZOOM,
+      })
+      // Disable animations immediately for authenticated users
+      setLandingAnimationsEnabled(false)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[MapboxMap] Reset to static SADC view (user logged in), animations disabled')
+      }
+    }
+  }, [isAuthed, variant])
 
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
@@ -649,8 +676,8 @@ export default function MapboxMap({
     // Do not run highlight logic for popup maps - prevents jitter from homepage notifications
     if (variant === 'popup') return
 
-    // Don't run highlight animations during the initial SADC hold period
-    if (variant === 'landing' && !landingAnimationsEnabled) return
+    // Don't run highlight animations during the initial SADC hold period or for authenticated users
+    if (variant === 'landing' && (!landingAnimationsEnabled || isAuthed)) return
 
     if (highlight) {
       // Save current map state
@@ -731,7 +758,7 @@ export default function MapboxMap({
       savedCenterRef.current = null
       savedZoomRef.current = null
     }
-  }, [highlight, variant, landingAnimationsEnabled])
+  }, [highlight, variant, landingAnimationsEnabled, isAuthed])
 
   // Effect to keep nearest branch in view while user stays centered
   useEffect(() => {
@@ -740,8 +767,8 @@ export default function MapboxMap({
     if (!loadedRef.current) return // ensure map is fully loaded
     if (variant === 'popup') return // popup: no auto-zoom logic
     
-    // Don't auto-zoom until landing animations are enabled (after 10s hold)
-    if (variant === 'landing' && !landingAnimationsEnabled) return
+    // Don't auto-zoom until landing animations are enabled (after 10s hold) or for authenticated users
+    if (variant === 'landing' && (!landingAnimationsEnabled || isAuthed)) return
     
     if (!userLngLat) return
     if (!markers?.length) return
@@ -816,7 +843,7 @@ export default function MapboxMap({
         )
       }
     })
-  }, [userLngLat, markers, variant, landingAnimationsEnabled]) // not depending on initialZoom/Center; we only care once user+markers exist
+  }, [userLngLat, markers, variant, landingAnimationsEnabled, isAuthed]) // not depending on initialZoom/Center; we only care once user+markers exist
 
   // Effect 1: Fetch route from user to nearest branch
   useEffect(() => {
