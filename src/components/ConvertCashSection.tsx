@@ -10,6 +10,22 @@ const sandtonBranch: Marker = {
   label: 'Sandton City Branch',
 }
 
+const BRANCH_MARKERS: Marker[] = [
+  { id: 'branch-1', title: 'Branch 1', coordinates: { lat: -19.77916, lng: 34.87005 } },
+  { id: 'branch-2', title: 'Branch 2', coordinates: { lat: -23.85972, lng: 35.34722 } },
+  { id: 'branch-3', title: 'Branch 3', coordinates: { lat: -25.957954, lng: 32.581859 } },
+  { id: 'branch-4', title: 'Branch 4', coordinates: { lat: -18.738333, lng: 33.209722 } },
+  { id: 'branch-5', title: 'Branch 5', coordinates: { lat: -25.964028, lng: 32.572472 } },
+  { id: 'branch-6', title: 'Branch 6', coordinates: { lat: -25.94322, lng: 32.55822 } },
+  { id: 'branch-7', title: 'Branch 7', coordinates: { lat: -25.97107, lng: 32.57202 } },
+].map((branch) => ({
+  id: branch.id,
+  lng: branch.coordinates.lng,
+  lat: branch.coordinates.lat,
+  kind: 'branch' as const,
+  label: branch.title,
+}))
+
 type ConvertCashSectionProps = {
   onHelpClick?: () => void
 }
@@ -44,7 +60,7 @@ export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionPr
           {/* Live map component - renders into mapContainer */}
           <MapboxMap
             containerId="mapbox-container"
-            markers={[sandtonBranch]}
+            markers={[sandtonBranch, ...BRANCH_MARKERS]}
             styleUrl="mapbox://styles/mapbox/navigation-day-v1"
             variant="landing"
           />
