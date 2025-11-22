@@ -9,9 +9,10 @@ type SuccessSheetProps = {
   open: boolean
   onClose: () => void
   amountZAR: string // formatted via formatZAR()
+  amountUSDT?: string // formatted USDT amount (optional, for card deposits)
   recipient?: string // email or phone (optional for deposit)
   autoDownloadReceipt?: boolean // default true
-  kind?: 'send' | 'deposit' // default 'send'
+  kind?: 'send' | 'deposit' | 'card' // default 'send'
   flowType?: 'payment' | 'transfer' // default 'payment'
   headlineOverride?: string // Optional override for deposit headline
   subtitleOverride?: string // Optional override for deposit subtitle
@@ -22,6 +23,7 @@ export default function SuccessSheet({
   open,
   onClose,
   amountZAR,
+  amountUSDT,
   recipient,
   autoDownloadReceipt = true,
   kind = 'send',
@@ -110,6 +112,24 @@ export default function SuccessSheet({
         },
         routeOnTap: '/transactions',
       })
+    } else if (kind === 'card') {
+      const amountMatch = amountZAR.match(/[\d,]+\.?\d*/)
+      const numericAmount = amountMatch ? parseFloat(amountMatch[0].replace(/,/g, '')) : 0
+      
+      pushNotification({
+        kind: 'payment_received',
+        title: 'Card payment confirmed',
+        body: `Your card payment of R${numericAmount.toFixed(2)} has been processed.`,
+        amount: {
+          currency: 'ZAR',
+          value: numericAmount,
+        },
+        direction: 'up',
+        actor: {
+          type: 'system',
+        },
+        routeOnTap: '/transactions',
+      })
     }
   }, [open, kind, recipient, amountZAR, flowType, pushNotification])
 
@@ -133,6 +153,17 @@ export default function SuccessSheet({
                 {subtitleOverride ?? `You converted ${amountZAR} in cash to crypto.`}
               </p>
             </>
+          ) : kind === 'card' ? (
+            <>
+              <p id="success-title" className="success-headline" aria-live="polite">
+                {headlineOverride ?? 'Card payment confirmed'}
+              </p>
+              <p className="success-target">
+                {subtitleOverride ?? (amountUSDT 
+                  ? `You purchased ${amountUSDT} USDT by card.`
+                  : 'Card payment successful.')}
+              </p>
+            </>
           ) : (
             <>
               <p id="success-title" className="success-headline" aria-live="polite">
@@ -146,7 +177,7 @@ export default function SuccessSheet({
         </div>
         <div className="success-spacer" />
         <p className="success-receipt">
-          {receiptOverride ?? 'Proof of payment will be emailed to you'}
+          {receiptOverride ?? 'Proof of payment will be emailed to you.'}
         </p>
         <button className="success-btn" onClick={onClose}>
           Got it

@@ -80,10 +80,12 @@ export default function Home() {
   const [openSendDetails, setOpenSendDetails] = useState(false)
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
   const [openDepositSuccess, setOpenDepositSuccess] = useState(false)
+  const [openCardSuccess, setOpenCardSuccess] = useState(false)
   const [openBankTransferDetails, setOpenBankTransferDetails] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('deposit')
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
+  const [depositAmountUSDT, setDepositAmountUSDT] = useState(0)
   const [sendRecipient, setSendRecipient] = useState('')
   const [sendMethod, setSendMethod] = useState<'email' | 'wallet' | 'brics' | null>(null)
   const [flowType, setFlowType] = useState<'payment' | 'transfer'>('payment')
@@ -445,15 +447,18 @@ export default function Home() {
             setIsMapOpen(true)
           }, 220) // Match other modal transitions
         } : undefined}
-        onCardSubmit={amountMode === 'convert' ? ({ amountZAR }) => {
-          // TODO: Implement card payment flow
-          setOpenAmount(false)
-          console.log('Card payment flow - TODO', { amountZAR })
-        } : undefined}
-        onSubmit={amountMode === 'depositCard' ? ({ amountZAR }) => {
+        onCardSubmit={amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
+          // Card payment flow: close keypad, then show card success sheet
           setDepositAmountZAR(amountZAR)
+          setDepositAmountUSDT(amountUSDT || 0)
           setOpenAmount(false)
-          setTimeout(() => setOpenDepositSuccess(true), 220)
+          setTimeout(() => setOpenCardSuccess(true), 220)
+        } : undefined}
+        onSubmit={amountMode === 'depositCard' ? ({ amountZAR, amountUSDT }) => {
+          setDepositAmountZAR(amountZAR)
+          setDepositAmountUSDT(amountUSDT || 0)
+          setOpenAmount(false)
+          setTimeout(() => setOpenCardSuccess(true), 220)
         } : amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
           setOpenAmount(false)
           console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
@@ -495,6 +500,21 @@ export default function Home() {
         })}`}
         recipient=""
         kind="deposit"
+      />
+      <SuccessSheet
+        open={openCardSuccess}
+        onClose={() => {
+          setOpenCardSuccess(false)
+          setDepositAmountZAR(0)
+          setDepositAmountUSDT(0)
+        }}
+        amountZAR={`R ${depositAmountZAR.toLocaleString('en-ZA', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`}
+        amountUSDT={depositAmountUSDT > 0 ? formatUSDT(depositAmountUSDT) : undefined}
+        recipient=""
+        kind="card"
       />
       <BankTransferDetailsSheet
         open={openBankTransferDetails}
