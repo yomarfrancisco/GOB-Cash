@@ -37,17 +37,12 @@ interface Props {
   routeCoordinates?: [number, number][] // Optional route line coordinates
   variant?: 'landing' | 'popup' // Map variant: 'landing' for homepage, 'popup' for modal maps
   hqCoord?: { lng: number; lat: number } // Optional HQ coordinate for dedicated stable marker
-  isAuthed?: boolean // If true, disable animations for landing map (static SADC view)
 }
 
 const DEBUG_MAP =
   process.env.NEXT_PUBLIC_DEBUG_MAP === '1' ||
   (typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('debugMap') === '1')
-
-// SADC region default viewport constants
-const SADC_CENTER: [number, number] = [30, -23] // [lng, lat] - central SADC region
-const SADC_ZOOM = 4.2 // region-level zoom
 
 export default function MapboxMap({
   className,
@@ -61,7 +56,6 @@ export default function MapboxMap({
   routeCoordinates,
   variant = 'landing',
   hqCoord,
-  isAuthed = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -78,10 +72,6 @@ export default function MapboxMap({
   const [landingAnimationsEnabled, setLandingAnimationsEnabled] = useState(
     variant !== 'landing' // animations always on for non-landing variants
   )
-  // Use ref so geolocation handler closure can access current value
-  // Initialize refs once based on variant - don't reset on every change
-  const landingAnimationsEnabledRef = useRef(variant !== 'landing' ? true : landingAnimationsEnabled)
-  const isAuthedRef = useRef(isAuthed)
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const youAreHereMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const savedCenterRef = useRef<[number, number] | null>(null)
@@ -90,7 +80,6 @@ export default function MapboxMap({
   const agentMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const hqMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const cameraLockedUntilRef = useRef<number>(0) // Timestamp when camera lock expires
-  const staticLockUntilRef = useRef<number>(0) // Timestamp when 10-second static SADC lock expires
   const routeCoordinatesRef = useRef<[number, number][] | undefined>(routeCoordinates)
   
   const highlight = useMapHighlightStore((state) => state.highlight)
@@ -209,16 +198,6 @@ export default function MapboxMap({
       setIsMapLoaded(true)
       log('event: load')
 
-      // For landing variant, explicitly set SADC viewport after map loads
-      if (variant === 'landing') {
-        // Ensure SADC viewport is set explicitly after map is fully loaded
-        map.jumpTo({
-          center: initialCenter,
-          zoom: initialZoom,
-        })
-        log(`SADC viewport set: center=[${initialCenter[0]}, ${initialCenter[1]}], zoom=${initialZoom}`)
-      }
-
       // Only add geolocation, branch marker, and user marker logic for landing maps
       if (variant === 'landing') {
         // Add branch marker (Sandton City)
@@ -305,23 +284,17 @@ export default function MapboxMap({
 
           // (optional) keep map centered on the user when first found
           // Skip auto-center for landing variant when fitToMarkers is false (fixed viewport mode)
-          // OR when landing animations are disabled (during 10s hold period)
           if (!centeredOnce) {
             centeredOnce = true
             if (process.env.NODE_ENV !== 'production') {
               console.log('[camera]', 'variant=', variant, 'reason=geolocate-first-center', [lng, lat])
             }
-            // Only auto-center if:
-            // 1. fitToMarkers is true (default behavior), OR
-            // 2. not landing variant (popup maps always allow centering), OR
-            // 3. landing variant but camera can move (after 10s lock AND animations enabled AND not authed)
-            // Note: This handler only runs for landing maps (inside variant === 'landing' check)
-            const shouldCenter = fitToMarkers || variant !== 'landing' || (variant === 'landing' && canMoveCamera())
-            if (shouldCenter) {
+            // Only auto-center if fitToMarkers is true (default behavior) or not landing variant
+            if (fitToMarkers || variant !== 'landing') {
               map.setCenter([lng, lat])
               console.log('[Mapbox] Centered on user:', { lng, lat })
             }
-            // Set user location state (will trigger zoom effect, but that's gated separately)
+            // Set user location state (will trigger zoom effect)
             setUserLngLat([lng, lat])
           } else {
             // Update user location state for route recalculation
@@ -453,95 +426,22 @@ export default function MapboxMap({
       loadedRef.current = false
       setIsMapLoaded(false)
     }
-  }, [styleUrl, containerId, showDebug, initialCenter, initialZoom]) // Note: variant excluded to prevent reinitialization; variant-specific logic handled in separate effects
+  }, [styleUrl, containerId, showDebug, variant]) // Removed routeCoordinates - handled in separate effect
 
-  // Initialize 10-second static lock timer (only once when map loads)
-  // This lock prevents camera movement for 10 seconds after map loads
-  const STATIC_INTRO_MS = 10000 // 10 seconds
+  // Enable landing animations after 10-second hold period
   useEffect(() => {
     if (variant !== 'landing') return
-    if (!isMapLoaded) return // Wait for map to load first
 
-    // Set lock timestamp (10 seconds from now)
-    staticLockUntilRef.current = Date.now() + STATIC_INTRO_MS
-
-    // Enable animations after 10-second hold period (only for unauthenticated users)
+    const holdMs = 10000 // 10 seconds
     const timer = setTimeout(() => {
-      // Check auth status via ref to avoid dependency on isAuthed
-      if (!isAuthedRef.current) {
-        setLandingAnimationsEnabled(true)
-        landingAnimationsEnabledRef.current = true // Update ref so handler can access it
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('[MapboxMap] Landing animations enabled after 10s hold (map loaded)')
-        }
+      setLandingAnimationsEnabled(true)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[MapboxMap] Landing animations enabled after 10s hold')
       }
-      // Clear lock after 10 seconds
-      staticLockUntilRef.current = 0
-    }, STATIC_INTRO_MS)
+    }, holdMs)
 
     return () => clearTimeout(timer)
-  }, [variant, isMapLoaded]) // Removed isAuthed from dependencies to prevent timer reset
-
-  // Initialize refs once per variant mount - don't reset on every state change
-  // This prevents jitter while still isolating popup maps from landing map state
-  useEffect(() => {
-    if (variant === 'popup') {
-      // Popup maps: always allow movement, no locks - set once at mount
-      staticLockUntilRef.current = 0
-      landingAnimationsEnabledRef.current = true
-    }
-    // For landing maps, refs are updated by the 10-second timer and auth effects
-    // Don't sync here to avoid unnecessary re-renders
-  }, [variant]) // Only run on variant change, not on every state change
-
-  // Keep landingAnimationsEnabled ref in sync (only for landing maps, only when state changes)
-  useEffect(() => {
-    if (variant === 'landing') {
-      landingAnimationsEnabledRef.current = landingAnimationsEnabled
-    }
-  }, [variant, landingAnimationsEnabled])
-
-  // Keep isAuthed ref in sync (only for landing maps, only when prop changes)
-  useEffect(() => {
-    if (variant === 'landing') {
-      isAuthedRef.current = isAuthed
-    }
-  }, [variant, isAuthed])
-
-  // Helper function to check if camera can move (during 10-second lock or if authed)
-  const canMoveCamera = () => {
-    // Popup maps always allow camera movement with no restrictions
-    if (variant === 'popup') return true
-    // If static lock is still active, prevent movement
-    if (Date.now() < staticLockUntilRef.current) return false
-    // If authenticated, prevent movement
-    if (isAuthedRef.current) return false
-    // Otherwise, allow movement if animations are enabled
-    return landingAnimationsEnabledRef.current
-  }
-
-  // Reset camera to static SADC view when user becomes logged in
-  // DO NOT restart the timer - just jump to SADC view
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map || !loadedRef.current) return
-    if (variant !== 'landing') return
-
-    // When user becomes authed, jump to the static SADC view (no animation)
-    // Using jumpTo for instantaneous camera change (per Mapbox GL JS docs)
-    if (isAuthed) {
-      map.jumpTo({
-        center: SADC_CENTER,
-        zoom: SADC_ZOOM,
-      })
-      // Disable animations immediately for authenticated users
-      setLandingAnimationsEnabled(false)
-      landingAnimationsEnabledRef.current = false
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[MapboxMap] Reset to static SADC view (user logged in), animations disabled')
-      }
-    }
-  }, [isAuthed, variant])
+  }, [variant])
 
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
@@ -749,11 +649,8 @@ export default function MapboxMap({
     // Do not run highlight logic for popup maps - prevents jitter from homepage notifications
     if (variant === 'popup') return
 
-    // Completely disable highlight animations for logged-in users on landing map
-    if (variant === 'landing' && isAuthedRef.current) return
-
-    // Don't run highlight animations during the initial SADC hold period or if camera can't move
-    if (variant === 'landing' && !canMoveCamera()) return
+    // Don't run highlight animations during the initial SADC hold period
+    if (variant === 'landing' && !landingAnimationsEnabled) return
 
     if (highlight) {
       // Save current map state
@@ -834,7 +731,7 @@ export default function MapboxMap({
       savedCenterRef.current = null
       savedZoomRef.current = null
     }
-  }, [highlight, variant, landingAnimationsEnabled, isAuthed])
+  }, [highlight, variant, landingAnimationsEnabled])
 
   // Effect to keep nearest branch in view while user stays centered
   useEffect(() => {
@@ -843,11 +740,8 @@ export default function MapboxMap({
     if (!loadedRef.current) return // ensure map is fully loaded
     if (variant === 'popup') return // popup: no auto-zoom logic
     
-    // Completely disable auto-zoom and auto-center for logged-in users on landing map
-    if (variant === 'landing' && isAuthedRef.current) return
-    
-    // Don't auto-zoom during 10-second lock or if animations aren't enabled
-    if (variant === 'landing' && !canMoveCamera()) return
+    // Don't auto-zoom until landing animations are enabled (after 10s hold)
+    if (variant === 'landing' && !landingAnimationsEnabled) return
     
     if (!userLngLat) return
     if (!markers?.length) return
@@ -922,7 +816,7 @@ export default function MapboxMap({
         )
       }
     })
-  }, [userLngLat, markers, variant, landingAnimationsEnabled, isAuthed]) // not depending on initialZoom/Center; we only care once user+markers exist
+  }, [userLngLat, markers, variant, landingAnimationsEnabled]) // not depending on initialZoom/Center; we only care once user+markers exist
 
   // Effect 1: Fetch route from user to nearest branch
   useEffect(() => {
@@ -1124,7 +1018,6 @@ export default function MapboxMap({
   useEffect(() => {
     const map = mapRef.current
     if (!map || !isMapLoaded) return
-    if (variant !== 'popup') return // Only run for popup maps
     if (!routeCoordinates || routeCoordinates.length < 2) return
 
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
