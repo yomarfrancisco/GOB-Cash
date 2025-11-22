@@ -72,6 +72,8 @@ export default function MapboxMap({
   const [landingAnimationsEnabled, setLandingAnimationsEnabled] = useState(
     variant !== 'landing' // animations always on for non-landing variants
   )
+  // Use ref so geolocation handler closure can access current value
+  const landingAnimationsEnabledRef = useRef(landingAnimationsEnabled)
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const youAreHereMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const savedCenterRef = useRef<[number, number] | null>(null)
@@ -284,17 +286,22 @@ export default function MapboxMap({
 
           // (optional) keep map centered on the user when first found
           // Skip auto-center for landing variant when fitToMarkers is false (fixed viewport mode)
+          // OR when landing animations are disabled (during 10s hold period)
           if (!centeredOnce) {
             centeredOnce = true
             if (process.env.NODE_ENV !== 'production') {
               console.log('[camera]', 'variant=', variant, 'reason=geolocate-first-center', [lng, lat])
             }
-            // Only auto-center if fitToMarkers is true (default behavior) or not landing variant
-            if (fitToMarkers || variant !== 'landing') {
+            // Only auto-center if:
+            // 1. fitToMarkers is true (default behavior), OR
+            // 2. not landing variant, OR
+            // 3. landing variant but animations are enabled (after 10s hold)
+            const shouldCenter = fitToMarkers || variant !== 'landing' || landingAnimationsEnabledRef.current
+            if (shouldCenter) {
               map.setCenter([lng, lat])
               console.log('[Mapbox] Centered on user:', { lng, lat })
             }
-            // Set user location state (will trigger zoom effect)
+            // Set user location state (will trigger zoom effect, but that's gated separately)
             setUserLngLat([lng, lat])
           } else {
             // Update user location state for route recalculation
@@ -435,6 +442,7 @@ export default function MapboxMap({
     const holdMs = 10000 // 10 seconds
     const timer = setTimeout(() => {
       setLandingAnimationsEnabled(true)
+      landingAnimationsEnabledRef.current = true // Update ref so handler can access it
       if (process.env.NODE_ENV !== 'production') {
         console.log('[MapboxMap] Landing animations enabled after 10s hold')
       }
@@ -442,6 +450,11 @@ export default function MapboxMap({
 
     return () => clearTimeout(timer)
   }, [variant])
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    landingAnimationsEnabledRef.current = landingAnimationsEnabled
+  }, [landingAnimationsEnabled])
 
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
