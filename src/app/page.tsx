@@ -480,7 +480,7 @@ export default function Home() {
         ctaLabel={amountMode === 'depositCard' ? 'Deposit' : amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
-        onScanClick={entryPoint === 'cashButton' ? () => {
+        onScanClick={amountEntryPoint === 'cashButton' ? () => {
           guardAuthed(() => {
             setIsScannerOpen(true)
           })
