@@ -8,6 +8,7 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  flex: 1 1 auto; /* Ensure it stretches to fill available space */
   /* Ensure no transforms on input container during animation */
   transform: none !important;
   will-change: auto;
@@ -103,7 +104,8 @@
   padding: 8px 20px max(24px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto; /* Stretch to fill remaining space */
+  min-height: 0; /* Allow flex shrinking */
   overflow-y: auto;
   overscroll-behavior: contain;
   /* Ensure no transforms on input container during animation */
