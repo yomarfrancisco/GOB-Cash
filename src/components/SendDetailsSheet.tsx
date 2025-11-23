@@ -76,7 +76,7 @@ export default function SendDetailsSheet({
   }
 
   return (
-    <ActionSheet open={open} onClose={onClose} title="" className="send-details">
+    <ActionSheet open={open} onClose={onClose} title="" className="send-details" size="tall">
       <div className="send-details-sheet">
         <div className="send-details-header">
           <button className="send-details-close" onClick={onClose} aria-label="Close">
@@ -159,8 +159,8 @@ export default function SendDetailsSheet({
                 src="/assets/Group.svg"
                 alt="Google Contacts"
                 className="send-details__contacts-icon"
-                width={56}
-                height={56}
+                width={50}
+                height={50}
                 unoptimized
               />
             </div>

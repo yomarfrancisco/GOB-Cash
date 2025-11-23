@@ -186,16 +186,16 @@
 
 .send-details__contacts-icon-wrapper {
   flex-shrink: 0;
-  width: 56px;
-  height: 56px;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .send-details__contacts-icon {
-  width: 56px;
-  height: 56px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   object-fit: cover;
 }
