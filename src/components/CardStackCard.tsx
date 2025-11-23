@@ -356,7 +356,7 @@ export default function CardStackCard({
             {formattedAnnualYield}%
           </span>{' '}
           <span className="card-allocation-pill__yield-label">
-            annual yield
+            APY
           </span>
         </span>
       </div>
