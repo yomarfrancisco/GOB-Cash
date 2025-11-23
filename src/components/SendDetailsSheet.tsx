@@ -144,6 +144,35 @@ export default function SendDetailsSheet({
               <div className="send-details-underline" />
             </label>
           )}
+          
+          {/* Contacts access panel - shown for all flows */}
+          <button
+            type="button"
+            className="send-details__contacts-cta"
+            onClick={() => {
+              // Placeholder – no real wiring yet
+              console.log('Allow Google Contacts (placeholder)')
+            }}
+          >
+            <div className="send-details__contacts-icon-wrapper">
+              <Image
+                src="/assets/Group.svg"
+                alt="Google Contacts"
+                className="send-details__contacts-icon"
+                width={56}
+                height={56}
+                unoptimized
+              />
+            </div>
+            <div className="send-details__contacts-text-wrapper">
+              <div className="send-details__contacts-title">
+                Allow access to your contacts
+              </div>
+              <div className="send-details__contacts-subtitle">
+                to make payments easy
+              </div>
+            </div>
+          </button>
         </div>
       </div>
     </ActionSheet>

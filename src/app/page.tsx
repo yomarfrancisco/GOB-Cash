@@ -92,6 +92,7 @@ export default function Home() {
   const [sendMethod, setSendMethod] = useState<'email' | 'wallet' | 'brics' | null>(null)
   const [flowType, setFlowType] = useState<'payment' | 'transfer'>('payment')
   const [depositAmountZAR, setDepositAmountZAR] = useState(0)
+  const [isPaySomeoneFlow, setIsPaySomeoneFlow] = useState(false) // Track if coming from "Pay someone" button
   const [isAgentSheetOpen, setIsAgentSheetOpen] = useState(false)
   const [openInternalTransfer, setOpenInternalTransfer] = useState(false)
   const [transferFromWalletId, setTransferFromWalletId] = useState<'savings' | 'pepe' | 'yield' | 'mzn' | 'btc'>('savings')
@@ -150,7 +151,10 @@ export default function Home() {
     setOpenAmount(false)
     setAmountEntryPoint(undefined) // Reset entry point when closing
   }, [])
-  const closeSendDetails = useCallback(() => setOpenSendDetails(false), [])
+  const closeSendDetails = useCallback(() => {
+    setOpenSendDetails(false)
+    setIsPaySomeoneFlow(false) // Reset flag when closing
+  }, [])
   const closeSendSuccess = useCallback(() => {
     setOpenSendSuccess(false)
     setSendRecipient('')
@@ -520,12 +524,17 @@ export default function Home() {
           }, 220) // Match other modal transitions
         } : undefined}
         onCardSubmit={amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
-          // Card payment flow ("Pay someone"): close keypad, then show card success sheet
-          setDepositAmountZAR(amountZAR)
-          setDepositAmountUSDT(amountUSDT || 0)
+          // Card payment flow ("Pay someone"): close keypad, then show SendDetailsSheet
+          setSendAmountZAR(amountZAR)
+          setSendAmountUSDT(amountUSDT || 0)
+          setDepositAmountZAR(amountZAR) // Also set for card success sheet
+          setDepositAmountUSDT(amountUSDT || 0) // Also set for card success sheet
+          setSendMethod(null) // Default to email/phone input for "Pay someone"
+          setIsPaySomeoneFlow(true) // Mark as "Pay someone" flow
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
-          setTimeout(() => setOpenCardSuccess(true), 220)
+          // Open SendDetailsSheet instead of going directly to success
+          setTimeout(() => setOpenSendDetails(true), 220)
         } : undefined}
         onSubmit={amountMode === 'depositCard' ? ({ amountZAR, amountUSDT }) => {
           setDepositAmountZAR(amountZAR)
@@ -549,9 +558,17 @@ export default function Home() {
         flowType={flowType}
         onPay={(payload) => {
           console.log('PAY', payload)
-          setSendRecipient(payload.to)
           setOpenSendDetails(false)
-          setTimeout(() => setOpenSendSuccess(true), 220)
+          
+          // If coming from "Pay someone" flow, use card success sheet
+          if (isPaySomeoneFlow) {
+            setIsPaySomeoneFlow(false) // Reset flag
+            setTimeout(() => setOpenCardSuccess(true), 220)
+          } else {
+            // Regular send flow
+            setSendRecipient(payload.to)
+            setTimeout(() => setOpenSendSuccess(true), 220)
+          }
           // Note: notification is emitted in SuccessSheet when it opens
         }}
       />
