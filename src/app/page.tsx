@@ -303,10 +303,8 @@ export default function Home() {
   
   // Calculate total ZAR amount across all cards for subtitle
   const totalZAR = alloc.totalCents / 100
-  const formattedAmount = totalZAR.toLocaleString('en-ZA', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+  const { major, cents } = formatZAR(totalZAR)
+  const formattedAmount = `${major}.${cents}`
   const subtitleText = `Pay anyone, anywhere without a bank account | R ${formattedAmount} available`
 
 
