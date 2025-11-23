@@ -16,7 +16,7 @@
   z-index: 3;
 }
 
-/* Bottom-left allocation pill */
+/* Bottom-left allocation pill (replaces APY badge) */
 .card-allocation-pill {
   position: absolute;
   left: 16px;
@@ -25,12 +25,17 @@
   align-items: center;
   justify-content: center;
   height: 28px;
-  padding: 0 10px;
+  padding: 0 10px; /* Slightly reduced to accommodate icon */
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.25);
   pointer-events: none;
   z-index: 3;
+  opacity: 0.7;
+  transition: opacity 160ms ease-out;
+}
+
+.card-allocation-pill--visible {
   opacity: 1;
 }
 
@@ -40,6 +45,7 @@
   gap: 6px; /* Space between arrow and percentage text */
 }
 
+.card-allocation-pill__arrow,
 .card-allocation-pill__inner svg {
   display: block;
   flex-shrink: 0;
@@ -50,6 +56,7 @@
   opacity: 1 !important;
   fill-opacity: 1 !important;
 }
+
 
 .card-allocation-pill__text {
   font-size: 13px;

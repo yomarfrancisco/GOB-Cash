@@ -295,28 +295,10 @@ export default function Home() {
   
   // Calculate total ZAR amount across all cards for subtitle
   const totalZAR = alloc.totalCents / 100
-  const subtitleText = `R ${totalZAR.toLocaleString('en-ZA', {
+  const subtitle = `R ${totalZAR.toLocaleString('en-ZA', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} available`
-
-  // Demo-friendly daily % change that updates every 5 seconds with jitter
-  const [dailyChangePct, setDailyChangePct] = useState(() => {
-    // initial demo value between -1.0% and +1.0%
-    return parseFloat(((Math.random() - 0.5) * 2).toFixed(2))
-  })
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setDailyChangePct((prev) => {
-        const jitter = (Math.random() - 0.5) * 0.2 // +/-0.10% step
-        const next = Math.max(-5, Math.min(5, prev + jitter)) // clamp to [-5, 5]
-        return parseFloat(next.toFixed(2))
-      })
-    }, 5000) // every 5 seconds
-
-    return () => clearInterval(id)
-  }, [])
 
   return (
     <div className="app-shell">
@@ -385,15 +367,7 @@ export default function Home() {
                       ?
                     </div>
                   </div>
-                  <div className="wallet-subtitle-container">
-                    <span className="wallet-subtitle">{subtitleText}</span>
-                    <span
-                      className={dailyChangePct >= 0 ? 'wallet-change wallet-change--up' : 'wallet-change wallet-change--down'}
-                    >
-                      {dailyChangePct >= 0 ? '+' : ''}
-                      {dailyChangePct.toFixed(2)}%
-                    </span>
-                  </div>
+                  <p className="wallet-subtitle">{subtitle}</p>
                 </div>
 
                 {/* Card Stack */}

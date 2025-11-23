@@ -190,8 +190,11 @@ export default function CardStackCard({
   const animatedHealth = prefersReducedMotion ? portfolioHealth : healthTweenResult.value
   const isHealthAnimating = prefersReducedMotion ? false : healthTweenResult.isAnimating
 
-  // Visibility states for health bar
+  // Visibility states for allocation readout
+  const [showAllocationValue, setShowAllocationValue] = useState(false)
   const prevHealthRef = useRef(portfolioHealth)
+  const prevAllocationRef = useRef(portfolioAllocationPct)
+  const allocationVisibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const healthPulseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [isHealthBarChanging, setIsHealthBarChanging] = useState(false)
 
@@ -223,28 +226,60 @@ export default function CardStackCard({
     }
   }, [portfolioHealth, prefersReducedMotion])
 
-  // Track allocation changes for arrow direction (up/down only, no neutral)
+  // Track arrow direction based on allocation change (up/down only, no neutral)
   type ArrowDirection = 'up' | 'down'
   const [arrowDirection, setArrowDirection] = useState<ArrowDirection>('up')
-  const prevAllocationRef = useRef<number | undefined>(undefined)
+  
+  // Demo jitter for 5-second updates
+  const [demoDelta, setDemoDelta] = useState(0)
 
-  // Detect allocation changes and set arrow direction (up/down only)
+  useEffect(() => {
+    const id = setInterval(() => {
+      setDemoDelta((prev) => {
+        const jitter = (Math.random() - 0.5) * 0.2 // ±0.1
+        const next = Math.max(-5, Math.min(5, prev + jitter))
+        return parseFloat(next.toFixed(2))
+      })
+    }, 5000) // every 5 seconds
+
+    return () => clearInterval(id)
+  }, [])
+
+  // Detect allocation changes and trigger visibility
   useEffect(() => {
     const prevPct = prevAllocationRef.current
     const currentPct = portfolioAllocationPct
+    // Combine base allocation change with demo jitter
+    const combinedDelta = (currentPct - (prevPct ?? currentPct)) + demoDelta
 
-    if (prevPct !== undefined) {
-      const changeDelta = currentPct - prevPct
-      // Always pick a direction - ties go to 'up'
-      const newDirection: ArrowDirection = changeDelta >= 0 ? 'up' : 'down'
+    if (currentPct !== prevPct || demoDelta !== 0) {
+      // Determine arrow direction based on change (always pick up or down, no neutral)
+      // Treat delta === 0 as 'up'
+      const newDirection: ArrowDirection = combinedDelta >= 0 ? 'up' : 'down'
       setArrowDirection(newDirection)
-    } else {
-      // First render: default to 'up' if allocation exists
-      setArrowDirection(currentPct > 0 ? 'up' : 'up')
+
+      // Show allocation value
+      setShowAllocationValue(true)
+
+      // Clear existing timeout
+      if (allocationVisibilityTimeoutRef.current) {
+        clearTimeout(allocationVisibilityTimeoutRef.current)
+      }
+
+      // Hide allocation value after 1400ms
+      allocationVisibilityTimeoutRef.current = setTimeout(() => {
+        setShowAllocationValue(false)
+      }, 1400)
+
+      prevAllocationRef.current = currentPct
     }
 
-    prevAllocationRef.current = currentPct
-  }, [portfolioAllocationPct])
+    return () => {
+      if (allocationVisibilityTimeoutRef.current) {
+        clearTimeout(allocationVisibilityTimeoutRef.current)
+      }
+    }
+  }, [portfolioAllocationPct, demoDelta])
 
   return (
     <div
@@ -369,7 +404,11 @@ export default function CardStackCard({
       <div className="card-label">{CARD_LABELS[card.type]}</div>
 
       {/* Bottom-left allocation pill */}
-      <div className="card-allocation-pill">
+      <div
+        className={clsx('card-allocation-pill', {
+          'card-allocation-pill--visible': showAllocationValue,
+        })}
+      >
         <span className="card-allocation-pill__inner">
           {arrowDirection === 'up' && <TriangleUp size={18} color="#29ff63" />}
           {arrowDirection === 'down' && <TriangleDown size={18} color="#ff4d4d" />}
