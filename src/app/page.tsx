@@ -355,9 +355,19 @@ export default function Home() {
 
           {/* Scanner - toggle between overlay and sheet implementations */}
           {USE_MODAL_SCANNER ? (
-            <ScanQrSheet isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} />
+            <ScanQrSheet isOpen={isScannerOpen} onClose={() => {
+              setIsScannerOpen(false)
+              // Ensure amount sheet stays closed when scanner closes
+              setOpenAmount(false)
+              setAmountEntryPoint(undefined)
+            }} />
           ) : (
-            <ScanOverlay isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} />
+            <ScanOverlay isOpen={isScannerOpen} onClose={() => {
+              setIsScannerOpen(false)
+              // Ensure amount sheet stays closed when scanner closes
+              setOpenAmount(false)
+              setAmountEntryPoint(undefined)
+            }} />
           )}
 
           {/* Scrollable content */}
@@ -482,7 +492,15 @@ export default function Home() {
         entryPoint={amountEntryPoint}
         onScanClick={amountEntryPoint === 'cashButton' ? () => {
           guardAuthed(() => {
-            setIsScannerOpen(true)
+            // 1) Close the keypad sheet first
+            setOpenAmount(false)
+            setAmountEntryPoint(undefined)
+            
+            // 2) After the close animation starts, open the scanner
+            //    Small timeout (~220ms) to match other sheet transitions
+            setTimeout(() => {
+              setIsScannerOpen(true)
+            }, 220)
           })
         } : undefined}
         onCashSubmit={amountMode === 'convert' ? ({ amountZAR }) => {
