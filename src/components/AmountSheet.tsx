@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
@@ -25,6 +26,7 @@ type AmountSheetProps = {
   onCashSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Cash button
   onCardSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Card button
   entryPoint?: 'helicopter' | 'cashButton' // distinguishes entry point for conditional button rendering
+  onScanClick?: () => void // callback for scan icon (only shown for cashButton entryPoint)
 }
 
 export default function AmountSheet({
@@ -41,6 +43,7 @@ export default function AmountSheet({
   onCashSubmit,
   onCardSubmit,
   entryPoint,
+  onScanClick,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
 
@@ -156,14 +159,30 @@ export default function AmountSheet({
   // Format amount for display (remove leading zeros except "0.")
   const displayAmount = amount === '0' ? '0' : amount.replace(/^0+(?=\d)/, '')
 
+  // Show scan icon only for cashButton entryPoint
+  const showScanIcon = entryPoint === 'cashButton' && onScanClick
+
   return (
     <ActionSheet open={open} onClose={onClose} title="" className="amount" size="tall">
       <div className="amount-sheet amount-sheet-wrapper">
-        <div className="amount-sheet__header" style={{ height: 'var(--hdr-h, 118px)' }}>
-          <div className="amount-sheet__balance">
-            {formatZAR(balanceZAR)} <span className="amount-sheet__balance-label">balance</span>
+        <div className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''}`} style={{ height: 'var(--hdr-h, 118px)' }}>
+          {showScanIcon && (
+            <button
+              onClick={onScanClick}
+              className="amount-sheet__scan-button"
+              aria-label="Scan QR code"
+              type="button"
+            >
+              <Image src="/assets/core/scan.svg" alt="Scan" width={24} height={24} />
+            </button>
+          )}
+          <div className="amount-sheet__header-content">
+            <div className="amount-sheet__balance">
+              {formatZAR(balanceZAR)} <span className="amount-sheet__balance-label">balance</span>
+            </div>
+            <div className="amount-sheet__title">{modeLabel}</div>
           </div>
-          <div className="amount-sheet__title">{modeLabel}</div>
+          {/* Close button is provided by ActionSheet (as-close-only) */}
         </div>
         <div className="amount-body">
           <div className="amount-sheet__amount-display">

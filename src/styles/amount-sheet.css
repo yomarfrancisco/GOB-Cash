@@ -9,12 +9,64 @@
 /* Header section: balance and title */
 .amount-sheet__header {
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px 8px 24px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Header with scan icon - adjust layout */
+.amount-sheet__header--with-scan {
+  padding-left: 16px; /* Reduce left padding to accommodate scan icon */
+  padding-right: 16px; /* Match right padding for close button */
+}
+
+/* Scan icon button - positioned on the left */
+.amount-sheet__scan-button {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 27px;
+  background: #E9E9EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  transition: background 150ms ease;
+  z-index: 10;
+}
+
+.amount-sheet__scan-button:hover {
+  background: #D1D1D6;
+}
+
+.amount-sheet__scan-button:active {
+  background: #C7C7CC;
+}
+
+.amount-sheet__scan-button img {
+  width: 24px;
+  height: 24px;
+}
+
+/* Header content (balance + title) - centered */
+.amount-sheet__header-content {
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px 24px 8px 24px;
+  flex: 1;
   text-align: center;
-  flex-shrink: 0;
+  margin: 0 auto;
+  /* Ensure it doesn't overlap with scan/close buttons */
+  max-width: calc(100% - 80px); /* Account for scan (32px) + close (32px) + gaps */
 }
 
 .amount-sheet__balance {
