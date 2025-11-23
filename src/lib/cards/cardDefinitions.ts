@@ -14,31 +14,31 @@ export interface CardDefinition {
 export const CARD_DEFINITIONS: Record<CardType, CardDefinition> = {
   savings: {
     id: 'savings',
-    title: 'Adaptive wallet',
+    title: 'Smart wallet',
     subtitle: '', // Subtitle is calculated dynamically in page.tsx
     annualYieldBps: 938, // 9.38%
   },
   mzn: {
     id: 'mzn',
-    title: 'Adaptive wallet',
+    title: 'Smart wallet',
     subtitle: '', // Subtitle is calculated dynamically in page.tsx
     annualYieldBps: 812, // 8.12%
   },
   pepe: {
     id: 'pepe',
-    title: 'Adaptive wallet',
+    title: 'Smart wallet',
     subtitle: '', // Subtitle is calculated dynamically in page.tsx
     annualYieldBps: 2134, // 21.34%
   },
   yield: {
     id: 'yield',
-    title: 'Adaptive wallet',
+    title: 'Smart wallet',
     subtitle: '', // Subtitle is calculated dynamically in page.tsx
     annualYieldBps: 1245, // 12.45%
   },
   btc: {
     id: 'btc',
-    title: 'Adaptive wallet',
+    title: 'Smart wallet',
     subtitle: '', // Subtitle is calculated dynamically in page.tsx
     annualYieldBps: 1567, // 15.67%
   },
