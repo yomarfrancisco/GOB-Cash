@@ -16,7 +16,7 @@
   z-index: 3;
 }
 
-/* Bottom-left allocation pill (replaces APY badge) */
+/* Bottom-left annual yield pill */
 .card-allocation-pill {
   position: absolute;
   left: 16px;
@@ -25,44 +25,28 @@
   align-items: center;
   justify-content: center;
   height: 28px;
-  padding: 0 10px; /* Slightly reduced to accommodate icon */
+  padding: 0 10px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.18); /* Original semi-transparent white background */
   border: 1px solid rgba(255, 255, 255, 0.25);
   pointer-events: none;
   z-index: 3;
-  opacity: 0.7;
-  transition: opacity 160ms ease-out;
-}
-
-.card-allocation-pill--visible {
   opacity: 1;
 }
 
-.card-allocation-pill__inner {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px; /* Space between arrow and percentage text */
-}
-
-.card-allocation-pill__arrow,
-.card-allocation-pill__inner svg {
-  display: block;
-  flex-shrink: 0;
-  opacity: 1 !important;
-}
-
-.card-allocation-pill__inner svg polygon {
-  opacity: 1 !important;
-  fill-opacity: 1 !important;
-}
-
-
 .card-allocation-pill__text {
   font-size: 13px;
-  font-weight: 700;
   color: rgba(255, 255, 255, 0.92);
   letter-spacing: -0.09px;
+}
+
+.card-allocation-pill__yield-strong {
+  font-weight: 600;
+}
+
+.card-allocation-pill__yield-label {
+  font-weight: 300;
+  opacity: 0.8;
 }
 
 @media (prefers-reduced-motion: reduce) {
