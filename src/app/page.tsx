@@ -34,7 +34,6 @@ import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import CashMapPopup from '@/components/CashMapPopup'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
-import TotalChangeBadge from '@/components/TotalChangeBadge'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -301,44 +300,23 @@ export default function Home() {
     maximumFractionDigits: 2,
   })} available`
 
-  // Calculate demo-friendly daily % change based on allocations and UTC date
-  const calculateDailyChange = (): number => {
-    const ethZAR = alloc.ethCents / 100
-    const pepeZAR = alloc.pepeCents / 100
-    let pctChange = 0
+  // Demo-friendly daily % change that updates every 5 seconds with jitter
+  const [dailyChangePct, setDailyChangePct] = useState(() => {
+    // initial demo value between -1.0% and +1.0%
+    return parseFloat(((Math.random() - 0.5) * 2).toFixed(2))
+  })
 
-    if (totalZAR > 0) {
-      // 1) Risk share (how much is in ETH + PEPE)
-      const riskShare = (ethZAR + pepeZAR) / totalZAR // 0 to ~0.10
+  useEffect(() => {
+    const id = setInterval(() => {
+      setDailyChangePct((prev) => {
+        const jitter = (Math.random() - 0.5) * 0.2 // +/-0.10% step
+        const next = Math.max(-5, Math.min(5, prev + jitter)) // clamp to [-5, 5]
+        return parseFloat(next.toFixed(2))
+      })
+    }, 5000) // every 5 seconds
 
-      // 2) Max move scaled by risk share
-      const maxMove = 7 // max +/-7% in absolute terms
-      const baseMove = riskShare * maxMove // e.g. 10% risk → 0.7% max move
-
-      // 3) Deterministic sign based on UTC date, so it's stable for that day
-      const today = new Date()
-      const daySeed =
-        today.getUTCFullYear() * 1000 +
-        today.getUTCMonth() * 50 +
-        today.getUTCDate()
-      const sign = daySeed % 2 === 0 ? 1 : -1
-
-      // 4) Final value
-      pctChange = baseMove * sign
-
-      // Treat tiny values as flat, to avoid noise
-      if (Math.abs(pctChange) < 0.2) {
-        pctChange = 0
-      }
-
-      // Round to 1 decimal place
-      pctChange = Math.round(pctChange * 10) / 10
-    }
-
-    return pctChange
-  }
-
-  const dailyChange = calculateDailyChange()
+    return () => clearInterval(id)
+  }, [])
 
   return (
     <div className="app-shell">
@@ -409,7 +387,12 @@ export default function Home() {
                   </div>
                   <div className="wallet-subtitle-container">
                     <span className="wallet-subtitle">{subtitleText}</span>
-                    <TotalChangeBadge pctChange={dailyChange} />
+                    <span
+                      className={dailyChangePct >= 0 ? 'wallet-change wallet-change--up' : 'wallet-change wallet-change--down'}
+                    >
+                      {dailyChangePct >= 0 ? '+' : ''}
+                      {dailyChangePct.toFixed(2)}%
+                    </span>
                   </div>
                 </div>
 

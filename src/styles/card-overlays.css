@@ -16,7 +16,7 @@
   z-index: 3;
 }
 
-/* Bottom-left annual yield pill */
+/* Bottom-left allocation pill */
 .card-allocation-pill {
   position: absolute;
   left: 16px;
@@ -27,26 +27,35 @@
   height: 28px;
   padding: 0 10px;
   border-radius: 6px;
-  background: #413d3a; /* Match Figma price pill */
+  background: rgba(255, 255, 255, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.25);
   pointer-events: none;
   z-index: 3;
   opacity: 1;
 }
 
+.card-allocation-pill__inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px; /* Space between arrow and percentage text */
+}
+
+.card-allocation-pill__inner svg {
+  display: block;
+  flex-shrink: 0;
+  opacity: 1 !important;
+}
+
+.card-allocation-pill__inner svg polygon {
+  opacity: 1 !important;
+  fill-opacity: 1 !important;
+}
+
 .card-allocation-pill__text {
   font-size: 13px;
+  font-weight: 700;
   color: rgba(255, 255, 255, 0.92);
   letter-spacing: -0.09px;
-}
-
-.card-allocation-pill__yield-strong {
-  font-weight: 600;
-}
-
-.card-allocation-pill__yield-label {
-  font-weight: 300;
-  opacity: 0.8;
 }
 
 @media (prefers-reduced-motion: reduce) {

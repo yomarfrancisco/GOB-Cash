@@ -10,7 +10,8 @@ import { usePortfolioStore } from '@/store/portfolio'
 import { useTweenNumber } from '@/lib/animations/useTweenNumber'
 import { useTwoStageTween } from '@/lib/animations/useTwoStageTween'
 import clsx from 'clsx'
-import { getCardDefinition } from '@/lib/cards/cardDefinitions'
+import { TriangleUp } from './icons/TriangleUp'
+import { TriangleDown } from './icons/TriangleDown'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -222,10 +223,28 @@ export default function CardStackCard({
     }
   }, [portfolioHealth, prefersReducedMotion])
 
-  // Get card definition for annual yield
-  const cardDef = getCardDefinition(card.type)
-  const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
-  const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
+  // Track allocation changes for arrow direction (up/down only, no neutral)
+  type ArrowDirection = 'up' | 'down'
+  const [arrowDirection, setArrowDirection] = useState<ArrowDirection>('up')
+  const prevAllocationRef = useRef<number | undefined>(undefined)
+
+  // Detect allocation changes and set arrow direction (up/down only)
+  useEffect(() => {
+    const prevPct = prevAllocationRef.current
+    const currentPct = portfolioAllocationPct
+
+    if (prevPct !== undefined) {
+      const changeDelta = currentPct - prevPct
+      // Always pick a direction - ties go to 'up'
+      const newDirection: ArrowDirection = changeDelta >= 0 ? 'up' : 'down'
+      setArrowDirection(newDirection)
+    } else {
+      // First render: default to 'up' if allocation exists
+      setArrowDirection(currentPct > 0 ? 'up' : 'up')
+    }
+
+    prevAllocationRef.current = currentPct
+  }, [portfolioAllocationPct])
 
   return (
     <div
@@ -349,14 +368,13 @@ export default function CardStackCard({
       {/* Top-right card label */}
       <div className="card-label">{CARD_LABELS[card.type]}</div>
 
-      {/* Bottom-left annual yield pill */}
+      {/* Bottom-left allocation pill */}
       <div className="card-allocation-pill">
-        <span className="card-allocation-pill__text">
-          <span className="card-allocation-pill__yield-strong">
-            {formattedAnnualYield}%
-          </span>{' '}
-          <span className="card-allocation-pill__yield-label">
-            annual yield
+        <span className="card-allocation-pill__inner">
+          {arrowDirection === 'up' && <TriangleUp size={18} color="#29ff63" />}
+          {arrowDirection === 'down' && <TriangleDown size={18} color="#ff4d4d" />}
+          <span className="card-allocation-pill__text">
+            {animatedAllocationPct.toFixed(0)}%
           </span>
         </span>
       </div>
