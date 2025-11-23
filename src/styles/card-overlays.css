@@ -80,7 +80,7 @@
 
 .health-value {
   opacity: 0;
-  transition: opacity 160ms ease-out;
+  transition: opacity 320ms ease-out;
   font-size: 12px;
   font-weight: 400;
   margin-left: 6px;
@@ -110,7 +110,7 @@
 .card-health-bar-fill {
   height: 100%;
   border-radius: 9999px;
-  transition: width 260ms cubic-bezier(0.33, 1, 0.68, 1); /* easeOutCubic fallback */
+  transition: width 520ms cubic-bezier(0.33, 1, 0.68, 1); /* easeOutCubic fallback */
   transform-origin: left center;
 }
 
@@ -131,7 +131,7 @@
 }
 
 .card-health-bar-fill--changing {
-  animation: healthPulse 180ms ease-out;
+  animation: healthPulse 360ms ease-out;
 }
 
 /* Disable CSS transition when JS tween is active (reduced motion fallback) */

@@ -15,9 +15,9 @@ const FX_USD_ZAR_DEFAULT = 18.1
 type CardType = 'pepe' | 'savings' | 'yield'
 
 export const FLIP_MS = 300 // do not change
-export const CASH_UPDATE_DELAY_MS = FLIP_MS + 150 // small perceptible delay after flip back
-const INTERVAL_MS = 7000 // time between actions
-const SLOT_MS = 700 // slot animation duration per update
+export const CASH_UPDATE_DELAY_MS = FLIP_MS + 600 // small perceptible delay after flip back (doubled from 150, total was 450ms, now 900ms)
+const INTERVAL_MS = 14000 // time between actions
+const SLOT_MS = 1400 // slot animation duration per update
 const DELTA_MIN = 5 // USDT min move
 const DELTA_MAX = 40 // USDT max move
 

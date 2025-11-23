@@ -39,7 +39,7 @@
   border: 0;
   cursor: pointer;
   padding: 0;
-  transition: background 150ms ease;
+  transition: background 300ms ease;
   z-index: 10;
 }
 
@@ -160,7 +160,7 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background 150ms ease;
+  transition: background 300ms ease;
   border-radius: 8px;
   padding: 0;
 }
@@ -206,7 +206,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background 150ms ease;
+  transition: background 300ms ease;
 }
 
 .amount-keypad__cta:hover {

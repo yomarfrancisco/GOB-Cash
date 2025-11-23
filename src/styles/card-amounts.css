@@ -167,11 +167,11 @@
 }
 
 .amount-topline.flash-up {
-  animation: flashUpColor 700ms ease-in-out 1;
+  animation: flashUpColor 1400ms ease-in-out 1;
 }
 
 .amount-topline.flash-down {
-  animation: flashDownColor 700ms ease-in-out 1;
+  animation: flashDownColor 1400ms ease-in-out 1;
 }
 
 .card-amounts__symbol {

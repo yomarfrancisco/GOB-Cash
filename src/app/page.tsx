@@ -34,7 +34,6 @@ import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import CashMapPopup from '@/components/CashMapPopup'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
-import TotalChangeBadge from '@/components/TotalChangeBadge'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -309,23 +308,6 @@ export default function Home() {
     maximumFractionDigits: 2,
   })} available`
 
-  // Demo-friendly daily % change that updates every 5 seconds with jitter
-  const [dailyChangePct, setDailyChangePct] = useState(() => {
-    // initial demo value between -1.0% and +1.0%
-    return parseFloat(((Math.random() - 0.5) * 2).toFixed(2))
-  })
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setDailyChangePct((prev) => {
-        const jitter = (Math.random() - 0.5) * 0.2 // +/-0.10% step
-        const next = Math.max(-5, Math.min(5, prev + jitter)) // clamp to [-5, 5]
-        return parseFloat(next.toFixed(2))
-      })
-    }, 5000) // every 5 seconds
-
-    return () => clearInterval(id)
-  }, [])
 
   return (
     <div className="app-shell">
@@ -407,7 +389,6 @@ export default function Home() {
                   </div>
                   <div className="wallet-subtitle-container">
                     <span className="wallet-subtitle">{subtitleText}</span>
-                    <TotalChangeBadge pctChange={dailyChangePct} />
                   </div>
                 </div>
 

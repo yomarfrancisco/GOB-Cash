@@ -26,7 +26,7 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
   pointer-events: auto;
   cursor: pointer;
-  animation: slideDownFadeIn 200ms ease-out forwards;
+  animation: slideDownFadeIn 400ms ease-out forwards;
   transform: translateY(-100%);
   opacity: 0;
   color: #000;

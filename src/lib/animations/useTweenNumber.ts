@@ -19,7 +19,7 @@ export function useTweenNumber(
   options: TweenOptions = {}
 ): number {
   const {
-    duration = 250,
+    duration = 1000,
     delay = 0,
     easing = 'easeOutCubic',
     round = (n) => Math.round(n * 100) / 100,

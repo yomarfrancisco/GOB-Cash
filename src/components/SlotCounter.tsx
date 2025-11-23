@@ -25,7 +25,7 @@ function easeOutCubic(t: number): number {
 export default function SlotCounter({
   value,
   format,
-  durationMs = 700,
+  durationMs = 2800,
   easing = 'easeOutCubic',
   onDone,
   onStart,

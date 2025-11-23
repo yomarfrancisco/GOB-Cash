@@ -29,7 +29,7 @@
   overflow: hidden;
   box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1), 0px 8px 28px rgba(0, 0, 0, 0.08);
   cursor: pointer;
-  transition: transform 300ms ease, opacity 300ms ease, box-shadow 300ms ease, width 300ms ease, height 300ms ease, left 300ms ease, top 300ms ease;
+  transition: transform 1200ms ease, opacity 1200ms ease, box-shadow 1200ms ease, width 1200ms ease, height 1200ms ease, left 1200ms ease, top 1200ms ease;
   will-change: transform, left, top, width, height;
 }
 

@@ -62,7 +62,7 @@
   margin-bottom: max(16px, env(safe-area-inset-bottom));
   border: 0;
   cursor: pointer;
-  transition: background 150ms ease;
+  transition: background 300ms ease;
 }
 
 .success-btn:hover {

@@ -13,9 +13,9 @@ type TwoStageTweenOptions = {
 
 const MIN_VISUAL_DELTA = 1.0 // percent points
 const PREVIEW_CAP = 3.0 // max exaggeration
-const STAGE_A_DURATION = 220
-const STAGE_B_DURATION = 120
-const STAGE_B_DELAY = 40
+const STAGE_A_DURATION = 880
+const STAGE_B_DURATION = 480
+const STAGE_B_DELAY = 160
 
 // Easing function: easeOutCubic
 function easeOutCubic(t: number): number {
