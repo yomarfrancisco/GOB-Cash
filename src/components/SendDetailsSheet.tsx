@@ -15,6 +15,7 @@ type SendDetailsSheetProps = {
   sendMethod?: 'email' | 'wallet' | 'brics' | null
   flowType?: 'payment' | 'transfer' // default 'payment'
   onPay?: (payload: { to: string; note?: string; amountZAR: number }) => void
+  onBackToAmount?: () => void // callback for back chevron (returns to keypad)
 }
 
 export default function SendDetailsSheet({ 
@@ -24,7 +25,8 @@ export default function SendDetailsSheet({
   amountUSDT,
   sendMethod,
   flowType = 'payment',
-  onPay
+  onPay,
+  onBackToAmount
 }: SendDetailsSheetProps) {
   const [to, setTo] = useState('')
   const [note, setNote] = useState('')
@@ -79,9 +81,15 @@ export default function SendDetailsSheet({
     <ActionSheet open={open} onClose={onClose} title="" className="send-details" size="tall">
       <div className="send-details-sheet">
         <div className="send-details-header">
-          <button className="send-details-close" onClick={onClose} aria-label="Close">
-            <Image src="/assets/clear.svg" alt="" width={18} height={18} />
-          </button>
+          {onBackToAmount ? (
+            <button className="send-details-back" onClick={onBackToAmount} aria-label="Back to keypad">
+              <Image src="/assets/back_ui.svg" alt="" width={24} height={24} />
+            </button>
+          ) : (
+            <button className="send-details-close" onClick={onClose} aria-label="Close">
+              <Image src="/assets/clear.svg" alt="" width={18} height={18} />
+            </button>
+          )}
           {sendMethod === 'wallet' ? (
             <div>
               <h3 className="send-details-title">{flowType === 'transfer' ? 'Transfer' : 'Send'}</h3>

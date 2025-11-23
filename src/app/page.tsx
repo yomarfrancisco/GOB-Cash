@@ -491,6 +491,7 @@ export default function Home() {
         flowType={flowType}
         balanceZAR={200}
         fxRateZARperUSDT={18.1}
+        initialAmount={sendAmountZAR > 0 ? sendAmountZAR : undefined} // Pre-fill amount when returning from SendDetailsSheet
         ctaLabel={amountMode === 'depositCard' ? 'Deposit' : amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
@@ -556,6 +557,14 @@ export default function Home() {
         amountUSDT={sendAmountUSDT}
         sendMethod={sendMethod}
         flowType={flowType}
+        onBackToAmount={isPaySomeoneFlow ? () => {
+          // Back chevron: return to keypad with same amount and mode
+          setOpenSendDetails(false)
+          // Reopen AmountSheet with preserved state
+          setAmountMode('convert')
+          setAmountEntryPoint('cashButton')
+          setTimeout(() => setOpenAmount(true), 220)
+        } : undefined}
         onPay={(payload) => {
           console.log('PAY', payload)
           setOpenSendDetails(false)

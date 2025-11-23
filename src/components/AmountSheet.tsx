@@ -27,6 +27,7 @@ type AmountSheetProps = {
   onCardSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Card button
   entryPoint?: 'helicopter' | 'cashButton' // distinguishes entry point for conditional button rendering
   onScanClick?: () => void // callback for scan icon (only shown for cashButton entryPoint)
+  initialAmount?: number // optional initial amount to pre-fill (for back navigation)
 }
 
 export default function AmountSheet({
@@ -44,15 +45,24 @@ export default function AmountSheet({
   onCardSubmit,
   entryPoint,
   onScanClick,
+  initialAmount,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
 
-  // Reset amount when sheet opens
+  // Reset amount when sheet opens, or use initialAmount if provided
   useEffect(() => {
     if (open) {
-      setAmount('0')
+      if (initialAmount !== undefined && initialAmount > 0) {
+        // Format initial amount (remove trailing zeros, but keep decimals if needed)
+        const formatted = initialAmount % 1 === 0 
+          ? initialAmount.toString() 
+          : initialAmount.toFixed(2).replace(/\.?0+$/, '')
+        setAmount(formatted)
+      } else {
+        setAmount('0')
+      }
     }
-  }, [open])
+  }, [open, initialAmount])
 
   const amountZAR = parseFloat(amount) || 0
   const amountUSDT = amountZAR / fxRateZARperUSDT
