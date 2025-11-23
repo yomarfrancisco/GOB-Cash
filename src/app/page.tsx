@@ -305,7 +305,7 @@ export default function Home() {
   const totalZAR = alloc.totalCents / 100
   const { major, cents } = formatZAR(totalZAR)
   const formattedAmount = `${major}.${cents}`
-  const subtitleText = `Pay anyone, anywhere | R ${formattedAmount} available`
+  const subtitleText = `R ${formattedAmount} available`
 
 
   return (
