@@ -131,6 +131,19 @@
   min-height: 0; /* Allow flex shrinking */
 }
 
+/* Share sheet - use same height logic as AmountSheet and SendDetailsSheet */
+.as-sheet.share-sheet.as-sheet-tall {
+  max-height: 85vh !important;
+}
+
+/* Share sheet - ensure as-body can scroll */
+.as-sheet.share-sheet .as-body {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 @keyframes slideUp {
   from {
     transform: translateX(-50%) translateY(100%);

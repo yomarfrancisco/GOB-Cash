@@ -176,7 +176,7 @@ export default function ShareProfileSheet() {
   }
 
   return (
-    <ActionSheet open={isOpen} onClose={close} title="" size="compact" className={styles.shareSheet}>
+    <ActionSheet open={isOpen} onClose={close} title="" size="tall" className="share-sheet">
       <div className={styles.content}>
         {/* QR Block */}
         <div className={styles.qrContainer}>
