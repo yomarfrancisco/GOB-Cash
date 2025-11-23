@@ -6,11 +6,15 @@ import styles from './BranchManagerFooter.module.css'
 
 type BranchManagerFooterProps = {
   onWhatsAppClick?: () => void
+  onHelicopterClick?: () => void // New prop for helicopter button click
 }
 
-export default function BranchManagerFooter({ onWhatsAppClick }: BranchManagerFooterProps) {
+export default function BranchManagerFooter({ onWhatsAppClick, onHelicopterClick }: BranchManagerFooterProps) {
   const handleFooterClick = () => {
-    if (onWhatsAppClick) {
+    // If helicopter click handler is provided, use it (takes precedence)
+    if (onHelicopterClick) {
+      onHelicopterClick()
+    } else if (onWhatsAppClick) {
       onWhatsAppClick()
     } else if (typeof window !== 'undefined') {
       window.open('https://wa.me/27823306256', '_blank')

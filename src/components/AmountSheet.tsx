@@ -24,6 +24,7 @@ type AmountSheetProps = {
   showDualButtons?: boolean // if true, show "Cash" and "Card" buttons instead of single CTA
   onCashSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Cash button
   onCardSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Card button
+  entryPoint?: 'helicopter' | 'cashButton' // distinguishes entry point for conditional button rendering
 }
 
 export default function AmountSheet({
@@ -39,6 +40,7 @@ export default function AmountSheet({
   showDualButtons = false,
   onCashSubmit,
   onCardSubmit,
+  entryPoint,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
 
@@ -116,7 +118,7 @@ export default function AmountSheet({
   }
 
   const handleCardSubmit = () => {
-    // New handler for card payment flow
+    // Handler for card payment flow ("Pay someone")
     if (onCardSubmit) {
       onCardSubmit({
         amountZAR: amountZAR,
@@ -124,7 +126,12 @@ export default function AmountSheet({
         mode: 'convert',
       })
     }
-    // TODO: Implement card payment flow
+  }
+
+  // Handler for "Request" button (cash convert flow)
+  const handleRequestSubmit = () => {
+    // Same as handleCashSubmit - triggers cash convert flow
+    handleCashSubmit()
   }
 
   const modeLabel = flowType === 'transfer' 
@@ -179,8 +186,40 @@ export default function AmountSheet({
             isConvertMode={mode === 'convert'}
           />
         </div>
-        <div className={`amount-cta ${showDualButtons ? 'amount-cta--dual' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
-          {showDualButtons ? (
+        <div className={`amount-cta ${(entryPoint === 'cashButton' || showDualButtons) ? 'amount-cta--dual' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+          {entryPoint === 'helicopter' ? (
+            // Single "Convert" button for helicopter entry point
+            <button 
+              className="amount-keypad__cta" 
+              onClick={handleCashSubmit} 
+              type="button"
+              disabled={!isPositive}
+            >
+              Convert
+              <span className="amount-keypad__cta-arrow">→</span>
+            </button>
+          ) : entryPoint === 'cashButton' ? (
+            // Dual buttons for $ button entry point: "Request" and "Pay someone"
+            <>
+              <button 
+                className="amount-keypad__cta amount-keypad__cta--cash" 
+                onClick={handleRequestSubmit} 
+                type="button"
+                disabled={!isPositive}
+              >
+                Request
+              </button>
+              <button 
+                className="amount-keypad__cta amount-keypad__cta--card" 
+                onClick={handleCardSubmit} 
+                type="button"
+                disabled={!isPositive}
+              >
+                Pay someone
+              </button>
+            </>
+          ) : showDualButtons ? (
+            // Legacy dual button support (backward compatibility)
             <>
               <button 
                 className="amount-keypad__cta amount-keypad__cta--cash" 
@@ -200,6 +239,7 @@ export default function AmountSheet({
               </button>
             </>
           ) : (
+            // Default single button
             <button 
               className="amount-keypad__cta" 
               onClick={handleSubmit} 

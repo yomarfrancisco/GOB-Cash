@@ -84,6 +84,7 @@ export default function Home() {
   const [openCardSuccess, setOpenCardSuccess] = useState(false)
   const [openBankTransferDetails, setOpenBankTransferDetails] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('deposit')
+  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | undefined>(undefined)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
   const [depositAmountUSDT, setDepositAmountUSDT] = useState(0)
@@ -145,7 +146,10 @@ export default function Home() {
   const openWithdrawSheet = useCallback(() => setOpenWithdraw(true), [])
   const closeDeposit = useCallback(() => setOpenDeposit(false), [])
   const closeWithdraw = useCallback(() => setOpenWithdraw(false), [])
-  const closeAmount = useCallback(() => setOpenAmount(false), [])
+  const closeAmount = useCallback(() => {
+    setOpenAmount(false)
+    setAmountEntryPoint(undefined) // Reset entry point when closing
+  }, [])
   const closeSendDetails = useCallback(() => setOpenSendDetails(false), [])
   const closeSendSuccess = useCallback(() => {
     setOpenSendSuccess(false)
@@ -339,9 +343,10 @@ export default function Home() {
             <BottomGlassBar 
               currentPath="/" 
               onDollarClick={() => {
-                // NOTE: $ button always opens cash-to-crypto keypad (no manual/autonomous branching)
+                // NOTE: $ button opens cash-to-crypto keypad with dual "Request" / "Pay someone" buttons
                 guardAuthed(() => {
                   setAmountMode('convert')
+                  setAmountEntryPoint('cashButton')
                   setTimeout(() => setOpenAmount(true), 220)
                 })
               }}
@@ -406,11 +411,21 @@ export default function Home() {
 
               {/* Explore savings circles section with shared shell - directly under .content */}
               <ConvertCashSection onHelpClick={() => setIsMapHelperOpen(true)} />
-              <BranchManagerFooter onWhatsAppClick={() => {
-                guardAuthed(() => {
-                  setIsAgentSheetOpen(true)
-                })
-              }} />
+              <BranchManagerFooter 
+                onHelicopterClick={() => {
+                  guardAuthed(() => {
+                    // Helicopter button opens convert keypad with single "Convert" button
+                    setAmountMode('convert')
+                    setAmountEntryPoint('helicopter')
+                    setTimeout(() => setOpenAmount(true), 220)
+                  })
+                }}
+                onWhatsAppClick={() => {
+                  guardAuthed(() => {
+                    setIsAgentSheetOpen(true)
+                  })
+                }} 
+              />
 
             </div>
           </div>
@@ -454,18 +469,23 @@ export default function Home() {
       />
       <AmountSheet
         open={openAmount}
-        onClose={closeAmount}
+        onClose={() => {
+          setOpenAmount(false)
+          setAmountEntryPoint(undefined) // Reset entry point when closing
+        }}
         mode={amountMode}
         flowType={flowType}
         balanceZAR={200}
         fxRateZARperUSDT={18.1}
         ctaLabel={amountMode === 'depositCard' ? 'Deposit' : amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
-        showDualButtons={amountMode === 'convert'}
+        showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
+        entryPoint={amountEntryPoint}
         onCashSubmit={amountMode === 'convert' ? ({ amountZAR }) => {
-          // Cash convert flow: close keypad, then show map popup
+          // Cash convert flow (used by both "Request" and "Convert" buttons): close keypad, then show map popup
           setConvertAmount(amountZAR)
           // Close keypad modal
           setOpenAmount(false)
+          setAmountEntryPoint(undefined)
           
           // Reset states first
           setIsMapOpen(false)
@@ -477,19 +497,22 @@ export default function Home() {
           }, 220) // Match other modal transitions
         } : undefined}
         onCardSubmit={amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
-          // Card payment flow: close keypad, then show card success sheet
+          // Card payment flow ("Pay someone"): close keypad, then show card success sheet
           setDepositAmountZAR(amountZAR)
           setDepositAmountUSDT(amountUSDT || 0)
           setOpenAmount(false)
+          setAmountEntryPoint(undefined)
           setTimeout(() => setOpenCardSuccess(true), 220)
         } : undefined}
         onSubmit={amountMode === 'depositCard' ? ({ amountZAR, amountUSDT }) => {
           setDepositAmountZAR(amountZAR)
           setDepositAmountUSDT(amountUSDT || 0)
           setOpenAmount(false)
+          setAmountEntryPoint(undefined)
           setTimeout(() => setOpenCardSuccess(true), 220)
         } : amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
           setOpenAmount(false)
+          setAmountEntryPoint(undefined)
           console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
