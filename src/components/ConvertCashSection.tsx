@@ -43,7 +43,7 @@ export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionPr
       <div className={styles.mapHeader}>
         <div className={styles.headerRow}>
           <h2 id="convert-title" className={styles.mapHeaderTitle}>
-            Convert cash to crypto
+            Send hard cash anywhere
           </h2>
           <button 
             className={styles.helpBtn} 
@@ -55,7 +55,7 @@ export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionPr
           </button>
         </div>
         <p className={styles.mapHeaderSub}>
-          Convert hard cash into USDT directly from verified agents.
+          Vetted agents collect and deliver cash door-to-door globally.
         </p>
       </div>
 
