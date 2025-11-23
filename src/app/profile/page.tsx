@@ -282,11 +282,11 @@ export default function ProfilePage() {
                   className="btn profile-edit" 
                   onClick={() => {
                     guardAuthed(() => {
-                      openPaymentsSheet()
+                      openDepositSheet()
                     })
                   }}
                 >
-                  Payments
+                  Deposit
                 </button>
                 <button
                   className="btn profile-inbox"
