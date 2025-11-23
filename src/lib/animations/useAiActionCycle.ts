@@ -16,7 +16,7 @@ type CardType = 'pepe' | 'savings' | 'yield'
 
 export const FLIP_MS = 300 // do not change
 export const CASH_UPDATE_DELAY_MS = FLIP_MS + 600 // small perceptible delay after flip back (doubled from 150, total was 450ms, now 900ms)
-const INTERVAL_MS = 14000 // time between actions
+const INTERVAL_MS = 28000 // time between actions (doubled from 14000 for slower pre-signin animations)
 const SLOT_MS = 1400 // slot animation duration per update
 const DELTA_MIN = 5 // USDT min move
 const DELTA_MAX = 40 // USDT max move
