@@ -65,62 +65,53 @@ export default function PhoneSignupSheet() {
           />
         </div>
         <div className={styles.content}>
-          <form className={styles.form} onSubmit={handleSubmit}>
+          <form className={clsx(styles.form, styles.phoneSignupForm)} onSubmit={handleSubmit}>
             {/* Username */}
-            <label className={styles.field}>
-              <div className={styles.labelText}>Username</div>
-              <div className={styles.inputShell}>
-                <input
-                  className={styles.input}
-                  type="text"
-                  placeholder="$username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
-              </div>
-            </label>
+            <div className={styles.inputShell}>
+              <input
+                className={styles.input}
+                type="text"
+                placeholder="$username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
 
             {/* Phone number */}
-            <label className={styles.field}>
-              <div className={styles.labelText}>Phone number</div>
-              <div className={styles.inputShell}>
-                <input
-                  className={styles.input}
-                  type="tel"
-                  placeholder="Phone number"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </div>
-            </label>
+            <div className={styles.inputShell}>
+              <input
+                className={styles.input}
+                type="tel"
+                placeholder="Phone number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
 
             {/* Password */}
-            <label className={styles.field}>
-              <div className={styles.labelText}>Password</div>
-              <div className={styles.inputShell}>
-                <input
-                  className={styles.input}
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+            <div className={styles.inputShell}>
+              <input
+                className={styles.input}
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className={styles.eyeButton}
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Image
+                  src="/assets/hidden_outlined.svg"
+                  alt=""
+                  width={24}
+                  height={24}
+                  className={styles.eyeIcon}
                 />
-                <button
-                  type="button"
-                  className={styles.eyeButton}
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  <Image
-                    src="/assets/hidden_outlined.svg"
-                    alt=""
-                    width={24}
-                    height={24}
-                    className={styles.eyeIcon}
-                  />
-                </button>
-              </div>
-            </label>
+              </button>
+            </div>
 
             {/* Primary button */}
             <button

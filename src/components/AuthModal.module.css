@@ -240,6 +240,11 @@
   pointer-events: auto; /* enable interaction */
 }
 
+/* Phone signup form with tighter spacing */
+.phoneSignupForm {
+  gap: 16px;
+}
+
 .field {
   width: 100%;
   display: flex;
