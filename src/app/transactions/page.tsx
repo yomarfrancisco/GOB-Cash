@@ -59,8 +59,10 @@ export default function TransactionsPage() {
         <div className="dashboard-container">
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
-            <TopGlassBar />
-            <BottomGlassBar currentPath="/transactions" onDollarClick={handleDollarClick} />
+            <div className="overlay-glass-inner">
+              <TopGlassBar />
+              <BottomGlassBar currentPath="/transactions" onDollarClick={handleDollarClick} />
+            </div>
           </div>
 
           {/* Scrollable content */}

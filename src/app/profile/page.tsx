@@ -138,17 +138,19 @@ export default function ProfilePage() {
         <div className="dashboard-container">
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
-            <TopGlassBar />
-            <BottomGlassBar 
-              currentPath="/profile" 
-              onDollarClick={() => {
-                // NOTE: $ button always opens cash-to-crypto keypad (same as home page)
-                guardAuthed(() => {
-                  setAmountMode('convert')
-                  setTimeout(() => setOpenAmount(true), 220)
-                })
-              }} 
-            />
+            <div className="overlay-glass-inner">
+              <TopGlassBar />
+              <BottomGlassBar 
+                currentPath="/profile" 
+                onDollarClick={() => {
+                  // NOTE: $ button always opens cash-to-crypto keypad (same as home page)
+                  guardAuthed(() => {
+                    setAmountMode('convert')
+                    setTimeout(() => setOpenAmount(true), 220)
+                  })
+                }} 
+              />
+            </div>
           </div>
 
           {/* Scrollable content */}

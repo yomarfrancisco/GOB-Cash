@@ -317,22 +317,24 @@ export default function Home() {
 
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
-            <TopGlassBar onScanClick={() => {
-              guardAuthed(() => {
-                setIsScannerOpen(true)
-              })
-            }} />
-            <BottomGlassBar 
-              currentPath="/" 
-              onDollarClick={() => {
-                // NOTE: $ button opens cash-to-crypto keypad with dual "Request" / "Pay someone" buttons
+            <div className="overlay-glass-inner">
+              <TopGlassBar onScanClick={() => {
                 guardAuthed(() => {
-                  setAmountMode('convert')
-                  setAmountEntryPoint('cashButton')
-                  setTimeout(() => setOpenAmount(true), 220)
+                  setIsScannerOpen(true)
                 })
-              }}
-            />
+              }} />
+              <BottomGlassBar 
+                currentPath="/" 
+                onDollarClick={() => {
+                  // NOTE: $ button opens cash-to-crypto keypad with dual "Request" / "Pay someone" buttons
+                  guardAuthed(() => {
+                    setAmountMode('convert')
+                    setAmountEntryPoint('cashButton')
+                    setTimeout(() => setOpenAmount(true), 220)
+                  })
+                }}
+              />
+            </div>
           </div>
 
           {/* Scanner - toggle between overlay and sheet implementations */}

@@ -79,6 +79,17 @@ body {
   z-index: 50;
 }
 
+/* Inner wrapper to constrain glass bars to mobile frame width (430px) */
+.overlay-glass-inner {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  height: 100%;
+  pointer-events: none;
+}
+
 .overlay-glass .icons,
 .overlay-glass .icon-group,
 .overlay-glass .nav-container,
@@ -98,6 +109,7 @@ body {
   z-index: 10;
   overflow: visible;
   background: transparent !important;
+  /* Constrained to overlay-glass-inner width (max 430px) */
 }
 
 .glass-shard-small {

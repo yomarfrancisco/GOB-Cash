@@ -109,8 +109,10 @@ export default function ActivityPage() {
         <div className="dashboard-container">
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
-            <TopGlassBar />
-            <BottomGlassBar currentPath="/activity" onDollarClick={() => {}} />
+            <div className="overlay-glass-inner">
+              <TopGlassBar />
+              <BottomGlassBar currentPath="/activity" onDollarClick={() => {}} />
+            </div>
           </div>
 
           {/* Scrollable content */}
