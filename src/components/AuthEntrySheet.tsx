@@ -159,7 +159,7 @@ export default function AuthEntrySheet() {
             </form>
           ) : (
             <div className={clsx(styles.form, styles.authEntryForm)}>
-              {/* Continue with Google button */}
+              {/* Sign up with Google button */}
               <button
                 type="button"
                 className={styles.authEntrySocialButton}
@@ -173,10 +173,10 @@ export default function AuthEntrySheet() {
                   unoptimized
                   className={styles.authEntrySocialIcon}
                 />
-                <span className={styles.authEntrySocialText}>Continue with Google</span>
+                <span className={styles.authEntrySocialText}>Sign up with Google</span>
               </button>
 
-              {/* Continue with Instagram button */}
+              {/* Sign up with Instagram button */}
               <button
                 type="button"
                 className={styles.authEntrySocialButton}
@@ -190,7 +190,7 @@ export default function AuthEntrySheet() {
                 unoptimized
                 className={styles.authEntrySocialIcon}
               />
-                <span className={styles.authEntrySocialText}>Continue with Instagram</span>
+                <span className={styles.authEntrySocialText}>Sign up with Instagram</span>
               </button>
 
               {/* Sign up with phone number button */}
