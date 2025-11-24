@@ -191,10 +191,14 @@ body {
   z-index: 1;
 }
 
-/* Mobile: increase spacing between top glass/logo and first feed section */
+/* Mobile: consistent spacing between top glass/logo and first feed section */
 @media (max-width: 768px) {
   .scroll-content {
-    padding-top: calc(var(--top-safe, 176px) + 16px);
+    /* Top: base safe area + 32px visual breathing room */
+    padding-top: calc(var(--top-safe, 176px) + 32px);
+    /* Bottom: also add 32px so the overall feed is taller
+       and bottom content can scroll fully past the top glass */
+    padding-bottom: calc(var(--bottom-safe, 132px) + 32px);
   }
 }
 
