@@ -152,9 +152,9 @@
   padding: 20px 0;
 }
 
-/* Entry sheet content - moved down by 132px total from original (80px + 92px + 20px + 20px) */
+/* Entry sheet content - moved down by 152px total from original (80px + 92px + 20px + 20px + 20px) */
 .authEntryContent {
-  top: 212px !important; /* 80px + 132px - moves entire stack down further */
+  top: 232px !important; /* 80px + 152px - moves entire stack down further */
   align-items: flex-start !important;
   padding-top: 0;
   padding-bottom: 40px;
