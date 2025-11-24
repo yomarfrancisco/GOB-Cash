@@ -191,6 +191,13 @@ body {
   z-index: 1;
 }
 
+/* Mobile: increase spacing between top glass/logo and first feed section */
+@media (max-width: 768px) {
+  .scroll-content {
+    padding-top: calc(var(--top-safe, 176px) + 32px);
+  }
+}
+
 /* Remove pseudo-element spacers - padding handles spacing now */
 .scroll-content::before,
 .scroll-content::after {
