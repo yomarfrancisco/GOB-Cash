@@ -286,27 +286,69 @@ export default function Home() {
     }
   }, [pushNotification, isAuthed])
 
-  // Reset scroll position to top whenever auth state changes
+  // After auth, reset scroll *after* keyboard/viewport has settled.
+  // This fixes the "home is slightly higher only immediately after sign-in" issue on iOS.
   useEffect(() => {
-    if (!scrollContentRef.current) return
+    if (!isAuthed) return
     
-    // Defer scroll reset until after layout has fully settled.
-    // Double rAF is more reliable on iOS Safari inside nested scroll containers.
-    const node = scrollContentRef.current
-    const frame1 = requestAnimationFrame(() => {
-      const frame2 = requestAnimationFrame(() => {
-        node.scrollTo({
+    const resetScroll = () => {
+      // Reset outer document scroll
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+      }
+      
+      // Reset inner scroll-content container
+      if (scrollContentRef.current) {
+        scrollContentRef.current.scrollTo({
           top: 0,
           left: 0,
-          // "auto" is fine; we just want an immediate jump, not smooth scroll
           behavior: 'auto' as ScrollBehavior,
         })
-      })
-    })
+      }
+      
+      console.log('[AuthScrollReset] applied – isAuthed:', isAuthed)
+    }
     
-    // No real cleanup needed, but keep the effect tidy
+    // If visualViewport exists (iOS Safari), wait for the keyboard to close
+    if (typeof window !== 'undefined' && (window as any).visualViewport) {
+      const viewport = (window as any).visualViewport as VisualViewport
+      const initialHeight = viewport.height
+      let done = false
+      
+      const handleResize = () => {
+        // When the viewport height bounces back up (keyboard dismissed),
+        // apply the scroll reset once.
+        if (!done && viewport.height >= initialHeight) {
+          done = true
+          resetScroll()
+          viewport.removeEventListener('resize', handleResize)
+        }
+      }
+      
+      viewport.addEventListener('resize', handleResize)
+      
+      // Fallback: in case resize doesn't fire as expected, still reset after a short delay
+      const timeout = window.setTimeout(() => {
+        if (!done) {
+          done = true
+          resetScroll()
+          viewport.removeEventListener('resize', handleResize)
+        }
+      }, 700) // ~0.7s feels safe after auth/keyboard transitions
+      
+      return () => {
+        viewport.removeEventListener('resize', handleResize)
+        window.clearTimeout(timeout)
+      }
+    }
+    
+    // Non-visualViewport environments: just reset after a short delay
+    const timeout = window.setTimeout(() => {
+      resetScroll()
+    }, 300)
+    
     return () => {
-      cancelAnimationFrame(frame1)
+      window.clearTimeout(timeout)
     }
   }, [isAuthed])
 

@@ -193,8 +193,8 @@ body {
 /* Mobile: consistent spacing between top glass/logo and first feed section */
 @media (max-width: 768px) {
   .scroll-content {
-    /* Hard-code mobile spacing so it's identical pre/post signin */
-    padding-top: 216px; /* Fixed value - no var(--top-safe) dependency */
+    /* Top: base safe area + 32px visual breathing room */
+    padding-top: calc(var(--top-safe, 176px) + 32px);
     /* Bottom: also add 32px so the overall feed is taller
        and bottom content can scroll fully past the top glass */
     padding-bottom: calc(var(--bottom-safe, 132px) + 32px);
