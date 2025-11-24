@@ -193,8 +193,8 @@ body {
 /* Mobile: consistent spacing between top glass/logo and first feed section */
 @media (max-width: 768px) {
   .scroll-content {
-    /* Top: base safe area + 32px visual breathing room */
-    padding-top: calc(var(--top-safe, 176px) + 32px);
+    /* Hard-code mobile spacing so it's identical pre/post signin */
+    padding-top: 216px; /* Fixed value - no var(--top-safe) dependency */
     /* Bottom: also add 32px so the overall feed is taller
        and bottom content can scroll fully past the top glass */
     padding-bottom: calc(var(--bottom-safe, 132px) + 32px);
@@ -253,6 +253,7 @@ body {
   position: relative;
   background: transparent; /* Background now on .scroll-content */
   min-height: 100%; /* So child sections fill remaining space */
+  margin-top: 0; /* Explicit - prevent any inherited margins */
 }
 
 /* Shared section shell - used by both card and map sections */
@@ -260,6 +261,7 @@ body {
   width: 100%;
   max-width: 398px; /* match the actual visual width of the card */
   margin: 0 auto;
+  margin-top: 0; /* Explicit - ensure no top margin */
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
