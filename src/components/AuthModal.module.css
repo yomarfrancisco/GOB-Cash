@@ -359,6 +359,13 @@
   flex-shrink: 0;
 }
 
+.phoneIcon {
+  width: 23px !important;
+  height: 23px !important;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .authEntrySocialText {
   /* Removed flex: 1 so icon and text form a tight pair, centered together */
   text-align: center;

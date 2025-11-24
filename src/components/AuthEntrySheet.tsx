@@ -205,7 +205,7 @@ export default function AuthEntrySheet() {
                   width={23}
                   height={23}
                   unoptimized
-                  className={styles.authEntrySocialIcon}
+                  className={styles.phoneIcon}
                 />
                 <span>Sign up with phone number</span>
               </button>
