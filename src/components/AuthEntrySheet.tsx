@@ -21,10 +21,12 @@ export default function AuthEntrySheet() {
   const [identifier, setIdentifier] = useState('')
   const [authMode, setAuthMode] = useState<AuthMode>('loginEntry')
 
-  // Reset to login entry when sheet opens
+  // Reset to login entry when sheet opens, unless coming from signup flow
   useEffect(() => {
     if (authEntryOpen) {
-      setAuthMode('loginEntry')
+      const { authView } = useAuthStore.getState()
+      // If authView is 'whatsapp-signup', start in signup mode
+      setAuthMode(authView === 'whatsapp-signup' ? 'signup' : 'loginEntry')
       setIdentifier('')
     }
   }, [authEntryOpen])

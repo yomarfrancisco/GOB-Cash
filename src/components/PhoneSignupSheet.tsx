@@ -11,11 +11,13 @@ import { useState } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
 import { useAuthStore } from '@/store/auth'
+import { useNotificationStore } from '@/store/notifications'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
 export default function PhoneSignupSheet() {
-  const { phoneSignupOpen, closePhoneSignup, closeAuthEntry, openAuthEntry } = useAuthStore()
+  const { phoneSignupOpen, closePhoneSignup, closeAllAuth, openAuthEntrySignup } = useAuthStore()
+  const { pushNotification } = useNotificationStore()
   const [username, setUsername] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
@@ -24,6 +26,14 @@ export default function PhoneSignupSheet() {
 
   const isDisabled = !username.trim() || !phone.trim() || !password.trim() || isSubmitting
 
+  const handleBackToSignupOptions = () => {
+    closePhoneSignup()
+    // Small delay to allow phone sheet to close before opening signup options
+    setTimeout(() => {
+      openAuthEntrySignup() // Open entry sheet in signup mode
+    }, 220)
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (isDisabled) return
@@ -31,15 +41,36 @@ export default function PhoneSignupSheet() {
     setIsSubmitting(true)
     // TODO: wire real sign-up later
     console.log('Sign up with phone:', { username, phone, password })
-    setIsSubmitting(false)
+    
+    // Show success notification
+    pushNotification({
+      kind: 'payment_sent', // Using existing kind for now
+      title: 'Your GoBankless account has been created.',
+      actor: {
+        type: 'system',
+        id: 'system',
+        name: 'System',
+      },
+    })
+
+    // Close all auth sheets and return to home
+    setTimeout(() => {
+      closeAllAuth()
+      setIsSubmitting(false)
+    }, 500)
   }
 
   const handleGoToLogin = () => {
     closePhoneSignup()
     // Small delay to allow phone sheet to close before opening login entry
     setTimeout(() => {
+      const { openAuthEntry } = useAuthStore.getState()
       openAuthEntry()
     }, 220)
+  }
+
+  const handleCloseAll = () => {
+    closeAllAuth()
   }
 
   if (!phoneSignupOpen) return null
@@ -47,13 +78,28 @@ export default function PhoneSignupSheet() {
   return (
     <ActionSheet 
       open={phoneSignupOpen} 
-      onClose={closePhoneSignup} 
+      onClose={handleCloseAll} 
       title="" 
       size="tall" 
       className="handAuthSheet phoneSignupSheet"
     >
       <div className={styles.handAuthWrapper}>
         <div className={clsx(styles.handAuthRoot, styles.handAuthRootPhone)} />
+        {/* Back chevron in top-left */}
+        <button
+          type="button"
+          className={styles.phoneBackButton}
+          onClick={handleBackToSignupOptions}
+          aria-label="Back to sign up options"
+        >
+          <Image
+            src="/assets/back_ui.svg"
+            alt="Back"
+            width={24}
+            height={24}
+            unoptimized
+          />
+        </button>
         {/* Centered GoBankless logo at top */}
         <div className={styles.phoneLogoWrapper}>
           <Image

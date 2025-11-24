@@ -150,6 +150,30 @@
   background-repeat: no-repeat;
 }
 
+/* Back button for phone sign-up sheet */
+.phoneBackButton {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  transition: opacity 0.15s ease;
+}
+
+.phoneBackButton:hover {
+  opacity: 0.7;
+}
+
+.phoneBackButton:active {
+  opacity: 0.5;
+}
+
 /* Centered GoBankless logo for phone sign-up sheet */
 .phoneLogoWrapper {
   position: absolute;

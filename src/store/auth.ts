@@ -12,7 +12,9 @@ interface AuthState {
   authIdentifier: string | null // Username or phone number from entry sheet
   openAuth: () => void // Opens entry sheet
   closeAuth: () => void // Closes entry sheet
+  closeAllAuth: () => void // Closes all auth sheets and returns to home
   openAuthEntry: () => void
+  openAuthEntrySignup: () => void // Open entry sheet in signup mode
   closeAuthEntry: () => void
   openAuthPassword: () => void
   closeAuthPassword: () => void
@@ -34,7 +36,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   authIdentifier: null,
   openAuth: () => set({ authOpen: true, authEntryOpen: true, authView: 'provider-list' }),
   closeAuth: () => set({ authOpen: false, authEntryOpen: false }),
+  closeAllAuth: () => set({ authOpen: false, authEntryOpen: false, authPasswordOpen: false, phoneSignupOpen: false }),
   openAuthEntry: () => set({ authEntryOpen: true, authOpen: true }),
+  openAuthEntrySignup: () => set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signup' }),
   closeAuthEntry: () => set({ authEntryOpen: false, authOpen: false }),
   openAuthPassword: () => set({ authPasswordOpen: true }),
   closeAuthPassword: () => set({ authPasswordOpen: false, authIdentifier: null }),
