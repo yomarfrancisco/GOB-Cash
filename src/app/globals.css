@@ -188,6 +188,8 @@ body {
   align-items: center;
   padding: 0 16px;
   position: relative;
+  background: #fff;
+  border-radius: 0; /* Variant A: flat white panel with no rounded corners */
 }
 
 /* Shared section shell - used by both card and map sections */
