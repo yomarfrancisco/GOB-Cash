@@ -138,6 +138,18 @@
   background-repeat: no-repeat;
 }
 
+/* Phone sign-up sheet background */
+.handAuthRootPhone {
+  width: 100%;
+  height: 100%;
+  border-radius: 32px 32px 0 0; /* Match parent sheet border radius */
+  overflow: hidden;
+  background-image: url('/assets/sign_up - phone.png');
+  background-size: cover;
+  background-position: center 15%;
+  background-repeat: no-repeat;
+}
+
 /* Content overlay - centered form, positioned slightly lower */
 .content {
   position: absolute;

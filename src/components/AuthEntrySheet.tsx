@@ -17,7 +17,7 @@ import styles from './AuthModal.module.css'
 type AuthMode = 'loginEntry' | 'signup'
 
 export default function AuthEntrySheet() {
-  const { authEntryOpen, closeAuthEntry, openAuthPassword, setAuthIdentifier } = useAuthStore()
+  const { authEntryOpen, closeAuthEntry, openAuthPassword, openPhoneSignup, setAuthIdentifier } = useAuthStore()
   const [identifier, setIdentifier] = useState('')
   const [authMode, setAuthMode] = useState<AuthMode>('loginEntry')
 
@@ -52,7 +52,7 @@ export default function AuthEntrySheet() {
   }
 
   const handlePhoneSignUpClick = () => {
-    console.log('Sign up with phone number clicked')
+    openPhoneSignup()
   }
 
   if (!authEntryOpen) return null
