@@ -152,9 +152,9 @@
   padding: 20px 0;
 }
 
-/* Entry sheet content - moved down by 92px to align with password sheet layout */
+/* Entry sheet content - moved down by 112px total (92px + 20px) to align with password sheet layout */
 .authEntryContent {
-  top: 172px !important; /* 80px + 92px - moves entire stack down */
+  top: 192px !important; /* 80px + 92px + 20px - moves entire stack down further */
   align-items: flex-start !important;
   padding-top: 0;
   padding-bottom: 40px;
@@ -332,7 +332,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px; /* Reduced from 12px to bring icon closer to text */
   font-weight: 500;
   font-size: 16px;
   letter-spacing: -0.32px;
@@ -360,7 +360,7 @@
 }
 
 .authEntrySocialText {
-  flex: 1;
+  /* Removed flex: 1 so icon and text form a tight pair, centered together */
   text-align: center;
 }
 
