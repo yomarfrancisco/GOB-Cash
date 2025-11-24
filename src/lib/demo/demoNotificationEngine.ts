@@ -17,8 +17,9 @@ type DemoEngineOptions = {
 
 let demoInterval: NodeJS.Timeout | null = null
 let lastNotificationTime = 0
-const RATE_LIMIT_MS = 40000 // 40 seconds (doubled from 20000 for slower pre-signin animations)
-const MAX_NOTIFICATIONS_PER_WINDOW = 3
+const INITIAL_DELAY_MS = 20000 // 20s - first notification delay
+const RATE_LIMIT_MS = 120000 // 120s - rate limit window
+const MAX_NOTIFICATIONS_PER_WINDOW = 1 // Max 1 notification per window
 let notificationCount = 0
 let windowStartTime = Date.now()
 let engineStartTime = Date.now()
@@ -250,8 +251,8 @@ export function startDemoNotificationEngine(
   engineStartTime = Date.now()
   
   const scheduleNext = () => {
-    // Random interval between 8-18 seconds (doubled from 4-9 for slower pre-signin animations)
-    const delay = 8000 + Math.random() * 10000
+    // Random interval between 60-120 seconds (calm preview)
+    const INTERVAL_MS = 60000 + Math.random() * 60000
     demoInterval = setTimeout(() => {
       if (canSendNotification()) {
         const secondsSinceStart = (Date.now() - engineStartTime) / 1000
@@ -288,13 +289,13 @@ export function startDemoNotificationEngine(
 
       // Schedule next event
       scheduleNext()
-    }, delay)
+    }, INTERVAL_MS)
   }
 
-  // Start the first event after a short delay (4 seconds, doubled from 2)
+  // Start the first event after initial delay (20 seconds)
   setTimeout(() => {
     scheduleNext()
-  }, 4000)
+  }, INITIAL_DELAY_MS)
 }
 
 /**

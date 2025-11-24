@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { useNotificationStore } from './notifications'
+import { stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 
 type AuthView = 'provider-list' | 'whatsapp-signin' | 'whatsapp-signup'
 
@@ -46,7 +48,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   closePhoneSignup: () => set({ phoneSignupOpen: false }),
   setAuthIdentifier: (identifier) => set({ authIdentifier: identifier }),
   setAuthView: (view) => set({ authView: view }),
-  completeAuth: () => set({ isAuthed: true, authOpen: false, authEntryOpen: false, authPasswordOpen: false, phoneSignupOpen: false }),
+  completeAuth: () => {
+    // Stop all demo animations and notifications
+    stopDemoNotificationEngine()
+    
+    // Clear notification queue
+    const { clearNotifications } = useNotificationStore.getState()
+    clearNotifications()
+    
+    // Set authenticated state
+    set({ isAuthed: true, authOpen: false, authEntryOpen: false, authPasswordOpen: false, phoneSignupOpen: false })
+  },
   requireAuth: (onAuthed) => {
     const { isAuthed, openAuthEntry } = get()
     if (!isAuthed) {

@@ -14,13 +14,14 @@
 import { useEffect } from 'react'
 import type React from 'react'
 import type { CardStackHandle } from '@/components/CardStack'
+import { useAuthStore } from '@/store/auth'
 
 const ENABLED = process.env.NEXT_PUBLIC_ENABLE_RANDOM_CARD_FLIPS === '1'
-const QUIET_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_QUIET_MS ?? 60000) // doubled from 30000
-const MIN_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MIN_MS ?? 6000) // doubled from 3000
-const MAX_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MAX_MS ?? 360000) // doubled from 180000
-const MIN_COUNT = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MIN_COUNT ?? 1)
-const MAX_COUNT = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MAX_COUNT ?? 3)
+const QUIET_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_QUIET_MS ?? 60000) // 60s quiet period
+const MIN_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MIN_MS ?? 120000) // 2 min - burst interval min
+const MAX_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MAX_MS ?? 360000) // 6 min - burst interval max
+const MIN_COUNT = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MIN_COUNT ?? 1) // Never multiple flips
+const MAX_COUNT = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MAX_COUNT ?? 1) // Never multiple flips
 // Per-flip delay inside a burst (>= CSS animation ~300ms)
 const BURST_STEP_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_BURST_STEP_MS ?? 700) // doubled from 350
 
@@ -33,8 +34,17 @@ export function useRandomCardFlips(
   ref: React.RefObject<CardStackHandle | null>,
   controllerRef?: React.MutableRefObject<FlipController | null>
 ) {
+  const isAuthed = useAuthStore((state) => state.isAuthed)
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+  
+  // Only enabled when demo mode is on AND user is NOT authenticated
+  const shouldEnable = ENABLED && isDemoMode && !isAuthed
+  
   useEffect(() => {
-    if (!ENABLED || !ref?.current) return
+    if (!shouldEnable || !ref?.current) {
+      // Early return if not enabled
+      return
+    }
 
     // Log effective timings at mount
     console.log(
@@ -117,6 +127,6 @@ export function useRandomCardFlips(
       paused = true
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [ref, controllerRef])
+  }, [ref, controllerRef, shouldEnable])
 }
 

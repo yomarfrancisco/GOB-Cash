@@ -251,10 +251,16 @@ export default function Home() {
     !isAuthed // enable only when NOT authenticated
   )
 
-  // Demo notification engine - only run in demo mode
+  // Demo notification engine - only run in demo mode AND when NOT authenticated
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   useEffect(() => {
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+    
+    // Stop demo notifications if user is authenticated
+    if (isAuthed) {
+      stopDemoNotificationEngine()
+      return
+    }
     
     if (isDemoMode) {
       // Stub callbacks for map panning and card animations
@@ -277,7 +283,7 @@ export default function Home() {
         stopDemoNotificationEngine()
       }
     }
-  }, [pushNotification])
+  }, [pushNotification, isAuthed])
 
   // Agent card visibility timing - show after map is open
   useEffect(() => {

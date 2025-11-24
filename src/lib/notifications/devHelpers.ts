@@ -7,17 +7,21 @@
 
 import { useNotificationStore } from '@/store/notifications'
 import { useActivityStore } from '@/store/activity'
+import { useAuthStore } from '@/store/auth'
 
 export function setupDevNotificationHelpers() {
   if (typeof window === 'undefined') return
 
   const store = useNotificationStore.getState()
+  const isAuthed = useAuthStore.getState().isAuthed
 
   // Auto-fire identity examples once per session in non-production builds
   // BUT only if demo mode is NOT enabled (demo mode handles its own notifications)
+  // AND user is NOT authenticated (post-signin: never fire)
   if (
     process.env.NODE_ENV !== 'production' &&
     process.env.NEXT_PUBLIC_DEMO_MODE !== 'true' &&
+    !isAuthed &&
     !(window as any).__debugIdentitiesFired
   ) {
     // Mark as fired to prevent duplicate calls
