@@ -240,6 +240,11 @@
   pointer-events: auto; /* enable interaction */
 }
 
+/* Phone signup content - moved up to compensate for explanatory text */
+.phoneSignupContent {
+  top: calc(50% - 140px) !important; /* Moved up from default calc(50% - 110px) to account for explanatory text */
+}
+
 /* Phone signup form with tighter spacing */
 .phoneSignupForm {
   gap: 16px;

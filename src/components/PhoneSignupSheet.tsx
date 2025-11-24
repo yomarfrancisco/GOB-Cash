@@ -64,7 +64,7 @@ export default function PhoneSignupSheet() {
             unoptimized
           />
         </div>
-        <div className={styles.content}>
+        <div className={clsx(styles.content, styles.phoneSignupContent)}>
           <form className={clsx(styles.form, styles.phoneSignupForm)} onSubmit={handleSubmit}>
             {/* Username explanatory text */}
             <p className={styles.usernameExplanatoryText}>
