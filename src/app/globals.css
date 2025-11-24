@@ -61,7 +61,7 @@ body {
 .dashboard-container {
   width: 100%;
   max-width: 430px;
-  min-height: 100dvh;
+  height: 100dvh; /* Changed from min-height to prevent container from growing beyond viewport */
   position: relative;
   background: #fff;
   overflow: visible;
@@ -69,7 +69,7 @@ body {
 
 /* Overlay: Glass bars fixed on top */
 .overlay-glass {
-  position: absolute;
+  position: fixed; /* Changed from absolute to pin glass bars to viewport */
   inset: 0;
   pointer-events: none;
   z-index: 50;
