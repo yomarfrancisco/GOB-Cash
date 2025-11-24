@@ -426,3 +426,73 @@
   opacity: 0.5;
 }
 
+/* Phone sign-up button */
+.primaryPhoneButton {
+  width: 100%;
+  height: 56px;
+  border-radius: 42px;
+  background-color: #fff;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: -0.32px;
+  border: none;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.primaryPhoneButton:hover {
+  opacity: 0.9;
+}
+
+.primaryPhoneButton:active {
+  transform: scale(0.98);
+}
+
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Switch auth text and link (reusable for both login and signup) */
+.switchAuthText {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.6);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  text-align: center;
+  margin: 0;
+}
+
+.switchAuthLink {
+  background: none;
+  border: none;
+  color: #000;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0;
+  margin: 0;
+  transition: opacity 0.15s ease;
+}
+
+.switchAuthLink:hover {
+  opacity: 0.7;
+}
+
+.switchAuthLink:active {
+  opacity: 0.5;
+}
+
