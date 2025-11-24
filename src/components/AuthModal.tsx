@@ -17,7 +17,7 @@ import styles from './AuthModal.module.css'
 const MEMBER_PASSWORD = 'brics2025'
 
 export default function AuthModal() {
-  const { authOpen, closeAuth, completeAuth } = useAuthStore()
+  const { authPasswordOpen, closeAuthPassword, completeAuth } = useAuthStore()
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,10 +45,10 @@ export default function AuthModal() {
     }
   }
 
-  if (!authOpen) return null
+  if (!authPasswordOpen) return null
 
   return (
-    <ActionSheet open={authOpen} onClose={closeAuth} title="" size="tall" className="handAuthSheet">
+    <ActionSheet open={authPasswordOpen} onClose={closeAuthPassword} title="" size="tall" className="handAuthSheet">
       <div className={styles.handAuthWrapper}>
         <div className={styles.handAuthRoot} />
         <div className={styles.content}>

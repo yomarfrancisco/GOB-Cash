@@ -4,10 +4,18 @@ type AuthView = 'provider-list' | 'whatsapp-signin' | 'whatsapp-signup'
 
 interface AuthState {
   isAuthed: boolean
-  authOpen: boolean
+  authOpen: boolean // Legacy - now controls entry sheet
+  authEntryOpen: boolean // New entry sheet (sign-in method selection)
+  authPasswordOpen: boolean // Password sheet (existing password modal)
   authView: AuthView
-  openAuth: () => void
-  closeAuth: () => void
+  authIdentifier: string | null // Username or phone number from entry sheet
+  openAuth: () => void // Opens entry sheet
+  closeAuth: () => void // Closes entry sheet
+  openAuthEntry: () => void
+  closeAuthEntry: () => void
+  openAuthPassword: () => void
+  closeAuthPassword: () => void
+  setAuthIdentifier: (identifier: string) => void
   setAuthView: (view: AuthView) => void
   completeAuth: () => void
   requireAuth: (onAuthed: () => void) => void
@@ -15,16 +23,24 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthed: false,
-  authOpen: false,
+  authOpen: false, // Legacy - kept for backward compatibility, now maps to entry sheet
+  authEntryOpen: false,
+  authPasswordOpen: false,
   authView: 'provider-list',
-  openAuth: () => set({ authOpen: true, authView: 'provider-list' }),
-  closeAuth: () => set({ authOpen: false }),
+  authIdentifier: null,
+  openAuth: () => set({ authOpen: true, authEntryOpen: true, authView: 'provider-list' }),
+  closeAuth: () => set({ authOpen: false, authEntryOpen: false }),
+  openAuthEntry: () => set({ authEntryOpen: true, authOpen: true }),
+  closeAuthEntry: () => set({ authEntryOpen: false, authOpen: false }),
+  openAuthPassword: () => set({ authPasswordOpen: true }),
+  closeAuthPassword: () => set({ authPasswordOpen: false, authIdentifier: null }),
+  setAuthIdentifier: (identifier) => set({ authIdentifier: identifier }),
   setAuthView: (view) => set({ authView: view }),
-  completeAuth: () => set({ isAuthed: true, authOpen: false }),
+  completeAuth: () => set({ isAuthed: true, authOpen: false, authEntryOpen: false, authPasswordOpen: false }),
   requireAuth: (onAuthed) => {
-    const { isAuthed, openAuth } = get()
+    const { isAuthed, openAuthEntry } = get()
     if (!isAuthed) {
-      openAuth()
+      openAuthEntry()
     } else {
       onAuthed()
     }

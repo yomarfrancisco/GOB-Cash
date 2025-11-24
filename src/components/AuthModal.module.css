@@ -147,6 +147,17 @@
   display: flex;
   justify-content: center;
   pointer-events: none; /* background still blocked */
+  overflow-y: auto;
+  max-height: calc(100% - 40px);
+  padding: 20px 0;
+}
+
+/* Entry sheet content - start higher to accommodate logo and more content */
+.authEntryContent {
+  top: 60px !important;
+  align-items: flex-start !important;
+  padding-top: 24px;
+  padding-bottom: 40px;
 }
 
 .form {
@@ -284,5 +295,133 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   margin: 0;
   line-height: 1.4;
+}
+
+/* Auth Entry Sheet Styles */
+.authEntryForm {
+  width: 344px;
+  max-width: calc(100% - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.authEntryHeader {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+.authEntryLogo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.authEntrySocialButton {
+  width: 100%;
+  height: 56px;
+  border-radius: 42px;
+  background-color: #fff;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: -0.32px;
+  border: none;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.authEntrySocialButton:hover {
+  opacity: 0.9;
+}
+
+.authEntrySocialButton:active {
+  transform: scale(0.98);
+}
+
+.authEntrySocialIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.authEntrySocialText {
+  flex: 1;
+  text-align: center;
+}
+
+.authEntryDivider {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.authEntryDividerLine {
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.authEntryDividerText {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  flex-shrink: 0;
+}
+
+.authEntryFieldLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: #000;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin-bottom: 8px;
+}
+
+.authEntrySignUp {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.6);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  text-align: center;
+  margin: 0;
+}
+
+.authEntrySignUpLink {
+  background: none;
+  border: none;
+  color: #000;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0;
+  margin: 0;
+  transition: opacity 0.15s ease;
+}
+
+.authEntrySignUpLink:hover {
+  opacity: 0.7;
+}
+
+.authEntrySignUpLink:active {
+  opacity: 0.5;
 }
 
