@@ -290,12 +290,24 @@ export default function Home() {
   useEffect(() => {
     if (!scrollContentRef.current) return
     
-    // Always reset feed to the very top when auth state changes
-    scrollContentRef.current.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: 'auto' as ScrollBehavior,
+    // Defer scroll reset until after layout has fully settled.
+    // Double rAF is more reliable on iOS Safari inside nested scroll containers.
+    const node = scrollContentRef.current
+    const frame1 = requestAnimationFrame(() => {
+      const frame2 = requestAnimationFrame(() => {
+        node.scrollTo({
+          top: 0,
+          left: 0,
+          // "auto" is fine; we just want an immediate jump, not smooth scroll
+          behavior: 'auto' as ScrollBehavior,
+        })
+      })
     })
+    
+    // No real cleanup needed, but keep the effect tidy
+    return () => {
+      cancelAnimationFrame(frame1)
+    }
   }, [isAuthed])
 
   // Agent card visibility timing - show after map is open
