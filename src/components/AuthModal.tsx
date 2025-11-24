@@ -83,8 +83,8 @@ export default function AuthModal() {
           <Image
             src="/assets/core/gobankless-logo.png"
             alt="GoBankless"
-            width={90}
-            height={24}
+            width={117}
+            height={31}
             unoptimized
           />
         </div>
