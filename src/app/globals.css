@@ -207,12 +207,13 @@ body {
   transform: translateX(-50%);
   top: env(safe-area-inset-top, 0px);
   width: min(430px, 100vw);
-  height: 80px; /* can be tuned to 60-100px */
+  height: 110px; /* Extended from 80px for longer, more gradual fade */
   pointer-events: none;
   background: linear-gradient(
     to bottom,
     #ffffff 0%,
-    rgba(255, 255, 255, 0.9) 40%,
+    rgba(255, 255, 255, 0.85) 25%,
+    rgba(255, 255, 255, 0.5) 55%,
     rgba(255, 255, 255, 0) 100%
   );
   z-index: 25; /* Above scroll-content (z:1) but below top glass bar (z:10+) */
