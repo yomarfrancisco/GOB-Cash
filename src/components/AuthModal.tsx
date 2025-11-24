@@ -17,13 +17,25 @@ import styles from './AuthModal.module.css'
 const MEMBER_PASSWORD = 'brics2025'
 
 export default function AuthModal() {
-  const { authPasswordOpen, closeAuthPassword, completeAuth } = useAuthStore()
+  const { authPasswordOpen, closeAuthPassword, closeAllAuth, openAuthEntry, completeAuth } = useAuthStore()
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isDisabled = password.trim().length === 0 || isSubmitting
+
+  const handleBackToLogin = () => {
+    closeAuthPassword()
+    // Small delay to allow password sheet to close before opening login entry
+    setTimeout(() => {
+      openAuthEntry()
+    }, 220)
+  }
+
+  const handleCloseAll = () => {
+    closeAllAuth()
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,9 +60,34 @@ export default function AuthModal() {
   if (!authPasswordOpen) return null
 
   return (
-    <ActionSheet open={authPasswordOpen} onClose={closeAuthPassword} title="" size="tall" className="handAuthSheet">
+    <ActionSheet open={authPasswordOpen} onClose={handleCloseAll} title="" size="tall" className="handAuthSheet">
       <div className={styles.handAuthWrapper}>
         <div className={styles.handAuthRoot} />
+        {/* Back chevron in top-left */}
+        <button
+          type="button"
+          className={styles.passwordBackButton}
+          onClick={handleBackToLogin}
+          aria-label="Back to login"
+        >
+          <Image
+            src="/assets/back_ui.svg"
+            alt="Back"
+            width={24}
+            height={24}
+            unoptimized
+          />
+        </button>
+        {/* Centered GoBankless logo at top */}
+        <div className={styles.passwordLogoWrapper}>
+          <Image
+            src="/assets/core/gobankless-logo.png"
+            alt="GoBankless"
+            width={90}
+            height={24}
+            unoptimized
+          />
+        </div>
         <div className={styles.content}>
           <form className={styles.form} onSubmit={handleSubmit}>
             <label className={styles.field}>
