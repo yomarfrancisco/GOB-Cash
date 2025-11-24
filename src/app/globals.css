@@ -205,12 +205,12 @@ body {
   transform: translateX(-50%);
   bottom: env(safe-area-inset-bottom, 0px);
   width: min(430px, 100vw);
-  height: 80px; /* fade height - adjust to 60-100px as needed */
+  height: 100px;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
     rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.9) 60%,
+    rgba(255, 255, 255, 0.9) 65%,
     #ffffff 100%
   );
   z-index: 25; /* Above scroll-content (z:1) but below bottom glass nav (z:5+) */
