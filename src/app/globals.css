@@ -198,6 +198,24 @@ body {
   }
 }
 
+/* Bottom fade overlay - softly fades content behind bottom glass nav */
+.content-fade-bottom {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: env(safe-area-inset-bottom, 0px);
+  width: min(430px, 100vw);
+  height: 80px; /* fade height - adjust to 60-100px as needed */
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.9) 60%,
+    #ffffff 100%
+  );
+  z-index: 25; /* Above scroll-content (z:1) but below bottom glass nav (z:5+) */
+}
+
 /* Remove pseudo-element spacers - padding handles spacing now */
 .scroll-content::before,
 .scroll-content::after {

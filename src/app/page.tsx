@@ -422,6 +422,10 @@ export default function Home() {
 
             </div>
           </div>
+
+          {/* Bottom fade overlay - fades content behind bottom glass nav */}
+          <div className="content-fade-bottom" />
+
         </div>
       </div>
 
