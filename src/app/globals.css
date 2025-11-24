@@ -51,8 +51,8 @@ body {
   width: 430px;
   min-height: 100dvh;
   background: #fff;
-  border-radius: 16px;
-  overflow: hidden;
+  border-radius: 16px;    /* keep bezel shape */
+  overflow: visible;      /* stop clipping inner feed - Variant A: flat panel */
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
   position: relative;
 }
@@ -63,7 +63,7 @@ body {
   max-width: 430px;
   height: 100dvh; /* Changed from min-height to prevent container from growing beyond viewport */
   position: relative;
-  background: #fff;
+  background: transparent; /* Changed from #fff - white background now only on .content */
   overflow: visible;
 }
 
@@ -180,7 +180,7 @@ body {
   height: var(--bottom-safe, 132px);
 }
 
-/* Content Area */
+/* Content Area - White feed panel (Variant A: flat, no rounded corners) */
 .content {
   width: 100%;
   display: flex;
@@ -189,7 +189,8 @@ body {
   padding: 0 16px;
   position: relative;
   background: #fff;
-  border-radius: 0; /* Variant A: flat white panel with no rounded corners */
+  border-radius: 0; /* Variant A: completely flat panel - no rounding at top or bottom */
+  min-height: 100%; /* Ensure white background extends full height */
 }
 
 /* Shared section shell - used by both card and map sections */
