@@ -242,7 +242,7 @@
 
 /* Phone signup content - moved up to compensate for explanatory text */
 .phoneSignupContent {
-  top: calc(50% - 140px) !important; /* Moved up from default calc(50% - 110px) to account for explanatory text */
+  top: calc(50% - 160px) !important; /* Moved up from calc(50% - 140px) by additional 20px */
 }
 
 /* Phone signup form with tighter spacing */

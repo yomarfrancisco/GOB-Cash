@@ -57,7 +57,7 @@ export default function PhoneSignupSheet() {
         {/* Centered GoBankless logo at top */}
         <div className={styles.phoneLogoWrapper}>
           <Image
-            src="/assets/small—goBankless.png"
+            src="/assets/core/gobankless-logo.png"
             alt="GoBankless"
             width={90}
             height={24}
