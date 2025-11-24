@@ -66,6 +66,12 @@ export default function PhoneSignupSheet() {
         </div>
         <div className={styles.content}>
           <form className={clsx(styles.form, styles.phoneSignupForm)} onSubmit={handleSubmit}>
+            {/* Username explanatory text */}
+            <p className={styles.usernameExplanatoryText}>
+              Choose your GoBankless username.
+              <br />
+              You can always change it later.
+            </p>
             {/* Username */}
             <div className={styles.inputShell}>
               <input
