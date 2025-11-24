@@ -202,8 +202,8 @@ export default function AuthEntrySheet() {
                 <Image
                   src="/assets/Phone-icon.svg"
                   alt="Phone"
-                  width={20}
-                  height={20}
+                  width={23}
+                  height={23}
                   unoptimized
                   className={styles.authEntrySocialIcon}
                 />
