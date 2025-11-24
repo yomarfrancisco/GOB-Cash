@@ -301,11 +301,8 @@ export default function Home() {
   const cardDef = getCardDefinition(topCardType)
   const { title } = cardDef
   
-  // Calculate total ZAR amount across all cards for subtitle
-  const totalZAR = alloc.totalCents / 100
-  const { major, cents } = formatZAR(totalZAR)
-  const formattedAmount = `${major}.${cents}`
-  const subtitleText = `R ${formattedAmount} available`
+  // Subtitle text
+  const subtitleText = `Free global payments`
 
 
   return (
