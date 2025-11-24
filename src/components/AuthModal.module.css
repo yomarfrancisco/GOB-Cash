@@ -154,9 +154,9 @@
 
 /* Entry sheet content - start higher to accommodate logo and more content */
 .authEntryContent {
-  top: 60px !important;
+  top: 80px !important; /* Start below logo */
   align-items: flex-start !important;
-  padding-top: 24px;
+  padding-top: 0;
   padding-bottom: 40px;
 }
 
@@ -303,22 +303,23 @@
   max-width: calc(100% - 48px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
   pointer-events: auto;
-}
-
-.authEntryHeader {
-  width: 100%;
-  display: flex;
-  align-items: flex-start;
-  margin-bottom: 0;
   margin-top: 0;
 }
 
+.authEntryHeader {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .authEntryLogo {
-  width: 40px;
-  height: 40px;
+  width: 96px;
+  height: auto;
   object-fit: contain;
 }
 
@@ -368,7 +369,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 8px 0;
+  margin: 4px 0;
 }
 
 .authEntryDividerLine {

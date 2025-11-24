@@ -50,20 +50,19 @@ export default function AuthEntrySheet() {
     <ActionSheet open={authEntryOpen} onClose={closeAuthEntry} title="" size="tall" className="handAuthSheet">
       <div className={styles.handAuthWrapper}>
         <div className={styles.handAuthRoot} />
+        {/* Logo in top-left - absolutely positioned relative to wrapper */}
+        <div className={styles.authEntryHeader}>
+          <Image
+            src="/assets/bankless pink.png"
+            alt="GoBankless"
+            className={styles.authEntryLogo}
+            width={96}
+            height={96}
+            unoptimized
+          />
+        </div>
         <div className={clsx(styles.content, styles.authEntryContent)}>
           <form className={clsx(styles.form, styles.authEntryForm)} onSubmit={handleSubmit}>
-            {/* Logo in top-left */}
-            <div className={styles.authEntryHeader}>
-              <Image
-                src="/assets/bankless pink.png"
-                alt="GoBankless"
-                className={styles.authEntryLogo}
-                width={40}
-                height={40}
-                unoptimized
-              />
-            </div>
-
             {/* Continue with Google button */}
             <button
               type="button"
@@ -105,30 +104,16 @@ export default function AuthEntrySheet() {
               <div className={styles.authEntryDividerLine} />
             </div>
 
-            {/* Username or phone input */}
-            <label className={styles.field}>
-              <span className={styles.authEntryFieldLabel}>Username or phone</span>
-              <div className={styles.inputShell}>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="Username or phone number"
-                />
-              </div>
-            </label>
-
-            {/* Continue button */}
-            <button
-              type="submit"
-              className={clsx(styles.primaryButton, {
-                [styles.primaryButtonDisabled]: isDisabled,
-              })}
-              disabled={isDisabled}
-            >
-              Continue
-            </button>
+            {/* Username or phone input - no label, submit on Enter/Done */}
+            <div className={styles.inputShell}>
+              <input
+                type="text"
+                className={styles.input}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Username or phone number"
+              />
+            </div>
 
             {/* Sign up link */}
             <p className={styles.authEntrySignUp}>
