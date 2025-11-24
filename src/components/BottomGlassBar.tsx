@@ -91,7 +91,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 </div>
               </div>
             </button>
-            <div className="nav-label">Agents</div>
+            <div className="nav-label">Pay / Request</div>
           </div>
           {/* NOTE: FinancialInboxSheet is now only rendered from Profile → Settings → Inbox */}
           <div className="nav-item">
