@@ -149,7 +149,11 @@ export default function ProfilePage() {
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
             <div className="overlay-glass-inner">
-              <TopGlassBar />
+              <TopGlassBar onScanClick={() => {
+                guardAuthed(() => {
+                  setIsScannerOpen(true)
+                })
+              }} />
               <BottomGlassBar 
                 currentPath="/profile" 
                 onDollarClick={() => {
@@ -447,11 +451,18 @@ export default function ProfilePage() {
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
                 </div>
-              </div>
             </div>
           </div>
+
+          {/* Top fade overlay - fades content behind top glass/logo */}
+          <div className="content-fade-top" />
+
+          {/* Bottom fade overlay - fades content behind bottom glass nav */}
+          <div className="content-fade-bottom" />
+
         </div>
       </div>
+    </div>
 
       {/* Sheets */}
       <PaymentsSheet
