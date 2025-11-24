@@ -10,7 +10,6 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
-import { PhoneForwarded } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
@@ -200,9 +199,14 @@ export default function AuthEntrySheet() {
                 className={styles.primaryPhoneButton}
                 onClick={handlePhoneSignUpClick}
               >
-                <span className={styles.iconWrap}>
-                  <PhoneForwarded size={20} strokeWidth={2} style={{ color: '#000' }} />
-                </span>
+                <Image
+                  src="/assets/Phone-icon.svg"
+                  alt="Phone"
+                  width={20}
+                  height={20}
+                  unoptimized
+                  className={styles.authEntrySocialIcon}
+                />
                 <span>Sign up with phone number</span>
               </button>
 
