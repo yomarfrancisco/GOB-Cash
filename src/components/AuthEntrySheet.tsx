@@ -52,14 +52,14 @@ export default function AuthEntrySheet() {
         <div className={styles.handAuthRoot} />
         {/* Logo in top-left - absolutely positioned relative to wrapper */}
         <div className={styles.authEntryHeader}>
-          <Image
-            src="/assets/bankless pink.png"
-            alt="GoBankless"
-            className={styles.authEntryLogo}
-            width={96}
-            height={96}
-            unoptimized
-          />
+              <Image
+                src="/assets/bankless pink.png"
+                alt="GoBankless"
+                className={styles.authEntryLogo}
+                width={120}
+                height={120}
+                unoptimized
+              />
         </div>
         <div className={clsx(styles.content, styles.authEntryContent)}>
           <form className={clsx(styles.form, styles.authEntryForm)} onSubmit={handleSubmit}>
