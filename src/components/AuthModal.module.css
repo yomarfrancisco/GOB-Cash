@@ -152,9 +152,9 @@
   padding: 20px 0;
 }
 
-/* Entry sheet content - start higher to accommodate logo and more content */
+/* Entry sheet content - moved down by 92px to align with password sheet layout */
 .authEntryContent {
-  top: 80px !important; /* Start below logo */
+  top: 172px !important; /* 80px + 92px - moves entire stack down */
   align-items: flex-start !important;
   padding-top: 0;
   padding-bottom: 40px;
