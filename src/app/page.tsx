@@ -423,6 +423,9 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Top fade overlay - fades content behind top glass/logo */}
+          <div className="content-fade-top" />
+
           {/* Bottom fade overlay - fades content behind bottom glass nav */}
           <div className="content-fade-bottom" />
 
