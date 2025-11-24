@@ -194,7 +194,7 @@ body {
 /* Mobile: increase spacing between top glass/logo and first feed section */
 @media (max-width: 768px) {
   .scroll-content {
-    padding-top: calc(var(--top-safe, 176px) + 32px);
+    padding-top: calc(var(--top-safe, 176px) + 24px);
   }
 }
 
