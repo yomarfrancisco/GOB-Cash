@@ -42,14 +42,17 @@ body {
 
 .app-shell {
   width: 100%;
+  height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
 }
 
 .mobile-frame {
   width: 430px;
-  min-height: 100dvh;
+  max-width: 100%;
+  height: 100%;
+  display: flex;
   background: #fff;
   border-radius: 16px;    /* keep bezel shape */
   overflow: visible;      /* stop clipping inner feed - Variant A: flat panel */
@@ -61,10 +64,11 @@ body {
 .dashboard-container {
   width: 100%;
   max-width: 430px;
-  height: 100dvh; /* Changed from min-height to prevent container from growing beyond viewport */
   position: relative;
-  background: transparent; /* Changed from #fff - white background now only on .content */
-  overflow: visible;
+  flex: 1;
+  height: 100%;
+  overflow: hidden; /* Important so ScrollContent doesn't spill */
+  background: transparent;
 }
 
 /* Overlay: Glass bars fixed on top */
@@ -157,30 +161,31 @@ body {
   object-fit: cover;
 }
 
-/* Scrollable content area */
+/* Scrollable content area - White feed panel (Variant A: flat, no rounded corners) */
 .scroll-content {
   position: relative;
-  height: 100dvh;
+  height: 100%;
+  min-height: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  background: transparent;
+  /* White background now on scroll container to fill full height */
+  background: #ffffff;
+  /* Space so content doesn't sit under the glass bars */
+  padding-top: var(--top-safe, 176px);
+  padding-bottom: var(--bottom-safe, 132px);
+  /* Variant A: FLAT – no radius */
+  border-radius: 0;
   z-index: 1;
 }
 
-.scroll-content::before {
-  content: "";
-  display: block;
-  height: var(--top-safe, 176px);
-}
-
+/* Remove pseudo-element spacers - padding handles spacing now */
+.scroll-content::before,
 .scroll-content::after {
-  content: "";
-  display: block;
-  height: var(--bottom-safe, 132px);
+  content: none;
 }
 
-/* Content Area - White feed panel (Variant A: flat, no rounded corners) */
+/* Content Area - Layout only, no background */
 .content {
   width: 100%;
   display: flex;
@@ -188,9 +193,8 @@ body {
   align-items: center;
   padding: 0 16px;
   position: relative;
-  background: #ffffff;
-  border-radius: 0 !important; /* Variant A: continuous white feed panel - no rounding at top or bottom */
-  min-height: 100%; /* Ensure white background extends full height */
+  background: transparent; /* Background now on .scroll-content */
+  min-height: 100%; /* So child sections fill remaining space */
 }
 
 /* Shared section shell - used by both card and map sections */
