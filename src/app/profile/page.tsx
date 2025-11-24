@@ -63,6 +63,7 @@ export default function ProfilePage() {
   const [sendRecipient, setSendRecipient] = useState('')
   const [sendMethod, setSendMethod] = useState<'email' | 'wallet' | 'brics' | null>(null)
   const [flowType, setFlowType] = useState<'payment' | 'transfer'>('payment')
+  const [isPaySomeoneFlow, setIsPaySomeoneFlow] = useState(false) // Track if coming from "Pay someone" button
   const [openDepositCryptoWallet, setOpenDepositCryptoWallet] = useState(false)
   const [selectedCryptoDepositWallet, setSelectedCryptoDepositWallet] = useState<DepositCryptoWallet | null>(null)
   const [showCryptoAddressSheet, setShowCryptoAddressSheet] = useState(false)
@@ -79,7 +80,10 @@ export default function ProfilePage() {
     setOpenAmount(false)
     setAmountEntryPoint(undefined) // Reset entry point when closing
   }, [])
-  const closeSendDetails = useCallback(() => setOpenSendDetails(false), [])
+  const closeSendDetails = useCallback(() => {
+    setOpenSendDetails(false)
+    setIsPaySomeoneFlow(false) // Reset flag when closing
+  }, [])
   const closeSendSuccess = useCallback(() => {
     setOpenSendSuccess(false)
     setSendRecipient('')
@@ -549,6 +553,7 @@ export default function ProfilePage() {
           setSendAmountZAR(amountZAR)
           setSendAmountUSDT(amountUSDT || 0)
           setSendMethod(null) // Default to email/phone input for "Pay someone"
+          setIsPaySomeoneFlow(true) // Mark as "Pay someone" flow
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           // Open SendDetailsSheet
@@ -568,11 +573,30 @@ export default function ProfilePage() {
         amountUSDT={sendAmountUSDT}
         sendMethod={sendMethod}
         flowType={flowType}
+        onBackToAmount={isPaySomeoneFlow ? () => {
+          // Back chevron: return to keypad with same amount and mode
+          setOpenSendDetails(false)
+          // Reopen AmountSheet with preserved state
+          setAmountMode('convert')
+          setAmountEntryPoint('cashButton')
+          setTimeout(() => setOpenAmount(true), 220)
+        } : undefined}
         onPay={(payload) => {
           console.log('PAY', payload)
-          setSendRecipient(payload.to)
           setOpenSendDetails(false)
-          setTimeout(() => setOpenSendSuccess(true), 220)
+          
+          // If coming from "Pay someone" flow, use card success sheet
+          if (isPaySomeoneFlow) {
+            setIsPaySomeoneFlow(false) // Reset flag
+            // Note: Profile page doesn't have card success sheet yet, so use regular success
+            // TODO: Add card success sheet to profile page if needed
+            setSendRecipient(payload.to)
+            setTimeout(() => setOpenSendSuccess(true), 220)
+          } else {
+            // Regular send flow
+            setSendRecipient(payload.to)
+            setTimeout(() => setOpenSendSuccess(true), 220)
+          }
         }}
       />
       <SuccessSheet
