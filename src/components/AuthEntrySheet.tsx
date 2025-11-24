@@ -109,14 +109,14 @@ export default function AuthEntrySheet() {
                 className={styles.authEntrySocialButton}
                 onClick={handleInstagramClick}
               >
-                <Image
-                  src="/assets/IG_Icon.png"
-                  alt="Instagram"
-                  width={20}
-                  height={20}
-                  unoptimized
-                  className={styles.authEntrySocialIcon}
-                />
+              <Image
+                src="/assets/Instagram_lcon.png"
+                alt="Instagram"
+                width={20}
+                height={20}
+                unoptimized
+                className={styles.authEntrySocialIcon}
+              />
                 <span className={styles.authEntrySocialText}>Continue with Instagram</span>
               </button>
 
@@ -182,14 +182,14 @@ export default function AuthEntrySheet() {
                 className={styles.authEntrySocialButton}
                 onClick={handleInstagramClick}
               >
-                <Image
-                  src="/assets/IG_Icon.png"
-                  alt="Instagram"
-                  width={20}
-                  height={20}
-                  unoptimized
-                  className={styles.authEntrySocialIcon}
-                />
+              <Image
+                src="/assets/Instagram_lcon.png"
+                alt="Instagram"
+                width={20}
+                height={20}
+                unoptimized
+                className={styles.authEntrySocialIcon}
+              />
                 <span className={styles.authEntrySocialText}>Continue with Instagram</span>
               </button>
 
