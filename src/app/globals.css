@@ -188,8 +188,8 @@ body {
   align-items: center;
   padding: 0 16px;
   position: relative;
-  background: #fff;
-  border-radius: 0; /* Variant A: completely flat panel - no rounding at top or bottom */
+  background: #ffffff;
+  border-radius: 0 !important; /* Variant A: continuous white feed panel - no rounding at top or bottom */
   min-height: 100%; /* Ensure white background extends full height */
 }
 
