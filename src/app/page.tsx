@@ -44,6 +44,7 @@ export default function Home() {
   const [helperWalletKey, setHelperWalletKey] = useState<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | null>(null)
   const [isMapHelperOpen, setIsMapHelperOpen] = useState(false)
   const cardStackRef = useRef<CardStackHandle>(null)
+  const scrollContentRef = useRef<HTMLDivElement | null>(null)
   const { setOnSelect, open } = useTransactSheet()
   const { guardAuthed, isAuthed } = useRequireAuth()
 
@@ -285,6 +286,18 @@ export default function Home() {
     }
   }, [pushNotification, isAuthed])
 
+  // Reset scroll position to top whenever auth state changes
+  useEffect(() => {
+    if (!scrollContentRef.current) return
+    
+    // Always reset feed to the very top when auth state changes
+    scrollContentRef.current.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'auto' as ScrollBehavior,
+    })
+  }, [isAuthed])
+
   // Agent card visibility timing - show after map is open
   useEffect(() => {
     if (!isMapOpen) {
@@ -361,7 +374,7 @@ export default function Home() {
           )}
 
           {/* Scrollable content */}
-          <div className="scroll-content">
+          <div ref={scrollContentRef} className="scroll-content">
             <div className="content">
               {/* Card section with shared shell */}
               <div className="sectionShell">
