@@ -201,7 +201,7 @@
 /* Centered GoBankless logo for password sheet */
 .passwordLogoWrapper {
   position: absolute;
-  top: 32px;
+  top: calc(50% - 160px); /* Positioned 50px above input field (input starts at calc(50% - 110px), so logo at calc(50% - 110px - 50px)) */
   left: 50%;
   transform: translateX(-50%);
   display: flex;
