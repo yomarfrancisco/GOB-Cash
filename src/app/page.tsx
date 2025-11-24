@@ -372,10 +372,11 @@ export default function Home() {
 
   // Get title and subtitle - always use card definitions (same for both modes)
   const cardDef = getCardDefinition(topCardType)
-  const { title } = cardDef
+  // Override title for home page
+  const title = `Pay anyone anywhere`
   
   // Subtitle text
-  const subtitleText = `Free global payments`
+  const subtitleText = `Free, private and bankless.`
 
 
   return (
