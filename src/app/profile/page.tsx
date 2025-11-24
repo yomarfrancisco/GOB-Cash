@@ -10,6 +10,8 @@ import WithdrawSheet from '@/components/WithdrawSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
+import { ScanOverlay } from '@/components/ScanOverlay'
+import { ScanQrSheet } from '@/components/ScanQrSheet'
 import { formatUSDT } from '@/lib/money'
 import { useActivityStore } from '@/store/activity'
 import { useProfileEditSheet } from '@/store/useProfileEditSheet'
@@ -25,6 +27,9 @@ import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
+
+// Toggle flag to compare both scanner implementations
+const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -50,7 +55,9 @@ export default function ProfilePage() {
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
+  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | undefined>(undefined)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
   const [sendRecipient, setSendRecipient] = useState('')
@@ -68,7 +75,10 @@ export default function ProfilePage() {
   const openWithdrawSheet = useCallback(() => setOpenWithdraw(true), [])
   const closeDeposit = useCallback(() => setOpenDeposit(false), [])
   const closeWithdraw = useCallback(() => setOpenWithdraw(false), [])
-  const closeAmount = useCallback(() => setOpenAmount(false), [])
+  const closeAmount = useCallback(() => {
+    setOpenAmount(false)
+    setAmountEntryPoint(undefined) // Reset entry point when closing
+  }, [])
   const closeSendDetails = useCallback(() => setOpenSendDetails(false), [])
   const closeSendSuccess = useCallback(() => {
     setOpenSendSuccess(false)
@@ -143,15 +153,33 @@ export default function ProfilePage() {
               <BottomGlassBar 
                 currentPath="/profile" 
                 onDollarClick={() => {
-                  // NOTE: $ button always opens cash-to-crypto keypad (same as home page)
+                  // NOTE: $ button opens cash-to-crypto keypad with dual "Request" / "Pay someone" buttons
                   guardAuthed(() => {
                     setAmountMode('convert')
+                    setAmountEntryPoint('cashButton')
                     setTimeout(() => setOpenAmount(true), 220)
                   })
                 }} 
               />
             </div>
           </div>
+
+          {/* Scanner - toggle between overlay and sheet implementations */}
+          {USE_MODAL_SCANNER ? (
+            <ScanQrSheet isOpen={isScannerOpen} onClose={() => {
+              setIsScannerOpen(false)
+              // Ensure amount sheet stays closed when scanner closes
+              setOpenAmount(false)
+              setAmountEntryPoint(undefined)
+            }} />
+          ) : (
+            <ScanOverlay isOpen={isScannerOpen} onClose={() => {
+              setIsScannerOpen(false)
+              // Ensure amount sheet stays closed when scanner closes
+              setOpenAmount(false)
+              setAmountEntryPoint(undefined)
+            }} />
+          )}
 
           {/* Scrollable content */}
           <div className="scroll-content">
@@ -474,14 +502,50 @@ export default function ProfilePage() {
       />
       <AmountSheet
         open={openAmount}
-        onClose={closeAmount}
+        onClose={() => {
+          setOpenAmount(false)
+          setAmountEntryPoint(undefined) // Reset entry point when closing
+        }}
         mode={amountMode}
         flowType={flowType}
         balanceZAR={200}
         fxRateZARperUSDT={18.1}
         ctaLabel={amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
-        onSubmit={amountMode !== 'send' ? ({ amountZAR, amountUSDT }) => {
+        showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
+        entryPoint={amountEntryPoint}
+        onScanClick={amountEntryPoint === 'cashButton' ? () => {
+          guardAuthed(() => {
+            // 1) Close the keypad sheet first
+            setOpenAmount(false)
+            setAmountEntryPoint(undefined)
+            
+            // 2) After the close animation starts, open the scanner
+            //    Small timeout (~220ms) to match other sheet transitions
+            setTimeout(() => {
+              setIsScannerOpen(true)
+            }, 220)
+          })
+        } : undefined}
+        onCashSubmit={amountMode === 'convert' ? ({ amountZAR }) => {
+          // Cash convert flow ("Request" button): for now, just log (map popup not implemented on profile)
+          console.log('Cash convert requested', { amountZAR })
           setOpenAmount(false)
+          setAmountEntryPoint(undefined)
+          // TODO: Implement map popup flow on profile page if needed
+        } : undefined}
+        onCardSubmit={amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
+          // Card payment flow ("Pay someone"): close keypad, then show SendDetailsSheet
+          setSendAmountZAR(amountZAR)
+          setSendAmountUSDT(amountUSDT || 0)
+          setSendMethod(null) // Default to email/phone input for "Pay someone"
+          setOpenAmount(false)
+          setAmountEntryPoint(undefined)
+          // Open SendDetailsSheet
+          setTimeout(() => setOpenSendDetails(true), 220)
+        } : undefined}
+        onSubmit={amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
+          setOpenAmount(false)
+          setAmountEntryPoint(undefined)
           console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
