@@ -22,8 +22,10 @@
 
 html,
 body {
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
   max-width: 100vw;
-  overflow-x: hidden;
   background-color: #f5f5f5;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -41,29 +43,26 @@ body {
 }
 
 .app-shell {
-  width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: stretch;
+  overflow: hidden;
 }
 
 .mobile-frame {
-  width: 430px;
-  max-width: 100%;
-  height: 100%;
+  width: min(430px, 100vw);
+  height: 100vh;
   display: flex;
   background: #fff;
   border-radius: 16px;    /* keep bezel shape */
-  overflow: visible;      /* stop clipping inner feed - Variant A: flat panel */
+  overflow: hidden;       /* prevent outer scrolling */
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
   position: relative;
 }
 
 /* Dashboard Container */
 .dashboard-container {
-  width: 100%;
-  max-width: 430px;
   position: relative;
   flex: 1;
   height: 100%;
