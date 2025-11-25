@@ -669,14 +669,23 @@ export default function MapboxMap({
       if (agentMarkersRef.current.has(agent.id)) return // Already added
       
       const el = document.createElement('div')
-      el.style.width = '48px'
-      el.style.height = '48px'
+      el.className = 'map-avatar-marker'
+      el.style.width = '40px'
+      el.style.height = '40px'
       el.style.borderRadius = '50%'
       el.style.overflow = 'hidden'
-      el.style.backgroundImage = `url(${agent.avatarSrc})`
-      el.style.backgroundSize = 'cover'
-      el.style.backgroundPosition = 'center'
-      el.style.backgroundRepeat = 'no-repeat'
+      el.style.background = '#ffffff'
+      el.style.border = 'none'
+      el.style.boxShadow = 'none'
+      
+      const img = document.createElement('img')
+      img.src = agent.avatarSrc
+      img.alt = agent.name || ''
+      img.style.width = '100%'
+      img.style.height = '100%'
+      img.style.objectFit = 'cover'
+      img.style.display = 'block'
+      el.appendChild(img)
       
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([agent.lng, agent.lat])
