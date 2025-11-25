@@ -106,20 +106,24 @@
 
 .amount-sheet__zar {
   /* Font size is now controlled by FitAmount component */
-  font-weight: 700;
+  font-weight: 500; /* Reduced from 700 for lighter appearance */
   color: #111;
-  line-height: 1;
+  line-height: 1.2; /* 120% line-height */
   margin-top: 8px;
   margin-bottom: 8px;
+  opacity: 0.8; /* Lighter appearance */
+  letter-spacing: -0.2px; /* Slight negative letter spacing */
 }
 
 .amount-fit {
   margin-top: 8px;
   margin-bottom: 8px;
   text-align: center;
-  font-weight: 700;
+  font-weight: 500; /* Reduced from 700 for lighter appearance */
   color: #111;
   white-space: nowrap;
+  opacity: 0.8; /* Lighter appearance */
+  letter-spacing: -0.2px; /* Slight negative letter spacing */
 }
 
 .amount-sheet__usdt-chip {
@@ -312,6 +316,33 @@
 /* Fee note text stays readable */
 .as-sheet.cash-keypad .amount-keypad__fee-note {
   color: #555 !important;
+}
+
+/* USDT pill - translucent white for cash-transactions variant */
+.amount-sheet--cash-transactions .amount-sheet__usdt-chip {
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Outline style CTAs for cash-transactions (disabled state only) */
+.amount-cta--cash-transactions .amount-keypad__cta:disabled {
+  background: #E4E1A1 !important; /* Match sheet background */
+  color: #000 !important; /* Black text */
+  border: 1px solid #000 !important; /* Thin black outline */
+  cursor: not-allowed;
+  opacity: 1 !important;
+}
+
+/* Subtle hover for disabled outline buttons */
+.amount-cta--cash-transactions .amount-keypad__cta:disabled:hover {
+  background: rgba(0, 0, 0, 0.05) !important; /* Very subtle darkening */
+  border-color: #000 !important;
+}
+
+/* Keep enabled state unchanged (black fill with white text) */
+.amount-cta--cash-transactions .amount-keypad__cta:not([disabled]):not([aria-disabled="true"]) {
+  background: #000000 !important;
+  color: #FFFFFF !important;
+  border: 0 !important; /* No border when enabled */
 }
 
 /* Override ActionSheet height for amount sheet - now handled by .as-sheet.amount */

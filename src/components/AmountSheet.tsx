@@ -176,8 +176,8 @@ export default function AmountSheet({
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
 
   return (
-    <ActionSheet open={open} onClose={onClose} title="" className={`amount ${isHelicopterConvert ? 'cash-keypad' : ''}`} size="tall">
-      <div className="amount-sheet amount-sheet-wrapper">
+    <ActionSheet open={open} onClose={onClose} title="" className={`amount ${isHelicopterConvert ? 'cash-keypad cash-transactions' : ''}`} size="tall">
+      <div className={`amount-sheet amount-sheet-wrapper ${isHelicopterConvert ? 'amount-sheet--cash-transactions' : ''}`}>
         <div className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''}`} style={{ height: 'var(--hdr-h, 118px)' }}>
           {showScanIcon && (
             <button
@@ -219,7 +219,7 @@ export default function AmountSheet({
             isHelicopterConvert={isHelicopterConvert}
           />
         </div>
-        <div className={`amount-cta ${(entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons) ? 'amount-cta--dual' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+        <div className={`amount-cta ${(entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons) ? 'amount-cta--dual' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {isHelicopterConvert ? (
             // Dual buttons for helicopter/map entry point: "Deposit Cash" and "Withdraw Cash"
             // Both trigger the same map convert flow
