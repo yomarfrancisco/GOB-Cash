@@ -157,7 +157,7 @@ export default function AmountSheet({
     : mode === 'withdraw' 
     ? 'Withdraw' 
     : mode === 'convert'
-    ? (isHelicopterConvert ? 'Cash Deposits & Withdrawals' : 'Convert to crypto')
+    ? (isHelicopterConvert ? 'Cash Transactions' : 'Convert to crypto')
     : 'Send'
   const defaultCtaLabel = mode === 'depositCard' 
     ? 'Deposit' 
