@@ -86,7 +86,7 @@ export const DEMO_INITIAL_AVATARS: DemoAgent[] = Array.from({ length: 50 }).map(
     id: `init-${letter}-${i}`,
     name: letter,
     handle: `@agent${letter.toLowerCase()}`,
-    avatar: `/generated-avatars/initials/avatar-${letter}.png`,
+    avatar: `/generated-avatars/initials-ring/avatar-${letter}.png`,
     lat,
     lng,
   }

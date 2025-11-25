@@ -12,8 +12,8 @@ const OUTPUT_DIR = path.join(__dirname, '..', 'public', 'generated-avatars', 'in
 
 // Canvas size
 const SIZE = 256
-// Ring thickness: matching the thick ring from 512px avatars (48px) scaled to 256px = 24px
-const RING_WIDTH = 24
+// Ring thickness: make it thicker - 32px for clearly visible ring (was 24px)
+const RING_WIDTH = 32
 const OUTER_RADIUS = SIZE / 2 // 128px
 const INNER_RADIUS = OUTER_RADIUS - RING_WIDTH // 104px
 // Avatar scale: scale down slightly so ring is clearly visible (using ~92% to match previous proportions)
