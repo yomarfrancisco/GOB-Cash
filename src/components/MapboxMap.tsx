@@ -906,8 +906,9 @@ export default function MapboxMap({
     if (!loadedRef.current) return // ensure map is fully loaded
     if (variant === 'popup') return // popup: no auto-zoom logic
     
-    // Don't auto-zoom until landing animations are enabled (after 10s hold) or for authenticated users
-    if (variant === 'landing' && (!landingAnimationsEnabled || isAuthed)) return
+    // For landing variant, skip auto-zoom entirely - we use fixed zoom 12 from geolocate handler
+    // The geolocate handler in setUserLocation already centers and zooms to 12, so this effect would override it
+    if (variant === 'landing') return
     
     if (!userLngLat) return
     if (!markers?.length) return
