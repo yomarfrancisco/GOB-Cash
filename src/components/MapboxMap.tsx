@@ -451,9 +451,15 @@ export default function MapboxMap({
             map.setCenter([lng, lat])
             map.setZoom(12) // Local zoom level, not world view
             log(`[user-location] centered map on user at [${lng}, ${lat}] zoom=12`)
+            // For landing variant, don't trigger the auto-zoom effect that calculates zoom based on branch distance
+            // We want a fixed zoom 12, not dynamic zoom
+            // Still update state for route calculation, but skip the effect by not setting userLngLat
+            // Actually, we need userLngLat for routes, so we'll set it but the effect should be gated
           }
 
           // Update user location state for route recalculation
+          // NOTE: This will trigger the auto-zoom effect, but for landing variant with fitToMarkers=false,
+          // we want to keep zoom 12. The effect should respect this.
           setUserLngLat([lng, lat])
         }
 
