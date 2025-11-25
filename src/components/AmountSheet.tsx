@@ -147,6 +147,9 @@ export default function AmountSheet({
     handleCashSubmit()
   }
 
+  // Detect helicopter convert flow for dual buttons
+  const isHelicopterConvert = mode === 'convert' && entryPoint === 'helicopter'
+  
   const modeLabel = flowType === 'transfer' 
     ? 'Transfer' 
     : mode === 'deposit' || mode === 'depositCard' 
@@ -154,7 +157,7 @@ export default function AmountSheet({
     : mode === 'withdraw' 
     ? 'Withdraw' 
     : mode === 'convert'
-    ? 'Convert to crypto'
+    ? (isHelicopterConvert ? 'Cash Deposits & Withdrawals' : 'Convert to crypto')
     : 'Send'
   const defaultCtaLabel = mode === 'depositCard' 
     ? 'Deposit' 
@@ -171,9 +174,6 @@ export default function AmountSheet({
 
   // Show scan icon only for cashButton entryPoint
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
-
-  // Detect helicopter convert flow for dual buttons
-  const isHelicopterConvert = mode === 'convert' && entryPoint === 'helicopter'
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" className="amount" size="tall">
@@ -216,11 +216,12 @@ export default function AmountSheet({
             ctaLabel={finalCtaLabel}
             hideCTA
             isConvertMode={mode === 'convert'}
+            isHelicopterConvert={isHelicopterConvert}
           />
         </div>
         <div className={`amount-cta ${(entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons) ? 'amount-cta--dual' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {isHelicopterConvert ? (
-            // Dual buttons for helicopter/map entry point: "Cash Deposit" and "Cash Delivery"
+            // Dual buttons for helicopter/map entry point: "Deposit Cash" and "Withdraw Cash"
             // Both trigger the same map convert flow
             <>
               <button 
@@ -229,7 +230,7 @@ export default function AmountSheet({
                 type="button"
                 disabled={!isPositive}
               >
-                Cash Deposit
+                Deposit Cash
               </button>
               <button 
                 className="amount-keypad__cta amount-keypad__cta--card" 
@@ -237,7 +238,7 @@ export default function AmountSheet({
                 type="button"
                 disabled={!isPositive}
               >
-                Cash Delivery
+                Withdraw Cash
               </button>
             </>
           ) : entryPoint === 'cashButton' ? (

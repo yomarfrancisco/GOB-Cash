@@ -190,6 +190,13 @@
   font-size: 12px;
   font-weight: 300;
   color: #999;
+  line-height: 1.35; /* Reduced by ~10% from default 1.5 */
+  white-space: normal; /* Allow wrapping */
+}
+
+/* For helicopter convert flow, use slightly smaller font for multi-line text */
+.amount-keypad__fee-note--helicopter {
+  font-size: 11px; /* Smaller font for multi-line text */
 }
 
 .amount-keypad__cta {

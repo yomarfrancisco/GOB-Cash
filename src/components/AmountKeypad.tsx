@@ -12,6 +12,7 @@ type AmountKeypadProps = {
   ctaLabel: string // e.g. "Transfer USDT"
   hideCTA?: boolean // if true, don't render the CTA (moved to parent)
   isConvertMode?: boolean // if true, show "0% transaction fee" instead of "excl. 2.5–6.5% transaction fee"
+  isHelicopterConvert?: boolean // if true, show custom fee note for helicopter/map flow
 }
 
 export default function AmountKeypad({
@@ -24,6 +25,7 @@ export default function AmountKeypad({
   ctaLabel,
   hideCTA = false,
   isConvertMode = false,
+  isHelicopterConvert = false,
 }: AmountKeypadProps) {
   const handleNumber = (num: string) => {
     const current = value || '0'
@@ -80,8 +82,18 @@ export default function AmountKeypad({
       </div>
       {!hideCTA && (
         <div className="amount-keypad__footer" style={{ ['--cta-h' as any]: '88px' }}>
-          <div className="amount-keypad__fee-note">
-            {isConvertMode ? '0% transaction fee' : 'excl. 2.5–6.5% transaction fee'}
+          <div className={`amount-keypad__fee-note ${isHelicopterConvert ? 'amount-keypad__fee-note--helicopter' : ''}`}>
+            {isHelicopterConvert ? (
+              <>
+                Convert cash to USDT<br />
+                or USDT to cash<br />
+                through verified agents
+              </>
+            ) : isConvertMode ? (
+              '0% transaction fee'
+            ) : (
+              'excl. 2.5–6.5% transaction fee'
+            )}
           </div>
           <button className="amount-keypad__cta" onClick={onSubmit} type="button">
             {ctaLabel}
@@ -90,8 +102,18 @@ export default function AmountKeypad({
         </div>
       )}
       {hideCTA && (
-        <div className="amount-keypad__fee-note" style={{ paddingTop: '12px', textAlign: 'center' }}>
-          {isConvertMode ? '0% transaction fee' : 'excl. 2.5–6.5% transaction fee'}
+        <div className={`amount-keypad__fee-note ${isHelicopterConvert ? 'amount-keypad__fee-note--helicopter' : ''}`} style={{ paddingTop: '12px', textAlign: 'center' }}>
+          {isHelicopterConvert ? (
+            <>
+              Convert cash to USDT<br />
+              or USDT to cash<br />
+              through verified agents
+            </>
+          ) : isConvertMode ? (
+            '0% transaction fee'
+          ) : (
+            'excl. 2.5–6.5% transaction fee'
+          )}
         </div>
       )}
     </div>
