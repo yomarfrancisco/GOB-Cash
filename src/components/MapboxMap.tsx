@@ -39,15 +39,14 @@ function createAvatarWithCasing(avatarUrl?: string): HTMLDivElement {
   casing.style.zIndex = '1'
   casing.style.pointerEvents = 'none'
 
-  // Avatar (36px) - foreground layer
+  // Avatar (36px) - foreground layer, centered without transform
   const avatar = document.createElement('img')
   avatar.className = 'gb-marker-avatar'
   avatar.src = avatarUrl || '/assets/avatar_agent5.png'
   avatar.alt = ''
   avatar.style.position = 'absolute'
-  avatar.style.top = '50%'
-  avatar.style.left = '50%'
-  avatar.style.transform = 'translate(-50%, -50%)'
+  avatar.style.top = '10px' // (56px - 36px) / 2 = 10px
+  avatar.style.left = '10px'
   avatar.style.width = '36px'
   avatar.style.height = '36px'
   avatar.style.borderRadius = '50%'
