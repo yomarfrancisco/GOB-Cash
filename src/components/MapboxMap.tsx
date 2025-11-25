@@ -8,7 +8,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import type { Feature, LineString } from 'geojson'
 import styles from './MapboxMap.module.css'
 import { useMapHighlightStore } from '@/state/mapHighlight'
-import { DEMO_AGENTS } from '@/lib/demo/demoAgents'
+import { DEMO_AGENTS, DEMO_INITIAL_AVATARS } from '@/lib/demo/demoAgents'
 import YouAreHere from './YouAreHere'
 // static import so Next bundles it and gives us a stable .src
 import userIcon from '../../public/assets/character.png'
@@ -658,6 +658,37 @@ export default function MapboxMap({
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([agent.lng, agent.lat])
         .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(agent.name || ''))
+        .addTo(mapRef.current!)
+      
+      agentMarkersRef.current.set(agent.id, marker)
+    })
+
+    // Add 50 initial avatars (demo mode only) - using static PNG assets
+    DEMO_INITIAL_AVATARS.forEach((agent) => {
+      if (agentMarkersRef.current.has(agent.id)) return // Already added
+      
+      const el = document.createElement('div')
+      el.className = 'map-avatar-marker'
+      el.style.width = '48px' // Match the size of generated avatars
+      el.style.height = '48px'
+      el.style.borderRadius = '50%'
+      el.style.overflow = 'hidden'
+      el.style.background = 'transparent'
+      el.style.border = 'none'
+      el.style.boxShadow = 'none'
+      
+      const img = document.createElement('img')
+      img.src = agent.avatar
+      img.alt = agent.name || ''
+      img.style.width = '100%'
+      img.style.height = '100%'
+      img.style.objectFit = 'cover'
+      img.style.display = 'block'
+      el.appendChild(img)
+      
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([agent.lng, agent.lat])
+        .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(`Agent ${agent.name}`))
         .addTo(mapRef.current!)
       
       agentMarkersRef.current.set(agent.id, marker)

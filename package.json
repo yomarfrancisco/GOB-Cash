@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 4173",
     "lint": "next lint",
-    "generate:avatars": "node scripts/generate-avatars.js"
+    "generate:avatars": "node scripts/generate-avatars.js",
+    "generate:initial-avatars": "node scripts/generate-initial-avatars.js"
   },
   "dependencies": {
     "clsx": "^2.1.1",
