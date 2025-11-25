@@ -12,7 +12,6 @@ type AmountKeypadProps = {
   ctaLabel: string // e.g. "Transfer USDT"
   hideCTA?: boolean // if true, don't render the CTA (moved to parent)
   isConvertMode?: boolean // if true, show "0% transaction fee" instead of "excl. 2.5–6.5% transaction fee"
-  isDark?: boolean // if true, apply dark theme (black background, white text)
 }
 
 export default function AmountKeypad({
@@ -25,7 +24,6 @@ export default function AmountKeypad({
   ctaLabel,
   hideCTA = false,
   isConvertMode = false,
-  isDark = false,
 }: AmountKeypadProps) {
   const handleNumber = (num: string) => {
     const current = value || '0'
@@ -58,7 +56,7 @@ export default function AmountKeypad({
   }
 
   return (
-    <div className={`amount-keypad ${isDark ? 'amount-keypad--dark' : ''}`}>
+    <div className="amount-keypad">
       <div className="amount-keypad__grid">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
           <button

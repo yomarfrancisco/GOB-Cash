@@ -172,12 +172,9 @@ export default function AmountSheet({
   // Show scan icon only for cashButton entryPoint
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
 
-  // Detect map/helicopter flow for dark theme
-  const isMapFlow = entryPoint === 'helicopter'
-
   return (
     <ActionSheet open={open} onClose={onClose} title="" className="amount" size="tall">
-      <div className={`amount-sheet amount-sheet-wrapper ${isMapFlow ? 'amount-sheet--dark' : ''}`}>
+      <div className="amount-sheet amount-sheet-wrapper">
         <div className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''}`} style={{ height: 'var(--hdr-h, 118px)' }}>
           {showScanIcon && (
             <button
@@ -216,30 +213,20 @@ export default function AmountSheet({
             ctaLabel={finalCtaLabel}
             hideCTA
             isConvertMode={mode === 'convert'}
-            isDark={isMapFlow}
           />
         </div>
-        <div className={`amount-cta ${(entryPoint === 'cashButton' || entryPoint === 'helicopter' || showDualButtons) ? 'amount-cta--dual' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+        <div className={`amount-cta ${(entryPoint === 'cashButton' || showDualButtons) ? 'amount-cta--dual' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {entryPoint === 'helicopter' ? (
-            // Dual buttons for helicopter/map entry point: "Collection" and "Delivery"
-            <>
-              <button 
-                className="amount-keypad__cta amount-keypad__cta--cash" 
-                onClick={handleCashSubmit} 
-                type="button"
-                disabled={!isPositive}
-              >
-                Collection
-              </button>
-              <button 
-                className="amount-keypad__cta amount-keypad__cta--card" 
-                onClick={handleCardSubmit} 
-                type="button"
-                disabled={!isPositive}
-              >
-                Delivery
-              </button>
-            </>
+            // Single "Convert" button for helicopter entry point
+            <button 
+              className="amount-keypad__cta" 
+              onClick={handleCashSubmit} 
+              type="button"
+              disabled={!isPositive}
+            >
+              Convert
+              <span className="amount-keypad__cta-arrow">→</span>
+            </button>
           ) : entryPoint === 'cashButton' ? (
             // Dual buttons for $ button entry point: "Request" and "Pay someone"
             <>
