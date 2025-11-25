@@ -172,6 +172,9 @@ export default function AmountSheet({
   // Show scan icon only for cashButton entryPoint
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
 
+  // Detect helicopter convert flow for dual buttons
+  const isHelicopterConvert = mode === 'convert' && entryPoint === 'helicopter'
+
   return (
     <ActionSheet open={open} onClose={onClose} title="" className="amount" size="tall">
       <div className="amount-sheet amount-sheet-wrapper">
@@ -215,18 +218,28 @@ export default function AmountSheet({
             isConvertMode={mode === 'convert'}
           />
         </div>
-        <div className={`amount-cta ${(entryPoint === 'cashButton' || showDualButtons) ? 'amount-cta--dual' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
-          {entryPoint === 'helicopter' ? (
-            // Single "Convert" button for helicopter entry point
-            <button 
-              className="amount-keypad__cta" 
-              onClick={handleCashSubmit} 
-              type="button"
-              disabled={!isPositive}
-            >
-              Convert
-              <span className="amount-keypad__cta-arrow">→</span>
-            </button>
+        <div className={`amount-cta ${(entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons) ? 'amount-cta--dual' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+          {isHelicopterConvert ? (
+            // Dual buttons for helicopter/map entry point: "Collection" and "Delivery"
+            // Both trigger the same map convert flow
+            <>
+              <button 
+                className="amount-keypad__cta amount-keypad__cta--cash" 
+                onClick={handleCashSubmit} 
+                type="button"
+                disabled={!isPositive}
+              >
+                Collection
+              </button>
+              <button 
+                className="amount-keypad__cta amount-keypad__cta--card" 
+                onClick={handleCashSubmit} 
+                type="button"
+                disabled={!isPositive}
+              >
+                Delivery
+              </button>
+            </>
           ) : entryPoint === 'cashButton' ? (
             // Dual buttons for $ button entry point: "Request" and "Pay someone"
             <>
