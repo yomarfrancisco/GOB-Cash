@@ -274,24 +274,24 @@
   width: auto; /* Override 100% width */
 }
 
-/* Cash keypad variant - unified #E4E1A1 background */
+/* Cash keypad variant - unified #F5F19A background (brighter, lighter yellow) */
 .as-sheet.cash-keypad {
-  background: #E4E1A1 !important;
+  background: #F5F19A !important;
 }
 
 /* Remove white inherited from the content wrapper */
 .as-sheet.cash-keypad .amount-body {
-  background: #E4E1A1 !important;
+  background: #F5F19A !important;
 }
 
 /* Keypad container */
 .as-sheet.cash-keypad .amount-keypad {
-  background: #E4E1A1 !important;
+  background: #F5F19A !important;
 }
 
 /* Keypad grid */
 .as-sheet.cash-keypad .amount-keypad__grid {
-  background: #E4E1A1 !important;
+  background: #F5F19A !important;
 }
 
 /* Keys stay transparent — only numbers invert */
@@ -310,7 +310,7 @@
 
 /* Footer (fee note background) */
 .as-sheet.cash-keypad .amount-keypad__footer {
-  background: #E4E1A1 !important;
+  background: #F5F19A !important;
 }
 
 /* Fee note text stays readable */
@@ -318,14 +318,16 @@
   color: #555 !important;
 }
 
-/* USDT pill - translucent white for cash-transactions variant */
+/* USDT pill - more translucent white for cash-transactions variant */
 .amount-sheet--cash-transactions .amount-sheet__usdt-chip {
-  background: rgba(255, 255, 255, 0.85) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: blur(4px);
+  color: #4A4A4A !important;
 }
 
 /* Outline style CTAs for cash-transactions (disabled state only) */
 .amount-cta--cash-transactions .amount-keypad__cta:disabled {
-  background: #E4E1A1 !important; /* Match sheet background */
+  background: #F5F19A !important; /* Match sheet background (brighter yellow) */
   color: #000 !important; /* Black text */
   border: 1px solid #000 !important; /* Thin black outline */
   cursor: not-allowed;
