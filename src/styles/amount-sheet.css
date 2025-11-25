@@ -270,5 +270,49 @@
   width: auto; /* Override 100% width */
 }
 
+/* Cash keypad variant - unified #E4E1A1 background */
+.as-sheet.cash-keypad {
+  background: #E4E1A1 !important;
+}
+
+/* Remove white inherited from the content wrapper */
+.as-sheet.cash-keypad .amount-body {
+  background: #E4E1A1 !important;
+}
+
+/* Keypad container */
+.as-sheet.cash-keypad .amount-keypad {
+  background: #E4E1A1 !important;
+}
+
+/* Keypad grid */
+.as-sheet.cash-keypad .amount-keypad__grid {
+  background: #E4E1A1 !important;
+}
+
+/* Keys stay transparent — only numbers invert */
+.as-sheet.cash-keypad .amount-keypad__key {
+  color: #000 !important;
+}
+
+/* Key hover/active states should darken within the new palette */
+.as-sheet.cash-keypad .amount-keypad__key:hover {
+  background: rgba(0, 0, 0, 0.10) !important;
+}
+
+.as-sheet.cash-keypad .amount-keypad__key:active {
+  background: rgba(0, 0, 0, 0.20) !important;
+}
+
+/* Footer (fee note background) */
+.as-sheet.cash-keypad .amount-keypad__footer {
+  background: #E4E1A1 !important;
+}
+
+/* Fee note text stays readable */
+.as-sheet.cash-keypad .amount-keypad__fee-note {
+  color: #555 !important;
+}
+
 /* Override ActionSheet height for amount sheet - now handled by .as-sheet.amount */
 

@@ -176,7 +176,7 @@ export default function AmountSheet({
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
 
   return (
-    <ActionSheet open={open} onClose={onClose} title="" className="amount" size="tall">
+    <ActionSheet open={open} onClose={onClose} title="" className={`amount ${isHelicopterConvert ? 'cash-keypad' : ''}`} size="tall">
       <div className="amount-sheet amount-sheet-wrapper">
         <div className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''}`} style={{ height: 'var(--hdr-h, 118px)' }}>
           {showScanIcon && (
