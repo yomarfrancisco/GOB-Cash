@@ -230,7 +230,7 @@ export default function AmountSheet({
             amountZAR={amountZAR}
           />
         </div>
-        <div className={`amount-cta ${(entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons) ? 'amount-cta--dual' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+        <div className={`amount-cta ${(entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {isHelicopterConvert ? (
             // Dual buttons for helicopter/map entry point: "Deposit Cash" and "Withdraw Cash"
             // Both trigger the same map convert flow

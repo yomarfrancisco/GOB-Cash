@@ -32,7 +32,9 @@
   width: 32px;
   height: 32px;
   border-radius: 27px;
-  background: #E9E9EB;
+  background: rgba(255, 255, 255, 0.78); /* Translucent white */
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -44,11 +46,11 @@
 }
 
 .amount-sheet__scan-button:hover {
-  background: #D1D1D6;
+  background: rgba(255, 255, 255, 0.85); /* Slightly more opaque on hover */
 }
 
 .amount-sheet__scan-button:active {
-  background: #C7C7CC;
+  background: rgba(255, 255, 255, 0.90); /* More opaque on active */
 }
 
 .amount-sheet__scan-button img {
@@ -130,7 +132,9 @@
   display: inline-flex;
   align-items: center;
   padding: 8px 16px;
-  background: #f5f5f5;
+  background: rgba(255, 255, 255, 0.78); /* Translucent white */
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-radius: 20px;
   font-size: 16px;
   font-weight: 400;
@@ -336,15 +340,10 @@
   color: #555 !important;
 }
 
-/* USDT pill - more translucent white for cash-transactions variant */
-.amount-sheet--cash-transactions .amount-sheet__usdt-chip {
-  background: rgba(255, 255, 255, 0.55) !important;
-  backdrop-filter: blur(4px);
-  color: #4A4A4A !important;
-}
+/* USDT pill uses shared translucent style - no override needed */
 
-/* Outline style CTAs for cash-transactions (disabled state only) */
-.amount-cta--cash-transactions .amount-keypad__cta:disabled {
+/* Outline style CTAs for lime green keypads (disabled state) - shared between cash-transactions and $-button flows */
+.amount-cta--lime-green .amount-keypad__cta:disabled {
   background: #E5FF63 !important; /* Match sheet background (bright lime green) */
   color: #000 !important; /* Black text */
   border: 1px solid #000 !important; /* Thin black outline */
@@ -353,13 +352,13 @@
 }
 
 /* Subtle hover for disabled outline buttons */
-.amount-cta--cash-transactions .amount-keypad__cta:disabled:hover {
+.amount-cta--lime-green .amount-keypad__cta:disabled:hover {
   background: rgba(0, 0, 0, 0.05) !important; /* Very subtle darkening */
   border-color: #000 !important;
 }
 
-/* Keep enabled state unchanged (black fill with white text) */
-.amount-cta--cash-transactions .amount-keypad__cta:not([disabled]):not([aria-disabled="true"]) {
+/* Enabled state - black fill with white text (shared for both flows) */
+.amount-cta--lime-green .amount-keypad__cta:not([disabled]):not([aria-disabled="true"]) {
   background: #000000 !important;
   color: #FFFFFF !important;
   border: 0 !important; /* No border when enabled */
