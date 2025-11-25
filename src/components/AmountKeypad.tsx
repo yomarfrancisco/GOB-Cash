@@ -13,6 +13,7 @@ type AmountKeypadProps = {
   hideCTA?: boolean // if true, don't render the CTA (moved to parent)
   isConvertMode?: boolean // if true, show "0% transaction fee" instead of "excl. 2.5–6.5% transaction fee"
   isHelicopterConvert?: boolean // if true, show custom fee note for helicopter/map flow
+  amountZAR?: number // current amount in ZAR for dynamic fee note
 }
 
 export default function AmountKeypad({
@@ -26,6 +27,7 @@ export default function AmountKeypad({
   hideCTA = false,
   isConvertMode = false,
   isHelicopterConvert = false,
+  amountZAR = 0,
 }: AmountKeypadProps) {
   const handleNumber = (num: string) => {
     const current = value || '0'
@@ -84,7 +86,7 @@ export default function AmountKeypad({
         <div className="amount-keypad__footer" style={{ ['--cta-h' as any]: '88px' }}>
           <div className={`amount-keypad__fee-note ${isHelicopterConvert ? 'amount-keypad__fee-note--helicopter' : ''}`}>
             {isHelicopterConvert ? (
-              'Cash ↔ USDT with verified agents.'
+              amountZAR > 0 ? '$5k min cash deposit / withdrawal' : 'Cash ↔ USDT with verified agents.'
             ) : isConvertMode ? (
               '0% transaction fee'
             ) : (
@@ -100,7 +102,7 @@ export default function AmountKeypad({
       {hideCTA && (
         <div className={`amount-keypad__fee-note ${isHelicopterConvert ? 'amount-keypad__fee-note--helicopter' : ''}`} style={{ paddingTop: '12px', textAlign: 'center' }}>
           {isHelicopterConvert ? (
-            'Cash ↔ USDT with verified agents.'
+            amountZAR > 0 ? '$5k min cash deposit / withdrawal' : 'Cash ↔ USDT with verified agents.'
           ) : isConvertMode ? (
             '0% transaction fee'
           ) : (

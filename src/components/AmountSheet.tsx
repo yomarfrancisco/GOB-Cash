@@ -150,6 +150,13 @@ export default function AmountSheet({
   // Detect helicopter convert flow for dual buttons
   const isHelicopterConvert = mode === 'convert' && entryPoint === 'helicopter'
   
+  // Detect $-button convert flow (Request/Pay someone)
+  const isCashButtonConvert = mode === 'convert' && entryPoint === 'cashButton'
+  
+  // Minimum amount for cash transactions (helicopter flow only)
+  const MIN_CASH_ZAR = 5000
+  const meetsMinCash = isHelicopterConvert ? amountZAR >= MIN_CASH_ZAR : true
+  
   const modeLabel = flowType === 'transfer' 
     ? 'Transfer' 
     : mode === 'deposit' || mode === 'depositCard' 
@@ -175,8 +182,11 @@ export default function AmountSheet({
   // Show scan icon only for cashButton entryPoint
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
 
+  // Determine if keypad should use lime green background (both helicopter and $-button flows)
+  const useLimeGreenBackground = isHelicopterConvert || isCashButtonConvert
+
   return (
-    <ActionSheet open={open} onClose={onClose} title="" className={`amount ${isHelicopterConvert ? 'cash-keypad cash-transactions' : ''}`} size="tall">
+    <ActionSheet open={open} onClose={onClose} title="" className={`amount ${useLimeGreenBackground ? 'cash-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`} size="tall">
       <div className={`amount-sheet amount-sheet-wrapper ${isHelicopterConvert ? 'amount-sheet--cash-transactions' : ''}`}>
         <div className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''}`} style={{ height: 'var(--hdr-h, 118px)' }}>
           {showScanIcon && (
@@ -217,6 +227,7 @@ export default function AmountSheet({
             hideCTA
             isConvertMode={mode === 'convert'}
             isHelicopterConvert={isHelicopterConvert}
+            amountZAR={amountZAR}
           />
         </div>
         <div className={`amount-cta ${(entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons) ? 'amount-cta--dual' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
@@ -228,7 +239,7 @@ export default function AmountSheet({
                 className="amount-keypad__cta amount-keypad__cta--cash" 
                 onClick={handleCashSubmit} 
                 type="button"
-                disabled={!isPositive}
+                disabled={!meetsMinCash}
               >
                 Deposit Cash
               </button>
@@ -236,7 +247,7 @@ export default function AmountSheet({
                 className="amount-keypad__cta amount-keypad__cta--card" 
                 onClick={handleCashSubmit} 
                 type="button"
-                disabled={!isPositive}
+                disabled={!meetsMinCash}
               >
                 Withdraw Cash
               </button>
