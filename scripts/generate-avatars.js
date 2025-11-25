@@ -8,11 +8,11 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const INPUT_DIR = path.join(__dirname, '..', 'public', 'raw-avatars')
-const OUTPUT_DIR = path.join(__dirname, '..', 'public', 'processed-avatars')
+const OUTPUT_DIR = path.join(__dirname, '..', 'public', 'generated-avatars')
 
 // Use a decent base resolution so it looks crisp on mobile
 const SIZE = 512
-const RING_WIDTH = 16 // White ring width in pixels
+const RING_WIDTH = 48 // White ring width in pixels (thicker ring, ~3x previous 16px)
 
 async function processAvatar(file) {
   const inputPath = path.join(INPUT_DIR, file)
