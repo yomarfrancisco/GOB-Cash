@@ -76,7 +76,7 @@
 .markerBackground {
   position: absolute;
   inset: 0;
-  transform: translateX(1px);
+  transform: translate(1px, 1px);
   z-index: 1;
 }
 
