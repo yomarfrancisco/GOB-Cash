@@ -256,5 +256,66 @@
   width: auto; /* Override 100% width */
 }
 
+/* Dark theme for helicopter/map flow */
+.amount-sheet--dark .amount-body {
+  background: #000000;
+}
+
+/* Header text in dark mode */
+.amount-sheet--dark .amount-sheet__balance {
+  color: #ffffff;
+}
+
+.amount-sheet--dark .amount-sheet__balance-label {
+  color: #9f9fa6;
+}
+
+.amount-sheet--dark .amount-sheet__title {
+  color: #ffffff;
+}
+
+/* Amount display in dark mode */
+.amount-sheet--dark .amount-sheet__zar,
+.amount-sheet--dark .amount-fit {
+  color: #ffffff;
+}
+
+.amount-sheet--dark .amount-sheet__usdt-chip {
+  background: #1c1c1e;
+  color: #9f9fa6;
+}
+
+/* Keypad container in dark mode */
+.amount-sheet--dark .amount-keypad {
+  background: transparent;
+}
+
+/* Keys: invert colors for dark mode */
+.amount-keypad--dark .amount-keypad__key {
+  color: #ffffff;
+}
+
+.amount-keypad--dark .amount-keypad__key:hover {
+  background: #1c1c1e; /* subtle lighter grey on black */
+}
+
+.amount-keypad--dark .amount-keypad__key:active {
+  background: #2c2c2e;
+}
+
+/* Footer background + fee note on dark */
+.amount-sheet--dark .amount-keypad__footer {
+  background: #000000;
+}
+
+.amount-sheet--dark .amount-keypad__fee-note {
+  color: #9f9fa6;
+}
+
+/* Fee note when hideCTA is true (rendered separately) */
+.amount-sheet--dark .amount-keypad .amount-keypad__fee-note {
+  color: #9f9fa6;
+}
+
 /* Override ActionSheet height for amount sheet - now handled by .as-sheet.amount */
 
