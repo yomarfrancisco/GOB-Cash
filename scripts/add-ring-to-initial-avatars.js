@@ -34,7 +34,8 @@ async function addRingToInitialAvatar(letter) {
     .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: 'cover', position: 'center' })
     .toBuffer()
 
-  // Create white ring as a donut shape (outer circle - inner circle)
+  // Create white ring using stroke approach (more reliable than mask)
+  // Draw outer circle with thick stroke, then mask out inner circle
   const ringSvg = `
     <svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -43,12 +44,34 @@ async function addRingToInitialAvatar(letter) {
           <circle cx="${SIZE / 2}" cy="${SIZE / 2}" r="${INNER_RADIUS}" fill="white"/>
         </mask>
       </defs>
+      <!-- Outer white circle -->
+      <circle
+        cx="${SIZE / 2}"
+        cy="${SIZE / 2}"
+        r="${OUTER_RADIUS}"
+        fill="white"
+      />
+      <!-- Mask out inner circle to create ring -->
+      <circle
+        cx="${SIZE / 2}"
+        cy="${SIZE / 2}"
+        r="${INNER_RADIUS}"
+        fill="black"
+        mask="url(#ringMask)"
+      />
+    </svg>
+  `
+
+  // Alternative: Use stroke-based ring (simpler and more reliable)
+  const ringSvgStroke = `
+    <svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
       <circle
         cx="${SIZE / 2}"
         cy="${SIZE / 2}"
         r="${OUTER_RADIUS - RING_WIDTH / 2}"
-        fill="white"
-        mask="url(#ringMask)"
+        fill="none"
+        stroke="white"
+        stroke-width="${RING_WIDTH}"
       />
     </svg>
   `
@@ -64,7 +87,7 @@ async function addRingToInitialAvatar(letter) {
   })
     .composite([
       {
-        input: Buffer.from(ringSvg),
+        input: Buffer.from(ringSvgStroke),
         blend: 'over'
       },
       {
@@ -114,4 +137,3 @@ run().catch(err => {
   console.error('Fatal error:', err)
   process.exit(1)
 })
-
