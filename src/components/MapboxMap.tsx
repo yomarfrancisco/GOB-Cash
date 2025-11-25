@@ -270,6 +270,9 @@ export default function MapboxMap({
 
         // Helper to (re)place custom user marker (using const arrow function to avoid ES5 strict mode error)
         const upsertUserMarker = (lng: number, lat: number) => {
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug('[marker] user', { lng, lat })
+          }
           // create DOM element once
           let el = userMarkerRef.current?.getElement()
           if (!el) {
@@ -546,6 +549,9 @@ export default function MapboxMap({
       
       if (m.kind === 'dealer') {
         // Dealer marker: avatar with casing (Union.svg)
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('[marker] dealer', { id: m.id, kind: m.kind, lng: m.lng, lat: m.lat })
+        }
         const el = createAvatarWithCasing(m.avatar)
         
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
@@ -572,6 +578,9 @@ export default function MapboxMap({
             .addTo(mapRef.current!)
         } else {
           // Regular member/co-op marker: avatar with casing (Union.svg)
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug('[marker] member/co-op', { id: m.id, kind: m.kind, lng: m.lng, lat: m.lat })
+          }
           const el = createAvatarWithCasing(m.avatar)
           
           marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
@@ -656,6 +665,9 @@ export default function MapboxMap({
     demoAgentMarkers.forEach((agent) => {
       if (agentMarkersRef.current.has(agent.id)) return // Already added
       
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[marker] demo agent', { id: agent.id, lng: agent.lng, lat: agent.lat })
+      }
       const el = createAvatarWithCasing(agent.avatar)
       
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
