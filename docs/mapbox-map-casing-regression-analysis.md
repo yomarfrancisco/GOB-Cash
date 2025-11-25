@@ -239,15 +239,143 @@ Once root cause is identified:
 3. `src/app/globals.css` - Global CSS (check for `.gb-map-marker` rules)
 4. `src/lib/demo/demoAgents.ts` - Demo agent coordinates
 
+## Mapbox GL JS Documentation Insights
+
+Based on Mapbox GL JS documentation review, several key points emerge:
+
+### 1. Marker Positioning Behavior
+
+**Key Finding:** Markers are HTML elements positioned above the map. The `anchor` option determines which point of the element is anchored to the coordinate:
+- `anchor: 'center'` - Centers the element at the coordinate
+- The element's **actual rendered size** matters for positioning
+- CSS transforms on the element itself can affect anchor calculation
+
+### 2. Container Size vs Content Size
+
+**Critical Issue Identified:**
+
+**Before (Production):**
+- Dealers: 48px container, image fills 100% (48px)
+- Members/co-ops: 40px container, image fills 100% (40px)
+- **Container size = content size** → anchor point is clear
+
+**After (Casing Commit):**
+- All non-user markers: 56px container, 36px avatar centered inside
+- **Container size (56px) ≠ content size (36px)** → potential anchor confusion
+- The avatar is centered with `transform: translate(-50%, -50%)` but the container itself is 56px
+
+### 3. Transform and Positioning
+
+**Potential Issue:**
+- The container has `position: relative` (correct for containing absolute children)
+- The avatar inside has `transform: translate(-50%, -50%)` (correct for centering)
+- **BUT:** Mapbox anchors based on the container element's dimensions
+- If the container is 56px but the visual content is 36px, the anchor point might be calculated incorrectly
+
+### 4. Known Mapbox Marker Issues
+
+From Mapbox GL JS GitHub issues:
+- Markers can shift during zoom/pan if CSS transforms are applied incorrectly
+- Container elements with nested absolute positioning can cause positioning drift
+- The anchor point calculation depends on the element's actual rendered size
+
+## Root Cause Hypothesis (Updated)
+
+Based on Mapbox documentation and code analysis:
+
+### Primary Issue: Container Size Mismatch
+
+The `createAvatarWithCasing()` function creates a **56px container** but the **visual content is only 36px**. When Mapbox calculates the anchor point for `anchor: 'center'`, it uses the container's dimensions (56px), but the visual center might be perceived differently.
+
+**Why this causes drift:**
+1. Mapbox anchors the 56px container's center to the coordinate
+2. The 36px avatar is centered within that 56px container
+3. The visual "center" of the marker (the avatar) is at the coordinate
+4. BUT: The container's edges extend 10px beyond the avatar in all directions
+5. This creates a mismatch between the anchor point and visual center
+
+### Secondary Issue: Transform Stacking
+
+The nested `transform: translate(-50%, -50%)` on the avatar might interact poorly with Mapbox's internal positioning calculations, especially if there are any CSS rules affecting transforms globally.
+
+## Recommended Fix
+
+### Option 1: Match Container Size to Content Size (Simplest)
+
+Change the container to 36px (matching the avatar size) and adjust the casing to fit:
+
+```typescript
+function createAvatarWithCasing(avatarUrl?: string): HTMLDivElement {
+  // Container matches avatar size (36px)
+  const container = document.createElement('div')
+  container.className = 'gb-map-marker'
+  container.style.position = 'relative'
+  container.style.width = '36px'
+  container.style.height = '36px'
+  container.style.pointerEvents = 'auto'
+
+  // Casing scales to fit container
+  const casing = document.createElement('img')
+  casing.className = 'gb-marker-casing'
+  casing.src = '/assets/Union.svg'
+  casing.style.position = 'absolute'
+  casing.style.inset = '0'
+  casing.style.width = '100%'
+  casing.style.height = '100%'
+  casing.style.objectFit = 'contain'
+  casing.style.zIndex = '1'
+
+  // Avatar fills container
+  const avatar = document.createElement('img')
+  avatar.className = 'gb-marker-avatar'
+  avatar.src = avatarUrl || '/assets/avatar_agent5.png'
+  avatar.style.position = 'absolute'
+  avatar.style.inset = '0'
+  avatar.style.width = '100%'
+  avatar.style.height = '100%'
+  avatar.style.borderRadius = '50%'
+  avatar.style.objectFit = 'cover'
+  avatar.style.zIndex = '2'
+
+  container.appendChild(casing)
+  container.appendChild(avatar)
+  return container
+}
+```
+
+### Option 2: Use Explicit Offset (More Complex)
+
+Keep 56px container but use `offset` to adjust anchor point:
+
+```typescript
+marker = new mapboxgl.Marker({
+  element: el,
+  anchor: 'center',
+  offset: [0, 0] // Explicit offset if needed
+})
+```
+
+### Option 3: Remove Transform from Avatar (Simplest Fix)
+
+Remove the `transform: translate(-50%, -50%)` and use `inset: 0` instead:
+
+```typescript
+// Avatar fills container without transform
+avatar.style.position = 'absolute'
+avatar.style.inset = '0' // Instead of top/left/transform
+avatar.style.width = '100%'
+avatar.style.height = '100%'
+```
+
 ## Next Steps
 
 1. ✅ Add logging (done)
-2. ⏳ Compare console logs between production and preview
-3. ⏳ Identify root cause (DOM/anchor vs coordinate mutation)
-4. ⏳ Implement minimal fix
+2. ✅ Review Mapbox documentation (done)
+3. ⏳ Test Option 3 first (remove transform, use inset: 0)
+4. ⏳ If that fails, test Option 1 (match container to content size)
 5. ⏳ Verify all markers are correctly positioned with casing
 
 ---
 
-**Note:** This analysis is based on code inspection. The logging will provide concrete evidence of whether coordinates are correct or mutated, which will guide the fix.
+**Note:** The Mapbox documentation confirms that marker positioning is sensitive to container size and CSS transforms. The mismatch between container size (56px) and visual content size (36px) is likely the root cause.
 
