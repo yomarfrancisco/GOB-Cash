@@ -130,53 +130,50 @@ export default function MapboxMap({
   // Dedicated helper for user marker - completely isolated from avatar marker logic
   // This function is the ONLY place where the user marker (character.png) is created
   function createOrUpdateUserMarker(map: mapboxgl.Map, lng: number, lat: number): mapboxgl.Marker {
-    // Check if marker already exists
-    let marker = userMarkerRef.current
-    let el = marker?.getElement()
-
-    if (!el) {
-      // Create DOM element - minimal structure, no wrappers
-      el = document.createElement('div')
-      el.className = styles.userMarker // Isolated CSS class - never shared with avatars
-
-      // Create image element
-      const img = document.createElement('img')
-      img.className = styles.userImg // Isolated CSS class - never shared with avatars
-      img.alt = 'You are here'
-      
-      // Use static import if available, else fall back to public path
-      const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
-      img.src = userIconUrl
-      
-      // Image loading diagnostics
-      img.addEventListener('load', () =>
-        log(`[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`)
-      )
-      img.addEventListener('error', (e) =>
-        console.error('[user-icon] failed to load', userIconUrl, e)
-      )
-      
-      img.decoding = 'async'
-      img.loading = 'eager'
-      img.referrerPolicy = 'no-referrer'
-      
-      el.appendChild(img)
-
-      // Create Mapbox marker - no extra transforms, no casing, no badge logic
-      marker = new mapboxgl.Marker({
-        element: el,
-        anchor: 'center',
-      })
-        .setLngLat([lng, lat])
-        .addTo(map)
-
-      userMarkerRef.current = marker
-    } else {
-      // Update existing marker position
-      marker!.setLngLat([lng, lat])
+    // Always remove previous marker before creating/updating to prevent drift
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove()
+      userMarkerRef.current = null
     }
 
-    return marker!
+    // Create DOM element - minimal structure, no wrappers
+    const el = document.createElement('div')
+    el.className = styles.userMarker // Isolated CSS class - never shared with avatars
+
+    // Create image element
+    const img = document.createElement('img')
+    img.className = styles.userImg // Isolated CSS class - never shared with avatars
+    img.alt = 'You are here'
+    
+    // Use static import if available, else fall back to public path
+    const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
+    img.src = userIconUrl
+    
+    // Image loading diagnostics
+    img.addEventListener('load', () =>
+      log(`[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`)
+    )
+    img.addEventListener('error', (e) =>
+      console.error('[user-icon] failed to load', userIconUrl, e)
+    )
+    
+    img.decoding = 'async'
+    img.loading = 'eager'
+    img.referrerPolicy = 'no-referrer'
+    
+    el.appendChild(img)
+
+    // Create Mapbox marker - anchored at center, no offset, no casing, no badge logic
+    const marker = new mapboxgl.Marker({
+      element: el,
+      anchor: 'center',
+      offset: [0, 0],
+    })
+      .setLngLat([lng, lat])
+      .addTo(map)
+
+    userMarkerRef.current = marker
+    return marker
   }
 
   // Helper for avatar markers (dealers, members, co-ops, demo agents) with casing + verified badge
@@ -212,6 +209,7 @@ export default function MapboxMap({
     container.style.width = `${C}px`
     container.style.height = `${C}px`
     container.style.pointerEvents = 'auto' // Keep markers tappable
+    container.style.overflow = 'visible' // Ensure badge is not clipped
 
     // Casing (Union.svg) - background layer
     const casing = document.createElement('img')
@@ -381,12 +379,8 @@ export default function MapboxMap({
 
         map.addControl(geolocate, 'top-right')
 
-        // Helper to (re)place custom user marker - uses dedicated createOrUpdateUserMarker function
-        const upsertUserMarker = (lng: number, lat: number) => {
-          // Create or update user marker using isolated helper
-          createOrUpdateUserMarker(map, lng, lat)
-
-          // Add "You are here" bubble above the user marker
+        // Helper to update "You are here" bubble - uses same coordinates as user marker
+        const upsertYouAreHereBubble = (map: mapboxgl.Map, lng: number, lat: number) => {
           let bubbleEl = youAreHereMarkerRef.current?.getElement()
           if (!bubbleEl) {
             bubbleEl = document.createElement('div')
@@ -412,8 +406,14 @@ export default function MapboxMap({
           const lng = e.coords.longitude
           const lat = e.coords.latitude
 
-          // Update custom user marker on every geolocate event
-          upsertUserMarker(lng, lat)
+          // Store user location as single source of truth
+          userLocationRef.current = { lng, lat }
+
+          // Update character marker using isolated helper
+          createOrUpdateUserMarker(map, lng, lat)
+
+          // Update "You are here" bubble using the SAME coordinates
+          upsertYouAreHereBubble(map, lng, lat)
 
           // (optional) keep map centered on the user when first found
           // Skip auto-center for landing variant when fitToMarkers is false (fixed viewport mode)
