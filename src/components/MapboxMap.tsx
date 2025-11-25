@@ -80,6 +80,7 @@ export default function MapboxMap({
   )
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const youAreHereMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  const userLocationRef = useRef<{ lng: number; lat: number } | null>(null)
   const savedCenterRef = useRef<[number, number] | null>(null)
   const savedZoomRef = useRef<number | null>(null)
   const highlightMarkerRef = useRef<mapboxgl.Marker | null>(null)
@@ -741,7 +742,8 @@ export default function MapboxMap({
       const el = createAvatarMarkerElement({
         avatarUrl: agent.avatar,
         name: agent.name,
-        verified: false, // Will be implemented later
+        verified: true, // All demo agents verified for now
+        containerSize: 56,
       })
       
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
