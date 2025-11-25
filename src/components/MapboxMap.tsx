@@ -652,9 +652,9 @@ export default function MapboxMap({
     // Add new markers - user marker is handled separately, never processed here
     log(`adding ${markers.length} markers`)
     markers.forEach((m) => {
-      // GUARD: Skip user marker - it's handled by createOrUpdateUserMarker only
+      // GUARD: Skip user marker - it's handled by setUserLocation in geolocate handler only
       if (m.id === 'user-location') {
-        log(`skipping user marker ${m.id} - handled separately`)
+        log(`skipping user marker ${m.id} - handled separately by geolocate`)
         return
       }
 
