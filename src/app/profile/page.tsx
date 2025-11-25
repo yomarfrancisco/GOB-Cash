@@ -192,7 +192,7 @@ export default function ProfilePage() {
           {/* Profile backdrop: Benjamin image with white fade */}
           <div className="profile-backdrop">
             <img
-              src="/assets/benjamin_grey.png"
+              src="/assets/benjamin_pink.png"
               alt=""
               className="profile-backdrop-image"
             />
