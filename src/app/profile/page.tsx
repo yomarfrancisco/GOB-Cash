@@ -189,8 +189,18 @@ export default function ProfilePage() {
             }} />
           )}
 
+          {/* Profile backdrop: Benjamin image with white fade */}
+          <div className="profile-backdrop">
+            <img
+              src="/assets/benjamin_grey.png"
+              alt=""
+              className="profile-backdrop-image"
+            />
+            <div className="profile-backdrop-fade" />
+          </div>
+
           {/* Scrollable content */}
-          <div className="scroll-content">
+          <div className="scroll-content profile-scroll">
             <div className="content" style={{ background: '#fff' }}>
               {/* Avatar + name + handle */}
               <div className="profile-header">
