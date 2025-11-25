@@ -220,7 +220,7 @@ export default function AmountSheet({
         </div>
         <div className={`amount-cta ${(entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons) ? 'amount-cta--dual' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {isHelicopterConvert ? (
-            // Dual buttons for helicopter/map entry point: "Collection" and "Delivery"
+            // Dual buttons for helicopter/map entry point: "Cash Deposit" and "Cash Delivery"
             // Both trigger the same map convert flow
             <>
               <button 
@@ -229,7 +229,7 @@ export default function AmountSheet({
                 type="button"
                 disabled={!isPositive}
               >
-                Collection
+                Cash Deposit
               </button>
               <button 
                 className="amount-keypad__cta amount-keypad__cta--card" 
@@ -237,7 +237,7 @@ export default function AmountSheet({
                 type="button"
                 disabled={!isPositive}
               >
-                Delivery
+                Cash Delivery
               </button>
             </>
           ) : entryPoint === 'cashButton' ? (
