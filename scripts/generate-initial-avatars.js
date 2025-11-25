@@ -12,6 +12,7 @@ const OUTPUT_DIR = path.join(__dirname, '..', 'public', 'generated-avatars', 'in
 
 // Use 256x256 for initial avatars
 const SIZE = 256
+const FONT_SIZE = 120 // Large size for clear visibility (equivalent to ~22pt scaled up for 256px canvas)
 
 // Limited set of initials (13 letters)
 const INITIALS = ['A', 'C', 'E', 'G', 'I', 'K', 'M', 'O', 'Q', 'S', 'U', 'W', 'Y']
@@ -48,30 +49,25 @@ async function generateInitialAvatar(letter) {
     ])
     .toBuffer()
 
-  // Create initial letter text - DARK color for high contrast against light avatar
-  const fontSize = SIZE * 0.5 // 50% of canvas size for large, legible letter
+  // Create initial letter text - WHITE, large, properly centered
+  // Using dominant-baseline="central" for proper vertical centering
+  // Font family: Try Acumin Pro first, fallback to system fonts
   const letterSvg = `
     <svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <filter id="shadow">
-          <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#FFFFFF" flood-opacity="0.6"/>
-        </filter>
-      </defs>
       <text
         x="${SIZE / 2}"
-        y="${SIZE / 2 + fontSize * 0.35}"
-        font-family="-apple-system, system-ui, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif"
-        font-size="${fontSize}"
-        font-weight="700"
-        fill="#1F2933"
+        y="${SIZE / 2}"
+        font-family="'Acumin Pro', -apple-system, system-ui, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif"
+        font-size="${FONT_SIZE}"
+        font-weight="400"
+        fill="#FFFFFF"
         text-anchor="middle"
-        dominant-baseline="middle"
-        filter="url(#shadow)"
+        dominant-baseline="central"
       >${letter}</text>
     </svg>
   `
 
-  // Composite: circular avatar + dark letter on transparent background
+  // Composite: circular avatar + white letter on transparent background
   await sharp({
     create: {
       width: SIZE,
