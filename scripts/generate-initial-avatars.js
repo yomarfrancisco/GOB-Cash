@@ -10,9 +10,8 @@ const __dirname = path.dirname(__filename)
 const INPUT_AVATAR = path.join(__dirname, '..', 'public', 'assets', 'avatar-profile.png')
 const OUTPUT_DIR = path.join(__dirname, '..', 'public', 'generated-avatars', 'initials')
 
-// Use 256x256 for initial avatars (smaller than full ring avatars but still crisp)
+// Use 256x256 for initial avatars
 const SIZE = 256
-const RING_WIDTH = 24 // Proportional to 48px ring on 512px (scaled down)
 
 // Limited set of initials (13 letters)
 const INITIALS = ['A', 'C', 'E', 'G', 'I', 'K', 'M', 'O', 'Q', 'S', 'U', 'W', 'Y']
@@ -22,60 +21,40 @@ async function generateInitialAvatar(letter) {
 
   console.log(`→ processing ${letter} → avatar-${letter}.png`)
 
-  // Load base avatar image and resize
+  // Load base avatar image and resize to square, maintaining aspect ratio
   const avatarBuffer = await sharp(INPUT_AVATAR)
     .resize(SIZE, SIZE, { fit: 'cover', position: 'center' })
     .toBuffer()
 
-  // Create circular mask for avatar (inner circle, accounting for ring)
-  const avatarRadius = SIZE / 2 - RING_WIDTH
-  const avatarMaskSvg = `
+  // Create circular mask for the avatar (full circle)
+  const circleMaskSvg = `
     <svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <clipPath id="circle">
-          <circle cx="${SIZE / 2}" cy="${SIZE / 2}" r="${avatarRadius}"/>
+          <circle cx="${SIZE / 2}" cy="${SIZE / 2}" r="${SIZE / 2}"/>
         </clipPath>
       </defs>
       <rect width="${SIZE}" height="${SIZE}" fill="white" clip-path="url(#circle)"/>
     </svg>
   `
 
-  // Apply circular mask to avatar
-  const maskedAvatar = await sharp(avatarBuffer)
+  // Apply circular mask to avatar (this preserves the avatar's existing ring/style)
+  const circularAvatar = await sharp(avatarBuffer)
     .composite([
       {
-        input: Buffer.from(avatarMaskSvg),
+        input: Buffer.from(circleMaskSvg),
         blend: 'dest-in'
       }
     ])
     .toBuffer()
 
-  // Create white ring as a donut shape
-  const ringSvg = `
-    <svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <mask id="ringMask">
-          <rect width="${SIZE}" height="${SIZE}" fill="black"/>
-          <circle cx="${SIZE / 2}" cy="${SIZE / 2}" r="${avatarRadius}" fill="white"/>
-        </mask>
-      </defs>
-      <circle
-        cx="${SIZE / 2}"
-        cy="${SIZE / 2}"
-        r="${SIZE / 2 - RING_WIDTH / 2}"
-        fill="white"
-        mask="url(#ringMask)"
-      />
-    </svg>
-  `
-
-  // Create initial letter text - PURE WHITE with subtle dark shadow for contrast
+  // Create initial letter text - DARK color for high contrast against light avatar
   const fontSize = SIZE * 0.5 // 50% of canvas size for large, legible letter
   const letterSvg = `
     <svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <filter id="shadow">
-          <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.4"/>
+          <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#FFFFFF" flood-opacity="0.6"/>
         </filter>
       </defs>
       <text
@@ -84,7 +63,7 @@ async function generateInitialAvatar(letter) {
         font-family="-apple-system, system-ui, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif"
         font-size="${fontSize}"
         font-weight="700"
-        fill="#FFFFFF"
+        fill="#1F2933"
         text-anchor="middle"
         dominant-baseline="middle"
         filter="url(#shadow)"
@@ -92,7 +71,7 @@ async function generateInitialAvatar(letter) {
     </svg>
   `
 
-  // Composite: masked avatar + white ring + initial letter on transparent background
+  // Composite: circular avatar + dark letter on transparent background
   await sharp({
     create: {
       width: SIZE,
@@ -103,11 +82,7 @@ async function generateInitialAvatar(letter) {
   })
     .composite([
       {
-        input: maskedAvatar,
-        blend: 'over'
-      },
-      {
-        input: Buffer.from(ringSvg),
+        input: circularAvatar,
         blend: 'over'
       },
       {
