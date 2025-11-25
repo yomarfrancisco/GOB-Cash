@@ -613,13 +613,16 @@ export default function MapboxMap({
   }, [variant, isAuthed])
 
   // Reset camera to static SADC view when user becomes logged in
+  // BUT: Only do this if we don't have a user location yet.
+  // Once geolocation succeeds and we've centered on the user, don't override that.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !loadedRef.current) return
     if (variant !== 'landing') return
 
-    // When user becomes authed, jump to the static SADC view (no animation)
-    if (isAuthed) {
+    // Only jump to static SADC view if the user location is UNKNOWN.
+    // Once we've geolocated and centered on the user, don't fight that.
+    if (isAuthed && !userLngLat) {
       map.jumpTo({
         center: SADC_CENTER,
         zoom: SADC_ZOOM,
@@ -630,7 +633,7 @@ export default function MapboxMap({
         console.log('[MapboxMap] Reset to static SADC view (user logged in), animations disabled')
       }
     }
-  }, [isAuthed, variant])
+  }, [isAuthed, variant, userLngLat])
 
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
