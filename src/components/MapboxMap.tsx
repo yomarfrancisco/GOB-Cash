@@ -126,6 +126,91 @@ export default function MapboxMap({
     return 2 * R * Math.asin(Math.sqrt(s))
   }
 
+  // Dedicated helper for user marker - completely isolated from avatar marker logic
+  // This function is the ONLY place where the user marker (character.png) is created
+  function createOrUpdateUserMarker(map: mapboxgl.Map, lng: number, lat: number): mapboxgl.Marker {
+    // Check if marker already exists
+    let marker = userMarkerRef.current
+    let el = marker?.getElement()
+
+    if (!el) {
+      // Create DOM element - minimal structure, no wrappers
+      el = document.createElement('div')
+      el.className = styles.userMarker // Isolated CSS class - never shared with avatars
+
+      // Create image element
+      const img = document.createElement('img')
+      img.className = styles.userImg // Isolated CSS class - never shared with avatars
+      img.alt = 'You are here'
+      
+      // Use static import if available, else fall back to public path
+      const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
+      img.src = userIconUrl
+      
+      // Image loading diagnostics
+      img.addEventListener('load', () =>
+        log(`[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`)
+      )
+      img.addEventListener('error', (e) =>
+        console.error('[user-icon] failed to load', userIconUrl, e)
+      )
+      
+      img.decoding = 'async'
+      img.loading = 'eager'
+      img.referrerPolicy = 'no-referrer'
+      
+      el.appendChild(img)
+
+      // Create Mapbox marker - no extra transforms, no casing, no badge logic
+      marker = new mapboxgl.Marker({
+        element: el,
+        anchor: 'center',
+      })
+        .setLngLat([lng, lat])
+        .addTo(map)
+
+      userMarkerRef.current = marker
+    } else {
+      // Update existing marker position
+      marker!.setLngLat([lng, lat])
+    }
+
+    return marker!
+  }
+
+  // Stub helper for avatar markers (dealers, members, co-ops, demo agents)
+  // This will be extended later with casing/badge logic, but user marker never uses this
+  type AvatarMarkerOptions = {
+    avatarUrl?: string
+    name?: string
+    verified?: boolean
+  }
+
+  function createAvatarMarkerElement(opts: AvatarMarkerOptions): HTMLDivElement {
+    const el = document.createElement('div')
+    el.className = 'map-avatar-marker' // Separate class from user marker
+    el.style.width = '40px'
+    el.style.height = '40px'
+    el.style.borderRadius = '50%'
+    el.style.overflow = 'hidden'
+    el.style.background = '#ffffff'
+    el.style.border = 'none'
+    el.style.boxShadow = 'none'
+
+    const img = document.createElement('img')
+    img.src = opts.avatarUrl || '/assets/avatar_agent5.png'
+    img.alt = opts.name || ''
+    img.style.width = '100%'
+    img.style.height = '100%'
+    img.style.objectFit = 'cover'
+    img.style.display = 'block'
+    el.appendChild(img)
+
+    // NOTE: opts.verified is ignored for now - casing/badge logic will be added later
+    // This helper is ONLY for non-user markers
+    return el
+  }
+
   // Shared helper to fetch driving route from Mapbox Directions API
   const fetchDrivingRoute = async (
     start: [number, number],
@@ -222,42 +307,10 @@ export default function MapboxMap({
 
         map.addControl(geolocate, 'top-right')
 
-        // Helper to (re)place custom user marker (using const arrow function to avoid ES5 strict mode error)
+        // Helper to (re)place custom user marker - uses dedicated createOrUpdateUserMarker function
         const upsertUserMarker = (lng: number, lat: number) => {
-          // create DOM element once
-          let el = userMarkerRef.current?.getElement()
-          if (!el) {
-            el = document.createElement('div')
-            el.className = styles.userMarker
-            // add our PNG as <img> to preserve sharpness on retina
-            const img = document.createElement('img')
-            img.className = styles.userImg
-            img.alt = 'You are here'
-            // Use static import if available, else fall back to public path:
-            const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
-            img.src = userIconUrl
-            // Helpful diagnostics the first time we deploy
-            img.addEventListener('load', () =>
-              log(
-                `[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`
-              )
-            )
-            img.addEventListener('error', (e) =>
-              console.error('[user-icon] failed to load', userIconUrl, e)
-            )
-            img.decoding = 'async'
-            img.loading = 'eager'
-            img.referrerPolicy = 'no-referrer'
-            el.appendChild(img)
-            userMarkerRef.current = new mapboxgl.Marker({
-              element: el,
-              anchor: 'center',
-            })
-              .setLngLat([lng, lat])
-              .addTo(map)
-          } else {
-            userMarkerRef.current!.setLngLat([lng, lat])
-          }
+          // Create or update user marker using isolated helper
+          createOrUpdateUserMarker(map, lng, lat)
 
           // Add "You are here" bubble above the user marker
           let bubbleEl = youAreHereMarkerRef.current?.getElement()
@@ -270,7 +323,7 @@ export default function MapboxMap({
             youAreHereMarkerRef.current = new mapboxgl.Marker({
               element: bubbleEl,
               anchor: 'bottom',
-              offset: [0, -40], // Position above the avatar PNG
+              offset: [0, -40], // Position above the character PNG
             })
               .setLngLat([lng, lat])
               .addTo(map)
@@ -493,9 +546,15 @@ export default function MapboxMap({
       return
     }
 
-    // Add new markers - use avatar markers for members/co-op, circular for dealers, character.png for user, default pin for branches
+    // Add new markers - user marker is handled separately, never processed here
     log(`adding ${markers.length} markers`)
     markers.forEach((m) => {
+      // GUARD: Skip user marker - it's handled by createOrUpdateUserMarker only
+      if (m.id === 'user-location') {
+        log(`skipping user marker ${m.id} - handled separately`)
+        return
+      }
+
       let marker: mapboxgl.Marker
       
       if (m.kind === 'dealer') {
@@ -515,50 +574,17 @@ export default function MapboxMap({
           .setLngLat([m.lng, m.lat])
           .addTo(mapRef.current!)
       } else if (m.kind === 'member' || m.kind === 'co_op') {
-        // Check if this is the user marker (no avatar, should use character.png)
-        if (!m.avatar && m.id === 'user-location') {
-          // User marker: use character.png
-          const el = document.createElement('div')
-          el.className = styles.userMarker
-          const img = document.createElement('img')
-          img.className = styles.userImg
-          img.alt = 'You are here'
-          const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
-          img.src = userIconUrl
-          img.decoding = 'async'
-          img.loading = 'eager'
-          img.referrerPolicy = 'no-referrer'
-          el.appendChild(img)
-          
-          marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-            .setLngLat([m.lng, m.lat])
-            .addTo(mapRef.current!)
-        } else {
-          // Regular member/co-op marker: avatar
-          const el = document.createElement('div')
-          el.className = 'map-avatar-marker'
-          el.style.width = '40px'
-          el.style.height = '40px'
-          el.style.borderRadius = '50%'
-          el.style.overflow = 'hidden'
-          el.style.background = '#ffffff'
-          el.style.border = 'none'
-          el.style.boxShadow = 'none'
-          
-          const img = document.createElement('img')
-          img.src = m.avatar || '/assets/avatar_agent5.png'
-          img.alt = m.name || m.label || ''
-          img.style.width = '100%'
-          img.style.height = '100%'
-          img.style.objectFit = 'cover'
-          img.style.display = 'block'
-          el.appendChild(img)
-          
-          marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-            .setLngLat([m.lng, m.lat])
-            .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label || m.name || ''))
-            .addTo(mapRef.current!)
-        }
+        // Regular member/co-op marker: use avatar marker helper
+        const el = createAvatarMarkerElement({
+          avatarUrl: m.avatar,
+          name: m.name || m.label,
+          verified: false, // Will be implemented later
+        })
+        
+        marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([m.lng, m.lat])
+          .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label || m.name || ''))
+          .addTo(mapRef.current!)
       } else if (m.kind === 'branch') {
         // Branch marker: default Mapbox pin (HQ is handled separately via hqCoord prop)
         marker = new mapboxgl.Marker()
@@ -632,28 +658,21 @@ export default function MapboxMap({
     if (variant === 'popup') return // no demo agents on popup
     if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') return
     
-    // Add demo agents as persistent markers
+    // Add demo agents as persistent markers - use avatar marker helper
     demoAgentMarkers.forEach((agent) => {
       if (agentMarkersRef.current.has(agent.id)) return // Already added
       
-      const el = document.createElement('div')
-      el.className = 'map-avatar-marker'
-      el.style.width = '40px'
-      el.style.height = '40px'
-      el.style.borderRadius = '50%'
-      el.style.overflow = 'hidden'
-      el.style.background = '#ffffff'
-      el.style.border = 'none'
-      el.style.boxShadow = 'none'
+      // GUARD: Ensure demo agents never use user marker logic
+      if (agent.id === 'user-location') {
+        log(`skipping user marker in demo agents - handled separately`)
+        return
+      }
       
-      const img = document.createElement('img')
-      img.src = agent.avatar || '/assets/avatar_agent5.png'
-      img.alt = agent.name || ''
-      img.style.width = '100%'
-      img.style.height = '100%'
-      img.style.objectFit = 'cover'
-      img.style.display = 'block'
-      el.appendChild(img)
+      const el = createAvatarMarkerElement({
+        avatarUrl: agent.avatar,
+        name: agent.name,
+        verified: false, // Will be implemented later
+      })
       
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([agent.lng, agent.lat])
