@@ -324,7 +324,7 @@ export default function ProfilePage() {
                     })
                   }}
                 >
-                  Deposit
+                  Top up
                 </button>
                 <button
                   className="btn profile-inbox"
