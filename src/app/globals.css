@@ -262,6 +262,15 @@ body {
   z-index: 1;
 }
 
+/* Profile-specific overrides: let the Benjamin backdrop show through */
+.profile-page .scroll-content.profile-scroll {
+  background: transparent; /* overrides #ffffff for profile only */
+}
+
+.profile-page .content.profile-content {
+  background: transparent; /* make inner wrapper transparent too */
+}
+
 /* Bottom fade overlay - softly fades content behind bottom glass nav */
 .content-fade-bottom {
   position: fixed;

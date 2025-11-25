@@ -147,7 +147,7 @@ export default function ProfilePage() {
     }
   }, [setOnSelect])
   return (
-    <div className="app-shell">
+    <div className="app-shell profile-page">
       <div className="mobile-frame">
         <div className="dashboard-container" style={{ position: 'relative' }}>
           {/* Overlay: Glass bars only */}
@@ -201,7 +201,7 @@ export default function ProfilePage() {
 
           {/* Scrollable content */}
           <div className="scroll-content profile-scroll">
-            <div className="content" style={{ background: '#fff' }}>
+            <div className="content profile-content">
               {/* Avatar + name + handle */}
               <div className="profile-header">
                 <Avatar
