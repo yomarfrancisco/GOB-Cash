@@ -103,7 +103,6 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
       label: '$kerryy',
       avatar: '/assets/avatar_agent5.png',
       name: '$kerryy',
-      verified: true, // Dealer is verified
     }),
     [currentDealerLocation.lng, currentDealerLocation.lat]
   )

@@ -23,7 +23,6 @@ export type Marker = {
   label?: string
   avatar?: string // Avatar URL for member/co-op markers
   name?: string // Name for member/co-op markers
-  verified?: boolean // Controls casing + badge
 }
 
 interface Props {
@@ -125,79 +124,6 @@ export default function MapboxMap({
     const lat2 = toRad(b[1])
     const s = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
     return 2 * R * Math.asin(Math.sqrt(s))
-  }
-
-  // Helper function to create avatar marker element with casing and verified badge
-  function createAvatarMarkerElement(options: {
-    avatarUrl?: string
-    name?: string
-    verified?: boolean
-  }): HTMLDivElement {
-    const { avatarUrl, name, verified } = options
-
-    // Outer wrapper – full marker size (includes casing)
-    const wrapper = document.createElement('div')
-    wrapper.className = 'map-avatar-wrapper'
-    wrapper.style.position = 'relative'
-    wrapper.style.display = 'flex'
-    wrapper.style.alignItems = 'center'
-    wrapper.style.justifyContent = 'center'
-    wrapper.style.width = verified ? '56px' : '48px' // verified slightly larger
-    wrapper.style.height = verified ? '56px' : '48px'
-    wrapper.style.pointerEvents = 'auto'
-
-    // Casing background
-    const casing = document.createElement('div')
-    casing.className = 'map-avatar-casing'
-    casing.style.position = 'relative'
-    casing.style.display = 'flex'
-    casing.style.alignItems = 'center'
-    casing.style.justifyContent = 'center'
-    casing.style.width = '100%'
-    casing.style.height = '100%'
-    casing.style.backgroundImage = `url("${
-      verified ? '/assets/Union.svg' : '/assets/profile/Avatar_case.svg'
-    }")`
-    casing.style.backgroundRepeat = 'no-repeat'
-    casing.style.backgroundSize = 'contain'
-    casing.style.backgroundPosition = 'center'
-
-    // Inner avatar container (circular crop)
-    const inner = document.createElement('div')
-    inner.className = 'map-avatar-inner'
-    inner.style.width = verified ? '30px' : '26px'
-    inner.style.height = verified ? '30px' : '26px'
-    inner.style.borderRadius = '50%'
-    inner.style.overflow = 'hidden'
-    inner.style.background = '#ffffff'
-
-    const img = document.createElement('img')
-    img.src = avatarUrl || '/assets/avatar_agent5.png'
-    img.alt = name || ''
-    img.style.width = '100%'
-    img.style.height = '100%'
-    img.style.objectFit = 'cover'
-    img.style.display = 'block'
-    inner.appendChild(img)
-
-    casing.appendChild(inner)
-    wrapper.appendChild(casing)
-
-    // Verified badge overlay
-    if (verified) {
-      const badge = document.createElement('img')
-      badge.src = '/assets/verified.svg'
-      badge.alt = 'Verified'
-      badge.style.position = 'absolute'
-      badge.style.width = '18px'
-      badge.style.height = '18px'
-      badge.style.right = '-2px'
-      badge.style.bottom = '-2px'
-      badge.style.pointerEvents = 'none'
-      wrapper.appendChild(badge)
-    }
-
-    return wrapper
   }
 
   // Shared helper to fetch driving route from Mapbox Directions API
@@ -573,12 +499,17 @@ export default function MapboxMap({
       let marker: mapboxgl.Marker
       
       if (m.kind === 'dealer') {
-        // Dealer marker: avatar with casing and verified badge
-        const el = createAvatarMarkerElement({
-          avatarUrl: m.avatar,
-          name: m.name || m.label,
-          verified: m.verified ?? true, // dealers default to verified for demo
-        })
+        // Dealer marker: circular avatar with white border (48x48px)
+        const el = document.createElement('div')
+        el.style.width = '48px'
+        el.style.height = '48px'
+        el.style.borderRadius = '50%'
+        el.style.overflow = 'hidden'
+        el.style.border = '2px solid white'
+        el.style.backgroundImage = `url("${m.avatar || '/assets/avatar_agent5.png'}")`
+        el.style.backgroundSize = 'cover'
+        el.style.backgroundPosition = 'center'
+        el.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)'
         
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
           .setLngLat([m.lng, m.lat])
@@ -603,12 +534,25 @@ export default function MapboxMap({
             .setLngLat([m.lng, m.lat])
             .addTo(mapRef.current!)
         } else {
-          // Regular member/co-op marker: avatar with casing
-          const el = createAvatarMarkerElement({
-            avatarUrl: m.avatar,
-            name: m.name || m.label,
-            verified: m.verified ?? false,
-          })
+          // Regular member/co-op marker: avatar
+          const el = document.createElement('div')
+          el.className = 'map-avatar-marker'
+          el.style.width = '40px'
+          el.style.height = '40px'
+          el.style.borderRadius = '50%'
+          el.style.overflow = 'hidden'
+          el.style.background = '#ffffff'
+          el.style.border = 'none'
+          el.style.boxShadow = 'none'
+          
+          const img = document.createElement('img')
+          img.src = m.avatar || '/assets/avatar_agent5.png'
+          img.alt = m.name || m.label || ''
+          img.style.width = '100%'
+          img.style.height = '100%'
+          img.style.objectFit = 'cover'
+          img.style.display = 'block'
+          el.appendChild(img)
           
           marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
             .setLngLat([m.lng, m.lat])
@@ -692,14 +636,24 @@ export default function MapboxMap({
     demoAgentMarkers.forEach((agent) => {
       if (agentMarkersRef.current.has(agent.id)) return // Already added
       
-      // Mix of verified and unverified for demo
-      const isVerified = agent.id === 'demo-naledi' || agent.id === 'demo-joao'
+      const el = document.createElement('div')
+      el.className = 'map-avatar-marker'
+      el.style.width = '40px'
+      el.style.height = '40px'
+      el.style.borderRadius = '50%'
+      el.style.overflow = 'hidden'
+      el.style.background = '#ffffff'
+      el.style.border = 'none'
+      el.style.boxShadow = 'none'
       
-      const el = createAvatarMarkerElement({
-        avatarUrl: agent.avatar,
-        name: agent.name,
-        verified: isVerified,
-      })
+      const img = document.createElement('img')
+      img.src = agent.avatar || '/assets/avatar_agent5.png'
+      img.alt = agent.name || ''
+      img.style.width = '100%'
+      img.style.height = '100%'
+      img.style.objectFit = 'cover'
+      img.style.display = 'block'
+      el.appendChild(img)
       
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([agent.lng, agent.lat])
