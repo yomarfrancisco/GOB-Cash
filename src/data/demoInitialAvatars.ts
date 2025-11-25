@@ -12,24 +12,24 @@ export type DemoInitialAvatar = {
 }
 
 // SADC region polygon (approximate bounding polygon)
-// Format: [lng, lat] pairs
+// Format: [lng, lat] pairs - covering SADC countries
 const SADC_POLYGON: [number, number][] = [
-  [-17, 12],   // Angola
-  [-28, 12],
-  [-35, 16],
-  [-35, 30],   // SA
-  [-22, 40],
-  [-12, 40],
-  [-12, 32],   // Tanzania
-  [-17, 12],
+  [12, -17],   // Northern Angola/Zambia border
+  [12, -28],   // Western border (Angola/Namibia)
+  [16, -35],   // South-western corner (Namibia/SA)
+  [30, -35],   // South-eastern corner (SA)
+  [40, -22],   // Eastern border (Mozambique)
+  [40, -12],   // North-eastern corner (Tanzania)
+  [32, -12],   // Northern border (Tanzania)
+  [12, -17],   // Back to start
 ]
 
 // Bounding box for quick rejection (faster than polygon test)
 const SADC_BBOX = {
-  minLng: -35,
+  minLng: 12,
   maxLng: 40,
   minLat: -35,
-  maxLat: 12,
+  maxLat: -12,
 }
 
 // Point-in-polygon test using ray casting algorithm
@@ -48,7 +48,7 @@ function isPointInPolygon(lng: number, lat: number, polygon: [number, number][])
 // Generate a random point within SADC polygon
 function generateRandomSADCPoint(): { lat: number; lng: number } {
   let attempts = 0
-  const maxAttempts = 20
+  const maxAttempts = 50 // Increased retries
 
   while (attempts < maxAttempts) {
     // Generate random point within bounding box
@@ -63,8 +63,8 @@ function generateRandomSADCPoint(): { lat: number; lng: number } {
     attempts++
   }
 
-  // Fallback: return center of SADC region if all attempts fail
-  return { lat: -20, lng: 25 }
+  // Fallback: return a known good SADC point (Johannesburg area)
+  return { lat: -26.2, lng: 28.0 }
 }
 
 // Initial letters (A, C, E, G, I, K, M, O, Q, S, U, W, Y)
