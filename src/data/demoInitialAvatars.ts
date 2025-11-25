@@ -11,40 +11,72 @@ export type DemoInitialAvatar = {
   lat: number
 }
 
-// SADC bounding box
-const SADC_LNG_MIN = 10
-const SADC_LNG_MAX = 40
-const SADC_LAT_MIN = -35
-const SADC_LAT_MAX = -10
+// SADC region polygon (approximate bounding polygon)
+// Format: [lng, lat] pairs
+const SADC_POLYGON: [number, number][] = [
+  [-17, 12],   // Angola
+  [-28, 12],
+  [-35, 16],
+  [-35, 30],   // SA
+  [-22, 40],
+  [-12, 40],
+  [-12, 32],   // Tanzania
+  [-17, 12],
+]
+
+// Bounding box for quick rejection (faster than polygon test)
+const SADC_BBOX = {
+  minLng: -35,
+  maxLng: 40,
+  minLat: -35,
+  maxLat: 12,
+}
+
+// Point-in-polygon test using ray casting algorithm
+function isPointInPolygon(lng: number, lat: number, polygon: [number, number][]): boolean {
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, yi] = polygon[i]
+    const [xj, yj] = polygon[j]
+    const intersect =
+      yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi
+    if (intersect) inside = !inside
+  }
+  return inside
+}
+
+// Generate a random point within SADC polygon
+function generateRandomSADCPoint(): { lat: number; lng: number } {
+  let attempts = 0
+  const maxAttempts = 20
+
+  while (attempts < maxAttempts) {
+    // Generate random point within bounding box
+    const lng = SADC_BBOX.minLng + Math.random() * (SADC_BBOX.maxLng - SADC_BBOX.minLng)
+    const lat = SADC_BBOX.minLat + Math.random() * (SADC_BBOX.maxLat - SADC_BBOX.minLat)
+
+    // Check if point is inside polygon
+    if (isPointInPolygon(lng, lat, SADC_POLYGON)) {
+      return { lat, lng }
+    }
+
+    attempts++
+  }
+
+  // Fallback: return center of SADC region if all attempts fail
+  return { lat: -20, lng: 25 }
+}
 
 // Initial letters (A, C, E, G, I, K, M, O, Q, S, U, W, Y)
 const INITIAL_LETTERS = ['A', 'C', 'E', 'G', 'I', 'K', 'M', 'O', 'Q', 'S', 'U', 'W', 'Y']
 
-// Generate 50 entries with deterministic positions across SADC
-// Using seeded pseudo-random for consistent but scattered positions
-export const DEMO_INITIAL_AVATARS: DemoInitialAvatar[] = Array.from({ length: 50 }).map((_, i) => {
+// Generate 50 entries with random positions across SADC polygon
+const INITIAL_AVATAR_COUNT = 50
+
+export const DEMO_INITIAL_AVATARS: DemoInitialAvatar[] = Array.from({ length: INITIAL_AVATAR_COUNT }).map((_, i) => {
   const letter = INITIAL_LETTERS[i % INITIAL_LETTERS.length]
-  
-  // Use seeded pseudo-random for consistent but scattered positions
-  const seed1 = i * 7919
-  const seed2 = i * 9973
-  
-  // Generate base grid position (7x7 grid = 49 points, plus one extra)
-  const gridSize = 7
-  const col = i % gridSize
-  const row = Math.floor(i / gridSize)
-  
-  // Base position from grid
-  const baseLng = SADC_LNG_MIN + (SADC_LNG_MAX - SADC_LNG_MIN) * (col / (gridSize - 1))
-  const baseLat = SADC_LAT_MIN + (SADC_LAT_MAX - SADC_LAT_MIN) * (row / (gridSize - 1))
-  
-  // Add jitter (up to ±2 degrees) for natural dispersion
-  const jitterLng = ((seed1 % 200) / 100 - 1) * 2 // -2 to +2
-  const jitterLat = ((seed2 % 200) / 100 - 1) * 2 // -2 to +2
-  
-  const lng = Math.max(SADC_LNG_MIN, Math.min(SADC_LNG_MAX, baseLng + jitterLng))
-  const lat = Math.max(SADC_LAT_MIN, Math.min(SADC_LAT_MAX, baseLat + jitterLat))
-  
+  const { lat, lng } = generateRandomSADCPoint()
+
   return {
     id: `initial-${letter}-${i}`,
     name: letter,
@@ -53,4 +85,3 @@ export const DEMO_INITIAL_AVATARS: DemoInitialAvatar[] = Array.from({ length: 50
     lat,
   }
 })
-
