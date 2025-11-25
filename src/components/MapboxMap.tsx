@@ -379,60 +379,89 @@ export default function MapboxMap({
 
         map.addControl(geolocate, 'top-right')
 
-        // Helper to update "You are here" bubble - uses same coordinates as user marker
-        const upsertYouAreHereBubble = (map: mapboxgl.Map, lng: number, lat: number) => {
-          let bubbleEl = youAreHereMarkerRef.current?.getElement()
-          if (!bubbleEl) {
-            bubbleEl = document.createElement('div')
+        // Single source of truth for user location - handles both character marker and bubble
+        let userMarker: mapboxgl.Marker | null = null
+        let youAreHereMarker: mapboxgl.Marker | null = null
+
+        const setUserLocation = (lng: number, lat: number) => {
+          // Store as single source of truth
+          userLocationRef.current = { lng, lat }
+
+          // Create or update character marker
+          if (!userMarker) {
+            const el = document.createElement('div')
+            el.className = styles.userMarker
+
+            const img = document.createElement('img')
+            img.className = styles.userImg
+            img.alt = 'You are here'
+            
+            const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
+            img.src = userIconUrl
+            
+            img.addEventListener('load', () =>
+              log(`[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`)
+            )
+            img.addEventListener('error', (e) =>
+              console.error('[user-icon] failed to load', userIconUrl, e)
+            )
+            
+            img.decoding = 'async'
+            img.loading = 'eager'
+            img.referrerPolicy = 'no-referrer'
+            
+            el.appendChild(img)
+
+            userMarker = new mapboxgl.Marker({
+              element: el,
+              anchor: 'center',
+              offset: [0, 0],
+            })
+              .setLngLat([lng, lat])
+              .addTo(map)
+
+            // Store in ref for cleanup
+            userMarkerRef.current = userMarker
+          } else {
+            userMarker.setLngLat([lng, lat])
+          }
+
+          // Create or update "You are here" bubble using the SAME coordinates
+          if (!youAreHereMarker) {
+            const bubbleEl = document.createElement('div')
             bubbleEl.style.zIndex = '9999'
             const root = ReactDOM.createRoot(bubbleEl)
             root.render(<YouAreHere />)
             
-            youAreHereMarkerRef.current = new mapboxgl.Marker({
+            youAreHereMarker = new mapboxgl.Marker({
               element: bubbleEl,
               anchor: 'bottom',
               offset: [0, -40], // Position above the character PNG
             })
               .setLngLat([lng, lat])
               .addTo(map)
-          } else {
-            youAreHereMarkerRef.current!.setLngLat([lng, lat])
-          }
-        }
 
-        let centeredOnce = false
+            youAreHereMarkerRef.current = youAreHereMarker
+          } else {
+            youAreHereMarker.setLngLat([lng, lat])
+          }
+
+          // Always center on user for landing variant at reasonable zoom
+          if (variant === 'landing') {
+            map.setCenter([lng, lat])
+            map.setZoom(12) // Local zoom level, not world view
+            log(`[user-location] centered map on user at [${lng}, ${lat}] zoom=12`)
+          }
+
+          // Update user location state for route recalculation
+          setUserLngLat([lng, lat])
+        }
 
         geolocate.on('geolocate', (e: any) => {
           const lng = e.coords.longitude
           const lat = e.coords.latitude
-
-          // Store user location as single source of truth
-          userLocationRef.current = { lng, lat }
-
-          // Update character marker using isolated helper
-          createOrUpdateUserMarker(map, lng, lat)
-
-          // Update "You are here" bubble using the SAME coordinates
-          upsertYouAreHereBubble(map, lng, lat)
-
-          // (optional) keep map centered on the user when first found
-          // Skip auto-center for landing variant when fitToMarkers is false (fixed viewport mode)
-          if (!centeredOnce) {
-            centeredOnce = true
-            if (process.env.NODE_ENV !== 'production') {
-              console.log('[camera]', 'variant=', variant, 'reason=geolocate-first-center', [lng, lat])
-            }
-            // Only auto-center if fitToMarkers is true (default behavior) or not landing variant
-            if (fitToMarkers || variant !== 'landing') {
-              map.setCenter([lng, lat])
-              console.log('[Mapbox] Centered on user:', { lng, lat })
-            }
-            // Set user location state (will trigger zoom effect)
-            setUserLngLat([lng, lat])
-          } else {
-            // Update user location state for route recalculation
-            setUserLngLat([lng, lat])
-          }
+          log(`[geolocate] received coordinates: [${lng}, ${lat}]`)
+          setUserLocation(lng, lat)
         })
 
         // Trigger geolocate after a short delay
@@ -633,6 +662,7 @@ export default function MapboxMap({
       
       if (m.kind === 'dealer') {
         // Dealer marker: use avatar marker helper with casing + verified badge
+        // Ensure we use marker's own coordinates, never user's
         const el = createAvatarMarkerElement({
           avatarUrl: m.avatar,
           name: m.name || m.label,
@@ -641,10 +671,12 @@ export default function MapboxMap({
         })
         
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([m.lng, m.lat])
+          .setLngLat([m.lng, m.lat]) // Use marker's own lng/lat
           .addTo(mapRef.current!)
+        log(`dealer marker added: ${m.id} at [${m.lng}, ${m.lat}]`)
       } else if (m.kind === 'member' || m.kind === 'co_op') {
         // Regular member/co-op marker: use avatar marker helper with casing + verified badge
+        // Ensure we use marker's own coordinates, never user's
         const el = createAvatarMarkerElement({
           avatarUrl: m.avatar,
           name: m.name || m.label,
@@ -653,9 +685,10 @@ export default function MapboxMap({
         })
         
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([m.lng, m.lat])
+          .setLngLat([m.lng, m.lat]) // Use marker's own lng/lat
           .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label || m.name || ''))
           .addTo(mapRef.current!)
+        log(`member/co-op marker added: ${m.id} at [${m.lng}, ${m.lat}]`)
       } else if (m.kind === 'branch') {
         // Branch marker: default Mapbox pin (HQ is handled separately via hqCoord prop)
         marker = new mapboxgl.Marker()
@@ -739,6 +772,14 @@ export default function MapboxMap({
         return
       }
       
+      // Ensure demo agents use their own coordinates, never user's
+      console.debug('demo agent marker', {
+        name: agent.name,
+        lng: agent.lng,
+        lat: agent.lat,
+        id: agent.id,
+      })
+      
       const el = createAvatarMarkerElement({
         avatarUrl: agent.avatar,
         name: agent.name,
@@ -747,11 +788,12 @@ export default function MapboxMap({
       })
       
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([agent.lng, agent.lat])
+        .setLngLat([agent.lng, agent.lat]) // Use agent's own lng/lat from DEMO_AGENTS
         .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(agent.name || ''))
         .addTo(mapRef.current!)
       
       agentMarkersRef.current.set(agent.id, marker)
+      log(`demo agent marker added: ${agent.name} at [${agent.lng}, ${agent.lat}]`)
     })
     
     return () => {
