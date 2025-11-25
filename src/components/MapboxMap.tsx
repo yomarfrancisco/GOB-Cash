@@ -15,6 +15,52 @@ import userIcon from '../../public/assets/character.png'
 
 const DEFAULT_MAP_STYLE = 'mapbox://styles/mapbox/navigation-day-v1'
 
+// Helper to create avatar marker with casing (Union.svg) - no badge yet
+// Uses fixed production sizing: container 56px, avatar 36px
+function createAvatarWithCasing(avatarUrl?: string): HTMLDivElement {
+  // Container (56px)
+  const container = document.createElement('div')
+  container.className = 'gb-map-marker'
+  container.style.position = 'relative'
+  container.style.width = '56px'
+  container.style.height = '56px'
+  container.style.pointerEvents = 'auto'
+
+  // Casing (Union.svg) - background layer
+  const casing = document.createElement('img')
+  casing.className = 'gb-marker-casing'
+  casing.src = '/assets/Union.svg'
+  casing.alt = ''
+  casing.style.position = 'absolute'
+  casing.style.inset = '0'
+  casing.style.width = '100%'
+  casing.style.height = '100%'
+  casing.style.objectFit = 'contain'
+  casing.style.zIndex = '1'
+  casing.style.pointerEvents = 'none'
+
+  // Avatar (36px) - foreground layer
+  const avatar = document.createElement('img')
+  avatar.className = 'gb-marker-avatar'
+  avatar.src = avatarUrl || '/assets/avatar_agent5.png'
+  avatar.alt = ''
+  avatar.style.position = 'absolute'
+  avatar.style.top = '50%'
+  avatar.style.left = '50%'
+  avatar.style.transform = 'translate(-50%, -50%)'
+  avatar.style.width = '36px'
+  avatar.style.height = '36px'
+  avatar.style.borderRadius = '50%'
+  avatar.style.objectFit = 'cover'
+  avatar.style.zIndex = '2'
+  avatar.style.pointerEvents = 'none'
+
+  container.appendChild(casing)
+  container.appendChild(avatar)
+
+  return container
+}
+
 export type Marker = {
   id: string
   lng: number
@@ -499,17 +545,8 @@ export default function MapboxMap({
       let marker: mapboxgl.Marker
       
       if (m.kind === 'dealer') {
-        // Dealer marker: circular avatar with white border (48x48px)
-        const el = document.createElement('div')
-        el.style.width = '48px'
-        el.style.height = '48px'
-        el.style.borderRadius = '50%'
-        el.style.overflow = 'hidden'
-        el.style.border = '2px solid white'
-        el.style.backgroundImage = `url("${m.avatar || '/assets/avatar_agent5.png'}")`
-        el.style.backgroundSize = 'cover'
-        el.style.backgroundPosition = 'center'
-        el.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)'
+        // Dealer marker: avatar with casing (Union.svg)
+        const el = createAvatarWithCasing(m.avatar)
         
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
           .setLngLat([m.lng, m.lat])
@@ -534,25 +571,8 @@ export default function MapboxMap({
             .setLngLat([m.lng, m.lat])
             .addTo(mapRef.current!)
         } else {
-          // Regular member/co-op marker: avatar
-          const el = document.createElement('div')
-          el.className = 'map-avatar-marker'
-          el.style.width = '40px'
-          el.style.height = '40px'
-          el.style.borderRadius = '50%'
-          el.style.overflow = 'hidden'
-          el.style.background = '#ffffff'
-          el.style.border = 'none'
-          el.style.boxShadow = 'none'
-          
-          const img = document.createElement('img')
-          img.src = m.avatar || '/assets/avatar_agent5.png'
-          img.alt = m.name || m.label || ''
-          img.style.width = '100%'
-          img.style.height = '100%'
-          img.style.objectFit = 'cover'
-          img.style.display = 'block'
-          el.appendChild(img)
+          // Regular member/co-op marker: avatar with casing (Union.svg)
+          const el = createAvatarWithCasing(m.avatar)
           
           marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
             .setLngLat([m.lng, m.lat])
@@ -632,28 +652,11 @@ export default function MapboxMap({
     if (variant === 'popup') return // no demo agents on popup
     if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') return
     
-    // Add demo agents as persistent markers
+    // Add demo agents as persistent markers - with casing (Union.svg)
     demoAgentMarkers.forEach((agent) => {
       if (agentMarkersRef.current.has(agent.id)) return // Already added
       
-      const el = document.createElement('div')
-      el.className = 'map-avatar-marker'
-      el.style.width = '40px'
-      el.style.height = '40px'
-      el.style.borderRadius = '50%'
-      el.style.overflow = 'hidden'
-      el.style.background = '#ffffff'
-      el.style.border = 'none'
-      el.style.boxShadow = 'none'
-      
-      const img = document.createElement('img')
-      img.src = agent.avatar || '/assets/avatar_agent5.png'
-      img.alt = agent.name || ''
-      img.style.width = '100%'
-      img.style.height = '100%'
-      img.style.objectFit = 'cover'
-      img.style.display = 'block'
-      el.appendChild(img)
+      const el = createAvatarWithCasing(agent.avatar)
       
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([agent.lng, agent.lat])
