@@ -380,16 +380,16 @@ export default function ProfilePage() {
                     className="profile-settings-row"
                     onClick={() => {
                       guardAuthed(() => {
-                        openInbox()
+                        openWithdrawSheet()
                       })
                     }}
                     type="button"
                   >
                     <div className="profile-settings-left">
                       <div className="profile-settings-icon">
-                        <Inbox size={22} strokeWidth={2} style={{ color: '#111' }} />
+                        <BanknoteArrowDown size={22} strokeWidth={2} style={{ color: '#111' }} />
                       </div>
-                      <span className="profile-settings-label">Inbox</span>
+                      <span className="profile-settings-label">Cash out</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
