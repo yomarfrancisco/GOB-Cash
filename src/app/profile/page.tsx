@@ -149,7 +149,7 @@ export default function ProfilePage() {
   return (
     <div className="app-shell">
       <div className="mobile-frame">
-        <div className="dashboard-container">
+        <div className="dashboard-container" style={{ position: 'relative' }}>
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
             <div className="overlay-glass-inner">
