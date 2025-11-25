@@ -15,6 +15,113 @@ import userIcon from '../../public/assets/character.png'
 
 const DEFAULT_MAP_STYLE = 'mapbox://styles/mapbox/navigation-day-v1'
 
+// Helper for avatar markers (dealers, members, co-ops, demo agents) with casing + verified badge
+// Uses proportional system from AVATAR_CASING_POSITIONING_GUIDE.md
+// User marker never uses this - it has its own isolated logic
+type AvatarMarkerOptions = {
+  avatarUrl?: string
+  name?: string
+  verified?: boolean
+  containerSize?: number // Optional override, defaults to 56px
+}
+
+function createAvatarMarkerElement(opts: AvatarMarkerOptions): HTMLDivElement {
+  const {
+    avatarUrl,
+    name,
+    verified = true, // Default to verified for now
+    containerSize = 56, // Default container size
+  } = opts
+
+  // Proportional calculations (from AVATAR_CASING_POSITIONING_GUIDE.md)
+  const C = containerSize
+  const avatarSize = C * 0.6429 // 64.29% of container
+  const badgeSize = avatarSize * 0.3 // 30% of avatar
+  const casingOffset = C * 0.0179 // 1.79% of container
+  const badgeTop = C * 0.0536 // 5.36% of container
+  const badgeRight = C * 0.0804 // 8.04% of container
+
+  // Container (outer wrapper)
+  const container = document.createElement('div')
+  container.className = 'gb-map-marker' // Separate class from user marker
+  container.style.position = 'relative'
+  container.style.width = `${C}px`
+  container.style.height = `${C}px`
+  container.style.pointerEvents = 'auto' // Keep markers tappable
+  container.style.overflow = 'visible' // Ensure badge is not clipped
+
+  // Casing (Union.svg) - background layer
+  const casing = document.createElement('img')
+  casing.className = 'gb-marker-casing'
+  casing.src = '/assets/Union.svg'
+  casing.alt = ''
+  casing.style.position = 'absolute'
+  casing.style.inset = '0'
+  casing.style.transform = `translate(${casingOffset}px, ${casingOffset}px)`
+  casing.style.width = '100%'
+  casing.style.height = '100%'
+  casing.style.objectFit = 'contain'
+  casing.style.zIndex = '1'
+  casing.style.pointerEvents = 'none'
+
+  // Avatar wrapper (circular crop) - middle layer
+  const avatarWrapper = document.createElement('div')
+  avatarWrapper.className = 'gb-marker-avatar-wrapper'
+  avatarWrapper.style.position = 'absolute'
+  avatarWrapper.style.top = '50%'
+  avatarWrapper.style.left = '50%'
+  avatarWrapper.style.transform = 'translate(-50%, -55%)' // Slightly above center
+  avatarWrapper.style.width = `${avatarSize}px`
+  avatarWrapper.style.height = `${avatarSize}px`
+  avatarWrapper.style.borderRadius = '50%'
+  avatarWrapper.style.overflow = 'hidden'
+  avatarWrapper.style.zIndex = '2'
+  avatarWrapper.style.pointerEvents = 'none'
+
+  // Avatar image
+  const avatar = document.createElement('img')
+  avatar.className = 'gb-marker-avatar'
+  avatar.src = avatarUrl || '/assets/avatar_agent5.png'
+  avatar.alt = name || ''
+  avatar.style.width = '100%'
+  avatar.style.height = '100%'
+  avatar.style.objectFit = 'cover'
+  avatar.style.display = 'block'
+  avatar.style.pointerEvents = 'none'
+  avatarWrapper.appendChild(avatar)
+
+  // Assemble: casing + avatar
+  container.appendChild(casing)
+  container.appendChild(avatarWrapper)
+
+  // Verified badge - foreground layer (only if verified !== false)
+  if (verified !== false) {
+    const badgeWrapper = document.createElement('div')
+    badgeWrapper.className = 'gb-marker-badge-wrapper'
+    badgeWrapper.style.position = 'absolute'
+    badgeWrapper.style.top = `${badgeTop}px`
+    badgeWrapper.style.right = `${badgeRight}px`
+    badgeWrapper.style.width = `${badgeSize}px`
+    badgeWrapper.style.height = `${badgeSize}px`
+    badgeWrapper.style.zIndex = '3'
+    badgeWrapper.style.pointerEvents = 'none'
+
+    const badge = document.createElement('img')
+    badge.className = 'gb-marker-badge'
+    badge.src = '/assets/verified.svg'
+    badge.alt = 'Verified'
+    badge.style.width = '100%'
+    badge.style.height = '100%'
+    badge.style.objectFit = 'contain'
+    badge.style.pointerEvents = 'none'
+
+    badgeWrapper.appendChild(badge)
+    container.appendChild(badgeWrapper)
+  }
+
+  return container
+}
+
 export type Marker = {
   id: string
   lng: number
@@ -80,7 +187,6 @@ export default function MapboxMap({
   )
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const youAreHereMarkerRef = useRef<mapboxgl.Marker | null>(null)
-  const userLocationRef = useRef<{ lng: number; lat: number } | null>(null)
   const savedCenterRef = useRef<[number, number] | null>(null)
   const savedZoomRef = useRef<number | null>(null)
   const highlightMarkerRef = useRef<mapboxgl.Marker | null>(null)
@@ -125,162 +231,6 @@ export default function MapboxMap({
     const lat2 = toRad(b[1])
     const s = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
     return 2 * R * Math.asin(Math.sqrt(s))
-  }
-
-  // Dedicated helper for user marker - completely isolated from avatar marker logic
-  // This function is the ONLY place where the user marker (character.png) is created
-  function createOrUpdateUserMarker(map: mapboxgl.Map, lng: number, lat: number): mapboxgl.Marker {
-    // Always remove previous marker before creating/updating to prevent drift
-    if (userMarkerRef.current) {
-      userMarkerRef.current.remove()
-      userMarkerRef.current = null
-    }
-
-    // Create DOM element - minimal structure, no wrappers
-    const el = document.createElement('div')
-    el.className = styles.userMarker // Isolated CSS class - never shared with avatars
-
-    // Create image element
-    const img = document.createElement('img')
-    img.className = styles.userImg // Isolated CSS class - never shared with avatars
-    img.alt = 'You are here'
-    
-    // Use static import if available, else fall back to public path
-    const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
-    img.src = userIconUrl
-    
-    // Image loading diagnostics
-    img.addEventListener('load', () =>
-      log(`[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`)
-    )
-    img.addEventListener('error', (e) =>
-      console.error('[user-icon] failed to load', userIconUrl, e)
-    )
-    
-    img.decoding = 'async'
-    img.loading = 'eager'
-    img.referrerPolicy = 'no-referrer'
-    
-    el.appendChild(img)
-
-    // Create Mapbox marker - anchored at center, no offset, no casing, no badge logic
-    const marker = new mapboxgl.Marker({
-      element: el,
-      anchor: 'center',
-      offset: [0, 0],
-    })
-      .setLngLat([lng, lat])
-      .addTo(map)
-
-    userMarkerRef.current = marker
-    return marker
-  }
-
-  // Helper for avatar markers (dealers, members, co-ops, demo agents) with casing + verified badge
-  // Uses proportional system from AVATAR_CASING_POSITIONING_GUIDE.md
-  // User marker never uses this - it has its own isolated createOrUpdateUserMarker function
-  type AvatarMarkerOptions = {
-    avatarUrl?: string
-    name?: string
-    verified?: boolean
-    containerSize?: number // Optional override, defaults to 56px
-  }
-
-  function createAvatarMarkerElement(opts: AvatarMarkerOptions): HTMLDivElement {
-    const {
-      avatarUrl,
-      name,
-      verified = true, // Default to verified for now
-      containerSize = 56, // Default container size
-    } = opts
-
-    // Proportional calculations (from AVATAR_CASING_POSITIONING_GUIDE.md)
-    const C = containerSize
-    const avatarSize = C * 0.6429 // 64.29% of container
-    const badgeSize = avatarSize * 0.3 // 30% of avatar
-    const casingOffset = C * 0.0179 // 1.79% of container
-    const badgeTop = C * 0.0536 // 5.36% of container
-    const badgeRight = C * 0.0804 // 8.04% of container
-
-    // Container (outer wrapper)
-    const container = document.createElement('div')
-    container.className = 'gb-map-marker' // Separate class from user marker
-    container.style.position = 'relative'
-    container.style.width = `${C}px`
-    container.style.height = `${C}px`
-    container.style.pointerEvents = 'auto' // Keep markers tappable
-    container.style.overflow = 'visible' // Ensure badge is not clipped
-
-    // Casing (Union.svg) - background layer
-    const casing = document.createElement('img')
-    casing.className = 'gb-marker-casing'
-    casing.src = '/assets/Union.svg'
-    casing.alt = ''
-    casing.style.position = 'absolute'
-    casing.style.inset = '0'
-    casing.style.transform = `translate(${casingOffset}px, ${casingOffset}px)`
-    casing.style.width = '100%'
-    casing.style.height = '100%'
-    casing.style.objectFit = 'contain'
-    casing.style.zIndex = '1'
-    casing.style.pointerEvents = 'none'
-
-    // Avatar wrapper (circular crop) - middle layer
-    const avatarWrapper = document.createElement('div')
-    avatarWrapper.className = 'gb-marker-avatar-wrapper'
-    avatarWrapper.style.position = 'absolute'
-    avatarWrapper.style.top = '50%'
-    avatarWrapper.style.left = '50%'
-    avatarWrapper.style.transform = 'translate(-50%, -55%)' // Slightly above center
-    avatarWrapper.style.width = `${avatarSize}px`
-    avatarWrapper.style.height = `${avatarSize}px`
-    avatarWrapper.style.borderRadius = '50%'
-    avatarWrapper.style.overflow = 'hidden'
-    avatarWrapper.style.zIndex = '2'
-    avatarWrapper.style.pointerEvents = 'none'
-
-    // Avatar image
-    const avatar = document.createElement('img')
-    avatar.className = 'gb-marker-avatar'
-    avatar.src = avatarUrl || '/assets/avatar_agent5.png'
-    avatar.alt = name || ''
-    avatar.style.width = '100%'
-    avatar.style.height = '100%'
-    avatar.style.objectFit = 'cover'
-    avatar.style.display = 'block'
-    avatar.style.pointerEvents = 'none'
-    avatarWrapper.appendChild(avatar)
-
-    // Assemble: casing + avatar
-    container.appendChild(casing)
-    container.appendChild(avatarWrapper)
-
-    // Verified badge - foreground layer (only if verified !== false)
-    if (verified !== false) {
-      const badgeWrapper = document.createElement('div')
-      badgeWrapper.className = 'gb-marker-badge-wrapper'
-      badgeWrapper.style.position = 'absolute'
-      badgeWrapper.style.top = `${badgeTop}px`
-      badgeWrapper.style.right = `${badgeRight}px`
-      badgeWrapper.style.width = `${badgeSize}px`
-      badgeWrapper.style.height = `${badgeSize}px`
-      badgeWrapper.style.zIndex = '3'
-      badgeWrapper.style.pointerEvents = 'none'
-
-      const badge = document.createElement('img')
-      badge.className = 'gb-marker-badge'
-      badge.src = '/assets/verified.svg'
-      badge.alt = 'Verified'
-      badge.style.width = '100%'
-      badge.style.height = '100%'
-      badge.style.objectFit = 'contain'
-      badge.style.pointerEvents = 'none'
-
-      badgeWrapper.appendChild(badge)
-      container.appendChild(badgeWrapper)
-    }
-
-    return container
   }
 
   // Shared helper to fetch driving route from Mapbox Directions API
@@ -379,95 +329,90 @@ export default function MapboxMap({
 
         map.addControl(geolocate, 'top-right')
 
-        // Single source of truth for user location - handles both character marker and bubble
-        let userMarker: mapboxgl.Marker | null = null
-        let youAreHereMarker: mapboxgl.Marker | null = null
-
-        const setUserLocation = (lng: number, lat: number) => {
-          // Store as single source of truth
-          userLocationRef.current = { lng, lat }
-
-          // Create or update character marker
-          if (!userMarker) {
-            const el = document.createElement('div')
+        // Helper to (re)place custom user marker (using const arrow function to avoid ES5 strict mode error)
+        const upsertUserMarker = (lng: number, lat: number) => {
+          // create DOM element once
+          let el = userMarkerRef.current?.getElement()
+          if (!el) {
+            el = document.createElement('div')
             el.className = styles.userMarker
-
+            // add our PNG as <img> to preserve sharpness on retina
             const img = document.createElement('img')
             img.className = styles.userImg
             img.alt = 'You are here'
-            
+            // Use static import if available, else fall back to public path:
             const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
             img.src = userIconUrl
-            
+            // Helpful diagnostics the first time we deploy
             img.addEventListener('load', () =>
-              log(`[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`)
+              log(
+                `[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`
+              )
             )
             img.addEventListener('error', (e) =>
               console.error('[user-icon] failed to load', userIconUrl, e)
             )
-            
             img.decoding = 'async'
             img.loading = 'eager'
             img.referrerPolicy = 'no-referrer'
-            
             el.appendChild(img)
-
-            userMarker = new mapboxgl.Marker({
+            userMarkerRef.current = new mapboxgl.Marker({
               element: el,
               anchor: 'center',
-              offset: [0, 0],
             })
               .setLngLat([lng, lat])
               .addTo(map)
-
-            // Store in ref for cleanup
-            userMarkerRef.current = userMarker
           } else {
-            userMarker.setLngLat([lng, lat])
+            userMarkerRef.current!.setLngLat([lng, lat])
           }
 
-          // Create or update "You are here" bubble using the SAME coordinates
-          if (!youAreHereMarker) {
-            const bubbleEl = document.createElement('div')
+          // Add "You are here" bubble above the user marker
+          let bubbleEl = youAreHereMarkerRef.current?.getElement()
+          if (!bubbleEl) {
+            bubbleEl = document.createElement('div')
             bubbleEl.style.zIndex = '9999'
             const root = ReactDOM.createRoot(bubbleEl)
             root.render(<YouAreHere />)
             
-            youAreHereMarker = new mapboxgl.Marker({
+            youAreHereMarkerRef.current = new mapboxgl.Marker({
               element: bubbleEl,
               anchor: 'bottom',
-              offset: [0, -40], // Position above the character PNG
+              offset: [0, -40], // Position above the avatar PNG
             })
               .setLngLat([lng, lat])
               .addTo(map)
-
-            youAreHereMarkerRef.current = youAreHereMarker
           } else {
-            youAreHereMarker.setLngLat([lng, lat])
+            youAreHereMarkerRef.current!.setLngLat([lng, lat])
           }
-
-          // Always center on user for landing variant at reasonable zoom
-          if (variant === 'landing') {
-            map.setCenter([lng, lat])
-            map.setZoom(12) // Local zoom level, not world view
-            log(`[user-location] centered map on user at [${lng}, ${lat}] zoom=12`)
-            // For landing variant, don't trigger the auto-zoom effect that calculates zoom based on branch distance
-            // We want a fixed zoom 12, not dynamic zoom
-            // Still update state for route calculation, but skip the effect by not setting userLngLat
-            // Actually, we need userLngLat for routes, so we'll set it but the effect should be gated
-          }
-
-          // Update user location state for route recalculation
-          // NOTE: This will trigger the auto-zoom effect, but for landing variant with fitToMarkers=false,
-          // we want to keep zoom 12. The effect should respect this.
-          setUserLngLat([lng, lat])
         }
+
+        let centeredOnce = false
 
         geolocate.on('geolocate', (e: any) => {
           const lng = e.coords.longitude
           const lat = e.coords.latitude
-          log(`[geolocate] received coordinates: [${lng}, ${lat}]`)
-          setUserLocation(lng, lat)
+
+          // Update custom user marker on every geolocate event
+          upsertUserMarker(lng, lat)
+
+          // (optional) keep map centered on the user when first found
+          // Skip auto-center for landing variant when fitToMarkers is false (fixed viewport mode)
+          if (!centeredOnce) {
+            centeredOnce = true
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('[camera]', 'variant=', variant, 'reason=geolocate-first-center', [lng, lat])
+            }
+            // Only auto-center if fitToMarkers is true (default behavior) or not landing variant
+            if (fitToMarkers || variant !== 'landing') {
+              map.setCenter([lng, lat])
+              console.log('[Mapbox] Centered on user:', { lng, lat })
+            }
+            // Set user location state (will trigger zoom effect)
+            setUserLngLat([lng, lat])
+          } else {
+            // Update user location state for route recalculation
+            setUserLngLat([lng, lat])
+          }
         })
 
         // Trigger geolocate after a short delay
@@ -613,16 +558,13 @@ export default function MapboxMap({
   }, [variant, isAuthed])
 
   // Reset camera to static SADC view when user becomes logged in
-  // BUT: Only do this if we don't have a user location yet.
-  // Once geolocation succeeds and we've centered on the user, don't override that.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !loadedRef.current) return
     if (variant !== 'landing') return
 
-    // Only jump to static SADC view if the user location is UNKNOWN.
-    // Once we've geolocated and centered on the user, don't fight that.
-    if (isAuthed && !userLngLat) {
+    // When user becomes authed, jump to the static SADC view (no animation)
+    if (isAuthed) {
       map.jumpTo({
         center: SADC_CENTER,
         zoom: SADC_ZOOM,
@@ -633,7 +575,7 @@ export default function MapboxMap({
         console.log('[MapboxMap] Reset to static SADC view (user logged in), animations disabled')
       }
     }
-  }, [isAuthed, variant, userLngLat])
+  }, [isAuthed, variant])
 
   // Separate effect to add/update markers when map is loaded (without re-initializing map)
   useEffect(() => {
@@ -658,20 +600,13 @@ export default function MapboxMap({
       return
     }
 
-    // Add new markers - user marker is handled separately, never processed here
+    // Add new markers - use avatar markers for members/co-op, circular for dealers, character.png for user, default pin for branches
     log(`adding ${markers.length} markers`)
     markers.forEach((m) => {
-      // GUARD: Skip user marker - it's handled by setUserLocation in geolocate handler only
-      if (m.id === 'user-location') {
-        log(`skipping user marker ${m.id} - handled separately by geolocate`)
-        return
-      }
-
       let marker: mapboxgl.Marker
       
       if (m.kind === 'dealer') {
         // Dealer marker: use avatar marker helper with casing + verified badge
-        // Ensure we use marker's own coordinates, never user's
         const el = createAvatarMarkerElement({
           avatarUrl: m.avatar,
           name: m.name || m.label,
@@ -680,24 +615,41 @@ export default function MapboxMap({
         })
         
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([m.lng, m.lat]) // Use marker's own lng/lat
+          .setLngLat([m.lng, m.lat])
           .addTo(mapRef.current!)
-        log(`dealer marker added: ${m.id} at [${m.lng}, ${m.lat}]`)
       } else if (m.kind === 'member' || m.kind === 'co_op') {
-        // Regular member/co-op marker: use avatar marker helper with casing + verified badge
-        // Ensure we use marker's own coordinates, never user's
-        const el = createAvatarMarkerElement({
-          avatarUrl: m.avatar,
-          name: m.name || m.label,
-          verified: true, // All members verified for now
-          containerSize: 56,
-        })
-        
-        marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([m.lng, m.lat]) // Use marker's own lng/lat
-          .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label || m.name || ''))
-          .addTo(mapRef.current!)
-        log(`member/co-op marker added: ${m.id} at [${m.lng}, ${m.lat}]`)
+        // Check if this is the user marker (no avatar, should use character.png)
+        if (!m.avatar && m.id === 'user-location') {
+          // User marker: use character.png
+          const el = document.createElement('div')
+          el.className = styles.userMarker
+          const img = document.createElement('img')
+          img.className = styles.userImg
+          img.alt = 'You are here'
+          const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
+          img.src = userIconUrl
+          img.decoding = 'async'
+          img.loading = 'eager'
+          img.referrerPolicy = 'no-referrer'
+          el.appendChild(img)
+          
+          marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([m.lng, m.lat])
+            .addTo(mapRef.current!)
+        } else {
+          // Regular member/co-op marker: use avatar marker helper with casing + verified badge
+          const el = createAvatarMarkerElement({
+            avatarUrl: m.avatar,
+            name: m.name || m.label,
+            verified: true, // All members verified for now
+            containerSize: 56,
+          })
+          
+          marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([m.lng, m.lat])
+            .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label || m.name || ''))
+            .addTo(mapRef.current!)
+        }
       } else if (m.kind === 'branch') {
         // Branch marker: default Mapbox pin (HQ is handled separately via hqCoord prop)
         marker = new mapboxgl.Marker()
@@ -771,23 +723,9 @@ export default function MapboxMap({
     if (variant === 'popup') return // no demo agents on popup
     if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') return
     
-    // Add demo agents as persistent markers - use avatar marker helper
+    // Add demo agents as persistent markers - use avatar marker helper with casing + verified badge
     demoAgentMarkers.forEach((agent) => {
       if (agentMarkersRef.current.has(agent.id)) return // Already added
-      
-      // GUARD: Ensure demo agents never use user marker logic
-      if (agent.id === 'user-location') {
-        log(`skipping user marker in demo agents - handled separately`)
-        return
-      }
-      
-      // Ensure demo agents use their own coordinates, never user's
-      console.debug('demo agent marker', {
-        name: agent.name,
-        lng: agent.lng,
-        lat: agent.lat,
-        id: agent.id,
-      })
       
       const el = createAvatarMarkerElement({
         avatarUrl: agent.avatar,
@@ -797,12 +735,11 @@ export default function MapboxMap({
       })
       
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([agent.lng, agent.lat]) // Use agent's own lng/lat from DEMO_AGENTS
+        .setLngLat([agent.lng, agent.lat])
         .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(agent.name || ''))
         .addTo(mapRef.current!)
       
       agentMarkersRef.current.set(agent.id, marker)
-      log(`demo agent marker added: ${agent.name} at [${agent.lng}, ${agent.lat}]`)
     })
     
     return () => {
@@ -909,9 +846,8 @@ export default function MapboxMap({
     if (!loadedRef.current) return // ensure map is fully loaded
     if (variant === 'popup') return // popup: no auto-zoom logic
     
-    // For landing variant, skip auto-zoom entirely - we use fixed zoom 12 from geolocate handler
-    // The geolocate handler in setUserLocation already centers and zooms to 12, so this effect would override it
-    if (variant === 'landing') return
+    // Don't auto-zoom until landing animations are enabled (after 10s hold) or for authenticated users
+    if (variant === 'landing' && (!landingAnimationsEnabled || isAuthed)) return
     
     if (!userLngLat) return
     if (!markers?.length) return
