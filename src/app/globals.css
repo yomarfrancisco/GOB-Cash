@@ -226,7 +226,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   width: min(430px, 100vw);
-  height: 360px;
+  height: 550px; /* Extended from 360px to cover down to stats card area */
   overflow: hidden;
   pointer-events: none;
   z-index: 0; /* behind scroll-content and glass overlays */
@@ -242,17 +242,22 @@ body {
   opacity: 0.8; /* match Figma's 0.8 */
 }
 
-/* White fade over the lower portion of the Benjamin image */
+/* White fade over the lower portion of the Benjamin image
+   Gradient tuned so image stays visible through name/handle,
+   starts fading around stats area, fully white by end of stats card */
 .profile-backdrop-fade {
   position: absolute;
   left: 0;
   bottom: 0;
   width: 100%;
-  height: 55%; /* ~bottom half gets the fade, adjust as needed */
+  height: 100%; /* Full height for gradient control */
   background: linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0) 0%,
-    #ffffff 100%
+    rgba(255, 255, 255, 0)   0%,   /* fully transparent at the top - image visible behind logo/avatar */
+    rgba(255, 255, 255, 0)   40%,  /* still transparent through name/handle area */
+    rgba(255, 255, 255, 0.4) 60%,  /* start soft fade around stats area */
+    rgba(255, 255, 255, 0.85) 85%, /* nearly white near bottom of stats card */
+    rgba(255, 255, 255, 1)   100%  /* fully white by end of stats + settings section */
   );
 }
 
