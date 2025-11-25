@@ -178,37 +178,110 @@ export default function MapboxMap({
     return marker!
   }
 
-  // Stub helper for avatar markers (dealers, members, co-ops, demo agents)
-  // This will be extended later with casing/badge logic, but user marker never uses this
+  // Helper for avatar markers (dealers, members, co-ops, demo agents) with casing + verified badge
+  // Uses proportional system from AVATAR_CASING_POSITIONING_GUIDE.md
+  // User marker never uses this - it has its own isolated createOrUpdateUserMarker function
   type AvatarMarkerOptions = {
     avatarUrl?: string
     name?: string
     verified?: boolean
+    containerSize?: number // Optional override, defaults to 56px
   }
 
   function createAvatarMarkerElement(opts: AvatarMarkerOptions): HTMLDivElement {
-    const el = document.createElement('div')
-    el.className = 'map-avatar-marker' // Separate class from user marker
-    el.style.width = '40px'
-    el.style.height = '40px'
-    el.style.borderRadius = '50%'
-    el.style.overflow = 'hidden'
-    el.style.background = '#ffffff'
-    el.style.border = 'none'
-    el.style.boxShadow = 'none'
+    const {
+      avatarUrl,
+      name,
+      verified = true, // Default to verified for now
+      containerSize = 56, // Default container size
+    } = opts
 
-    const img = document.createElement('img')
-    img.src = opts.avatarUrl || '/assets/avatar_agent5.png'
-    img.alt = opts.name || ''
-    img.style.width = '100%'
-    img.style.height = '100%'
-    img.style.objectFit = 'cover'
-    img.style.display = 'block'
-    el.appendChild(img)
+    // Proportional calculations (from AVATAR_CASING_POSITIONING_GUIDE.md)
+    const C = containerSize
+    const avatarSize = C * 0.6429 // 64.29% of container
+    const badgeSize = avatarSize * 0.3 // 30% of avatar
+    const casingOffset = C * 0.0179 // 1.79% of container
+    const badgeTop = C * 0.0536 // 5.36% of container
+    const badgeRight = C * 0.0804 // 8.04% of container
 
-    // NOTE: opts.verified is ignored for now - casing/badge logic will be added later
-    // This helper is ONLY for non-user markers
-    return el
+    // Container (outer wrapper)
+    const container = document.createElement('div')
+    container.className = 'gb-map-marker' // Separate class from user marker
+    container.style.position = 'relative'
+    container.style.width = `${C}px`
+    container.style.height = `${C}px`
+    container.style.pointerEvents = 'auto' // Keep markers tappable
+
+    // Casing (Union.svg) - background layer
+    const casing = document.createElement('img')
+    casing.className = 'gb-marker-casing'
+    casing.src = '/assets/Union.svg'
+    casing.alt = ''
+    casing.style.position = 'absolute'
+    casing.style.inset = '0'
+    casing.style.transform = `translate(${casingOffset}px, ${casingOffset}px)`
+    casing.style.width = '100%'
+    casing.style.height = '100%'
+    casing.style.objectFit = 'contain'
+    casing.style.zIndex = '1'
+    casing.style.pointerEvents = 'none'
+
+    // Avatar wrapper (circular crop) - middle layer
+    const avatarWrapper = document.createElement('div')
+    avatarWrapper.className = 'gb-marker-avatar-wrapper'
+    avatarWrapper.style.position = 'absolute'
+    avatarWrapper.style.top = '50%'
+    avatarWrapper.style.left = '50%'
+    avatarWrapper.style.transform = 'translate(-50%, -55%)' // Slightly above center
+    avatarWrapper.style.width = `${avatarSize}px`
+    avatarWrapper.style.height = `${avatarSize}px`
+    avatarWrapper.style.borderRadius = '50%'
+    avatarWrapper.style.overflow = 'hidden'
+    avatarWrapper.style.zIndex = '2'
+    avatarWrapper.style.pointerEvents = 'none'
+
+    // Avatar image
+    const avatar = document.createElement('img')
+    avatar.className = 'gb-marker-avatar'
+    avatar.src = avatarUrl || '/assets/avatar_agent5.png'
+    avatar.alt = name || ''
+    avatar.style.width = '100%'
+    avatar.style.height = '100%'
+    avatar.style.objectFit = 'cover'
+    avatar.style.display = 'block'
+    avatar.style.pointerEvents = 'none'
+    avatarWrapper.appendChild(avatar)
+
+    // Assemble: casing + avatar
+    container.appendChild(casing)
+    container.appendChild(avatarWrapper)
+
+    // Verified badge - foreground layer (only if verified !== false)
+    if (verified !== false) {
+      const badgeWrapper = document.createElement('div')
+      badgeWrapper.className = 'gb-marker-badge-wrapper'
+      badgeWrapper.style.position = 'absolute'
+      badgeWrapper.style.top = `${badgeTop}px`
+      badgeWrapper.style.right = `${badgeRight}px`
+      badgeWrapper.style.width = `${badgeSize}px`
+      badgeWrapper.style.height = `${badgeSize}px`
+      badgeWrapper.style.zIndex = '3'
+      badgeWrapper.style.pointerEvents = 'none'
+
+      const badge = document.createElement('img')
+      badge.className = 'gb-marker-badge'
+      badge.src = '/assets/verified.svg'
+      badge.alt = 'Verified'
+      badge.style.width = '100%'
+      badge.style.height = '100%'
+      badge.style.objectFit = 'contain'
+      badge.style.pointerEvents = 'none'
+
+      badgeWrapper.appendChild(badge)
+      container.appendChild(badgeWrapper)
+    }
+
+    return container
   }
 
   // Shared helper to fetch driving route from Mapbox Directions API
@@ -558,27 +631,24 @@ export default function MapboxMap({
       let marker: mapboxgl.Marker
       
       if (m.kind === 'dealer') {
-        // Dealer marker: circular avatar with white border (48x48px)
-        const el = document.createElement('div')
-        el.style.width = '48px'
-        el.style.height = '48px'
-        el.style.borderRadius = '50%'
-        el.style.overflow = 'hidden'
-        el.style.border = '2px solid white'
-        el.style.backgroundImage = `url("${m.avatar || '/assets/avatar_agent5.png'}")`
-        el.style.backgroundSize = 'cover'
-        el.style.backgroundPosition = 'center'
-        el.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)'
+        // Dealer marker: use avatar marker helper with casing + verified badge
+        const el = createAvatarMarkerElement({
+          avatarUrl: m.avatar,
+          name: m.name || m.label,
+          verified: true, // All dealers verified for now
+          containerSize: 56,
+        })
         
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
           .setLngLat([m.lng, m.lat])
           .addTo(mapRef.current!)
       } else if (m.kind === 'member' || m.kind === 'co_op') {
-        // Regular member/co-op marker: use avatar marker helper
+        // Regular member/co-op marker: use avatar marker helper with casing + verified badge
         const el = createAvatarMarkerElement({
           avatarUrl: m.avatar,
           name: m.name || m.label,
-          verified: false, // Will be implemented later
+          verified: true, // All members verified for now
+          containerSize: 56,
         })
         
         marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
