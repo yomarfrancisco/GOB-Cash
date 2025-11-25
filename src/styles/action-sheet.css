@@ -116,6 +116,12 @@
   max-height: 85vh;
 }
 
+/* Cash Transactions sheet - faster slide-up + fade-in animation */
+.as-sheet.cash-keypad {
+  animation: cashSheetSlideUp 250ms cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+  /* Soft spring-like easing, no bounce */
+}
+
 /* Send details sheet - force exact height match with AmountSheet */
 .as-sheet.send-details.as-sheet-tall {
   max-height: 85vh;
@@ -150,6 +156,40 @@
   }
   to {
     transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Cash Transactions sheet animation - slide-up + fade-in */
+@keyframes cashSheetSlideUp {
+  from {
+    transform: translateX(-50%) translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Keypad contents fade-in + slight upward movement */
+@keyframes cashKeypadContentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Button fade-in */
+@keyframes cashButtonFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
