@@ -89,6 +89,10 @@
   color: #1a1a1a;
   margin-top: 8px;
   padding: 0 24px;
+  max-width: 300px;
+  margin-left: auto;
+  margin-right: auto;
+  white-space: normal; /* allow wrapping if needed but unlikely with wider max-width */
 }
 
 /* Amount display section */
@@ -192,6 +196,9 @@
   color: #999;
   line-height: 1.35; /* Reduced by ~10% from default 1.5 */
   white-space: normal; /* Allow wrapping */
+  max-width: 300px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* For helicopter convert flow, use slightly smaller font for multi-line text */

@@ -84,11 +84,7 @@ export default function AmountKeypad({
         <div className="amount-keypad__footer" style={{ ['--cta-h' as any]: '88px' }}>
           <div className={`amount-keypad__fee-note ${isHelicopterConvert ? 'amount-keypad__fee-note--helicopter' : ''}`}>
             {isHelicopterConvert ? (
-              <>
-                Convert cash to USDT<br />
-                or USDT to cash<br />
-                through verified agents
-              </>
+              'Cash ↔ USDT with verified agents.'
             ) : isConvertMode ? (
               '0% transaction fee'
             ) : (
@@ -104,11 +100,7 @@ export default function AmountKeypad({
       {hideCTA && (
         <div className={`amount-keypad__fee-note ${isHelicopterConvert ? 'amount-keypad__fee-note--helicopter' : ''}`} style={{ paddingTop: '12px', textAlign: 'center' }}>
           {isHelicopterConvert ? (
-            <>
-              Convert cash to USDT<br />
-              or USDT to cash<br />
-              through verified agents
-            </>
+            'Cash ↔ USDT with verified agents.'
           ) : isConvertMode ? (
             '0% transaction fee'
           ) : (
