@@ -92,7 +92,7 @@ export default function FinancialInboxSheet({ onRequestAgent }: FinancialInboxSh
       onClose={closeInbox}
       title={sheetTitle}
       size="tall"
-      className={listStyles.financialInboxSheet}
+      className={`${listStyles.financialInboxSheet} inboxTallSheet`}
     >
       {inboxViewMode === 'inbox' ? (
         // Inbox list view
