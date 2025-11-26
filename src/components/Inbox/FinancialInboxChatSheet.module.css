@@ -231,3 +231,12 @@
   transform: translateY(0) scale(1);
 }
 
+/* Spacing between tiles */
+.amaIntroTile {
+  margin-top: 16px;
+}
+
+.amaIntroTile:first-child {
+  margin-top: 0; /* No margin on first tile */
+}
+

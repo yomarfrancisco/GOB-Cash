@@ -8,6 +8,7 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
 import walletHelperStyles from '../WalletHelperSheet.module.css'
+import mapHelperStyles from '../MapHelperSheet.module.css'
 
 // Ama intro message text constant
 const AMA_INTRO_TEXT = "Hi, I'm Ama, your Investment Manager 👋   I can help you make your first deposit, find a cash agent, or convert cash to crypto.   What would you like to do first?"
@@ -72,7 +73,8 @@ function TypedMessageBubble({ text, animate, showCard, introStage, onTypingCompl
           chatStyles.amaIntroCardBlock,
           (introStage === 'cards' || introStage === 'done') && chatStyles.amaIntroCardBlockVisible
         )}>
-          <div className={clsx(walletHelperStyles.tile, walletHelperStyles.compactTile)}>
+          {/* 1) ZAR savings card */}
+          <div className={clsx(walletHelperStyles.tile, walletHelperStyles.compactTile, chatStyles.amaIntroTile)}>
             <div className={walletHelperStyles.cardPreviewContainer}>
               {/* APY pill overlay - single line for chat */}
               <div className={clsx(
@@ -85,8 +87,8 @@ function TypedMessageBubble({ text, animate, showCard, introStage, onTypingCompl
               {/* Card preview (compact) */}
               <div className={clsx(walletHelperStyles.cardPreview, walletHelperStyles.compactCardPreview)}>
                 <Image
-                  src="/assets/cards/card-pepe.jpg"
-                  alt="PEPE wallet"
+                  src="/assets/cards/card-savings.jpg"
+                  alt="ZAR savings wallet"
                   fill
                   className={walletHelperStyles.cardImage}
                   sizes="176px"
@@ -100,6 +102,58 @@ function TypedMessageBubble({ text, animate, showCard, introStage, onTypingCompl
             </h3>
             <p className={clsx(walletHelperStyles.apySubtext, walletHelperStyles.compactApySubtext)}>
               Compounded monthly
+            </p>
+          </div>
+
+          {/* 2) BTC card */}
+          <div className={clsx(walletHelperStyles.tile, walletHelperStyles.compactTile, chatStyles.amaIntroTile)}>
+            <div className={walletHelperStyles.cardPreviewContainer}>
+              {/* APY pill overlay - single line for chat */}
+              <div className={clsx(
+                walletHelperStyles.amaIntroApyPill,
+                chatStyles.amaIntroApyPillAnimated,
+                (introStage === 'cards' || introStage === 'done') && chatStyles.amaIntroApyPillVisible
+              )}>
+                <span className={walletHelperStyles.amaIntroApyText}>9.38% APY</span>
+              </div>
+              {/* Card preview (compact) */}
+              <div className={clsx(walletHelperStyles.cardPreview, walletHelperStyles.compactCardPreview)}>
+                <Image
+                  src="/assets/cards/card-BTC.jpg"
+                  alt="Bitcoin wallet"
+                  fill
+                  className={walletHelperStyles.cardImage}
+                  sizes="176px"
+                  unoptimized
+                />
+              </div>
+            </div>
+            {/* Compact text - heading must stay on one line */}
+            <h3 className={walletHelperStyles.amaIntroApyHeading}>
+              Earn 9% annually on your deposits
+            </h3>
+            <p className={clsx(walletHelperStyles.apySubtext, walletHelperStyles.compactApySubtext)}>
+              Compounded monthly
+            </p>
+          </div>
+
+          {/* 3) Map tile */}
+          <div className={clsx(mapHelperStyles.tile, chatStyles.amaIntroTile)}>
+            <div className={mapHelperStyles.mapPreview}>
+              <Image
+                src="/assets/map2.png"
+                alt="Dealer map"
+                fill
+                className={mapHelperStyles.mapImage}
+                sizes="100%"
+                unoptimized
+              />
+            </div>
+            <h3 className={mapHelperStyles.mapTitle}>
+              Discover dealers around you
+            </h3>
+            <p className={mapHelperStyles.mapSubtext}>
+              Use the map to see who is near you
             </p>
           </div>
         </div>
