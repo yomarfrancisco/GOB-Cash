@@ -57,7 +57,7 @@ interface Props {
   styleUrl?: string // e.g. "mapbox://styles/mapbox/light-v11"
   showDebug?: boolean
   routeCoordinates?: [number, number][] // Optional route line coordinates
-  variant?: 'landing' | 'popup' // Map variant: 'landing' for homepage, 'popup' for modal maps
+  variant?: 'landing' | 'popup' | 'authed' // Map variant: 'landing' for homepage, 'popup' for modal maps, 'authed' for post-sign-in
   hqCoord?: { lng: number; lat: number } // Optional HQ coordinate for dedicated stable marker
   isAuthed?: boolean // If true, disable animations for landing map (static SADC view)
 }
