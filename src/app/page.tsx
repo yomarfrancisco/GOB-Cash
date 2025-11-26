@@ -35,6 +35,9 @@ import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import CashMapPopup from '@/components/CashMapPopup'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
+import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
+import { openAmaIntro, closeInboxSheet } from '@/lib/demo/autoAmaIntro'
+import { useFinancialInboxStore } from '@/state/financialInbox'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -289,6 +292,50 @@ export default function Home() {
       }
     }
   }, [pushNotification, isAuthed])
+
+  // Auto-show Ama chat intro on landing page (pre-sign-in demo)
+  // Shows Ama chat sheet after 5s, keeps it open for 4s, then closes automatically
+  const hasShownAmaIntroRef = useRef(false)
+  useEffect(() => {
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+    
+    // Only run once per page load, in demo mode, when not authenticated
+    if (!isDemoMode || isAuthed || hasShownAmaIntroRef.current) {
+      return
+    }
+    
+    hasShownAmaIntroRef.current = true
+    
+    let closeTimer: NodeJS.Timeout | null = null
+    
+    // Wait 5 seconds before showing the intro
+    const openTimer = setTimeout(() => {
+      // Re-check conditions before opening (user might have signed in)
+      const currentIsAuthed = useAuthStore.getState().isAuthed
+      if (currentIsAuthed) {
+        return // Don't show if user signed in
+      }
+      
+      // Open Ama chat sheet directly (skips inbox list)
+      openAmaIntro()
+      
+      // Close the sheet after 4 seconds
+      closeTimer = setTimeout(() => {
+        // Check if sheet is still open (user might have closed it manually)
+        const { isInboxOpen } = useFinancialInboxStore.getState()
+        if (isInboxOpen) {
+          closeInboxSheet()
+        }
+      }, 4000)
+    }, 5000)
+    
+    return () => {
+      clearTimeout(openTimer)
+      if (closeTimer) {
+        clearTimeout(closeTimer)
+      }
+    }
+  }, [isAuthed])
 
   // After auth, reset scroll *after* keyboard/viewport has settled.
   // This fixes the "home is slightly higher only immediately after sign-in" issue on iOS.
@@ -729,6 +776,7 @@ export default function Home() {
           wallet={selectedCryptoDepositWallet}
         />
       )}
+      <FinancialInboxSheet />
     </div>
   )
 }
