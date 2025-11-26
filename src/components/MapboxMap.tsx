@@ -1,5 +1,26 @@
 'use client'
 
+/**
+ * AVATAR DEFINITION
+ * ================
+ * 
+ * In MapboxMap.tsx, "avatar markers" are markers stored in agentMarkersRef.current.
+ * 
+ * agentMarkersRef contains:
+ * - ✅ Pre-built demo agents (Sarah, Thabo, João, Naledi) - added in demo agents effect
+ * - ✅ City-based initial avatars (letters A, C, E, etc. on Benjamin background) - added in demo agents effect
+ * - ✅ Member/co-op markers from props.markers - added in markers effect
+ * - ✅ Dealer markers from props.markers - added in markers effect
+ * 
+ * agentMarkersRef does NOT contain:
+ * - ❌ User marker (stored in userMarkerRef, separate ref)
+ * - ❌ "You are here" bubble (stored in youAreHereMarkerRef, separate ref)
+ * - ❌ Branch markers (added directly to map, not tracked in agentMarkersRef)
+ * 
+ * The 5-nearest-avatars visibility filter operates on agentMarkersRef only.
+ * User marker and "You are here" bubble are always visible and excluded from filtering.
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import ReactDOM from 'react-dom/client'
@@ -722,8 +743,18 @@ export default function MapboxMap({
       return coords
     }
 
+    // Debug: Log current state
+    console.debug('AVATAR_VISIBILITY: Effect triggered', {
+      isAuthed,
+      variant,
+      hasUserLngLat: !!userLngLat,
+      userLngLat,
+      agentMarkersRefSize: agentMarkersRef.current?.size || 0,
+    })
+
     // Only apply visibility filtering on post-sign-in map
     if (!isAuthed || variant === 'landing') {
+      console.debug('AVATAR_VISIBILITY: Not in post-sign-in mode, showing all avatars')
       // Make sure all avatars are visible when not in post-sign-in mode
       agentMarkersRef.current.forEach((marker, id) => {
         // Always show user marker and "You are here" bubble
@@ -737,10 +768,24 @@ export default function MapboxMap({
       return
     }
 
-    if (!userLngLat) return
+    if (!userLngLat) {
+      console.debug('AVATAR_VISIBILITY: No userLngLat, skipping filter')
+      return
+    }
 
     const avatars = getAllAvatarCoords()
-    if (avatars.length === 0) return
+    console.debug('AVATAR_VISIBILITY: All avatar marker IDs in agentMarkersRef', 
+      Array.from(agentMarkersRef.current?.keys() || [])
+    )
+    console.debug('AVATAR_VISIBILITY: Avatar coordinates extracted', {
+      totalAvatars: avatars.length,
+      avatarIds: avatars.map(a => a.id),
+    })
+
+    if (avatars.length === 0) {
+      console.debug('AVATAR_VISIBILITY: No avatars found, skipping filter')
+      return
+    }
 
     // Compute distances from user to each avatar
     const [userLng, userLat] = userLngLat
@@ -749,6 +794,10 @@ export default function MapboxMap({
       dist: distMeters(userLngLat, [a.lng, a.lat]),
     }))
 
+    console.debug('AVATAR_VISIBILITY: Distances computed', 
+      avatarsWithDist.map(a => ({ id: a.id, dist: Math.round(a.dist) }))
+    )
+
     // Pick the 5 nearest avatars
     const nearest = avatarsWithDist
       .sort((a, b) => a.dist - b.dist)
@@ -756,7 +805,15 @@ export default function MapboxMap({
 
     const nearestIds = new Set(nearest.map((a) => a.id))
 
+    console.debug('AVATAR_VISIBILITY: Nearest 5 IDs', Array.from(nearestIds))
+    console.debug('AVATAR_VISIBILITY: Nearest 5 details', 
+      nearest.map(a => ({ id: a.id, dist: Math.round(a.dist), lng: a.lng, lat: a.lat }))
+    )
+
     // Show only the 5 nearest avatars; hide the rest
+    let visibleCount = 0
+    let hiddenCount = 0
+    
     agentMarkersRef.current.forEach((marker, id) => {
       // Always show user marker and "You are here" bubble
       if (id === 'user-location' || id.startsWith('you-are-here')) {
@@ -764,17 +821,33 @@ export default function MapboxMap({
         if (el) {
           el.style.display = 'block'
         }
+        console.debug('AVATAR_VISIBILITY: marker', id, 'visible?', true, '(user/bubble - always visible)')
         return
       }
 
       const el = marker.getElement()
-      if (!el) return
-
-      if (nearestIds.has(id)) {
-        el.style.display = 'block'
-      } else {
-        el.style.display = 'none'
+      if (!el) {
+        console.debug('AVATAR_VISIBILITY: marker', id, 'visible?', 'ERROR - no element')
+        return
       }
+
+      const visible = nearestIds.has(id)
+      el.style.display = visible ? 'block' : 'none'
+      
+      if (visible) visibleCount++
+      else hiddenCount++
+      
+      console.debug('AVATAR_VISIBILITY: marker', id, 'visible?', visible, 
+        visible ? '(nearest 5)' : '(hidden - not in nearest 5)'
+      )
+    })
+
+    console.debug('AVATAR_VISIBILITY: Summary', {
+      totalMarkersInRef: agentMarkersRef.current.size,
+      totalAvatars: avatars.length,
+      nearest5Count: nearest.length,
+      visibleCount,
+      hiddenCount,
     })
 
     if (process.env.NODE_ENV !== 'production') {
@@ -782,6 +855,8 @@ export default function MapboxMap({
         userLocation: userLngLat,
         nearest: nearest.map((a) => ({ id: a.id, dist: Math.round(a.dist) })),
         totalAvatars: avatars.length,
+        visibleCount,
+        hiddenCount,
       })
     }
   }, [isAuthed, variant, userLngLat, demoAgentMarkers])
