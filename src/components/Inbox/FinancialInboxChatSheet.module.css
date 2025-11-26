@@ -233,7 +233,7 @@
 
 /* Spacing between tiles */
 .amaIntroTile {
-  margin-top: 16px;
+  margin-top: 12px; /* Reduced from 16px for tighter layout */
 }
 
 .amaIntroTile:first-child,

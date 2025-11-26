@@ -12,7 +12,7 @@ import walletHelperStyles from '../WalletHelperSheet.module.css'
 import mapHelperStyles from '../MapHelperSheet.module.css'
 
 // Ama intro message text constant
-const AMA_INTRO_TEXT = "GoBankless is an autonomous wallet that helps you invest safely, make payments, and move cash anywhere. What would you like to do first?"
+const AMA_INTRO_TEXT = "GoB is the anti-bank. I'll actually help you invest safely, make payments, and move cash anywhere. What would you like to do first?"
 
 // Intro stage state machine
 type IntroStage = 'typingIndicator' | 'typingMessage' | 'cards' | 'done'
@@ -144,7 +144,7 @@ function TypedMessageBubble({ text, animate, showCard, introStage, isDemoIntro, 
               Find cash agents near you
             </h3>
             <p className={chatStyles.promoSubtext}>
-              See who can help you deposit or withdraw
+              Agents deliver cash door to door
             </p>
           </div>
         </div>
