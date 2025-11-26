@@ -37,9 +37,6 @@ type ConvertCashSectionProps = {
 
 export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionProps) {
   const isAuthed = useAuthStore((s) => s.isAuthed)
-  
-  // Dynamic variant: "authed" when signed in, "landing" when not
-  const mapVariant = isAuthed ? 'authed' : 'landing'
 
   return (
     <section className={`sectionShell ${styles.mapSectionShell}`} aria-labelledby="convert-title">
@@ -72,7 +69,7 @@ export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionPr
             containerId="mapbox-container"
             markers={[sandtonBranch, ...BRANCH_MARKERS]}
             styleUrl="mapbox://styles/mapbox/navigation-day-v1"
-            variant={mapVariant}
+            variant="landing"
             initialCenter={SADC_CENTER}
             initialZoom={SADC_ZOOM}
             fitToMarkers={false}

@@ -30,7 +30,6 @@ import type { Feature, LineString } from 'geojson'
 import styles from './MapboxMap.module.css'
 import { useMapHighlightStore } from '@/state/mapHighlight'
 import { DEMO_AGENTS } from '@/lib/demo/demoAgents'
-import { DEMO_INITIAL_AVATARS } from '@/data/demoInitialAvatars'
 import YouAreHere from './YouAreHere'
 // static import so Next bundles it and gives us a stable .src
 import userIcon from '../../public/assets/character.png'
@@ -57,7 +56,7 @@ interface Props {
   styleUrl?: string // e.g. "mapbox://styles/mapbox/light-v11"
   showDebug?: boolean
   routeCoordinates?: [number, number][] // Optional route line coordinates
-  variant?: 'landing' | 'popup' | 'authed' // Map variant: 'landing' for homepage, 'popup' for modal maps, 'authed' for post-sign-in
+  variant?: 'landing' | 'popup' // Map variant: 'landing' for homepage, 'popup' for modal maps
   hqCoord?: { lng: number; lat: number } // Optional HQ coordinate for dedicated stable marker
   isAuthed?: boolean // If true, disable animations for landing map (static SADC view)
 }
@@ -85,10 +84,6 @@ export default function MapboxMap({
   hqCoord,
   isAuthed = false,
 }: Props) {
-  // Debug log to verify variant prop is correct
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('MAP_RENDER', { isAuthed, variantFromProps: variant })
-  }
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const loadedRef = useRef(false)
