@@ -19,7 +19,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
   const { isAuthed, requireAuth } = useAuthStore()
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
-  const { openInbox, hasUnreadNotification } = useFinancialInboxStore()
+  const { hasUnreadNotification } = useFinancialInboxStore()
   
   const handleCenterButtonClick = () => {
     // NOTE: Dollar FAB now opens the amount sheet directly (via onDollarClick callback)
@@ -95,53 +95,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             </button>
             <div className="nav-label">Pay / Request</div>
           </div>
-          {/* Notification bell icon - opens inbox */}
-          <div className="nav-item">
-            <button
-              onClick={() => {
-                if (isAuthed) {
-                  openInbox()
-                } else {
-                  requireAuth(() => {
-                    openInbox()
-                  })
-                }
-              }}
-              aria-label="Notifications"
-              type="button"
-              style={{ position: 'relative', background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
-            >
-              <svg
-                className="nav-icon"
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M13.73 21a2 2 0 0 1-3.46 0"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              {/* Red notification dot */}
-              {hasUnreadNotification && (
-                <span className="nav-notification-dot" aria-label="Unread messages" />
-              )}
-            </button>
-          </div>
           {/* NOTE: FinancialInboxSheet is now only rendered from Profile → Settings → Inbox */}
-          <div className="nav-item">
+          <div className="nav-item" style={{ position: 'relative' }}>
             <Link 
               href="/profile" 
               aria-label="Profile"
@@ -151,6 +106,12 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                   requireAuth(() => {
                     // After auth, user can click again to navigate
                   })
+                } else {
+                  // Clear notification when profile/inbox is opened
+                  const store = useFinancialInboxStore.getState()
+                  if (hasUnreadNotification) {
+                    store.setHasUnreadNotification(false)
+                  }
                 }
               }}
             >
@@ -161,6 +122,10 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 width={28} 
                 height={28} 
               />
+              {/* Red notification dot */}
+              {hasUnreadNotification && (
+                <span className="nav-notification-dot" aria-label="Unread messages" />
+              )}
             </Link>
           </div>
         </div>
