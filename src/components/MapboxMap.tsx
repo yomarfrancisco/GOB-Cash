@@ -700,22 +700,19 @@ export default function MapboxMap({
     }
   }, [demoAgentMarkers, variant])
 
-  // Effect to constrain pan/zoom to 5 nearest avatars (post-sign-in only)
+  // Effect to show only 5 nearest avatars (post-sign-in only, via visibility)
   useEffect(() => {
     const map = mapRef.current
     if (!map || !loadedRef.current) return
     
-    // Pre-sign-in / landing: no restriction, behave exactly like 8579e89
-    if (!isAuthed || variant === 'landing' || !userLngLat) {
-      map.setMaxBounds(null as any)
-      return
-    }
-
     // Helper to get all avatar coordinates from existing markers
     const getAllAvatarCoords = (): Array<{ id: string; lng: number; lat: number }> => {
       const coords: Array<{ id: string; lng: number; lat: number }> = []
       
       agentMarkersRef.current.forEach((marker, id) => {
+        // Exclude user marker and "You are here" bubble from avatar list
+        if (id === 'user-location' || id.startsWith('you-are-here')) return
+        
         const lngLat = marker.getLngLat()
         if (lngLat) {
           coords.push({ id, lng: lngLat.lng, lat: lngLat.lat })
@@ -725,11 +722,25 @@ export default function MapboxMap({
       return coords
     }
 
-    const avatars = getAllAvatarCoords()
-    if (avatars.length === 0) {
-      map.setMaxBounds(null as any)
+    // Only apply visibility filtering on post-sign-in map
+    if (!isAuthed || variant === 'landing') {
+      // Make sure all avatars are visible when not in post-sign-in mode
+      agentMarkersRef.current.forEach((marker, id) => {
+        // Always show user marker and "You are here" bubble
+        if (id === 'user-location' || id.startsWith('you-are-here')) return
+        
+        const el = marker.getElement()
+        if (el) {
+          el.style.display = 'block'
+        }
+      })
       return
     }
+
+    if (!userLngLat) return
+
+    const avatars = getAllAvatarCoords()
+    if (avatars.length === 0) return
 
     // Compute distances from user to each avatar
     const [userLng, userLat] = userLngLat
@@ -743,33 +754,34 @@ export default function MapboxMap({
       .sort((a, b) => a.dist - b.dist)
       .slice(0, 5)
 
-    if (nearest.length === 0) {
-      map.setMaxBounds(null as any)
-      return
-    }
+    const nearestIds = new Set(nearest.map((a) => a.id))
 
-    // Build bounding box around user + 5 nearest avatars
-    const bounds = new mapboxgl.LngLatBounds()
-    bounds.extend([userLng, userLat])
-    nearest.forEach((a) => bounds.extend([a.lng, a.lat]))
+    // Show only the 5 nearest avatars; hide the rest
+    agentMarkersRef.current.forEach((marker, id) => {
+      // Always show user marker and "You are here" bubble
+      if (id === 'user-location' || id.startsWith('you-are-here')) {
+        const el = marker.getElement()
+        if (el) {
+          el.style.display = 'block'
+        }
+        return
+      }
 
-    // Add padding so pins aren't tight to edges (20% padding)
-    const sw = bounds.getSouthWest()
-    const ne = bounds.getNorthEast()
-    const latPadding = (ne.lat - sw.lat) * 0.2
-    const lngPadding = (ne.lng - sw.lng) * 0.2
-    
-    const padded = new mapboxgl.LngLatBounds()
-    padded.extend([sw.lng - lngPadding, sw.lat - latPadding])
-    padded.extend([ne.lng + lngPadding, ne.lat + latPadding])
+      const el = marker.getElement()
+      if (!el) return
 
-    // Apply as maxBounds
-    map.setMaxBounds(padded)
+      if (nearestIds.has(id)) {
+        el.style.display = 'block'
+      } else {
+        el.style.display = 'none'
+      }
+    })
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[MapboxMap] Set maxBounds to 5 nearest avatars (post-sign-in):', {
+      console.log('[MapboxMap] Showing 5 nearest avatars (post-sign-in):', {
         userLocation: userLngLat,
         nearest: nearest.map((a) => ({ id: a.id, dist: Math.round(a.dist) })),
+        totalAvatars: avatars.length,
       })
     }
   }, [isAuthed, variant, userLngLat, demoAgentMarkers])
