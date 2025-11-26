@@ -203,14 +203,20 @@
 
 .amaIntroApyHeading {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-size: 14px; /* smaller than helper sheet (15px) to fit on one line */
+  font-size: 13px; /* adjusted to fit perfectly on one line */
   font-weight: 600;
   color: #0a0a0a;
-  margin: 8px 0 0 0;
+  margin: 0;
+  padding: 0;
   text-align: center;
   line-height: 1.25;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+  overflow: visible; /* remove ellipsis */
+  text-overflow: unset;
+  letter-spacing: -0.1px; /* slightly tighter for better fit */
+}
+
+/* Wrapper for card block to add vertical spacing from intro text */
+.amaIntroCardBlockWrapper {
+  margin-top: 14px; /* spacing between intro paragraph and card content */
 }

@@ -60,7 +60,7 @@ function TypedMessageBubble({ text, animate, showCard }: { text: string; animate
     <div className={chatStyles.messageBubble}>
       <p>{displayed}</p>
       {showCard && (
-        <div style={{ marginTop: 12 }}>
+        <div className={walletHelperStyles.amaIntroCardBlockWrapper}>
           <div className={clsx(walletHelperStyles.tile, walletHelperStyles.compactTile)}>
             <div className={walletHelperStyles.cardPreviewContainer}>
               {/* APY pill overlay - single line for chat */}
