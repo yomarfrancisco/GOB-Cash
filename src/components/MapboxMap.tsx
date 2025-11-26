@@ -783,8 +783,8 @@ export default function MapboxMap({
       return
     }
 
-    // ✅ Post-sign-in branch: restrict to 5 nearest avatars only
-    console.debug('AVATAR_VISIBILITY: In post-sign-in mode, restricting to 5 nearest avatar markers')
+    // ✅ Post-sign-in branch: restrict to 20 nearest avatars only
+    console.debug('AVATAR_VISIBILITY: In post-sign-in mode, restricting to 20 nearest avatar markers')
 
     const avatarCoords = getAvatarCoords()
     console.debug('AVATAR_VISIBILITY: Avatar marker IDs (initial- and demo- only)', 
@@ -809,15 +809,15 @@ export default function MapboxMap({
       avatarsWithDist.map(a => ({ id: a.id, dist: Math.round(a.dist) }))
     )
 
-    // Pick the 5 nearest avatars
+    // Pick the 20 nearest avatars
     const nearest = avatarsWithDist
       .sort((a, b) => a.dist - b.dist)
-      .slice(0, 5)
+      .slice(0, 20)
 
     const nearestIds = new Set(nearest.map((a) => a.id))
 
-    console.debug('AVATAR_VISIBILITY: Nearest 5 avatar IDs', Array.from(nearestIds))
-    console.debug('AVATAR_VISIBILITY: Nearest 5 avatar details', 
+    console.debug('AVATAR_VISIBILITY: Nearest 20 avatar IDs', Array.from(nearestIds))
+    console.debug('AVATAR_VISIBILITY: Nearest 20 avatar details', 
       nearest.map(a => ({ id: a.id, dist: Math.round(a.dist), lng: a.lng, lat: a.lat }))
     )
 
@@ -839,7 +839,7 @@ export default function MapboxMap({
       else hiddenAvatarCount++
       
       console.debug('AVATAR_VISIBILITY: avatar marker', id, 'visible?', visible, 
-        visible ? '(nearest 5)' : '(hidden - not in nearest 5)'
+        visible ? '(nearest 20)' : '(hidden - not in nearest 20)'
       )
     })
 
@@ -852,13 +852,13 @@ export default function MapboxMap({
       totalMarkersInRef: agentMarkersRef.current.size,
       avatarMarkers: avatarEntries.length,
       nonAvatarMarkers: nonAvatarEntries.length,
-      nearest5AvatarCount: nearest.length,
+      nearest20AvatarCount: nearest.length,
       visibleAvatarCount,
       hiddenAvatarCount,
     })
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[MapboxMap] Showing 5 nearest avatar markers (post-sign-in):', {
+      console.log('[MapboxMap] Showing 20 nearest avatar markers (post-sign-in):', {
         userLocation: userLngLat,
         nearestAvatars: nearest.map((a) => ({ id: a.id, dist: Math.round(a.dist) })),
         totalAvatarMarkers: avatarEntries.length,
