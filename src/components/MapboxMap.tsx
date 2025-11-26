@@ -726,17 +726,23 @@ export default function MapboxMap({
   }, [demoAgentMarkers, variant])
 
   // Effect to show only 5 nearest avatars (post-sign-in only, via visibility)
+  // Only affects avatar markers (initial-* and demo-*), leaves branch/user/mascot markers untouched
   useEffect(() => {
     const map = mapRef.current
     if (!map || !loadedRef.current) return
     
-    // Helper to get all avatar coordinates from existing markers
-    const getAllAvatarCoords = (): Array<{ id: string; lng: number; lat: number }> => {
+    // Helper to check if an ID is an avatar marker (only initial- and demo- prefixes)
+    const isAvatarMarker = (id: string): boolean => {
+      return id.startsWith('initial-') || id.startsWith('demo-')
+    }
+
+    // Helper to get avatar coordinates only (filter to initial- and demo- prefixes)
+    const getAvatarCoords = (): Array<{ id: string; lng: number; lat: number }> => {
       const coords: Array<{ id: string; lng: number; lat: number }> = []
       
       agentMarkersRef.current.forEach((marker, id) => {
-        // Exclude user marker and "You are here" bubble from avatar list
-        if (id === 'user-location' || id.startsWith('you-are-here')) return
+        // Only include avatar markers (initial- and demo-)
+        if (!isAvatarMarker(id)) return
         
         const lngLat = marker.getLngLat()
         if (lngLat) {
@@ -747,23 +753,28 @@ export default function MapboxMap({
       return coords
     }
 
+    // Get all entries and separate avatars from non-avatars
+    const allEntries = Array.from(agentMarkersRef.current.entries())
+    const avatarEntries = allEntries.filter(([id]) => isAvatarMarker(id))
+    const nonAvatarEntries = allEntries.filter(([id]) => !isAvatarMarker(id))
+
     // Debug: Log current state
     console.debug('AVATAR_VISIBILITY: Effect triggered', {
       isAuthed,
       variant,
       hasUserLngLat: !!userLngLat,
       userLngLat,
-      agentMarkersRefSize: agentMarkersRef.current?.size || 0,
+      totalMarkersInRef: agentMarkersRef.current?.size || 0,
+      avatarMarkers: avatarEntries.length,
+      nonAvatarMarkers: nonAvatarEntries.length,
     })
 
     // Landing / unauthenticated: show everything, no constraints
     if (!isAuthed || variant === 'landing' || !userLngLat) {
       console.debug('AVATAR_VISIBILITY: Not in post-sign-in mode, showing all avatars')
-      // Make sure all avatars are visible when not in post-sign-in mode
-      agentMarkersRef.current.forEach((marker, id) => {
-        // Always show user marker and "You are here" bubble
-        if (id === 'user-location' || id.startsWith('you-are-here')) return
-        
+      // Make sure all avatar markers are visible when not in post-sign-in mode
+      // Non-avatar markers (branch/user/mascot) are never touched by this effect
+      avatarEntries.forEach(([id, marker]) => {
         const el = marker.getElement()
         if (el) {
           el.style.display = 'block'
@@ -772,36 +783,29 @@ export default function MapboxMap({
       return
     }
 
-    // ✅ Post-sign-in branch: restrict to 5 nearest avatars
-    console.debug('AVATAR_VISIBILITY: In post-sign-in mode, restricting to 5 nearest avatars')
+    // ✅ Post-sign-in branch: restrict to 5 nearest avatars only
+    console.debug('AVATAR_VISIBILITY: In post-sign-in mode, restricting to 5 nearest avatar markers')
 
-    if (!userLngLat) {
-      console.debug('AVATAR_VISIBILITY: No userLngLat, skipping filter')
-      return
-    }
-
-    const avatars = getAllAvatarCoords()
-    console.debug('AVATAR_VISIBILITY: All avatar marker IDs in agentMarkersRef', 
-      Array.from(agentMarkersRef.current?.keys() || [])
+    const avatarCoords = getAvatarCoords()
+    console.debug('AVATAR_VISIBILITY: Avatar marker IDs (initial- and demo- only)', 
+      avatarCoords.map(a => a.id)
     )
-    console.debug('AVATAR_VISIBILITY: Avatar coordinates extracted', {
-      totalAvatars: avatars.length,
-      avatarIds: avatars.map(a => a.id),
-    })
+    console.debug('AVATAR_VISIBILITY: Non-avatar marker IDs (branch/user/mascot - untouched)', 
+      nonAvatarEntries.map(([id]) => id)
+    )
 
-    if (avatars.length === 0) {
-      console.debug('AVATAR_VISIBILITY: No avatars found, skipping filter')
+    if (avatarCoords.length === 0) {
+      console.debug('AVATAR_VISIBILITY: No avatar markers found, skipping filter')
       return
     }
 
     // Compute distances from user to each avatar
-    const [userLng, userLat] = userLngLat
-    const avatarsWithDist = avatars.map((a) => ({
+    const avatarsWithDist = avatarCoords.map((a) => ({
       ...a,
       dist: distMeters(userLngLat, [a.lng, a.lat]),
     }))
 
-    console.debug('AVATAR_VISIBILITY: Distances computed', 
+    console.debug('AVATAR_VISIBILITY: Distances computed for avatar markers', 
       avatarsWithDist.map(a => ({ id: a.id, dist: Math.round(a.dist) }))
     )
 
@@ -812,58 +816,55 @@ export default function MapboxMap({
 
     const nearestIds = new Set(nearest.map((a) => a.id))
 
-    console.debug('AVATAR_VISIBILITY: Nearest 5 IDs', Array.from(nearestIds))
-    console.debug('AVATAR_VISIBILITY: Nearest 5 details', 
+    console.debug('AVATAR_VISIBILITY: Nearest 5 avatar IDs', Array.from(nearestIds))
+    console.debug('AVATAR_VISIBILITY: Nearest 5 avatar details', 
       nearest.map(a => ({ id: a.id, dist: Math.round(a.dist), lng: a.lng, lat: a.lat }))
     )
 
-    // Show only the 5 nearest avatars; hide the rest
-    let visibleCount = 0
-    let hiddenCount = 0
+    // Only toggle visibility on avatar markers; leave all other markers untouched
+    let visibleAvatarCount = 0
+    let hiddenAvatarCount = 0
     
-    agentMarkersRef.current.forEach((marker, id) => {
-      // Always show user marker and "You are here" bubble
-      if (id === 'user-location' || id.startsWith('you-are-here')) {
-        const el = marker.getElement()
-        if (el) {
-          el.style.display = 'block'
-        }
-        console.debug('AVATAR_VISIBILITY: marker', id, 'visible?', true, '(user/bubble - always visible)')
-        return
-      }
-
+    avatarEntries.forEach(([id, marker]) => {
       const el = marker.getElement()
       if (!el) {
-        console.debug('AVATAR_VISIBILITY: marker', id, 'visible?', 'ERROR - no element')
+        console.debug('AVATAR_VISIBILITY: avatar marker', id, 'visible?', 'ERROR - no element')
         return
       }
 
       const visible = nearestIds.has(id)
       el.style.display = visible ? 'block' : 'none'
       
-      if (visible) visibleCount++
-      else hiddenCount++
+      if (visible) visibleAvatarCount++
+      else hiddenAvatarCount++
       
-      console.debug('AVATAR_VISIBILITY: marker', id, 'visible?', visible, 
+      console.debug('AVATAR_VISIBILITY: avatar marker', id, 'visible?', visible, 
         visible ? '(nearest 5)' : '(hidden - not in nearest 5)'
       )
     })
 
+    // Non-avatar markers (branch/user/mascot) are never touched - they remain visible
+    console.debug('AVATAR_VISIBILITY: Non-avatar markers left untouched (always visible):', 
+      nonAvatarEntries.map(([id]) => id)
+    )
+
     console.debug('AVATAR_VISIBILITY: Summary', {
       totalMarkersInRef: agentMarkersRef.current.size,
-      totalAvatars: avatars.length,
-      nearest5Count: nearest.length,
-      visibleCount,
-      hiddenCount,
+      avatarMarkers: avatarEntries.length,
+      nonAvatarMarkers: nonAvatarEntries.length,
+      nearest5AvatarCount: nearest.length,
+      visibleAvatarCount,
+      hiddenAvatarCount,
     })
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[MapboxMap] Showing 5 nearest avatars (post-sign-in):', {
+      console.log('[MapboxMap] Showing 5 nearest avatar markers (post-sign-in):', {
         userLocation: userLngLat,
-        nearest: nearest.map((a) => ({ id: a.id, dist: Math.round(a.dist) })),
-        totalAvatars: avatars.length,
-        visibleCount,
-        hiddenCount,
+        nearestAvatars: nearest.map((a) => ({ id: a.id, dist: Math.round(a.dist) })),
+        totalAvatarMarkers: avatarEntries.length,
+        visibleAvatarCount,
+        hiddenAvatarCount,
+        nonAvatarMarkersUntouched: nonAvatarEntries.length,
       })
     }
   }, [isAuthed, variant, userLngLat, demoAgentMarkers])
