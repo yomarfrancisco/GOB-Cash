@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import clsx from 'clsx'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import listStyles from './FinancialInboxListSheet.module.css'
@@ -60,23 +61,30 @@ function TypedMessageBubble({ text, animate, showCard }: { text: string; animate
       <p>{displayed}</p>
       {showCard && (
         <div style={{ marginTop: 12 }}>
-          <div className={walletHelperStyles.tile}>
+          <div className={clsx(walletHelperStyles.tile, walletHelperStyles.compactTile)}>
             <div className={walletHelperStyles.cardPreviewContainer}>
-              <div className={walletHelperStyles.cardPreview}>
+              {/* APY pill overlay */}
+              <div className={clsx(walletHelperStyles.apyPill, walletHelperStyles.compactApyPill)}>
+                <span className={clsx(walletHelperStyles.apyPercentage, walletHelperStyles.compactApyPercentage)}>9.38%</span>
+                <span className={clsx(walletHelperStyles.apyLabel, walletHelperStyles.compactApyLabel)}>annual yield</span>
+              </div>
+              {/* Card preview (compact) */}
+              <div className={clsx(walletHelperStyles.cardPreview, walletHelperStyles.compactCardPreview)}>
                 <Image
                   src="/assets/cards/card-pepe.jpg"
                   alt="PEPE wallet"
                   fill
                   className={walletHelperStyles.cardImage}
-                  sizes="204px"
+                  sizes="176px"
                   unoptimized
                 />
               </div>
             </div>
-            <h3 className={walletHelperStyles.apyHeading}>
+            {/* Compact text */}
+            <h3 className={clsx(walletHelperStyles.apyHeading, walletHelperStyles.compactApyHeading)}>
               Earn 9% annually on your deposits
             </h3>
-            <p className={walletHelperStyles.apySubtext}>
+            <p className={clsx(walletHelperStyles.apySubtext, walletHelperStyles.compactApySubtext)}>
               Compounded monthly
             </p>
           </div>
