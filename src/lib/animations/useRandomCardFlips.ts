@@ -18,7 +18,7 @@ import { useAuthStore } from '@/store/auth'
 import { getDemoConfig, RANDOM_FLIP_CONFIG } from '@/lib/demo/demoConfig'
 
 const ENABLED = process.env.NEXT_PUBLIC_ENABLE_RANDOM_CARD_FLIPS === '1'
-const FIRST_BURST_DELAY_MS = 10000 // 10 seconds after cards are visible
+const FIRST_BURST_DELAY_MS = 1000 // 1 second after cards are visible
 const DEBUG_ENABLED = process.env.NEXT_PUBLIC_DEBUG_MAP === 'true' || process.env.NODE_ENV !== 'production'
 
 type FlipController = {
