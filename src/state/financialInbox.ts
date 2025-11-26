@@ -34,6 +34,7 @@ type FinancialInboxState = {
   activeThreadId: ThreadId | null
   isInboxOpen: boolean
   inboxViewMode: InboxViewMode // 'inbox' or 'chat' - controls which view to show
+  isDemoIntro: boolean // True when opened from landing demo auto-intro
   openInbox: () => void
   closeInbox: () => void
   openChatSheet: (threadId: ThreadId) => void // Open chat sheet for a specific thread
@@ -41,6 +42,7 @@ type FinancialInboxState = {
   sendMessage: (threadId: ThreadId, from: 'user' | 'ai', text: string) => void
   setActiveThread: (threadId: ThreadId | null) => void
   ensurePortfolioManagerThread: () => void
+  setDemoIntro: (value: boolean) => void // Set demo intro flag
 }
 
 const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
@@ -74,6 +76,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   activeThreadId: null,
   isInboxOpen: false,
   inboxViewMode: 'inbox',
+  isDemoIntro: false,
 
   ensurePortfolioManagerThread: () => {
     const state = get()
@@ -108,6 +111,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
     set({
       isInboxOpen: true,
       inboxViewMode: 'inbox', // Always start with inbox view
+      isDemoIntro: false, // Reset demo intro flag on manual open
     })
   },
 
@@ -116,6 +120,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
       isInboxOpen: false,
       activeThreadId: null,
       inboxViewMode: 'inbox', // Reset to inbox when closing
+      isDemoIntro: false, // Reset demo intro flag on close
     })
   },
 
@@ -134,6 +139,10 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
 
   setActiveThread: (threadId: ThreadId | null) => {
     set({ activeThreadId: threadId })
+  },
+
+  setDemoIntro: (value: boolean) => {
+    set({ isDemoIntro: value })
   },
 
   sendMessage: (threadId: ThreadId, from: 'user' | 'ai', text: string) => {

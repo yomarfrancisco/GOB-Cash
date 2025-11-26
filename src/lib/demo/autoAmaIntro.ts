@@ -17,6 +17,9 @@ export function openAmaIntro(): void {
   // Ensure the portfolio manager thread exists
   store.ensurePortfolioManagerThread()
   
+  // Set demo intro flag before opening
+  store.setDemoIntro(true)
+  
   // Open the sheet first
   store.openInbox()
   

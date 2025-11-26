@@ -1,13 +1,69 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
 
+// Ama intro message text constant
+const AMA_INTRO_TEXT = "Hi, I'm Ama, your Investment Manager 👋   I can help you make your first deposit, find a cash agent, or convert cash to crypto.   What would you like to do first?"
+
+// Intro stage state machine
+type IntroStage = 'typingIndicator' | 'typingMessage' | 'done'
+
+// Typing indicator component (3 dots)
+function TypingBubble() {
+  return (
+    <div className={chatStyles.messageBubble}>
+      <div className={chatStyles.typingDots}>
+        <span />
+        <span />
+        <span />
+      </div>
+    </div>
+  )
+}
+
+// Typed message bubble with fast typewriter effect
+function TypedMessageBubble({ text, animate }: { text: string; animate: boolean }) {
+  const [displayed, setDisplayed] = useState(text)
+
+  useEffect(() => {
+    if (!animate) {
+      setDisplayed(text)
+      return
+    }
+
+    setDisplayed('')
+    const CHARS_PER_TICK = 5
+    const TICK_MS = 30
+    let i = 0
+
+    const id = window.setInterval(() => {
+      i += CHARS_PER_TICK
+      if (i >= text.length) {
+        setDisplayed(text)
+        window.clearInterval(id)
+      } else {
+        setDisplayed(text.slice(0, i))
+      }
+    }, TICK_MS)
+
+    return () => window.clearInterval(id)
+  }, [text, animate])
+
+  return (
+    <div className={chatStyles.messageBubble}>
+      {displayed}
+    </div>
+  )
+}
+
 type FinancialInboxSheetProps = {
   onRequestAgent?: () => void // Deprecated: no longer used, kept for backward compatibility
+  isDemoIntro?: boolean // If true, shows animated typing indicator and typewriter effect for landing demo
 }
 
 /**
@@ -16,14 +72,56 @@ type FinancialInboxSheetProps = {
  * NOTE: This sheet is now accessible from Profile → Settings → Inbox.
  * The "Request cash agent" button has been removed.
  */
-export default function FinancialInboxSheet({ onRequestAgent }: FinancialInboxSheetProps) {
+export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propIsDemoIntro }: FinancialInboxSheetProps) {
   const { 
     isInboxOpen, 
     inboxViewMode, 
     closeInbox, 
     openChatSheet,
-    goBackToInbox 
+    goBackToInbox,
+    isDemoIntro: storeIsDemoIntro
   } = useFinancialInboxStore()
+  
+  // Use prop if provided, otherwise fall back to store flag
+  const isDemoIntro = propIsDemoIntro !== undefined ? propIsDemoIntro : storeIsDemoIntro
+
+  // Intro stage state machine - only for landing demo
+  const [introStage, setIntroStage] = useState<IntroStage>('typingIndicator')
+
+  // Manage intro stages for demo intro - only in chat view
+  useEffect(() => {
+    // Reset when switching away from chat view or when not demo intro
+    if (!isDemoIntro || inboxViewMode !== 'chat' || !isInboxOpen) {
+      setIntroStage('done')
+      return
+    }
+
+    // Reset to typing indicator when conditions are met (sheet just opened in demo intro mode)
+    setIntroStage('typingIndicator')
+
+    // Stage 1: typing indicator for ~1.3s
+    const TYPING_INDICATOR_MS = 1300
+    const t1 = setTimeout(() => {
+      // Only transition if still in demo intro mode and chat view
+      if (isDemoIntro && inboxViewMode === 'chat' && isInboxOpen) {
+        setIntroStage('typingMessage')
+      }
+    }, TYPING_INDICATOR_MS)
+
+    // Lock into 'done' after typing completes (~1.2s for typing animation)
+    const LOCK_MS = TYPING_INDICATOR_MS + 1200
+    const t2 = setTimeout(() => {
+      // Only lock if still in demo intro mode and chat view
+      if (isDemoIntro && inboxViewMode === 'chat' && isInboxOpen) {
+        setIntroStage('done')
+      }
+    }, LOCK_MS)
+
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
+  }, [isDemoIntro, inboxViewMode, isInboxOpen])
 
   // Cash agents data - static demo content
   const agents = [
@@ -201,9 +299,21 @@ export default function FinancialInboxSheet({ onRequestAgent }: FinancialInboxSh
                 />
               </div>
               <div className={chatStyles.bubbleContainer}>
-                <div className={chatStyles.messageBubble}>
-                  Hi, I&apos;m Ama, your Investment Manager 👋   I can help you make your first deposit, find a cash agent, or convert cash to crypto.   What would you like to do first?
-                </div>
+                {isDemoIntro ? (
+                  <>
+                    {introStage === 'typingIndicator' && <TypingBubble />}
+                    {introStage !== 'typingIndicator' && (
+                      <TypedMessageBubble
+                        text={AMA_INTRO_TEXT}
+                        animate={introStage === 'typingMessage'}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <div className={chatStyles.messageBubble}>
+                    {AMA_INTRO_TEXT}
+                  </div>
+                )}
                 <div className={chatStyles.timestamp}>14:09</div>
               </div>
             </div>
