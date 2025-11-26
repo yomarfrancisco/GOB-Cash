@@ -20,6 +20,11 @@
   backdrop-filter: saturate(110%) blur(1px);
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
+  transition: opacity 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.as-root-closing .as-overlay {
+  opacity: 0;
 }
 
 .as-sheet {
@@ -42,6 +47,11 @@
   animation: slideUp 600ms cubic-bezier(0.4, 0, 0.2, 1);
   padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
   -webkit-overflow-scrolling: touch;
+}
+
+/* Close animation - slide down */
+.as-sheet.as-sheet-closing {
+  animation: slideDown 600ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Chatbot sheet specific: no bottom padding, flush with bottom */
@@ -164,6 +174,15 @@
   }
   to {
     transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    transform: translateX(-50%) translateY(100%);
   }
 }
 

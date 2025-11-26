@@ -294,7 +294,7 @@ export default function Home() {
   }, [pushNotification, isAuthed])
 
   // Auto-show Ama chat intro on landing page (pre-sign-in demo)
-  // Shows Ama chat sheet after 5s, keeps it open for 4s, then closes automatically
+  // Shows Ama chat sheet after 5s, keeps it open for 7s, then closes automatically
   const hasShownAmaIntroRef = useRef(false)
   useEffect(() => {
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
@@ -319,14 +319,14 @@ export default function Home() {
       // Open Ama chat sheet directly (skips inbox list)
       openAmaIntro()
       
-      // Close the sheet after 4 seconds
+      // Close the sheet after 7 seconds
       closeTimer = setTimeout(() => {
         // Check if sheet is still open (user might have closed it manually)
         const { isInboxOpen } = useFinancialInboxStore.getState()
         if (isInboxOpen) {
           closeInboxSheet()
         }
-      }, 4000)
+      }, 7000)
     }, 5000)
     
     return () => {
