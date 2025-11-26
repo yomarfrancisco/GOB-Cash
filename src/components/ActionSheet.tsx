@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import Image from 'next/image'
 import '@/styles/action-sheet.css'
@@ -18,10 +18,28 @@ type Props = {
 
 export default function ActionSheet({ open, title, onClose, children, className, size = 'compact' }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null)
+  const [isClosing, setIsClosing] = useState(false)
+  const [shouldRender, setShouldRender] = useState(false)
+
+  // Handle open/close state with animation
+  useEffect(() => {
+    if (open) {
+      setShouldRender(true)
+      setIsClosing(false)
+    } else if (shouldRender) {
+      // Start close animation
+      setIsClosing(true)
+      const timer = setTimeout(() => {
+        setShouldRender(false)
+        setIsClosing(false)
+      }, 600) // Match animation duration
+      return () => clearTimeout(timer)
+    }
+  }, [open, shouldRender])
 
   // lock background scroll while open
   useEffect(() => {
-    if (!open) return
+    if (!open && !isClosing) return
 
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -31,7 +49,7 @@ export default function ActionSheet({ open, title, onClose, children, className,
       document.body.style.overflow = prev
       document.documentElement.style.overflow = ''
     }
-  }, [open])
+  }, [open, isClosing])
 
   // close on ESC
   useEffect(() => {
@@ -42,12 +60,15 @@ export default function ActionSheet({ open, title, onClose, children, className,
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  if (!open) return null
+  if (!shouldRender) return null
 
   return ReactDOM.createPortal(
-    <div className="as-root" aria-modal="true" role="dialog">
+    <div className={`as-root ${isClosing ? 'as-root-closing' : ''}`} aria-modal="true" role="dialog">
       <button className="as-overlay" aria-label="Close" onClick={onClose} />
-      <div className={`as-sheet as-sheet-${size} ${className || ''}`} ref={sheetRef}>
+      <div 
+        className={`as-sheet as-sheet-${size} ${className || ''} ${isClosing ? 'as-sheet-closing' : ''}`} 
+        ref={sheetRef}
+      >
         {title && title.trim() && (
           <div className="as-header">
             <h3 className="as-title">{title}</h3>

@@ -1,5 +1,26 @@
 'use client'
 
+/**
+ * AVATAR DEFINITION
+ * ================
+ * 
+ * In MapboxMap.tsx, "avatar markers" are markers stored in agentMarkersRef.current.
+ * 
+ * agentMarkersRef contains:
+ * - ✅ Pre-built demo agents (Sarah, Thabo, João, Naledi) - added in demo agents effect
+ * - ✅ City-based initial avatars (letters A, C, E, etc. on Benjamin background) - added in demo agents effect
+ * - ✅ Member/co-op markers from props.markers - added in markers effect
+ * - ✅ Dealer markers from props.markers - added in markers effect
+ * 
+ * agentMarkersRef does NOT contain:
+ * - ❌ User marker (stored in userMarkerRef, separate ref)
+ * - ❌ "You are here" bubble (stored in youAreHereMarkerRef, separate ref)
+ * - ❌ Branch markers (added directly to map, not tracked in agentMarkersRef)
+ * 
+ * The 5-nearest-avatars visibility filter operates on agentMarkersRef only.
+ * User marker and "You are here" bubble are always visible and excluded from filtering.
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import ReactDOM from 'react-dom/client'
@@ -9,6 +30,7 @@ import type { Feature, LineString } from 'geojson'
 import styles from './MapboxMap.module.css'
 import { useMapHighlightStore } from '@/state/mapHighlight'
 import { DEMO_AGENTS } from '@/lib/demo/demoAgents'
+import { KEY_CITY_AVATARS } from '@/lib/demo/keyCityAvatars'
 import YouAreHere from './YouAreHere'
 // static import so Next bundles it and gives us a stable .src
 import userIcon from '../../public/assets/character.png'
@@ -90,18 +112,29 @@ export default function MapboxMap({
   
   const highlight = useMapHighlightStore((state) => state.highlight)
   
-  // Get demo agents as markers if in demo mode
+  // Get demo agents and key city avatars as markers if in demo mode
   const demoAgentMarkers: Marker[] = 
     process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
-      ? DEMO_AGENTS.map((agent) => ({
-          id: agent.id,
-          lng: agent.lng,
-          lat: agent.lat,
-          kind: 'member' as const,
-          label: agent.name,
-          avatar: agent.avatar,
-          name: agent.name,
-        }))
+      ? [
+          ...DEMO_AGENTS.map((agent) => ({
+            id: agent.id,
+            lng: agent.lng,
+            lat: agent.lat,
+            kind: 'member' as const,
+            label: agent.name,
+            avatar: agent.avatar,
+            name: agent.name,
+          })),
+          ...KEY_CITY_AVATARS.map((city) => ({
+            id: city.id,
+            lng: city.lng,
+            lat: city.lat,
+            kind: 'member' as const,
+            label: city.name,
+            avatar: city.avatar,
+            name: city.name,
+          })),
+        ]
       : []
 
   const log = (message: string) => {

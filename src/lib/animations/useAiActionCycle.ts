@@ -9,6 +9,8 @@ import { derivePortfolio } from '@/lib/portfolio/calculateMetrics'
 import { useAiFabHighlightStore, shouldHighlightAiFab } from '@/state/aiFabHighlight'
 import { useBabyCdoChatStore } from '@/state/babyCdoChat'
 import { formatBabyCdoIntroFromTradeContext, type TradeContext } from '@/lib/babycdo/formatIntroMessage'
+import { useAuthStore } from '@/store/auth'
+import { getDemoConfig, AI_ACTION_CONFIG } from '@/lib/demo/demoConfig'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -16,7 +18,6 @@ type CardType = 'pepe' | 'savings' | 'yield'
 
 export const FLIP_MS = 300 // do not change
 export const CASH_UPDATE_DELAY_MS = FLIP_MS + 600 // small perceptible delay after flip back (doubled from 150, total was 450ms, now 900ms)
-const INTERVAL_MS = 90000 // 90s - time between AI card animations (pre-signin only)
 const SLOT_MS = 1400 // slot animation duration per update
 const DELTA_MIN = 5 // USDT min move
 const DELTA_MAX = 40 // USDT max move
@@ -324,15 +325,44 @@ export function useAiActionCycle(
     isRunningRef.current = true
 
     const scheduleNext = () => {
+      // Get current auth state and config
+      const isAuthed = useAuthStore.getState().isAuthed
+      const intensity = getDemoConfig(isAuthed)
+      const config = AI_ACTION_CONFIG[intensity]
+      
+      // Use random interval for lively mode, fixed for calm mode
+      const intervalMs = config.INTERVAL_MAX_MS > config.INTERVAL_MIN_MS
+        ? config.INTERVAL_MIN_MS + Math.random() * (config.INTERVAL_MAX_MS - config.INTERVAL_MIN_MS)
+        : config.INTERVAL_MIN_MS
+      
       intervalRef.current = setTimeout(async () => {
         if (isRunningRef.current && cardStackRef.current) {
           await processAction()
           scheduleNext()
         }
-      }, INTERVAL_MS)
+      }, intervalMs)
     }
 
-    scheduleNext()
+    // Start schedule earlier: fire first action at ~5s, then preserve quiet period (18-30s) for subsequent actions
+    const INITIAL_DELAY_MS = 5000
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+    const isAuthed = useAuthStore.getState().isAuthed
+    
+    if (isDemoMode && !isAuthed && cardStackRef.current) {
+      // Wait 5 seconds, then fire first action immediately, then start normal schedule
+      setTimeout(async () => {
+        // Re-check conditions before firing first action
+        if (isRunningRef.current && cardStackRef.current && !useAuthStore.getState().isAuthed) {
+          // Fire first action immediately
+          await processAction()
+          // Then start normal schedule (which will wait 18-30s for next action)
+          scheduleNext()
+        }
+      }, INITIAL_DELAY_MS)
+    } else {
+      // Normal schedule (no initial delay)
+      scheduleNext()
+    }
   }, [cardStackRef, processAction])
 
   const stop = useCallback(() => {

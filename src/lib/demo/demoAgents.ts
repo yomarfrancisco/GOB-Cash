@@ -17,7 +17,7 @@ export const DEMO_AGENTS: DemoAgent[] = [
     id: 'demo-naledi',
     name: 'Naledi',
     handle: '@naledi',
-    avatar: '/assets/avatar_agent5.png',
+    avatar: '/generated-avatars/avatar_naledi.png',
     lat: -26.2041,
     lng: 28.0473, // Johannesburg
   },
@@ -25,7 +25,7 @@ export const DEMO_AGENTS: DemoAgent[] = [
     id: 'demo-joao',
     name: 'João',
     handle: '@joao',
-    avatar: '/assets/avatar_agent6.png',
+    avatar: '/generated-avatars/avatar_joao.png',
     lat: -25.9692,
     lng: 32.5732, // Maputo
   },
@@ -33,7 +33,7 @@ export const DEMO_AGENTS: DemoAgent[] = [
     id: 'demo-thabo',
     name: 'Thabo',
     handle: '@thabo',
-    avatar: '/assets/avatar_agent7.png',
+    avatar: '/generated-avatars/avatar_thabo.png',
     lat: -33.9249,
     lng: 18.4241, // Cape Town
   },
@@ -41,7 +41,7 @@ export const DEMO_AGENTS: DemoAgent[] = [
     id: 'demo-sarah',
     name: 'Sarah',
     handle: '@sarah',
-    avatar: '/assets/avatar_agent8.png',
+    avatar: '/generated-avatars/avatar_sarah.png',
     lat: -29.8587,
     lng: 31.0218, // Durban
   },

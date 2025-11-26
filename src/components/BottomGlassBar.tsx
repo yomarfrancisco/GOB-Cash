@@ -5,6 +5,7 @@ import Link from 'next/link'
 import clsx from 'clsx'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
+import { useFinancialInboxStore } from '@/state/financialInbox'
 import '@/styles/bottom-glass.css'
 
 interface BottomGlassBarProps {
@@ -18,6 +19,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
   const { isAuthed, requireAuth } = useAuthStore()
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
+  const { hasUnreadNotification } = useFinancialInboxStore()
   
   const handleCenterButtonClick = () => {
     // NOTE: Dollar FAB now opens the amount sheet directly (via onDollarClick callback)
@@ -94,7 +96,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             <div className="nav-label">Pay / Request</div>
           </div>
           {/* NOTE: FinancialInboxSheet is now only rendered from Profile → Settings → Inbox */}
-          <div className="nav-item">
+          <div className="nav-item" style={{ position: 'relative' }}>
             <Link 
               href="/profile" 
               aria-label="Profile"
@@ -104,6 +106,12 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                   requireAuth(() => {
                     // After auth, user can click again to navigate
                   })
+                } else {
+                  // Clear notification when profile/inbox is opened
+                  const store = useFinancialInboxStore.getState()
+                  if (hasUnreadNotification) {
+                    store.setHasUnreadNotification(false)
+                  }
                 }
               }}
             >
@@ -114,6 +122,10 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 width={28} 
                 height={28} 
               />
+              {/* Red notification dot */}
+              {hasUnreadNotification && (
+                <span className="nav-notification-dot" aria-label="Unread messages" />
+              )}
             </Link>
           </div>
         </div>

@@ -6,6 +6,7 @@
 
 import type { NotificationItem } from '@/store/notifications'
 import { useAiFabHighlightStore, shouldHighlightAiFab } from '@/state/aiFabHighlight'
+import { getDemoConfig, DEMO_NOTIFICATION_CONFIG } from './demoConfig'
 
 type NotificationInput = Omit<NotificationItem, 'id' | 'timestamp'>
 
@@ -17,12 +18,10 @@ type DemoEngineOptions = {
 
 let demoInterval: NodeJS.Timeout | null = null
 let lastNotificationTime = 0
-const INITIAL_DELAY_MS = 20000 // 20s - first notification delay
-const RATE_LIMIT_MS = 120000 // 120s - rate limit window
-const MAX_NOTIFICATIONS_PER_WINDOW = 1 // Max 1 notification per window
 let notificationCount = 0
 let windowStartTime = Date.now()
 let engineStartTime = Date.now()
+let currentIsAuthed = false // Track auth state for config
 
 // Demo event templates - refined for "catching up with the world" narrative
 const demoEvents: NotificationInput[] = [
@@ -221,16 +220,18 @@ function getRandomEvent(secondsSinceStart: number): NotificationInput {
  * Check if we can send a notification (rate limiting)
  */
 function canSendNotification(): boolean {
+  const intensity = getDemoConfig(currentIsAuthed)
+  const config = DEMO_NOTIFICATION_CONFIG[intensity]
   const now = Date.now()
   
-  // Reset window if 20 seconds have passed
-  if (now - windowStartTime >= RATE_LIMIT_MS) {
+  // Reset window if rate limit period has passed
+  if (now - windowStartTime >= config.RATE_LIMIT_MS) {
     notificationCount = 0
     windowStartTime = now
   }
 
   // Check if we've hit the limit
-  if (notificationCount >= MAX_NOTIFICATIONS_PER_WINDOW) {
+  if (notificationCount >= config.MAX_NOTIFICATIONS_PER_WINDOW) {
     return false
   }
 
@@ -242,18 +243,26 @@ function canSendNotification(): boolean {
  */
 export function startDemoNotificationEngine(
   pushNotification: (notification: NotificationInput) => void,
-  options: DemoEngineOptions = {}
+  options: DemoEngineOptions = {},
+  isAuthed: boolean = false
 ): void {
   if (demoInterval) {
     stopDemoNotificationEngine()
   }
 
+  currentIsAuthed = isAuthed
+  const intensity = getDemoConfig(isAuthed)
+  const config = DEMO_NOTIFICATION_CONFIG[intensity]
   engineStartTime = Date.now()
   
   const scheduleNext = () => {
-    // Random interval between 60-120 seconds (calm preview)
-    const INTERVAL_MS = 60000 + Math.random() * 60000
+    // Use config-based random interval
+    const INTERVAL_MS = config.INTERVAL_MIN_MS + Math.random() * (config.INTERVAL_MAX_MS - config.INTERVAL_MIN_MS)
     demoInterval = setTimeout(() => {
+      // Re-check intensity in case auth state changed
+      const currentIntensity = getDemoConfig(currentIsAuthed)
+      const currentConfig = DEMO_NOTIFICATION_CONFIG[currentIntensity]
+      
       if (canSendNotification()) {
         const secondsSinceStart = (Date.now() - engineStartTime) / 1000
         const event = getRandomEvent(secondsSinceStart)
@@ -287,15 +296,22 @@ export function startDemoNotificationEngine(
         lastNotificationTime = Date.now()
       }
 
-      // Schedule next event
+      // Schedule next event with current config
       scheduleNext()
     }, INTERVAL_MS)
   }
 
-  // Start the first event after initial delay (20 seconds)
+  // Start the first event after config-based initial delay
   setTimeout(() => {
     scheduleNext()
-  }, INITIAL_DELAY_MS)
+  }, config.INITIAL_DELAY_MS)
+}
+
+/**
+ * Update auth state for notification engine (call when auth state changes)
+ */
+export function updateDemoNotificationAuthState(isAuthed: boolean): void {
+  currentIsAuthed = isAuthed
 }
 
 /**
