@@ -343,7 +343,25 @@ export function useAiActionCycle(
       }, intervalMs)
     }
 
-    scheduleNext()
+    // Initial trigger at 5 seconds (only in demo mode, pre-sign-in)
+    const INITIAL_DELAY_MS = 5000
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+    const isAuthed = useAuthStore.getState().isAuthed
+    
+    if (isDemoMode && !isAuthed && cardStackRef.current) {
+      // Fire first action at 5 seconds
+      setTimeout(async () => {
+        // Re-check conditions before firing
+        if (isRunningRef.current && cardStackRef.current && !useAuthStore.getState().isAuthed) {
+          await processAction()
+        }
+        // Then start normal schedule
+        scheduleNext()
+      }, INITIAL_DELAY_MS)
+    } else {
+      // Normal schedule (no initial delay)
+      scheduleNext()
+    }
   }, [cardStackRef, processAction])
 
   const stop = useCallback(() => {
