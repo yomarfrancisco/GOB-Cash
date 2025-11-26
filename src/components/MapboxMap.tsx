@@ -725,7 +725,7 @@ export default function MapboxMap({
     }
   }, [demoAgentMarkers, variant])
 
-  // Effect to show only 5 nearest avatars (post-sign-in only, via visibility)
+  // Effect to show only nearest avatars (post-sign-in only, via visibility)
   // Only affects avatar markers (initial-* and demo-*), leaves branch/user/mascot markers untouched
   useEffect(() => {
     const map = mapRef.current
@@ -736,27 +736,21 @@ export default function MapboxMap({
       return id.startsWith('initial-') || id.startsWith('demo-')
     }
 
-    // Helper to get avatar coordinates only (filter to initial- and demo- prefixes)
-    const getAvatarCoords = (): Array<{ id: string; lng: number; lat: number }> => {
-      const coords: Array<{ id: string; lng: number; lat: number }> = []
-      
-      agentMarkersRef.current.forEach((marker, id) => {
-        // Only include avatar markers (initial- and demo-)
-        if (!isAvatarMarker(id)) return
-        
-        const lngLat = marker.getLngLat()
-        if (lngLat) {
-          coords.push({ id, lng: lngLat.lng, lat: lngLat.lat })
-        }
-      })
-      
-      return coords
-    }
-
     // Get all entries and separate avatars from non-avatars
     const allEntries = Array.from(agentMarkersRef.current.entries())
     const avatarEntries = allEntries.filter(([id]) => isAvatarMarker(id))
     const nonAvatarEntries = allEntries.filter(([id]) => !isAvatarMarker(id))
+
+    // Debug: Log what's actually in agentMarkersRef
+    console.log('AVATAR_DEBUG: all marker IDs', {
+      total: allEntries.length,
+      ids: allEntries.map(([id]) => id),
+    })
+
+    console.log('AVATAR_DEBUG: avatar marker IDs', {
+      total: avatarEntries.length,
+      ids: avatarEntries.map(([id]) => id),
+    })
 
     // Debug: Log current state
     console.debug('AVATAR_VISIBILITY: Effect triggered', {
@@ -777,14 +771,34 @@ export default function MapboxMap({
       avatarEntries.forEach(([id, marker]) => {
         const el = marker.getElement()
         if (el) {
-          el.style.display = 'block'
+          el.style.display = '' // Reset to default (visible)
         }
       })
       return
     }
 
-    // ✅ Post-sign-in branch: restrict to 20 nearest avatars only
-    console.debug('AVATAR_VISIBILITY: In post-sign-in mode, restricting to 20 nearest avatar markers')
+    // ✅ Post-sign-in branch: restrict to nearest avatars only
+    console.debug('AVATAR_VISIBILITY: In post-sign-in mode, restricting to nearest avatar markers')
+
+    // If we can't find any avatars, DO NOTHING – don't hide anything
+    if (avatarEntries.length === 0) {
+      console.log('AVATAR_VISIBILITY: no avatar markers found, skipping visibility filter')
+      return
+    }
+
+    // Helper to get avatar coordinates only (filter to initial- and demo- prefixes)
+    const getAvatarCoords = (): Array<{ id: string; lng: number; lat: number }> => {
+      const coords: Array<{ id: string; lng: number; lat: number }> = []
+      
+      avatarEntries.forEach(([id, marker]) => {
+        const lngLat = marker.getLngLat()
+        if (lngLat) {
+          coords.push({ id, lng: lngLat.lng, lat: lngLat.lat })
+        }
+      })
+      
+      return coords
+    }
 
     const avatarCoords = getAvatarCoords()
     console.debug('AVATAR_VISIBILITY: Avatar marker IDs (initial- and demo- only)', 
@@ -795,7 +809,14 @@ export default function MapboxMap({
     )
 
     if (avatarCoords.length === 0) {
-      console.debug('AVATAR_VISIBILITY: No avatar markers found, skipping filter')
+      console.log('AVATAR_VISIBILITY: No avatar coordinates extracted, showing all avatars')
+      // Fallback: show all avatars if we can't get coordinates
+      avatarEntries.forEach(([id, marker]) => {
+        const el = marker.getElement()
+        if (el) {
+          el.style.display = ''
+        }
+      })
       return
     }
 
@@ -813,6 +834,23 @@ export default function MapboxMap({
     const nearest = avatarsWithDist
       .sort((a, b) => a.dist - b.dist)
       .slice(0, 20)
+
+    console.log('AVATAR_DEBUG: nearest avatar IDs', {
+      nearestCount: nearest.length,
+      ids: nearest.map(a => a.id),
+    })
+
+    // If nearest list is empty for any reason, fall back to "show all"
+    if (nearest.length === 0) {
+      console.log('AVATAR_VISIBILITY: nearest list empty, showing all avatars')
+      avatarEntries.forEach(([id, marker]) => {
+        const el = marker.getElement()
+        if (el) {
+          el.style.display = ''
+        }
+      })
+      return
+    }
 
     const nearestIds = new Set(nearest.map((a) => a.id))
 
@@ -833,7 +871,7 @@ export default function MapboxMap({
       }
 
       const visible = nearestIds.has(id)
-      el.style.display = visible ? 'block' : 'none'
+      el.style.display = visible ? '' : 'none'
       
       if (visible) visibleAvatarCount++
       else hiddenAvatarCount++
@@ -841,6 +879,15 @@ export default function MapboxMap({
       console.debug('AVATAR_VISIBILITY: avatar marker', id, 'visible?', visible, 
         visible ? '(nearest 20)' : '(hidden - not in nearest 20)'
       )
+    })
+
+    // Log sample avatar display states
+    avatarEntries.slice(0, 5).forEach(([id, marker]) => {
+      const el = marker.getElement()
+      console.log('AVATAR_DEBUG: sample avatar display', {
+        id,
+        display: el?.style.display ?? '(unset)',
+      })
     })
 
     // Non-avatar markers (branch/user/mascot) are never touched - they remain visible
