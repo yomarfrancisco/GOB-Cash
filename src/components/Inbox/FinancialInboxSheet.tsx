@@ -12,7 +12,7 @@ import walletHelperStyles from '../WalletHelperSheet.module.css'
 import mapHelperStyles from '../MapHelperSheet.module.css'
 
 // Ama intro message text constant
-const AMA_INTRO_TEXT = "👋 I can help you invest, make payments, and move cash anywhere.\n\nWhat would you like to do first?"
+const AMA_INTRO_TEXT = "GoBankless is an autonomous wallet that helps you invest safely, make payments, and move cash anywhere. What would you like to do first?"
 
 // Intro stage state machine
 type IntroStage = 'typingIndicator' | 'typingMessage' | 'cards' | 'done'
@@ -65,9 +65,31 @@ function TypedMessageBubble({ text, animate, showCard, introStage, isDemoIntro, 
     return () => window.clearInterval(id)
   }, [text, animate, onTypingComplete])
 
+  // Split text to make final sentence bold
+  const FINAL_SENTENCE = 'What would you like to do first?'
+  const textParts = text.split(FINAL_SENTENCE)
+  const mainText = textParts[0]
+  const mainTextLength = mainText.length
+  
+  // Determine what portion of text is displayed
+  let displayedMain = ''
+  let displayedFinal = ''
+  
+  if (displayed.length <= mainTextLength) {
+    // Still typing main text
+    displayedMain = displayed
+  } else {
+    // Main text is complete, now typing final sentence
+    displayedMain = mainText
+    displayedFinal = displayed.slice(mainTextLength)
+  }
+
   return (
     <div className={chatStyles.messageBubble}>
-      <p style={{ whiteSpace: 'pre-line' }}>{displayed}</p>
+      <p>
+        {displayedMain}
+        {displayedFinal && <strong>{displayedFinal}</strong>}
+      </p>
       {showCard && (
         <div className={clsx(
           walletHelperStyles.amaIntroCardBlockWrapper,
@@ -99,7 +121,7 @@ function TypedMessageBubble({ text, animate, showCard, introStage, isDemoIntro, 
             </div>
             {/* Compact text - heading must stay on one line */}
             <h3 className={chatStyles.promoTitle}>
-              Earn 9.38% APY
+              Earn interest on your deposits
             </h3>
             <p className={chatStyles.promoSubtext}>
               Compounded monthly
@@ -108,7 +130,7 @@ function TypedMessageBubble({ text, animate, showCard, introStage, isDemoIntro, 
 
           {/* 2) Map tile */}
           <div className={clsx(mapHelperStyles.tile, chatStyles.amaIntroTile, chatStyles.amaIntroTileStaggered)}>
-            <div className={mapHelperStyles.mapPreview}>
+            <div className={clsx(mapHelperStyles.mapPreview, chatStyles.amaIntroMapPreview)}>
               <Image
                 src="/assets/map2.png"
                 alt="Dealer map"
@@ -125,20 +147,6 @@ function TypedMessageBubble({ text, animate, showCard, introStage, isDemoIntro, 
               See who can help you deposit or withdraw
             </p>
           </div>
-
-          {/* Get Started CTA button - only show in demo intro */}
-          {isDemoIntro && (
-            <button
-              className={chatStyles.getStartedButton}
-              onClick={() => {
-                const { openAuthEntrySignup } = useAuthStore.getState()
-                openAuthEntrySignup()
-              }}
-              type="button"
-            >
-              Get Started
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -201,6 +209,12 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   const handleTypingComplete = useCallback(() => {
     if (isDemoIntro && inboxViewMode === 'chat' && isInboxOpen) {
       setIntroStage('cards')
+      // Show CTA bubble after map animation completes (280ms card + 120ms delay = 400ms total)
+      setTimeout(() => {
+        if (isDemoIntro && inboxViewMode === 'chat' && isInboxOpen) {
+          setIntroStage('done')
+        }
+      }, 400)
     }
   }, [isDemoIntro, inboxViewMode, isInboxOpen])
 
@@ -392,6 +406,21 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                         isDemoIntro={isDemoIntro}
                         onTypingComplete={handleTypingComplete}
                       />
+                    )}
+                    {/* Get Started CTA in separate bubble - only show after map animation */}
+                    {introStage === 'done' && (
+                      <div className={chatStyles.messageBubble}>
+                        <button
+                          className={chatStyles.chatCtaButton}
+                          onClick={() => {
+                            const { openAuthEntrySignup } = useAuthStore.getState()
+                            openAuthEntrySignup()
+                          }}
+                          type="button"
+                        >
+                          Get Started
+                        </button>
+                      </div>
                     )}
                   </>
                 ) : (

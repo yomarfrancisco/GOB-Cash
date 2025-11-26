@@ -281,6 +281,36 @@
   line-height: 1.35;
 }
 
+/* Reduced map height for Ama intro to match card tile */
+.amaIntroMapPreview {
+  height: 85px !important; /* Match card preview height */
+  margin-bottom: 8px !important; /* Match card spacing */
+}
+
+/* Chat CTA button - smaller version for in-chat use */
+.chatCtaButton {
+  width: 100%;
+  padding: 12px 16px;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin: 0;
+}
+
+.chatCtaButton:hover {
+  opacity: 0.9;
+}
+
+.chatCtaButton:active {
+  opacity: 0.8;
+}
+
 /* Get Started CTA button */
 .getStartedButton {
   width: 100%;
