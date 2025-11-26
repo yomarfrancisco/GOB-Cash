@@ -6,6 +6,7 @@ import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
+import walletHelperStyles from '../WalletHelperSheet.module.css'
 
 // Ama intro message text constant
 const AMA_INTRO_TEXT = "Hi, I'm Ama, your Investment Manager 👋   I can help you make your first deposit, find a cash agent, or convert cash to crypto.   What would you like to do first?"
@@ -26,8 +27,8 @@ function TypingBubble() {
   )
 }
 
-// Typed message bubble with fast typewriter effect
-function TypedMessageBubble({ text, animate }: { text: string; animate: boolean }) {
+// Typed message bubble with fast typewriter effect and embedded card tile
+function TypedMessageBubble({ text, animate, showCard }: { text: string; animate: boolean; showCard?: boolean }) {
   const [displayed, setDisplayed] = useState(text)
 
   useEffect(() => {
@@ -56,7 +57,31 @@ function TypedMessageBubble({ text, animate }: { text: string; animate: boolean 
 
   return (
     <div className={chatStyles.messageBubble}>
-      {displayed}
+      <p>{displayed}</p>
+      {showCard && (
+        <div style={{ marginTop: 12 }}>
+          <div className={walletHelperStyles.tile}>
+            <div className={walletHelperStyles.cardPreviewContainer}>
+              <div className={walletHelperStyles.cardPreview}>
+                <Image
+                  src="/assets/cards/card-pepe.jpg"
+                  alt="PEPE wallet"
+                  fill
+                  className={walletHelperStyles.cardImage}
+                  sizes="204px"
+                  unoptimized
+                />
+              </div>
+            </div>
+            <h3 className={walletHelperStyles.apyHeading}>
+              Earn 9% annually on your deposits
+            </h3>
+            <p className={walletHelperStyles.apySubtext}>
+              Compounded monthly
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -306,6 +331,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                       <TypedMessageBubble
                         text={AMA_INTRO_TEXT}
                         animate={introStage === 'typingMessage'}
+                        showCard={true}
                       />
                     )}
                   </>
