@@ -85,6 +85,10 @@ export default function MapboxMap({
   hqCoord,
   isAuthed = false,
 }: Props) {
+  // Debug log to verify variant prop is correct
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('MAP_RENDER', { isAuthed, variantFromProps: variant })
+  }
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const loadedRef = useRef(false)
@@ -752,8 +756,8 @@ export default function MapboxMap({
       agentMarkersRefSize: agentMarkersRef.current?.size || 0,
     })
 
-    // Only apply visibility filtering on post-sign-in map
-    if (!isAuthed || variant === 'landing') {
+    // Landing / unauthenticated: show everything, no constraints
+    if (!isAuthed || variant === 'landing' || !userLngLat) {
       console.debug('AVATAR_VISIBILITY: Not in post-sign-in mode, showing all avatars')
       // Make sure all avatars are visible when not in post-sign-in mode
       agentMarkersRef.current.forEach((marker, id) => {
@@ -767,6 +771,9 @@ export default function MapboxMap({
       })
       return
     }
+
+    // ✅ Post-sign-in branch: restrict to 5 nearest avatars
+    console.debug('AVATAR_VISIBILITY: In post-sign-in mode, restricting to 5 nearest avatars')
 
     if (!userLngLat) {
       console.debug('AVATAR_VISIBILITY: No userLngLat, skipping filter')
