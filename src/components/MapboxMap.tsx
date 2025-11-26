@@ -700,6 +700,80 @@ export default function MapboxMap({
     }
   }, [demoAgentMarkers, variant])
 
+  // Effect to constrain pan/zoom to 5 nearest avatars (post-sign-in only)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !loadedRef.current) return
+    
+    // Pre-sign-in / landing: no restriction, behave exactly like 8579e89
+    if (!isAuthed || variant === 'landing' || !userLngLat) {
+      map.setMaxBounds(null as any)
+      return
+    }
+
+    // Helper to get all avatar coordinates from existing markers
+    const getAllAvatarCoords = (): Array<{ id: string; lng: number; lat: number }> => {
+      const coords: Array<{ id: string; lng: number; lat: number }> = []
+      
+      agentMarkersRef.current.forEach((marker, id) => {
+        const lngLat = marker.getLngLat()
+        if (lngLat) {
+          coords.push({ id, lng: lngLat.lng, lat: lngLat.lat })
+        }
+      })
+      
+      return coords
+    }
+
+    const avatars = getAllAvatarCoords()
+    if (avatars.length === 0) {
+      map.setMaxBounds(null as any)
+      return
+    }
+
+    // Compute distances from user to each avatar
+    const [userLng, userLat] = userLngLat
+    const avatarsWithDist = avatars.map((a) => ({
+      ...a,
+      dist: distMeters(userLngLat, [a.lng, a.lat]),
+    }))
+
+    // Pick the 5 nearest avatars
+    const nearest = avatarsWithDist
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 5)
+
+    if (nearest.length === 0) {
+      map.setMaxBounds(null as any)
+      return
+    }
+
+    // Build bounding box around user + 5 nearest avatars
+    const bounds = new mapboxgl.LngLatBounds()
+    bounds.extend([userLng, userLat])
+    nearest.forEach((a) => bounds.extend([a.lng, a.lat]))
+
+    // Add padding so pins aren't tight to edges (20% padding)
+    const sw = bounds.getSouthWest()
+    const ne = bounds.getNorthEast()
+    const latPadding = (ne.lat - sw.lat) * 0.2
+    const lngPadding = (ne.lng - sw.lng) * 0.2
+    
+    const padded = new mapboxgl.LngLatBounds()
+    padded.extend([sw.lng - lngPadding, sw.lat - latPadding])
+    padded.extend([ne.lng + lngPadding, ne.lat + latPadding])
+
+    // Apply as maxBounds
+    map.setMaxBounds(padded)
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[MapboxMap] Set maxBounds to 5 nearest avatars (post-sign-in):', {
+        userLocation: userLngLat,
+        nearest: nearest.map((a) => ({ id: a.id, dist: Math.round(a.dist) })),
+      })
+    }
+  }, [isAuthed, variant, userLngLat, demoAgentMarkers])
+
   // Effect to handle map highlighting from notifications
   useEffect(() => {
     const map = mapRef.current
