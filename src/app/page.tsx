@@ -308,7 +308,7 @@ export default function Home() {
     
     let closeTimer: NodeJS.Timeout | null = null
     
-    // Wait 5 seconds before showing the intro
+    // Wait 15 seconds before showing the intro
     const openTimer = setTimeout(() => {
       // Re-check conditions before opening (user might have signed in)
       const currentIsAuthed = useAuthStore.getState().isAuthed
@@ -319,15 +319,15 @@ export default function Home() {
       // Open Ama chat sheet directly (skips inbox list)
       openAmaIntro()
       
-      // Close the sheet after 7 seconds
+      // Close the sheet after 14 seconds
       closeTimer = setTimeout(() => {
         // Check if sheet is still open (user might have closed it manually)
         const { isInboxOpen } = useFinancialInboxStore.getState()
         if (isInboxOpen) {
           closeInboxSheet()
         }
-      }, 7000)
-    }, 5000)
+      }, 14000)
+    }, 15000)
     
     return () => {
       clearTimeout(openTimer)
