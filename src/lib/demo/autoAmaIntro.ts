@@ -17,15 +17,15 @@ export function openAmaIntro(): void {
   // Ensure the portfolio manager thread exists
   store.ensurePortfolioManagerThread()
   
-  // Set demo intro flag before opening
-  store.setDemoIntro(true)
-  
-  // Open the sheet first
+  // 1) Open the sheet first
   store.openInbox()
   
-  // Then set active thread and switch to chat view
+  // 2) Then set active thread and switch to chat view
   // Note: openChatSheet sets activeThreadId and inboxViewMode but doesn't open the sheet
   store.openChatSheet(PORTFOLIO_MANAGER_THREAD_ID)
+  
+  // 3) Now mark this as a demo intro (after inbox and chat are set up)
+  store.setDemoIntro(true)
 }
 
 /**

@@ -108,11 +108,12 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   },
 
   openInbox: () => {
-    set({
+    set((state) => ({
+      ...state,
       isInboxOpen: true,
       inboxViewMode: 'inbox', // Always start with inbox view
-      isDemoIntro: false, // Reset demo intro flag on manual open
-    })
+      // Preserve isDemoIntro - it will be controlled explicitly by callers
+    }))
   },
 
   closeInbox: () => {
