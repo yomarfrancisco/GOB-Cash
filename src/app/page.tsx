@@ -278,7 +278,7 @@ export default function Home() {
       startDemoNotificationEngine(pushNotification, {
         onMapPan,
         onCardAnimation,
-      })
+      }, isAuthed)
 
       return () => {
         stopDemoNotificationEngine()

@@ -15,15 +15,9 @@ import { useEffect } from 'react'
 import type React from 'react'
 import type { CardStackHandle } from '@/components/CardStack'
 import { useAuthStore } from '@/store/auth'
+import { getDemoConfig, RANDOM_FLIP_CONFIG } from '@/lib/demo/demoConfig'
 
 const ENABLED = process.env.NEXT_PUBLIC_ENABLE_RANDOM_CARD_FLIPS === '1'
-const QUIET_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_QUIET_MS ?? 60000) // 60s quiet period
-const MIN_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MIN_MS ?? 120000) // 2 min - burst interval min
-const MAX_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MAX_MS ?? 360000) // 6 min - burst interval max
-const MIN_COUNT = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MIN_COUNT ?? 1) // Never multiple flips
-const MAX_COUNT = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MAX_COUNT ?? 1) // Never multiple flips
-// Per-flip delay inside a burst (>= CSS animation ~300ms)
-const BURST_STEP_MS = Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_BURST_STEP_MS ?? 700) // doubled from 350
 
 type FlipController = {
   pause: () => void
@@ -40,6 +34,30 @@ export function useRandomCardFlips(
   // Only enabled when demo mode is on AND user is NOT authenticated
   const shouldEnable = ENABLED && isDemoMode && !isAuthed
   
+  // Get config based on auth state
+  const intensity = getDemoConfig(isAuthed)
+  const config = RANDOM_FLIP_CONFIG[intensity]
+  
+  // Allow env overrides for calm mode (backward compatibility)
+  const QUIET_MS = isAuthed && process.env.NEXT_PUBLIC_RANDOM_FLIP_QUIET_MS
+    ? Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_QUIET_MS)
+    : config.QUIET_MS
+  const MIN_MS = isAuthed && process.env.NEXT_PUBLIC_RANDOM_FLIP_MIN_MS
+    ? Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MIN_MS)
+    : config.MIN_MS
+  const MAX_MS = isAuthed && process.env.NEXT_PUBLIC_RANDOM_FLIP_MAX_MS
+    ? Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MAX_MS)
+    : config.MAX_MS
+  const MIN_COUNT = isAuthed && process.env.NEXT_PUBLIC_RANDOM_FLIP_MIN_COUNT
+    ? Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MIN_COUNT)
+    : config.MIN_COUNT
+  const MAX_COUNT = isAuthed && process.env.NEXT_PUBLIC_RANDOM_FLIP_MAX_COUNT
+    ? Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_MAX_COUNT)
+    : config.MAX_COUNT
+  const BURST_STEP_MS = isAuthed && process.env.NEXT_PUBLIC_RANDOM_FLIP_BURST_STEP_MS
+    ? Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_BURST_STEP_MS)
+    : config.BURST_STEP_MS
+  
   useEffect(() => {
     if (!shouldEnable || !ref?.current) {
       // Early return if not enabled
@@ -48,7 +66,7 @@ export function useRandomCardFlips(
 
     // Log effective timings at mount
     console.log(
-      `[RandomFlip] quiet=${QUIET_MS}ms interval=${MIN_MS}-${MAX_MS}ms burstStep=${BURST_STEP_MS}ms`
+      `[RandomFlip] intensity=${intensity} quiet=${QUIET_MS}ms interval=${MIN_MS}-${MAX_MS}ms burstStep=${BURST_STEP_MS}ms`
     )
 
     let aborted = false

@@ -9,6 +9,8 @@ import { derivePortfolio } from '@/lib/portfolio/calculateMetrics'
 import { useAiFabHighlightStore, shouldHighlightAiFab } from '@/state/aiFabHighlight'
 import { useBabyCdoChatStore } from '@/state/babyCdoChat'
 import { formatBabyCdoIntroFromTradeContext, type TradeContext } from '@/lib/babycdo/formatIntroMessage'
+import { useAuthStore } from '@/store/auth'
+import { getDemoConfig, AI_ACTION_CONFIG } from '@/lib/demo/demoConfig'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -16,7 +18,6 @@ type CardType = 'pepe' | 'savings' | 'yield'
 
 export const FLIP_MS = 300 // do not change
 export const CASH_UPDATE_DELAY_MS = FLIP_MS + 600 // small perceptible delay after flip back (doubled from 150, total was 450ms, now 900ms)
-const INTERVAL_MS = 90000 // 90s - time between AI card animations (pre-signin only)
 const SLOT_MS = 1400 // slot animation duration per update
 const DELTA_MIN = 5 // USDT min move
 const DELTA_MAX = 40 // USDT max move
