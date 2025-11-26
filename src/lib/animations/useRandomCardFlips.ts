@@ -11,13 +11,15 @@
  * - Burst size: 1-3 flips (env: NEXT_PUBLIC_RANDOM_FLIP_MIN_COUNT / MAX_COUNT)
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type React from 'react'
 import type { CardStackHandle } from '@/components/CardStack'
 import { useAuthStore } from '@/store/auth'
 import { getDemoConfig, RANDOM_FLIP_CONFIG } from '@/lib/demo/demoConfig'
 
 const ENABLED = process.env.NEXT_PUBLIC_ENABLE_RANDOM_CARD_FLIPS === '1'
+const FIRST_BURST_DELAY_MS = 10000 // 10 seconds after cards are visible
+const DEBUG_ENABLED = process.env.NEXT_PUBLIC_DEBUG_MAP === 'true' || process.env.NODE_ENV !== 'production'
 
 type FlipController = {
   pause: () => void
@@ -58,6 +60,9 @@ export function useRandomCardFlips(
     ? Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_BURST_STEP_MS)
     : config.BURST_STEP_MS
   
+  // Track if first burst has fired (persists across effect re-runs)
+  const hasFiredFirstBurstRef = useRef(false)
+
   useEffect(() => {
     if (!shouldEnable || !ref?.current) {
       // Early return if not enabled
@@ -100,6 +105,51 @@ export function useRandomCardFlips(
       }
     }
 
+    // Helper function to execute a burst of card flips
+    const startBurst = async () => {
+      if (!ref.current || document.hidden || paused || bursting) return
+      
+      bursting = true
+      const flips = rnd(MIN_COUNT, MAX_COUNT)
+
+      for (let i = 0; i < flips; i++) {
+        // safety: ensure ref still valid and page visible and not paused
+        if (!ref.current || document.hidden || paused) break
+
+        ref.current.cycleNext()
+
+        await sleep(BURST_STEP_MS) // allow CSS transition to finish
+      }
+
+      bursting = false
+    }
+
+    // Schedule initial burst at 10 seconds (one-time only)
+    let firstBurstTimer: NodeJS.Timeout | null = null
+    if (!hasFiredFirstBurstRef.current && isDemoMode && !isAuthed) {
+      if (DEBUG_ENABLED) {
+        console.log('[RANDOM_FLIPS] scheduling initial burst in', FIRST_BURST_DELAY_MS, 'ms')
+      }
+      
+      firstBurstTimer = setTimeout(() => {
+        // Re-check conditions before firing
+        if (
+          !hasFiredFirstBurstRef.current &&
+          !isAuthed &&
+          process.env.NEXT_PUBLIC_DEMO_MODE === 'true' &&
+          ref.current &&
+          !document.hidden &&
+          !paused
+        ) {
+          hasFiredFirstBurstRef.current = true
+          if (DEBUG_ENABLED) {
+            console.log('[RANDOM_FLIPS] fired initial burst')
+          }
+          startBurst()
+        }
+      }, FIRST_BURST_DELAY_MS)
+    }
+
     const run = async () => {
       // initial quiet period
       await sleep(QUIET_MS)
@@ -119,22 +169,8 @@ export function useRandomCardFlips(
         // Check again if paused
         if (paused || document.hidden) continue
 
-        if (bursting) continue // never overlap bursts
-
-        bursting = true
-
-        const flips = rnd(MIN_COUNT, MAX_COUNT)
-
-        for (let i = 0; i < flips; i++) {
-          // safety: ensure ref still valid and page visible and not paused
-          if (!ref.current || document.hidden || paused) break
-
-          ref.current.cycleNext()
-
-          await sleep(BURST_STEP_MS) // allow CSS transition to finish
-        }
-
-        bursting = false
+        // Execute burst using the shared helper
+        await startBurst()
       }
     }
 
@@ -143,8 +179,12 @@ export function useRandomCardFlips(
     return () => {
       aborted = true
       paused = true
+      if (firstBurstTimer) {
+        clearTimeout(firstBurstTimer)
+        firstBurstTimer = null
+      }
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [ref, controllerRef, shouldEnable])
+  }, [ref, controllerRef, shouldEnable, isAuthed, isDemoMode, intensity, QUIET_MS, MIN_MS, MAX_MS, MIN_COUNT, MAX_COUNT, BURST_STEP_MS])
 }
 

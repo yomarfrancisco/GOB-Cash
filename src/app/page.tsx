@@ -14,6 +14,7 @@ import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
 import { formatUSDT } from '@/lib/money'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useAiActionCycle } from '@/lib/animations/useAiActionCycle'
+import { useRandomCardFlips } from '@/lib/animations/useRandomCardFlips'
 import { formatZAR } from '@/lib/formatCurrency'
 import { initPortfolioFromAlloc } from '@/lib/portfolio/initPortfolio'
 import ConvertCashSection from '@/components/ConvertCashSection'
@@ -251,6 +252,9 @@ export default function Home() {
     },
     !isAuthed // enable only when NOT authenticated
   )
+
+  // Random card flips - only run when NOT authenticated
+  useRandomCardFlips(cardStackRef)
 
   // Demo notification engine - only run in demo mode AND when NOT authenticated
   const pushNotification = useNotificationStore((state) => state.pushNotification)
