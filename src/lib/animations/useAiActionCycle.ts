@@ -325,12 +325,22 @@ export function useAiActionCycle(
     isRunningRef.current = true
 
     const scheduleNext = () => {
+      // Get current auth state and config
+      const isAuthed = useAuthStore.getState().isAuthed
+      const intensity = getDemoConfig(isAuthed)
+      const config = AI_ACTION_CONFIG[intensity]
+      
+      // Use random interval for lively mode, fixed for calm mode
+      const intervalMs = config.INTERVAL_MAX_MS > config.INTERVAL_MIN_MS
+        ? config.INTERVAL_MIN_MS + Math.random() * (config.INTERVAL_MAX_MS - config.INTERVAL_MIN_MS)
+        : config.INTERVAL_MIN_MS
+      
       intervalRef.current = setTimeout(async () => {
         if (isRunningRef.current && cardStackRef.current) {
           await processAction()
           scheduleNext()
         }
-      }, INTERVAL_MS)
+      }, intervalMs)
     }
 
     scheduleNext()
