@@ -30,6 +30,7 @@ import type { Feature, LineString } from 'geojson'
 import styles from './MapboxMap.module.css'
 import { useMapHighlightStore } from '@/state/mapHighlight'
 import { DEMO_AGENTS } from '@/lib/demo/demoAgents'
+import { KEY_CITY_AVATARS } from '@/lib/demo/keyCityAvatars'
 import YouAreHere from './YouAreHere'
 // static import so Next bundles it and gives us a stable .src
 import userIcon from '../../public/assets/character.png'
@@ -111,18 +112,29 @@ export default function MapboxMap({
   
   const highlight = useMapHighlightStore((state) => state.highlight)
   
-  // Get demo agents as markers if in demo mode
+  // Get demo agents and key city avatars as markers if in demo mode
   const demoAgentMarkers: Marker[] = 
     process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
-      ? DEMO_AGENTS.map((agent) => ({
-          id: agent.id,
-          lng: agent.lng,
-          lat: agent.lat,
-          kind: 'member' as const,
-          label: agent.name,
-          avatar: agent.avatar,
-          name: agent.name,
-        }))
+      ? [
+          ...DEMO_AGENTS.map((agent) => ({
+            id: agent.id,
+            lng: agent.lng,
+            lat: agent.lat,
+            kind: 'member' as const,
+            label: agent.name,
+            avatar: agent.avatar,
+            name: agent.name,
+          })),
+          ...KEY_CITY_AVATARS.map((city) => ({
+            id: city.id,
+            lng: city.lng,
+            lat: city.lat,
+            kind: 'member' as const,
+            label: city.name,
+            avatar: city.avatar,
+            name: city.name,
+          })),
+        ]
       : []
 
   const log = (message: string) => {
