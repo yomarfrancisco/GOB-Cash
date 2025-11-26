@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
 import ActionSheet from '../ActionSheet'
@@ -13,7 +13,7 @@ import walletHelperStyles from '../WalletHelperSheet.module.css'
 const AMA_INTRO_TEXT = "Hi, I'm Ama, your Investment Manager 👋   I can help you make your first deposit, find a cash agent, or convert cash to crypto.   What would you like to do first?"
 
 // Intro stage state machine
-type IntroStage = 'typingIndicator' | 'typingMessage' | 'done'
+type IntroStage = 'typingIndicator' | 'typingMessage' | 'cards' | 'done'
 
 // Typing indicator component (3 dots)
 function TypingBubble() {
@@ -29,12 +29,15 @@ function TypingBubble() {
 }
 
 // Typed message bubble with fast typewriter effect and embedded card tile
-function TypedMessageBubble({ text, animate, showCard }: { text: string; animate: boolean; showCard?: boolean }) {
+function TypedMessageBubble({ text, animate, showCard, introStage, onTypingComplete }: { text: string; animate: boolean; showCard?: boolean; introStage?: IntroStage; onTypingComplete?: () => void }) {
   const [displayed, setDisplayed] = useState(text)
 
   useEffect(() => {
     if (!animate) {
       setDisplayed(text)
+      if (onTypingComplete) {
+        onTypingComplete()
+      }
       return
     }
 
@@ -48,23 +51,35 @@ function TypedMessageBubble({ text, animate, showCard }: { text: string; animate
       if (i >= text.length) {
         setDisplayed(text)
         window.clearInterval(id)
+        // Call completion callback when typing finishes
+        if (onTypingComplete) {
+          onTypingComplete()
+        }
       } else {
         setDisplayed(text.slice(0, i))
       }
     }, TICK_MS)
 
     return () => window.clearInterval(id)
-  }, [text, animate])
+  }, [text, animate, onTypingComplete])
 
   return (
     <div className={chatStyles.messageBubble}>
       <p>{displayed}</p>
       {showCard && (
-        <div className={walletHelperStyles.amaIntroCardBlockWrapper}>
+        <div className={clsx(
+          walletHelperStyles.amaIntroCardBlockWrapper,
+          chatStyles.amaIntroCardBlock,
+          (introStage === 'cards' || introStage === 'done') && chatStyles.amaIntroCardBlockVisible
+        )}>
           <div className={clsx(walletHelperStyles.tile, walletHelperStyles.compactTile)}>
             <div className={walletHelperStyles.cardPreviewContainer}>
               {/* APY pill overlay - single line for chat */}
-              <div className={walletHelperStyles.amaIntroApyPill}>
+              <div className={clsx(
+                walletHelperStyles.amaIntroApyPill,
+                chatStyles.amaIntroApyPillAnimated,
+                (introStage === 'cards' || introStage === 'done') && chatStyles.amaIntroApyPillVisible
+              )}>
                 <span className={walletHelperStyles.amaIntroApyText}>9.38% APY</span>
               </div>
               {/* Card preview (compact) */}
@@ -140,18 +155,15 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       }
     }, TYPING_INDICATOR_MS)
 
-    // Lock into 'done' after typing completes (~1.2s for typing animation)
-    const LOCK_MS = TYPING_INDICATOR_MS + 1200
-    const t2 = setTimeout(() => {
-      // Only lock if still in demo intro mode and chat view
-      if (isDemoIntro && inboxViewMode === 'chat' && isInboxOpen) {
-        setIntroStage('done')
-      }
-    }, LOCK_MS)
-
     return () => {
       clearTimeout(t1)
-      clearTimeout(t2)
+    }
+  }, [isDemoIntro, inboxViewMode, isInboxOpen])
+
+  // Callback when typing completes - transition to cards stage
+  const handleTypingComplete = useCallback(() => {
+    if (isDemoIntro && inboxViewMode === 'chat' && isInboxOpen) {
+      setIntroStage('cards')
     }
   }, [isDemoIntro, inboxViewMode, isInboxOpen])
 
@@ -339,6 +351,8 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                         text={AMA_INTRO_TEXT}
                         animate={introStage === 'typingMessage'}
                         showCard={true}
+                        introStage={introStage}
+                        onTypingComplete={handleTypingComplete}
                       />
                     )}
                   </>

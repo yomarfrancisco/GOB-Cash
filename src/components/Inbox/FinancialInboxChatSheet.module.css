@@ -198,3 +198,36 @@
   }
 }
 
+/* Ama intro card block animations */
+/* Base state: hidden */
+.amaIntroCardBlock {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 280ms ease-out,
+    transform 280ms ease-out;
+}
+
+/* Visible state: fades in + slides up */
+.amaIntroCardBlockVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* APY pill pop-in animation */
+/* Base pill state: slightly smaller + lower + invisible */
+.amaIntroApyPillAnimated {
+  opacity: 0;
+  transform: translateY(4px) scale(0.9);
+  transform-origin: center;
+  transition:
+    opacity 220ms ease-out 120ms,
+    transform 220ms ease-out 120ms;
+}
+
+/* Visible pill: full size, crisp */
+.amaIntroApyPillVisible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
