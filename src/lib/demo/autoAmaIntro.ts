@@ -26,6 +26,9 @@ export function openAmaIntro(): void {
   
   // 3) Now mark this as a demo intro (after inbox and chat are set up)
   store.setDemoIntro(true)
+  
+  // 4) Set unread notification flag for bottom nav dot
+  store.setHasUnreadNotification(true)
 }
 
 /**

@@ -35,6 +35,7 @@ type FinancialInboxState = {
   isInboxOpen: boolean
   inboxViewMode: InboxViewMode // 'inbox' or 'chat' - controls which view to show
   isDemoIntro: boolean // True when opened from landing demo auto-intro
+  hasUnreadNotification: boolean // True when there's an unread notification (for bottom nav dot)
   openInbox: () => void
   closeInbox: () => void
   openChatSheet: (threadId: ThreadId) => void // Open chat sheet for a specific thread
@@ -43,6 +44,7 @@ type FinancialInboxState = {
   setActiveThread: (threadId: ThreadId | null) => void
   ensurePortfolioManagerThread: () => void
   setDemoIntro: (value: boolean) => void // Set demo intro flag
+  setHasUnreadNotification: (value: boolean) => void // Set unread notification flag
 }
 
 const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
@@ -77,6 +79,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   isInboxOpen: false,
   inboxViewMode: 'inbox',
   isDemoIntro: false,
+  hasUnreadNotification: false,
 
   ensurePortfolioManagerThread: () => {
     const state = get()
@@ -112,6 +115,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
       ...state,
       isInboxOpen: true,
       inboxViewMode: 'inbox', // Always start with inbox view
+      hasUnreadNotification: false, // Clear notification when inbox is opened
       // Preserve isDemoIntro - it will be controlled explicitly by callers
     }))
   },
@@ -144,6 +148,10 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
 
   setDemoIntro: (value: boolean) => {
     set({ isDemoIntro: value })
+  },
+
+  setHasUnreadNotification: (value: boolean) => {
+    set({ hasUnreadNotification: value })
   },
 
   sendMessage: (threadId: ThreadId, from: 'user' | 'ai', text: string) => {
