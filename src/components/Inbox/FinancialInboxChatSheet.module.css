@@ -236,7 +236,72 @@
   margin-top: 16px;
 }
 
-.amaIntroTile:first-child {
+.amaIntroTile:first-child,
+.amaIntroTileFirst {
   margin-top: 0; /* No margin on first tile */
+}
+
+/* Staggered animation for second tile (map) */
+.amaIntroTileStaggered {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 280ms ease-out 120ms,
+    transform 280ms ease-out 120ms;
+}
+
+.amaIntroCardBlockVisible .amaIntroTileStaggered {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Shared typography for promo tiles */
+.promoTitle {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0a0a0a;
+  margin: 8px 0 0 0;
+  padding: 0;
+  text-align: center;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: unset;
+  letter-spacing: -0.1px;
+}
+
+.promoSubtext {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(10, 10, 10, 0.6);
+  margin: 0;
+  text-align: center;
+  line-height: 1.35;
+}
+
+/* Get Started CTA button */
+.getStartedButton {
+  width: 100%;
+  padding: 16px;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-top: 16px;
+}
+
+.getStartedButton:hover {
+  opacity: 0.9;
+}
+
+.getStartedButton:active {
+  opacity: 0.8;
 }
 

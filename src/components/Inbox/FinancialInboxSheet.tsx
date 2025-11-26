@@ -5,13 +5,14 @@ import Image from 'next/image'
 import clsx from 'clsx'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
+import { useAuthStore } from '@/store/auth'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
 import walletHelperStyles from '../WalletHelperSheet.module.css'
 import mapHelperStyles from '../MapHelperSheet.module.css'
 
 // Ama intro message text constant
-const AMA_INTRO_TEXT = "Hi, I'm Ama, your Investment Manager 👋   I can help you make your first deposit, find a cash agent, or convert cash to crypto.   What would you like to do first?"
+const AMA_INTRO_TEXT = "👋 I can help you invest, make payments, and move cash anywhere.\n\nWhat would you like to do first?"
 
 // Intro stage state machine
 type IntroStage = 'typingIndicator' | 'typingMessage' | 'cards' | 'done'
@@ -30,7 +31,7 @@ function TypingBubble() {
 }
 
 // Typed message bubble with fast typewriter effect and embedded card tile
-function TypedMessageBubble({ text, animate, showCard, introStage, onTypingComplete }: { text: string; animate: boolean; showCard?: boolean; introStage?: IntroStage; onTypingComplete?: () => void }) {
+function TypedMessageBubble({ text, animate, showCard, introStage, isDemoIntro, onTypingComplete }: { text: string; animate: boolean; showCard?: boolean; introStage?: IntroStage; isDemoIntro?: boolean; onTypingComplete?: () => void }) {
   const [displayed, setDisplayed] = useState(text)
 
   useEffect(() => {
@@ -66,7 +67,7 @@ function TypedMessageBubble({ text, animate, showCard, introStage, onTypingCompl
 
   return (
     <div className={chatStyles.messageBubble}>
-      <p>{displayed}</p>
+      <p style={{ whiteSpace: 'pre-line' }}>{displayed}</p>
       {showCard && (
         <div className={clsx(
           walletHelperStyles.amaIntroCardBlockWrapper,
@@ -74,7 +75,7 @@ function TypedMessageBubble({ text, animate, showCard, introStage, onTypingCompl
           (introStage === 'cards' || introStage === 'done') && chatStyles.amaIntroCardBlockVisible
         )}>
           {/* 1) ZAR savings card */}
-          <div className={clsx(walletHelperStyles.tile, walletHelperStyles.compactTile, chatStyles.amaIntroTile)}>
+          <div className={clsx(walletHelperStyles.tile, walletHelperStyles.compactTile, chatStyles.amaIntroTile, chatStyles.amaIntroTileFirst)}>
             <div className={walletHelperStyles.cardPreviewContainer}>
               {/* APY pill overlay - single line for chat */}
               <div className={clsx(
@@ -97,48 +98,16 @@ function TypedMessageBubble({ text, animate, showCard, introStage, onTypingCompl
               </div>
             </div>
             {/* Compact text - heading must stay on one line */}
-            <h3 className={walletHelperStyles.amaIntroApyHeading}>
-              Earn 9% annually on your deposits
+            <h3 className={chatStyles.promoTitle}>
+              Earn 9.38% APY
             </h3>
-            <p className={clsx(walletHelperStyles.apySubtext, walletHelperStyles.compactApySubtext)}>
+            <p className={chatStyles.promoSubtext}>
               Compounded monthly
             </p>
           </div>
 
-          {/* 2) BTC card */}
-          <div className={clsx(walletHelperStyles.tile, walletHelperStyles.compactTile, chatStyles.amaIntroTile)}>
-            <div className={walletHelperStyles.cardPreviewContainer}>
-              {/* APY pill overlay - single line for chat */}
-              <div className={clsx(
-                walletHelperStyles.amaIntroApyPill,
-                chatStyles.amaIntroApyPillAnimated,
-                (introStage === 'cards' || introStage === 'done') && chatStyles.amaIntroApyPillVisible
-              )}>
-                <span className={walletHelperStyles.amaIntroApyText}>9.38% APY</span>
-              </div>
-              {/* Card preview (compact) */}
-              <div className={clsx(walletHelperStyles.cardPreview, walletHelperStyles.compactCardPreview)}>
-                <Image
-                  src="/assets/cards/card-BTC.jpg"
-                  alt="Bitcoin wallet"
-                  fill
-                  className={walletHelperStyles.cardImage}
-                  sizes="176px"
-                  unoptimized
-                />
-              </div>
-            </div>
-            {/* Compact text - heading must stay on one line */}
-            <h3 className={walletHelperStyles.amaIntroApyHeading}>
-              Earn 9% annually on your deposits
-            </h3>
-            <p className={clsx(walletHelperStyles.apySubtext, walletHelperStyles.compactApySubtext)}>
-              Compounded monthly
-            </p>
-          </div>
-
-          {/* 3) Map tile */}
-          <div className={clsx(mapHelperStyles.tile, chatStyles.amaIntroTile)}>
+          {/* 2) Map tile */}
+          <div className={clsx(mapHelperStyles.tile, chatStyles.amaIntroTile, chatStyles.amaIntroTileStaggered)}>
             <div className={mapHelperStyles.mapPreview}>
               <Image
                 src="/assets/map2.png"
@@ -149,13 +118,27 @@ function TypedMessageBubble({ text, animate, showCard, introStage, onTypingCompl
                 unoptimized
               />
             </div>
-            <h3 className={mapHelperStyles.mapTitle}>
-              Discover dealers around you
+            <h3 className={chatStyles.promoTitle}>
+              Find cash agents near you
             </h3>
-            <p className={mapHelperStyles.mapSubtext}>
-              Use the map to see who is near you
+            <p className={chatStyles.promoSubtext}>
+              See who can help you deposit or withdraw
             </p>
           </div>
+
+          {/* Get Started CTA button - only show in demo intro */}
+          {isDemoIntro && (
+            <button
+              className={chatStyles.getStartedButton}
+              onClick={() => {
+                const { openAuthEntrySignup } = useAuthStore.getState()
+                openAuthEntrySignup()
+              }}
+              type="button"
+            >
+              Get Started
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -406,6 +389,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                         animate={introStage === 'typingMessage'}
                         showCard={true}
                         introStage={introStage}
+                        isDemoIntro={isDemoIntro}
                         onTypingComplete={handleTypingComplete}
                       />
                     )}
