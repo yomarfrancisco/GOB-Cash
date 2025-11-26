@@ -172,3 +172,45 @@
 .compactApyLabel {
   font-size: 11px !important; /* down from 12px */
 }
+
+/* Ama intro chat-specific variants (only used in chat bubble, not helper sheets) */
+.amaIntroApyPill {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px; /* tighter vertical padding than helper sheet */
+  border-radius: 14px; /* slightly smaller radius */
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  font-size: 11px; /* smaller font for chat bubble */
+  line-height: 1.2;
+}
+
+.amaIntroApyText {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.05px;
+  white-space: nowrap;
+}
+
+.amaIntroApyHeading {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px; /* smaller than helper sheet (15px) to fit on one line */
+  font-weight: 600;
+  color: #0a0a0a;
+  margin: 8px 0 0 0;
+  text-align: center;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}

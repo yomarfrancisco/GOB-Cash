@@ -63,10 +63,9 @@ function TypedMessageBubble({ text, animate, showCard }: { text: string; animate
         <div style={{ marginTop: 12 }}>
           <div className={clsx(walletHelperStyles.tile, walletHelperStyles.compactTile)}>
             <div className={walletHelperStyles.cardPreviewContainer}>
-              {/* APY pill overlay */}
-              <div className={clsx(walletHelperStyles.apyPill, walletHelperStyles.compactApyPill)}>
-                <span className={clsx(walletHelperStyles.apyPercentage, walletHelperStyles.compactApyPercentage)}>9.38%</span>
-                <span className={clsx(walletHelperStyles.apyLabel, walletHelperStyles.compactApyLabel)}>annual yield</span>
+              {/* APY pill overlay - single line for chat */}
+              <div className={walletHelperStyles.amaIntroApyPill}>
+                <span className={walletHelperStyles.amaIntroApyText}>9.38% APY</span>
               </div>
               {/* Card preview (compact) */}
               <div className={clsx(walletHelperStyles.cardPreview, walletHelperStyles.compactCardPreview)}>
@@ -80,8 +79,8 @@ function TypedMessageBubble({ text, animate, showCard }: { text: string; animate
                 />
               </div>
             </div>
-            {/* Compact text */}
-            <h3 className={clsx(walletHelperStyles.apyHeading, walletHelperStyles.compactApyHeading)}>
+            {/* Compact text - heading must stay on one line */}
+            <h3 className={walletHelperStyles.amaIntroApyHeading}>
               Earn 9% annually on your deposits
             </h3>
             <p className={clsx(walletHelperStyles.apySubtext, walletHelperStyles.compactApySubtext)}>
