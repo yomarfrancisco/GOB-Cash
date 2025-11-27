@@ -30,9 +30,9 @@ const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> =
 const CARD_LABELS: Record<CardType, string> = {
   savings: 'CASH CARD', // ZAR fiat card
   mzn: 'CASH CARD', // MZN fiat card
-  pepe: 'INVESTMENT CARD', // PEPE crypto card
-  yield: 'INVESTMENT CARD', // ETH crypto card
-  btc: 'INVESTMENT CARD', // BTC crypto card
+  pepe: 'CASH CARD', // PEPE crypto card
+  yield: 'CASH CARD', // ETH crypto card
+  btc: 'CASH CARD', // BTC crypto card
   yieldSurprise: 'CREDIT CARD', // Credit surprise card
 }
 
@@ -67,7 +67,7 @@ const COIN_BY_CARD: Record<CardType, { src: string; id: string; label: string } 
   yield: { src: '/assets/eth_coin.png', id: 'coin-eth', label: 'ETH' },
   mzn: null, // Uses flag
   btc: { src: '/assets/Bitcoin-Logo.png', id: 'coin-btc', label: 'BTC' },
-  yieldSurprise: { src: '/assets/eth_coin.png', id: 'coin-eth', label: 'ETH' }, // Reuse yield card coin
+  yieldSurprise: null, // Uses flag (ZAR) instead of coin
 }
 
 // Currency label mapping
@@ -80,7 +80,8 @@ const CURRENCY_LABEL: Record<string, string> = {
 const getCardCurrency = (cardType: CardType): string | null => {
   if (cardType === 'savings') return 'ZAR'
   if (cardType === 'mzn') return 'MZN'
-  return null // PEPE and ETH use coin badges instead
+  if (cardType === 'yieldSurprise') return 'ZAR' // CREDIT CARD uses ZAR flag
+  return null // PEPE, yield, and btc use coin badges instead
 }
 
 type CardStackCardProps = {
@@ -380,7 +381,7 @@ export default function CardStackCard({
 
       {/* Bottom-right health bar */}
       <div className="card-health-group">
-        <span className="card-health-label">Market Health</span>
+        <span className="card-health-label">{card.type === 'yieldSurprise' ? 'Social score' : 'Market Health'}</span>
         <div className="card-health-bar-container">
           <div
             className={clsx(
