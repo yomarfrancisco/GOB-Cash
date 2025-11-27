@@ -14,15 +14,31 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
   const { messagesByThreadId, threads, sendMessage, setActiveThread } = useFinancialInboxStore()
   const [inputText, setInputText] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   const messages = messagesByThreadId[threadId] || []
   const thread = threads.find((t) => t.id === threadId)
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+  // Helper: Only scroll to bottom if there's actual overflow
+  const scrollToBottomIfOverflow = () => {
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const { scrollHeight, clientHeight } = container
+    // Only scroll if content exceeds viewport (with small epsilon for rounding)
+    if (scrollHeight > clientHeight + 8) {
+      // Use requestAnimationFrame for smooth scroll after layout
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight
+        }
+      })
     }
+  }
+
+  // Scroll to bottom when new messages arrive (only if overflow)
+  useEffect(() => {
+    scrollToBottomIfOverflow()
   }, [messages])
 
   const handleSend = () => {
@@ -78,7 +94,7 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
         </div>
       </div>
 
-      <div className={styles.frameParent}>
+      <div ref={messagesContainerRef} className={styles.frameParent}>
         {messages.map((message, index) => {
           // Show date chip before first message
           const showDateChip = index === 0
