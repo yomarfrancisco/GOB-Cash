@@ -19,50 +19,23 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
   const messages = messagesByThreadId[threadId] || []
   const thread = threads.find((t) => t.id === threadId)
 
-  // Helper: Check if scrolling is needed based on viewport and content height
-  const scrollToBottomIfNeeded = () => {
-    const container = messagesContainerRef.current
-    if (!container) return
-
-    // Get viewport height (accounting for keyboard on mobile)
-    const viewportHeight = window.visualViewport?.height ?? window.innerHeight
-    
-    // Get input bar height (approximate - ChatInputBar is ~80px with padding)
-    const inputBarHeight = 80 // Approximate: 48px button + 32px padding
-    
-    // Get header height (messageHeader is sticky, ~60px)
-    const headerHeight = 60
-    
-    // Calculate available height for messages when keyboard is open
-    const availableHeight = viewportHeight - inputBarHeight - headerHeight
-    
-    const { scrollHeight } = container
-    
-    // Only scroll if content exceeds available space (with small epsilon)
-    if (scrollHeight > availableHeight + 8) {
-      // Use requestAnimationFrame for smooth scroll after layout
-      requestAnimationFrame(() => {
-        if (container) {
-          container.scrollTop = container.scrollHeight
-        }
-      })
-    }
-  }
-
-  // Helper: Only scroll to bottom if there's actual overflow (for new messages)
+  // Helper: Only scroll to bottom if there's actual overflow in the container
   const scrollToBottomIfOverflow = () => {
     const container = messagesContainerRef.current
     if (!container) return
 
     const { scrollHeight, clientHeight } = container
-    // Only scroll if content exceeds viewport (with small epsilon for rounding)
-    if (scrollHeight > clientHeight + 8) {
+    // Only scroll if content exceeds container viewport (with small epsilon for rounding)
+    if (scrollHeight > clientHeight + 4) {
       // Use requestAnimationFrame for smooth scroll after layout
       requestAnimationFrame(() => {
         if (container) {
           container.scrollTop = container.scrollHeight
         }
       })
+    } else {
+      // Content fits; keep scrollTop at 0 and do nothing
+      container.scrollTop = 0
     }
   }
 
@@ -195,7 +168,7 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
         onChange={setInputText}
         onSend={handleSend}
         placeholder="Add a message"
-        onInputFocus={scrollToBottomIfNeeded}
+        onInputFocus={scrollToBottomIfOverflow}
       />
     </div>
   )

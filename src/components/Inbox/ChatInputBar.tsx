@@ -91,10 +91,10 @@ export default function ChatInputBar({
             onFocus={() => {
               setIsFocused(true)
               if (onInputFocus) {
-                // Delay to allow keyboard to open and viewport to resize
+                // Small delay to allow keyboard animation to start, then check overflow
                 setTimeout(() => {
                   onInputFocus()
-                }, 100)
+                }, 50)
               }
             }}
             onBlur={() => setIsFocused(false)}

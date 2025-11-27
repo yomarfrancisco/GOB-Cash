@@ -190,33 +190,23 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Ref for message area container (for scroll calculations)
   const messageAreaRef = useRef<HTMLDivElement>(null)
   
-  // Helper: Check if scrolling is needed based on viewport and content height
-  const scrollToBottomIfNeeded = useCallback(() => {
+  // Helper: Only scroll to bottom if there's actual overflow in the container
+  const scrollToBottomIfOverflow = useCallback(() => {
     const container = messageAreaRef.current
     if (!container) return
 
-    // Get viewport height (accounting for keyboard on mobile)
-    const viewportHeight = window.visualViewport?.height ?? window.innerHeight
-    
-    // Get input bar height (approximate - ChatInputBar is ~80px with padding)
-    const inputBarHeight = 80 // Approximate: 48px button + 32px padding
-    
-    // Get header heights (usernameRow + divider, ~100px total)
-    const headerHeight = 100
-    
-    // Calculate available height for messages when keyboard is open
-    const availableHeight = viewportHeight - inputBarHeight - headerHeight
-    
-    const { scrollHeight } = container
-    
-    // Only scroll if content exceeds available space (with small epsilon)
-    if (scrollHeight > availableHeight + 8) {
+    const { scrollHeight, clientHeight } = container
+    // Only scroll if content exceeds container viewport (with small epsilon for rounding)
+    if (scrollHeight > clientHeight + 4) {
       // Use requestAnimationFrame for smooth scroll after layout
       requestAnimationFrame(() => {
         if (container) {
           container.scrollTop = container.scrollHeight
         }
       })
+    } else {
+      // Content fits; keep scrollTop at 0 and do nothing
+      container.scrollTop = 0
     }
   }, [])
 
@@ -497,7 +487,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
             onChange={setInputText}
             onSend={handleSend}
             placeholder="Add a message"
-            onInputFocus={scrollToBottomIfNeeded}
+            onInputFocus={scrollToBottomIfOverflow}
           />
         </div>
       )}
