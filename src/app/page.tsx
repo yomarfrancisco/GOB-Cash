@@ -263,6 +263,13 @@ export default function Home() {
   const flipControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
   useRandomCardFlips(cardStackRef, flipControllerRef)
 
+  // Credit surprise handler: adds R500 to ETH balance (which yieldSurprise card displays)
+  // Note: We use the hook values already available in the component scope
+  const handleCreditSurprise = useCallback((amountZAR: number) => {
+    const currentZAR = alloc.ethCents / 100
+    setEth(currentZAR + amountZAR)
+  }, [alloc.ethCents, setEth])
+
   // TEMPORARY: Test trigger for credit surprise animation
   // TODO: Remove this and wire to actual deposit success event
   useEffect(() => {
@@ -548,6 +555,7 @@ export default function Home() {
                     })
                   }}
                   flipControllerRef={flipControllerRef}
+                  onCreditSurprise={handleCreditSurprise}
                 />
               </div>
 

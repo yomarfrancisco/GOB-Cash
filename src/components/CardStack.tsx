@@ -116,6 +116,7 @@ interface CardStackProps {
   onTopCardChange?: (cardType: CardType) => void
   flipControllerRef?: React.MutableRefObject<{ pause: () => void; resume: () => void } | null>
   onCardClick?: () => void // Optional auth guard wrapper for card clicks
+  onCreditSurprise?: (amountZAR: number) => void // Callback for credit surprise animation
 }
 
 export type CardStackHandle = {
@@ -129,7 +130,7 @@ const FLIP_DURATION_MS = FLIP_MS
 // Number of cards visible in the stack at any time
 const VISIBLE_COUNT = 5
 
-const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, onCardClick }, ref) {
+const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, onCardClick, onCreditSurprise }, ref) {
   // Dynamic order initialization based on cards.length
   // Note: order.length === 6 (includes hidden card), but only first VISIBLE_COUNT are rendered
   const initialOrder = Array.from({ length: cardsData.length }, (_, i) => i)
@@ -142,6 +143,9 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   // Special mode state for credit surprise animation
   const [specialMode, setSpecialMode] = useState<'credit' | null>(null)
   const [specialCardType, setSpecialCardType] = useState<CardType | null>(null)
+  
+  // Track if credit has been applied for this reveal (prevent multiple credits)
+  const hasCreditedRef = useRef(false)
 
   // Flash state: track direction for each card type
   // Note: alloc values are now read in CardStackCard component
