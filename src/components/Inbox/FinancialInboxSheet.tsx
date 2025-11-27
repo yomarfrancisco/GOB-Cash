@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
 import ActionSheet from '../ActionSheet'
@@ -187,6 +187,39 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Input text state for chat
   const [inputText, setInputText] = useState('')
   
+  // Ref for message area container (for scroll calculations)
+  const messageAreaRef = useRef<HTMLDivElement>(null)
+  
+  // Helper: Check if scrolling is needed based on viewport and content height
+  const scrollToBottomIfNeeded = useCallback(() => {
+    const container = messageAreaRef.current
+    if (!container) return
+
+    // Get viewport height (accounting for keyboard on mobile)
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+    
+    // Get input bar height (approximate - ChatInputBar is ~80px with padding)
+    const inputBarHeight = 80 // Approximate: 48px button + 32px padding
+    
+    // Get header heights (usernameRow + divider, ~100px total)
+    const headerHeight = 100
+    
+    // Calculate available height for messages when keyboard is open
+    const availableHeight = viewportHeight - inputBarHeight - headerHeight
+    
+    const { scrollHeight } = container
+    
+    // Only scroll if content exceeds available space (with small epsilon)
+    if (scrollHeight > availableHeight + 8) {
+      // Use requestAnimationFrame for smooth scroll after layout
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight
+        }
+      })
+    }
+  }, [])
+
   // Send message handler
   const handleSend = useCallback(() => {
     if (!inputText.trim()) return
@@ -406,7 +439,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
           <div className={chatStyles.divider} />
 
           {/* Message area */}
-          <div className={chatStyles.messageArea}>
+          <div ref={messageAreaRef} className={chatStyles.messageArea}>
             <div className={chatStyles.messageWrapper}>
               <div className={chatStyles.messageAvatar}>
                 <Image
@@ -464,6 +497,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
             onChange={setInputText}
             onSend={handleSend}
             placeholder="Add a message"
+            onInputFocus={scrollToBottomIfNeeded}
           />
         </div>
       )}

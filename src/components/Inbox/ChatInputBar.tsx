@@ -13,6 +13,7 @@ export interface ChatInputBarProps {
   placeholder?: string
   disabled?: boolean
   onAttach?: () => void // Optional attachment handler
+  onInputFocus?: () => void // Optional callback when input gains focus
 }
 
 export default function ChatInputBar({
@@ -22,6 +23,7 @@ export default function ChatInputBar({
   placeholder = 'Add a message',
   disabled = false,
   onAttach,
+  onInputFocus,
 }: ChatInputBarProps) {
   const hasText = value.trim().length > 0
   const [isFocused, setIsFocused] = useState(false)
@@ -86,7 +88,15 @@ export default function ChatInputBar({
             className={styles.input}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            onFocus={() => setIsFocused(true)}
+            onFocus={() => {
+              setIsFocused(true)
+              if (onInputFocus) {
+                // Delay to allow keyboard to open and viewport to resize
+                setTimeout(() => {
+                  onInputFocus()
+                }, 100)
+              }
+            }}
             onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
