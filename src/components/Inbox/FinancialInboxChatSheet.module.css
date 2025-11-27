@@ -236,9 +236,9 @@
   transform: translateY(0) scale(1);
 }
 
-/* Spacing between tiles - reduced by ~35% for tighter fit */
+/* Spacing between tiles - reduced by 30-40% for tighter fit */
 .amaIntroTile {
-  margin-top: 5px; /* Reduced from 8px to tighten gap between card and map sections */
+  margin-top: 5px; /* Reduced from ~8px by ~37% to tighten gap between card and map */
 }
 
 .amaIntroTile:first-child,
