@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
 import { ArrowUp } from 'lucide-react'
@@ -24,7 +24,11 @@ export default function ChatInputBar({
   onAttach,
 }: ChatInputBarProps) {
   const hasText = value.trim().length > 0
+  const [isFocused, setIsFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  
+  // Hide attachment when focused or has text
+  const showAttachment = !isFocused && !hasText
 
   const handleSend = () => {
     if (!hasText || disabled) return
@@ -50,8 +54,8 @@ export default function ChatInputBar({
 
   return (
     <div className={styles.commentInput}>
-      {/* Left paperclip — only when empty */}
-      {!hasText && (
+      {/* Left paperclip — hide when focused or has text */}
+      {showAttachment && (
         <button
           type="button"
           className={styles.attachmentButton}
@@ -82,6 +86,8 @@ export default function ChatInputBar({
             className={styles.input}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
