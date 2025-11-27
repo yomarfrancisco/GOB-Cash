@@ -20,7 +20,7 @@ type IntroStage = 'typingIndicator' | 'typingMessage' | 'cards' | 'done'
 // Typing indicator component (3 dots)
 function TypingBubble() {
   return (
-    <div className={chatStyles.messageBubble}>
+    <div className={clsx(chatStyles.messageBubble, chatStyles.amaIntroTypingBubble)}>
       <div className={chatStyles.typingDots}>
         <span />
         <span />
