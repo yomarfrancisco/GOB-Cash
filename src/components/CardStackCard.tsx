@@ -67,6 +67,7 @@ const COIN_BY_CARD: Record<CardType, { src: string; id: string; label: string } 
   yield: { src: '/assets/eth_coin.png', id: 'coin-eth', label: 'ETH' },
   mzn: null, // Uses flag
   btc: { src: '/assets/Bitcoin-Logo.png', id: 'coin-btc', label: 'BTC' },
+  yieldSurprise: { src: '/assets/eth_coin.png', id: 'coin-eth', label: 'ETH' }, // Reuse yield card coin
 }
 
 // Currency label mapping
@@ -227,7 +228,8 @@ export default function CardStackCard({
   }, [portfolioHealth, prefersReducedMotion])
 
   // Get card definition for annual yield
-  const cardDef = getCardDefinition(card.type)
+  // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
+  const cardDef = getCardDefinition(card.type === 'yieldSurprise' ? 'yield' : card.type)
   const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
   const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
 

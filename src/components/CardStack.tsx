@@ -156,6 +156,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     yield: alloc.ethCents / 100,
     mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
     btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
+    yieldSurprise: alloc.ethCents / 100, // Reuse yield card allocation (ethCents)
   })
 
   // Compute flash direction when values change
