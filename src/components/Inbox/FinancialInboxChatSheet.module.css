@@ -242,14 +242,9 @@
 }
 
 /* Spacing between tiles - reduced by 30-40% for tighter fit */
+/* AMA intro tiles - lime green background to match intro bubble */
 .amaIntroTile {
   margin-top: 3px; /* Further reduced to tighten gap between card and map */
-}
-
-/* Update promo tiles inside AMA intro bubble to match lime green theme */
-/* Target tiles from WalletHelperSheet and MapHelperSheet modules */
-.amaIntroMessageBubble :global(.tile),
-.amaIntroCardBlockWrapper :global(.tile) {
   background-color: #CBFFA3 !important;
   box-shadow: none !important;
   border: none !important;
