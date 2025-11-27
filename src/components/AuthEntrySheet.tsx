@@ -67,7 +67,7 @@ export default function AuthEntrySheet() {
         <div className={styles.authEntryHeader}>
           {authMode === 'signup' ? (
             <Image
-              src="/assets/sign up black.png"
+              src="/assets/sign up black2.png"
               alt="Sign Up"
               className={styles.authEntryLogo}
               width={120}
