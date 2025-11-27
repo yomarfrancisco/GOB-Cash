@@ -34,7 +34,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
       <div className="bottom-menu-container">
         <div className="bottom-glass-wrapper">
           <Image
-            src="/assets/core/glass-bottom-1.png"
+            src="/assets/core/glass-bottom-2.png"
             alt=""
             className="bottom-glass-texture"
             width={700}
