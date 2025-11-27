@@ -70,7 +70,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               {/* Rest state is always $ icon; avatar only appears during highlights (slides up) */}
               <div className="fab-content-base">
                 <Image 
-                  src="/assets/core/dollar-sign.png" 
+                  src="/assets/core/dollar-sign2.png" 
                   alt="Direct Payment" 
                   width={60} 
                   height={60} 
