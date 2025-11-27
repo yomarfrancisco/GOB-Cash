@@ -68,7 +68,7 @@ const cardsData: CardData[] = [
   },
   {
     type: 'btc',
-    image: '/assets/cards/card-BTC.jpg',
+    image: '/assets/cards/card-BTC2.jpg',
     alt: 'BTC Card',
     width: 342,
     height: 213,
