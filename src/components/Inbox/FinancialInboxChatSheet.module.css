@@ -116,10 +116,13 @@
 }
 
 /* Reduced bottom padding for Ama intro bubble to tighten spacing */
-/* AMA intro bubble - scoped Acumin VF font override */
+/* AMA intro bubble - scoped Acumin VF font override and theme color */
 .amaIntroMessageBubble {
   padding-bottom: 0px; /* Eliminate dead space at bottom of bubble */
   font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+  background: #CBFFA3; /* Chat bubble theme color */
+  border: 1px solid rgba(0, 0, 0, 0.10); /* Subtle border for definition */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Ensure bubble shadow */
 }
 
 .timestamp {
