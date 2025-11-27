@@ -246,6 +246,15 @@
   margin-top: 3px; /* Further reduced to tighten gap between card and map */
 }
 
+/* Update promo tiles inside AMA intro bubble to match lime green theme */
+/* Target tiles from WalletHelperSheet and MapHelperSheet modules */
+.amaIntroMessageBubble :global(.tile),
+.amaIntroCardBlockWrapper :global(.tile) {
+  background-color: #CBFFA3 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
 .amaIntroTile:first-child,
 .amaIntroTileFirst {
   margin-top: 0; /* No margin on first tile */
@@ -318,6 +327,13 @@
 
 .chatCtaButton:active {
   opacity: 0.8;
+}
+
+/* Get Started CTA bubble - matches AMA intro lime green theme */
+.amaIntroCtaBubble {
+  background: #CBFFA3 !important;
+  border: 1px solid rgba(0, 0, 0, 0.10) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
 }
 
 /* Get Started CTA button - Acumin VF scoped to AMA intro only */

@@ -409,7 +409,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                     )}
                     {/* Get Started CTA in separate bubble - only show after map animation */}
                     {introStage === 'done' && (
-                      <div className={chatStyles.messageBubble}>
+                      <div className={clsx(chatStyles.messageBubble, chatStyles.amaIntroCtaBubble)}>
                         <button
                           className={chatStyles.chatCtaButton}
                           onClick={() => {
