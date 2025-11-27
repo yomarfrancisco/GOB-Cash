@@ -138,10 +138,10 @@
   cursor: not-allowed;
 }
 
-.sendButton svg {
+.sendButtonIcon {
   width: 20px;
   height: 20px;
-  stroke: currentColor;
+  color: #fff;
 }
 
 /* Input padding is consistent - always leave room for send button when it appears */
