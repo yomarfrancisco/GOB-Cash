@@ -6,6 +6,7 @@ import clsx from 'clsx'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
+import ChatInputBar from './ChatInputBar'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
 import walletHelperStyles from '../WalletHelperSheet.module.css'
@@ -164,6 +165,8 @@ type FinancialInboxSheetProps = {
  * NOTE: This sheet is now accessible from Profile → Settings → Inbox.
  * The "Request cash agent" button has been removed.
  */
+const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
+
 export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propIsDemoIntro }: FinancialInboxSheetProps) {
   const { 
     isInboxOpen, 
@@ -171,7 +174,8 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     closeInbox, 
     openChatSheet,
     goBackToInbox,
-    isDemoIntro: storeIsDemoIntro
+    isDemoIntro: storeIsDemoIntro,
+    sendMessage
   } = useFinancialInboxStore()
   
   // Use prop if provided, otherwise fall back to store flag
@@ -179,6 +183,27 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
 
   // Intro stage state machine - only for landing demo
   const [introStage, setIntroStage] = useState<IntroStage>('typingIndicator')
+  
+  // Input text state for chat
+  const [inputText, setInputText] = useState('')
+  
+  // Send message handler
+  const handleSend = useCallback(() => {
+    if (!inputText.trim()) return
+    
+    // Send user message
+    sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'user', inputText.trim())
+    setInputText('')
+    
+    // Add stub AI reply after delay
+    setTimeout(() => {
+      sendMessage(
+        PORTFOLIO_MANAGER_THREAD_ID,
+        'ai',
+        "Got it – I'll help you with that. This will later come from the BabyCDO backend."
+      )
+    }, 800)
+  }, [inputText, sendMessage])
 
   // Manage intro stages for demo intro - only in chat view
   useEffect(() => {
@@ -433,22 +458,13 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
             </div>
           </div>
 
-          {/* Input bar - no divider line above */}
-          <div className={chatStyles.inputBar}>
-            <button className={chatStyles.attachButton} aria-label="Attach">
-              <Image
-                src="/assets/attachment_diagonal.svg"
-                alt="Attach"
-                width={24}
-                height={24}
-              />
-            </button>
-            <input
-              type="text"
-              className={chatStyles.input}
-              placeholder="Add a message"
-            />
-          </div>
+          {/* Input bar */}
+          <ChatInputBar
+            value={inputText}
+            onChange={setInputText}
+            onSend={handleSend}
+            placeholder="Add a message"
+          />
         </div>
       )}
     </ActionSheet>
