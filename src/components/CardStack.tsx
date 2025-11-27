@@ -54,7 +54,7 @@ const cardsData: CardData[] = [
   },
   {
     type: 'yield',
-    image: '/assets/cards/card-ETH.jpg',
+    image: '/assets/cards/card-ETH 3.jpg',
     alt: 'Yield Card',
     width: 310,
     height: 193,
