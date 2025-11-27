@@ -14,7 +14,7 @@ import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
-type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc'
+type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
 type HealthLevel = 'good' | 'moderate' | 'fragile'
 
@@ -24,6 +24,7 @@ const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> =
   yield: { level: 'moderate', percent: 60 },
   mzn: { level: 'good', percent: 100 },
   btc: { level: 'moderate', percent: 15 },
+  yieldSurprise: { level: 'moderate', percent: 60 }, // Reuse yield card health config
 }
 
 const CARD_LABELS: Record<CardType, string> = {
@@ -32,6 +33,7 @@ const CARD_LABELS: Record<CardType, string> = {
   yield: 'CASH CARD',
   mzn: 'CASH CARD',
   btc: 'CASH CARD',
+  yieldSurprise: 'CASH CARD', // Reuse yield card label
 }
 
 const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'pepeCents' | 'mznCents' | 'btcCents'> = {
@@ -40,6 +42,7 @@ const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'pepeCents'
   yield: 'ethCents',
   mzn: 'mznCents',
   btc: 'btcCents',
+  yieldSurprise: 'ethCents', // Reuse yield card allocation (ethCents)
 }
 
 const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'PEPE' | 'MZN' | 'BTC'> = {
@@ -48,6 +51,7 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'PEPE' | 'MZN' | 'BTC'> 
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
+  yieldSurprise: 'ETH', // Reuse yield card symbol (ETH)
 }
 
 // Flag mapping by currency
@@ -236,11 +240,11 @@ export default function CardStackCard({
       onTouchEnd={onTouchEnd}
       style={style}
     >
-      {card.type === 'yield' ? (
+      {card.type === 'yield' || card.type === 'yieldSurprise' ? (
         <div className="card-canvas card-yield-rounded">
           <Image
             src={card.image}
-            alt="GoB yield card"
+            alt={card.type === 'yield' ? 'GoB yield card' : 'GoB yield surprise card'}
             fill
             sizes="(max-width: 768px) 88vw, 420px"
             priority

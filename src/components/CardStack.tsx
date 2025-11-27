@@ -24,9 +24,10 @@ const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> =
   yield: { level: 'moderate', percent: 60 },
   mzn: { level: 'good', percent: 100 },
   btc: { level: 'moderate', percent: 15 },
+  yieldSurprise: { level: 'moderate', percent: 60 }, // Reuse yield card health config
 }
 
-type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc'
+type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
 interface CardData {
   type: CardType
@@ -72,6 +73,13 @@ const cardsData: CardData[] = [
     width: 342,
     height: 213,
   },
+  {
+    type: 'yieldSurprise',
+    image: '/assets/cards/card-yield.jpg',
+    alt: 'Yield Surprise Card',
+    width: 310,
+    height: 193,
+  },
 ]
 
 // Card labels mapping
@@ -81,6 +89,7 @@ const CARD_LABELS: Record<CardType, string> = {
   yield: 'CASH CARD',
   mzn: 'CASH CARD',
   btc: 'CASH CARD',
+  yieldSurprise: 'CASH CARD', // Reuse yield card label
 }
 
 // Map card type to allocation key
@@ -90,6 +99,7 @@ const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'pepeCents'
   yield: 'ethCents',
   mzn: 'mznCents',
   btc: 'btcCents',
+  yieldSurprise: 'ethCents', // Reuse yield card allocation (ethCents)
 }
 
 // Map card type to portfolio symbol
@@ -99,6 +109,7 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'PEPE' | 'MZN' | 'BTC'> 
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
+  yieldSurprise: 'ETH', // Reuse yield card symbol (ETH)
 }
 
 interface CardStackProps {
@@ -114,8 +125,12 @@ export type CardStackHandle = {
 
 const FLIP_DURATION_MS = FLIP_MS
 
+// Number of cards visible in the stack at any time
+const VISIBLE_COUNT = 5
+
 const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, onCardClick }, ref) {
   // Dynamic order initialization based on cards.length
+  // Note: order.length === 6 (includes hidden card), but only first VISIBLE_COUNT are rendered
   const initialOrder = Array.from({ length: cardsData.length }, (_, i) => i)
   const [order, setOrder] = useState<number[]>(initialOrder)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -132,6 +147,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     yield: null,
     mzn: null,
     btc: null,
+    yieldSurprise: null,
   })
   // Track previous values to compute direction
   const prevValuesRef = useRef<Record<CardType, number>>({
@@ -150,6 +166,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       yield: alloc.ethCents / 100,
       mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
       btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
+      yieldSurprise: alloc.ethCents / 100, // Reuse yield card allocation (ethCents)
     }
 
     const newFlashDirection: Record<CardType, 'up' | 'down' | null> = {
@@ -158,10 +175,11 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       yield: null,
       mzn: null,
       btc: null,
+      yieldSurprise: null,
     }
 
     // Compute direction for each card
-    ;(['savings', 'pepe', 'yield', 'mzn', 'btc'] as CardType[]).forEach((cardType) => {
+    ;(['savings', 'pepe', 'yield', 'mzn', 'btc', 'yieldSurprise'] as CardType[]).forEach((cardType) => {
       const prev = prevValuesRef.current[cardType]
       const current = currentValues[cardType]
       const delta = current - prev
@@ -331,6 +349,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     }
   }, [])
 
+  // Note: cardsData.length === 6, but only VISIBLE_COUNT (5) cards are rendered
   const total = cardsData.length
   const BASE_HEIGHT_PX = 238 // top card height
   const Y_STEP_PX = 44 // vertical offset per depth (from getStackStyle)
@@ -338,17 +357,18 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   // Debug: log computed styles on first render
   useEffect(() => {
     if (DEV_CARD_FLIP_DEBUG) {
-      console.log('[CardStack] Computed styles for', total, 'cards:')
-      for (let depth = 0; depth < total; depth++) {
-        const style = getStackStyle(depth, total)
+      console.log('[CardStack] Computed styles for', VISIBLE_COUNT, 'visible cards:')
+      for (let depth = 0; depth < VISIBLE_COUNT; depth++) {
+        const style = getStackStyle(depth, VISIBLE_COUNT)
         console.log(`  Depth ${depth}:`, style)
       }
     }
-  }, [total])
+  }, [])
 
-  // Calculate dynamic minHeight to accommodate all cards with overlap
+  // Calculate dynamic minHeight to accommodate visible cards with overlap
+  // Use VISIBLE_COUNT for height calculation to maintain consistent stack height
   const BOTTOM_BUFFER_PX = 0 // Reduced from 20 to 0 to close gap to map section (80% total reduction - removed buffer entirely)
-  const stackMinHeight = BASE_HEIGHT_PX + (total - 1) * Y_STEP_PX + BOTTOM_BUFFER_PX
+  const stackMinHeight = BASE_HEIGHT_PX + (VISIBLE_COUNT - 1) * Y_STEP_PX + BOTTOM_BUFFER_PX
 
   return (
     <div 
@@ -360,14 +380,19 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       }}
     >
       {order.map((cardIdx, depth) => {
+        // Only render the first VISIBLE_COUNT cards (depths 0-4)
+        // Cards at depth >= VISIBLE_COUNT are hidden but still part of the logical order
+        if (depth >= VISIBLE_COUNT) return null
+
         const card = cardsData[cardIdx]
         const isTop = depth === 0
-        const stackStyle = getStackStyle(depth, total)
+        // Use VISIBLE_COUNT for stack style calculation to maintain consistent 5-card spacing
+        const stackStyle = getStackStyle(depth, VISIBLE_COUNT)
 
         // During animation, adjust depth for smooth transitions
         // IMPORTANT: Never adjust depth for top card (depth === 0) to prevent clipping
         const effectiveDepth = phase === 'animating' && depth > 0 ? depth - 1 : depth
-        const effectiveStyle = phase === 'animating' && depth > 0 ? getStackStyle(effectiveDepth, total) : stackStyle
+        const effectiveStyle = phase === 'animating' && depth > 0 ? getStackStyle(effectiveDepth, VISIBLE_COUNT) : stackStyle
         
         // Ensure top card (depth 0) always has consistent top position, even during animation
         const finalTop = depth === 0 ? stackStyle.top : effectiveStyle.top
@@ -383,7 +408,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             index={cardIdx}
             position={depth}
             depth={depth}
-            total={total}
+            total={VISIBLE_COUNT}
             isTop={isTop}
             className={getCardClasses(cardIdx, depth)}
             onClick={() => handleCardClick(cardIdx)}
