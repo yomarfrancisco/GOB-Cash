@@ -34,6 +34,7 @@
   display: flex;
   align-items: center;
   transition: all 150ms ease-out;
+  overflow: visible; /* Ensure send button isn't clipped */
 }
 
 .buttonEmpty {
@@ -51,24 +52,20 @@
 
 /* Input field inside pill */
 .input {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
+  flex: 1;
   border: none;
+  outline: none;
   background: transparent;
-  padding: 0 24px;
   font-size: 16px;
   font-weight: 300;
   letter-spacing: -0.43px;
   line-height: 22px;
+  padding-left: 24px;
+  padding-right: 56px; /* Leave room for send button on the right */
   color: #000;
   font-family: inherit;
-  outline: none;
   box-sizing: border-box;
+  height: 100%;
 }
 
 .input::placeholder {
@@ -110,17 +107,17 @@
   top: 50%;
   right: 4px;
   transform: translateY(-50%);
-  border-radius: 42px;
   width: 40px;
   height: 40px;
-  background-color: #007AFF; /* iOS blue - matches Figma spec */
-  color: #fff;
+  border-radius: 999px;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  background-color: #007aff; /* iOS blue - matches Figma spec */
+  color: #fff;
   cursor: pointer;
-  flex-shrink: 0;
+  z-index: 2; /* Ensure button sits above input */
   padding: 0;
   transition: opacity 150ms ease-out, transform 150ms ease-out;
   box-shadow: 0 2px 4px rgba(0, 122, 255, 0.3);
@@ -147,13 +144,6 @@
   stroke: currentColor;
 }
 
-/* Adjust input padding when send button is visible */
-.buttonHasText .input {
-  padding-right: 56px; /* Make room for send button (40px + 4px right + 12px spacing) */
-}
-
-/* Adjust input padding when send button is hidden */
-.buttonEmpty .input {
-  padding-right: 24px;
-}
+/* Input padding is consistent - always leave room for send button when it appears */
+/* The send button visibility is controlled by conditional rendering, not padding */
 
