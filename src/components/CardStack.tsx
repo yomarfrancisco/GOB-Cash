@@ -309,6 +309,9 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     // Prevent multiple simultaneous surprises
     if (specialMode === 'credit' || isAnimating) return
 
+    // Reset credit flag for new reveal
+    hasCreditedRef.current = false
+
     // Pause random flips during the surprise
     if (externalFlipControllerRef?.current) {
       externalFlipControllerRef.current.pause()
@@ -327,10 +330,19 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       setSpecialCardType('yieldSurprise')
       setSpecialMode('credit')
       
+      // Trigger credit after small delay to align with wobble animation
+      if (onCreditSurprise && !hasCreditedRef.current) {
+        setTimeout(() => {
+          onCreditSurprise(500) // R500 credit
+          hasCreditedRef.current = true
+        }, 300) // ~300ms delay to align with wobble
+      }
+      
       // End special mode after animation
       setTimeout(() => {
         setSpecialMode(null)
         setSpecialCardType(null)
+        hasCreditedRef.current = false // Reset credit flag
         if (externalFlipControllerRef?.current) {
           externalFlipControllerRef.current.resume()
         }
@@ -351,16 +363,25 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       setSpecialCardType('yieldSurprise')
       setSpecialMode('credit')
 
+      // Trigger credit after small delay to align with wobble animation
+      if (onCreditSurprise && !hasCreditedRef.current) {
+        setTimeout(() => {
+          onCreditSurprise(500) // R500 credit
+          hasCreditedRef.current = true
+        }, 300) // ~300ms delay to align with wobble
+      }
+
       // End special mode after animation
       setTimeout(() => {
         setSpecialMode(null)
         setSpecialCardType(null)
+        hasCreditedRef.current = false // Reset credit flag
         if (externalFlipControllerRef?.current) {
           externalFlipControllerRef.current.resume()
         }
       }, 1200)
     }, FLIP_DURATION_MS + 50) // Wait for any ongoing animation + buffer
-  }, [order, specialMode, isAnimating, externalFlipControllerRef])
+  }, [order, specialMode, isAnimating, externalFlipControllerRef, onCreditSurprise])
 
   useImperativeHandle(ref, () => ({
     cycleNext,
