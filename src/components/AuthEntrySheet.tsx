@@ -76,7 +76,7 @@ export default function AuthEntrySheet() {
             />
           ) : (
             <Image
-              src="/assets/bankless pink.png"
+              src="/assets/bankless pink2.png"
               alt="GoBankless"
               className={styles.authEntryLogo}
               width={120}
