@@ -117,7 +117,7 @@
 
 /* Reduced bottom padding for Ama intro bubble to tighten spacing */
 .amaIntroMessageBubble {
-  padding-bottom: 12px; /* Reduced from 16px to tighten bottom spacing */
+  padding-bottom: 8px; /* Reduced by ~33% for tighter bottom spacing */
 }
 
 .timestamp {
@@ -238,7 +238,7 @@
 
 /* Spacing between tiles */
 .amaIntroTile {
-  margin-top: 8px; /* Reduced from 12px for tighter, more compact block */
+  margin-top: 5px; /* Reduced by ~37% for tighter vertical spacing */
 }
 
 .amaIntroTile:first-child,
@@ -286,9 +286,9 @@
   line-height: 1.35;
 }
 
-/* Reduced map height for Ama intro to match card tile */
+/* Reduced map height for Ama intro - reduced by ~14% */
 .amaIntroMapPreview {
-  height: 85px !important; /* Match card preview height */
+  height: 73px !important; /* Reduced from 85px for tighter vertical fit */
   margin-bottom: 8px !important; /* Match card spacing */
 }
 

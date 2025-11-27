@@ -12,7 +12,7 @@ import walletHelperStyles from '../WalletHelperSheet.module.css'
 import mapHelperStyles from '../MapHelperSheet.module.css'
 
 // Ama intro message text constant
-const AMA_INTRO_TEXT = "GoB is a collective helping each other invest, make payments, and move cash anywhere. What would you like to do first?"
+const AMA_INTRO_TEXT = "GoB helps you invest, make payments, and move cash anywhere. What would you like to do first?"
 
 // Intro stage state machine
 type IntroStage = 'typingIndicator' | 'typingMessage' | 'cards' | 'done'
