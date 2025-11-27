@@ -121,6 +121,7 @@ interface CardStackProps {
 export type CardStackHandle = {
   cycleNext: () => void
   flipToCard: (cardType: CardType, direction?: 'forward' | 'back') => Promise<void>
+  revealCreditSurprise: () => void
 }
 
 const FLIP_DURATION_MS = FLIP_MS
@@ -137,6 +138,10 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const [phase, setPhase] = useState<'idle' | 'animating'>('idle')
   const touchStartY = useRef<number>(0)
   const touchEndY = useRef<number>(0)
+
+  // Special mode state for credit surprise animation
+  const [specialMode, setSpecialMode] = useState<'credit' | null>(null)
+  const [specialCardType, setSpecialCardType] = useState<CardType | null>(null)
 
   // Flash state: track direction for each card type
   // Note: alloc values are now read in CardStackCard component
@@ -295,9 +300,68 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     cycle()
   }
 
+  // Reveal credit surprise: bring yieldSurprise card to top with special animation
+  const revealCreditSurprise = useCallback(() => {
+    // Prevent multiple simultaneous surprises
+    if (specialMode === 'credit' || isAnimating) return
+
+    // Pause random flips during the surprise
+    if (externalFlipControllerRef?.current) {
+      externalFlipControllerRef.current.pause()
+    }
+
+    // Find yieldSurprise card index
+    const yieldSurpriseIndex = cardsData.findIndex((c) => c.type === 'yieldSurprise')
+    if (yieldSurpriseIndex === -1) return
+
+    // Find current position of yieldSurprise in order
+    const currentPosition = order.indexOf(yieldSurpriseIndex)
+    if (currentPosition < 0) return
+
+    // If already at top, just trigger the animation
+    if (currentPosition === 0) {
+      setSpecialCardType('yieldSurprise')
+      setSpecialMode('credit')
+      
+      // End special mode after animation
+      setTimeout(() => {
+        setSpecialMode(null)
+        setSpecialCardType(null)
+        if (externalFlipControllerRef?.current) {
+          externalFlipControllerRef.current.resume()
+        }
+      }, 1200)
+      return
+    }
+
+    // Rotate order to bring yieldSurprise to top
+    setOrder((prevOrder) => {
+      const pos = prevOrder.indexOf(yieldSurpriseIndex)
+      if (pos <= 0) return prevOrder
+      // Rotate so yieldSurprise goes to index 0
+      return [...prevOrder.slice(pos), ...prevOrder.slice(0, pos)]
+    })
+
+    // Wait for rotation to complete, then trigger special animation
+    setTimeout(() => {
+      setSpecialCardType('yieldSurprise')
+      setSpecialMode('credit')
+
+      // End special mode after animation
+      setTimeout(() => {
+        setSpecialMode(null)
+        setSpecialCardType(null)
+        if (externalFlipControllerRef?.current) {
+          externalFlipControllerRef.current.resume()
+        }
+      }, 1200)
+    }, FLIP_DURATION_MS + 50) // Wait for any ongoing animation + buffer
+  }, [order, specialMode, isAnimating, externalFlipControllerRef])
+
   useImperativeHandle(ref, () => ({
     cycleNext,
     flipToCard,
+    revealCreditSurprise,
   }))
 
   const handleCardClick = (index: number) => {
@@ -402,6 +466,10 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
           console.debug('[CardFlip]', `CardStack-${cardIdx}`, 'top card rendered')
         }
 
+        // Determine if this card is in special mode
+        const isSpecialMode = specialMode === 'credit'
+        const isSpecialCard = isSpecialMode && card.type === specialCardType
+
         return (
           <CardStackCard
             key={cardIdx}
@@ -431,6 +499,8 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             onFlashEnd={() => {
               setFlashDirection((prev) => ({ ...prev, [card.type]: null }))
             }}
+            isSpecialMode={isSpecialMode}
+            isSpecialCard={isSpecialCard}
           />
         )
       })}

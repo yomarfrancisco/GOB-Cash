@@ -103,6 +103,8 @@ type CardStackCardProps = {
   style: React.CSSProperties
   flashDirection: 'up' | 'down' | null
   onFlashEnd: () => void
+  isSpecialMode?: boolean
+  isSpecialCard?: boolean
 }
 
 export default function CardStackCard({
@@ -119,6 +121,8 @@ export default function CardStackCard({
   style,
   flashDirection,
   onFlashEnd,
+  isSpecialMode = false,
+  isSpecialCard = false,
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
 
@@ -233,10 +237,17 @@ export default function CardStackCard({
   const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
   const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
 
+  // Compose className with special mode classes
+  const finalClassName = clsx(
+    className,
+    isSpecialMode && !isSpecialCard && 'dimmed-for-special',
+    isSpecialMode && isSpecialCard && 'credit-surprise'
+  )
+
   return (
     <div
       key={index}
-      className={className}
+      className={finalClassName}
       onClick={onClick}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}

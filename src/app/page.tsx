@@ -259,7 +259,25 @@ export default function Home() {
   )
 
   // Random card flips - only run when NOT authenticated
-  useRandomCardFlips(cardStackRef)
+  // Create controller ref to pause/resume during credit surprise
+  const flipControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
+  useRandomCardFlips(cardStackRef, flipControllerRef)
+
+  // TEMPORARY: Test trigger for credit surprise animation
+  // TODO: Remove this and wire to actual deposit success event
+  useEffect(() => {
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+    if (!isDemoMode || isAuthed) return
+
+    // Trigger credit surprise 10 seconds after page load (for testing)
+    const timer = setTimeout(() => {
+      if (cardStackRef.current) {
+        cardStackRef.current.revealCreditSurprise()
+      }
+    }, 10000)
+
+    return () => clearTimeout(timer)
+  }, [isAuthed])
 
   // Demo notification engine - only run in demo mode AND when NOT authenticated
   const pushNotification = useNotificationStore((state) => state.pushNotification)
@@ -529,6 +547,7 @@ export default function Home() {
                       // Card click allowed after auth
                     })
                   }}
+                  flipControllerRef={flipControllerRef}
                 />
               </div>
 
