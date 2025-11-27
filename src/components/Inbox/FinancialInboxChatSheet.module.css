@@ -121,7 +121,7 @@
 
 /* Reduced bottom padding for Ama intro bubble to tighten spacing */
 .amaIntroMessageBubble {
-  padding-bottom: 4px; /* Reduced by ~8-12px to eliminate empty band while keeping breathing room */
+  padding-bottom: 0px; /* Eliminate dead space at bottom of bubble */
 }
 
 .timestamp {
@@ -244,7 +244,7 @@
 
 /* Spacing between tiles - reduced by 30-40% for tighter fit */
 .amaIntroTile {
-  margin-top: 5px; /* Reduced from ~8px by ~37% to tighten gap between card and map */
+  margin-top: 3px; /* Further reduced to tighten gap between card and map */
 }
 
 .amaIntroTile:first-child,
@@ -272,7 +272,7 @@
   font-size: 13px;
   font-weight: 600;
   color: #0a0a0a;
-  margin: 8px 0 0 0;
+  margin: 6px 0 0 0; /* Reduced from 8px to tighten space above titles */
   padding: 0;
   text-align: center;
   line-height: 1.25;
@@ -295,7 +295,7 @@
 /* Reduced map height for Ama intro - match card preview height (74px) */
 .amaIntroMapPreview {
   height: 74px !important; /* Match card preview height for consistent vertical footprint */
-  margin-bottom: 8px !important; /* Spacing between map image and caption */
+  margin-bottom: 6px !important; /* Reduced spacing between map image and caption */
 }
 
 /* Chat CTA button - smaller version for in-chat use */
@@ -335,7 +335,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
-  margin-top: 16px;
+  margin-top: 12px; /* Reduced from 16px to tighten space above button */
 }
 
 .getStartedButton:hover {
