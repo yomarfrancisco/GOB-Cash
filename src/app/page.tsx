@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import CardStack, { type CardStackHandle } from '@/components/CardStack'
+import CardStack, { type CardStackHandle, type CardType } from '@/components/CardStack'
 import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
@@ -43,9 +43,9 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
 export default function Home() {
-  const [topCardType, setTopCardType] = useState<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc'>('savings')
+  const [topCardType, setTopCardType] = useState<CardType>('savings')
   const [isHelperOpen, setIsHelperOpen] = useState(false)
-  const [helperWalletKey, setHelperWalletKey] = useState<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | null>(null)
+  const [helperWalletKey, setHelperWalletKey] = useState<CardType | null>(null)
   const [isMapHelperOpen, setIsMapHelperOpen] = useState(false)
   const cardStackRef = useRef<CardStackHandle>(null)
   const scrollContentRef = useRef<HTMLDivElement | null>(null)
@@ -129,12 +129,14 @@ export default function Home() {
         setFlowType('transfer')
         setAmountMode('send')
         // Map topCardType to walletId for default FROM wallet
-        const cardTypeToWalletId: Record<'pepe' | 'savings' | 'yield' | 'mzn' | 'btc', 'savings' | 'pepe' | 'yield' | 'mzn' | 'btc'> = {
+        // yieldSurprise maps to 'yield' wallet (reuse yield card wallet)
+        const cardTypeToWalletId: Record<CardType, 'savings' | 'pepe' | 'yield' | 'mzn' | 'btc'> = {
           savings: 'savings',
           pepe: 'pepe',
           yield: 'yield',
           mzn: 'mzn',
           btc: 'btc',
+          yieldSurprise: 'yield', // Map yieldSurprise to yield wallet
         }
         setTransferFromWalletId(cardTypeToWalletId[topCardType])
         setTimeout(() => setOpenInternalTransfer(true), 220)
@@ -422,7 +424,8 @@ export default function Home() {
   }
 
   // Get title and subtitle - always use card definitions (same for both modes)
-  const cardDef = getCardDefinition(topCardType)
+  // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
+  const cardDef = getCardDefinition(topCardType === 'yieldSurprise' ? 'yield' : topCardType)
   // Override title for home page
   const title = `Pay anyone anywhere`
   
@@ -518,7 +521,9 @@ export default function Home() {
                 {/* Card Stack */}
                 <CardStack 
                   ref={cardStackRef} 
-                  onTopCardChange={setTopCardType}
+                  onTopCardChange={(cardType: CardType) => {
+                    setTopCardType(cardType)
+                  }}
                   onCardClick={() => {
                     guardAuthed(() => {
                       // Card click allowed after auth

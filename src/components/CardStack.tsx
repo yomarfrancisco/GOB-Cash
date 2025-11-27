@@ -27,7 +27,7 @@ const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> =
   yieldSurprise: { level: 'moderate', percent: 60 }, // Reuse yield card health config
 }
 
-type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
+export type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
 interface CardData {
   type: CardType
