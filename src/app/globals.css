@@ -619,7 +619,7 @@ body {
 
 .bottom-glass-wrapper {
   position: absolute;
-  left: 50%;
+  left: calc(50% + 60px);
   transform: translateX(-50%);
   width: 140%;
   max-width: 700px;
