@@ -18,7 +18,7 @@ export default function TopGlassBar({ onScanClick }: TopGlassBarProps = {}) {
   return (
     <div className="page-title-gobankless">
       <Image
-        src="/assets/core/glass-top-1.png"
+        src="/assets/core/glass-top-3.png"
         alt=""
         className="glass-shard-small"
         width={729}
