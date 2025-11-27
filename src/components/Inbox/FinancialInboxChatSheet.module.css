@@ -117,7 +117,7 @@
 
 /* Reduced bottom padding for Ama intro bubble to tighten spacing */
 .amaIntroMessageBubble {
-  padding-bottom: 12px; /* Reduced from 16px to tighten bottom spacing */
+  padding-bottom: 8px; /* Reduced from 12px to remove excess empty space below map caption */
 }
 
 .timestamp {
@@ -236,9 +236,9 @@
   transform: translateY(0) scale(1);
 }
 
-/* Spacing between tiles */
+/* Spacing between tiles - reduced by ~35% for tighter fit */
 .amaIntroTile {
-  margin-top: 8px; /* Reduced from 12px for tighter, more compact block */
+  margin-top: 5px; /* Reduced from 8px to tighten gap between card and map sections */
 }
 
 .amaIntroTile:first-child,
