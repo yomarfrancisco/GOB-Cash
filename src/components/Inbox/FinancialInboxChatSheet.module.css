@@ -286,10 +286,10 @@
   line-height: 1.35;
 }
 
-/* Reduced map height for Ama intro to match card tile */
+/* Reduced map height for Ama intro - match card preview height (74px) */
 .amaIntroMapPreview {
-  height: 85px !important; /* Match card preview height */
-  margin-bottom: 8px !important; /* Match card spacing */
+  height: 74px !important; /* Match card preview height for consistent vertical footprint */
+  margin-bottom: 8px !important; /* Spacing between map image and caption */
 }
 
 /* Chat CTA button - smaller version for in-chat use */
