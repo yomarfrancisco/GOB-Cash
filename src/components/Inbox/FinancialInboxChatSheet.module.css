@@ -117,7 +117,7 @@
 
 /* Reduced bottom padding for Ama intro bubble to tighten spacing */
 .amaIntroMessageBubble {
-  padding-bottom: 0px; /* Reduced by ~14px to remove dead space at bottom */
+  padding-bottom: 4px; /* Reduced by ~8-12px to eliminate empty band while keeping breathing room */
 }
 
 .timestamp {
@@ -236,9 +236,9 @@
   transform: translateY(0) scale(1);
 }
 
-/* Spacing between tiles - reduced to 14-16px total between card caption and map */
+/* Spacing between tiles - reduced by 30-40% for tighter fit */
 .amaIntroTile {
-  margin-top: 14px; /* Target: 14-16px total spacing between APY card caption and map */
+  margin-top: 5px; /* Reduced from ~8px by ~37% to tighten gap between card and map */
 }
 
 .amaIntroTile:first-child,
@@ -286,10 +286,10 @@
   line-height: 1.35;
 }
 
-/* Reduced map height for Ama intro - reduced to 78-82% of original */
+/* Reduced map height for Ama intro - match card preview height (74px) */
 .amaIntroMapPreview {
-  height: 60px !important; /* Reduced to ~80% of 73px (was 85px originally) */
-  margin-bottom: 10px !important; /* Reduced spacing between map image and caption (10-12px target) */
+  height: 74px !important; /* Match card preview height for consistent vertical footprint */
+  margin-bottom: 8px !important; /* Spacing between map image and caption */
 }
 
 /* Chat CTA button - smaller version for in-chat use */
