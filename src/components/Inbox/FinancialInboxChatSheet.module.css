@@ -1,5 +1,6 @@
 /* Financial Inbox Chat Sheet - unified with inbox sheet */
 
+/* Chat container root - Acumin VF font override for all chat UI */
 .container {
   width: 100%;
   height: 100%;
@@ -8,6 +9,7 @@
   /* No background - ActionSheet provides the white background */
   min-height: 0;
   overflow: hidden;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
 }
 
 /* Username row - ActionSheet provides the close button, so we start with username row */
@@ -47,6 +49,7 @@
 }
 
 .name {
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 15px; /* Body text size, not oversized */
   font-weight: 400; /* Normal weight */
   color: #000;
@@ -106,6 +109,7 @@
   background: #F3F3F9; /* Exact Figma bubble color */
   border-radius: 16px; /* Fully rounded corners */
   padding: 16px 20px; /* Increased padding for more breathing room (top/bottom: 16px, left/right: 20px) */
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 15px;
   line-height: 1.4;
   font-weight: 400; /* Normal weight */
@@ -121,6 +125,7 @@
 }
 
 .timestamp {
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 12px;
   color: #8E8E93; /* Light bluish-grey timestamp */
   align-self: flex-end;
@@ -158,6 +163,7 @@
   border: none;
   border-radius: 24px;
   padding: 12px 16px;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 15px;
   color: #000;
   outline: none;
@@ -262,7 +268,7 @@
 
 /* Shared typography for promo tiles */
 .promoTitle {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: #0a0a0a;
@@ -277,7 +283,7 @@
 }
 
 .promoSubtext {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 13px;
   font-weight: 400;
   color: rgba(10, 10, 10, 0.6);
@@ -300,9 +306,9 @@
   color: #fff;
   border: none;
   border-radius: 12px;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 15px;
   font-weight: 600;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   cursor: pointer;
   transition: opacity 0.2s;
   margin: 0;
@@ -324,9 +330,9 @@
   color: #fff;
   border: none;
   border-radius: 12px;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 16px;
   font-weight: 600;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   cursor: pointer;
   transition: opacity 0.2s;
   margin-top: 16px;
