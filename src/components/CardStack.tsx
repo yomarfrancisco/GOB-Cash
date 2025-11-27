@@ -84,12 +84,12 @@ const cardsData: CardData[] = [
 
 // Card labels mapping
 const CARD_LABELS: Record<CardType, string> = {
-  savings: 'CASH CARD',
-  pepe: 'CASH CARD',
-  yield: 'CASH CARD',
-  mzn: 'CASH CARD',
-  btc: 'CASH CARD',
-  yieldSurprise: 'CASH CARD', // Reuse yield card label
+  savings: 'CASH CARD', // ZAR fiat card
+  mzn: 'CASH CARD', // MZN fiat card
+  pepe: 'INVESTMENT CARD', // PEPE crypto card
+  yield: 'INVESTMENT CARD', // ETH crypto card
+  btc: 'INVESTMENT CARD', // BTC crypto card
+  yieldSurprise: 'CREDIT CARD', // Credit surprise card
 }
 
 // Map card type to allocation key
