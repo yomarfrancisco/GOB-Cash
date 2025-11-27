@@ -218,5 +218,5 @@
 
 /* Wrapper for card block to add vertical spacing from intro text */
 .amaIntroCardBlockWrapper {
-  margin-top: 12px; /* reduced spacing between intro paragraph and card content */
+  margin-top: 7px; /* Reduced from 12px by ~42% to tighten gap between intro text and card */
 }

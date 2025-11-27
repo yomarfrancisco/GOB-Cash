@@ -115,9 +115,11 @@
   width: 100%; /* Take full width of container to match input */
 }
 
-/* Reduced bottom padding for Ama intro bubble to tighten spacing */
+/* Reduced padding for Ama intro bubble to tighten spacing */
 .amaIntroMessageBubble {
-  padding-bottom: 8px; /* Reduced from 12px to remove excess empty space below map caption */
+  padding-top: 10px; /* Reduced from 16px by 6px */
+  padding-bottom: 0px; /* Reduced from 8px by 8px to trim bottom margin */
+  line-height: 1.35; /* Reduced from 1.4 for tighter intro text */
 }
 
 .timestamp {
@@ -236,9 +238,9 @@
   transform: translateY(0) scale(1);
 }
 
-/* Spacing between tiles - reduced by 30-40% for tighter fit */
+/* Spacing between tiles - reduced by ~40% for tighter fit */
 .amaIntroTile {
-  margin-top: 5px; /* Reduced from ~8px by ~37% to tighten gap between card and map */
+  margin-top: 3px; /* Reduced from 5px by 40% to tighten gap between card and map */
 }
 
 .amaIntroTile:first-child,
