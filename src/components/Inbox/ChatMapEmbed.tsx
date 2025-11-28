@@ -115,7 +115,7 @@ export default function ChatMapEmbed({ onMapClick }: ChatMapEmbedProps) {
           styleUrl="mapbox://styles/mapbox/navigation-day-v1"
           routeCoordinates={routeCoordinates}
           variant="popup"
-          hqCoord={isWithdrawal ? undefined : { lng: HQ_COORD.lng, lat: HQ_COORD.lat }}
+          hqCoord={undefined}
         />
       )}
       {/* Texture overlay */}

@@ -492,7 +492,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
               styleUrl="mapbox://styles/mapbox/navigation-day-v1"
               routeCoordinates={routeCoordinates}
               variant="popup"
-              hqCoord={isWithdrawal ? undefined : { lng: HQ_COORD.lng, lat: HQ_COORD.lat }}
+              hqCoord={undefined}
             />
           )}
           {/* Paper/fold overlays - same as homepage, positioned over map */}

@@ -498,7 +498,62 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       setScenarioMessagesSent(prev => new Set(prev).add('completed'))
       endCashDepositScenario()
     }
-  }, [cashFlowState, isCashDepositActive, scenarioMessagesSent, cashDepositScenario, sendMessage, endCashDepositScenario])
+  }, [cashFlowState, isCashDepositActive, scenarioMessagesSent, cashDepositScenario, sendMessage, endCashDepositScenario, inboxViewMode])
+
+  // Handle state machine transitions for withdrawal
+  useEffect(() => {
+    if (!isCashWithdrawalActive || inboxViewMode !== 'chat') return
+    
+    // ARRIVED state: show confirm button message (with minimum 15s typing delay)
+    if (cashFlowState === 'ARRIVED' && !scenarioMessagesSent.has('arrived')) {
+      setIsTyping(true)
+      
+      // Minimum 15 seconds typing before showing message 3
+      setTimeout(() => {
+        setIsTyping(false)
+        if (!scenarioMessagesSent.has('arrived')) {
+          sendMessage(
+            PORTFOLIO_MANAGER_THREAD_ID,
+            'ai',
+            '@skerryy has arrived. Once you\'ve received your cash, tap the button below to confirm.'
+          )
+          setScenarioMessagesSent(prev => new Set(prev).add('arrived'))
+          setShowConfirmButton(true)
+        }
+      }, 15000) // Minimum 15 seconds typing delay
+    }
+    
+    // WITHDRAWAL_CONFIRMED state: show final message (after 1.5s typing)
+    if (cashFlowState === 'WITHDRAWAL_CONFIRMED' && !scenarioMessagesSent.has('confirmed')) {
+      setIsTyping(true)
+      
+      setTimeout(() => {
+        setIsTyping(false)
+        if (!scenarioMessagesSent.has('confirmed')) {
+          const amount = cashWithdrawalScenario?.amountZAR || 0
+          const formattedAmount = amount.toLocaleString('en-ZA', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+          
+          sendMessage(
+            PORTFOLIO_MANAGER_THREAD_ID,
+            'ai',
+            `Done! Your withdrawal of R${formattedAmount} is complete. Your wallet balance has been updated.`
+          )
+          setScenarioMessagesSent(prev => new Set(prev).add('confirmed'))
+          setShowConfirmButton(false)
+          
+          // Transition to COMPLETED and end scenario
+          setTimeout(() => {
+            const { setCashFlowState } = useCashFlowStateStore.getState()
+            setCashFlowState('COMPLETED')
+            endCashWithdrawalScenario()
+          }, 100)
+        }
+      }, 1500) // 1.5 seconds typing delay
+    }
+  }, [cashFlowState, isCashWithdrawalActive, scenarioMessagesSent, cashWithdrawalScenario, sendMessage, endCashWithdrawalScenario, inboxViewMode])
 
   // Handlers
   const handleMapClick = useCallback(() => {
