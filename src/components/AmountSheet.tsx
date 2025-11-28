@@ -116,20 +116,39 @@ export default function AmountSheet({
   }
 
   const handleCashSubmit = () => {
-    console.debug('[AMOUNT CTA] handleCashSubmit', { mode, withdrawOnly, hasOnCashSubmit: !!onCashSubmit, hasOnSubmit: !!onSubmit })
-    // Same as current handleSubmit - triggers cash convert flow
+    // ⛔️ Hard stop: never let "cash" path start a deposit while the sheet is in withdraw mode
+    if (mode === 'withdraw' || withdrawOnly) {
+      console.log('[AMOUNT CTA] handleCashSubmit blocked because mode=withdraw; delegating to handleSubmit', {
+        modeFromProps: mode,
+        withdrawOnly,
+      })
+      handleSubmit()
+      return
+    }
+
+    console.debug('[AMOUNT CTA] handleCashSubmit', {
+      modeFromProps: mode,
+      entryPoint,
+      withdrawOnly,
+      hasOnCashSubmit: !!onCashSubmit,
+      hasOnSubmit: !!onSubmit,
+    })
+
+    if (!amountZAR) return
+
+    // For all non-withdraw flows, pass through the *prop* mode, not some hard-coded arg
     if (onCashSubmit) {
       onCashSubmit({
         amountZAR: amountZAR,
         amountUSDT: amountUSDT,
-        mode: 'convert',
+        mode,
       })
     } else if (onSubmit) {
       // Fallback to existing onSubmit for backward compatibility
       onSubmit({
         amountZAR: amountZAR,
         amountUSDT: amountUSDT,
-        mode: 'convert',
+        mode,
       })
     }
   }
@@ -151,11 +170,11 @@ export default function AmountSheet({
     handleCashSubmit()
   }
 
-  // Detect helicopter convert flow for dual buttons
-  const isHelicopterConvert = mode === 'convert' && entryPoint === 'helicopter'
+  // Detect helicopter convert flow for dual buttons (only if not withdraw-only)
+  const isHelicopterConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'helicopter'
   
-  // Detect $-button convert flow (Request/Pay someone)
-  const isCashButtonConvert = mode === 'convert' && entryPoint === 'cashButton'
+  // Detect $-button convert flow (Request/Pay someone) (only if not withdraw-only)
+  const isCashButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'cashButton'
   
   // Minimum amount for cash transactions (helicopter flow only)
   const MIN_CASH_ZAR = 5000
