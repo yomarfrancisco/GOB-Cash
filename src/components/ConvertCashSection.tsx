@@ -1,3 +1,4 @@
+import React from 'react'
 import Image from 'next/image'
 import styles from './ConvertCashSection.module.css'
 import MapboxMap, { type Marker } from './MapboxMap'
@@ -33,7 +34,7 @@ const SADC_ZOOM = 4.2
 
 type ConvertCashSectionProps = {
   onHelpClick?: () => void
-  onMapClick?: () => void
+  onMapClick?: (e: React.MouseEvent<HTMLDivElement>) => void
 }
 
 export default function ConvertCashSection({ onHelpClick, onMapClick }: ConvertCashSectionProps) {
@@ -63,10 +64,7 @@ export default function ConvertCashSection({ onHelpClick, onMapClick }: ConvertC
       <div className={styles.mapContainer}>
         <div 
           className={styles.mapCard}
-          onClick={onMapClick ? () => {
-            console.log('[HOME MAP] tap → helicopter convert flow')
-            onMapClick()
-          } : undefined}
+          onClick={onMapClick}
           style={onMapClick ? { cursor: 'pointer' } : undefined}
         >
           {/* Empty map container - Mapbox will attach here */}

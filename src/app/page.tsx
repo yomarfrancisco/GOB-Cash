@@ -162,6 +162,23 @@ export default function Home() {
       setTimeout(() => setOpenAmount(true), 220)
     })
   }, [guardAuthed])
+
+  // Homepage map click handler - guards against geolocate control clicks
+  const handleHomeMapClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // If click originated from the Mapbox geolocate control, do nothing
+      const target = e.target as HTMLElement | null
+      if (target && target.closest('.mapboxgl-ctrl-geolocate')) {
+        // Let Mapbox's GeolocateControl handle this click normally
+        return
+      }
+
+      // Otherwise, trigger the helicopter convert flow
+      console.log('[HOME MAP] tap → helicopter convert flow')
+      handleHelicopterConvertClick()
+    },
+    [handleHelicopterConvertClick]
+  )
   const closeWithdraw = useCallback(() => setOpenWithdraw(false), [])
   const closeAmount = useCallback(() => {
     setOpenAmount(false)
@@ -572,7 +589,7 @@ export default function Home() {
               {/* Explore savings circles section with shared shell - directly under .content */}
               <ConvertCashSection 
                 onHelpClick={() => setIsMapHelperOpen(true)}
-                onMapClick={process.env.NEXT_PUBLIC_ENABLE_MAP_TAP_CONVERT === 'true' ? handleHelicopterConvertClick : undefined}
+                onMapClick={process.env.NEXT_PUBLIC_ENABLE_MAP_TAP_CONVERT === 'true' ? handleHomeMapClick : undefined}
               />
               <BranchManagerFooter 
                 onHelicopterClick={handleHelicopterConvertClick}
