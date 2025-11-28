@@ -6,7 +6,10 @@ import clsx from 'clsx'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
+import { useCashFlowStateStore } from '@/state/cashFlowState'
+import { useUserProfileStore } from '@/store/userProfile'
 import ChatInputBar from './ChatInputBar'
+import InlineMapCard from './InlineMapCard'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
 import walletHelperStyles from '../WalletHelperSheet.module.css'
@@ -176,11 +179,15 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     goBackToInbox,
     isDemoIntro: storeIsDemoIntro,
     sendMessage,
-    messagesByThreadId
+    messagesByThreadId,
+    cashDepositScenario,
+    endCashDepositScenario,
   } = useFinancialInboxStore()
   
   // Get auth state for pre-auth gating
   const { isAuthed, openAuthEntrySignup } = useAuthStore()
+  const { cashFlowState, confirmCashDeposit } = useCashFlowStateStore()
+  const { profile } = useUserProfileStore()
   
   // Use prop if provided, otherwise fall back to store flag
   const isDemoIntro = propIsDemoIntro !== undefined ? propIsDemoIntro : storeIsDemoIntro
@@ -191,6 +198,12 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Input text state for chat
   const [inputText, setInputText] = useState('')
   
+  // Cash deposit scenario state
+  const [scenarioMessagesSent, setScenarioMessagesSent] = useState<Set<string>>(new Set())
+  const [isTyping, setIsTyping] = useState(false)
+  const [showMapCard, setShowMapCard] = useState(false)
+  const [showConfirmButton, setShowConfirmButton] = useState(false)
+  
   // Ref for message area container (for scroll calculations)
   const messageAreaRef = useRef<HTMLDivElement>(null)
   
@@ -199,6 +212,11 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   
   // Get messages for the portfolio manager thread
   const pmMessages = messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID] || []
+  
+  const isCashDepositActive = cashDepositScenario !== null && inboxViewMode === 'chat'
+  
+  // Get first name from fullName
+  const firstName = profile.fullName.split(' ')[0] || 'there'
   
   // Measure conversation height on mount/when chat view opens (before keyboard)
   useEffect(() => {
@@ -321,6 +339,102 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       }, 400)
     }
   }, [isDemoIntro, inboxViewMode, isInboxOpen])
+
+  // Cash deposit scenario orchestration
+  // Send initial messages when scenario starts
+  useEffect(() => {
+    if (!isCashDepositActive || !cashDepositScenario) return
+    
+    // Message 1: Initial greeting
+    if (!scenarioMessagesSent.has('message1')) {
+      const amount = cashDepositScenario.amountZAR
+      const formattedAmount = amount.toLocaleString('en-ZA', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+      
+      sendMessage(
+        PORTFOLIO_MANAGER_THREAD_ID,
+        'ai',
+        `Hi ${firstName}, you requested a cash deposit of R${formattedAmount}.\n\nGive me a moment while I find a verified dealer near you.`
+      )
+      
+      setScenarioMessagesSent(prev => new Set(prev).add('message1'))
+      setIsTyping(true)
+      
+      // After 3 seconds, send message 2
+      setTimeout(() => {
+        setIsTyping(false)
+        if (!scenarioMessagesSent.has('message2')) {
+          sendMessage(
+            PORTFOLIO_MANAGER_THREAD_ID,
+            'ai',
+            'Great news — $kerryy can meet you.\n\nETA: 20 minutes. Distance: 7.8km.\n\nYou can follow her progress on the map below.'
+          )
+          setScenarioMessagesSent(prev => new Set(prev).add('message2'))
+          setShowMapCard(true)
+        }
+      }, 3000)
+    }
+  }, [isCashDepositActive, cashDepositScenario, scenarioMessagesSent, firstName, sendMessage])
+
+  // Handle state machine transitions
+  useEffect(() => {
+    if (!isCashDepositActive) return
+    
+    // ARRIVED state: show confirm button message
+    if (cashFlowState === 'ARRIVED' && !scenarioMessagesSent.has('arrived')) {
+      sendMessage(
+        PORTFOLIO_MANAGER_THREAD_ID,
+        'ai',
+        'Kerry has arrived. Once you\'ve handed over the cash, tap below.'
+      )
+      setScenarioMessagesSent(prev => new Set(prev).add('arrived'))
+      setShowConfirmButton(true)
+    }
+    
+    // IN_TRANSIT_TO_HQ state: show transit message
+    if (cashFlowState === 'IN_TRANSIT_TO_HQ' && !scenarioMessagesSent.has('inTransit')) {
+      sendMessage(
+        PORTFOLIO_MANAGER_THREAD_ID,
+        'ai',
+        'Cash in transit to HQ. Your deposit is on its way to GoBankless HQ.'
+      )
+      setScenarioMessagesSent(prev => new Set(prev).add('inTransit'))
+      setShowConfirmButton(false)
+    }
+    
+    // COMPLETED state: show completion message
+    if (cashFlowState === 'COMPLETED' && !scenarioMessagesSent.has('completed')) {
+      const amount = cashDepositScenario?.amountZAR || 0
+      const formattedAmount = amount.toLocaleString('en-ZA', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+      
+      sendMessage(
+        PORTFOLIO_MANAGER_THREAD_ID,
+        'ai',
+        `Done! Your cash has been converted into USDT.\n\nYour updated balance is available in your wallet.`
+      )
+      setScenarioMessagesSent(prev => new Set(prev).add('completed'))
+      endCashDepositScenario()
+    }
+  }, [cashFlowState, isCashDepositActive, scenarioMessagesSent, cashDepositScenario, sendMessage, endCashDepositScenario])
+
+  // Handlers
+  const handleMapClick = useCallback(() => {
+    if (cashDepositScenario) {
+      const { openMap, setConvertAmount } = useCashFlowStateStore.getState()
+      setConvertAmount(cashDepositScenario.amountZAR)
+      openMap()
+    }
+  }, [cashDepositScenario])
+
+  const handleConfirmCashDeposit = useCallback(() => {
+    confirmCashDeposit()
+    setShowConfirmButton(false)
+  }, [confirmCashDeposit])
 
   // Cash agents data - static demo content
   const agents = [
@@ -498,60 +612,143 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
 
           {/* Message area */}
           <div ref={messageAreaRef} className={chatStyles.messageArea}>
-            <div className={chatStyles.messageWrapper}>
-              <div className={chatStyles.messageAvatar}>
-                <Image
-                  src="/assets/Brics-girl-blue.png"
-                  alt="Baby Diamond"
-                  width={31}
-                  height={31}
-                  className={chatStyles.messageAvatarImage}
-                  unoptimized
-                />
-              </div>
-              <div className={chatStyles.bubbleContainer}>
-                {isDemoIntro ? (
-                  <>
-                    {introStage === 'typingIndicator' && <TypingBubble />}
-                    {introStage !== 'typingIndicator' && (
-                      <TypedMessageBubble
-                        text={AMA_INTRO_TEXT}
-                        animate={introStage === 'typingMessage'}
-                        showCard={true}
-                        introStage={introStage}
-                        isDemoIntro={isDemoIntro}
-                        onTypingComplete={handleTypingComplete}
+            {/* Render messages from store */}
+            {pmMessages.map((message, index) => {
+              const showDateChip = index === 0
+              return (
+                <div key={message.id} className={chatStyles.messageWrapper}>
+                  {message.from === 'ai' && (
+                    <div className={chatStyles.messageAvatar}>
+                      <Image
+                        src="/assets/Brics-girl-blue.png"
+                        alt="Baby Diamond"
+                        width={31}
+                        height={31}
+                        className={chatStyles.messageAvatarImage}
+                        unoptimized
                       />
-                    )}
-                    {/* Get Started CTA in separate bubble - only show after map animation */}
-                    {introStage === 'done' && (
-                      <div className={clsx(chatStyles.messageBubble, chatStyles.amaIntroCtaBubble)}>
-                        <button
-                          className={chatStyles.chatCtaButton}
-                          onClick={() => {
-                            // In pre-auth: open sign-in sheet
-                            // In post-auth: allow normal behavior (if any)
-                            if (!isAuthed) {
-                              openAuthEntrySignup()
-                              return
-                            }
-                            // Post-auth behavior (if any) would go here
-                          }}
-                          type="button"
-                        >
-                          Get Started
-                        </button>
+                    </div>
+                  )}
+                  <div className={chatStyles.bubbleContainer}>
+                    {message.from === 'ai' ? (
+                      <>
+                        {isDemoIntro && index === 0 ? (
+                          <>
+                            {introStage === 'typingIndicator' && <TypingBubble />}
+                            {introStage !== 'typingIndicator' && (
+                              <TypedMessageBubble
+                                text={AMA_INTRO_TEXT}
+                                animate={introStage === 'typingMessage'}
+                                showCard={true}
+                                introStage={introStage}
+                                isDemoIntro={isDemoIntro}
+                                onTypingComplete={handleTypingComplete}
+                              />
+                            )}
+                            {/* Get Started CTA in separate bubble - only show after map animation */}
+                            {introStage === 'done' && (
+                              <div className={clsx(chatStyles.messageBubble, chatStyles.amaIntroCtaBubble)}>
+                                <button
+                                  className={chatStyles.chatCtaButton}
+                                  onClick={() => {
+                                    if (!isAuthed) {
+                                      openAuthEntrySignup()
+                                      return
+                                    }
+                                  }}
+                                  type="button"
+                                >
+                                  Get Started
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className={chatStyles.messageBubble}>
+                            {message.text}
+                          </div>
+                        )}
+                        <div className={chatStyles.timestamp}>{message.createdAt}</div>
+                      </>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', width: '100%' }}>
+                        <div className={chatStyles.userMessageBubble}>
+                          {message.text}
+                        </div>
+                        <div className={chatStyles.timestamp}>{message.createdAt}</div>
                       </div>
                     )}
-                  </>
-                ) : (
-                  <div className={chatStyles.messageBubble}>
-                    {AMA_INTRO_TEXT}
                   </div>
-                )}
-                <div className={chatStyles.timestamp}>14:09</div>
+                </div>
+              )
+            })}
+            
+            {/* Typing indicator for cash deposit scenario */}
+            {isCashDepositActive && isTyping && (
+              <div className={chatStyles.messageWrapper}>
+                <div className={chatStyles.messageAvatar}>
+                  <Image
+                    src="/assets/Brics-girl-blue.png"
+                    alt="Baby Diamond"
+                    width={31}
+                    height={31}
+                    className={chatStyles.messageAvatarImage}
+                    unoptimized
+                  />
+                </div>
+                <div className={chatStyles.bubbleContainer}>
+                  <TypingBubble />
+                </div>
               </div>
-            </div>
+            )}
+            
+            {/* Inline map card for cash deposit scenario */}
+            {isCashDepositActive && showMapCard && (
+              <div className={chatStyles.messageWrapper}>
+                <div className={chatStyles.messageAvatar}>
+                  <Image
+                    src="/assets/Brics-girl-blue.png"
+                    alt="Baby Diamond"
+                    width={31}
+                    height={31}
+                    className={chatStyles.messageAvatarImage}
+                    unoptimized
+                  />
+                </div>
+                <div className={chatStyles.bubbleContainer}>
+                  <div className={chatStyles.messageBubble}>
+                    <InlineMapCard state={cashFlowState} onMapClick={handleMapClick} />
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Confirm button for cash deposit scenario */}
+            {isCashDepositActive && showConfirmButton && (
+              <div className={chatStyles.messageWrapper}>
+                <div className={chatStyles.messageAvatar}>
+                  <Image
+                    src="/assets/Brics-girl-blue.png"
+                    alt="Baby Diamond"
+                    width={31}
+                    height={31}
+                    className={chatStyles.messageAvatarImage}
+                    unoptimized
+                  />
+                </div>
+                <div className={chatStyles.bubbleContainer}>
+                  <div className={clsx(chatStyles.messageBubble, chatStyles.amaIntroCtaBubble)}>
+                    <button
+                      className={chatStyles.chatCtaButton}
+                      onClick={handleConfirmCashDeposit}
+                      type="button"
+                    >
+                      Confirm cash was deposited
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Input bar */}

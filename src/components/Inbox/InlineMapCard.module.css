@@ -1,0 +1,104 @@
+.inlineMapCard {
+  margin: 12px 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f5f5f5;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.inlineMapCard:active {
+  transform: scale(0.98);
+}
+
+.mapImageContainer {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background: #e5e5e5;
+}
+
+.mapImage {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+.mapFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5e5e5;
+  color: #999;
+  font-size: 14px;
+}
+
+.mapOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.userMarker {
+  position: absolute;
+  bottom: 40%;
+  left: 30%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #007AFF;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.agentMarker {
+  position: absolute;
+  bottom: 50%;
+  right: 25%;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #34C759;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.mapInfo {
+  padding: 12px 16px;
+  background: #fff;
+  border-top: 1px solid #e5e5e5;
+}
+
+.mapInfoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.mapInfoRow:last-of-type {
+  margin-bottom: 0;
+}
+
+.mapInfoLabel {
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: 400;
+}
+
+.mapInfoValue {
+  color: #000;
+  font-weight: 600;
+}
+
+.mapInfoHint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.5);
+  text-align: center;
+  font-style: italic;
+}
+

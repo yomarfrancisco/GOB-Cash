@@ -41,6 +41,9 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { Bell } from 'lucide-react'
+import { useUserProfileStore } from '@/store/userProfile'
+import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
+import { useCashFlowStateStore } from '@/state/cashFlowState'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -55,6 +58,9 @@ export default function Home() {
   const { setOnSelect, open } = useTransactSheet()
   const { guardAuthed, isAuthed } = useRequireAuth()
   const { openNotifications } = useNotificationsStore()
+  const { profile } = useUserProfileStore()
+  const { startCashDepositScenario } = useFinancialInboxStore()
+  const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
 
   // Debug: verify card and map widths match - instrument parent chain
   useEffect(() => {
@@ -115,9 +121,8 @@ export default function Home() {
     handle: string
     agentHandle?: string
   } | null>(null)
-  const [isMapOpen, setIsMapOpen] = useState(false)
   const [isAgentCardVisible, setIsAgentCardVisible] = useState(false)
-  const [convertAmount, setConvertAmount] = useState(0)
+  const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
 
   // Register onSelect handler for global Transact sheet
   useEffect(() => {
@@ -448,7 +453,7 @@ export default function Home() {
   }, [isMapOpen])
 
   const handleCloseMapPopup = () => {
-    setIsMapOpen(false)
+    closeMap()
     setIsAgentCardVisible(false)
   }
 
@@ -679,19 +684,18 @@ export default function Home() {
           })
         } : undefined}
         onCashSubmit={amountMode === 'convert' ? ({ amountZAR }) => {
-          // Cash convert flow (used by both "Request" and "Convert" buttons): close keypad, then show map popup
+          // Cash convert flow: start scenario and open Ama chat instead of map popup
           setConvertAmount(amountZAR)
           // Close keypad modal
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           
-          // Reset states first
-          setIsMapOpen(false)
-          setIsAgentCardVisible(false)
+          // Start cash deposit scenario
+          startCashDepositScenario(amountZAR)
           
-          // Small delay to ensure modals are fully closed, then show map popup
+          // Small delay to ensure modals are fully closed, then open Ama chat
           setTimeout(() => {
-            setIsMapOpen(true)
+            openAmaChatWithScenario('cash_deposit')
           }, 220) // Match other modal transitions
         } : undefined}
         onCardSubmit={amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {

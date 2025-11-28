@@ -7,15 +7,8 @@ import MapboxMap, { type Marker } from './MapboxMap'
 import AgentSummaryRow from './AgentSummaryRow'
 import SuccessSheet from './SuccessSheet'
 import { useNotificationStore } from '@/store/notifications'
+import { useCashFlowStateStore, type CashFlowState } from '@/state/cashFlowState'
 import styles from './CashMapPopup.module.css'
-
-type CashFlowState =
-  | 'IDLE'
-  | 'MATCHED_EN_ROUTE'
-  | 'ARRIVED'
-  | 'IN_TRANSIT_TO_HQ'
-  | 'COMPLETED'
-  | 'EXPIRED'
 
 type CashMapPopupProps = {
   open: boolean
@@ -39,7 +32,7 @@ const KERRYY_AGENT = {
 export default function CashMapPopup({ open, onClose, amount, showAgentCard = false, onComplete }: CashMapPopupProps) {
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
   const [mapReady, setMapReady] = useState(false)
-  const [cashFlowState, setCashFlowState] = useState<CashFlowState>('IDLE')
+  const { cashFlowState, setCashFlowState } = useCashFlowStateStore()
   const [showDepositSuccess, setShowDepositSuccess] = useState(false)
   const [confirmButtonDisabled, setConfirmButtonDisabled] = useState(false)
   const [notificationsSent, setNotificationsSent] = useState<Set<CashFlowState>>(new Set())
@@ -372,8 +365,8 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
       setCashFlowState('MATCHED_EN_ROUTE')
       setArrivalNotificationShown(false)
     } else if (!open) {
-      // Reset on close
-      setCashFlowState('IDLE')
+      // Don't reset state on close - let chat continue to track it
+      // Only reset UI state, not the flow state
       setShowDepositSuccess(false)
       setArrivalNotificationShown(false)
       setConfirmButtonDisabled(false)
@@ -383,7 +376,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
       setEtaMinutes(20)
       setMapReady(false) // Reset map ready state
     }
-  }, [open, cashFlowState, HQ_COORD.lng, HQ_COORD.lat])
+  }, [open, cashFlowState, HQ_COORD.lng, HQ_COORD.lat, setCashFlowState])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -409,10 +402,24 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     setConfirmButtonDisabled(true)
     setCashFlowState('IN_TRANSIT_TO_HQ')
   }
+  
+  // Sync local state to shared store when popup opens/closes
+  useEffect(() => {
+    if (open && cashFlowState === 'IDLE') {
+      setCashFlowState('MATCHED_EN_ROUTE')
+    } else if (!open) {
+      // Don't reset state on close - let chat continue to track it
+      // Only reset if explicitly completing
+      if (cashFlowState === 'COMPLETED' && onComplete) {
+        onComplete()
+      }
+    }
+  }, [open, cashFlowState, setCashFlowState, onComplete])
 
   const handleDepositSuccessClose = () => {
     setShowDepositSuccess(false)
     setCashFlowState('IDLE')
+    setSharedCashFlowState('IDLE')
     // Close the map popup and reset flow
     if (onComplete) {
       onComplete()

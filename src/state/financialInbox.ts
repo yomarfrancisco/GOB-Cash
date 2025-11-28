@@ -28,6 +28,11 @@ export type ChatMessage = {
 
 export type InboxViewMode = 'inbox' | 'chat'
 
+export type CashDepositScenario = {
+  amountZAR: number
+  startedAt: number
+}
+
 type FinancialInboxState = {
   threads: Thread[]
   messagesByThreadId: Record<ThreadId, ChatMessage[]>
@@ -36,6 +41,7 @@ type FinancialInboxState = {
   inboxViewMode: InboxViewMode // 'inbox' or 'chat' - controls which view to show
   isDemoIntro: boolean // True when opened from landing demo auto-intro
   hasUnreadNotification: boolean // True when there's an unread notification (for bottom nav dot)
+  cashDepositScenario: CashDepositScenario | null // Active cash deposit scenario
   openInbox: () => void
   closeInbox: () => void
   openChatSheet: (threadId: ThreadId) => void // Open chat sheet for a specific thread
@@ -45,6 +51,8 @@ type FinancialInboxState = {
   ensurePortfolioManagerThread: () => void
   setDemoIntro: (value: boolean) => void // Set demo intro flag
   setHasUnreadNotification: (value: boolean) => void // Set unread notification flag
+  startCashDepositScenario: (amountZAR: number) => void
+  endCashDepositScenario: () => void
 }
 
 const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
@@ -80,6 +88,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   inboxViewMode: 'inbox',
   isDemoIntro: false,
   hasUnreadNotification: false,
+  cashDepositScenario: null,
 
   ensurePortfolioManagerThread: () => {
     const state = get()
@@ -152,6 +161,19 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
 
   setHasUnreadNotification: (value: boolean) => {
     set({ hasUnreadNotification: value })
+  },
+
+  startCashDepositScenario: (amountZAR: number) => {
+    set({
+      cashDepositScenario: {
+        amountZAR,
+        startedAt: Date.now(),
+      },
+    })
+  },
+
+  endCashDepositScenario: () => {
+    set({ cashDepositScenario: null })
   },
 
   sendMessage: (threadId: ThreadId, from: 'user' | 'ai', text: string) => {

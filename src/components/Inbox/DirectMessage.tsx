@@ -2,8 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
-import { useFinancialInboxStore } from '@/state/financialInbox'
+import { useFinancialInboxStore, PORTFOLIO_MANAGER_THREAD_ID } from '@/state/financialInbox'
+import { useCashFlowStateStore } from '@/state/cashFlowState'
+import { useUserProfileStore } from '@/store/userProfile'
 import ChatInputBar from './ChatInputBar'
+import InlineMapCard from './InlineMapCard'
 import styles from './DirectMessage.module.css'
 
 type DirectMessageProps = {
@@ -11,13 +14,28 @@ type DirectMessageProps = {
 }
 
 export default function DirectMessage({ threadId }: DirectMessageProps) {
-  const { messagesByThreadId, threads, sendMessage, setActiveThread } = useFinancialInboxStore()
+  const { 
+    messagesByThreadId, 
+    threads, 
+    sendMessage, 
+    setActiveThread,
+    cashDepositScenario,
+    endCashDepositScenario,
+  } = useFinancialInboxStore()
+  const { cashFlowState, confirmCashDeposit } = useCashFlowStateStore()
+  const { profile } = useUserProfileStore()
   const [inputText, setInputText] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const [scenarioMessagesSent, setScenarioMessagesSent] = useState<Set<string>>(new Set())
+  const [isTyping, setIsTyping] = useState(false)
+  const [showMapCard, setShowMapCard] = useState(false)
+  const [showConfirmButton, setShowConfirmButton] = useState(false)
 
   const messages = messagesByThreadId[threadId] || []
   const thread = threads.find((t) => t.id === threadId)
+  const isAmaThread = threadId === PORTFOLIO_MANAGER_THREAD_ID
+  const isCashDepositActive = isAmaThread && cashDepositScenario !== null
 
   // Store pre-keyboard scrollHeight to determine if conversation is short
   const preKeyboardScrollHeightRef = useRef<number | null>(null)
