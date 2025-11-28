@@ -664,6 +664,7 @@ export default function Home() {
           setAmountEntryPoint(undefined) // Reset entry point when closing
         }}
         mode={amountMode}
+        withdrawOnly={amountMode === 'withdraw'}
         flowType={flowType}
         balanceZAR={200}
         fxRateZARperUSDT={18.1}

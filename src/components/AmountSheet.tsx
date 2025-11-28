@@ -28,6 +28,7 @@ type AmountSheetProps = {
   entryPoint?: 'helicopter' | 'cashButton' // distinguishes entry point for conditional button rendering
   onScanClick?: () => void // callback for scan icon (only shown for cashButton entryPoint)
   initialAmount?: number // optional initial amount to pre-fill (for back navigation)
+  withdrawOnly?: boolean // if true, force single CTA button and skip dual-button logic
 }
 
 export default function AmountSheet({
@@ -46,6 +47,7 @@ export default function AmountSheet({
   entryPoint,
   onScanClick,
   initialAmount,
+  withdrawOnly = false,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
 
@@ -101,7 +103,7 @@ export default function AmountSheet({
   }
 
   const handleSubmit = () => {
-    console.debug('[AMOUNT CTA]', { mode, entryPoint, hasOnCashSubmit: !!onCashSubmit, hasOnSubmit: !!onSubmit })
+    console.debug('[AMOUNT CTA] handleSubmit', { mode, withdrawOnly, hasOnSubmit: !!onSubmit, hasOnAmountSubmit: !!onAmountSubmit })
     if (onAmountSubmit && (mode === 'send' || flowType === 'transfer')) {
       onAmountSubmit(amountZAR)
     } else if (onSubmit) {
@@ -114,7 +116,7 @@ export default function AmountSheet({
   }
 
   const handleCashSubmit = () => {
-    console.debug('[AMOUNT CTA] handleCashSubmit', { mode, entryPoint, hasOnCashSubmit: !!onCashSubmit, hasOnSubmit: !!onSubmit })
+    console.debug('[AMOUNT CTA] handleCashSubmit', { mode, withdrawOnly, hasOnCashSubmit: !!onCashSubmit, hasOnSubmit: !!onSubmit })
     // Same as current handleSubmit - triggers cash convert flow
     if (onCashSubmit) {
       onCashSubmit({
@@ -232,8 +234,19 @@ export default function AmountSheet({
             amountZAR={amountZAR}
           />
         </div>
-        <div className={`amount-cta ${(entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
-          {isHelicopterConvert ? (
+        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+          {withdrawOnly ? (
+            // Force single button for withdrawal flow
+            <button 
+              className="amount-keypad__cta" 
+              onClick={handleSubmit} 
+              type="button"
+              disabled={!isPositive}
+            >
+              {finalCtaLabel}
+              <span className="amount-keypad__cta-arrow">→</span>
+            </button>
+          ) : isHelicopterConvert ? (
             // Dual buttons for helicopter/map entry point: "Deposit Cash" and "Withdraw Cash"
             // Both trigger the same map convert flow
             <>
