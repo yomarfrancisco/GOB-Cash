@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { useFinancialInboxStore } from '@/state/financialInbox'
+import ChatInputBar from './ChatInputBar'
 import styles from './DirectMessage.module.css'
 
 type DirectMessageProps = {
@@ -13,19 +14,70 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
   const { messagesByThreadId, threads, sendMessage, setActiveThread } = useFinancialInboxStore()
   const [inputText, setInputText] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   const messages = messagesByThreadId[threadId] || []
   const thread = threads.find((t) => t.id === threadId)
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [messages])
+  // Store pre-keyboard scrollHeight to determine if conversation is short
+  const preKeyboardScrollHeightRef = useRef<number | null>(null)
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault()
+  // Measure conversation height on mount/when thread changes (before keyboard)
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    
+    // Measure once, pre-keyboard, to capture the true content height
+    // Use requestAnimationFrame to ensure layout has settled
+    requestAnimationFrame(() => {
+      if (container) {
+        // Store the scrollHeight (content height) before keyboard opens
+        // This is the true measure of whether content is short or long
+        preKeyboardScrollHeightRef.current = container.scrollHeight
+      }
+    })
+  }, [threadId, messages.length]) // Re-measure when thread or messages change
+
+  // Helper: Only scroll to bottom if there's actual overflow in the container
+  const scrollToBottomIfOverflow = () => {
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    // Use pre-keyboard scrollHeight to determine if conversation is short
+    // This prevents false overflow detection when keyboard shrinks clientHeight
+    const preKeyboardScrollHeight = preKeyboardScrollHeightRef.current
+    if (preKeyboardScrollHeight === null) {
+      // Not measured yet, skip scroll
+      return
+    }
+
+    const currentClientHeight = container.clientHeight
+    
+    // Compare pre-keyboard content height to current viewport
+    // If content fits in viewport (even with keyboard), it's a short conversation
+    const overflow = preKeyboardScrollHeight - currentClientHeight
+
+    // If there is no meaningful overflow, do NOT move the scroll at all.
+    // This is the "short conversation" case.
+    if (overflow <= 8) {
+      // Keep whatever scrollTop mobile browser chose; do NOT force to 0 or bottom.
+      return
+    }
+
+    // Only for long threads: keep bottom in view.
+    requestAnimationFrame(() => {
+      if (container) {
+        container.scrollTop = container.scrollHeight
+      }
+    })
+  }
+
+  // Scroll to bottom when new messages arrive (only if overflow)
+  useEffect(() => {
+    scrollToBottomIfOverflow()
+  }, [messages.length])
+
+  const handleSend = () => {
     if (!inputText.trim()) return
 
     // Send user message
@@ -78,7 +130,7 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
         </div>
       </div>
 
-      <div className={styles.frameParent}>
+      <div ref={messagesContainerRef} className={styles.frameParent}>
         {messages.map((message, index) => {
           // Show date chip before first message
           const showDateChip = index === 0
@@ -144,35 +196,13 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
       </div>
 
       {/* INPUT BAR */}
-      <div className={styles.commentInput}>
-        <form className={styles.inputAndIcons} onSubmit={handleSend}>
-          <Image
-            className={styles.ico24UiAttachmentDia}
-            src="/assets/attachment_diagonal.svg"
-            alt="Attach"
-            width={24}
-            height={24}
-          />
-          <input
-            type="text"
-            className={styles.button}
-            placeholder="Add a message"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-          />
-          {inputText.trim() && (
-            <button
-              type="submit"
-              className={styles.sendButton}
-              aria-label="Send message"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          )}
-        </form>
-      </div>
+      <ChatInputBar
+        value={inputText}
+        onChange={setInputText}
+        onSend={handleSend}
+        placeholder="Add a message"
+        // No onInputFocus - we don't want scroll on focus, only on message changes
+      />
     </div>
   )
 }

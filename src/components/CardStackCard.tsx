@@ -14,7 +14,7 @@ import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
-type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc'
+type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
 type HealthLevel = 'good' | 'moderate' | 'fragile'
 
@@ -24,14 +24,16 @@ const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> =
   yield: { level: 'moderate', percent: 60 },
   mzn: { level: 'good', percent: 100 },
   btc: { level: 'moderate', percent: 15 },
+  yieldSurprise: { level: 'moderate', percent: 60 }, // Reuse yield card health config
 }
 
 const CARD_LABELS: Record<CardType, string> = {
-  savings: 'CASH CARD',
-  pepe: 'CASH CARD',
-  yield: 'CASH CARD',
-  mzn: 'CASH CARD',
-  btc: 'CASH CARD',
+  savings: 'CASH CARD', // ZAR fiat card
+  mzn: 'CASH CARD', // MZN fiat card
+  pepe: 'CASH CARD', // PEPE crypto card
+  yield: 'CASH CARD', // ETH crypto card
+  btc: 'CASH CARD', // BTC crypto card
+  yieldSurprise: 'CREDIT CARD', // Credit surprise card
 }
 
 const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'pepeCents' | 'mznCents' | 'btcCents'> = {
@@ -40,6 +42,7 @@ const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'pepeCents'
   yield: 'ethCents',
   mzn: 'mznCents',
   btc: 'btcCents',
+  yieldSurprise: 'ethCents', // Reuse yield card allocation (ethCents)
 }
 
 const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'PEPE' | 'MZN' | 'BTC'> = {
@@ -48,6 +51,7 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'PEPE' | 'MZN' | 'BTC'> 
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
+  yieldSurprise: 'ETH', // Reuse yield card symbol (ETH)
 }
 
 // Flag mapping by currency
@@ -63,6 +67,7 @@ const COIN_BY_CARD: Record<CardType, { src: string; id: string; label: string } 
   yield: { src: '/assets/eth_coin.png', id: 'coin-eth', label: 'ETH' },
   mzn: null, // Uses flag
   btc: { src: '/assets/Bitcoin-Logo.png', id: 'coin-btc', label: 'BTC' },
+  yieldSurprise: null, // Uses flag (ZAR) instead of coin
 }
 
 // Currency label mapping
@@ -75,7 +80,8 @@ const CURRENCY_LABEL: Record<string, string> = {
 const getCardCurrency = (cardType: CardType): string | null => {
   if (cardType === 'savings') return 'ZAR'
   if (cardType === 'mzn') return 'MZN'
-  return null // PEPE and ETH use coin badges instead
+  if (cardType === 'yieldSurprise') return 'ZAR' // CREDIT CARD uses ZAR flag
+  return null // PEPE, yield, and btc use coin badges instead
 }
 
 type CardStackCardProps = {
@@ -98,6 +104,8 @@ type CardStackCardProps = {
   style: React.CSSProperties
   flashDirection: 'up' | 'down' | null
   onFlashEnd: () => void
+  isSpecialMode?: boolean
+  isSpecialCard?: boolean
 }
 
 export default function CardStackCard({
@@ -114,6 +122,8 @@ export default function CardStackCard({
   style,
   flashDirection,
   onFlashEnd,
+  isSpecialMode = false,
+  isSpecialCard = false,
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
 
@@ -223,24 +233,32 @@ export default function CardStackCard({
   }, [portfolioHealth, prefersReducedMotion])
 
   // Get card definition for annual yield
-  const cardDef = getCardDefinition(card.type)
+  // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
+  const cardDef = getCardDefinition(card.type === 'yieldSurprise' ? 'yield' : card.type)
   const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
   const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
+
+  // Compose className with special mode classes
+  const finalClassName = clsx(
+    className,
+    isSpecialMode && !isSpecialCard && 'dimmed-for-special',
+    isSpecialMode && isSpecialCard && 'credit-surprise'
+  )
 
   return (
     <div
       key={index}
-      className={className}
+      className={finalClassName}
       onClick={onClick}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       style={style}
     >
-      {card.type === 'yield' ? (
+      {card.type === 'yield' || card.type === 'yieldSurprise' ? (
         <div className="card-canvas card-yield-rounded">
           <Image
             src={card.image}
-            alt="GoB yield card"
+            alt={card.type === 'yield' ? 'GoB yield card' : 'GoB yield surprise card'}
             fill
             sizes="(max-width: 768px) 88vw, 420px"
             priority
@@ -363,7 +381,7 @@ export default function CardStackCard({
 
       {/* Bottom-right health bar */}
       <div className="card-health-group">
-        <span className="card-health-label">Market Health</span>
+        <span className="card-health-label">{card.type === 'yieldSurprise' ? 'Social score' : 'Market Health'}</span>
         <div className="card-health-bar-container">
           <div
             className={clsx(

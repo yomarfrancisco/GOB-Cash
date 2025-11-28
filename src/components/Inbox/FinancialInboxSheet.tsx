@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
+import ChatInputBar from './ChatInputBar'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
 import walletHelperStyles from '../WalletHelperSheet.module.css'
@@ -20,7 +21,7 @@ type IntroStage = 'typingIndicator' | 'typingMessage' | 'cards' | 'done'
 // Typing indicator component (3 dots)
 function TypingBubble() {
   return (
-    <div className={chatStyles.messageBubble}>
+    <div className={clsx(chatStyles.messageBubble, chatStyles.amaIntroTypingBubble)}>
       <div className={chatStyles.typingDots}>
         <span />
         <span />
@@ -164,6 +165,8 @@ type FinancialInboxSheetProps = {
  * NOTE: This sheet is now accessible from Profile → Settings → Inbox.
  * The "Request cash agent" button has been removed.
  */
+const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
+
 export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propIsDemoIntro }: FinancialInboxSheetProps) {
   const { 
     isInboxOpen, 
@@ -171,14 +174,115 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     closeInbox, 
     openChatSheet,
     goBackToInbox,
-    isDemoIntro: storeIsDemoIntro
+    isDemoIntro: storeIsDemoIntro,
+    sendMessage,
+    messagesByThreadId
   } = useFinancialInboxStore()
+  
+  // Get auth state for pre-auth gating
+  const { isAuthed, openAuthEntrySignup } = useAuthStore()
   
   // Use prop if provided, otherwise fall back to store flag
   const isDemoIntro = propIsDemoIntro !== undefined ? propIsDemoIntro : storeIsDemoIntro
 
   // Intro stage state machine - only for landing demo
   const [introStage, setIntroStage] = useState<IntroStage>('typingIndicator')
+  
+  // Input text state for chat
+  const [inputText, setInputText] = useState('')
+  
+  // Ref for message area container (for scroll calculations)
+  const messageAreaRef = useRef<HTMLDivElement>(null)
+  
+  // Store pre-keyboard scrollHeight to determine if conversation is short
+  const preKeyboardScrollHeightRef = useRef<number | null>(null)
+  
+  // Get messages for the portfolio manager thread
+  const pmMessages = messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID] || []
+  
+  // Measure conversation height on mount/when chat view opens (before keyboard)
+  useEffect(() => {
+    // Only measure when chat view is open and container is ready
+    if (inboxViewMode !== 'chat' || !isInboxOpen) {
+      preKeyboardScrollHeightRef.current = null
+      return
+    }
+    
+    const container = messageAreaRef.current
+    if (!container) return
+    
+    // Measure once, pre-keyboard, to capture the true content height
+    // Use requestAnimationFrame to ensure layout has settled
+    requestAnimationFrame(() => {
+      if (container) {
+        // Store the scrollHeight (content height) before keyboard opens
+        // This is the true measure of whether content is short or long
+        preKeyboardScrollHeightRef.current = container.scrollHeight
+      }
+    })
+  }, [inboxViewMode, isInboxOpen, isDemoIntro, introStage, pmMessages.length]) // Re-measure when conversation changes
+  
+  // Helper: Only scroll to bottom if there's actual overflow in the container
+  const scrollToBottomIfOverflow = useCallback(() => {
+    const container = messageAreaRef.current
+    if (!container) return
+
+    // Use pre-keyboard scrollHeight to determine if conversation is short
+    // This prevents false overflow detection when keyboard shrinks clientHeight
+    const preKeyboardScrollHeight = preKeyboardScrollHeightRef.current
+    if (preKeyboardScrollHeight === null) {
+      // Not measured yet, skip scroll
+      return
+    }
+
+    const currentClientHeight = container.clientHeight
+    
+    // Compare pre-keyboard content height to current viewport
+    // If content fits in viewport (even with keyboard), it's a short conversation
+    const overflow = preKeyboardScrollHeight - currentClientHeight
+
+    // If there is no meaningful overflow, do NOT move the scroll at all.
+    // This is the "short conversation" case.
+    if (overflow <= 8) {
+      // Keep whatever scrollTop mobile browser chose; do NOT force to 0 or bottom.
+      return
+    }
+
+    // Only for long threads: keep bottom in view.
+    requestAnimationFrame(() => {
+      if (container) {
+        container.scrollTop = container.scrollHeight
+      }
+    })
+  }, [])
+  
+  // Auto-scroll only when messages change, and only for DM view (not intro tiles)
+  useEffect(() => {
+    if (!messageAreaRef.current) return
+    
+    // Only auto-scroll for the DM view, not the intro tiles
+    if (!isDemoIntro && inboxViewMode === 'chat') {
+      scrollToBottomIfOverflow()
+    }
+  }, [pmMessages.length, isDemoIntro, inboxViewMode, scrollToBottomIfOverflow])
+  
+  // Send message handler
+  const handleSend = useCallback(() => {
+    if (!inputText.trim()) return
+    
+    // Send user message
+    sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'user', inputText.trim())
+    setInputText('')
+    
+    // Add stub AI reply after delay
+    setTimeout(() => {
+      sendMessage(
+        PORTFOLIO_MANAGER_THREAD_ID,
+        'ai',
+        "Got it – I'll help you with that. This will later come from the BabyCDO backend."
+      )
+    }, 800)
+  }, [inputText, sendMessage])
 
   // Manage intro stages for demo intro - only in chat view
   useEffect(() => {
@@ -356,7 +460,19 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
         <div className={chatStyles.container}>
           {/* Username row - no separate close button row, ActionSheet provides the close button */}
           <div className={chatStyles.usernameRow}>
-            <button className={chatStyles.backButton} onClick={goBackToInbox} aria-label="Back">
+            <button 
+              className={chatStyles.backButton} 
+              onClick={() => {
+                // In pre-auth: open sign-in sheet instead of going back
+                // In post-auth: normal back behavior
+                if (!isAuthed) {
+                  openAuthEntrySignup()
+                  return
+                }
+                goBackToInbox()
+              }} 
+              aria-label="Back"
+            >
               <Image
                 src="/assets/back_ui.svg"
                 alt="Back"
@@ -381,7 +497,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
           <div className={chatStyles.divider} />
 
           {/* Message area */}
-          <div className={chatStyles.messageArea}>
+          <div ref={messageAreaRef} className={chatStyles.messageArea}>
             <div className={chatStyles.messageWrapper}>
               <div className={chatStyles.messageAvatar}>
                 <Image
@@ -409,12 +525,17 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                     )}
                     {/* Get Started CTA in separate bubble - only show after map animation */}
                     {introStage === 'done' && (
-                      <div className={chatStyles.messageBubble}>
+                      <div className={clsx(chatStyles.messageBubble, chatStyles.amaIntroCtaBubble)}>
                         <button
                           className={chatStyles.chatCtaButton}
                           onClick={() => {
-                            const { openAuthEntrySignup } = useAuthStore.getState()
-                            openAuthEntrySignup()
+                            // In pre-auth: open sign-in sheet
+                            // In post-auth: allow normal behavior (if any)
+                            if (!isAuthed) {
+                              openAuthEntrySignup()
+                              return
+                            }
+                            // Post-auth behavior (if any) would go here
                           }}
                           type="button"
                         >
@@ -433,22 +554,15 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
             </div>
           </div>
 
-          {/* Input bar - no divider line above */}
-          <div className={chatStyles.inputBar}>
-            <button className={chatStyles.attachButton} aria-label="Attach">
-              <Image
-                src="/assets/attachment_diagonal.svg"
-                alt="Attach"
-                width={24}
-                height={24}
-              />
-            </button>
-            <input
-              type="text"
-              className={chatStyles.input}
-              placeholder="Add a message"
-            />
-          </div>
+          {/* Input bar */}
+          <ChatInputBar
+            value={inputText}
+            onChange={setInputText}
+            onSend={handleSend}
+            placeholder="Add a message"
+            onRequireAuth={!isAuthed ? openAuthEntrySignup : undefined}
+            // No onInputFocus - we don't want scroll on focus, only on message changes
+          />
         </div>
       )}
     </ActionSheet>

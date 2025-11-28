@@ -75,10 +75,46 @@
   opacity: 0;
 }
 
+/* Credit Surprise Animation */
+@keyframes creditSurpriseWobble {
+  0% {
+    transform: translateY(8px) scale(0.9) rotateZ(0deg);
+    opacity: 0;
+  }
+  40% {
+    transform: translateY(-6px) scale(1.05) rotateZ(-2deg);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(-2px) scale(1.02) rotateZ(2deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotateZ(0deg);
+  }
+}
+
+/* Special card animation: rise, glow, wobble */
+.card.credit-surprise {
+  animation: creditSurpriseWobble 0.9s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.75), 0px 1px 1px rgba(0, 0, 0, 0.1), 0px 8px 28px rgba(0, 0, 0, 0.08);
+  z-index: 100 !important; /* Ensure special card is on top */
+}
+
+/* Dimmed cards during special mode */
+.card.dimmed-for-special {
+  opacity: 0.6;
+  filter: blur(1px);
+  transition: opacity 300ms ease, filter 300ms ease;
+}
+
 /* Accessibility: respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   .card {
     transition: none;
+  }
+  
+  .card.credit-surprise {
+    animation: none;
   }
 }
 

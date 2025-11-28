@@ -193,7 +193,7 @@
 }
 
 .amaIntroApyText {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 11px;
   font-weight: 600;
   color: #fff;
@@ -218,5 +218,5 @@
 
 /* Wrapper for card block to add vertical spacing from intro text */
 .amaIntroCardBlockWrapper {
-  margin-top: 7px; /* Reduced from 12px by ~42% to tighten gap between intro text and card */
+  margin-top: 5px; /* Further reduced for tighter spacing between intro text and card */
 }

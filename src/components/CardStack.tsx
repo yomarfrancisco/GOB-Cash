@@ -24,9 +24,10 @@ const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> =
   yield: { level: 'moderate', percent: 60 },
   mzn: { level: 'good', percent: 100 },
   btc: { level: 'moderate', percent: 15 },
+  yieldSurprise: { level: 'moderate', percent: 60 }, // Reuse yield card health config
 }
 
-type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc'
+export type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
 interface CardData {
   type: CardType
@@ -53,34 +54,42 @@ const cardsData: CardData[] = [
   },
   {
     type: 'yield',
-    image: '/assets/cards/card-ETH.jpg',
+    image: '/assets/cards/card-ETH 3.jpg',
     alt: 'Yield Card',
     width: 310,
     height: 193,
   },
   {
     type: 'mzn',
-    image: '/assets/cards/card-MZN.jpg',
+    image: '/assets/cards/card-MZN2.jpg',
     alt: 'MZN Cash Card',
     width: 342,
     height: 213,
   },
   {
     type: 'btc',
-    image: '/assets/cards/card-BTC.jpg',
+    image: '/assets/cards/card-BTC2.jpg',
     alt: 'BTC Card',
     width: 342,
     height: 213,
+  },
+  {
+    type: 'yieldSurprise',
+    image: '/assets/cards/card-$GOB4.jpg',
+    alt: 'Yield Surprise Card',
+    width: 310,
+    height: 193,
   },
 ]
 
 // Card labels mapping
 const CARD_LABELS: Record<CardType, string> = {
-  savings: 'CASH CARD',
-  pepe: 'CASH CARD',
-  yield: 'CASH CARD',
-  mzn: 'CASH CARD',
-  btc: 'CASH CARD',
+  savings: 'CASH CARD', // ZAR fiat card
+  mzn: 'CASH CARD', // MZN fiat card
+  pepe: 'INVESTMENT CARD', // PEPE crypto card
+  yield: 'INVESTMENT CARD', // ETH crypto card
+  btc: 'INVESTMENT CARD', // BTC crypto card
+  yieldSurprise: 'CREDIT CARD', // Credit surprise card
 }
 
 // Map card type to allocation key
@@ -90,6 +99,7 @@ const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'pepeCents'
   yield: 'ethCents',
   mzn: 'mznCents',
   btc: 'btcCents',
+  yieldSurprise: 'ethCents', // Reuse yield card allocation (ethCents)
 }
 
 // Map card type to portfolio symbol
@@ -99,29 +109,43 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'PEPE' | 'MZN' | 'BTC'> 
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
+  yieldSurprise: 'ETH', // Reuse yield card symbol (ETH)
 }
 
 interface CardStackProps {
   onTopCardChange?: (cardType: CardType) => void
   flipControllerRef?: React.MutableRefObject<{ pause: () => void; resume: () => void } | null>
   onCardClick?: () => void // Optional auth guard wrapper for card clicks
+  onCreditSurprise?: (amountZAR: number) => void // Callback for credit surprise animation
 }
 
 export type CardStackHandle = {
   cycleNext: () => void
   flipToCard: (cardType: CardType, direction?: 'forward' | 'back') => Promise<void>
+  revealCreditSurprise: () => void
 }
 
 const FLIP_DURATION_MS = FLIP_MS
 
-const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, onCardClick }, ref) {
+// Number of cards visible in the stack at any time
+const VISIBLE_COUNT = 5
+
+const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, onCardClick, onCreditSurprise }, ref) {
   // Dynamic order initialization based on cards.length
+  // Note: order.length === 6 (includes hidden card), but only first VISIBLE_COUNT are rendered
   const initialOrder = Array.from({ length: cardsData.length }, (_, i) => i)
   const [order, setOrder] = useState<number[]>(initialOrder)
   const [isAnimating, setIsAnimating] = useState(false)
   const [phase, setPhase] = useState<'idle' | 'animating'>('idle')
   const touchStartY = useRef<number>(0)
   const touchEndY = useRef<number>(0)
+
+  // Special mode state for credit surprise animation
+  const [specialMode, setSpecialMode] = useState<'credit' | null>(null)
+  const [specialCardType, setSpecialCardType] = useState<CardType | null>(null)
+  
+  // Track if credit has been applied for this reveal (prevent multiple credits)
+  const hasCreditedRef = useRef(false)
 
   // Flash state: track direction for each card type
   // Note: alloc values are now read in CardStackCard component
@@ -132,6 +156,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     yield: null,
     mzn: null,
     btc: null,
+    yieldSurprise: null,
   })
   // Track previous values to compute direction
   const prevValuesRef = useRef<Record<CardType, number>>({
@@ -140,6 +165,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     yield: alloc.ethCents / 100,
     mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
     btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
+    yieldSurprise: alloc.ethCents / 100, // Reuse yield card allocation (ethCents)
   })
 
   // Compute flash direction when values change
@@ -150,6 +176,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       yield: alloc.ethCents / 100,
       mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
       btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
+      yieldSurprise: alloc.ethCents / 100, // Reuse yield card allocation (ethCents)
     }
 
     const newFlashDirection: Record<CardType, 'up' | 'down' | null> = {
@@ -158,10 +185,11 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       yield: null,
       mzn: null,
       btc: null,
+      yieldSurprise: null,
     }
 
     // Compute direction for each card
-    ;(['savings', 'pepe', 'yield', 'mzn', 'btc'] as CardType[]).forEach((cardType) => {
+    ;(['savings', 'pepe', 'yield', 'mzn', 'btc', 'yieldSurprise'] as CardType[]).forEach((cardType) => {
       const prev = prevValuesRef.current[cardType]
       const current = currentValues[cardType]
       const delta = current - prev
@@ -276,9 +304,89 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     cycle()
   }
 
+  // Reveal credit surprise: bring yieldSurprise card to top with special animation
+  const revealCreditSurprise = useCallback(() => {
+    // Prevent multiple simultaneous surprises
+    if (specialMode === 'credit' || isAnimating) return
+
+    // Reset credit flag for new reveal
+    hasCreditedRef.current = false
+
+    // Pause random flips during the surprise
+    if (externalFlipControllerRef?.current) {
+      externalFlipControllerRef.current.pause()
+    }
+
+    // Find yieldSurprise card index
+    const yieldSurpriseIndex = cardsData.findIndex((c) => c.type === 'yieldSurprise')
+    if (yieldSurpriseIndex === -1) return
+
+    // Find current position of yieldSurprise in order
+    const currentPosition = order.indexOf(yieldSurpriseIndex)
+    if (currentPosition < 0) return
+
+    // If already at top, just trigger the animation
+    if (currentPosition === 0) {
+      setSpecialCardType('yieldSurprise')
+      setSpecialMode('credit')
+      
+      // Trigger credit after small delay to align with wobble animation
+      if (onCreditSurprise && !hasCreditedRef.current) {
+        setTimeout(() => {
+          onCreditSurprise(500) // R500 credit
+          hasCreditedRef.current = true
+        }, 300) // ~300ms delay to align with wobble
+      }
+      
+      // End special mode after animation
+      setTimeout(() => {
+        setSpecialMode(null)
+        setSpecialCardType(null)
+        hasCreditedRef.current = false // Reset credit flag
+        if (externalFlipControllerRef?.current) {
+          externalFlipControllerRef.current.resume()
+        }
+      }, 1200)
+      return
+    }
+
+    // Rotate order to bring yieldSurprise to top
+    setOrder((prevOrder) => {
+      const pos = prevOrder.indexOf(yieldSurpriseIndex)
+      if (pos <= 0) return prevOrder
+      // Rotate so yieldSurprise goes to index 0
+      return [...prevOrder.slice(pos), ...prevOrder.slice(0, pos)]
+    })
+
+    // Wait for rotation to complete, then trigger special animation
+    setTimeout(() => {
+      setSpecialCardType('yieldSurprise')
+      setSpecialMode('credit')
+
+      // Trigger credit after small delay to align with wobble animation
+      if (onCreditSurprise && !hasCreditedRef.current) {
+        setTimeout(() => {
+          onCreditSurprise(500) // R500 credit
+          hasCreditedRef.current = true
+        }, 300) // ~300ms delay to align with wobble
+      }
+
+      // End special mode after animation
+      setTimeout(() => {
+        setSpecialMode(null)
+        setSpecialCardType(null)
+        hasCreditedRef.current = false // Reset credit flag
+        if (externalFlipControllerRef?.current) {
+          externalFlipControllerRef.current.resume()
+        }
+      }, 1200)
+    }, FLIP_DURATION_MS + 50) // Wait for any ongoing animation + buffer
+  }, [order, specialMode, isAnimating, externalFlipControllerRef, onCreditSurprise])
+
   useImperativeHandle(ref, () => ({
     cycleNext,
     flipToCard,
+    revealCreditSurprise,
   }))
 
   const handleCardClick = (index: number) => {
@@ -331,6 +439,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     }
   }, [])
 
+  // Note: cardsData.length === 6, but only VISIBLE_COUNT (5) cards are rendered
   const total = cardsData.length
   const BASE_HEIGHT_PX = 238 // top card height
   const Y_STEP_PX = 44 // vertical offset per depth (from getStackStyle)
@@ -338,17 +447,18 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   // Debug: log computed styles on first render
   useEffect(() => {
     if (DEV_CARD_FLIP_DEBUG) {
-      console.log('[CardStack] Computed styles for', total, 'cards:')
-      for (let depth = 0; depth < total; depth++) {
-        const style = getStackStyle(depth, total)
+      console.log('[CardStack] Computed styles for', VISIBLE_COUNT, 'visible cards:')
+      for (let depth = 0; depth < VISIBLE_COUNT; depth++) {
+        const style = getStackStyle(depth, VISIBLE_COUNT)
         console.log(`  Depth ${depth}:`, style)
       }
     }
-  }, [total])
+  }, [])
 
-  // Calculate dynamic minHeight to accommodate all cards with overlap
+  // Calculate dynamic minHeight to accommodate visible cards with overlap
+  // Use VISIBLE_COUNT for height calculation to maintain consistent stack height
   const BOTTOM_BUFFER_PX = 0 // Reduced from 20 to 0 to close gap to map section (80% total reduction - removed buffer entirely)
-  const stackMinHeight = BASE_HEIGHT_PX + (total - 1) * Y_STEP_PX + BOTTOM_BUFFER_PX
+  const stackMinHeight = BASE_HEIGHT_PX + (VISIBLE_COUNT - 1) * Y_STEP_PX + BOTTOM_BUFFER_PX
 
   return (
     <div 
@@ -360,14 +470,19 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       }}
     >
       {order.map((cardIdx, depth) => {
+        // Only render the first VISIBLE_COUNT cards (depths 0-4)
+        // Cards at depth >= VISIBLE_COUNT are hidden but still part of the logical order
+        if (depth >= VISIBLE_COUNT) return null
+
         const card = cardsData[cardIdx]
         const isTop = depth === 0
-        const stackStyle = getStackStyle(depth, total)
+        // Use VISIBLE_COUNT for stack style calculation to maintain consistent 5-card spacing
+        const stackStyle = getStackStyle(depth, VISIBLE_COUNT)
 
         // During animation, adjust depth for smooth transitions
         // IMPORTANT: Never adjust depth for top card (depth === 0) to prevent clipping
         const effectiveDepth = phase === 'animating' && depth > 0 ? depth - 1 : depth
-        const effectiveStyle = phase === 'animating' && depth > 0 ? getStackStyle(effectiveDepth, total) : stackStyle
+        const effectiveStyle = phase === 'animating' && depth > 0 ? getStackStyle(effectiveDepth, VISIBLE_COUNT) : stackStyle
         
         // Ensure top card (depth 0) always has consistent top position, even during animation
         const finalTop = depth === 0 ? stackStyle.top : effectiveStyle.top
@@ -376,6 +491,10 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
           console.debug('[CardFlip]', `CardStack-${cardIdx}`, 'top card rendered')
         }
 
+        // Determine if this card is in special mode
+        const isSpecialMode = specialMode === 'credit'
+        const isSpecialCard = isSpecialMode && card.type === specialCardType
+
         return (
           <CardStackCard
             key={cardIdx}
@@ -383,7 +502,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             index={cardIdx}
             position={depth}
             depth={depth}
-            total={total}
+            total={VISIBLE_COUNT}
             isTop={isTop}
             className={getCardClasses(cardIdx, depth)}
             onClick={() => handleCardClick(cardIdx)}
@@ -405,6 +524,8 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             onFlashEnd={() => {
               setFlashDirection((prev) => ({ ...prev, [card.type]: null }))
             }}
+            isSpecialMode={isSpecialMode}
+            isSpecialCard={isSpecialCard}
           />
         )
       })}

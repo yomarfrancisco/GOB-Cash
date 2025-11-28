@@ -68,6 +68,7 @@
   padding: 0 20px 16px 20px; /* Wider horizontal margins, content starts below divider */
   min-height: 0;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* Prevent scroll chaining to parent .as-body */
 }
 
 .messageWrapper {
@@ -115,11 +116,16 @@
   width: 100%; /* Take full width of container to match input */
 }
 
-/* Reduced padding for Ama intro bubble to tighten spacing */
+/* Reduced bottom padding for Ama intro bubble to tighten spacing */
+/* AMA intro bubble - scoped Acumin VF font override and theme color */
 .amaIntroMessageBubble {
   padding-top: 10px; /* Reduced from 16px by 6px */
-  padding-bottom: 0px; /* Reduced from 8px by 8px to trim bottom margin */
+  padding-bottom: 0px; /* Eliminate dead space at bottom of bubble */
   line-height: 1.35; /* Reduced from 1.4 for tighter intro text */
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+  background: #CBFFA3; /* Chat bubble theme color */
+  border: 1px solid rgba(0, 0, 0, 0.10); /* Subtle border for definition */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Ensure bubble shadow */
 }
 
 .timestamp {
@@ -135,9 +141,15 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 20px; /* Wider margins to match message area and maximize input width */
+  padding-top: 4px; /* Reduced to prevent cutting off message avatar/timestamp */
+  padding-bottom: calc(4px + env(safe-area-inset-bottom));
+  padding-left: 20px; /* Wider margins to match message area and maximize input width */
+  padding-right: 20px;
   background: #fff;
   flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
   /* No border-top - removed divider line */
 }
 
@@ -238,9 +250,20 @@
   transform: translateY(0) scale(1);
 }
 
-/* Spacing between tiles - reduced by ~40% for tighter fit */
+/* Spacing between tiles - reduced by 30-40% for tighter fit */
+/* AMA intro tiles - lime green background to match intro bubble */
 .amaIntroTile {
-  margin-top: 3px; /* Reduced from 5px by 40% to tighten gap between card and map */
+  margin-top: 3px; /* Further reduced to tighten gap between card and map */
+  background-color: #CBFFA3 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Typing indicator bubble - lime green theme for AMA intro */
+.amaIntroTypingBubble {
+  background: #CBFFA3 !important;
+  border: 1px solid rgba(0, 0, 0, 0.10) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
 }
 
 .amaIntroTile:first-child,
@@ -262,13 +285,13 @@
   transform: translateY(0);
 }
 
-/* Shared typography for promo tiles */
-.promoTitle {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+/* Shared typography for promo tiles - Acumin VF scoped to AMA intro only */
+.amaIntroMessageBubble .promoTitle {
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: #0a0a0a;
-  margin: 8px 0 0 0;
+  margin: 6px 0 0 0; /* Reduced from 8px to tighten space above titles */
   padding: 0;
   text-align: center;
   line-height: 1.25;
@@ -278,8 +301,8 @@
   letter-spacing: -0.1px;
 }
 
-.promoSubtext {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+.amaIntroMessageBubble .promoSubtext {
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 13px;
   font-weight: 400;
   color: rgba(10, 10, 10, 0.6);
@@ -291,7 +314,7 @@
 /* Reduced map height for Ama intro - match card preview height (74px) */
 .amaIntroMapPreview {
   height: 74px !important; /* Match card preview height for consistent vertical footprint */
-  margin-bottom: 8px !important; /* Spacing between map image and caption */
+  margin-bottom: 6px !important; /* Reduced spacing between map image and caption */
 }
 
 /* Chat CTA button - smaller version for in-chat use */
@@ -304,7 +327,6 @@
   border-radius: 12px;
   font-size: 15px;
   font-weight: 600;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   cursor: pointer;
   transition: opacity 0.2s;
   margin: 0;
@@ -318,7 +340,14 @@
   opacity: 0.8;
 }
 
-/* Get Started CTA button */
+/* Get Started CTA bubble - matches AMA intro lime green theme */
+.amaIntroCtaBubble {
+  background: #CBFFA3 !important;
+  border: 1px solid rgba(0, 0, 0, 0.10) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Get Started CTA button - Acumin VF scoped to AMA intro only */
 .getStartedButton {
   width: 100%;
   padding: 16px;
@@ -326,12 +355,12 @@
   color: #fff;
   border: none;
   border-radius: 12px;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 16px;
   font-weight: 600;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   cursor: pointer;
   transition: opacity 0.2s;
-  margin-top: 16px;
+  margin-top: 12px; /* Reduced from 16px to tighten space above button */
 }
 
 .getStartedButton:hover {

@@ -113,12 +113,12 @@ body {
 
 .glass-shard-small {
   position: absolute;
-  top: -390px;
-  left: -25px;
+  top: -355px;
+  left: -99px;
   width: 729.4px;
   height: 712.8px;
   object-fit: contain;
-  transform: rotate(-25deg);
+  transform: rotate(-0.54deg);
   z-index: 1;
   pointer-events: none;
 }
@@ -619,11 +619,11 @@ body {
 
 .bottom-glass-wrapper {
   position: absolute;
-  left: 50%;
+  left: calc(50% + 60px);
   transform: translateX(-50%);
   width: 140%;
   max-width: 700px;
-  bottom: 0;
+  bottom: -15px;
   z-index: 0;
   pointer-events: none;
   background: transparent !important;

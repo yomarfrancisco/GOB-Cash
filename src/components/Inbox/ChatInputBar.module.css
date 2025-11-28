@@ -1,0 +1,149 @@
+/* Chat Input Bar - Reusable component based on Figma spec */
+.commentInput {
+  width: 100%;
+  position: relative;
+  background-color: transparent; /* Transparent since parent .inputBar provides white background */
+  display: flex;
+  align-items: center; /* Changed from flex-end to center for vertical alignment */
+  justify-content: center;
+  padding: 0; /* Remove padding since parent .inputBar handles spacing */
+  box-sizing: border-box;
+  text-align: left;
+  font-size: 16px;
+  color: #000;
+  font-family: 'Acumin Variable Concept', 'Acumin VF', 'Acumin Pro', system-ui, -apple-system, sans-serif;
+  flex-shrink: 0;
+}
+
+.buttonWrapper {
+  flex: 1;
+  display: flex;
+  align-items: center; /* Changed from flex-end to center for vertical alignment */
+  justify-content: center;
+  max-width: 100%;
+  min-width: 0; /* Allow flex item to shrink */
+}
+
+/* Pill container */
+.button {
+  height: 48px;
+  flex: 1;
+  position: relative;
+  border-radius: 56px;
+  background-color: #e5e5ea;
+  display: flex;
+  align-items: center;
+  transition: all 150ms ease-out;
+  overflow: visible; /* Ensure send button isn't clipped */
+}
+
+.buttonEmpty {
+  /* Empty state - no changes needed */
+}
+
+.buttonHasText {
+  /* Has text state - no visual changes, but send button appears */
+}
+
+.buttonDisabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Input field inside pill */
+.input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 300;
+  letter-spacing: -0.43px;
+  line-height: 22px;
+  padding-left: 24px;
+  padding-right: 56px; /* Leave room for send button on the right */
+  color: #000;
+  font-family: inherit;
+  box-sizing: border-box;
+  height: 100%;
+}
+
+.input::placeholder {
+  color: rgba(142, 142, 147, 0.6);
+  font-weight: 300;
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Attachment button (paperclip) - shown when empty */
+.attachmentButton {
+  position: relative;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex; /* Changed to inline-flex for better centering */
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  margin-right: 8px;
+  transition: opacity 150ms ease-out;
+  z-index: 1;
+}
+
+.attachmentButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Send button (blue circle with up arrow) - shown when has text */
+.sendButton {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #007aff; /* iOS blue - matches Figma spec */
+  color: #fff;
+  cursor: pointer;
+  z-index: 2; /* Ensure button sits above input */
+  padding: 0;
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
+  box-shadow: 0 2px 4px rgba(0, 122, 255, 0.3);
+}
+
+.sendButton:hover {
+  opacity: 0.9;
+  transform: translateY(-50%) scale(1.02);
+}
+
+.sendButton:active {
+  opacity: 0.8;
+  transform: translateY(-50%) scale(0.98);
+}
+
+.sendButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sendButtonIcon {
+  width: 20px;
+  height: 20px;
+  color: #fff;
+}
+
+/* Input padding is consistent - always leave room for send button when it appears */
+/* The send button visibility is controlled by conditional rendering, not padding */
+

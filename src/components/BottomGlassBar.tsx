@@ -34,7 +34,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
       <div className="bottom-menu-container">
         <div className="bottom-glass-wrapper">
           <Image
-            src="/assets/core/glass-bottom-1.png"
+            src="/assets/core/glass-bottom-2.png"
             alt=""
             className="bottom-glass-texture"
             width={700}
@@ -70,7 +70,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               {/* Rest state is always $ icon; avatar only appears during highlights (slides up) */}
               <div className="fab-content-base">
                 <Image 
-                  src="/assets/core/dollar-sign.png" 
+                  src="/assets/core/dollar-sign2.png" 
                   alt="Direct Payment" 
                   width={60} 
                   height={60} 

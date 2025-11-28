@@ -3,8 +3,10 @@
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import styles from './WalletHelperSheet.module.css'
+import { type CardType } from './CardStack'
 
-type WalletKey = 'savings' | 'pepe' | 'yield' | 'mzn' | 'btc'
+// Unify WalletKey with CardType - every card corresponds to a wallet key
+export type WalletKey = CardType
 
 type WalletHelperSheetProps = {
   walletKey: WalletKey | null
@@ -17,6 +19,7 @@ const walletTitleMap: Record<WalletKey, string> = {
   pepe: 'PEPE wallet',
   yield: 'ETH wallet',
   btc: 'BTC wallet',
+  yieldSurprise: 'ETH wallet', // Reuse yield wallet title
 }
 
 const cardImages: Record<WalletKey, string> = {
@@ -25,6 +28,7 @@ const cardImages: Record<WalletKey, string> = {
   yield: '/assets/cards/card-ETH.jpg',
   mzn: '/assets/cards/card-MZN.jpg',
   btc: '/assets/cards/card-BTC.jpg',
+  yieldSurprise: '/assets/cards/card-$GOB4.jpg', // New wallet key using yield card art
 }
 
 export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSheetProps) {

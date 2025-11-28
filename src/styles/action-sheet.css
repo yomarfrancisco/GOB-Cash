@@ -92,6 +92,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden; /* Prevent scroll chaining - .messageArea handles scrolling */
 }
 
 /* Remove default as-body padding for whatsapp-signin sheet - let internal container control spacing */
