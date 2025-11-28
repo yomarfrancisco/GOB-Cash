@@ -222,7 +222,6 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   const [isTyping, setIsTyping] = useState(false)
   const [showMapCard, setShowMapCard] = useState(false)
   const [showConfirmButton, setShowConfirmButton] = useState(false)
-  const [mapMessageTime, setMapMessageTime] = useState<string>('')
   
   // Ref for message area container (for scroll calculations)
   const messageAreaRef = useRef<HTMLDivElement>(null)
@@ -394,7 +393,6 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
             )
             setScenarioMessagesSent(prev => new Set(prev).add('message2'))
             setShowMapCard(true)
-            setMapMessageTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))
           }
         }, 4000) // 4 seconds typing delay
       }, 600) // 600ms initial delay
@@ -715,6 +713,27 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                                 </div>
                               )
                             })}
+                            {/* Show map inside this bubble if it's the "Great news" message and map should be visible */}
+                            {isCashDepositActive && 
+                             showMapCard && 
+                             message.text.includes('Great news — @skerryy') && (
+                              <>
+                                <div style={{ marginTop: '14px' }} />
+                                <ChatMapEmbed onMapClick={handleMapClick} />
+                                {showConfirmButton && (
+                                  <>
+                                    <div style={{ marginTop: '14px' }} />
+                                    <button
+                                      className={chatStyles.chatCtaButton}
+                                      onClick={handleConfirmCashDeposit}
+                                      type="button"
+                                    >
+                                      Confirm cash was deposited
+                                    </button>
+                                  </>
+                                )}
+                              </>
+                            )}
                           </div>
                         )}
                         {message.from === 'ai' && (
@@ -771,60 +790,6 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
               </div>
             )}
             
-            {/* Combined map + confirm button bubble for cash deposit scenario */}
-            {isCashDepositActive && showMapCard && (
-              <div className={chatStyles.messageWrapper}>
-                <div className={chatStyles.messageAvatar}>
-                  <Image
-                    src="/assets/Brics-girl-blue.png"
-                    alt="Baby Diamond"
-                    width={31}
-                    height={31}
-                    className={chatStyles.messageAvatarImage}
-                    unoptimized
-                  />
-                </div>
-                <div className={chatStyles.bubbleContainer}>
-                  <div className={clsx(chatStyles.messageBubble, chatStyles.agentBubble)}>
-                    <ChatMapEmbed onMapClick={handleMapClick} />
-                    {showConfirmButton && (
-                      <>
-                        <div style={{ marginTop: '14px' }} />
-                        <button
-                          className={chatStyles.chatCtaButton}
-                          onClick={handleConfirmCashDeposit}
-                          type="button"
-                        >
-                          Confirm cash was deposited
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  {/* Single timestamp row for the combined bubble */}
-                  {mapMessageTime && (
-                    <div className={chatStyles.timestampRow}>
-                      <span className={chatStyles.timestampText}>{mapMessageTime}</span>
-                    <button
-                      type="button"
-                      className={chatStyles.iconButton}
-                      aria-label="Copy message"
-                      onClick={() => console.log('Copy clicked')}
-                    >
-                      <Copy size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      className={chatStyles.iconButton}
-                      aria-label="Refresh"
-                      onClick={() => console.log('Refresh clicked')}
-                    >
-                      <RefreshCcw size={14} />
-                    </button>
-                  </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Input bar */}
