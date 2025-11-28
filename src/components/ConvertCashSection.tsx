@@ -91,6 +91,17 @@ export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionPr
             className={styles.fold2}
             priority
           />
+          
+          {/* Texture overlay */}
+          <div className={styles.textureOverlay} aria-hidden="true">
+            <Image
+              src="/assets/texture.png"
+              alt=""
+              fill
+              className={styles.textureOverlayImg}
+              priority
+            />
+          </div>
         </div>
       </div>
     </section>

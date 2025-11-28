@@ -116,6 +116,22 @@
   opacity: 0.18;
 }
 
+/* Texture overlay */
+.textureOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3; /* same layer as fold overlays */
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.textureOverlayImg {
+  object-fit: cover;
+  mix-blend-mode: multiply;
+  opacity: 0.32; /* adjust if needed */
+  border-radius: inherit;
+}
+
 /* Respect safe areas */
 @supports (padding: max(0px)) {
   .mapHeader {
