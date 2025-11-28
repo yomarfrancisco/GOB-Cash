@@ -68,6 +68,7 @@
   padding: 0 20px 16px 20px; /* Wider horizontal margins, content starts below divider */
   min-height: 0;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* Prevent scroll chaining to parent .as-body */
 }
 
 .messageWrapper {

@@ -19,37 +19,48 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
   const messages = messagesByThreadId[threadId] || []
   const thread = threads.find((t) => t.id === threadId)
 
-  // Flag to track if conversation is short (based on pre-keyboard measurement)
-  const isShortConversationRef = useRef<boolean>(false)
+  // Store pre-keyboard scrollHeight to determine if conversation is short
+  const preKeyboardScrollHeightRef = useRef<number | null>(null)
 
   // Measure conversation height on mount/when thread changes (before keyboard)
   useEffect(() => {
     const container = messagesContainerRef.current
     if (!container) return
     
-    // Measure once, pre-keyboard, to decide if content is truly short
+    // Measure once, pre-keyboard, to capture the true content height
     // Use requestAnimationFrame to ensure layout has settled
     requestAnimationFrame(() => {
       if (container) {
-        const { scrollHeight, clientHeight } = container
-        isShortConversationRef.current = scrollHeight <= clientHeight + 4
+        // Store the scrollHeight (content height) before keyboard opens
+        // This is the true measure of whether content is short or long
+        preKeyboardScrollHeightRef.current = container.scrollHeight
       }
     })
-  }, [threadId, messages]) // Re-measure when thread or messages change
+  }, [threadId, messages.length]) // Re-measure when thread or messages change
 
   // Helper: Only scroll to bottom if there's actual overflow in the container
   const scrollToBottomIfOverflow = () => {
     const container = messagesContainerRef.current
     if (!container) return
 
-    const scrollHeight = container.scrollHeight
-    const clientHeight = container.clientHeight
-    const overflow = scrollHeight - clientHeight
+    // Use pre-keyboard scrollHeight to determine if conversation is short
+    // This prevents false overflow detection when keyboard shrinks clientHeight
+    const preKeyboardScrollHeight = preKeyboardScrollHeightRef.current
+    if (preKeyboardScrollHeight === null) {
+      // Not measured yet, skip scroll
+      return
+    }
+
+    const currentClientHeight = container.clientHeight
+    
+    // Compare pre-keyboard content height to current viewport
+    // If content fits in viewport (even with keyboard), it's a short conversation
+    const overflow = preKeyboardScrollHeight - currentClientHeight
 
     // If there is no meaningful overflow, do NOT move the scroll at all.
     // This is the "short conversation" case.
     if (overflow <= 8) {
-      // Keep whatever scrollTop iOS chose; do NOT force to 0 or bottom.
+      // Keep whatever scrollTop mobile browser chose; do NOT force to 0 or bottom.
       return
     }
 

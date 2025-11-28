@@ -191,43 +191,57 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Ref for message area container (for scroll calculations)
   const messageAreaRef = useRef<HTMLDivElement>(null)
   
-  // Flag to track if conversation is short (based on pre-keyboard measurement)
-  const isShortConversationRef = useRef<boolean>(false)
+  // Store pre-keyboard scrollHeight to determine if conversation is short
+  const preKeyboardScrollHeightRef = useRef<number | null>(null)
+  
+  // Get messages for the portfolio manager thread
+  const pmMessages = messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID] || []
   
   // Measure conversation height on mount/when chat view opens (before keyboard)
   useEffect(() => {
     // Only measure when chat view is open and container is ready
     if (inboxViewMode !== 'chat' || !isInboxOpen) {
-      isShortConversationRef.current = false
+      preKeyboardScrollHeightRef.current = null
       return
     }
     
     const container = messageAreaRef.current
     if (!container) return
     
-    // Measure once, pre-keyboard, to decide if content is truly short
+    // Measure once, pre-keyboard, to capture the true content height
     // Use requestAnimationFrame to ensure layout has settled
     requestAnimationFrame(() => {
       if (container) {
-        const { scrollHeight, clientHeight } = container
-        isShortConversationRef.current = scrollHeight <= clientHeight + 4
+        // Store the scrollHeight (content height) before keyboard opens
+        // This is the true measure of whether content is short or long
+        preKeyboardScrollHeightRef.current = container.scrollHeight
       }
     })
-  }, [inboxViewMode, isInboxOpen, isDemoIntro, introStage]) // Re-measure when conversation changes
+  }, [inboxViewMode, isInboxOpen, isDemoIntro, introStage, pmMessages.length]) // Re-measure when conversation changes
   
   // Helper: Only scroll to bottom if there's actual overflow in the container
   const scrollToBottomIfOverflow = useCallback(() => {
     const container = messageAreaRef.current
     if (!container) return
 
-    const scrollHeight = container.scrollHeight
-    const clientHeight = container.clientHeight
-    const overflow = scrollHeight - clientHeight
+    // Use pre-keyboard scrollHeight to determine if conversation is short
+    // This prevents false overflow detection when keyboard shrinks clientHeight
+    const preKeyboardScrollHeight = preKeyboardScrollHeightRef.current
+    if (preKeyboardScrollHeight === null) {
+      // Not measured yet, skip scroll
+      return
+    }
+
+    const currentClientHeight = container.clientHeight
+    
+    // Compare pre-keyboard content height to current viewport
+    // If content fits in viewport (even with keyboard), it's a short conversation
+    const overflow = preKeyboardScrollHeight - currentClientHeight
 
     // If there is no meaningful overflow, do NOT move the scroll at all.
     // This is the "short conversation" case.
     if (overflow <= 8) {
-      // Keep whatever scrollTop iOS chose; do NOT force to 0 or bottom.
+      // Keep whatever scrollTop mobile browser chose; do NOT force to 0 or bottom.
       return
     }
 
@@ -238,9 +252,6 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       }
     })
   }, [])
-  
-  // Get messages for the portfolio manager thread
-  const pmMessages = messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID] || []
   
   // Auto-scroll only when messages change, and only for DM view (not intro tiles)
   useEffect(() => {
