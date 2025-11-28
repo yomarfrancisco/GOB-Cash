@@ -570,7 +570,10 @@ export default function Home() {
               </div>
 
               {/* Explore savings circles section with shared shell - directly under .content */}
-              <ConvertCashSection onHelpClick={() => setIsMapHelperOpen(true)} />
+              <ConvertCashSection 
+                onHelpClick={() => setIsMapHelperOpen(true)}
+                onMapClick={process.env.NEXT_PUBLIC_ENABLE_MAP_TAP_CONVERT === 'true' ? handleHelicopterConvertClick : undefined}
+              />
               <BranchManagerFooter 
                 onHelicopterClick={handleHelicopterConvertClick}
                 onWhatsAppClick={() => {
