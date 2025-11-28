@@ -38,6 +38,8 @@ export type CashWithdrawalScenario = {
   startedAt: number
 }
 
+export type ScenarioType = 'deposit' | 'withdrawal' | null
+
 type FinancialInboxState = {
   threads: Thread[]
   messagesByThreadId: Record<ThreadId, ChatMessage[]>
@@ -61,6 +63,7 @@ type FinancialInboxState = {
   endCashDepositScenario: () => void
   startCashWithdrawalScenario: (amountZAR: number) => void
   endCashWithdrawalScenario: () => void
+  scenarioType: ScenarioType
 }
 
 export const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
@@ -98,6 +101,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   hasUnreadNotification: false,
   cashDepositScenario: null,
   cashWithdrawalScenario: null,
+  scenarioType: null,
 
   ensurePortfolioManagerThread: () => {
     const state = get()
@@ -173,8 +177,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   },
 
   startCashDepositScenario: (amountZAR: number) => {
-    console.log('[DEBUG] startCashDepositScenario called', { amountZAR, ts: Date.now() })
-    console.trace('[DEBUG] startCashDepositScenario stack trace')
+    console.debug('[SCENARIO] startCashDepositScenario called', { amountZAR, stack: new Error().stack })
     set((state) => {
       const next = {
         ...state,
@@ -183,10 +186,12 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
           startedAt: Date.now(),
         },
         cashWithdrawalScenario: null, // Clear withdrawal when starting deposit
+        scenarioType: 'deposit' as const,
       }
       console.log('[DEBUG] store after startCashDepositScenario', {
         cashDepositScenario: next.cashDepositScenario,
         cashWithdrawalScenario: next.cashWithdrawalScenario,
+        scenarioType: next.scenarioType,
       })
       return next
     })
@@ -197,8 +202,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   },
 
   startCashWithdrawalScenario: (amountZAR: number) => {
-    console.log('[DEBUG] startCashWithdrawalScenario called', { amountZAR, ts: Date.now() })
-    console.trace('[DEBUG] startCashWithdrawalScenario stack trace')
+    console.debug('[SCENARIO] startCashWithdrawalScenario called', { amountZAR, stack: new Error().stack })
     set((state) => {
       const next = {
         ...state,
@@ -207,17 +211,19 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
           startedAt: Date.now(),
         },
         cashDepositScenario: null, // Clear deposit when starting withdrawal
+        scenarioType: 'withdrawal' as const,
       }
       console.log('[DEBUG] store after startCashWithdrawalScenario', {
         cashDepositScenario: next.cashDepositScenario,
         cashWithdrawalScenario: next.cashWithdrawalScenario,
+        scenarioType: next.scenarioType,
       })
       return next
     })
   },
 
   endCashWithdrawalScenario: () => {
-    set({ cashWithdrawalScenario: null })
+    set({ cashWithdrawalScenario: null, scenarioType: null })
   },
 
   sendMessage: (threadId: ThreadId, from: 'user' | 'ai', text: string) => {

@@ -101,6 +101,14 @@ export default function AmountSheet({
   }
 
   const handleSubmit = () => {
+    console.debug('[AMOUNT CTA] pressed', {
+      mode,
+      hasOnSubmit: !!onSubmit,
+      hasOnCashSubmit: !!onCashSubmit,
+      hasOnCardSubmit: !!onCardSubmit,
+      hasOnAmountSubmit: !!onAmountSubmit,
+      flowType,
+    })
     if (onAmountSubmit && (mode === 'send' || flowType === 'transfer')) {
       onAmountSubmit(amountZAR)
     } else if (onSubmit) {
@@ -113,6 +121,11 @@ export default function AmountSheet({
   }
 
   const handleCashSubmit = () => {
+    console.debug('[AMOUNT CTA] handleCashSubmit pressed', {
+      mode,
+      hasOnCashSubmit: !!onCashSubmit,
+      hasOnSubmit: !!onSubmit,
+    })
     // Same as current handleSubmit - triggers cash convert flow
     if (onCashSubmit) {
       onCashSubmit({
