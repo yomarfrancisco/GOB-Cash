@@ -193,6 +193,24 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Use prop if provided, otherwise fall back to store flag
   const isDemoIntro = propIsDemoIntro !== undefined ? propIsDemoIntro : storeIsDemoIntro
 
+  // Handler for clicking agent handle
+  const handleOpenAgentProfile = useCallback((handle: string) => {
+    console.log('Open profile:', handle)
+    // TODO: Wire up to actual profile screen
+  }, [])
+
+  // Expose handleOpenAgentProfile to window for inline onclick handlers
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      ;(window as any).handleOpenAgentProfile = handleOpenAgentProfile
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).handleOpenAgentProfile
+      }
+    }
+  }, [handleOpenAgentProfile])
+
   // Intro stage state machine - only for landing demo
   const [introStage, setIntroStage] = useState<IntroStage>('typingIndicator')
   
@@ -204,6 +222,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   const [isTyping, setIsTyping] = useState(false)
   const [showMapCard, setShowMapCard] = useState(false)
   const [showConfirmButton, setShowConfirmButton] = useState(false)
+  const [mapMessageTime, setMapMessageTime] = useState<string>('')
   
   // Ref for message area container (for scroll calculations)
   const messageAreaRef = useRef<HTMLDivElement>(null)
@@ -346,7 +365,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   useEffect(() => {
     if (!isCashDepositActive || !cashDepositScenario) return
     
-    // Message 1: Initial greeting
+    // Message 1: Initial greeting (after 600ms delay)
     if (!scenarioMessagesSent.has('message1')) {
       const amount = cashDepositScenario.amountZAR
       const formattedAmount = amount.toLocaleString('en-ZA', {
@@ -354,28 +373,31 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
         maximumFractionDigits: 2,
       })
       
-      sendMessage(
-        PORTFOLIO_MANAGER_THREAD_ID,
-        'ai',
-        `Hi ${firstName}, you requested a cash deposit of R${formattedAmount}.\n\nGive me a moment while I find a verified dealer near you.`
-      )
-      
-      setScenarioMessagesSent(prev => new Set(prev).add('message1'))
-      setIsTyping(true)
-      
-      // After 3 seconds, send message 2
       setTimeout(() => {
-        setIsTyping(false)
-        if (!scenarioMessagesSent.has('message2')) {
         sendMessage(
           PORTFOLIO_MANAGER_THREAD_ID,
           'ai',
-          'Great news — $kerryy can meet you.\n\nETA: 20 minutes. Distance: 7.8 km.\n\nYou can follow her progress on the map below.'
+          `Hi ${firstName}, you requested a cash deposit of R${formattedAmount}… Give me a moment while I find a verified dealer near you.`
         )
-          setScenarioMessagesSent(prev => new Set(prev).add('message2'))
-          setShowMapCard(true)
-        }
-      }, 3000)
+        
+        setScenarioMessagesSent(prev => new Set(prev).add('message1'))
+        setIsTyping(true)
+        
+        // After 4 seconds of typing, send message 2
+        setTimeout(() => {
+          setIsTyping(false)
+          if (!scenarioMessagesSent.has('message2')) {
+            sendMessage(
+              PORTFOLIO_MANAGER_THREAD_ID,
+              'ai',
+              'Great news — @skerryy can meet you. ETA: 20 minutes. Distance: 7.8 km. You can follow her progress on the map below.'
+            )
+            setScenarioMessagesSent(prev => new Set(prev).add('message2'))
+            setShowMapCard(true)
+            setMapMessageTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))
+          }
+        }, 4000) // 4 seconds typing delay
+      }, 600) // 600ms initial delay
     }
   }, [isCashDepositActive, cashDepositScenario, scenarioMessagesSent, firstName, sendMessage])
 
@@ -383,15 +405,25 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   useEffect(() => {
     if (!isCashDepositActive) return
     
-    // ARRIVED state: show confirm button message
+    // ARRIVED state: show confirm button message (with minimum 15s typing delay)
     if (cashFlowState === 'ARRIVED' && !scenarioMessagesSent.has('arrived')) {
-      sendMessage(
-        PORTFOLIO_MANAGER_THREAD_ID,
-        'ai',
-        'Kerry has arrived. Once you\'ve handed over the cash, tap below.'
-      )
-      setScenarioMessagesSent(prev => new Set(prev).add('arrived'))
-      setShowConfirmButton(true)
+      // Track when agent arrived
+      const arrivedAt = Date.now()
+      setIsTyping(true)
+      
+      // Minimum 15 seconds typing before showing message 3
+      setTimeout(() => {
+        setIsTyping(false)
+        if (!scenarioMessagesSent.has('arrived')) {
+          sendMessage(
+            PORTFOLIO_MANAGER_THREAD_ID,
+            'ai',
+            'Kerry has arrived. Once you\'ve handed over the cash, tap the button below to confirm.'
+          )
+          setScenarioMessagesSent(prev => new Set(prev).add('arrived'))
+          setShowConfirmButton(true)
+        }
+      }, 15000) // Minimum 15 seconds typing delay
     }
     
     // IN_TRANSIT_TO_HQ state: show transit message
@@ -416,7 +448,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       sendMessage(
         PORTFOLIO_MANAGER_THREAD_ID,
         'ai',
-        `Done! Your cash has been converted into USDT.\n\nYour updated balance is available in your wallet.`
+        `Done! Your cash has been converted into USDT. Your updated balance is available in your wallet.`
       )
       setScenarioMessagesSent(prev => new Set(prev).add('completed'))
       endCashDepositScenario()
@@ -436,6 +468,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     confirmCashDeposit()
     setShowConfirmButton(false)
   }, [confirmCashDeposit])
+
 
   // Cash agents data - static demo content
   const agents = [
@@ -667,22 +700,18 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                         ) : (
                           <div className={clsx(chatStyles.messageBubble, chatStyles.agentBubble)}>
                             {message.text.split('\n').map((line, idx) => {
-                              // Bold ETA and Distance numbers
-                              const parts = line.split(/(ETA: \d+ minutes?|Distance: [\d.]+ km)/g)
+                              // Process line: bold ETA/Distance numbers and make @handles clickable
+                              const processedLine = line
+                                .replace(/@(\w+)/g, (match, handle) => {
+                                  return `<a href="#" class="${chatStyles.agentHandleLink}" onclick="event.preventDefault(); window.handleOpenAgentProfile?.('${handle}'); return false;">${match}</a>`
+                                })
+                                .replace(/(ETA: )(\d+ minutes?)/g, '$1<strong>$2</strong>')
+                                .replace(/(Distance: )([\d.]+ km)/g, '$1<strong>$2</strong>')
+                              
                               return (
                                 <div key={idx}>
                                   {idx > 0 && <br />}
-                                  {parts.map((part, partIdx) => {
-                                    if (part.match(/^(ETA: \d+ minutes?|Distance: [\d.]+ km)$/)) {
-                                      const [label, value] = part.split(': ')
-                                      return (
-                                        <span key={partIdx}>
-                                          {label}: <strong>{value}</strong>
-                                        </span>
-                                      )
-                                    }
-                                    return <span key={partIdx}>{part}</span>
-                                  })}
+                                  <span dangerouslySetInnerHTML={{ __html: processedLine }} />
                                 </div>
                               )
                             })}
@@ -742,7 +771,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
               </div>
             )}
             
-            {/* Inline map card for cash deposit scenario */}
+            {/* Combined map + confirm button bubble for cash deposit scenario */}
             {isCashDepositActive && showMapCard && (
               <div className={chatStyles.messageWrapper}>
                 <div className={chatStyles.messageAvatar}>
@@ -758,34 +787,41 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                 <div className={chatStyles.bubbleContainer}>
                   <div className={clsx(chatStyles.messageBubble, chatStyles.agentBubble)}>
                     <ChatMapEmbed onMapClick={handleMapClick} />
+                    {showConfirmButton && (
+                      <>
+                        <div style={{ marginTop: '14px' }} />
+                        <button
+                          className={chatStyles.chatCtaButton}
+                          onClick={handleConfirmCashDeposit}
+                          type="button"
+                        >
+                          Confirm cash was deposited
+                        </button>
+                      </>
+                    )}
                   </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Confirm button for cash deposit scenario */}
-            {isCashDepositActive && showConfirmButton && (
-              <div className={chatStyles.messageWrapper}>
-                <div className={chatStyles.messageAvatar}>
-                  <Image
-                    src="/assets/Brics-girl-blue.png"
-                    alt="Baby Diamond"
-                    width={31}
-                    height={31}
-                    className={chatStyles.messageAvatarImage}
-                    unoptimized
-                  />
-                </div>
-                <div className={chatStyles.bubbleContainer}>
-                  <div className={clsx(chatStyles.messageBubble, chatStyles.agentBubble, chatStyles.amaIntroCtaBubble)}>
+                  {/* Single timestamp row for the combined bubble */}
+                  {mapMessageTime && (
+                    <div className={chatStyles.timestampRow}>
+                      <span className={chatStyles.timestampText}>{mapMessageTime}</span>
                     <button
-                      className={chatStyles.chatCtaButton}
-                      onClick={handleConfirmCashDeposit}
                       type="button"
+                      className={chatStyles.iconButton}
+                      aria-label="Copy message"
+                      onClick={() => console.log('Copy clicked')}
                     >
-                      Confirm cash was deposited
+                      <Copy size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className={chatStyles.iconButton}
+                      aria-label="Refresh"
+                      onClick={() => console.log('Refresh clicked')}
+                    >
+                      <RefreshCcw size={14} />
                     </button>
                   </div>
+                  )}
                 </div>
               </div>
             )}

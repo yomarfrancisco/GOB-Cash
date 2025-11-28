@@ -93,9 +93,9 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
       lng: currentDealerLocation.lng,
       lat: currentDealerLocation.lat,
       kind: 'dealer' as const, // Special kind for circular avatar marker
-      label: '$kerryy',
+      label: '@skerryy',
       avatar: '/assets/avatar_agent5.png',
-      name: '$kerryy',
+      name: '@skerryy',
     }),
     [currentDealerLocation.lng, currentDealerLocation.lat]
   )
@@ -459,10 +459,9 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
             <MapboxMap
               containerId={mapContainerId}
               markers={markers}
-              styleUrl="mapbox://styles/mapbox/navigation-night-v1"
+              styleUrl="mapbox://styles/mapbox/navigation-day-v1"
               routeCoordinates={routeCoordinates}
               variant="popup"
-              hqCoord={{ lng: HQ_COORD.lng, lat: HQ_COORD.lat }}
             />
           )}
           {/* Paper/fold overlays - same as homepage, positioned over map */}

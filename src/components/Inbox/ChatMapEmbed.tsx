@@ -60,9 +60,9 @@ export default function ChatMapEmbed({ onMapClick }: ChatMapEmbedProps) {
       lng: agentLocation.lng,
       lat: agentLocation.lat,
       kind: 'dealer' as const,
-      label: '$kerryy',
+      label: '@skerryy',
       avatar: '/assets/avatar_agent5.png',
-      name: '$kerryy',
+      name: '@skerryy',
     }),
     [agentLocation.lng, agentLocation.lat]
   )
@@ -100,10 +100,9 @@ export default function ChatMapEmbed({ onMapClick }: ChatMapEmbedProps) {
         <MapboxMap
           containerId={mapContainerId}
           markers={markers}
-          styleUrl="mapbox://styles/mapbox/navigation-night-v1"
+          styleUrl="mapbox://styles/mapbox/navigation-day-v1"
           routeCoordinates={routeCoordinates}
           variant="popup"
-          hqCoord={{ lng: HQ_COORD.lng, lat: HQ_COORD.lat }}
         />
       )}
     </div>
