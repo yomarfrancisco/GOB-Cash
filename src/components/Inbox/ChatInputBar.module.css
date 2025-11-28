@@ -2,11 +2,11 @@
 .commentInput {
   width: 100%;
   position: relative;
-  background-color: #fff;
+  background-color: transparent; /* Transparent since parent .inputBar provides white background */
   display: flex;
-  align-items: flex-end;
+  align-items: center; /* Changed from flex-end to center for vertical alignment */
   justify-content: center;
-  padding: 16px;
+  padding: 0; /* Remove padding since parent .inputBar handles spacing */
   box-sizing: border-box;
   text-align: left;
   font-size: 16px;
@@ -18,7 +18,7 @@
 .buttonWrapper {
   flex: 1;
   display: flex;
-  align-items: flex-end;
+  align-items: center; /* Changed from flex-end to center for vertical alignment */
   justify-content: center;
   max-width: 100%;
   min-width: 0; /* Allow flex item to shrink */
@@ -85,7 +85,7 @@
   border: none;
   padding: 0;
   cursor: pointer;
-  display: flex;
+  display: inline-flex; /* Changed to inline-flex for better centering */
   align-items: center;
   justify-content: center;
   width: 24px;

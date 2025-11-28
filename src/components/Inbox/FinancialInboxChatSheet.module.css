@@ -139,9 +139,15 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 20px; /* Wider margins to match message area and maximize input width */
+  padding-top: 4px; /* Reduced to prevent cutting off message avatar/timestamp */
+  padding-bottom: calc(4px + env(safe-area-inset-bottom));
+  padding-left: 20px; /* Wider margins to match message area and maximize input width */
+  padding-right: 20px;
   background: #fff;
   flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
   /* No border-top - removed divider line */
 }
 
