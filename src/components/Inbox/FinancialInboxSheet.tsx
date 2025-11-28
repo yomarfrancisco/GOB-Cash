@@ -179,6 +179,9 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     messagesByThreadId
   } = useFinancialInboxStore()
   
+  // Get auth state for pre-auth gating
+  const { isAuthed, openAuthEntrySignup } = useAuthStore()
+  
   // Use prop if provided, otherwise fall back to store flag
   const isDemoIntro = propIsDemoIntro !== undefined ? propIsDemoIntro : storeIsDemoIntro
 
@@ -457,7 +460,19 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
         <div className={chatStyles.container}>
           {/* Username row - no separate close button row, ActionSheet provides the close button */}
           <div className={chatStyles.usernameRow}>
-            <button className={chatStyles.backButton} onClick={goBackToInbox} aria-label="Back">
+            <button 
+              className={chatStyles.backButton} 
+              onClick={() => {
+                // In pre-auth: open sign-in sheet instead of going back
+                // In post-auth: normal back behavior
+                if (!isAuthed) {
+                  openAuthEntrySignup()
+                  return
+                }
+                goBackToInbox()
+              }} 
+              aria-label="Back"
+            >
               <Image
                 src="/assets/back_ui.svg"
                 alt="Back"
@@ -514,8 +529,13 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                         <button
                           className={chatStyles.chatCtaButton}
                           onClick={() => {
-                            const { openAuthEntrySignup } = useAuthStore.getState()
-                            openAuthEntrySignup()
+                            // In pre-auth: open sign-in sheet
+                            // In post-auth: allow normal behavior (if any)
+                            if (!isAuthed) {
+                              openAuthEntrySignup()
+                              return
+                            }
+                            // Post-auth behavior (if any) would go here
                           }}
                           type="button"
                         >
@@ -540,6 +560,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
             onChange={setInputText}
             onSend={handleSend}
             placeholder="Add a message"
+            onRequireAuth={!isAuthed ? openAuthEntrySignup : undefined}
             // No onInputFocus - we don't want scroll on focus, only on message changes
           />
         </div>

@@ -14,6 +14,7 @@ export interface ChatInputBarProps {
   disabled?: boolean
   onAttach?: () => void // Optional attachment handler
   onInputFocus?: () => void // Optional callback when input gains focus
+  onRequireAuth?: () => void // Optional callback when input is clicked/focused in pre-auth state
 }
 
 export default function ChatInputBar({
@@ -24,6 +25,7 @@ export default function ChatInputBar({
   disabled = false,
   onAttach,
   onInputFocus,
+  onRequireAuth,
 }: ChatInputBarProps) {
   const hasText = value.trim().length > 0
   const [isFocused, setIsFocused] = useState(false)
@@ -88,13 +90,28 @@ export default function ChatInputBar({
             className={styles.input}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            onFocus={() => {
+            onFocus={(e) => {
+              // In pre-auth: prevent focus and open auth sheet
+              if (onRequireAuth) {
+                e.preventDefault()
+                e.target.blur()
+                onRequireAuth()
+                return
+              }
               setIsFocused(true)
               if (onInputFocus) {
                 // Delay to allow keyboard animation to mostly settle, then check overflow
                 setTimeout(() => {
                   onInputFocus()
                 }, 250)
+              }
+            }}
+            onClick={(e) => {
+              // In pre-auth: prevent click and open auth sheet
+              if (onRequireAuth) {
+                e.preventDefault()
+                onRequireAuth()
+                return
               }
             }}
             onBlur={() => setIsFocused(false)}
