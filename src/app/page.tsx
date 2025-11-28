@@ -152,6 +152,16 @@ export default function Home() {
   const closeDirectPayment = useCallback(() => setOpenDirectPayment(false), [])
   const openWithdrawSheet = useCallback(() => setOpenWithdraw(true), [])
   const closeDeposit = useCallback(() => setOpenDeposit(false), [])
+  
+  // Extract helicopter convert flow handler for reuse
+  const handleHelicopterConvertClick = useCallback(() => {
+    guardAuthed(() => {
+      // Helicopter button opens convert keypad with single "Convert" button
+      setAmountMode('convert')
+      setAmountEntryPoint('helicopter')
+      setTimeout(() => setOpenAmount(true), 220)
+    })
+  }, [guardAuthed])
   const closeWithdraw = useCallback(() => setOpenWithdraw(false), [])
   const closeAmount = useCallback(() => {
     setOpenAmount(false)
@@ -562,14 +572,7 @@ export default function Home() {
               {/* Explore savings circles section with shared shell - directly under .content */}
               <ConvertCashSection onHelpClick={() => setIsMapHelperOpen(true)} />
               <BranchManagerFooter 
-                onHelicopterClick={() => {
-                  guardAuthed(() => {
-                    // Helicopter button opens convert keypad with single "Convert" button
-                    setAmountMode('convert')
-                    setAmountEntryPoint('helicopter')
-                    setTimeout(() => setOpenAmount(true), 220)
-                  })
-                }}
+                onHelicopterClick={handleHelicopterConvertClick}
                 onWhatsAppClick={() => {
                   guardAuthed(() => {
                     setIsAgentSheetOpen(true)
