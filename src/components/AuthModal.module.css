@@ -132,7 +132,7 @@
   height: 100%;
   border-radius: 32px 32px 0 0; /* Match parent sheet border radius */
   overflow: hidden;
-  background-image: url('/assets/sign up - first contact2.png');
+  background-image: url('/assets/sign up - first contact.png');
   background-size: cover;
   background-position: center 15%; /* Move image down (lower percentage shows image content lower in viewport) */
   background-repeat: no-repeat;
