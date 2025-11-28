@@ -969,6 +969,67 @@ body {
   background: #ff1a42;
 }
 
+/* Invite friends section */
+.profile-social-task {
+  width: 382px;
+  margin: 18px auto 0;
+}
+
+.profile-social-task-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: transparent;
+  border: 0;
+  border-radius: 32px;
+  background: rgba(127, 127, 127, 0.1);
+  backdrop-filter: blur(50px);
+  cursor: pointer;
+  transition: background 150ms ease;
+  text-align: left;
+  gap: 12px;
+}
+
+.profile-social-task-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.profile-social-task-row:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.profile-social-task-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-social-task-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.profile-social-task-title {
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.25;
+  color: #000;
+}
+
+.profile-social-task-subtitle {
+  font-weight: 300;
+  font-size: 13px;
+  line-height: 1.3;
+  color: #000;
+  opacity: 0.65;
+}
+
 /* Settings section */
 .profile-settings {
   margin: 32px auto 0;

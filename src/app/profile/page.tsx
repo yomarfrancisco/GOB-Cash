@@ -18,7 +18,7 @@ import { useProfileEditSheet } from '@/store/useProfileEditSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useSupportSheet } from '@/store/useSupportSheet'
-import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown } from 'lucide-react'
+import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, CirclePlus } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
@@ -345,6 +345,32 @@ export default function ProfilePage() {
                   }}
                 >
                   Inbox
+                </button>
+              </div>
+
+              {/* Invite friends section */}
+              <div className="profile-social-task">
+                <button
+                  className="profile-social-task-row"
+                  onClick={() => {
+                    guardAuthed(() => {
+                      console.log('Invite friends tapped')
+                      // TODO: navigate to invite flow
+                    })
+                  }}
+                  type="button"
+                  aria-label="Invite 5 friends and family"
+                >
+                  <div className="profile-social-task-left">
+                    <div className="profile-settings-icon">
+                      <CirclePlus size={22} strokeWidth={2} style={{ color: '#111' }} />
+                    </div>
+                    <div className="profile-social-task-text">
+                      <span className="profile-social-task-title">Invite 5 friends & family</span>
+                      <span className="profile-social-task-subtitle">Get R100 for each sign up</span>
+                    </div>
+                  </div>
+                  <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                 </button>
               </div>
 
