@@ -122,7 +122,6 @@ export default function Home() {
     agentHandle?: string
   } | null>(null)
   const [isAgentCardVisible, setIsAgentCardVisible] = useState(false)
-  const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
 
   // Register onSelect handler for global Transact sheet
   useEffect(() => {
