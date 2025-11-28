@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
+import { Copy, RefreshCcw } from 'lucide-react'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
@@ -664,11 +665,31 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                             )}
                           </>
                         ) : (
-                          <div className={chatStyles.messageBubble}>
+                          <div className={clsx(chatStyles.messageBubble, chatStyles.agentBubble)}>
                             {message.text}
                           </div>
                         )}
-                        <div className={chatStyles.timestamp}>{message.createdAt}</div>
+                        {message.from === 'ai' && (
+                          <div className={chatStyles.timestampRow}>
+                            <span className={chatStyles.timestampText}>{message.createdAt}</span>
+                            <button
+                              type="button"
+                              className={chatStyles.iconButton}
+                              aria-label="Copy message"
+                              onClick={() => console.log('Copy clicked')}
+                            >
+                              <Copy size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className={chatStyles.iconButton}
+                              aria-label="Refresh"
+                              onClick={() => console.log('Refresh clicked')}
+                            >
+                              <RefreshCcw size={14} />
+                            </button>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', width: '100%' }}>
@@ -737,7 +758,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                   />
                 </div>
                 <div className={chatStyles.bubbleContainer}>
-                  <div className={clsx(chatStyles.messageBubble, chatStyles.amaIntroCtaBubble)}>
+                  <div className={clsx(chatStyles.messageBubble, chatStyles.agentBubble, chatStyles.amaIntroCtaBubble)}>
                     <button
                       className={chatStyles.chatCtaButton}
                       onClick={handleConfirmCashDeposit}

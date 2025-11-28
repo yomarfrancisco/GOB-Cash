@@ -76,6 +76,7 @@
   align-items: flex-end; /* Align avatar to bottom of bubble, not top */
   gap: 8px;
   width: 100%;
+  margin-bottom: 14px; /* Increased vertical spacing between messages */
 }
 
 .messageAvatar {
@@ -116,6 +117,22 @@
   width: 100%; /* Take full width of container to match input */
 }
 
+/* Ama/system message bubble - green theme (matches confirmation button bubble) */
+.agentBubble {
+  background: #CBFFA3 !important; /* Green for Ama/system messages - matches confirmation button bubble */
+  border-radius: 16px;
+  padding: 16px 20px;
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 400;
+  color: #000;
+  max-width: 100%;
+  word-wrap: break-word;
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 .userMessageBubble {
   background: #1a1a1a;
   border-radius: 18px;
@@ -148,7 +165,44 @@
   color: #8E8E93; /* Light bluish-grey timestamp */
   align-self: flex-end;
   padding-right: 4px;
-  margin-top: 2px;
+  margin-top: 4px; /* Increased from 2px to 4px for better spacing */
+}
+
+/* Timestamp row with icons for Ama/system messages */
+.timestampRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 4px;
+  align-self: flex-start;
+}
+
+.timestampText {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.iconButton {
+  border: none;
+  background: transparent;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.iconButton:hover {
+  opacity: 1;
+}
+
+.iconButton:active {
+  opacity: 0.9;
 }
 
 /* Input bar - no divider line above, wider margins */
