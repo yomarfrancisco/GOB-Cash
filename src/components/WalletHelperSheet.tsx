@@ -28,7 +28,7 @@ const cardImages: Record<WalletKey, string> = {
   yield: '/assets/cards/card-ETH.jpg',
   mzn: '/assets/cards/card-MZN.jpg',
   btc: '/assets/cards/card-BTC.jpg',
-  yieldSurprise: '/assets/cards/card-yield.jpg', // New wallet key using yield card art
+  yieldSurprise: '/assets/cards/card - $GOB4.jpg', // New wallet key using yield card art
 }
 
 export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSheetProps) {
