@@ -585,18 +585,24 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
                 </div>
 
                 {/* Confirm button - only show when dealer has arrived */}
-                {cashFlowState === 'ARRIVED' && (
-                  <div className={styles.confirmButtonSection}>
-                    <button
-                      className={styles.confirmButton}
-                      onClick={handleConfirmCashDeposited}
-                      disabled={confirmButtonDisabled}
-                      type="button"
-                    >
-                      Confirm cash was deposited
-                    </button>
-                  </div>
-                )}
+                {cashFlowState === 'ARRIVED' && (() => {
+                  const { cashDepositScenario, cashWithdrawalScenario } = useFinancialInboxStore.getState()
+                  const isWithdrawal = !!cashWithdrawalScenario
+                  const ctaText = isWithdrawal ? 'Confirm cash was received' : 'Confirm cash was deposited'
+                  
+                  return (
+                    <div className={styles.confirmButtonSection}>
+                      <button
+                        className={styles.confirmButton}
+                        onClick={handleConfirmCashDeposited}
+                        disabled={confirmButtonDisabled}
+                        type="button"
+                      >
+                        {ctaText}
+                      </button>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )}
