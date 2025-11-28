@@ -29,6 +29,7 @@ type AmountSheetProps = {
   onScanClick?: () => void // callback for scan icon (only shown for cashButton entryPoint)
   initialAmount?: number // optional initial amount to pre-fill (for back navigation)
   withdrawOnly?: boolean // if true, force single CTA button and skip dual-button logic
+  onHelicopterWithdraw?: (payload: { amountZAR: number; amountUSDT?: number }) => void // callback for helicopter "Withdraw Cash" button
 }
 
 export default function AmountSheet({
@@ -48,6 +49,7 @@ export default function AmountSheet({
   onScanClick,
   initialAmount,
   withdrawOnly = false,
+  onHelicopterWithdraw,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
 
@@ -267,7 +269,6 @@ export default function AmountSheet({
             </button>
           ) : isHelicopterConvert ? (
             // Dual buttons for helicopter/map entry point: "Deposit Cash" and "Withdraw Cash"
-            // Both trigger the same map convert flow
             <>
               <button 
                 className="amount-keypad__cta amount-keypad__cta--cash" 
@@ -279,7 +280,14 @@ export default function AmountSheet({
               </button>
               <button 
                 className="amount-keypad__cta amount-keypad__cta--card" 
-                onClick={handleCashSubmit} 
+                onClick={() => {
+                  if (!amountZAR) return
+                  if (onHelicopterWithdraw) {
+                    onHelicopterWithdraw({ amountZAR, amountUSDT })
+                  } else if (onSubmit) {
+                    onSubmit({ amountZAR, amountUSDT, mode: 'withdraw' as any })
+                  }
+                }}
                 type="button"
                 disabled={!meetsMinCash}
               >

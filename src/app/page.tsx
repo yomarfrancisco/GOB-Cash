@@ -713,6 +713,19 @@ export default function Home() {
           // Open SendDetailsSheet instead of going directly to success
           setTimeout(() => setOpenSendDetails(true), 220)
         } : undefined}
+        onHelicopterWithdraw={
+          amountMode === 'convert' && amountEntryPoint === 'helicopter'
+            ? ({ amountZAR }) => {
+                setConvertAmount(amountZAR)
+                setOpenAmount(false)
+                setAmountEntryPoint(undefined)
+                startCashWithdrawalScenario(amountZAR)
+                setTimeout(() => {
+                  openAmaChatWithScenario('cash_withdrawal')
+                }, 220)
+              }
+            : undefined
+        }
         onSubmit={amountMode === 'depositCard' ? ({ amountZAR, amountUSDT }) => {
           setDepositAmountZAR(amountZAR)
           setDepositAmountUSDT(amountUSDT || 0)
