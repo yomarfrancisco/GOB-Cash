@@ -372,7 +372,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     if (!isCashDepositActive || !cashDepositScenario || inboxViewMode !== 'chat') return
     
     // Message 1: Initial greeting (after 600ms delay)
-    if (!scenarioMessagesSent.has('message1')) {
+    if (!scenarioMessagesSent.has('deposit_message1')) {
       const amount = cashDepositScenario.amountZAR
       const formattedAmount = amount.toLocaleString('en-ZA', {
         minimumFractionDigits: 2,
@@ -386,19 +386,19 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
           `Hi ${firstName}, you requested a cash deposit of R${formattedAmount}… Give me a moment while I find a verified dealer near you.`
         )
         
-        setScenarioMessagesSent(prev => new Set(prev).add('message1'))
+        setScenarioMessagesSent(prev => new Set(prev).add('deposit_message1'))
         setIsTyping(true)
         
         // After 4 seconds of typing, send message 2
         setTimeout(() => {
           setIsTyping(false)
-          if (!scenarioMessagesSent.has('message2')) {
+          if (!scenarioMessagesSent.has('deposit_message2')) {
             sendMessage(
               PORTFOLIO_MANAGER_THREAD_ID,
               'ai',
               'Great news — @skerryy can meet you. ETA: 20 minutes. Distance: 7.8 km. You can follow her progress on the map below.'
             )
-            setScenarioMessagesSent(prev => new Set(prev).add('message2'))
+            setScenarioMessagesSent(prev => new Set(prev).add('deposit_message2'))
             setShowMapCard(true)
           }
         }, 4000) // 4 seconds typing delay
@@ -412,7 +412,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     if (!isCashWithdrawalActive || !cashWithdrawalScenario || inboxViewMode !== 'chat') return
     
     // Message 1: Initial greeting (after 600ms delay)
-    if (!scenarioMessagesSent.has('message1')) {
+    if (!scenarioMessagesSent.has('withdrawal_message1')) {
       const amount = cashWithdrawalScenario.amountZAR
       const formattedAmount = amount.toLocaleString('en-ZA', {
         minimumFractionDigits: 2,
@@ -426,19 +426,19 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
           `Hi ${firstName}, you want to withdraw R${formattedAmount}. Give me a moment while I find a verified dealer who can bring the cash to you.`
         )
         
-        setScenarioMessagesSent(prev => new Set(prev).add('message1'))
+        setScenarioMessagesSent(prev => new Set(prev).add('withdrawal_message1'))
         setIsTyping(true)
         
         // After 4 seconds of typing, send message 2
         setTimeout(() => {
           setIsTyping(false)
-          if (!scenarioMessagesSent.has('message2')) {
+          if (!scenarioMessagesSent.has('withdrawal_message2')) {
             sendMessage(
               PORTFOLIO_MANAGER_THREAD_ID,
               'ai',
               'Great news — @skerryy is available to complete your withdrawal. ETA: 20 minutes. Distance: 7.8 km. You can follow her progress on the map below.'
             )
-            setScenarioMessagesSent(prev => new Set(prev).add('message2'))
+            setScenarioMessagesSent(prev => new Set(prev).add('withdrawal_message2'))
             setShowMapCard(true)
           }
         }, 4000) // 4 seconds typing delay
@@ -451,7 +451,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     if (!isCashDepositActive || inboxViewMode !== 'chat') return
     
     // ARRIVED state: show confirm button message (with minimum 15s typing delay)
-    if (cashFlowState === 'ARRIVED' && !scenarioMessagesSent.has('arrived')) {
+    if (cashFlowState === 'ARRIVED' && !scenarioMessagesSent.has('deposit_arrived')) {
       // Track when agent arrived
       const arrivedAt = Date.now()
       setIsTyping(true)
@@ -459,31 +459,31 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       // Minimum 15 seconds typing before showing message 3
       setTimeout(() => {
         setIsTyping(false)
-        if (!scenarioMessagesSent.has('arrived')) {
+        if (!scenarioMessagesSent.has('deposit_arrived')) {
           sendMessage(
             PORTFOLIO_MANAGER_THREAD_ID,
             'ai',
             'Kerry has arrived. Once you\'ve handed over the cash, tap the button below to confirm.'
           )
-          setScenarioMessagesSent(prev => new Set(prev).add('arrived'))
+          setScenarioMessagesSent(prev => new Set(prev).add('deposit_arrived'))
           setShowConfirmButton(true)
         }
       }, 15000) // Minimum 15 seconds typing delay
     }
     
     // IN_TRANSIT_TO_HQ state: show transit message
-    if (cashFlowState === 'IN_TRANSIT_TO_HQ' && !scenarioMessagesSent.has('inTransit')) {
+    if (cashFlowState === 'IN_TRANSIT_TO_HQ' && !scenarioMessagesSent.has('deposit_inTransit')) {
       sendMessage(
         PORTFOLIO_MANAGER_THREAD_ID,
         'ai',
         'Cash in transit to HQ. Your deposit is on its way to GoBankless HQ.'
       )
-      setScenarioMessagesSent(prev => new Set(prev).add('inTransit'))
+      setScenarioMessagesSent(prev => new Set(prev).add('deposit_inTransit'))
       setShowConfirmButton(false)
     }
     
     // COMPLETED state: show completion message
-    if (cashFlowState === 'COMPLETED' && !scenarioMessagesSent.has('completed')) {
+    if (cashFlowState === 'COMPLETED' && !scenarioMessagesSent.has('deposit_completed')) {
       const amount = cashDepositScenario?.amountZAR || 0
       const formattedAmount = amount.toLocaleString('en-ZA', {
         minimumFractionDigits: 2,
@@ -495,7 +495,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
         'ai',
         `Done! Your cash has been converted into USDT. Your updated balance is available in your wallet.`
       )
-      setScenarioMessagesSent(prev => new Set(prev).add('completed'))
+      setScenarioMessagesSent(prev => new Set(prev).add('deposit_completed'))
       endCashDepositScenario()
     }
   }, [cashFlowState, isCashDepositActive, scenarioMessagesSent, cashDepositScenario, sendMessage, endCashDepositScenario, inboxViewMode])
@@ -505,26 +505,26 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     if (!isCashWithdrawalActive || inboxViewMode !== 'chat') return
     
     // ARRIVED state: show confirm button message (with minimum 15s typing delay)
-    if (cashFlowState === 'ARRIVED' && !scenarioMessagesSent.has('arrived')) {
+    if (cashFlowState === 'ARRIVED' && !scenarioMessagesSent.has('withdrawal_arrived')) {
       setIsTyping(true)
       
       // Minimum 15 seconds typing before showing message 3
       setTimeout(() => {
         setIsTyping(false)
-        if (!scenarioMessagesSent.has('arrived')) {
+        if (!scenarioMessagesSent.has('withdrawal_arrived')) {
           sendMessage(
             PORTFOLIO_MANAGER_THREAD_ID,
             'ai',
             '@skerryy has arrived. Once you\'ve received your cash, tap the button below to confirm.'
           )
-          setScenarioMessagesSent(prev => new Set(prev).add('arrived'))
+          setScenarioMessagesSent(prev => new Set(prev).add('withdrawal_arrived'))
           setShowConfirmButton(true)
         }
       }, 15000) // Minimum 15 seconds typing delay
     }
     
     // WITHDRAWAL_CONFIRMED state: show final message (after 1.5s typing)
-    if (cashFlowState === 'WITHDRAWAL_CONFIRMED' && !scenarioMessagesSent.has('confirmed')) {
+    if (cashFlowState === 'WITHDRAWAL_CONFIRMED' && !scenarioMessagesSent.has('withdrawal_confirmed')) {
       setIsTyping(true)
       
       setTimeout(() => {
@@ -541,7 +541,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
             'ai',
             `Done! Your withdrawal of R${formattedAmount} is complete. Your wallet balance has been updated.`
           )
-          setScenarioMessagesSent(prev => new Set(prev).add('confirmed'))
+          setScenarioMessagesSent(prev => new Set(prev).add('withdrawal_confirmed'))
           setShowConfirmButton(false)
           
           // Transition to COMPLETED and end scenario
