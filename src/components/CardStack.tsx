@@ -75,7 +75,7 @@ const cardsData: CardData[] = [
   },
   {
     type: 'yieldSurprise',
-    image: '/assets/cards/card - $GOB4.jpg',
+    image: '/assets/cards/card-$GOB4.jpg',
     alt: 'Yield Surprise Card',
     width: 310,
     height: 193,
