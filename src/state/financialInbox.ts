@@ -55,7 +55,7 @@ type FinancialInboxState = {
   endCashDepositScenario: () => void
 }
 
-const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
+export const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
 
 // Initial seed messages for Portfolio Manager
 const initialPMMessages: ChatMessage[] = [

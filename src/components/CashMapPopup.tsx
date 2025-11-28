@@ -419,7 +419,6 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   const handleDepositSuccessClose = () => {
     setShowDepositSuccess(false)
     setCashFlowState('IDLE')
-    setSharedCashFlowState('IDLE')
     // Close the map popup and reset flow
     if (onComplete) {
       onComplete()
