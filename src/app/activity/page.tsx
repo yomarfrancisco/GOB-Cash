@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import { useAuthStore } from '@/store/auth'
-import { NotificationsList } from '@/components/Notifications/NotificationsList'
+import { NotificationsList } from '@/components/notifications/NotificationsList'
 import styles from './activity.module.css'
 
 export default function ActivityPage() {

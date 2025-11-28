@@ -38,7 +38,7 @@ import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { openAmaIntro, closeInboxSheet } from '@/lib/demo/autoAmaIntro'
 import { useFinancialInboxStore } from '@/state/financialInbox'
-import NotificationsSheet from '@/components/Notifications/NotificationsSheet'
+import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { Bell } from 'lucide-react'
 
