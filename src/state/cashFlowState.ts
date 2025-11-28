@@ -11,6 +11,7 @@ export type CashFlowState =
   | 'MATCHED_EN_ROUTE'
   | 'ARRIVED'
   | 'IN_TRANSIT_TO_HQ'
+  | 'WITHDRAWAL_CONFIRMED'
   | 'COMPLETED'
   | 'EXPIRED'
 
@@ -18,6 +19,7 @@ type CashFlowStateStore = {
   cashFlowState: CashFlowState
   setCashFlowState: (state: CashFlowState) => void
   confirmCashDeposit: () => void // Helper to transition from ARRIVED to IN_TRANSIT_TO_HQ
+  confirmCashWithdrawal: () => void // Helper to transition from ARRIVED to WITHDRAWAL_CONFIRMED
   isMapOpen: boolean
   openMap: () => void
   closeMap: () => void
@@ -29,6 +31,7 @@ export const useCashFlowStateStore = create<CashFlowStateStore>((set) => ({
   cashFlowState: 'IDLE',
   setCashFlowState: (state) => set({ cashFlowState: state }),
   confirmCashDeposit: () => set({ cashFlowState: 'IN_TRANSIT_TO_HQ' }),
+  confirmCashWithdrawal: () => set({ cashFlowState: 'WITHDRAWAL_CONFIRMED' }),
   isMapOpen: false,
   openMap: () => set({ isMapOpen: true }),
   closeMap: () => set({ isMapOpen: false }),

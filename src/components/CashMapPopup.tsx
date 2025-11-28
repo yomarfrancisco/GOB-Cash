@@ -8,6 +8,7 @@ import AgentSummaryRow from './AgentSummaryRow'
 import SuccessSheet from './SuccessSheet'
 import { useNotificationStore } from '@/store/notifications'
 import { useCashFlowStateStore, type CashFlowState } from '@/state/cashFlowState'
+import { useFinancialInboxStore } from '@/state/financialInbox'
 import styles from './CashMapPopup.module.css'
 
 type CashMapPopupProps = {
@@ -33,10 +34,19 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
   const [mapContainerId] = useState(() => `cash-map-popup-${Date.now()}`)
   const [mapReady, setMapReady] = useState(false)
   const { cashFlowState, setCashFlowState } = useCashFlowStateStore()
+  const { cashDepositScenario, cashWithdrawalScenario } = useFinancialInboxStore()
+  const isWithdrawal = !!cashWithdrawalScenario
   const [showDepositSuccess, setShowDepositSuccess] = useState(false)
   const [confirmButtonDisabled, setConfirmButtonDisabled] = useState(false)
   const [notificationsSent, setNotificationsSent] = useState<Set<CashFlowState>>(new Set())
-  const [currentDealerLocation, setCurrentDealerLocation] = useState({ lng: 28.0560, lat: -26.1070 }) // Start at HQ
+  const [currentDealerLocation, setCurrentDealerLocation] = useState(() => {
+    // Initialize based on scenario type
+    const { cashWithdrawalScenario } = useFinancialInboxStore.getState()
+    if (cashWithdrawalScenario) {
+      return { lng: 28.0520, lat: -26.1050 } // Withdrawal starting point
+    }
+    return { lng: 28.0560, lat: -26.1070 } // Deposit starting point (HQ)
+  })
   const [distance, setDistance] = useState(7.8)
   const [etaMinutes, setEtaMinutes] = useState(20)
   const [arrivalNotificationShown, setArrivalNotificationShown] = useState(false)
@@ -64,13 +74,22 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     []
   )
   
-  // Initial dealer location (Kerry) - will be animated (starts at HQ)
+  // Initial dealer location (Kerry) - for deposit starts at HQ, for withdrawal starts at different location
   const initialDealerLocation = useMemo(
-    () => ({
-      lng: HQ_COORD.lng,
-      lat: HQ_COORD.lat,
-    }),
-    [HQ_COORD.lng, HQ_COORD.lat]
+    () => {
+      if (isWithdrawal) {
+        // For withdrawal, dealer starts at a different location (not HQ)
+        return {
+          lng: 28.0520, // Different starting point for withdrawal
+          lat: -26.1050,
+        }
+      }
+      return {
+        lng: HQ_COORD.lng,
+        lat: HQ_COORD.lat,
+      }
+    },
+    [HQ_COORD.lng, HQ_COORD.lat, isWithdrawal]
   )
   
   // User marker using character.png
@@ -123,16 +142,23 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     [HQ_COORD.lng, HQ_COORD.lat, userLocation.lng, userLocation.lat]
   )
 
-  // Route coordinates - switch between static routes based on state
+  // Route coordinates - switch between static routes based on state and scenario type
   const routeCoordinates = useMemo<[number, number][]>(() => {
+    if (isWithdrawal) {
+      // Withdrawal: dealer start → user (no return trip)
+      return [
+        [initialDealerLocation.lng, initialDealerLocation.lat],
+        [userLocation.lng, userLocation.lat],
+      ]
+    }
     if (cashFlowState === 'IN_TRANSIT_TO_HQ' || cashFlowState === 'COMPLETED') {
-      // Return trip: user → HQ
+      // Return trip: user → HQ (deposit only)
       return userToHqRoute
     } else {
       // Outbound trip: HQ → user (for MATCHED_EN_ROUTE and ARRIVED)
       return hqToUserRoute
     }
-  }, [cashFlowState, hqToUserRoute, userToHqRoute])
+  }, [cashFlowState, hqToUserRoute, userToHqRoute, isWithdrawal, initialDealerLocation.lng, initialDealerLocation.lat, userLocation.lng, userLocation.lat])
 
   // Calculate distance between two points (Haversine formula)
   const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number) => {
@@ -149,7 +175,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
     return R * c
   }, [])
 
-  // Warp-speed dealer movement animation (HQ → user)
+  // Warp-speed dealer movement animation (dealer start → user)
   useEffect(() => {
     if (cashFlowState !== 'MATCHED_EN_ROUTE') {
       return
@@ -157,8 +183,8 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
 
     const startTime = Date.now()
     const duration = 8000 // 8 seconds for warp speed
-    const startLng = HQ_COORD.lng
-    const startLat = HQ_COORD.lat
+    const startLng = initialDealerLocation.lng
+    const startLat = initialDealerLocation.lat
     const endLng = userLocation.lng
     const endLat = userLocation.lat
 
@@ -199,11 +225,11 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         animationRef.current = null
       }
     }
-  }, [cashFlowState, HQ_COORD.lng, HQ_COORD.lat, userLocation, calculateDistance])
+  }, [cashFlowState, initialDealerLocation.lng, initialDealerLocation.lat, userLocation, calculateDistance])
 
-  // Return animation (user → HQ)
+  // Return animation (user → HQ) - only for deposit flow
   useEffect(() => {
-    if (cashFlowState !== 'IN_TRANSIT_TO_HQ') {
+    if (cashFlowState !== 'IN_TRANSIT_TO_HQ' || isWithdrawal) {
       return
     }
 
@@ -251,7 +277,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
         returnAnimationRef.current = null
       }
     }
-  }, [cashFlowState, HQ_COORD.lng, HQ_COORD.lat, userLocation, calculateDistance])
+  }, [cashFlowState, HQ_COORD.lng, HQ_COORD.lat, userLocation, calculateDistance, isWithdrawal])
 
   // Notifications for each state transition
   useEffect(() => {
@@ -400,7 +426,11 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
 
   const handleConfirmCashDeposited = () => {
     setConfirmButtonDisabled(true)
-    setCashFlowState('IN_TRANSIT_TO_HQ')
+    if (isWithdrawal) {
+      setCashFlowState('WITHDRAWAL_CONFIRMED')
+    } else {
+      setCashFlowState('IN_TRANSIT_TO_HQ')
+    }
   }
   
   // Sync local state to shared store when popup opens/closes
@@ -462,6 +492,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
               styleUrl="mapbox://styles/mapbox/navigation-day-v1"
               routeCoordinates={routeCoordinates}
               variant="popup"
+              hqCoord={isWithdrawal ? undefined : { lng: HQ_COORD.lng, lat: HQ_COORD.lat }}
             />
           )}
           {/* Paper/fold overlays - same as homepage, positioned over map */}
@@ -488,6 +519,7 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
               alt=""
               fill
               className={styles.textureOverlayImg}
+              style={{ opacity: isWithdrawal ? 0.22 : 0.32 }}
               priority
             />
           </div>

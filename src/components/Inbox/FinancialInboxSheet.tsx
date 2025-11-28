@@ -183,11 +183,13 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     messagesByThreadId,
     cashDepositScenario,
     endCashDepositScenario,
+    cashWithdrawalScenario,
+    endCashWithdrawalScenario,
   } = useFinancialInboxStore()
   
   // Get auth state for pre-auth gating
   const { isAuthed, openAuthEntrySignup } = useAuthStore()
-  const { cashFlowState, confirmCashDeposit } = useCashFlowStateStore()
+  const { cashFlowState, confirmCashDeposit, confirmCashWithdrawal } = useCashFlowStateStore()
   const { profile } = useUserProfileStore()
   
   // Use prop if provided, otherwise fall back to store flag
@@ -217,11 +219,18 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Input text state for chat
   const [inputText, setInputText] = useState('')
   
-  // Cash deposit scenario state
+  // Cash deposit/withdrawal scenario state
   const [scenarioMessagesSent, setScenarioMessagesSent] = useState<Set<string>>(new Set())
   const [isTyping, setIsTyping] = useState(false)
   const [showMapCard, setShowMapCard] = useState(false)
   const [showConfirmButton, setShowConfirmButton] = useState(false)
+  
+  // Determine active scenario
+  const isCashDepositActive = !!cashDepositScenario
+  const isCashWithdrawalActive = !!cashWithdrawalScenario
+  const activeScenario = cashDepositScenario || cashWithdrawalScenario
+  const scenarioType = cashDepositScenario ? 'deposit' : cashWithdrawalScenario ? 'withdrawal' : null
+  const isAnyCashFlowActive = isCashDepositActive || isCashWithdrawalActive
   
   // Ref for message area container (for scroll calculations)
   const messageAreaRef = useRef<HTMLDivElement>(null)
@@ -231,8 +240,6 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   
   // Get messages for the portfolio manager thread
   const pmMessages = messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID] || []
-  
-  const isCashDepositActive = cashDepositScenario !== null && inboxViewMode === 'chat'
   
   // Get first name from fullName
   const firstName = profile.fullName.split(' ')[0] || 'there'
@@ -362,7 +369,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Cash deposit scenario orchestration
   // Send initial messages when scenario starts
   useEffect(() => {
-    if (!isCashDepositActive || !cashDepositScenario) return
+    if (!isCashDepositActive || !cashDepositScenario || inboxViewMode !== 'chat') return
     
     // Message 1: Initial greeting (after 600ms delay)
     if (!scenarioMessagesSent.has('message1')) {
@@ -397,11 +404,51 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
         }, 4000) // 4 seconds typing delay
       }, 600) // 600ms initial delay
     }
-  }, [isCashDepositActive, cashDepositScenario, scenarioMessagesSent, firstName, sendMessage])
+  }, [isCashDepositActive, cashDepositScenario, scenarioMessagesSent, firstName, sendMessage, inboxViewMode])
 
-  // Handle state machine transitions
+  // Cash withdrawal scenario orchestration
+  // Send initial messages when scenario starts
   useEffect(() => {
-    if (!isCashDepositActive) return
+    if (!isCashWithdrawalActive || !cashWithdrawalScenario || inboxViewMode !== 'chat') return
+    
+    // Message 1: Initial greeting (after 600ms delay)
+    if (!scenarioMessagesSent.has('message1')) {
+      const amount = cashWithdrawalScenario.amountZAR
+      const formattedAmount = amount.toLocaleString('en-ZA', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+      
+      setTimeout(() => {
+        sendMessage(
+          PORTFOLIO_MANAGER_THREAD_ID,
+          'ai',
+          `Hi ${firstName}, you want to withdraw R${formattedAmount}. Give me a moment while I find a verified dealer who can bring the cash to you.`
+        )
+        
+        setScenarioMessagesSent(prev => new Set(prev).add('message1'))
+        setIsTyping(true)
+        
+        // After 4 seconds of typing, send message 2
+        setTimeout(() => {
+          setIsTyping(false)
+          if (!scenarioMessagesSent.has('message2')) {
+            sendMessage(
+              PORTFOLIO_MANAGER_THREAD_ID,
+              'ai',
+              'Great news — @skerryy is available to complete your withdrawal. ETA: 20 minutes. Distance: 7.8 km. You can follow her progress on the map below.'
+            )
+            setScenarioMessagesSent(prev => new Set(prev).add('message2'))
+            setShowMapCard(true)
+          }
+        }, 4000) // 4 seconds typing delay
+      }, 600) // 600ms initial delay
+    }
+  }, [isCashWithdrawalActive, cashWithdrawalScenario, scenarioMessagesSent, firstName, sendMessage, inboxViewMode])
+
+  // Handle state machine transitions for deposit
+  useEffect(() => {
+    if (!isCashDepositActive || inboxViewMode !== 'chat') return
     
     // ARRIVED state: show confirm button message (with minimum 15s typing delay)
     if (cashFlowState === 'ARRIVED' && !scenarioMessagesSent.has('arrived')) {
@@ -455,18 +502,22 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
 
   // Handlers
   const handleMapClick = useCallback(() => {
-    if (cashDepositScenario) {
+    if (activeScenario) {
       const { openMap, setConvertAmount } = useCashFlowStateStore.getState()
-      setConvertAmount(cashDepositScenario.amountZAR)
+      setConvertAmount(activeScenario.amountZAR)
       openMap()
     }
-  }, [cashDepositScenario])
+  }, [activeScenario])
 
   const handleConfirmCashDeposit = useCallback(() => {
     confirmCashDeposit()
     setShowConfirmButton(false)
   }, [confirmCashDeposit])
 
+  const handleConfirmCashWithdrawal = useCallback(() => {
+    confirmCashWithdrawal()
+    setShowConfirmButton(false)
+  }, [confirmCashWithdrawal])
 
   // Cash agents data - static demo content
   const agents = [
@@ -714,9 +765,9 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                               )
                             })}
                             {/* Show map inside this bubble if it's the "Great news" message and map should be visible */}
-                            {isCashDepositActive && 
+                            {(isCashDepositActive || isCashWithdrawalActive) && 
                              showMapCard && 
-                             message.text.includes('Great news — @skerryy') && (
+                             (message.text.includes('Great news — @skerryy') || message.text.includes('Great news — @skerryy is available')) && (
                               <>
                                 <div style={{ marginTop: '14px' }} />
                                 <ChatMapEmbed onMapClick={handleMapClick} />
@@ -725,10 +776,10 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                                     <div style={{ marginTop: '14px' }} />
                                     <button
                                       className={chatStyles.chatCtaButton}
-                                      onClick={handleConfirmCashDeposit}
+                                      onClick={isCashDepositActive ? handleConfirmCashDeposit : handleConfirmCashWithdrawal}
                                       type="button"
                                     >
-                                      Confirm cash was deposited
+                                      {isCashDepositActive ? 'Confirm cash was deposited' : 'Confirm cash was received'}
                                     </button>
                                   </>
                                 )}
@@ -771,8 +822,8 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
               )
             })}
             
-            {/* Typing indicator for cash deposit scenario */}
-            {isCashDepositActive && isTyping && (
+            {/* Typing indicator for cash deposit/withdrawal scenario */}
+            {(isCashDepositActive || isCashWithdrawalActive) && isTyping && (
               <div className={chatStyles.messageWrapper}>
                 <div className={chatStyles.messageAvatar}>
                   <Image

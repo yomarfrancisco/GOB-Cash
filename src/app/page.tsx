@@ -59,7 +59,7 @@ export default function Home() {
   const { guardAuthed, isAuthed } = useRequireAuth()
   const { openNotifications } = useNotificationsStore()
   const { profile } = useUserProfileStore()
-  const { startCashDepositScenario } = useFinancialInboxStore()
+  const { startCashDepositScenario, startCashWithdrawalScenario } = useFinancialInboxStore()
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
 
   // Debug: verify card and map widths match - instrument parent chain
@@ -716,6 +716,20 @@ export default function Home() {
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           setTimeout(() => setOpenCardSuccess(true), 220)
+        } : amountMode === 'withdraw' ? ({ amountZAR }) => {
+          // Cash withdrawal flow: start scenario and open Ama chat
+          setConvertAmount(amountZAR)
+          // Close keypad modal
+          setOpenAmount(false)
+          setAmountEntryPoint(undefined)
+          
+          // Start cash withdrawal scenario
+          startCashWithdrawalScenario(amountZAR)
+          
+          // Small delay to ensure modals are fully closed, then open Ama chat
+          setTimeout(() => {
+            openAmaChatWithScenario('cash_withdrawal')
+          }, 220) // Match other modal transitions
         } : amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
           setOpenAmount(false)
           setAmountEntryPoint(undefined)

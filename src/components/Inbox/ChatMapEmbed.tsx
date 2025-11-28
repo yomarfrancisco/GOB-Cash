@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import MapboxMap, { type Marker } from '../MapboxMap'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
+import { useFinancialInboxStore } from '@/state/financialInbox'
 import styles from './ChatMapEmbed.module.css'
 
 type ChatMapEmbedProps = {
@@ -14,6 +15,8 @@ export default function ChatMapEmbed({ onMapClick }: ChatMapEmbedProps) {
   const [mapContainerId] = useState(() => `chat-map-embed-${Date.now()}`)
   const [mapReady, setMapReady] = useState(false)
   const { cashFlowState } = useCashFlowStateStore()
+  const { cashDepositScenario, cashWithdrawalScenario } = useFinancialInboxStore()
+  const isWithdrawal = !!cashWithdrawalScenario
   
   // Same coordinates as CashMapPopup
   const HQ_COORD = useMemo(
@@ -32,13 +35,21 @@ export default function ChatMapEmbed({ onMapClick }: ChatMapEmbedProps) {
     []
   )
 
-  // For chat embed, agent starts at HQ (will animate in full popup)
+  // For chat embed, agent starts at different location based on scenario
   const agentLocation = useMemo(
-    () => ({
-      lng: HQ_COORD.lng,
-      lat: HQ_COORD.lat,
-    }),
-    [HQ_COORD.lng, HQ_COORD.lat]
+    () => {
+      if (isWithdrawal) {
+        return {
+          lng: 28.0520, // Different starting point for withdrawal
+          lat: -26.1050,
+        }
+      }
+      return {
+        lng: HQ_COORD.lng,
+        lat: HQ_COORD.lat,
+      }
+    },
+    [HQ_COORD.lng, HQ_COORD.lat, isWithdrawal]
   )
 
   // User marker
@@ -73,13 +84,13 @@ export default function ChatMapEmbed({ onMapClick }: ChatMapEmbedProps) {
     [userMarker, agentMarker]
   )
 
-  // Route from HQ to user
+  // Route from dealer start to user
   const routeCoordinates = useMemo<[number, number][]>(
     () => [
-      [HQ_COORD.lng, HQ_COORD.lat],
+      [agentLocation.lng, agentLocation.lat],
       [userLocation.lng, userLocation.lat],
     ],
-    [HQ_COORD.lng, HQ_COORD.lat, userLocation.lng, userLocation.lat]
+    [agentLocation.lng, agentLocation.lat, userLocation.lng, userLocation.lat]
   )
 
   // Wait for container to exist before rendering map
@@ -104,6 +115,7 @@ export default function ChatMapEmbed({ onMapClick }: ChatMapEmbedProps) {
           styleUrl="mapbox://styles/mapbox/navigation-day-v1"
           routeCoordinates={routeCoordinates}
           variant="popup"
+          hqCoord={isWithdrawal ? undefined : { lng: HQ_COORD.lng, lat: HQ_COORD.lat }}
         />
       )}
       {/* Texture overlay */}
@@ -113,6 +125,7 @@ export default function ChatMapEmbed({ onMapClick }: ChatMapEmbedProps) {
           alt=""
           fill
           className={styles.textureOverlayImg}
+          style={{ opacity: isWithdrawal ? 0.22 : 0.32 }}
           priority
         />
       </div>
