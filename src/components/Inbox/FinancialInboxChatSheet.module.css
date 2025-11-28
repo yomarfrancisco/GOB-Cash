@@ -133,6 +133,12 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+/* Map bubble - ensure padding works with nested map card */
+.agentBubble :global(.mapCardInChat) {
+  margin: 0;
+  width: 100%;
+}
+
 .userMessageBubble {
   background: #1a1a1a;
   border-radius: 18px;

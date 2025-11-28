@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/auth'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { useUserProfileStore } from '@/store/userProfile'
 import ChatInputBar from './ChatInputBar'
-import InlineMapCard from './InlineMapCard'
+import ChatMapEmbed from './ChatMapEmbed'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
 import walletHelperStyles from '../WalletHelperSheet.module.css'
@@ -367,11 +367,11 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       setTimeout(() => {
         setIsTyping(false)
         if (!scenarioMessagesSent.has('message2')) {
-          sendMessage(
-            PORTFOLIO_MANAGER_THREAD_ID,
-            'ai',
-            'Great news — $kerryy can meet you.\n\nETA: 20 minutes. Distance: 7.8km.\n\nYou can follow her progress on the map below.'
-          )
+        sendMessage(
+          PORTFOLIO_MANAGER_THREAD_ID,
+          'ai',
+          'Great news — $kerryy can meet you.\n\nETA: 20 minutes. Distance: 7.8 km.\n\nYou can follow her progress on the map below.'
+        )
           setScenarioMessagesSent(prev => new Set(prev).add('message2'))
           setShowMapCard(true)
         }
@@ -666,7 +666,26 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                           </>
                         ) : (
                           <div className={clsx(chatStyles.messageBubble, chatStyles.agentBubble)}>
-                            {message.text}
+                            {message.text.split('\n').map((line, idx) => {
+                              // Bold ETA and Distance numbers
+                              const parts = line.split(/(ETA: \d+ minutes?|Distance: [\d.]+ km)/g)
+                              return (
+                                <div key={idx}>
+                                  {idx > 0 && <br />}
+                                  {parts.map((part, partIdx) => {
+                                    if (part.match(/^(ETA: \d+ minutes?|Distance: [\d.]+ km)$/)) {
+                                      const [label, value] = part.split(': ')
+                                      return (
+                                        <span key={partIdx}>
+                                          {label}: <strong>{value}</strong>
+                                        </span>
+                                      )
+                                    }
+                                    return <span key={partIdx}>{part}</span>
+                                  })}
+                                </div>
+                              )
+                            })}
                           </div>
                         )}
                         {message.from === 'ai' && (
@@ -737,8 +756,8 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                   />
                 </div>
                 <div className={chatStyles.bubbleContainer}>
-                  <div className={chatStyles.messageBubble}>
-                    <InlineMapCard state={cashFlowState} onMapClick={handleMapClick} />
+                  <div className={clsx(chatStyles.messageBubble, chatStyles.agentBubble)}>
+                    <ChatMapEmbed onMapClick={handleMapClick} />
                   </div>
                 </div>
               </div>

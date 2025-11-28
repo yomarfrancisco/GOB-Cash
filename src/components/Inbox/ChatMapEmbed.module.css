@@ -1,0 +1,23 @@
+.mapCardInChat {
+  border-radius: 12px; /* Slightly smaller radius for nested card feel */
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  width: 100%;
+  height: 240px; /* Fixed height for chat embed */
+  position: relative;
+  background: #000; /* Dark background for map */
+}
+
+.mapCardInChat:active {
+  transform: scale(0.98);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.mapContainer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
