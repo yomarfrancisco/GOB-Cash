@@ -175,7 +175,8 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     openChatSheet,
     goBackToInbox,
     isDemoIntro: storeIsDemoIntro,
-    sendMessage
+    sendMessage,
+    messagesByThreadId
   } = useFinancialInboxStore()
   
   // Use prop if provided, otherwise fall back to store flag
@@ -219,26 +220,38 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     const container = messageAreaRef.current
     if (!container) return
 
-    // If we know this is a short conversation, never auto-scroll on focus
-    if (isShortConversationRef.current) {
+    const scrollHeight = container.scrollHeight
+    const clientHeight = container.clientHeight
+    const overflow = scrollHeight - clientHeight
+
+    // If there is no meaningful overflow, do NOT move the scroll at all.
+    // This is the "short conversation" case.
+    if (overflow <= 8) {
+      // Keep whatever scrollTop iOS chose; do NOT force to 0 or bottom.
       return
     }
 
-    const { scrollHeight, clientHeight } = container
-    // Only scroll if content exceeds container viewport (with small epsilon for rounding)
-    if (scrollHeight > clientHeight + 4) {
-      // Use requestAnimationFrame for smooth scroll after layout
-      requestAnimationFrame(() => {
-        if (container) {
-          container.scrollTop = container.scrollHeight
-        }
-      })
-    } else {
-      // Content fits; keep whatever scrollTop is (usually 0)
-      // Don't force scrollTop = 0 here, just leave it as-is
-    }
+    // Only for long threads: keep bottom in view.
+    requestAnimationFrame(() => {
+      if (container) {
+        container.scrollTop = container.scrollHeight
+      }
+    })
   }, [])
-
+  
+  // Get messages for the portfolio manager thread
+  const pmMessages = messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID] || []
+  
+  // Auto-scroll only when messages change, and only for DM view (not intro tiles)
+  useEffect(() => {
+    if (!messageAreaRef.current) return
+    
+    // Only auto-scroll for the DM view, not the intro tiles
+    if (!isDemoIntro && inboxViewMode === 'chat') {
+      scrollToBottomIfOverflow()
+    }
+  }, [pmMessages.length, isDemoIntro, inboxViewMode, scrollToBottomIfOverflow])
+  
   // Send message handler
   const handleSend = useCallback(() => {
     if (!inputText.trim()) return
@@ -516,7 +529,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
             onChange={setInputText}
             onSend={handleSend}
             placeholder="Add a message"
-            onInputFocus={scrollToBottomIfOverflow}
+            // No onInputFocus - we don't want scroll on focus, only on message changes
           />
         </div>
       )}

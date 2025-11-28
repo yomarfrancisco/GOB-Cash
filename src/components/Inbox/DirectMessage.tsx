@@ -42,30 +42,29 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
     const container = messagesContainerRef.current
     if (!container) return
 
-    // If we know this is a short conversation, never auto-scroll on focus
-    if (isShortConversationRef.current) {
+    const scrollHeight = container.scrollHeight
+    const clientHeight = container.clientHeight
+    const overflow = scrollHeight - clientHeight
+
+    // If there is no meaningful overflow, do NOT move the scroll at all.
+    // This is the "short conversation" case.
+    if (overflow <= 8) {
+      // Keep whatever scrollTop iOS chose; do NOT force to 0 or bottom.
       return
     }
 
-    const { scrollHeight, clientHeight } = container
-    // Only scroll if content exceeds container viewport (with small epsilon for rounding)
-    if (scrollHeight > clientHeight + 4) {
-      // Use requestAnimationFrame for smooth scroll after layout
-      requestAnimationFrame(() => {
-        if (container) {
-          container.scrollTop = container.scrollHeight
-        }
-      })
-    } else {
-      // Content fits; keep whatever scrollTop is (usually 0)
-      // Don't force scrollTop = 0 here, just leave it as-is
-    }
+    // Only for long threads: keep bottom in view.
+    requestAnimationFrame(() => {
+      if (container) {
+        container.scrollTop = container.scrollHeight
+      }
+    })
   }
 
   // Scroll to bottom when new messages arrive (only if overflow)
   useEffect(() => {
     scrollToBottomIfOverflow()
-  }, [messages])
+  }, [messages.length])
 
   const handleSend = () => {
     if (!inputText.trim()) return
@@ -191,7 +190,7 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
         onChange={setInputText}
         onSend={handleSend}
         placeholder="Add a message"
-        onInputFocus={scrollToBottomIfOverflow}
+        // No onInputFocus - we don't want scroll on focus, only on message changes
       />
     </div>
   )
