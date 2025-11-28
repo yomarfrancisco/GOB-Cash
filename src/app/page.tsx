@@ -38,6 +38,9 @@ import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { openAmaIntro, closeInboxSheet } from '@/lib/demo/autoAmaIntro'
 import { useFinancialInboxStore } from '@/state/financialInbox'
+import NotificationsSheet from '@/components/Notifications/NotificationsSheet'
+import { useNotificationsStore } from '@/state/notifications'
+import { Bell } from 'lucide-react'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -51,6 +54,7 @@ export default function Home() {
   const scrollContentRef = useRef<HTMLDivElement | null>(null)
   const { setOnSelect, open } = useTransactSheet()
   const { guardAuthed, isAuthed } = useRequireAuth()
+  const { openNotifications } = useNotificationsStore()
 
   // Debug: verify card and map widths match - instrument parent chain
   useEffect(() => {
@@ -515,27 +519,50 @@ export default function Home() {
                 <div className="frame-parent">
                   <div className="wallet-header">
                     <h1 className="wallet-title">{title}</h1>
-                    <div
-                      className="help-icon"
-                      onClick={() => {
-                        // ? info chips remain accessible without auth (read-only information)
-                        if (!topCardType) return
-                        setHelperWalletKey(topCardType)
-                        setIsHelperOpen(true)
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button
+                        onClick={() => {
+                          guardAuthed(() => {
+                            openNotifications()
+                          })
+                        }}
+                        type="button"
+                        aria-label="Notifications"
+                        style={{
+                          background: 'transparent',
+                          border: 0,
+                          padding: 0,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#000',
+                        }}
+                      >
+                        <Bell size={20} strokeWidth={2} />
+                      </button>
+                      <div
+                        className="help-icon"
+                        onClick={() => {
+                          // ? info chips remain accessible without auth (read-only information)
                           if (!topCardType) return
                           setHelperWalletKey(topCardType)
                           setIsHelperOpen(true)
-                        }
-                      }}
-                      aria-label="Help"
-                    >
-                      ?
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            if (!topCardType) return
+                            setHelperWalletKey(topCardType)
+                            setIsHelperOpen(true)
+                          }
+                        }}
+                        aria-label="Help"
+                      >
+                        ?
+                      </div>
                     </div>
                   </div>
                   <div className="wallet-subtitle-container">
@@ -809,6 +836,7 @@ export default function Home() {
         />
       )}
       <FinancialInboxSheet />
+      <NotificationsSheet />
     </div>
   )
 }
