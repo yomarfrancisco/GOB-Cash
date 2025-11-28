@@ -19,10 +19,33 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
   const messages = messagesByThreadId[threadId] || []
   const thread = threads.find((t) => t.id === threadId)
 
+  // Flag to track if conversation is short (based on pre-keyboard measurement)
+  const isShortConversationRef = useRef<boolean>(false)
+
+  // Measure conversation height on mount/when thread changes (before keyboard)
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    
+    // Measure once, pre-keyboard, to decide if content is truly short
+    // Use requestAnimationFrame to ensure layout has settled
+    requestAnimationFrame(() => {
+      if (container) {
+        const { scrollHeight, clientHeight } = container
+        isShortConversationRef.current = scrollHeight <= clientHeight + 4
+      }
+    })
+  }, [threadId, messages]) // Re-measure when thread or messages change
+
   // Helper: Only scroll to bottom if there's actual overflow in the container
   const scrollToBottomIfOverflow = () => {
     const container = messagesContainerRef.current
     if (!container) return
+
+    // If we know this is a short conversation, never auto-scroll on focus
+    if (isShortConversationRef.current) {
+      return
+    }
 
     const { scrollHeight, clientHeight } = container
     // Only scroll if content exceeds container viewport (with small epsilon for rounding)
@@ -34,8 +57,8 @@ export default function DirectMessage({ threadId }: DirectMessageProps) {
         }
       })
     } else {
-      // Content fits; keep scrollTop at 0 and do nothing
-      container.scrollTop = 0
+      // Content fits; keep whatever scrollTop is (usually 0)
+      // Don't force scrollTop = 0 here, just leave it as-is
     }
   }
 

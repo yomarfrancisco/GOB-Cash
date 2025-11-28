@@ -91,10 +91,10 @@ export default function ChatInputBar({
             onFocus={() => {
               setIsFocused(true)
               if (onInputFocus) {
-                // Small delay to allow keyboard animation to start, then check overflow
+                // Delay to allow keyboard animation to mostly settle, then check overflow
                 setTimeout(() => {
                   onInputFocus()
-                }, 50)
+                }, 250)
               }
             }}
             onBlur={() => setIsFocused(false)}

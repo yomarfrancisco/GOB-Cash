@@ -190,10 +190,39 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Ref for message area container (for scroll calculations)
   const messageAreaRef = useRef<HTMLDivElement>(null)
   
+  // Flag to track if conversation is short (based on pre-keyboard measurement)
+  const isShortConversationRef = useRef<boolean>(false)
+  
+  // Measure conversation height on mount/when chat view opens (before keyboard)
+  useEffect(() => {
+    // Only measure when chat view is open and container is ready
+    if (inboxViewMode !== 'chat' || !isInboxOpen) {
+      isShortConversationRef.current = false
+      return
+    }
+    
+    const container = messageAreaRef.current
+    if (!container) return
+    
+    // Measure once, pre-keyboard, to decide if content is truly short
+    // Use requestAnimationFrame to ensure layout has settled
+    requestAnimationFrame(() => {
+      if (container) {
+        const { scrollHeight, clientHeight } = container
+        isShortConversationRef.current = scrollHeight <= clientHeight + 4
+      }
+    })
+  }, [inboxViewMode, isInboxOpen, isDemoIntro, introStage]) // Re-measure when conversation changes
+  
   // Helper: Only scroll to bottom if there's actual overflow in the container
   const scrollToBottomIfOverflow = useCallback(() => {
     const container = messageAreaRef.current
     if (!container) return
+
+    // If we know this is a short conversation, never auto-scroll on focus
+    if (isShortConversationRef.current) {
+      return
+    }
 
     const { scrollHeight, clientHeight } = container
     // Only scroll if content exceeds container viewport (with small epsilon for rounding)
@@ -205,8 +234,8 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
         }
       })
     } else {
-      // Content fits; keep scrollTop at 0 and do nothing
-      container.scrollTop = 0
+      // Content fits; keep whatever scrollTop is (usually 0)
+      // Don't force scrollTop = 0 here, just leave it as-is
     }
   }, [])
 
