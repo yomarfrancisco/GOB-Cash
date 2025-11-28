@@ -529,7 +529,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       
       setTimeout(() => {
         setIsTyping(false)
-        if (!scenarioMessagesSent.has('confirmed')) {
+        if (!scenarioMessagesSent.has('withdrawal_confirmed')) {
           const amount = cashWithdrawalScenario?.amountZAR || 0
           const formattedAmount = amount.toLocaleString('en-ZA', {
             minimumFractionDigits: 2,

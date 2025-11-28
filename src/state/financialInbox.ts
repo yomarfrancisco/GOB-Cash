@@ -178,6 +178,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
         amountZAR,
         startedAt: Date.now(),
       },
+      cashWithdrawalScenario: null, // Clear withdrawal when starting deposit
     })
   },
 
@@ -191,6 +192,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
         amountZAR,
         startedAt: Date.now(),
       },
+      cashDepositScenario: null, // Clear deposit when starting withdrawal
     })
   },
 
