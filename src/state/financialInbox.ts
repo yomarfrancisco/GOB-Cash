@@ -173,12 +173,22 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   },
 
   startCashDepositScenario: (amountZAR: number) => {
-    set({
-      cashDepositScenario: {
-        amountZAR,
-        startedAt: Date.now(),
-      },
-      cashWithdrawalScenario: null, // Clear withdrawal when starting deposit
+    console.log('[DEBUG] startCashDepositScenario called', { amountZAR, ts: Date.now() })
+    console.trace('[DEBUG] startCashDepositScenario stack trace')
+    set((state) => {
+      const next = {
+        ...state,
+        cashDepositScenario: {
+          amountZAR,
+          startedAt: Date.now(),
+        },
+        cashWithdrawalScenario: null, // Clear withdrawal when starting deposit
+      }
+      console.log('[DEBUG] store after startCashDepositScenario', {
+        cashDepositScenario: next.cashDepositScenario,
+        cashWithdrawalScenario: next.cashWithdrawalScenario,
+      })
+      return next
     })
   },
 
@@ -187,12 +197,22 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   },
 
   startCashWithdrawalScenario: (amountZAR: number) => {
-    set({
-      cashWithdrawalScenario: {
-        amountZAR,
-        startedAt: Date.now(),
-      },
-      cashDepositScenario: null, // Clear deposit when starting withdrawal
+    console.log('[DEBUG] startCashWithdrawalScenario called', { amountZAR, ts: Date.now() })
+    console.trace('[DEBUG] startCashWithdrawalScenario stack trace')
+    set((state) => {
+      const next = {
+        ...state,
+        cashWithdrawalScenario: {
+          amountZAR,
+          startedAt: Date.now(),
+        },
+        cashDepositScenario: null, // Clear deposit when starting withdrawal
+      }
+      console.log('[DEBUG] store after startCashWithdrawalScenario', {
+        cashDepositScenario: next.cashDepositScenario,
+        cashWithdrawalScenario: next.cashWithdrawalScenario,
+      })
+      return next
     })
   },
 

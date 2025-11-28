@@ -369,6 +369,14 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Cash deposit scenario orchestration
   // Send initial messages when scenario starts
   useEffect(() => {
+    console.log('[DEBUG] deposit useEffect check', {
+      cashDepositScenario,
+      cashWithdrawalScenario,
+      isCashDepositActive,
+      isCashWithdrawalActive,
+      inboxViewMode,
+      scenarioMessagesSent: Array.from(scenarioMessagesSent),
+    })
     if (!isCashDepositActive || !cashDepositScenario || inboxViewMode !== 'chat') return
     
     // Message 1: Initial greeting (after 600ms delay)
@@ -409,6 +417,14 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Cash withdrawal scenario orchestration
   // Send initial messages when scenario starts
   useEffect(() => {
+    console.log('[DEBUG] withdrawal useEffect check', {
+      cashDepositScenario,
+      cashWithdrawalScenario,
+      isCashDepositActive,
+      isCashWithdrawalActive,
+      inboxViewMode,
+      scenarioMessagesSent: Array.from(scenarioMessagesSent),
+    })
     if (!isCashWithdrawalActive || !cashWithdrawalScenario || inboxViewMode !== 'chat') return
     
     // Message 1: Initial greeting (after 600ms delay)
@@ -445,6 +461,17 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       }, 600) // 600ms initial delay
     }
   }, [isCashWithdrawalActive, cashWithdrawalScenario, scenarioMessagesSent, firstName, sendMessage, inboxViewMode])
+
+  // Reset scenarioMessagesSent when active scenario changes
+  useEffect(() => {
+    if (isCashDepositActive || isCashWithdrawalActive) {
+      console.log('[DEBUG] resetting scenarioMessagesSent because active scenario changed', {
+        isCashDepositActive,
+        isCashWithdrawalActive,
+      })
+      setScenarioMessagesSent(new Set())
+    }
+  }, [isCashDepositActive, isCashWithdrawalActive])
 
   // Handle state machine transitions for deposit
   useEffect(() => {
