@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
+import Image from 'next/image'
 import MapboxMap, { type Marker } from '../MapboxMap'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import styles from './ChatMapEmbed.module.css'
@@ -105,6 +106,16 @@ export default function ChatMapEmbed({ onMapClick }: ChatMapEmbedProps) {
           variant="popup"
         />
       )}
+      {/* Texture overlay */}
+      <div className={styles.textureOverlay} aria-hidden="true">
+        <Image
+          src="/assets/texture.png"
+          alt=""
+          fill
+          className={styles.textureOverlayImg}
+          priority
+        />
+      </div>
     </div>
   )
 }

@@ -481,6 +481,16 @@ export default function CashMapPopup({ open, onClose, amount, showAgentCard = fa
               priority
             />
           </div>
+          {/* Texture overlay */}
+          <div className={styles.textureOverlay} aria-hidden="true">
+            <Image
+              src="/assets/texture.png"
+              alt=""
+              fill
+              className={styles.textureOverlayImg}
+              priority
+            />
+          </div>
         </div>
 
         {/* Overlay - contains close button and card */}

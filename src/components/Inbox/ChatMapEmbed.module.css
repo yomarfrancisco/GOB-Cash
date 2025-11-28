@@ -21,3 +21,22 @@
   position: relative;
 }
 
+/* Texture overlay */
+.textureOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.textureOverlayImg {
+  object-fit: cover;
+  mix-blend-mode: multiply;
+  opacity: 0.32;
+  border-radius: inherit;
+  /* Important – match homepage offset */
+  left: -85px;
+}
+
