@@ -652,6 +652,8 @@ export default function Home() {
         onSelect={(method) => {
           setOpenWithdraw(false)
           setAmountMode('withdraw')
+          setAmountEntryPoint(undefined)
+          setConvertAmount(0)
           setTimeout(() => setOpenAmount(true), 220)
         }}
       />
