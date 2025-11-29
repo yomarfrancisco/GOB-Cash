@@ -18,6 +18,7 @@ import LinkedInEditSheet from '@/components/LinkedInEditSheet'
 import WhatsAppEditSheet from '@/components/WhatsAppEditSheet'
 import UsernameEditSheet from '@/components/UsernameEditSheet'
 import FullNameEditSheet from '@/components/FullNameEditSheet'
+import LinkedAccountsSheet from '@/components/LinkedAccountsSheet'
 import ProfileDescriptionSheet from '@/components/ProfileDescriptionSheet'
 import SupportSheet from '@/components/SupportSheet'
 import ShareProfileSheet from '@/components/ShareProfileSheet'
@@ -93,6 +94,8 @@ export default function RootLayout({
               <UsernameEditSheet />
               {/* Global Full Name Edit Sheet */}
               <FullNameEditSheet />
+              {/* Global Linked Accounts Sheet */}
+              <LinkedAccountsSheet />
               {/* Global Profile Description Sheet */}
               <ProfileDescriptionSheet />
               {/* Global Support Sheet */}

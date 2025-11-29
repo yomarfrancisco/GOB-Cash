@@ -18,6 +18,7 @@ import { useProfileEditSheet } from '@/store/useProfileEditSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useSupportSheet } from '@/store/useSupportSheet'
+import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, CirclePlus, Bell } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
@@ -48,6 +49,7 @@ export default function ProfilePage() {
   const { setOnSelect, open } = useTransactSheet()
   const { profile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
+  const { open: openLinkedAccounts } = useLinkedAccountsSheet()
   const { openInbox, closeInbox, isInboxOpen } = useFinancialInboxStore()
   const { openNotifications } = useNotificationsStore()
   const { guardAuthed } = useRequireAuth()
@@ -436,7 +438,7 @@ export default function ProfilePage() {
                     className="profile-settings-row"
                     onClick={() => {
                       guardAuthed(() => {
-                        console.log('Linked bank accounts')
+                        openLinkedAccounts()
                       })
                     }}
                     type="button"
