@@ -7,6 +7,7 @@ export interface UserProfile {
   fullName: string
   userHandle: string // Always starts with @
   avatarUrl: string | null
+  backdropUrl: string | null
   email?: string
   instagramUrl?: string
   linkedinUrl?: string

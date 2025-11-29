@@ -12,7 +12,7 @@ import { useWhatsAppEditSheet } from '@/store/useWhatsAppEditSheet'
 import { useUsernameEditSheet } from '@/store/useUsernameEditSheet'
 import { useFullNameEditSheet } from '@/store/useFullNameEditSheet'
 import { useUserProfileStore } from '@/store/userProfile'
-import { uploadAvatar, removeAvatar } from '@/lib/profile'
+import { uploadAvatar, removeAvatar, uploadBackdrop, removeBackdrop } from '@/lib/profile'
 import { resizeImage } from '@/lib/imageResize'
 import { useNotificationStore } from '@/store/notifications'
 import Avatar from './Avatar'
@@ -30,7 +30,9 @@ export default function ProfileEditSheet() {
   const { profile, setProfile } = useUserProfileStore()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl)
+  const [backdropUrl, setBackdropUrl] = useState<string | null>(profile.backdropUrl)
   const [isUploading, setIsUploading] = useState(false)
+  const [isUploadingBackdrop, setIsUploadingBackdrop] = useState(false)
   const [editMode, setEditMode] = useState<'edit' | 'preview'>('edit')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const backdropInputRef = useRef<HTMLInputElement>(null)
@@ -40,8 +42,16 @@ export default function ProfileEditSheet() {
     setAvatarUrl(profile.avatarUrl)
   }, [profile.avatarUrl])
 
+  // Sync backdropUrl from store when profile changes
+  useEffect(() => {
+    setBackdropUrl(profile.backdropUrl)
+  }, [profile.backdropUrl])
+
   // Derive hasCustomAvatar from avatarUrl
   const hasCustomAvatar = avatarUrl !== null
+
+  // Derive hasCustomBackdrop from backdropUrl
+  const hasCustomBackdrop = backdropUrl !== null
 
   const clearAvatar = async () => {
     setIsUploading(true)
@@ -63,6 +73,29 @@ export default function ProfileEditSheet() {
       })
     } finally {
       setIsUploading(false)
+    }
+  }
+
+  const clearBackdrop = async () => {
+    setIsUploadingBackdrop(true)
+    const previousBackdropUrl = backdropUrl
+
+    try {
+      await removeBackdrop()
+      setBackdropUrl(null)
+      setProfile({ backdropUrl: null })
+    } catch (err) {
+      console.error('Failed to remove backdrop:', err)
+      // Revert on error
+      setBackdropUrl(previousBackdropUrl)
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Remove failed',
+        body: 'Could not remove backdrop. Please try again.',
+        actor: { type: 'user' },
+      })
+    } finally {
+      setIsUploadingBackdrop(false)
     }
   }
 
@@ -207,6 +240,135 @@ export default function ProfileEditSheet() {
     }
   }
 
+  const handleBackdropFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Image too large',
+        body: 'Maximum file size is 5MB. Please choose a smaller image.',
+        actor: { type: 'user' },
+      })
+      e.target.value = ''
+      return
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+    if (!validTypes.includes(file.type)) {
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Invalid file type',
+        body: 'Please use JPEG, PNG, WebP, or HEIC format.',
+        actor: { type: 'user' },
+      })
+      e.target.value = ''
+      return
+    }
+
+    setIsUploadingBackdrop(true)
+    const previousBackdropUrl = backdropUrl
+
+    try {
+      // Optimistic UI: show preview immediately
+      const previewUrl = URL.createObjectURL(file)
+      setBackdropUrl(previewUrl)
+
+      // Resize if needed (optional: only if > 1024px)
+      let fileToUpload = file
+      try {
+        if (typeof window === 'undefined') {
+          // SSR guard - skip resize check on server
+          fileToUpload = file
+        } else {
+          // Check if image needs resizing using createImageBitmap (faster) or HTMLImageElement (fallback)
+          let needsResize = false
+
+          if ('createImageBitmap' in window) {
+            try {
+              const bmp = await createImageBitmap(file)
+              needsResize = bmp.width > 1024 || bmp.height > 1024
+              bmp.close()
+            } catch {
+              // Fallback to HTMLImageElement if createImageBitmap fails
+              const objectUrl = URL.createObjectURL(file)
+              
+              // Use a DOM-typed constructor that TS accepts
+              const ImageCtor: new () => HTMLImageElement =
+                (typeof globalThis !== 'undefined' && (globalThis as any).Image)
+                  ? (globalThis as any).Image
+                  : (class {} as unknown as new () => HTMLImageElement)
+              
+              const htmlImg = new ImageCtor()
+              needsResize = await new Promise<boolean>((resolve) => {
+                htmlImg.onload = () => {
+                  resolve(htmlImg.width > 1024 || htmlImg.height > 1024)
+                }
+                htmlImg.onerror = () => resolve(false)
+                htmlImg.src = objectUrl
+              })
+              URL.revokeObjectURL(objectUrl)
+            }
+          } else {
+            // Fallback to HTMLImageElement
+            const objectUrl = URL.createObjectURL(file)
+            
+            // Use a DOM-typed constructor that TS accepts
+            const ImageCtor: new () => HTMLImageElement =
+              (typeof globalThis !== 'undefined' && (globalThis as any).Image)
+                ? (globalThis as any).Image
+                : (class {} as unknown as new () => HTMLImageElement)
+            
+            const htmlImg = new ImageCtor()
+            needsResize = await new Promise<boolean>((resolve) => {
+              htmlImg.onload = () => {
+                resolve(htmlImg.width > 1024 || htmlImg.height > 1024)
+              }
+              htmlImg.onerror = () => resolve(false)
+              htmlImg.src = objectUrl
+            })
+            URL.revokeObjectURL(objectUrl)
+          }
+
+          if (needsResize) {
+            fileToUpload = await resizeImage(file, { maxEdge: 1024 })
+          }
+        }
+      } catch (resizeErr) {
+        console.warn('Resize failed, using original:', resizeErr)
+        // Continue with original file if resize fails
+      }
+
+      // Upload backdrop
+      const url = await uploadBackdrop(fileToUpload)
+      
+      // Revoke preview URL and set final URL
+      URL.revokeObjectURL(previewUrl)
+      setBackdropUrl(url)
+
+      // Update profile store
+      setProfile({ backdropUrl: url })
+
+      // No success notification - backdrop updates immediately (optimistic UI)
+    } catch (err) {
+      console.error('Failed to upload backdrop:', err)
+      // Revert to previous backdrop on error
+      setBackdropUrl(previousBackdropUrl)
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Upload failed',
+        body: 'Could not update backdrop. Please try again.',
+        actor: { type: 'user' },
+      })
+    } finally {
+      setIsUploadingBackdrop(false)
+      e.target.value = ''
+    }
+  }
+
   const handleEditUsername = () => {
     close()
     // Use state-based polling to prevent DOM overlap
@@ -291,10 +453,15 @@ export default function ProfileEditSheet() {
   }
 
   const handleBackdropClick = () => {
-    // TODO: Implement backdrop change flow
-    console.log('Change backdrop TBD')
-    // For now, can reuse avatar upload logic or create separate handler
-    // backdropInputRef.current?.click()
+    if (typeof window === 'undefined') return
+
+    if (!hasCustomBackdrop) {
+      // No custom backdrop → open native file picker
+      backdropInputRef.current?.click()
+    } else {
+      // Custom backdrop exists → clear it
+      clearBackdrop()
+    }
   }
 
   function getInitial(fullName?: string, email?: string, handle?: string): string {
@@ -460,15 +627,20 @@ export default function ProfileEditSheet() {
             <div className={styles.backdropCard}>
               <div className={styles.backdropImageContainer}>
                 <Image
-                  src="/assets/benjamin_grey.png"
+                  src={backdropUrl || '/assets/benjamin_grey.png'}
                   alt="Backdrop"
                   fill
                   style={{ objectFit: 'cover', borderRadius: '24px' }}
                 />
+                {isUploadingBackdrop && (
+                  <div className={styles.uploadingOverlay}>
+                    <div className={styles.spinner} />
+                  </div>
+                )}
                 <button
                   className={styles.backdropEditButton}
                   onClick={handleBackdropClick}
-                  aria-label="Change backdrop"
+                  aria-label={hasCustomBackdrop ? 'Remove backdrop' : 'Change backdrop'}
                   type="button"
                 >
                   <Camera size={20} strokeWidth={2} style={{ color: '#fff' }} />
@@ -507,9 +679,7 @@ export default function ProfileEditSheet() {
         type="file"
         accept="image/*"
         className={styles.fileInput}
-        onChange={() => {
-          // TODO: Implement backdrop upload
-        }}
+        onChange={handleBackdropFileChange}
       />
     </>
   )
