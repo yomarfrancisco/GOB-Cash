@@ -403,6 +403,11 @@
   text-align: center;
 }
 
+/* Linked accounts sheet - match inbox/keyboard height */
+.as-sheet-tall.linked-accounts-sheet {
+  max-height: 85vh !important;
+}
+
 /* Linked accounts sheet - ensure as-body fills height (like other tall sheets) */
 .as-sheet.linked-accounts-sheet .as-body {
   height: 100%;
