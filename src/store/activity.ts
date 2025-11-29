@@ -26,7 +26,15 @@ export const useActivityStore = create<ActivityState>()(
       add: (item) => set({ items: [item, ...get().items].sort((a, b) => b.createdAt - a.createdAt) }),
       addMany: (arr) => set({ items: [...arr, ...get().items].sort((a, b) => b.createdAt - a.createdAt) }),
       clear: () => set({ items: [] }),
-      all: () => get().items,
+      all: () => {
+        try {
+          const state = get()
+          const items = state?.items
+          return Array.isArray(items) ? items : []
+        } catch {
+          return []
+        }
+      },
     }),
     { name: 'activity-store-v1' }
   )

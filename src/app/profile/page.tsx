@@ -43,7 +43,14 @@ export default function ProfilePage() {
       router.replace('/')
     }
   }, [isAuthed, router])
-  const activityCount = useActivityStore((s) => s.items.length)
+  const activityCount = useActivityStore((s) => {
+    try {
+      const items = s.all()
+      return Array.isArray(items) ? items.length : 0
+    } catch {
+      return 0
+    }
+  })
   const { open: openProfileEdit } = useProfileEditSheet()
   const { setOnSelect, open } = useTransactSheet()
   const { profile } = useUserProfileStore()
