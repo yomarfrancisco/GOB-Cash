@@ -13,8 +13,15 @@ function isValidTimestamp(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
-function groupByTimePeriod(itemsInput: ActivityItem[] | undefined | null) {
-  const items = Array.isArray(itemsInput) ? itemsInput : []
+function groupByTimePeriod(items: ActivityItem[]) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return {
+      today: [],
+      last7Days: [],
+      last30Days: [],
+    }
+  }
+
   const now = Date.now()
   const oneDay = 24 * 60 * 60 * 1000
   const sevenDays = 7 * oneDay
@@ -25,9 +32,8 @@ function groupByTimePeriod(itemsInput: ActivityItem[] | undefined | null) {
   const last30Days: ActivityItem[] = []
 
   for (const item of items) {
-    if (!item || !isValidTimestamp(item.createdAt)) {
-      continue
-    }
+    if (!item || typeof item !== 'object') continue
+    if (!isValidTimestamp(item.createdAt)) continue
 
     const age = now - item.createdAt
     if (age <= oneDay) {
@@ -45,10 +51,14 @@ function groupByTimePeriod(itemsInput: ActivityItem[] | undefined | null) {
 function ActivityItemCard({ item }: { item: ActivityItem }) {
   const router = useRouter()
 
+  if (!item || typeof item !== 'object') {
+    return null
+  }
+
   const avatarUrl =
-    item.actor.type === 'ai'
+    item.actor?.type === 'ai'
       ? GOB_AVATAR_PATH
-      : item.actor.avatarUrl || GOB_AVATAR_PATH
+      : item.actor?.avatarUrl || GOB_AVATAR_PATH
 
   const handleClick = () => {
     if (item.routeOnTap) {
@@ -63,7 +73,7 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
       <div className={styles.activityAvatar}>
         <Image
           src={avatarUrl}
-          alt={item.actor.type === 'ai' ? 'AI' : item.actor.name || 'User'}
+          alt={item.actor?.type === 'ai' ? 'AI' : item.actor?.name || 'User'}
           width={38}
           height={38}
           className={styles.avatarImg}
@@ -72,7 +82,7 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
       </div>
       <div className={styles.activityContent}>
         <div className={styles.activityHeader}>
-          <div className={styles.activityTitle}>{item.title}</div>
+          <div className={styles.activityTitle}>{item.title || 'Notification'}</div>
           {hasValidCreatedAt && (
             <div className={styles.activityTime}>{formatRelativeShort(item.createdAt)}</div>
           )}
@@ -86,46 +96,54 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
 }
 
 function ActivitySection({ title, items }: { title: string; items: ActivityItem[] }) {
-  if (items.length === 0) return null
+  if (!Array.isArray(items) || items.length === 0) return null
 
   return (
     <div className={styles.activitySection}>
       <h2 className={styles.sectionTitle}>{title}</h2>
       <div className={styles.activityList}>
-        {items.map((item) => (
-          <ActivityItemCard key={item.id} item={item} />
-        ))}
+        {items.map((item) => {
+          if (!item || !item.id) return null
+          return <ActivityItemCard key={item.id} item={item} />
+        })}
       </div>
     </div>
   )
 }
 
 export function NotificationsList() {
-  // 1) Local state for "client" awareness
-  const [isClient, setIsClient] = useState(false)
-
+  const [mounted, setMounted] = useState(false)
+  
+  // Only access store after mount to avoid hydration issues
   useEffect(() => {
-    setIsClient(true)
+    setMounted(true)
   }, [])
 
-  // 2) Read from activity store UNCONDITIONALLY
-  const rawItems = useActivityStore((s) => s.all())
+  // Call hook unconditionally, but use a safe selector
+  const rawItems = useActivityStore((s) => {
+    // Defensive: if store isn't ready, return empty array
+    try {
+      const result = s.all()
+      return Array.isArray(result) ? result : []
+    } catch {
+      return []
+    }
+  })
 
-  // 3) Compute grouped items via useMemo UNCONDITIONALLY
+  // Always ensure we have an array
+  const safeItems = Array.isArray(rawItems) ? rawItems : []
+
+  // Compute grouped items - only after mount
   const groups = useMemo(() => {
-    // Make allItems always a safe array
-    const allItems = Array.isArray(rawItems) ? rawItems : []
-    
-    // If not on client yet, or no items, just return empty groups
-    if (!isClient || allItems.length === 0) {
+    if (!mounted) {
       return {
         today: [],
         last7Days: [],
         last30Days: [],
       }
     }
-    return groupByTimePeriod(allItems)
-  }, [isClient, rawItems])
+    return groupByTimePeriod(safeItems)
+  }, [mounted, safeItems])
 
   return (
     <div className={styles.activityContainer}>
