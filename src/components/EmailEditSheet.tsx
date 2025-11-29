@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import ActionSheet from './ActionSheet'
-import Image from 'next/image'
 import { Check } from 'lucide-react'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useEmailEditSheet } from '@/store/useEmailEditSheet'
@@ -93,11 +92,7 @@ export default function EmailEditSheet() {
     <ActionSheet open={isOpen} onClose={handleClose} title="" className="send-details" size="tall">
       <div className="send-details-sheet">
         <div className="send-details-header">
-          <div style={{ width: 32, flexShrink: 0 }} /> {/* Spacer for left alignment */}
-          <h3 className="send-details-title" style={{ flex: 1 }}></h3>
-          <button className="send-details-close" onClick={handleClose} aria-label="Close">
-            <Image src="/assets/clear.svg" alt="" width={18} height={18} />
-          </button>
+          {/* Header structure kept for layout, but close button removed - using ActionSheet's .as-close-only */}
         </div>
         <div className="send-details-fields">
           <label className="send-details-row">
