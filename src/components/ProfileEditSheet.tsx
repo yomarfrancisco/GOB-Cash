@@ -213,10 +213,11 @@ export default function ProfileEditSheet() {
 
   const handleEditEmail = () => {
     close()
-    // Small delay to allow Edit Profile to close before opening Email sheet
+    // Wait for full close animation (600ms) + small buffer before opening Email sheet
+    // This ensures ProfileEditSheet is fully unmounted to avoid positioning conflicts
     setTimeout(() => {
       openEmailEdit()
-    }, 220)
+    }, 650)
   }
 
   const handleBackdropClick = () => {

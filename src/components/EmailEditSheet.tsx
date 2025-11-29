@@ -39,10 +39,11 @@ export default function EmailEditSheet() {
 
   const handleClose = () => {
     close()
-    // Reopen Edit Profile sheet after a brief delay
+    // Wait for full close animation (600ms) + small buffer before reopening Edit Profile
+    // This ensures EmailEditSheet is fully unmounted to avoid positioning conflicts
     setTimeout(() => {
       openProfileEdit()
-    }, 220)
+    }, 650)
   }
 
   const handleSave = () => {
