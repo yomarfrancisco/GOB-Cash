@@ -5,12 +5,12 @@ import Image from 'next/image'
 import { Camera, Instagram, Linkedin, Check, Mail } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import { useProfileEditSheet } from '@/store/useProfileEditSheet'
-import { useNameHandleSheet } from '@/store/useNameHandleSheet'
-import { useSocialLinksSheet } from '@/store/useSocialLinksSheet'
 import { useEmailEditSheet } from '@/store/useEmailEditSheet'
 import { useInstagramEditSheet } from '@/store/useInstagramEditSheet'
 import { useLinkedInEditSheet } from '@/store/useLinkedInEditSheet'
 import { useWhatsAppEditSheet } from '@/store/useWhatsAppEditSheet'
+import { useUsernameEditSheet } from '@/store/useUsernameEditSheet'
+import { useFullNameEditSheet } from '@/store/useFullNameEditSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { uploadAvatar, removeAvatar } from '@/lib/profile'
 import { resizeImage } from '@/lib/imageResize'
@@ -21,12 +21,12 @@ import '@/styles/profile-toggle.css'
 
 export default function ProfileEditSheet() {
   const { isOpen, close } = useProfileEditSheet()
-  const { open: openNameHandle } = useNameHandleSheet()
-  const { open: openSocialLinks } = useSocialLinksSheet()
   const { open: openEmailEdit } = useEmailEditSheet()
   const { open: openInstagramEdit } = useInstagramEditSheet()
   const { open: openLinkedInEdit } = useLinkedInEditSheet()
   const { open: openWhatsAppEdit } = useWhatsAppEditSheet()
+  const { open: openUsernameEdit } = useUsernameEditSheet()
+  const { open: openFullNameEdit } = useFullNameEditSheet()
   const { profile, setProfile } = useUserProfileStore()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl)
@@ -207,14 +207,32 @@ export default function ProfileEditSheet() {
     }
   }
 
-  const handleNameHandle = () => {
+  const handleEditUsername = () => {
     close()
-    openNameHandle()
+    // Use state-based polling to prevent DOM overlap
+    const checkAndOpen = () => {
+      const { isOpen: profileEditOpen } = useProfileEditSheet.getState()
+      if (!profileEditOpen) {
+        openUsernameEdit()
+      } else {
+        setTimeout(checkAndOpen, 50)
+      }
+    }
+    setTimeout(checkAndOpen, 100)
   }
 
-  const handleSocialLinks = () => {
+  const handleEditFullName = () => {
     close()
-    openSocialLinks()
+    // Use state-based polling to prevent DOM overlap
+    const checkAndOpen = () => {
+      const { isOpen: profileEditOpen } = useProfileEditSheet.getState()
+      if (!profileEditOpen) {
+        openFullNameEdit()
+      } else {
+        setTimeout(checkAndOpen, 50)
+      }
+    }
+    setTimeout(checkAndOpen, 100)
   }
 
   const handleEditEmail = () => {
@@ -349,7 +367,7 @@ export default function ProfileEditSheet() {
             {/* Username Row */}
             <button
               className={styles.profileRow}
-              onClick={handleNameHandle}
+              onClick={handleEditUsername}
               type="button"
             >
               <div className={styles.profileRowLeft}>
@@ -362,7 +380,7 @@ export default function ProfileEditSheet() {
             {/* Full Name Row */}
             <button
               className={styles.profileRow}
-              onClick={handleNameHandle}
+              onClick={handleEditFullName}
               type="button"
             >
               <div className={styles.profileRowLeft}>
