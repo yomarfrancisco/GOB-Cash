@@ -158,3 +158,5 @@ Use this endpoint to verify the application is running correctly.
 - The UI includes interactive card stacking, hover states, and glass texture effects
 - Font: Inter (loaded via Next.js font optimization)
 
+<!-- No-op commit to refresh Vercel deployment for env vars -->
+
