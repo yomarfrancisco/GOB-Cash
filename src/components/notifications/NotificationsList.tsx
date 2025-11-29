@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
@@ -9,17 +9,26 @@ import styles from '@/app/activity/activity.module.css'
 
 const GOB_AVATAR_PATH = '/assets/aa2b32f2dc3e3a159949cb59284abddef5683b05.png'
 
-function groupByTimePeriod(items: ActivityItem[]) {
+function isValidTimestamp(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function groupByTimePeriod(itemsInput: ActivityItem[] | undefined | null) {
+  const items = Array.isArray(itemsInput) ? itemsInput : []
   const now = Date.now()
   const oneDay = 24 * 60 * 60 * 1000
   const sevenDays = 7 * oneDay
   const thirtyDays = 30 * oneDay
 
-  const today: typeof items = []
-  const last7Days: typeof items = []
-  const last30Days: typeof items = []
+  const today: ActivityItem[] = []
+  const last7Days: ActivityItem[] = []
+  const last30Days: ActivityItem[] = []
 
-  items.forEach((item) => {
+  for (const item of items) {
+    if (!item || !isValidTimestamp(item.createdAt)) {
+      continue
+    }
+
     const age = now - item.createdAt
     if (age <= oneDay) {
       today.push(item)
@@ -28,7 +37,7 @@ function groupByTimePeriod(items: ActivityItem[]) {
     } else if (age <= thirtyDays) {
       last30Days.push(item)
     }
-  })
+  }
 
   return { today, last7Days, last30Days }
 }
@@ -47,6 +56,8 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
     }
   }
 
+  const hasValidCreatedAt = isValidTimestamp(item.createdAt)
+
   return (
     <div className={styles.activityItem} onClick={handleClick} style={{ cursor: item.routeOnTap ? 'pointer' : 'default' }}>
       <div className={styles.activityAvatar}>
@@ -62,7 +73,9 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
       <div className={styles.activityContent}>
         <div className={styles.activityHeader}>
           <div className={styles.activityTitle}>{item.title}</div>
-          <div className={styles.activityTime}>{formatRelativeShort(item.createdAt)}</div>
+          {hasValidCreatedAt && (
+            <div className={styles.activityTime}>{formatRelativeShort(item.createdAt)}</div>
+          )}
         </div>
         {item.body && (
           <div className={styles.activityBody}>{item.body}</div>
@@ -88,7 +101,21 @@ function ActivitySection({ title, items }: { title: string; items: ActivityItem[
 }
 
 export function NotificationsList() {
-  const allItems = useActivityStore((s) => s.all())
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Until we're on the client, render a safe fallback
+  if (!isClient) {
+    return null
+  }
+
+  // Make allItems always a safe array
+  const rawItems = useActivityStore((s) => s.all())
+  const allItems = Array.isArray(rawItems) ? rawItems : []
+
   const { today, last7Days, last30Days } = useMemo(() => groupByTimePeriod(allItems), [allItems])
 
   return (
@@ -99,4 +126,3 @@ export function NotificationsList() {
     </div>
   )
 }
-
