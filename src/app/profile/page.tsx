@@ -443,9 +443,9 @@ export default function ProfilePage() {
                   >
                     <div className="profile-settings-left">
                       <div className="profile-settings-icon">
-                        <PiggyBank size={22} strokeWidth={2} style={{ color: '#111' }} />
+                        <WalletCards size={22} strokeWidth={2} style={{ color: '#111' }} />
                       </div>
-                      <span className="profile-settings-label">Linked bank accounts</span>
+                      <span className="profile-settings-label">Linked accounts</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
