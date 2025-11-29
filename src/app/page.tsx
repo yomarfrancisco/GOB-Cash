@@ -48,10 +48,16 @@ export default function Home() {
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const [helperWalletKey, setHelperWalletKey] = useState<CardType | null>(null)
   const [isMapHelperOpen, setIsMapHelperOpen] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
   const cardStackRef = useRef<CardStackHandle>(null)
   const scrollContentRef = useRef<HTMLDivElement | null>(null)
   const { setOnSelect, open } = useTransactSheet()
   const { guardAuthed, isAuthed } = useRequireAuth()
+  
+  // Hydration guard - only run client-side effects after hydration
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   // Debug: verify card and map widths match - instrument parent chain
   useEffect(() => {
@@ -351,6 +357,7 @@ export default function Home() {
   // Auto-show Ama chat intro on landing page (pre-sign-in demo)
   // Shows Ama chat sheet after 15s, keeps it open for 14s, then closes automatically
   // Respects auth flow: does not open if auth is active, cancels timer when auth opens
+  // Hydration guard: only runs after client-side hydration to prevent SSR mismatches
   const hasShownAmaIntroRef = useRef(false)
   const {
     isAuthFlowActive,
@@ -360,6 +367,9 @@ export default function Home() {
   const { isInboxOpen } = useFinancialInboxStore()
   
   useEffect(() => {
+    // Wait for hydration before running any Zustand setters
+    if (!isHydrated) return
+    
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     
     // Only run once per page load, in demo mode, when not authenticated
@@ -368,10 +378,13 @@ export default function Home() {
     }
     
     hasShownAmaIntroRef.current = true
-  }, [isAuthed])
+  }, [isHydrated, isAuthed])
   
   // Separate effect for managing the auto-open timer
   useEffect(() => {
+    // Wait for hydration before running any Zustand setters
+    if (!isHydrated) return
+    
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     
     // Skip if not in demo mode, already authed, or already shown
@@ -422,7 +435,7 @@ export default function Home() {
       clearTimeout(id)
       setChatAutoTimeoutId(null)
     }
-  }, [isInboxOpen, isAuthFlowActive, chatAutoTimeoutId, setChatAutoTimeoutId, isAuthed])
+  }, [isHydrated, isInboxOpen, isAuthFlowActive, chatAutoTimeoutId, setChatAutoTimeoutId, isAuthed])
 
   // After auth, reset scroll *after* keyboard/viewport has settled.
   // This fixes the "home is slightly higher only immediately after sign-in" issue on iOS.
