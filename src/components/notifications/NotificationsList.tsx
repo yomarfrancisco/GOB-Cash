@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
@@ -88,6 +88,21 @@ function ActivitySection({ title, items }: { title: string; items: ActivityItem[
 }
 
 export function NotificationsList() {
+  const clear = useActivityStore((s) => s.clear)
+  const all = useActivityStore((s) => s.all)
+  
+  // Runtime validator: auto-clear bad data
+  useEffect(() => {
+    const items = all()
+    const hasBadItems =
+      !Array.isArray(items) ||
+      items.some((it) => !it || typeof it.id !== 'string' || !Number.isFinite(it.createdAt))
+    
+    if (hasBadItems) {
+      clear()
+    }
+  }, [all, clear])
+  
   const allItems = useActivityStore((s) => s.all())
   const { today, last7Days, last30Days } = useMemo(() => groupByTimePeriod(allItems), [allItems])
 
@@ -99,4 +114,3 @@ export function NotificationsList() {
     </div>
   )
 }
-
