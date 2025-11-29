@@ -13,6 +13,7 @@ import clsx from 'clsx'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import { BASE_USDT_ADDRESS } from '@/config/addresses'
 import { useNotificationStore } from '@/store/notifications'
+import { triggerLongPressHaptic } from '@/utils/haptics'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -169,6 +170,8 @@ export default function CardStackCard({
           title: 'USDT address copied',
           body: 'Base USDT address copied to clipboard',
         })
+        // 🔔 Haptic feedback on success
+        triggerLongPressHaptic()
       } catch (err) {
         console.error('[CARD LONGPRESS] Failed to copy USDT address', err)
         pushNotification({
