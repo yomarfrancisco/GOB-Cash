@@ -40,8 +40,6 @@ import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { openAmaIntro, closeInboxSheet } from '@/lib/demo/autoAmaIntro'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
-import { useNotificationsStore } from '@/state/notifications'
-import { Bell } from 'lucide-react'
 import { useUserProfileStore } from '@/store/userProfile'
 import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
@@ -58,7 +56,6 @@ export default function Home() {
   const scrollContentRef = useRef<HTMLDivElement | null>(null)
   const { setOnSelect, open } = useTransactSheet()
   const { guardAuthed, isAuthed } = useRequireAuth()
-  const { openNotifications } = useNotificationsStore()
   const { profile } = useUserProfileStore()
   const { startCashDepositScenario, startCashWithdrawalScenario } = useFinancialInboxStore()
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
@@ -552,50 +549,27 @@ export default function Home() {
                 <div className="frame-parent">
                   <div className="wallet-header">
                     <h1 className="wallet-title">{title}</h1>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <button
-                        onClick={() => {
-                          guardAuthed(() => {
-                            openNotifications()
-                          })
-                        }}
-                        type="button"
-                        aria-label="Notifications"
-                        style={{
-                          background: 'transparent',
-                          border: 0,
-                          padding: 0,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#000',
-                        }}
-                      >
-                        <Bell size={20} strokeWidth={2} />
-                      </button>
-                      <div
-                        className="help-icon"
-                        onClick={() => {
-                          // ? info chips remain accessible without auth (read-only information)
+                    <div
+                      className="help-icon"
+                      onClick={() => {
+                        // ? info chips remain accessible without auth (read-only information)
+                        if (!topCardType) return
+                        setHelperWalletKey(topCardType)
+                        setIsHelperOpen(true)
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
                           if (!topCardType) return
                           setHelperWalletKey(topCardType)
                           setIsHelperOpen(true)
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            if (!topCardType) return
-                            setHelperWalletKey(topCardType)
-                            setIsHelperOpen(true)
-                          }
-                        }}
-                        aria-label="Help"
-                      >
-                        ?
-                      </div>
+                        }
+                      }}
+                      aria-label="Help"
+                    >
+                      ?
                     </div>
                   </div>
                   <div className="wallet-subtitle-container">
