@@ -146,6 +146,7 @@
   max-height: 85vh;
   height: 85vh; /* Force the height to match keypad exactly */
   margin-top: 0; /* Remove any extra top gap */
+  padding-bottom: 0; /* Remove default padding - send-details-fields handles safe-area */
 }
 
 /* Send details sheet - ensure as-body fills height (like other tall sheets) */

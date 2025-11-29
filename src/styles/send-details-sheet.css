@@ -123,7 +123,7 @@
 }
 
 .send-details-fields {
-  padding: 8px 20px max(24px, env(safe-area-inset-bottom));
+  padding: 8px 20px calc(env(safe-area-inset-bottom) + 8px);
   display: flex;
   flex-direction: column;
   flex: 1 1 auto; /* Stretch to fill remaining space */
