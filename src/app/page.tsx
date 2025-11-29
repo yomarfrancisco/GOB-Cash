@@ -48,15 +48,15 @@ export default function Home() {
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const [helperWalletKey, setHelperWalletKey] = useState<CardType | null>(null)
   const [isMapHelperOpen, setIsMapHelperOpen] = useState(false)
-  const [isHydrated, setIsHydrated] = useState(false)
+  const hasMountedRef = useRef(false)
   const cardStackRef = useRef<CardStackHandle>(null)
   const scrollContentRef = useRef<HTMLDivElement | null>(null)
   const { setOnSelect, open } = useTransactSheet()
   const { guardAuthed, isAuthed } = useRequireAuth()
   
-  // Hydration guard - only run client-side effects after hydration
+  // Mount guard - mark component as mounted (no Zustand calls here)
   useEffect(() => {
-    setIsHydrated(true)
+    hasMountedRef.current = true
   }, [])
 
   // Debug: verify card and map widths match - instrument parent chain
@@ -357,7 +357,7 @@ export default function Home() {
   // Auto-show Ama chat intro on landing page (pre-sign-in demo)
   // Shows Ama chat sheet after 15s, keeps it open for 14s, then closes automatically
   // Respects auth flow: does not open if auth is active, cancels timer when auth opens
-  // Hydration guard: only runs after client-side hydration to prevent SSR mismatches
+  // Mount guard: only runs after component has mounted to prevent React #185 errors
   const hasShownAmaIntroRef = useRef(false)
   const {
     isAuthFlowActive,
@@ -367,8 +367,8 @@ export default function Home() {
   const { isInboxOpen } = useFinancialInboxStore()
   
   useEffect(() => {
-    // Wait for hydration before running any Zustand setters
-    if (!isHydrated) return
+    // Don't run any chat / timeout logic until after mount
+    if (!hasMountedRef.current) return
     
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     
@@ -378,12 +378,12 @@ export default function Home() {
     }
     
     hasShownAmaIntroRef.current = true
-  }, [isHydrated, isAuthed])
+  }, [isAuthed])
   
   // Separate effect for managing the auto-open timer
   useEffect(() => {
-    // Wait for hydration before running any Zustand setters
-    if (!isHydrated) return
+    // Don't run any chat / timeout logic until after mount
+    if (!hasMountedRef.current) return
     
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     
@@ -435,7 +435,7 @@ export default function Home() {
       clearTimeout(id)
       setChatAutoTimeoutId(null)
     }
-  }, [isHydrated, isInboxOpen, isAuthFlowActive, chatAutoTimeoutId, setChatAutoTimeoutId, isAuthed])
+  }, [isInboxOpen, isAuthFlowActive, chatAutoTimeoutId, setChatAutoTimeoutId, isAuthed])
 
   // After auth, reset scroll *after* keyboard/viewport has settled.
   // This fixes the "home is slightly higher only immediately after sign-in" issue on iOS.
