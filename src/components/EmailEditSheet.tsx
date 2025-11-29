@@ -93,11 +93,11 @@ export default function EmailEditSheet() {
     <ActionSheet open={isOpen} onClose={handleClose} title="" className="send-details" size="tall">
       <div className="send-details-sheet">
         <div className="send-details-header">
+          <div style={{ width: 32, flexShrink: 0 }} /> {/* Spacer for left alignment */}
+          <h3 className="send-details-title" style={{ flex: 1 }}></h3>
           <button className="send-details-close" onClick={handleClose} aria-label="Close">
             <Image src="/assets/clear.svg" alt="" width={18} height={18} />
           </button>
-          <h3 className="send-details-title">Enter your email address</h3>
-          <div style={{ width: 32, flexShrink: 0 }} /> {/* Spacer for centering */}
         </div>
         <div className="send-details-fields">
           <label className="send-details-row">
