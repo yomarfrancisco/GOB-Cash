@@ -27,43 +27,49 @@ export default function LinkedAccountsSheet() {
           <h2 className={styles.title}>Linked accounts</h2>
         </div>
         
-        {/* Linked Cards Tile */}
-        <div className={styles.tile}>
+        {/* Linked Cards Section */}
+        <div className={styles.sectionWrapper}>
           <p className={styles.sectionLabel}>Linked cards</p>
-          <button
-            className={styles.addButton}
-            onClick={handleAddCard}
-            type="button"
-          >
-            <Plus size={24} strokeWidth={2} />
-            <span className={styles.addButtonText}>Add new card</span>
-          </button>
+          <div className={styles.tile}>
+            <button
+              className={styles.addButton}
+              onClick={handleAddCard}
+              type="button"
+            >
+              <Plus size={24} strokeWidth={2} />
+              <span className={styles.addButtonText}>Add new card</span>
+            </button>
+          </div>
         </div>
 
-        {/* Linked Banks Tile */}
-        <div className={styles.tile}>
+        {/* Linked Banks Section */}
+        <div className={styles.sectionWrapper}>
           <p className={styles.sectionLabel}>Linked banks</p>
-          <button
-            className={styles.addButton}
-            onClick={handleAddBank}
-            type="button"
-          >
-            <Plus size={24} strokeWidth={2} />
-            <span className={styles.addButtonText}>Add new bank</span>
-          </button>
+          <div className={styles.tile}>
+            <button
+              className={styles.addButton}
+              onClick={handleAddBank}
+              type="button"
+            >
+              <Plus size={24} strokeWidth={2} />
+              <span className={styles.addButtonText}>Add new bank</span>
+            </button>
+          </div>
         </div>
 
-        {/* Linked USDT Wallet Tile */}
-        <div className={styles.tile}>
+        {/* Linked USDT Wallet Section */}
+        <div className={styles.sectionWrapper}>
           <p className={styles.sectionLabel}>Linked USDT wallet</p>
-          <button
-            className={styles.addButton}
-            onClick={handleAddWallet}
-            type="button"
-          >
-            <Plus size={24} strokeWidth={2} />
-            <span className={styles.addButtonText}>Add new wallet address</span>
-          </button>
+          <div className={styles.tile}>
+            <button
+              className={styles.addButton}
+              onClick={handleAddWallet}
+              type="button"
+            >
+              <Plus size={24} strokeWidth={2} />
+              <span className={styles.addButtonText}>Add new wallet address</span>
+            </button>
+          </div>
         </div>
       </div>
     </ActionSheet>
