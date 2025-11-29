@@ -155,6 +155,11 @@ export default function CardStackCard({
       return
     }
 
+    // ⚠️ CRITICAL: If we already attempted copy, don't allow another attempt
+    if (hasLongPressAttemptRef.current) {
+      return
+    }
+
     // Prevent native long-press context menu
     if (e) {
       e.preventDefault?.()
@@ -167,7 +172,8 @@ export default function CardStackCard({
     }
 
     longPressActiveRef.current = true
-    hasLongPressAttemptRef.current = false
+    // ⚠️ Only reset if we haven't attempted yet
+    // hasLongPressAttemptRef stays true once we've attempted (reset only in cancelLongPress)
 
     longPressTimeoutRef.current = window.setTimeout(async () => {
       // If long-press was cancelled or we already tried, bail
