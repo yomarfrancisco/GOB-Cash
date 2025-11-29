@@ -7,6 +7,7 @@ import ActionSheet from './ActionSheet'
 import { useProfileEditSheet } from '@/store/useProfileEditSheet'
 import { useNameHandleSheet } from '@/store/useNameHandleSheet'
 import { useSocialLinksSheet } from '@/store/useSocialLinksSheet'
+import { useEmailEditSheet } from '@/store/useEmailEditSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { uploadAvatar, removeAvatar } from '@/lib/profile'
 import { resizeImage } from '@/lib/imageResize'
@@ -19,6 +20,7 @@ export default function ProfileEditSheet() {
   const { isOpen, close } = useProfileEditSheet()
   const { open: openNameHandle } = useNameHandleSheet()
   const { open: openSocialLinks } = useSocialLinksSheet()
+  const { open: openEmailEdit } = useEmailEditSheet()
   const { profile, setProfile } = useUserProfileStore()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl)
@@ -209,6 +211,14 @@ export default function ProfileEditSheet() {
     openSocialLinks()
   }
 
+  const handleEditEmail = () => {
+    close()
+    // Small delay to allow Edit Profile to close before opening Email sheet
+    setTimeout(() => {
+      openEmailEdit()
+    }, 220)
+  }
+
   const handleBackdropClick = () => {
     // TODO: Implement backdrop change flow
     console.log('Change backdrop TBD')
@@ -346,7 +356,7 @@ export default function ProfileEditSheet() {
               </button>
               <button
                 className={styles.linkRow}
-                onClick={handleSocialLinks}
+                onClick={handleEditEmail}
                 type="button"
               >
                 <div className={styles.linkRowLeft}>
