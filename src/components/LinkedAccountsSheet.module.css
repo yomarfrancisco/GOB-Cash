@@ -6,10 +6,14 @@
   flex: 1 1 auto;
   transform: none !important;
   will-change: auto;
+  padding: 0 24px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .header {
-  padding: 64px 24px 24px 24px;
+  padding: 64px 0 32px 0;
   flex-shrink: 0;
 }
 
@@ -22,18 +26,18 @@
 }
 
 .cardContainer {
+  width: 382px;
+  max-width: calc(100% - 48px);
+  margin: 0 auto;
+  border-radius: 32px;
   background: rgba(127, 127, 127, 0.1);
   backdrop-filter: blur(50px);
-  border-radius: 32px;
-  padding: 24px 20px;
-  margin: 0 24px;
-  margin-bottom: calc(env(safe-area-inset-bottom) + 8px);
-  width: calc(100% - 48px);
+  padding: 24px;
   flex-shrink: 0;
 }
 
 .section {
-  margin-top: 28px;
+  margin-top: 24px;
 }
 
 .section:first-child {
@@ -42,21 +46,24 @@
 
 .sectionLabel {
   font-size: 16px;
-  font-weight: 300;
-  color: #0a0a0a;
-  margin: 0 0 12px 0;
+  font-weight: 400;
+  color: #111;
+  opacity: 0.8;
+  margin: 0 0 8px 0;
   text-align: left;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.25;
 }
 
 .addButton {
   display: flex;
   align-items: center;
   gap: 8px;
-  max-width: 75%;
+  align-self: flex-start;
+  width: 80%;
   height: 48px;
   border-radius: 56px;
-  background: #E9E9EB;
+  background: #E5E5EA;
   border: 0;
   padding: 0 20px;
   cursor: pointer;
@@ -76,12 +83,12 @@
   font-size: 16px;
   font-weight: 500;
   letter-spacing: -0.32px;
-  color: #0a0a0a;
+  color: #111;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .addButton svg {
-  color: #0a0a0a;
+  color: #111;
   flex-shrink: 0;
 }
 

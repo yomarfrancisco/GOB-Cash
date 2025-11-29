@@ -36,7 +36,7 @@ export default function LinkedAccountsSheet() {
               type="button"
             >
               <Plus size={24} strokeWidth={2} />
-              <span className={styles.addButtonText}>Add new card</span>
+              <span className={styles.addButtonText}>+ Add new card</span>
             </button>
           </section>
 
@@ -49,7 +49,7 @@ export default function LinkedAccountsSheet() {
               type="button"
             >
               <Plus size={24} strokeWidth={2} />
-              <span className={styles.addButtonText}>Add new bank</span>
+              <span className={styles.addButtonText}>+ Add new bank</span>
             </button>
           </section>
 
@@ -62,7 +62,7 @@ export default function LinkedAccountsSheet() {
               type="button"
             >
               <Plus size={24} strokeWidth={2} />
-              <span className={styles.addButtonText}>Add new wallet address</span>
+              <span className={styles.addButtonText}>+ Add new wallet address</span>
             </button>
           </section>
         </div>
