@@ -22,10 +22,25 @@ export default function EmailEditSheet() {
 
     setEmail(profile.email || '')
     setEmailError('')
-    // Focus email field after a brief delay
-    setTimeout(() => {
-      emailRef.current?.focus()
-    }, 100)
+    
+    // Focus email field to open keyboard immediately on mobile
+    // Wait for sheet animation to start (sheet becomes visible), then focus
+    // Using a small delay ensures the input is in the viewport and focusable
+    const focusTimer = setTimeout(() => {
+      if (emailRef.current) {
+        emailRef.current.focus()
+        // On iOS Safari, sometimes we need to trigger a click event to open keyboard
+        // This is a known workaround for programmatic focus on mobile
+        if (typeof window !== 'undefined' && 'ontouchstart' in window) {
+          // Small delay after focus to ensure keyboard opens
+          setTimeout(() => {
+            emailRef.current?.click()
+          }, 50)
+        }
+      }
+    }, 150) // Small delay to let sheet animation start and input become visible
+    
+    return () => clearTimeout(focusTimer)
   }, [isOpen, profile.email])
 
   // Reuse email validation from SocialLinksSheet
