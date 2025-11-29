@@ -39,11 +39,18 @@ export default function EmailEditSheet() {
 
   const handleClose = () => {
     close()
-    // Wait for full close animation (600ms) + small buffer before reopening Edit Profile
-    // This ensures EmailEditSheet is fully unmounted to avoid positioning conflicts
-    setTimeout(() => {
-      openProfileEdit()
-    }, 650)
+    // Use a shorter delay and check that EmailEditSheet is actually closed
+    // This prevents multiple sheets in DOM while keeping transition smooth
+    const checkAndOpen = () => {
+      const { isOpen: emailEditOpen } = useEmailEditSheet.getState()
+      if (!emailEditOpen) {
+        openProfileEdit()
+      } else {
+        // If still open, check again after a short delay
+        setTimeout(checkAndOpen, 50)
+      }
+    }
+    setTimeout(checkAndOpen, 100)
   }
 
   const handleSave = () => {
