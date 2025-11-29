@@ -133,9 +133,11 @@ export default function CardStackCard({
   // Long-press detection for copying USDT address
   const longPressTimeoutRef = useRef<number | null>(null)
   const longPressActiveRef = useRef(false)
+  const hasLongPressAttemptRef = useRef(false)
 
   const cancelLongPress = () => {
     longPressActiveRef.current = false
+    hasLongPressAttemptRef.current = false
     if (longPressTimeoutRef.current !== null) {
       window.clearTimeout(longPressTimeoutRef.current)
       longPressTimeoutRef.current = null
@@ -158,9 +160,23 @@ export default function CardStackCard({
       e.preventDefault?.()
     }
 
+    // ❗ Cancel any existing timeout for safety
+    if (longPressTimeoutRef.current !== null) {
+      window.clearTimeout(longPressTimeoutRef.current)
+      longPressTimeoutRef.current = null
+    }
+
     longPressActiveRef.current = true
+    hasLongPressAttemptRef.current = false
+
     longPressTimeoutRef.current = window.setTimeout(async () => {
-      if (!longPressActiveRef.current) return
+      // If long-press was cancelled or we already tried, bail
+      if (!longPressActiveRef.current || hasLongPressAttemptRef.current) {
+        return
+      }
+
+      hasLongPressAttemptRef.current = true
+      console.log('[CARD LONGPRESS] Attempting single clipboard copy')
 
       try {
         await navigator.clipboard.writeText(BASE_USDT_ADDRESS)
