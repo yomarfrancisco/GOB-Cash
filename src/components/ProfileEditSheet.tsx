@@ -8,6 +8,9 @@ import { useProfileEditSheet } from '@/store/useProfileEditSheet'
 import { useNameHandleSheet } from '@/store/useNameHandleSheet'
 import { useSocialLinksSheet } from '@/store/useSocialLinksSheet'
 import { useEmailEditSheet } from '@/store/useEmailEditSheet'
+import { useInstagramEditSheet } from '@/store/useInstagramEditSheet'
+import { useLinkedInEditSheet } from '@/store/useLinkedInEditSheet'
+import { useWhatsAppEditSheet } from '@/store/useWhatsAppEditSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { uploadAvatar, removeAvatar } from '@/lib/profile'
 import { resizeImage } from '@/lib/imageResize'
@@ -21,6 +24,9 @@ export default function ProfileEditSheet() {
   const { open: openNameHandle } = useNameHandleSheet()
   const { open: openSocialLinks } = useSocialLinksSheet()
   const { open: openEmailEdit } = useEmailEditSheet()
+  const { open: openInstagramEdit } = useInstagramEditSheet()
+  const { open: openLinkedInEdit } = useLinkedInEditSheet()
+  const { open: openWhatsAppEdit } = useWhatsAppEditSheet()
   const { profile, setProfile } = useUserProfileStore()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl)
@@ -227,6 +233,45 @@ export default function ProfileEditSheet() {
     setTimeout(checkAndOpen, 100)
   }
 
+  const handleEditInstagram = () => {
+    close()
+    const checkAndOpen = () => {
+      const { isOpen: profileEditOpen } = useProfileEditSheet.getState()
+      if (!profileEditOpen) {
+        openInstagramEdit()
+      } else {
+        setTimeout(checkAndOpen, 50)
+      }
+    }
+    setTimeout(checkAndOpen, 100)
+  }
+
+  const handleEditLinkedIn = () => {
+    close()
+    const checkAndOpen = () => {
+      const { isOpen: profileEditOpen } = useProfileEditSheet.getState()
+      if (!profileEditOpen) {
+        openLinkedInEdit()
+      } else {
+        setTimeout(checkAndOpen, 50)
+      }
+    }
+    setTimeout(checkAndOpen, 100)
+  }
+
+  const handleEditWhatsApp = () => {
+    close()
+    const checkAndOpen = () => {
+      const { isOpen: profileEditOpen } = useProfileEditSheet.getState()
+      if (!profileEditOpen) {
+        openWhatsAppEdit()
+      } else {
+        setTimeout(checkAndOpen, 50)
+      }
+    }
+    setTimeout(checkAndOpen, 100)
+  }
+
   const handleBackdropClick = () => {
     // TODO: Implement backdrop change flow
     console.log('Change backdrop TBD')
@@ -338,7 +383,7 @@ export default function ProfileEditSheet() {
             <div className={styles.linksCard}>
               <button
                 className={styles.linkRow}
-                onClick={handleSocialLinks}
+                onClick={handleEditInstagram}
                 type="button"
               >
                 <div className={styles.linkRowLeft}>
@@ -351,7 +396,7 @@ export default function ProfileEditSheet() {
               </button>
               <button
                 className={styles.linkRow}
-                onClick={handleSocialLinks}
+                onClick={handleEditLinkedIn}
                 type="button"
               >
                 <div className={styles.linkRowLeft}>
@@ -377,7 +422,7 @@ export default function ProfileEditSheet() {
               </button>
               <button
                 className={styles.linkRow}
-                onClick={handleSocialLinks}
+                onClick={handleEditWhatsApp}
                 type="button"
               >
                 <div className={styles.linkRowLeft}>

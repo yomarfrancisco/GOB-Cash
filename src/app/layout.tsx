@@ -13,6 +13,9 @@ import AvatarEditSheet from '@/components/AvatarEditSheet'
 import ProfileNameHandleSheet from '@/components/ProfileNameHandleSheet'
 import SocialLinksSheet from '@/components/SocialLinksSheet'
 import EmailEditSheet from '@/components/EmailEditSheet'
+import InstagramEditSheet from '@/components/InstagramEditSheet'
+import LinkedInEditSheet from '@/components/LinkedInEditSheet'
+import WhatsAppEditSheet from '@/components/WhatsAppEditSheet'
 import ProfileDescriptionSheet from '@/components/ProfileDescriptionSheet'
 import SupportSheet from '@/components/SupportSheet'
 import ShareProfileSheet from '@/components/ShareProfileSheet'
@@ -78,6 +81,12 @@ export default function RootLayout({
               <SocialLinksSheet />
               {/* Global Email Edit Sheet */}
               <EmailEditSheet />
+              {/* Global Instagram Edit Sheet */}
+              <InstagramEditSheet />
+              {/* Global LinkedIn Edit Sheet */}
+              <LinkedInEditSheet />
+              {/* Global WhatsApp Edit Sheet */}
+              <WhatsAppEditSheet />
               {/* Global Profile Description Sheet */}
               <ProfileDescriptionSheet />
               {/* Global Support Sheet */}
