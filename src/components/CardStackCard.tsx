@@ -11,6 +11,8 @@ import { useTweenNumber } from '@/lib/animations/useTweenNumber'
 import { useTwoStageTween } from '@/lib/animations/useTwoStageTween'
 import clsx from 'clsx'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
+import { BASE_USDT_ADDRESS } from '@/config/addresses'
+import { useNotificationStore } from '@/store/notifications'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -126,6 +128,53 @@ export default function CardStackCard({
   isSpecialCard = false,
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
+  const pushNotification = useNotificationStore((state) => state.pushNotification)
+  
+  // Long-press detection for copying USDT address
+  const LONG_PRESS_MS = 550 // ~0.5s
+  const longPressTimeoutRef = useRef<number | null>(null)
+  
+  const handleLongPress = async () => {
+    try {
+      await navigator.clipboard.writeText(BASE_USDT_ADDRESS)
+      pushNotification({
+        kind: 'payment_sent',
+        title: 'Copied!',
+        body: 'USDT address copied',
+      })
+    } catch (err) {
+      console.error('[CARD] Failed to copy USDT address', err)
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Error',
+        body: 'Unable to copy address, please try again',
+      })
+    }
+  }
+  
+  const startLongPress = () => {
+    if (longPressTimeoutRef.current) return
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      handleLongPress()
+      longPressTimeoutRef.current = null
+    }, LONG_PRESS_MS)
+  }
+  
+  const cancelLongPress = () => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current)
+      longPressTimeoutRef.current = null
+    }
+  }
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimeoutRef.current) {
+        clearTimeout(longPressTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Debug: verify flag size after mount (for both ZAR and MZN)
   useEffect(() => {
@@ -244,14 +293,49 @@ export default function CardStackCard({
     isSpecialMode && !isSpecialCard && 'dimmed-for-special',
     isSpecialMode && isSpecialCard && 'credit-surprise'
   )
+  
+  // Handle touch events for long-press (preserve existing handlers)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startLongPress()
+    onTouchStart?.(e)
+  }
+  
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    cancelLongPress()
+    onTouchEnd?.(e)
+  }
+  
+  const handleTouchCancel = (e: React.TouchEvent) => {
+    cancelLongPress()
+  }
+  
+  // Handle mouse events for long-press (desktop support)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only start long-press on left click (button 0)
+    if (e.button === 0) {
+      startLongPress()
+    }
+  }
+  
+  const handleMouseUp = (e: React.MouseEvent) => {
+    cancelLongPress()
+  }
+  
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    cancelLongPress()
+  }
 
   return (
     <div
       key={index}
       className={finalClassName}
       onClick={onClick}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       style={style}
     >
       {card.type === 'yield' || card.type === 'yieldSurprise' ? (
