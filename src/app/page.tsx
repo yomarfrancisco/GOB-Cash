@@ -32,6 +32,7 @@ import { useNotificationStore } from '@/store/notifications'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
+import { useSoundEffect } from '@/hooks/useSoundEffect'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import CashMapPopup from '@/components/CashMapPopup'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
@@ -61,6 +62,7 @@ export default function Home() {
   const { profile } = useUserProfileStore()
   const { startCashDepositScenario, startCashWithdrawalScenario } = useFinancialInboxStore()
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
+  const { play: playDollarSound } = useSoundEffect('/assets/Drum_3b.mp3')
 
   // Debug: verify card and map widths match - instrument parent chain
   useEffect(() => {
@@ -512,6 +514,8 @@ export default function Home() {
               <BottomGlassBar 
                 currentPath="/" 
                 onDollarClick={() => {
+                  // 🔊 Play sound immediately on tap
+                  playDollarSound()
                   // NOTE: $ button opens cash-to-crypto keypad with dual "Request" / "Pay someone" buttons
                   guardAuthed(() => {
                     setAmountMode('convert')
