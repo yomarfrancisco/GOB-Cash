@@ -33,9 +33,10 @@ const SADC_ZOOM = 4.2
 
 type ConvertCashSectionProps = {
   onHelpClick?: () => void
+  onMapClick?: (e: React.MouseEvent<HTMLDivElement>) => void
 }
 
-export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionProps) {
+export default function ConvertCashSection({ onHelpClick, onMapClick }: ConvertCashSectionProps) {
   const isAuthed = useAuthStore((s) => s.isAuthed)
 
   return (
@@ -60,7 +61,11 @@ export default function ConvertCashSection({ onHelpClick }: ConvertCashSectionPr
       </div>
 
       <div className={styles.mapContainer}>
-        <div className={styles.mapCard}>
+        <div 
+          className={styles.mapCard}
+          onClick={onMapClick}
+          style={onMapClick ? { cursor: 'pointer' } : undefined}
+        >
           {/* Empty map container - Mapbox will attach here */}
           <div className={styles.mapInnerContainer} id="mapbox-container" />
           

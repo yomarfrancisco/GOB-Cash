@@ -456,6 +456,31 @@ export default function Home() {
     setIsAgentCardVisible(false)
   }
 
+  // Extract helicopter convert handler for reuse
+  const handleHelicopterConvertClick = useCallback(() => {
+    guardAuthed(() => {
+      // Helicopter button opens convert keypad with single "Convert" button
+      setAmountMode('convert')
+      setAmountEntryPoint('helicopter')
+      setTimeout(() => setOpenAmount(true), 220)
+    })
+  }, [guardAuthed])
+
+  // Homepage map tap handler - ignores GeolocateControl clicks
+  const handleHomeMapClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // If click originated from the Mapbox geolocate control, do nothing.
+      const target = e.target as HTMLElement | null
+      if (target && target.closest('.mapboxgl-ctrl-geolocate')) {
+        // Let Mapbox's GeolocateControl handle this click normally.
+        return
+      }
+      // Otherwise, trigger the helicopter convert flow as before
+      handleHelicopterConvertClick()
+    },
+    [handleHelicopterConvertClick],
+  )
+
   // Get title and subtitle - always use card definitions (same for both modes)
   // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
   const cardDef = getCardDefinition(topCardType === 'yieldSurprise' ? 'yield' : topCardType)
@@ -591,16 +616,12 @@ export default function Home() {
               </div>
 
               {/* Explore savings circles section with shared shell - directly under .content */}
-              <ConvertCashSection onHelpClick={() => setIsMapHelperOpen(true)} />
+              <ConvertCashSection 
+                onHelpClick={() => setIsMapHelperOpen(true)} 
+                onMapClick={handleHomeMapClick}
+              />
               <BranchManagerFooter 
-                onHelicopterClick={() => {
-                  guardAuthed(() => {
-                    // Helicopter button opens convert keypad with single "Convert" button
-                    setAmountMode('convert')
-                    setAmountEntryPoint('helicopter')
-                    setTimeout(() => setOpenAmount(true), 220)
-                  })
-                }}
+                onHelicopterClick={handleHelicopterConvertClick}
                 onWhatsAppClick={() => {
                   guardAuthed(() => {
                     setIsAgentSheetOpen(true)
