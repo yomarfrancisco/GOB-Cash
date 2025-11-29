@@ -324,6 +324,13 @@ body {
   box-sizing: border-box;
 }
 
+/* Prevent native long-press context menu on cards */
+.card-noselect {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .card-switch {
   width: 100%;
   display: flex;

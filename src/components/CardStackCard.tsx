@@ -142,7 +142,7 @@ export default function CardStackCard({
     }
   }
 
-  const handlePressStart = () => {
+  const handlePressStart = (e?: React.TouchEvent | React.MouseEvent) => {
     // Only allow for the top card
     if (!isTop) return
     if (!BASE_USDT_ADDRESS) {
@@ -151,6 +151,11 @@ export default function CardStackCard({
         console.warn('[CARD LONGPRESS] BASE_USDT_ADDRESS is not set')
       }
       return
+    }
+
+    // Prevent native long-press context menu
+    if (e) {
+      e.preventDefault?.()
     }
 
     longPressActiveRef.current = true
@@ -296,6 +301,7 @@ export default function CardStackCard({
   // Compose className with special mode classes
   const finalClassName = clsx(
     className,
+    'card-noselect', // Prevent native long-press context menu
     isSpecialMode && !isSpecialCard && 'dimmed-for-special',
     isSpecialMode && isSpecialCard && 'credit-surprise'
   )
@@ -307,7 +313,7 @@ export default function CardStackCard({
       onClick={onClick}
       onTouchStart={(e) => {
         onTouchStart?.(e)
-        handlePressStart()
+        handlePressStart(e)
       }}
       onTouchEnd={(e) => {
         onTouchEnd?.(e)
@@ -319,8 +325,12 @@ export default function CardStackCard({
       onMouseDown={(e) => {
         if (e.button === 0) {
           // Only for left-click
-          handlePressStart()
+          handlePressStart(e)
         }
+      }}
+      onContextMenu={(e) => {
+        // Prevent native context menu on long-press
+        e.preventDefault()
       }}
       onMouseUp={(e) => {
         cancelLongPress()
