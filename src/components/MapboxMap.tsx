@@ -231,10 +231,12 @@ export default function MapboxMap({
     map.touchZoomRotate.enable()
     map.touchZoomRotate.disableRotation()
 
-    // Register event listeners - NO state updates inside
+    // Register event listeners - defer state updates to avoid React #185
     map.on('load', () => {
       loadedRef.current = true
-      setIsMapLoaded(true)
+      queueMicrotask(() => {
+        setIsMapLoaded(true)
+      })
       log('event: load')
 
       // Only add geolocation, branch marker, and user marker logic for landing maps
@@ -333,11 +335,15 @@ export default function MapboxMap({
               map.setCenter([lng, lat])
               console.log('[Mapbox] Centered on user:', { lng, lat })
             }
-            // Set user location state (will trigger zoom effect)
-            setUserLngLat([lng, lat])
+            // Set user location state (will trigger zoom effect) - defer to avoid React #185
+            queueMicrotask(() => {
+              setUserLngLat([lng, lat])
+            })
           } else {
-            // Update user location state for route recalculation
-            setUserLngLat([lng, lat])
+            // Update user location state for route recalculation - defer to avoid React #185
+            queueMicrotask(() => {
+              setUserLngLat([lng, lat])
+            })
           }
         })
 
@@ -371,8 +377,10 @@ export default function MapboxMap({
     map.on('error', (e) => {
       const errorMsg = e?.error?.message ?? 'unknown'
       log(`event: error → ${errorMsg}`)
-      // Only set error state, no other state updates
-      setHasError(true)
+      // Only set error state, no other state updates - defer to avoid React #185
+      queueMicrotask(() => {
+        setHasError(true)
+      })
     })
 
     map.on('remove', () => {
