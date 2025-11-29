@@ -11,6 +11,8 @@ import { useTweenNumber } from '@/lib/animations/useTweenNumber'
 import { useTwoStageTween } from '@/lib/animations/useTwoStageTween'
 import clsx from 'clsx'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
+import { BASE_USDT_ADDRESS } from '@/config/addresses'
+import { useNotificationStore } from '@/store/notifications'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -126,6 +128,59 @@ export default function CardStackCard({
   isSpecialCard = false,
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
+  const pushNotification = useNotificationStore((state) => state.pushNotification)
+
+  // Long-press detection for copying USDT address
+  const longPressTimeoutRef = useRef<number | null>(null)
+  const longPressActiveRef = useRef(false)
+
+  const cancelLongPress = () => {
+    longPressActiveRef.current = false
+    if (longPressTimeoutRef.current !== null) {
+      window.clearTimeout(longPressTimeoutRef.current)
+      longPressTimeoutRef.current = null
+    }
+  }
+
+  const handlePressStart = () => {
+    // Only allow for the top card
+    if (!isTop) return
+    if (!BASE_USDT_ADDRESS) {
+      // Optional: dev-only warning
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[CARD LONGPRESS] BASE_USDT_ADDRESS is not set')
+      }
+      return
+    }
+
+    longPressActiveRef.current = true
+    longPressTimeoutRef.current = window.setTimeout(async () => {
+      if (!longPressActiveRef.current) return
+
+      try {
+        await navigator.clipboard.writeText(BASE_USDT_ADDRESS)
+        pushNotification({
+          kind: 'payment_sent',
+          title: 'USDT address copied',
+          body: 'Base USDT address copied to clipboard',
+        })
+      } catch (err) {
+        console.error('[CARD LONGPRESS] Failed to copy USDT address', err)
+        pushNotification({
+          kind: 'payment_failed',
+          title: 'Failed to copy USDT address',
+          body: 'Unable to copy address, please try again',
+        })
+      }
+    }, 550)
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cancelLongPress()
+    }
+  }, [])
 
   // Debug: verify flag size after mount (for both ZAR and MZN)
   useEffect(() => {
@@ -250,8 +305,29 @@ export default function CardStackCard({
       key={index}
       className={finalClassName}
       onClick={onClick}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
+      onTouchStart={(e) => {
+        onTouchStart?.(e)
+        handlePressStart()
+      }}
+      onTouchEnd={(e) => {
+        onTouchEnd?.(e)
+        cancelLongPress()
+      }}
+      onTouchCancel={(e) => {
+        cancelLongPress()
+      }}
+      onMouseDown={(e) => {
+        if (e.button === 0) {
+          // Only for left-click
+          handlePressStart()
+        }
+      }}
+      onMouseUp={(e) => {
+        cancelLongPress()
+      }}
+      onMouseLeave={(e) => {
+        cancelLongPress()
+      }}
       style={style}
     >
       {card.type === 'yield' || card.type === 'yieldSurprise' ? (
