@@ -113,27 +113,41 @@ function ActivitySection({ title, items }: { title: string; items: ActivityItem[
 
 export function NotificationsList() {
   const [mounted, setMounted] = useState(false)
+  const [safeItems, setSafeItems] = useState<ActivityItem[]>([])
   
   // Only access store after mount to avoid hydration issues
   useEffect(() => {
     setMounted(true)
+    
+    // Access store only after mount, with maximum safety
+    try {
+      const store = useActivityStore.getState()
+      if (store && typeof store.all === 'function') {
+        const items = store.all()
+        setSafeItems(Array.isArray(items) ? items : [])
+      }
+    } catch {
+      setSafeItems([])
+    }
   }, [])
 
-  // Call hook unconditionally, but use a safe selector
-  const rawItems = useActivityStore((s) => {
-    // Defensive: if store isn't ready, return empty array
-    try {
-      const result = s.all()
-      return Array.isArray(result) ? result : []
-    } catch {
-      return []
-    }
-  })
-
-  // Always ensure we have an array
-  const safeItems = Array.isArray(rawItems) ? rawItems : []
-
-  // Compute grouped items - only after mount
+  // Subscribe to store changes only after mount
+  useEffect(() => {
+    if (!mounted) return
+    
+    const unsubscribe = useActivityStore.subscribe((state) => {
+      try {
+        if (state && typeof state.all === 'function') {
+          const items = state.all()
+          setSafeItems(Array.isArray(items) ? items : [])
+        }
+      } catch {
+        setSafeItems([])
+      }
+    })
+    
+    return unsubscribe
+  }, [mounted])
   const groups = useMemo(() => {
     if (!mounted) {
       return {
