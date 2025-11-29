@@ -1,38 +1,92 @@
-.addIconButton {
-  background: transparent;
-  border: 0;
-  padding: 4px;
-  cursor: pointer;
+/* Profile Edit Sheet - Tall layout with cards */
+
+.editSheetContent {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+  min-height: 0;
+  gap: 0;
+}
+
+/* Segmented Control */
+.segmentedControl {
+  padding: 0 24px;
+  margin-top: 20px;
+  margin-bottom: 24px;
+}
+
+/* Profile Card */
+.profileCard {
+  width: 382px;
+  max-width: calc(100% - 48px);
+  margin: 16px auto 0;
+  border-radius: 32px;
+  background: rgba(127, 127, 127, 0.1);
+  backdrop-filter: blur(50px);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Avatar Container */
+.avatarContainer {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.avatarWrapper {
+  position: relative;
+  width: 112px;
+  height: 112px;
+}
+
+.avatarEditButton {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #000;
+  border: 3px solid #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 150ms ease;
-  flex-shrink: 0;
-  color: #121212; /* Dark color for icon */
+  cursor: pointer;
+  padding: 0;
+  transition: background 200ms ease;
+  z-index: 2;
 }
 
-.addIconButton:hover {
-  opacity: 0.7;
+.avatarEditButton:hover {
+  background: #333;
 }
 
-.addIconButton:active {
-  opacity: 0.5;
+.avatarEditButton:active {
+  background: #111;
 }
 
-.addIconSvg {
+.uploadingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 32px;
+  z-index: 1;
+}
+
+.spinner {
   width: 24px;
   height: 24px;
-  display: block;
-  flex-shrink: 0;
-}
-
-.fileInput {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  pointer-events: none;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
 }
 
 @keyframes spin {
@@ -41,3 +95,224 @@
   }
 }
 
+/* Profile Rows */
+.profileRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: background 150ms ease;
+  text-align: left;
+  gap: 12px;
+  border-radius: 16px;
+}
+
+.profileRow:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.profileRow:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.profileRowLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.profileRowLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: #000;
+  opacity: 0.5;
+  line-height: 1.3;
+}
+
+.profileRowValue {
+  font-size: 16px;
+  font-weight: 400;
+  color: #000;
+  line-height: 1.25;
+}
+
+/* Section Container */
+.sectionContainer {
+  width: 100%;
+  margin: 24px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sectionHeading {
+  font-weight: 300;
+  font-size: 16px;
+  opacity: 1;
+  color: #000;
+  margin: 0 0 12px 0;
+  text-align: center;
+  width: 382px;
+  max-width: calc(100% - 48px);
+}
+
+/* Links Card */
+.linksCard {
+  width: 382px;
+  max-width: calc(100% - 48px);
+  border-radius: 32px;
+  background: rgba(127, 127, 127, 0.1);
+  backdrop-filter: blur(50px);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.linkRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: background 150ms ease;
+  text-align: left;
+  gap: 12px;
+}
+
+.linkRow:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.linkRow:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.linkRowLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.linkIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background: #E9E9EB;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.linkRowLabel {
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.25;
+  color: #000;
+}
+
+/* Backdrop Card */
+.backdropCard {
+  width: 382px;
+  max-width: calc(100% - 48px);
+  border-radius: 32px;
+  background: rgba(127, 127, 127, 0.1);
+  backdrop-filter: blur(50px);
+  padding: 16px;
+  overflow: hidden;
+}
+
+.backdropImageContainer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.backdropEditButton {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 200ms ease;
+  z-index: 2;
+}
+
+.backdropEditButton:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.backdropEditButton:active {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* Done Button */
+.doneButtonContainer {
+  margin-top: 32px;
+  margin-bottom: 16px;
+  padding: 0 24px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.doneButton {
+  width: 382px;
+  max-width: calc(100% - 48px);
+  height: 56px;
+  border-radius: 56px;
+  background: #000;
+  color: #fff;
+  border: 0;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 200ms ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.doneButton:hover {
+  background: #333;
+}
+
+.doneButton:active {
+  background: #111;
+}
+
+/* Hidden file input */
+.fileInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
