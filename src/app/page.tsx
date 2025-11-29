@@ -38,6 +38,7 @@ import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { openAmaIntro, closeInboxSheet } from '@/lib/demo/autoAmaIntro'
 import { useFinancialInboxStore } from '@/state/financialInbox'
+import { usePreSignupEngagementStore } from '@/state/preSignupEngagement'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -348,8 +349,16 @@ export default function Home() {
   }, [pushNotification, isAuthed])
 
   // Auto-show Ama chat intro on landing page (pre-sign-in demo)
-  // Shows Ama chat sheet after 5s, keeps it open for 7s, then closes automatically
+  // Shows Ama chat sheet after 15s, keeps it open for 14s, then closes automatically
+  // Respects auth flow: does not open if auth is active, cancels timer when auth opens
   const hasShownAmaIntroRef = useRef(false)
+  const {
+    isAuthFlowActive,
+    chatAutoTimeoutId,
+    setChatAutoTimeoutId,
+  } = usePreSignupEngagementStore()
+  const { isInboxOpen } = useFinancialInboxStore()
+  
   useEffect(() => {
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     
@@ -359,37 +368,61 @@ export default function Home() {
     }
     
     hasShownAmaIntroRef.current = true
+  }, [isAuthed])
+  
+  // Separate effect for managing the auto-open timer
+  useEffect(() => {
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     
-    let closeTimer: NodeJS.Timeout | null = null
+    // Skip if not in demo mode, already authed, or already shown
+    if (!isDemoMode || isAuthed || !hasShownAmaIntroRef.current) {
+      return
+    }
     
-    // Wait 15 seconds before showing the intro
-    const openTimer = setTimeout(() => {
-      // Re-check conditions before opening (user might have signed in)
+    // If chat is already open, or auth flow is active, do not schedule
+    if (isInboxOpen) return
+    if (isAuthFlowActive) {
+      // If auth is active, make sure no stale timer exists
+      if (chatAutoTimeoutId !== null) {
+        clearTimeout(chatAutoTimeoutId)
+        setChatAutoTimeoutId(null)
+      }
+      return
+    }
+    
+    // Auth is *not* active, chat is closed → schedule auto-open
+    const AUTO_CHAT_DELAY_MS = 15000 // 15 seconds
+    
+    const id = window.setTimeout(() => {
+      // Re-check right before opening
+      const stillAuthActive = usePreSignupEngagementStore.getState().isAuthFlowActive
+      const { isInboxOpen: stillChatOpen } = useFinancialInboxStore.getState()
       const currentIsAuthed = useAuthStore.getState().isAuthed
-      if (currentIsAuthed) {
-        return // Don't show if user signed in
+      
+      if (!stillAuthActive && !stillChatOpen && !currentIsAuthed) {
+        // Open Ama chat sheet directly (skips inbox list)
+        openAmaIntro()
+        
+        // Close the sheet after 14 seconds
+        setTimeout(() => {
+          // Check if sheet is still open (user might have closed it manually)
+          const { isInboxOpen: isStillOpen } = useFinancialInboxStore.getState()
+          if (isStillOpen) {
+            closeInboxSheet()
+          }
+        }, 14000)
       }
       
-      // Open Ama chat sheet directly (skips inbox list)
-      openAmaIntro()
-      
-      // Close the sheet after 14 seconds
-      closeTimer = setTimeout(() => {
-        // Check if sheet is still open (user might have closed it manually)
-        const { isInboxOpen } = useFinancialInboxStore.getState()
-        if (isInboxOpen) {
-          closeInboxSheet()
-        }
-      }, 14000)
-    }, 15000)
+      setChatAutoTimeoutId(null)
+    }, AUTO_CHAT_DELAY_MS)
+    
+    setChatAutoTimeoutId(id)
     
     return () => {
-      clearTimeout(openTimer)
-      if (closeTimer) {
-        clearTimeout(closeTimer)
-      }
+      clearTimeout(id)
+      setChatAutoTimeoutId(null)
     }
-  }, [isAuthed])
+  }, [isInboxOpen, isAuthFlowActive, chatAutoTimeoutId, setChatAutoTimeoutId, isAuthed])
 
   // After auth, reset scroll *after* keyboard/viewport has settled.
   // This fixes the "home is slightly higher only immediately after sign-in" issue on iOS.

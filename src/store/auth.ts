@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { useNotificationStore } from './notifications'
 import { stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
+import { usePreSignupEngagementStore } from '@/state/preSignupEngagement'
 
 type AuthView = 'provider-list' | 'whatsapp-signin' | 'whatsapp-signup'
 
@@ -36,16 +37,72 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   phoneSignupOpen: false,
   authView: 'provider-list',
   authIdentifier: null,
-  openAuth: () => set({ authOpen: true, authEntryOpen: true, authView: 'provider-list' }),
-  closeAuth: () => set({ authOpen: false, authEntryOpen: false }),
-  closeAllAuth: () => set({ authOpen: false, authEntryOpen: false, authPasswordOpen: false, phoneSignupOpen: false }),
-  openAuthEntry: () => set({ authEntryOpen: true, authOpen: true }),
-  openAuthEntrySignup: () => set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signup' }),
-  closeAuthEntry: () => set({ authEntryOpen: false, authOpen: false }),
-  openAuthPassword: () => set({ authPasswordOpen: true }),
-  closeAuthPassword: () => set({ authPasswordOpen: false, authIdentifier: null }),
-  openPhoneSignup: () => set({ phoneSignupOpen: true }),
-  closePhoneSignup: () => set({ phoneSignupOpen: false }),
+  openAuth: () => {
+    const { chatAutoTimeoutId, setChatAutoTimeoutId, setAuthFlowActive } = usePreSignupEngagementStore.getState()
+    // Cancel any pending chat auto-open
+    if (chatAutoTimeoutId !== null) {
+      clearTimeout(chatAutoTimeoutId)
+      setChatAutoTimeoutId(null)
+    }
+    setAuthFlowActive(true)
+    set({ authOpen: true, authEntryOpen: true, authView: 'provider-list' })
+  },
+  closeAuth: () => {
+    usePreSignupEngagementStore.getState().setAuthFlowActive(false)
+    set({ authOpen: false, authEntryOpen: false })
+  },
+  closeAllAuth: () => {
+    usePreSignupEngagementStore.getState().setAuthFlowActive(false)
+    set({ authOpen: false, authEntryOpen: false, authPasswordOpen: false, phoneSignupOpen: false })
+  },
+  openAuthEntry: () => {
+    const { chatAutoTimeoutId, setChatAutoTimeoutId, setAuthFlowActive } = usePreSignupEngagementStore.getState()
+    // Cancel any pending chat auto-open
+    if (chatAutoTimeoutId !== null) {
+      clearTimeout(chatAutoTimeoutId)
+      setChatAutoTimeoutId(null)
+    }
+    setAuthFlowActive(true)
+    set({ authEntryOpen: true, authOpen: true })
+  },
+  openAuthEntrySignup: () => {
+    const { chatAutoTimeoutId, setChatAutoTimeoutId, setAuthFlowActive } = usePreSignupEngagementStore.getState()
+    // Cancel any pending chat auto-open
+    if (chatAutoTimeoutId !== null) {
+      clearTimeout(chatAutoTimeoutId)
+      setChatAutoTimeoutId(null)
+    }
+    setAuthFlowActive(true)
+    set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signup' })
+  },
+  closeAuthEntry: () => {
+    usePreSignupEngagementStore.getState().setAuthFlowActive(false)
+    set({ authEntryOpen: false, authOpen: false })
+  },
+  openAuthPassword: () => {
+    usePreSignupEngagementStore.getState().setAuthFlowActive(true)
+    set({ authPasswordOpen: true })
+  },
+  closeAuthPassword: () => {
+    // Only set auth flow inactive if no other auth sheet is open
+    const state = get()
+    if (!state.authEntryOpen && !state.phoneSignupOpen) {
+      usePreSignupEngagementStore.getState().setAuthFlowActive(false)
+    }
+    set({ authPasswordOpen: false, authIdentifier: null })
+  },
+  openPhoneSignup: () => {
+    usePreSignupEngagementStore.getState().setAuthFlowActive(true)
+    set({ phoneSignupOpen: true })
+  },
+  closePhoneSignup: () => {
+    // Only set auth flow inactive if no other auth sheet is open
+    const state = get()
+    if (!state.authEntryOpen && !state.authPasswordOpen) {
+      usePreSignupEngagementStore.getState().setAuthFlowActive(false)
+    }
+    set({ phoneSignupOpen: false })
+  },
   setAuthIdentifier: (identifier) => set({ authIdentifier: identifier }),
   setAuthView: (view) => set({ authView: view }),
   completeAuth: () => {
@@ -55,6 +112,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Clear notification queue
     const { clearNotifications } = useNotificationStore.getState()
     clearNotifications()
+    
+    // Mark auth flow as inactive
+    usePreSignupEngagementStore.getState().setAuthFlowActive(false)
     
     // Set authenticated state
     set({ isAuthed: true, authOpen: false, authEntryOpen: false, authPasswordOpen: false, phoneSignupOpen: false })
