@@ -403,9 +403,13 @@
   text-align: center;
 }
 
-/* Linked accounts sheet - match inbox/keyboard height */
-.as-sheet-tall.linked-accounts-sheet {
-  max-height: 85vh !important;
+/* Linked accounts sheet - force exact height match with AmountSheet/Inbox */
+.as-sheet.send-details.as-sheet-tall.linked-accounts-sheet,
+.as-sheet.linked-accounts-sheet.as-sheet-tall {
+  max-height: 85vh;
+  height: 85vh; /* Force the height to match keypad exactly */
+  margin-top: 0; /* Remove any extra top gap */
+  padding-bottom: 0; /* Remove default padding - sheetContent handles safe-area */
 }
 
 /* Linked accounts sheet - ensure as-body fills height (like other tall sheets) */
