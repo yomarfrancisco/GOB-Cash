@@ -31,6 +31,7 @@ const defaultProfile: UserProfile = {
   fullName: 'Samuel Akoyo',
   userHandle: '@samakoyo',
   avatarUrl: null,
+  backdropUrl: null,
   email: 'samakoyo@example.com',
   instagramUrl: undefined,
   linkedinUrl: undefined,
