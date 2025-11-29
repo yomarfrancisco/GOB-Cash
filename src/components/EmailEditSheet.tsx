@@ -111,7 +111,7 @@ export default function EmailEditSheet() {
         </div>
         <div className="send-details-fields">
           <label className="send-details-row">
-            <span className="send-details-label">Email</span>
+            <span className="send-details-label">Enter your email address</span>
             <input
               ref={emailRef}
               className="send-details-input"
