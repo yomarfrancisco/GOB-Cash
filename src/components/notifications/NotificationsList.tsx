@@ -101,28 +101,37 @@ function ActivitySection({ title, items }: { title: string; items: ActivityItem[
 }
 
 export function NotificationsList() {
+  // 1) Local state for "client" awareness
   const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
   }, [])
 
-  // Until we're on the client, render a safe fallback
-  if (!isClient) {
-    return null
-  }
-
-  // Make allItems always a safe array
+  // 2) Read from activity store UNCONDITIONALLY
   const rawItems = useActivityStore((s) => s.all())
-  const allItems = Array.isArray(rawItems) ? rawItems : []
 
-  const { today, last7Days, last30Days } = useMemo(() => groupByTimePeriod(allItems), [allItems])
+  // 3) Compute grouped items via useMemo UNCONDITIONALLY
+  const groups = useMemo(() => {
+    // Make allItems always a safe array
+    const allItems = Array.isArray(rawItems) ? rawItems : []
+    
+    // If not on client yet, or no items, just return empty groups
+    if (!isClient || allItems.length === 0) {
+      return {
+        today: [],
+        last7Days: [],
+        last30Days: [],
+      }
+    }
+    return groupByTimePeriod(allItems)
+  }, [isClient, rawItems])
 
   return (
     <div className={styles.activityContainer}>
-      <ActivitySection title="Today" items={today} />
-      <ActivitySection title="Last 7 days" items={last7Days} />
-      <ActivitySection title="Last 30 days" items={last30Days} />
+      <ActivitySection title="Today" items={groups.today} />
+      <ActivitySection title="Last 7 days" items={groups.last7Days} />
+      <ActivitySection title="Last 30 days" items={groups.last30Days} />
     </div>
   )
 }
