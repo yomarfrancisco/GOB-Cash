@@ -133,10 +133,12 @@ export default function CardStackCard({
   // Long-press detection for copying USDT address
   const longPressTimeoutRef = useRef<number | null>(null)
   const longPressActiveRef = useRef(false)
+  const pressStartRef = useRef<number | null>(null)
   const hasLongPressAttemptRef = useRef(false)
 
   const cancelLongPress = () => {
     longPressActiveRef.current = false
+    pressStartRef.current = null
     hasLongPressAttemptRef.current = false
     if (longPressTimeoutRef.current !== null) {
       window.clearTimeout(longPressTimeoutRef.current)
@@ -155,51 +157,70 @@ export default function CardStackCard({
       return
     }
 
-    // ⚠️ CRITICAL: If we already attempted copy, don't allow another attempt
-    if (hasLongPressAttemptRef.current) {
-      return
-    }
-
     // Prevent native long-press context menu
     if (e) {
       e.preventDefault?.()
     }
 
-    // ❗ Cancel any existing timeout for safety
+    // Cancel any existing timeout for safety
     if (longPressTimeoutRef.current !== null) {
       window.clearTimeout(longPressTimeoutRef.current)
       longPressTimeoutRef.current = null
     }
 
+    // Mark start time
+    pressStartRef.current = Date.now()
     longPressActiveRef.current = true
-    // ⚠️ Only reset if we haven't attempted yet
-    // hasLongPressAttemptRef stays true once we've attempted (reset only in cancelLongPress)
+  }
 
-    longPressTimeoutRef.current = window.setTimeout(async () => {
-      // If long-press was cancelled or we already tried, bail
-      if (!longPressActiveRef.current || hasLongPressAttemptRef.current) {
-        return
-      }
+  const handlePressEnd = async () => {
+    if (!isTop || !BASE_USDT_ADDRESS) {
+      cancelLongPress()
+      return
+    }
 
-      hasLongPressAttemptRef.current = true
-      console.log('[CARD LONGPRESS] Attempting single clipboard copy')
+    const startedAt = pressStartRef.current
+    pressStartRef.current = null
 
-      try {
-        await navigator.clipboard.writeText(BASE_USDT_ADDRESS)
-        pushNotification({
-          kind: 'payment_sent',
-          title: 'USDT address copied',
-          body: 'Base USDT address copied to clipboard',
-        })
-      } catch (err) {
-        console.error('[CARD LONGPRESS] Failed to copy USDT address', err)
-        pushNotification({
-          kind: 'payment_failed',
-          title: 'Failed to copy USDT address',
-          body: 'Unable to copy address, please try again',
-        })
-      }
-    }, 550)
+    if (!startedAt) {
+      cancelLongPress()
+      return
+    }
+
+    const duration = Date.now() - startedAt
+
+    // Threshold: 550ms
+    if (duration < 550) {
+      cancelLongPress()
+      return
+    }
+
+    // Only one attempt per press
+    if (hasLongPressAttemptRef.current) {
+      cancelLongPress()
+      return
+    }
+
+    hasLongPressAttemptRef.current = true
+    console.log('[CARD LONGPRESS] Attempting clipboard copy from gesture end')
+
+    try {
+      await navigator.clipboard.writeText(BASE_USDT_ADDRESS)
+      pushNotification({
+        kind: 'payment_sent',
+        title: 'USDT address copied',
+        body: 'Base USDT address copied to clipboard',
+      })
+    } catch (err) {
+      console.error('[CARD LONGPRESS] Failed to copy USDT address', err)
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Failed to copy USDT address',
+        body: 'Unable to copy address, please try again',
+      })
+    } finally {
+      cancelLongPress()
+    }
   }
 
   // Cleanup on unmount
@@ -339,7 +360,7 @@ export default function CardStackCard({
       }}
       onTouchEnd={(e) => {
         onTouchEnd?.(e)
-        cancelLongPress()
+        handlePressEnd()
       }}
       onTouchCancel={(e) => {
         cancelLongPress()
@@ -355,7 +376,9 @@ export default function CardStackCard({
         e.preventDefault()
       }}
       onMouseUp={(e) => {
-        cancelLongPress()
+        if (e.button === 0) {
+          handlePressEnd()
+        }
       }}
       onMouseLeave={(e) => {
         cancelLongPress()
