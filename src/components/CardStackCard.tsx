@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import type { StaticImageData } from 'next/image'
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import SlotCounter from './SlotCounter'
 import { formatZAR, formatUSDT } from '@/lib/formatCurrency'
 import { useWalletAlloc } from '@/state/walletAlloc'
@@ -134,9 +134,13 @@ export default function CardStackCard({
   // Long-press detection for copying USDT address
   const longPressTimeoutRef = useRef<number | null>(null)
   const longPressActiveRef = useRef(false)
+  const longPressArmedRef = useRef(false)
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
 
   const cancelLongPress = () => {
     longPressActiveRef.current = false
+    longPressArmedRef.current = false
+    touchStartPosRef.current = null
     if (longPressTimeoutRef.current !== null) {
       window.clearTimeout(longPressTimeoutRef.current)
       longPressTimeoutRef.current = null
@@ -159,9 +163,76 @@ export default function CardStackCard({
       e.preventDefault?.()
     }
 
+    // Reset armed state
+    longPressArmedRef.current = false
+
+    // Track initial touch position for swipe detection
+    if (e && 'touches' in e && e.touches.length > 0) {
+      touchStartPosRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      }
+    } else if (e && 'clientX' in e) {
+      touchStartPosRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+      }
+    }
+
     longPressActiveRef.current = true
-    longPressTimeoutRef.current = window.setTimeout(async () => {
-      if (!longPressActiveRef.current) return
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      // Only arm if this is still the top card and we haven't cancelled
+      if (!longPressActiveRef.current || !isTop) return
+      longPressArmedRef.current = true
+    }, 550)
+  }
+
+  const handlePressEnd = useCallback(
+    async (e?: React.TouchEvent | React.MouseEvent) => {
+      // Always cancel the timer
+      cancelLongPress()
+
+      // Check for significant movement (swipe detection)
+      if (e && touchStartPosRef.current) {
+        let currentX = 0
+        let currentY = 0
+
+        if ('changedTouches' in e && e.changedTouches.length > 0) {
+          currentX = e.changedTouches[0].clientX
+          currentY = e.changedTouches[0].clientY
+        } else if ('clientX' in e) {
+          currentX = e.clientX
+          currentY = e.clientY
+        }
+
+        const deltaX = Math.abs(currentX - touchStartPosRef.current.x)
+        const deltaY = Math.abs(currentY - touchStartPosRef.current.y)
+        const movementThreshold = 15 // pixels
+
+        // If user moved significantly, treat as swipe - don't copy
+        if (deltaX > movementThreshold || deltaY > movementThreshold) {
+          return
+        }
+      }
+
+      // If long-press never armed, do nothing – treat as normal tap/swipe
+      if (!longPressArmedRef.current) return
+
+      // This was a valid long-press: prevent the normal click/cycle
+      if (e) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+
+      // Now do the copy *inside* the user gesture handler (iOS-safe)
+      if (!BASE_USDT_ADDRESS) {
+        pushNotification({
+          kind: 'payment_failed',
+          title: 'Failed to copy USDT address',
+          body: 'Address is not configured',
+        })
+        return
+      }
 
       try {
         await navigator.clipboard.writeText(BASE_USDT_ADDRESS)
@@ -180,8 +251,9 @@ export default function CardStackCard({
           body: 'Unable to copy address, please try again',
         })
       }
-    }, 550)
-  }
+    },
+    [pushNotification, isTop],
+  )
 
   // Cleanup on unmount
   useEffect(() => {
@@ -315,15 +387,16 @@ export default function CardStackCard({
       className={finalClassName}
       onClick={onClick}
       onTouchStart={(e) => {
-        onTouchStart?.(e)
         handlePressStart(e)
+        onTouchStart?.(e)
       }}
       onTouchEnd={(e) => {
-        onTouchEnd?.(e)
-        cancelLongPress()
+        handlePressEnd(e) // May call copy if armed
+        onTouchEnd?.(e) // Keep old behavior (swipe detection)
       }}
       onTouchCancel={(e) => {
         cancelLongPress()
+        longPressArmedRef.current = false
       }}
       onMouseDown={(e) => {
         if (e.button === 0) {
@@ -336,10 +409,11 @@ export default function CardStackCard({
         e.preventDefault()
       }}
       onMouseUp={(e) => {
-        cancelLongPress()
+        handlePressEnd(e) // May call copy if armed
       }}
       onMouseLeave={(e) => {
         cancelLongPress()
+        longPressArmedRef.current = false
       }}
       style={style}
     >
