@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react'
 import ActionSheet from './ActionSheet'
-import Image from 'next/image'
 import { Check } from 'lucide-react'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useEmailEditSheet } from '@/store/useEmailEditSheet'
 import { useProfileEditSheet } from '@/store/useProfileEditSheet'
-import '@/styles/send-details-sheet.css'
+import styles from './EmailEditSheet.module.css'
 
 export default function EmailEditSheet() {
   const { isOpen, close } = useEmailEditSheet()
@@ -80,101 +79,65 @@ export default function EmailEditSheet() {
   const canSave = isValid && !emailError
 
   return (
-    <ActionSheet open={isOpen} onClose={handleClose} title="" className="send-details" size="tall">
-      <div className="send-details-sheet">
-        <div className="send-details-header">
-          <button className="send-details-close" onClick={handleClose} aria-label="Close">
-            <Image src="/assets/clear.svg" alt="" width={18} height={18} />
-          </button>
-          <h3 className="send-details-title">Enter your email address</h3>
-          <div style={{ width: 32, flexShrink: 0 }} /> {/* Spacer for centering */}
-        </div>
-        <div className="send-details-fields">
-          <label className="send-details-row">
-            <span className="send-details-label">Email</span>
-            <input
-              ref={emailRef}
-              className="send-details-input"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                setEmailError('')
-              }}
-              inputMode="email"
-              autoCapitalize="none"
-              autoCorrect="off"
-              autoComplete="email"
-              enterKeyHint="done"
-              type="email"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && canSave) {
-                  e.preventDefault()
-                  handleSave()
-                }
-              }}
-            />
-            <div className="send-details-underline" />
-            {emailError && (
-              <div style={{ marginTop: 4, fontSize: 14, color: '#ff3b30' }}>
-                {emailError}
-              </div>
-            )}
-          </label>
+    <ActionSheet open={isOpen} onClose={handleClose} title="Enter your email address" size="tall">
+      <div className={styles.emailEditContent}>
+        {/* Email Input */}
+        <label className={styles.emailRow}>
+          <span className={styles.emailLabel}>Email</span>
+          <input
+            ref={emailRef}
+            className={styles.emailInput}
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              setEmailError('')
+            }}
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            autoComplete="email"
+            enterKeyHint="done"
+            type="email"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && canSave) {
+                e.preventDefault()
+                handleSave()
+              }
+            }}
+          />
+          <div className={styles.emailUnderline} />
+          {emailError && (
+            <div className={styles.emailError}>{emailError}</div>
+          )}
+        </label>
 
-          {/* Done Button */}
-          <div style={{ marginTop: 32, display: 'flex', justifyContent: 'center' }}>
+        {/* Done Button */}
+        <div className={styles.doneButtonContainer}>
+          <button
+            className={`${styles.doneButton} ${canSave ? styles.doneButtonActive : styles.doneButtonInactive}`}
+            disabled={!canSave}
+            onClick={handleSave}
+            type="button"
+          >
+            {canSave && <Check size={18} strokeWidth={2.5} />}
+            Done
+          </button>
+        </div>
+
+        {/* Remove Link Button */}
+        {profile.email && (
+          <div className={styles.removeButtonContainer}>
             <button
-              className="send-details-pay"
-              disabled={!canSave}
-              onClick={handleSave}
+              onClick={handleRemove}
               type="button"
-              style={{
-                width: '100%',
-                maxWidth: '382px',
-                height: '56px',
-                borderRadius: '56px',
-                background: canSave ? '#FF2D55' : '#E9E9EB',
-                color: canSave ? '#fff' : '#999',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '0 24px',
-                fontSize: '16px',
-                fontWeight: 500,
-                letterSpacing: '-0.32px',
-              }}
+              className={styles.removeButton}
             >
-              {canSave && <Check size={18} strokeWidth={2.5} />}
-              Done
+              Remove link
             </button>
           </div>
-
-          {/* Remove Link Button */}
-          {profile.email && (
-            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-              <button
-                onClick={handleRemove}
-                type="button"
-                style={{
-                  background: 'transparent',
-                  border: 0,
-                  color: '#FF453A',
-                  fontSize: '16px',
-                  fontWeight: 400,
-                  cursor: 'pointer',
-                  padding: '8px 16px',
-                  textDecoration: 'none',
-                }}
-              >
-                Remove link
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </ActionSheet>
   )
 }
-
