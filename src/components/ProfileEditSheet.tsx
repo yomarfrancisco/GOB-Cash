@@ -364,9 +364,9 @@ export default function ProfileEditSheet() {
               >
                 <div className={styles.linkRowLeft}>
                   <div className={styles.linkIcon}>
-                    <span style={{ fontSize: 22, fontWeight: 600, color: '#111' }}>𝕏</span>
+                    <Image src="/assets/WhatsApp_Balck 2.png" alt="WhatsApp" width={22} height={22} />
                   </div>
-                  <span className={styles.linkRowLabel}>X</span>
+                  <span className={styles.linkRowLabel}>WhatsApp</span>
                 </div>
                 <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
               </button>

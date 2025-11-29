@@ -10,6 +10,7 @@ export interface UserProfile {
   email?: string
   instagramUrl?: string
   linkedinUrl?: string
+  whatsappUrl?: string
   description?: string
   // TODO: wire real addresses
   usdtSaAddress?: string // USDT SA (ZAR wallet) address

@@ -13,10 +13,12 @@ export default function SocialLinksSheet() {
   const [email, setEmail] = useState(profile.email || '')
   const [instagramUrl, setInstagramUrl] = useState(profile.instagramUrl || '')
   const [linkedinUrl, setLinkedinUrl] = useState(profile.linkedinUrl || '')
+  const [whatsappUrl, setWhatsappUrl] = useState(profile.whatsappUrl || '')
   const [emailError, setEmailError] = useState('')
   const emailRef = useRef<HTMLInputElement>(null)
   const instagramRef = useRef<HTMLInputElement>(null)
   const linkedinRef = useRef<HTMLInputElement>(null)
+  const whatsappRef = useRef<HTMLInputElement>(null)
 
   // Initialize from store when sheet opens
   useEffect(() => {
@@ -25,6 +27,7 @@ export default function SocialLinksSheet() {
     setEmail(profile.email || '')
     setInstagramUrl(profile.instagramUrl || '')
     setLinkedinUrl(profile.linkedinUrl || '')
+    setWhatsappUrl(profile.whatsappUrl || '')
     setEmailError('')
     // Focus first field after a brief delay
     setTimeout(() => {
@@ -51,6 +54,7 @@ export default function SocialLinksSheet() {
       email: email.trim() || undefined,
       instagramUrl: instagramUrl.trim() || undefined,
       linkedinUrl: linkedinUrl.trim() || undefined,
+      whatsappUrl: whatsappUrl.trim() || undefined,
     })
 
     // Close sheet
@@ -127,6 +131,29 @@ export default function SocialLinksSheet() {
               placeholder="https://linkedin.com/in/yourname"
               value={linkedinUrl}
               onChange={(e) => setLinkedinUrl(e.target.value)}
+              inputMode="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="off"
+              enterKeyHint="done"
+              type="text"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleSave()
+                }
+              }}
+            />
+            <div className="send-details-underline" />
+          </label>
+          <label className="send-details-row">
+            <span className="send-details-label">WhatsApp</span>
+            <input
+              ref={whatsappRef}
+              className="send-details-input"
+              placeholder="+1234567890 or https://wa.me/1234567890"
+              value={whatsappUrl}
+              onChange={(e) => setWhatsappUrl(e.target.value)}
               inputMode="text"
               autoCapitalize="none"
               autoCorrect="off"
