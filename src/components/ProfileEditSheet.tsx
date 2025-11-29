@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
-import { Camera, Instagram, Linkedin, Check } from 'lucide-react'
+import { Camera, Instagram, Linkedin, Check, Mail } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import { useProfileEditSheet } from '@/store/useProfileEditSheet'
 import { useNameHandleSheet } from '@/store/useNameHandleSheet'
@@ -221,9 +221,13 @@ export default function ProfileEditSheet() {
     return initial.toUpperCase()
   }
 
+  // Check if profile is complete (has username/handle)
+  const hasUsername = Boolean(profile?.userHandle && profile.userHandle.trim() !== '' && profile.userHandle !== '@handle')
+  const doneIsActive = hasUsername
+
   return (
     <>
-      <ActionSheet open={isOpen} onClose={close} title="Edit profile" size="tall">
+      <ActionSheet open={isOpen} onClose={close} title="Edit profile" size="tall" className="profile-edit-sheet">
         <div className={styles.editSheetContent}>
           {/* Segmented Control: Edit / Preview */}
           <div className={styles.segmentedControl}>
@@ -347,9 +351,9 @@ export default function ProfileEditSheet() {
               >
                 <div className={styles.linkRowLeft}>
                   <div className={styles.linkIcon}>
-                    <Image src="/assets/profile/tik_tok.svg" alt="TikTok" width={22} height={22} />
+                    <Mail size={22} strokeWidth={2} style={{ color: '#111' }} />
                   </div>
-                  <span className={styles.linkRowLabel}>TikTok</span>
+                  <span className={styles.linkRowLabel}>Email</span>
                 </div>
                 <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
               </button>
@@ -395,11 +399,12 @@ export default function ProfileEditSheet() {
           {/* Done Button */}
           <div className={styles.doneButtonContainer}>
             <button
-              className={styles.doneButton}
+              className={`${styles.doneButton} ${doneIsActive ? styles.doneButtonActive : styles.doneButtonInactive}`}
               onClick={close}
               type="button"
+              disabled={!doneIsActive}
             >
-              <Check size={18} strokeWidth={2.5} style={{ marginRight: 8 }} />
+              {doneIsActive && <Check size={18} strokeWidth={2.5} style={{ marginRight: 8 }} />}
               Done
             </button>
           </div>

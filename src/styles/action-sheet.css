@@ -391,3 +391,14 @@
   margin: 0;
 }
 
+/* Profile Edit Sheet - Center title horizontally */
+.as-sheet.profile-edit-sheet .as-header {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.as-sheet.profile-edit-sheet .as-title {
+  text-align: center;
+}
+

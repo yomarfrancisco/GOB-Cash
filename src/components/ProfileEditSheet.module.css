@@ -285,8 +285,6 @@
   max-width: calc(100% - 48px);
   height: 56px;
   border-radius: 56px;
-  background: #000;
-  color: #fff;
   border: 0;
   font-size: 16px;
   font-weight: 500;
@@ -295,16 +293,40 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 200ms ease;
+  transition: background 200ms ease, color 200ms ease;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.doneButton:hover {
-  background: #333;
+.doneButtonActive {
+  background: #FF2D55;
+  color: #fff;
 }
 
-.doneButton:active {
-  background: #111;
+.doneButtonActive:hover {
+  background: #E0244A;
+}
+
+.doneButtonActive:active {
+  background: #C91E3F;
+}
+
+.doneButtonInactive {
+  background: #E9E9EB;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.doneButtonInactive:hover {
+  background: #E9E9EB;
+}
+
+.doneButtonInactive:active {
+  background: #E9E9EB;
+}
+
+.doneButton:disabled {
+  cursor: not-allowed;
+  opacity: 1;
 }
 
 /* Hidden file input */
