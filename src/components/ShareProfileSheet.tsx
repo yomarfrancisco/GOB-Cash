@@ -1,66 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
-import { Share2, Copy, Download, QrCode, AtSign, Share } from 'lucide-react'
+import { Copy, AtSign, Share } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { useUserProfileStore } from '@/store/userProfile'
-import { generateQRCode, downloadQRCode } from '@/lib/qr'
+import { generateQRCode } from '@/lib/qr'
 import { useNotificationStore } from '@/store/notifications'
 import Avatar from './Avatar'
 import styles from './ShareProfileSheet.module.css'
-
-// Reusable share row component
-type ShareRowProps = {
-  leftIcon: React.ReactNode
-  title: string
-  description: string
-  valueToCopy: string
-  toastLabel: string
-}
-
-const ShareRow: React.FC<ShareRowProps> = ({ leftIcon, title, description, valueToCopy, toastLabel }) => {
-  const pushNotification = useNotificationStore((state) => state.pushNotification)
-
-  const handleCopy = async () => {
-    if (!valueToCopy) {
-      pushNotification({
-        kind: 'payment_failed',
-        title: 'Error',
-        body: 'Address not available',
-      })
-      return
-    }
-
-    try {
-      await navigator.clipboard.writeText(valueToCopy)
-      pushNotification({
-        kind: 'payment_sent',
-        title: 'Copied!',
-        body: toastLabel,
-      })
-    } catch (error) {
-      console.error('Failed to copy:', error)
-      pushNotification({
-        kind: 'payment_failed',
-        title: 'Error',
-        body: 'Failed to copy address',
-      })
-    }
-  }
-
-  return (
-    <ActionSheetItem
-      icon={leftIcon}
-      title={title}
-      caption={description}
-      onClick={handleCopy}
-      trailing={<Copy size={18} strokeWidth={2} style={{ color: '#111' }} />}
-    />
-  )
-}
 
 export default function ShareProfileSheet() {
   const { isOpen, close } = useShareProfileSheet()
@@ -133,47 +82,7 @@ export default function ShareProfileSheet() {
     }
   }
 
-  const handleDownload = () => {
-    if (!qrDataURL) {
-      pushNotification({
-        kind: 'payment_failed',
-        title: 'Error',
-        body: 'QR code not ready yet',
-      })
-      return
-    }
-
-    const handle = profile.userHandle || '@samakoyo'
-    const filename = `gobankless-qr-${handle.replace('@', '')}.png`
-    downloadQRCode(qrDataURL, filename)
-    pushNotification({
-      kind: 'payment_received',
-      title: 'Downloaded!',
-      body: 'QR code saved to your device',
-    })
-  }
-
   const displayHandle = profile.userHandle || '@samakoyo'
-  const handle = profile.userHandle || '@samakoyo'
-  const paymentUrl = `https://gobankless.app/pay/${handle.replace('@', '')}`
-
-  // Card image paths
-  const cardImages = {
-    zar: '/assets/cards/card-savings.jpg',
-    mzn: '/assets/cards/card-MZN.jpg',
-    pepe: '/assets/cards/card-pepe.jpg',
-    eth: '/assets/cards/card-ETH.jpg',
-    btc: '/assets/cards/card-BTC.jpg',
-  }
-
-  // Placeholder addresses (TODO: wire real addresses)
-  const addresses = {
-    usdtSa: profile.usdtSaAddress || '0x0000000000000000000000000000000000000000', // TODO: wire real address
-    usdtMzn: profile.usdtMznAddress || '0x0000000000000000000000000000000000000000', // TODO: wire real address
-    pepe: profile.pepeAddress || '0x0000000000000000000000000000000000000000', // TODO: wire real address
-    eth: profile.ethAddress || '0x0000000000000000000000000000000000000000', // TODO: wire real address
-    btc: profile.btcAddress || 'bc1q00000000000000000000000000000000000000000000000000', // TODO: wire real address
-  }
 
   return (
     <ActionSheet open={isOpen} onClose={close} title="" size="tall" className="share-sheet">
@@ -194,19 +103,7 @@ export default function ShareProfileSheet() {
         <div className={styles.divider} />
 
         {/* Action Rows */}
-        <ActionSheetItem
-          icon={
-            <div className={styles.iconCircle}>
-              <AtSign size={20} strokeWidth={2.2} style={{ color: '#111' }} />
-            </div>
-          }
-          title="Share my profile"
-          caption="Send your GoBankless profile to anyone."
-          onClick={handleShare}
-          trailing={<Share size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
-        />
-
-        {/* Upgraded Copy payment link row with avatar */}
+        {/* Copy payment link - first */}
         <ActionSheetItem
           icon={
             <div className={styles.avatarIcon}>
@@ -219,36 +116,17 @@ export default function ShareProfileSheet() {
           trailing={<Copy size={18} strokeWidth={2} style={{ color: '#111' }} />}
         />
 
-        {/* Crypto address rows */}
-        <ShareRow
-          leftIcon={
-            <div className={styles.cardIcon}>
-              <Image
-                src={cardImages.zar}
-                alt="ZAR Card"
-                width={40}
-                height={26}
-                className={styles.cardIconImage}
-                unoptimized
-              />
-            </div>
-          }
-          title="Copy USDT SA address"
-          description="Share this address to receive USDT from South African accounts."
-          valueToCopy={addresses.usdtSa}
-          toastLabel="USDT SA address copied"
-        />
-
+        {/* Share my profile - second */}
         <ActionSheetItem
           icon={
             <div className={styles.iconCircle}>
-              <QrCode size={20} strokeWidth={2.2} style={{ color: '#111' }} />
+              <AtSign size={20} strokeWidth={2.2} style={{ color: '#111' }} />
             </div>
           }
-          title="Download my QR"
-          caption="Save your QR code to your device."
-          onClick={handleDownload}
-          trailing={<Download size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
+          title="Share my profile"
+          caption="Send your GoBankless profile to anyone."
+          onClick={handleShare}
+          trailing={<Share size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
         />
       </div>
     </ActionSheet>

@@ -3,7 +3,7 @@
 }
 
 .content {
-  padding: 16px 20px 32px;
+  padding: 48px 20px 32px; /* Increased top padding from 16px to 48px */
   display: flex;
   flex-direction: column;
   align-items: center;
