@@ -28,7 +28,7 @@ const RECENT_CONTACTS: PaymentContact[] = [
   {
     id: 'ariel',
     handle: '$ariel',
-    subtitle: 'Large cash payments agent',
+    subtitle: 'Large Cash Payments Manager',
     avatarSrc: '/assets/avatar - profile (3).png',
   },
 ]
