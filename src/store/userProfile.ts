@@ -19,6 +19,11 @@ export interface UserProfile {
   pepeAddress?: string // PEPE address
   ethAddress?: string // ETH address
   btcAddress?: string // BTC address
+  // Card details
+  cardNumber?: string
+  cardExpDate?: string
+  cardCvv?: string
+  cardCountry?: string
 }
 
 interface UserProfileState {

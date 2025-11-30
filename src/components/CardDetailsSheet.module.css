@@ -113,9 +113,17 @@
 }
 
 .cardIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.genericCardIcon {
   color: #111;
   opacity: 0.4;
-  flex-shrink: 0;
 }
 
 .chevronIcon {
@@ -214,6 +222,30 @@
 }
 
 .removeButton:active {
+  opacity: 0.6;
+}
+
+.removeCardButton {
+  margin-top: 16px;
+  border: none;
+  background: transparent;
+  color: #ff3b30;
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: -0.23px;
+  line-height: 22px;
+  text-align: center;
+  cursor: pointer;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: opacity 200ms ease;
+  padding: 8px 16px;
+}
+
+.removeCardButton:hover {
+  opacity: 0.8;
+}
+
+.removeCardButton:active {
   opacity: 0.6;
 }
 

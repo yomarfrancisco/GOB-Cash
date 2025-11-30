@@ -1,16 +1,43 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { Check, ChevronDown, CreditCard } from 'lucide-react'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
+import { useUserProfileStore } from '@/store/userProfile'
 import { COUNTRIES } from '@/constants/countries'
 import styles from './CardDetailsSheet.module.css'
+
+type CardBrand = 'visa' | 'mastercard' | 'amex' | null
+
+// Card brand detection helper
+const detectCardBrand = (digits: string): CardBrand => {
+  if (!digits) return null
+
+  // VISA — starts with 4
+  if (/^4[0-9]{3,}$/.test(digits)) return 'visa'
+
+  // AMEX — starts with 34 or 37
+  if (/^3[47][0-9]{2,}$/.test(digits)) return 'amex'
+
+  // MASTERCARD — 51–55 or 2221–2720
+  if (
+    /^(5[1-5][0-9]{2,}|2(2[2-9][0-9]{1,}|[3-6][0-9]{2,}|7[01][0-9]{1,}|720[0-9]{0,}))$/.test(
+      digits.slice(0, 6),
+    )
+  ) {
+    return 'mastercard'
+  }
+
+  return null
+}
 
 export default function CardDetailsSheet() {
   const { isOpen, mode, close } = useCardDetailsSheet()
   const { open: openLinkedAccounts } = useLinkedAccountsSheet()
+  const { profile, setProfile } = useUserProfileStore()
   const cardNumberRef = useRef<HTMLInputElement>(null)
 
   // Form state
@@ -18,19 +45,33 @@ export default function CardDetailsSheet() {
   const [expDate, setExpDate] = useState('')
   const [cvv, setCvv] = useState('')
   const [country, setCountry] = useState('South Africa')
+  const [cardBrand, setCardBrand] = useState<CardBrand>(null)
+  const [hasSavedCard, setHasSavedCard] = useState(false)
 
   // Initialize form when sheet opens
   useEffect(() => {
     if (!isOpen) return
 
-    // Reset form for create mode, or load existing data for edit mode
-    if (mode === 'create') {
+    // Load existing card data from store if available
+    if (profile.cardNumber) {
+      setCardNumber(profile.cardNumber)
+      setExpDate(profile.cardExpDate || '')
+      setCvv(profile.cardCvv || '')
+      setCountry(profile.cardCountry || 'South Africa')
+      setHasSavedCard(true)
+      
+      // Detect brand from existing card number
+      const raw = profile.cardNumber.replace(/\s+/g, '')
+      setCardBrand(detectCardBrand(raw))
+    } else if (mode === 'create') {
+      // Reset form for create mode
       setCardNumber('')
       setExpDate('')
       setCvv('')
       setCountry('South Africa')
+      setCardBrand(null)
+      setHasSavedCard(false)
     }
-    // TODO: Load existing card data for edit mode
 
     // Auto-focus card number input
     const focusTimer = setTimeout(() => {
@@ -46,13 +87,19 @@ export default function CardDetailsSheet() {
     }, 150)
 
     return () => clearTimeout(focusTimer)
-  }, [isOpen, mode])
+  }, [isOpen, mode, profile.cardNumber, profile.cardExpDate, profile.cardCvv, profile.cardCountry])
 
   // Format card number with spaces (e.g., "5555 2222 0952")
   const formatCardNumber = (value: string) => {
     const digits = value.replace(/\D/g, '')
     const formatted = digits.match(/.{1,4}/g)?.join(' ') || digits
-    return formatted.slice(0, 19) // Max 16 digits + 3 spaces
+    const result = formatted.slice(0, 19) // Max 16 digits + 3 spaces
+    
+    // Detect card brand from raw digits
+    const raw = digits.slice(0, 16) // Max 16 digits for detection
+    setCardBrand(detectCardBrand(raw))
+    
+    return result
   }
 
   // Format expiration date (MM/YY)
@@ -92,24 +139,37 @@ export default function CardDetailsSheet() {
   const handleDone = () => {
     if (!isValid) return
 
-    // TODO: Save card data to store/backend
-    console.log('Card details saved:', {
-      cardNumber: cardNumber.replace(/\D/g, ''),
-      expDate,
-      cvv,
-      country,
+    // Save card data to store
+    setProfile({
+      cardNumber: formatCardNumber(cardNumber),
+      cardExpDate: expDate,
+      cardCvv: cvv,
+      cardCountry: country,
     })
+
+    setHasSavedCard(true)
 
     // Close and return to Linked Accounts
     handleClose()
   }
 
-  const handleRemove = () => {
-    // TODO: Remove card from store/backend
-    console.log('Card removed')
+  const handleRemoveCard = () => {
+    // Clear all form fields
+    setCardNumber('')
+    setExpDate('')
+    setCvv('')
+    setCountry('South Africa')
+    setCardBrand(null)
 
-    // Close and return to Linked Accounts
-    handleClose()
+    // Clear card data from store
+    setProfile({
+      cardNumber: undefined,
+      cardExpDate: undefined,
+      cardCvv: undefined,
+      cardCountry: undefined,
+    })
+
+    setHasSavedCard(false)
   }
 
   return (
@@ -144,7 +204,20 @@ export default function CardDetailsSheet() {
                   className={styles.input}
                   maxLength={19}
                 />
-                <CreditCard size={20} strokeWidth={2} className={styles.cardIcon} />
+                <div className={styles.cardIcon}>
+                  {cardBrand === 'visa' && (
+                    <Image src="/assets/visa.png" alt="Visa" width={24} height={24} />
+                  )}
+                  {cardBrand === 'mastercard' && (
+                    <Image src="/assets/mastercard.png" alt="Mastercard" width={24} height={24} />
+                  )}
+                  {cardBrand === 'amex' && (
+                    <Image src="/assets/amex.png" alt="American Express" width={24} height={24} />
+                  )}
+                  {!cardBrand && (
+                    <CreditCard size={20} strokeWidth={2} className={styles.genericCardIcon} />
+                  )}
+                </div>
               </div>
             </div>
 
@@ -214,8 +287,8 @@ export default function CardDetailsSheet() {
               Done
             </button>
           </div>
-          {mode === 'edit' && (
-            <button className={styles.removeButton} onClick={handleRemove} type="button">
+          {hasSavedCard && (
+            <button className={styles.removeCardButton} onClick={handleRemoveCard} type="button">
               Remove card
             </button>
           )}
