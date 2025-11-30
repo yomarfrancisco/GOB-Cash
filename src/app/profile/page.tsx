@@ -217,13 +217,8 @@ export default function ProfilePage() {
                   rounded={24}
                   className="profile-avatar"
                 />
-                <h1 className="profile-name">{profile.fullName}</h1>
-                <div className="profile-handle">{profile.userHandle}</div>
-
-                {/* Bio */}
-                <p className="profile-bio">
-                  {profile.description || 'Member of the Crypto Stokvel community. Saving toward shared goals with trusted groups.'}
-                </p>
+                <h1 className="profile-name">{profile.userHandle}</h1>
+                <div className="profile-handle">{profile.fullName}</div>
 
                 {/* Meta row */}
                 <div className="profile-meta">
