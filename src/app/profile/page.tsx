@@ -30,6 +30,9 @@ import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
+import PaymentDetailsSheet from '@/components/PaymentDetailsSheet'
+import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
+import { openAmaChatWithPaymentScenario } from '@/lib/cashDeposit/chatOrchestration'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -53,6 +56,7 @@ export default function ProfilePage() {
   const { openInbox, closeInbox, isInboxOpen } = useFinancialInboxStore()
   const { openNotifications } = useNotificationsStore()
   const { guardAuthed } = useRequireAuth()
+  const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
   const [openPayments, setOpenPayments] = useState(false)
   const [openDeposit, setOpenDeposit] = useState(false)
   const [openWithdraw, setOpenWithdraw] = useState(false)
@@ -578,22 +582,20 @@ export default function ProfilePage() {
           })
         } : undefined}
         onCashSubmit={amountMode === 'convert' ? ({ amountZAR }) => {
-          // Cash convert flow ("Request" button): for now, just log (map popup not implemented on profile)
-          console.log('Cash convert requested', { amountZAR })
+          // Cash convert flow ("Request" button): open PaymentDetailsSheet
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
-          // TODO: Implement map popup flow on profile page if needed
+          setTimeout(() => {
+            openPaymentDetails('request', amountZAR)
+          }, 220)
         } : undefined}
         onCardSubmit={amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
-          // Card payment flow ("Pay someone"): close keypad, then show SendDetailsSheet
-          setSendAmountZAR(amountZAR)
-          setSendAmountUSDT(amountUSDT || 0)
-          setSendMethod(null) // Default to email/phone input for "Pay someone"
-          setIsPaySomeoneFlow(true) // Mark as "Pay someone" flow
+          // Card payment flow ("Pay someone"): open PaymentDetailsSheet
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
-          // Open SendDetailsSheet
-          setTimeout(() => setOpenSendDetails(true), 220)
+          setTimeout(() => {
+            openPaymentDetails('pay', amountZAR)
+          }, 220)
         } : undefined}
         onSubmit={amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
           setOpenAmount(false)
@@ -621,18 +623,29 @@ export default function ProfilePage() {
           console.log('PAY', payload)
           setOpenSendDetails(false)
           
-          // If coming from "Pay someone" flow, use card success sheet
+          // If coming from "Pay someone" flow, skip SuccessSheet and go to chat
           if (isPaySomeoneFlow) {
             setIsPaySomeoneFlow(false) // Reset flag
-            // Note: Profile page doesn't have card success sheet yet, so use regular success
-            // TODO: Add card success sheet to profile page if needed
+            // Skip SuccessSheet - go directly to Ama chat
+            // This path is now handled by PaymentDetailsSheet, but keeping for other SendDetailsSheet uses
             setSendRecipient(payload.to)
             setTimeout(() => setOpenSendSuccess(true), 220)
           } else {
-            // Regular send flow
+            // Regular send flow (not from $ button)
             setSendRecipient(payload.to)
             setTimeout(() => setOpenSendSuccess(true), 220)
           }
+        }}
+      />
+      <PaymentDetailsSheet
+        onSubmit={({ mode, amountZAR, handle }) => {
+          // Close PaymentDetailsSheet
+          closePaymentDetails()
+          
+          // Open Ama chat with payment scenario
+          setTimeout(() => {
+            openAmaChatWithPaymentScenario(mode, amountZAR, handle)
+          }, 220)
         }}
       />
       <SuccessSheet
