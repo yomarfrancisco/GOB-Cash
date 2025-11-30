@@ -1,19 +1,19 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { Check, ChevronDown, CreditCard } from 'lucide-react'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
-import { useUserProfileStore } from '@/store/userProfile'
+import { useUserProfileStore, type CardBrand } from '@/store/userProfile'
 import { COUNTRIES } from '@/constants/countries'
+import { CardBrandIcon } from './CardBrandIcon'
 import styles from './CardDetailsSheet.module.css'
 
-type CardBrand = 'visa' | 'mastercard' | 'amex' | null
+type CardBrandNullable = CardBrand | null
 
 // Card brand detection helper
-const detectCardBrand = (digits: string): CardBrand => {
+const detectCardBrand = (digits: string): CardBrandNullable => {
   if (!digits) return null
 
   // VISA — starts with 4
@@ -45,7 +45,7 @@ export default function CardDetailsSheet() {
   const [expDate, setExpDate] = useState('')
   const [cvv, setCvv] = useState('')
   const [country, setCountry] = useState('South Africa')
-  const [cardBrand, setCardBrand] = useState<CardBrand>(null)
+  const [cardBrand, setCardBrand] = useState<CardBrandNullable>(null)
   const [hasSavedCard, setHasSavedCard] = useState(false)
 
   // Initialize form when sheet opens
@@ -218,16 +218,9 @@ export default function CardDetailsSheet() {
                   maxLength={19}
                 />
                 <div className={styles.cardIcon}>
-                  {cardBrand === 'visa' && (
-                    <Image src="/assets/visa.png" alt="Visa" width={24} height={24} />
-                  )}
-                  {cardBrand === 'mastercard' && (
-                    <Image src="/assets/mastercard.png" alt="Mastercard" width={24} height={24} />
-                  )}
-                  {cardBrand === 'amex' && (
-                    <Image src="/assets/amex.png" alt="American Express" width={24} height={24} />
-                  )}
-                  {!cardBrand && (
+                  {cardBrand ? (
+                    <CardBrandIcon brand={cardBrand} />
+                  ) : (
                     <CreditCard size={20} strokeWidth={2} className={styles.genericCardIcon} />
                   )}
                 </div>

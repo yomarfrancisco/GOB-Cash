@@ -1,11 +1,11 @@
 'use client'
 
-import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { Plus, Check, ChevronRight } from 'lucide-react'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useUserProfileStore } from '@/store/userProfile'
+import { CardBrandIcon } from './CardBrandIcon'
 import styles from './LinkedAccountsSheet.module.css'
 
 export default function LinkedAccountsSheet() {
@@ -75,33 +75,7 @@ export default function LinkedAccountsSheet() {
               >
                 <div className={styles.linkedCardLeft}>
                   {/* Brand logo */}
-                  {card.brand === 'visa' && (
-                    <Image
-                      src="/assets/visa.png"
-                      alt="Visa"
-                      width={32}
-                      height={20}
-                      className={styles.linkedCardLogo}
-                    />
-                  )}
-                  {card.brand === 'mastercard' && (
-                    <Image
-                      src="/assets/mastercard.png"
-                      alt="Mastercard"
-                      width={32}
-                      height={20}
-                      className={styles.linkedCardLogo}
-                    />
-                  )}
-                  {card.brand === 'amex' && (
-                    <Image
-                      src="/assets/amex.png"
-                      alt="American Express"
-                      width={32}
-                      height={20}
-                      className={styles.linkedCardLogo}
-                    />
-                  )}
+                  <CardBrandIcon brand={card.brand} />
                   {/* Masked number */}
                   <span className={styles.linkedCardNumber}>{card.maskedDisplay}</span>
                 </div>
