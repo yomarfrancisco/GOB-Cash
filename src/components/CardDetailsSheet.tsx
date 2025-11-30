@@ -5,6 +5,7 @@ import ActionSheet from './ActionSheet'
 import { Check, ChevronDown, CreditCard } from 'lucide-react'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
+import { COUNTRIES } from '@/constants/countries'
 import styles from './CardDetailsSheet.module.css'
 
 export default function CardDetailsSheet() {
@@ -149,7 +150,7 @@ export default function CardDetailsSheet() {
 
             {/* Exp Date + CVV Row */}
             <div className={styles.row}>
-              <div className={styles.col}>
+              <div className={`${styles.col} ${styles.expDate}`}>
                 <label className={styles.fieldLabel}>Exp. date</label>
                 <div className={styles.field}>
                   <input
@@ -163,7 +164,7 @@ export default function CardDetailsSheet() {
                   />
                 </div>
               </div>
-              <div className={styles.col}>
+              <div className={`${styles.col} ${styles.cvv}`}>
                 <label className={styles.fieldLabel}>CVV</label>
                 <div className={styles.field}>
                   <input
@@ -188,7 +189,11 @@ export default function CardDetailsSheet() {
                   onChange={(e) => setCountry(e.target.value)}
                   className={`${styles.input} ${styles.select}`}
                 >
-                  <option value="South Africa">South Africa</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown size={20} strokeWidth={2} className={styles.chevronIcon} />
               </div>
@@ -198,15 +203,17 @@ export default function CardDetailsSheet() {
 
         {/* Footer - Done + Remove */}
         <div className={styles.footer}>
-          <button
-            className={styles.doneButton}
-            disabled={!isValid}
-            onClick={handleDone}
-            type="button"
-          >
-            {isValid && <Check size={18} strokeWidth={2.5} />}
-            Done
-          </button>
+          <div className={styles.actions}>
+            <button
+              className={styles.doneButton}
+              disabled={!isValid}
+              onClick={handleDone}
+              type="button"
+            >
+              {isValid && <Check size={18} strokeWidth={2.5} />}
+              Done
+            </button>
+          </div>
           {mode === 'edit' && (
             <button className={styles.removeButton} onClick={handleRemove} type="button">
               Remove card

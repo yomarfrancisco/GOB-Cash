@@ -39,20 +39,26 @@
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: 0 16px;
   flex-shrink: 0;
+  margin-top: 0;
 }
 
 .cardInput {
-  width: 100%;
-  max-width: 414px;
+  width: 95%;
+  max-width: 382px;
+  margin: 0 auto;
   border-radius: 32px;
-  background: rgba(127, 127, 127, 0.08);
+  background: rgba(127, 127, 127, 0.1);
   backdrop-filter: blur(50px);
   padding: 32px 24px;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.cardInput * {
+  font-family: inherit;
 }
 
 .fieldGroup {
@@ -65,9 +71,9 @@
   font-size: 16px;
   font-weight: 500;
   letter-spacing: -0.22px;
+  line-height: 1.2;
   color: #111;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  line-height: 1.25;
 }
 
 .field {
@@ -84,8 +90,10 @@
   border: none;
   outline: none;
   flex: 1;
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 15px;
+  font-weight: 300;
+  letter-spacing: -0.23px;
+  line-height: 22px;
   color: #111;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: transparent;
@@ -116,10 +124,17 @@
 }
 
 .col {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.col.expDate {
+  flex: 1.1;
+}
+
+.col.cvv {
+  flex: 0.9;
 }
 
 .footer {
@@ -131,9 +146,15 @@
   flex-shrink: 0;
 }
 
-.doneButton {
+.actions {
+  display: flex;
+  justify-content: center;
   width: 100%;
-  max-width: 382px;
+}
+
+.doneButton {
+  width: 70%;
+  max-width: 272px;
   height: 56px;
   border-radius: 56px;
   border: 0;
