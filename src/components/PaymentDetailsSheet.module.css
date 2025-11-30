@@ -1,0 +1,133 @@
+/* Payment Details Sheet Styles */
+
+.sheetContainer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scrollableContent {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  padding: 0 24px;
+  padding-bottom: 16px;
+}
+
+.inputSection {
+  padding-top: 0;
+  margin-bottom: 24px;
+}
+
+/* Recent contacts list */
+.contactsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.contactRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: background 150ms ease;
+  text-align: left;
+  border-bottom: 1px solid #e5e5ea;
+  width: 100%;
+}
+
+.contactRow:last-child {
+  border-bottom: none;
+}
+
+.contactRow:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.contactRow:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.contactRowLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.avatarWrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.contactTextBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.contactHandle {
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.25;
+  color: #000;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contactWhatsapp {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.09px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkIcon {
+  color: #000;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+/* Fixed bottom footer */
+.bottomFooter {
+  position: sticky;
+  bottom: 0;
+  background-color: #fff;
+  padding: 16px 24px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 2;
+  border-top: 1px solid #e5e5ea;
+}
+
