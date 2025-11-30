@@ -1,0 +1,211 @@
+.sheetContent {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
+  transform: none !important;
+  will-change: auto;
+  padding: 0 24px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.header {
+  padding: 64px 0 32px 0;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.title {
+  font: 300 22px/1.2 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: -0.22px;
+  margin: 0;
+  color: #0a0a0a;
+}
+
+.subtitle {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 300;
+  color: #0a0a0a;
+  opacity: 0.5;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.4;
+}
+
+.bankingInputWrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.bankingInput {
+  width: 100%;
+  margin: 0 auto;
+  border-radius: 32px;
+  background: rgba(127, 127, 127, 0.1);
+  backdrop-filter: blur(50px);
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.bankingInput * {
+  font-family: inherit;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fieldLabel {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.22px;
+  line-height: 1.2;
+  color: #111;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.field {
+  border-radius: 8px;
+  border: 1px solid #d1d1d6;
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  background: #fff;
+  gap: 12px;
+  position: relative;
+}
+
+.input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 15px;
+  font-weight: 300;
+  letter-spacing: -0.23px;
+  line-height: 22px;
+  color: #111;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.input::placeholder {
+  color: #999;
+  opacity: 0.5;
+}
+
+.select {
+  cursor: pointer;
+  padding-right: 32px; /* Make room for chevron icon */
+}
+
+.chevronIcon {
+  color: #111;
+  opacity: 0.4;
+  flex-shrink: 0;
+  position: absolute;
+  right: 16px;
+  pointer-events: none; /* Allow clicks to pass through to select */
+}
+
+.footer {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.doneButton {
+  width: 70%;
+  max-width: 272px;
+  height: 56px;
+  border-radius: 56px;
+  border: 0;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.32px;
+  color: #fff;
+  background: #FF2D55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 200ms ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.doneButton:hover:not(:disabled) {
+  background: #ff1a44;
+}
+
+.doneButton:active:not(:disabled) {
+  background: #e61e3d;
+}
+
+.doneButton:disabled {
+  background: #E9E9EB;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.removeBankButton {
+  margin-top: 16px;
+  border: none;
+  background: transparent;
+  color: #ff3b30;
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: -0.23px;
+  line-height: 22px;
+  text-align: center;
+  cursor: pointer;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: opacity 200ms ease;
+  padding: 8px 16px;
+}
+
+.removeBankButton:hover {
+  opacity: 0.8;
+}
+
+.removeBankButton:active {
+  opacity: 0.6;
+}
+
+/* Remove iOS yellow autofill background completely */
+.bankingInput input:-webkit-autofill,
+.bankingInput input:-webkit-autofill:hover,
+.bankingInput input:-webkit-autofill:focus,
+.bankingInput select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: inherit !important;
+  caret-color: inherit !important;
+}
+
+/* Prevent Safari from re-introducing yellow during autofill animation */
+.bankingInput input:-webkit-autofill {
+  transition: background-color 9999s ease-in-out 0s !important;
+}
+

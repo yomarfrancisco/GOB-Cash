@@ -1,9 +1,10 @@
 'use client'
 
 import ActionSheet from './ActionSheet'
-import { Plus, Check, ChevronRight } from 'lucide-react'
+import { Plus, Check, ChevronRight, Landmark } from 'lucide-react'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
+import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { CardBrandIcon } from './CardBrandIcon'
 import styles from './LinkedAccountsSheet.module.css'
@@ -11,8 +12,9 @@ import styles from './LinkedAccountsSheet.module.css'
 export default function LinkedAccountsSheet() {
   const { isOpen, close } = useLinkedAccountsSheet()
   const { open: openCardDetails } = useCardDetailsSheet()
-  const { profile, setDefaultCard } = useUserProfileStore()
-  const { linkedCards } = profile
+  const { open: openBankingDetails } = useBankingDetailsSheet()
+  const { profile, setDefaultCard, setDefaultBank } = useUserProfileStore()
+  const { linkedCards, linkedBanks } = profile
 
   const handleAddCard = () => {
     close() // Close LinkedAccountsSheet
@@ -48,7 +50,36 @@ export default function LinkedAccountsSheet() {
   }
 
   const handleAddBank = () => {
-    console.log('Add new bank clicked')
+    close() // Close LinkedAccountsSheet
+    // Poll until LinkedAccountsSheet is closed, then open BankingDetailsSheet
+    const checkAndOpen = () => {
+      const { isOpen: linkedAccountsOpen } = useLinkedAccountsSheet.getState()
+      if (!linkedAccountsOpen) {
+        openBankingDetails('create', null)
+      } else {
+        setTimeout(checkAndOpen, 50)
+      }
+    }
+    setTimeout(checkAndOpen, 100)
+  }
+
+  const handleBankClick = (bankId: string) => {
+    close() // Close LinkedAccountsSheet
+    // Poll until LinkedAccountsSheet is closed, then open BankingDetailsSheet for editing
+    const checkAndOpen = () => {
+      const { isOpen: linkedAccountsOpen } = useLinkedAccountsSheet.getState()
+      if (!linkedAccountsOpen) {
+        openBankingDetails('edit', bankId)
+      } else {
+        setTimeout(checkAndOpen, 50)
+      }
+    }
+    setTimeout(checkAndOpen, 100)
+  }
+
+  const handleSetDefaultBank = (bankId: string, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent opening bank details
+    setDefaultBank(bankId)
   }
 
   const handleAddWallet = () => {
@@ -110,15 +141,47 @@ export default function LinkedAccountsSheet() {
         {/* Linked Banks Section */}
         <div className={styles.sectionWrapper}>
           <p className={styles.sectionLabel}>Linked banks</p>
-          <div className={styles.tile}>
-            <button
-              className={styles.addButton}
-              onClick={handleAddBank}
-              type="button"
-            >
-              <Plus size={24} strokeWidth={2} />
-              <span className={styles.addButtonText}>Add new bank</span>
-            </button>
+          <div className={styles.linkedBanksTile}>
+            {linkedBanks.map((bank) => (
+              <button
+                key={bank.id}
+                type="button"
+                className={styles.linkedBankRow}
+                onClick={() => handleBankClick(bank.id)}
+              >
+                <div className={styles.linkedBankLeft}>
+                  {/* Bank icon */}
+                  <Landmark size={20} strokeWidth={2} className={styles.bankIcon} />
+                  {/* Bank name and country */}
+                  <span className={styles.linkedBankText}>
+                    {bank.bankName}, {bank.country}
+                  </span>
+                </div>
+                <div className={styles.linkedBankRight}>
+                  {bank.isDefault ? (
+                    <Check
+                      size={18}
+                      strokeWidth={2.5}
+                      className={styles.defaultCheckIcon}
+                      onClick={(e) => handleSetDefaultBank(bank.id, e)}
+                    />
+                  ) : (
+                    <ChevronRight size={18} strokeWidth={2} className={styles.chevronIcon} />
+                  )}
+                </div>
+              </button>
+            ))}
+            {/* Add new bank button */}
+            <div className={styles.addNewBankSection}>
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={handleAddBank}
+              >
+                <Plus size={24} strokeWidth={2} />
+                <span className={styles.addButtonText}>Add new bank</span>
+              </button>
+            </div>
           </div>
         </div>
 
