@@ -77,62 +77,58 @@ export const useUserProfileStore = create<UserProfileState>()(
           },
         })),
       reset: () => set({ profile: defaultProfile }),
-      addOrUpdateCard: (card) => {
+      addOrUpdateCard: (
+        card: Omit<LinkedCard, 'id' | 'isDefault'> & { id?: string }
+      ) =>
         set((state) => {
           const { linkedCards } = state.profile
-          let updatedCards: LinkedCard[]
+          const editingId = card.id
 
-          if (card.id) {
-            // Update existing card
-            updatedCards = linkedCards.map((c) =>
-              c.id === card.id
-                ? {
-                    ...c,
-                    ...card,
-                    id: c.id,
-                    isDefault: card.isDefault ?? c.isDefault,
-                  }
-                : c,
-            )
-          } else {
-            // Add new card
-            const newCard: LinkedCard = {
-              ...card,
-              id: crypto.randomUUID(),
-              isDefault: true,
+          // EDIT EXISTING CARD
+          if (editingId) {
+            return {
+              profile: {
+                ...state.profile,
+                linkedCards: linkedCards.map((c) =>
+                  c.id === editingId
+                    ? {
+                        ...c,
+                        ...card, // overwrite brand, last4, maskedDisplay, cardNumber, etc.
+                        id: editingId,
+                        // keep existing c.isDefault unchanged
+                      }
+                    : c
+                ),
+              },
             }
-            // Set all other cards to non-default
-            updatedCards = linkedCards.map((c) => ({ ...c, isDefault: false }))
-            updatedCards.push(newCard)
           }
 
-          // Ensure exactly one card has isDefault: true
-          const defaultCount = updatedCards.filter((c) => c.isDefault).length
-          if (defaultCount === 0 && updatedCards.length > 0) {
-            updatedCards[0].isDefault = true
-          } else if (defaultCount > 1) {
-            // If multiple defaults, keep only the last one
-            let foundFirst = false
-            updatedCards = updatedCards.map((c) => {
-              if (c.isDefault && foundFirst) {
-                return { ...c, isDefault: false }
-              }
-              if (c.isDefault) {
-                foundFirst = true
-              }
-              return c
-            })
+          // ADD NEW CARD (becomes default)
+          const newId = crypto.randomUUID()
+          const newCard: LinkedCard = {
+            id: newId,
+            brand: card.brand,
+            last4: card.last4,
+            maskedDisplay: card.maskedDisplay,
+            isDefault: true,
+            cardNumber: card.cardNumber,
+            cardExpDate: card.cardExpDate,
+            cardCvv: card.cardCvv,
+            cardCountry: card.cardCountry,
           }
 
           return {
             profile: {
               ...state.profile,
-              linkedCards: updatedCards,
+              linkedCards: [
+                // all existing cards become non-default
+                ...linkedCards.map((c) => ({ ...c, isDefault: false })),
+                newCard,
+              ],
             },
           }
-        })
-      },
-      setDefaultCard: (id: string) => {
+        }),
+      setDefaultCard: (id: string) =>
         set((state) => ({
           profile: {
             ...state.profile,
@@ -141,8 +137,7 @@ export const useUserProfileStore = create<UserProfileState>()(
               isDefault: c.id === id,
             })),
           },
-        }))
-      },
+        })),
       removeCard: (id: string) => {
         set((state) => {
           const updatedCards = state.profile.linkedCards.filter((c) => c.id !== id)
