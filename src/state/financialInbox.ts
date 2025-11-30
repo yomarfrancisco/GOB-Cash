@@ -40,6 +40,16 @@ export type CashWithdrawalScenario = {
 
 export type ScenarioType = 'deposit' | 'withdrawal' | null
 
+export type PaymentFlowSummaryMode = 'pay' | 'request'
+
+export interface PaymentFlowSummary {
+  id: string // uuid or timestamp-based
+  mode: PaymentFlowSummaryMode
+  amountZAR: number
+  handle: string // '@samakoyo'
+  createdAt: number // Date.now()
+}
+
 type FinancialInboxState = {
   threads: Thread[]
   messagesByThreadId: Record<ThreadId, ChatMessage[]>
@@ -50,6 +60,7 @@ type FinancialInboxState = {
   hasUnreadNotification: boolean // True when there's an unread notification (for bottom nav dot)
   cashDepositScenario: CashDepositScenario | null // Active cash deposit scenario
   cashWithdrawalScenario: CashWithdrawalScenario | null // Active cash withdrawal scenario
+  lastPaymentFlow: PaymentFlowSummary | null // Latest payment flow summary
   openInbox: () => void
   closeInbox: () => void
   openChatSheet: (threadId: ThreadId) => void // Open chat sheet for a specific thread
@@ -64,6 +75,7 @@ type FinancialInboxState = {
   startCashWithdrawalScenario: (amountZAR: number) => void
   endCashWithdrawalScenario: () => void
   scenarioType: ScenarioType
+  setLastPaymentFlow: (summary: PaymentFlowSummary) => void
 }
 
 export const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
@@ -102,6 +114,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   cashDepositScenario: null,
   cashWithdrawalScenario: null,
   scenarioType: null,
+  lastPaymentFlow: null,
 
   ensurePortfolioManagerThread: () => {
     const state = get()
@@ -224,6 +237,10 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
 
   endCashWithdrawalScenario: () => {
     set({ cashWithdrawalScenario: null, scenarioType: null })
+  },
+
+  setLastPaymentFlow: (summary: PaymentFlowSummary) => {
+    set({ lastPaymentFlow: summary })
   },
 
   sendMessage: (threadId: ThreadId, from: 'user' | 'ai', text: string) => {

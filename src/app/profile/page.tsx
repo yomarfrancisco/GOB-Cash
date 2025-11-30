@@ -637,17 +637,7 @@ export default function ProfilePage() {
           }
         }}
       />
-      <PaymentDetailsSheet
-        onSubmit={({ mode, amountZAR, handle }) => {
-          // Close PaymentDetailsSheet
-          closePaymentDetails()
-          
-          // Open Ama chat with payment scenario
-          setTimeout(() => {
-            openAmaChatWithPaymentScenario(mode, amountZAR, handle)
-          }, 220)
-        }}
-      />
+      {/* PaymentDetailsSheet is now rendered in root layout */}
       <SuccessSheet
         open={openSendSuccess}
         onClose={closeSendSuccess}

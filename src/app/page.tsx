@@ -42,6 +42,7 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
+import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 
 // Toggle flag to compare both scanner implementations
@@ -58,6 +59,7 @@ export default function Home() {
   const { guardAuthed, isAuthed } = useRequireAuth()
   const { profile } = useUserProfileStore()
   const { startCashDepositScenario, startCashWithdrawalScenario } = useFinancialInboxStore()
+  const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
   const { play: playDollarSound } = useSoundEffect('/assets/Drum_3b.mp3')
 
@@ -713,8 +715,15 @@ export default function Home() {
             }, 220)
           })
         } : undefined}
-        onCashSubmit={amountMode === 'convert' ? ({ amountZAR }) => {
-          // Cash convert flow: start scenario and open Ama chat instead of map popup
+        onCashSubmit={amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountZAR }) => {
+          // Cash button flow ("Request"): open PaymentDetailsSheet
+          setOpenAmount(false)
+          setAmountEntryPoint(undefined)
+          setTimeout(() => {
+            openPaymentDetails('request', amountZAR)
+          }, 220)
+        } : amountMode === 'convert' ? ({ amountZAR }) => {
+          // Legacy cash convert flow (helicopter): start scenario and open Ama chat
           setConvertAmount(amountZAR)
           // Close keypad modal
           setOpenAmount(false)
@@ -728,8 +737,15 @@ export default function Home() {
             openAmaChatWithScenario('cash_deposit')
           }, 220) // Match other modal transitions
         } : undefined}
-        onCardSubmit={amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
-          // Card payment flow ("Pay someone"): close keypad, then show SendDetailsSheet
+        onCardSubmit={amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountZAR, amountUSDT }) => {
+          // Cash button flow ("Pay someone"): open PaymentDetailsSheet
+          setOpenAmount(false)
+          setAmountEntryPoint(undefined)
+          setTimeout(() => {
+            openPaymentDetails('pay', amountZAR)
+          }, 220)
+        } : amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
+          // Legacy card payment flow: close keypad, then show SendDetailsSheet
           setSendAmountZAR(amountZAR)
           setSendAmountUSDT(amountUSDT || 0)
           setDepositAmountZAR(amountZAR) // Also set for card success sheet

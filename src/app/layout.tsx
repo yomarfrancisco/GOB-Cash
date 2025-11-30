@@ -28,6 +28,7 @@ import ShareProfileSheet from '@/components/ShareProfileSheet'
 import AuthModal from '@/components/AuthModal'
 import AuthEntrySheet from '@/components/AuthEntrySheet'
 import PhoneSignupSheet from '@/components/PhoneSignupSheet'
+import PaymentDetailsSheetWrapper from '@/components/PaymentDetailsSheetWrapper'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -117,6 +118,8 @@ export default function RootLayout({
               <AuthModal />
               {/* Global Phone Sign-up Sheet */}
               <PhoneSignupSheet />
+              {/* Global Payment Details Sheet */}
+              <PaymentDetailsSheetWrapper />
             </WalletAllocProvider>
           </WalletModeProvider>
         </SplashOnceProvider>
