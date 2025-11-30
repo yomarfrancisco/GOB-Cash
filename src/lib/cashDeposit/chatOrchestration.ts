@@ -4,7 +4,6 @@
  */
 
 import { useFinancialInboxStore, type PaymentFlowSummaryMode } from '@/state/financialInbox'
-import { nanoid } from 'nanoid'
 import { formatZAR } from '@/lib/money'
 
 const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
@@ -54,61 +53,27 @@ export function openAmaChatWithPaymentScenario(
   const amountLabel = formatZAR(amountZAR)
   
   // Seed initial confirmation messages based on mode
-  const messages: Array<{ id: string; threadId: string; from: 'user' | 'ai'; text: string; createdAt: string }> = []
-  
   if (mode === 'pay') {
-    messages.push(
-      {
-        id: nanoid(),
-        threadId: PORTFOLIO_MANAGER_THREAD_ID,
-        from: 'ai',
-        text: `Payment sent`,
-        createdAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      },
-      {
-        id: nanoid(),
-        threadId: PORTFOLIO_MANAGER_THREAD_ID,
-        from: 'ai',
-        text: `Your payment of ${amountLabel} to ${handle} has been sent successfully.`,
-        createdAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      },
-      {
-        id: nanoid(),
-        threadId: PORTFOLIO_MANAGER_THREAD_ID,
-        from: 'ai',
-        text: `I'll generate a proof of payment for you here in a moment.`,
-        createdAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      }
-    )
-  } else {
-    messages.push(
-      {
-        id: nanoid(),
-        threadId: PORTFOLIO_MANAGER_THREAD_ID,
-        from: 'ai',
-        text: `Payment request created`,
-        createdAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      },
-      {
-        id: nanoid(),
-        threadId: PORTFOLIO_MANAGER_THREAD_ID,
-        from: 'ai',
-        text: `Your request for ${amountLabel} from ${handle} has been sent.`,
-        createdAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      }
-    )
-  }
-  
-  // Add messages to the thread
-  const existingMessages = store.messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID] || []
-  store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', messages[0].text)
-  
-  // Add remaining messages with a small delay to simulate typing
-  messages.slice(1).forEach((msg, index) => {
+    // Send first message immediately
+    store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `Payment sent`)
+    
+    // Send remaining messages with delays to simulate typing
     setTimeout(() => {
-      store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', msg.text)
-    }, (index + 1) * 800) // 800ms delay between messages
-  })
+      store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `Your payment of ${amountLabel} to ${handle} has been sent successfully.`)
+    }, 800)
+    
+    setTimeout(() => {
+      store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `I'll generate a proof of payment for you here in a moment.`)
+    }, 1600)
+  } else {
+    // Send first message immediately
+    store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `Payment request created`)
+    
+    // Send remaining messages with delays to simulate typing
+    setTimeout(() => {
+      store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `Your request for ${amountLabel} from ${handle} has been sent.`)
+    }, 800)
+  }
   
   // Open the inbox sheet
   store.openInbox()
