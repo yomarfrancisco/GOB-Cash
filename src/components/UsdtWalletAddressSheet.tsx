@@ -63,7 +63,7 @@ export default function UsdtWalletAddressSheet() {
   // Validation
   const validateForm = () => {
     const hasAddress = address.trim() !== ''
-    const hasNetwork = network !== ''
+    const hasNetwork = Boolean(network)
 
     return hasAddress && hasNetwork
   }
