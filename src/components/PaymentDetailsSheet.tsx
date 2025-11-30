@@ -3,8 +3,10 @@
 import { useState, useEffect, useRef } from 'react'
 import ActionSheet from './ActionSheet'
 import { usePaymentDetailsSheet, type PaymentDetailsMode } from '@/store/usePaymentDetailsSheet'
-import { normalizeHandle, validateHandle } from '@/lib/profile/handleValidation'
+import { normalizeRecipientInput, validateRecipientInput } from '@/lib/recipientValidation'
 import '@/styles/send-details-sheet.css'
+
+const RECIPIENT_PLACEHOLDER = 'Username or WhatsApp number'
 
 type PaymentDetailsSheetProps = {
   onSubmit: (payload: {
@@ -16,24 +18,24 @@ type PaymentDetailsSheetProps = {
 
 export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetProps) {
   const { isOpen, mode, amountZAR, close } = usePaymentDetailsSheet()
-  const [handle, setHandle] = useState('')
-  const [handleError, setHandleError] = useState('')
-  const handleRef = useRef<HTMLInputElement>(null)
+  const [recipient, setRecipient] = useState('')
+  const [recipientError, setRecipientError] = useState('')
+  const recipientRef = useRef<HTMLInputElement>(null)
 
   // Initialize when sheet opens
   useEffect(() => {
     if (!isOpen) return
 
-    setHandle('')
-    setHandleError('')
+    setRecipient('')
+    setRecipientError('')
     
     // Focus input field to open keyboard immediately on mobile
     const focusTimer = setTimeout(() => {
-      if (handleRef.current) {
-        handleRef.current.focus()
+      if (recipientRef.current) {
+        recipientRef.current.focus()
         if (typeof window !== 'undefined' && 'ontouchstart' in window) {
           setTimeout(() => {
-            handleRef.current?.click()
+            recipientRef.current?.click()
           }, 50)
         }
       }
@@ -44,27 +46,24 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    // Normalize on change to enforce @ prefix and character rules
-    const normalized = normalizeHandle(value)
-    setHandle(normalized)
-    setHandleError('')
+    // Don't normalize on change - let user type freely
+    setRecipient(value)
+    setRecipientError('')
   }
 
-  // Button is enabled when handle is valid
-  const trimmedHandle = handle.trim()
-  const normalized = normalizeHandle(trimmedHandle)
-  const isValid = validateHandle(normalized)
-  const canSubmit = isValid && !handleError && mode !== null && amountZAR !== null
+  // Button is enabled when recipient is valid
+  const isValid = validateRecipientInput(recipient)
+  const canSubmit = isValid && !recipientError && mode !== null && amountZAR !== null
 
   const handleSubmit = () => {
     if (!canSubmit || !mode || amountZAR === null) return
 
-    // Normalize the handle
-    const finalHandle = normalizeHandle(trimmedHandle)
+    // Normalize the recipient input
+    const normalizedRecipient = normalizeRecipientInput(recipient)
     
     // Validate
-    if (!validateHandle(finalHandle)) {
-      setHandleError('Handle must start with @ and contain only letters, numbers, and underscores')
+    if (!validateRecipientInput(normalizedRecipient)) {
+      setRecipientError('Enter a valid @username or WhatsApp number')
       return
     }
 
@@ -72,7 +71,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     onSubmit({
       mode,
       amountZAR,
-      handle: finalHandle,
+      handle: normalizedRecipient, // Keep 'handle' name for backward compatibility
     })
 
     // Close sheet
@@ -94,15 +93,15 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
           <label className="send-details-row">
             <span className="send-details-label">{labelText}</span>
             <input
-              ref={handleRef}
+              ref={recipientRef}
               className="send-details-input"
-              placeholder="@samakoyo"
-              value={handle}
+              placeholder={RECIPIENT_PLACEHOLDER}
+              value={recipient}
               onChange={handleChange}
               inputMode="text"
               autoCapitalize="none"
               autoCorrect="off"
-              autoComplete="username"
+              autoComplete="off"
               enterKeyHint="done"
               type="text"
               onKeyDown={(e) => {
@@ -113,9 +112,9 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
               }}
             />
             <div className="send-details-underline" />
-            {handleError && (
+            {recipientError && (
               <div style={{ marginTop: 4, fontSize: 14, color: '#ff3b30' }}>
-                {handleError}
+                {recipientError}
               </div>
             )}
           </label>
