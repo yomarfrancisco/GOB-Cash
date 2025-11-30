@@ -84,6 +84,7 @@
   padding: 14px 16px;
   background: #fff;
   gap: 12px;
+  position: relative;
 }
 
 .input {
@@ -108,14 +109,22 @@
 
 .select {
   cursor: pointer;
-  padding-right: 0;
+  padding-right: 32px; /* Make room for chevron icon */
 }
 
-.cardIcon,
+.cardIcon {
+  color: #111;
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
 .chevronIcon {
   color: #111;
   opacity: 0.4;
   flex-shrink: 0;
+  position: absolute;
+  right: 16px;
+  pointer-events: none; /* Allow clicks to pass through to select */
 }
 
 .row {
@@ -130,11 +139,13 @@
 }
 
 .col.expDate {
-  flex: 1.1;
+  flex: 0.6;
+  min-width: 0;
 }
 
 .col.cvv {
-  flex: 0.9;
+  flex: 0.4;
+  min-width: 0;
 }
 
 .footer {
