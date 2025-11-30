@@ -14,7 +14,7 @@ const RECIPIENT_PLACEHOLDER = 'Username or WhatsApp number'
 type PaymentContact = {
   id: string
   handle: string
-  whatsapp: string
+  subtitle: string
   avatarSrc: string
 }
 
@@ -22,13 +22,13 @@ const RECENT_CONTACTS: PaymentContact[] = [
   {
     id: 'ama',
     handle: '$ama',
-    whatsapp: '+27 63 555 0123',
+    subtitle: 'Portfolio Manager',
     avatarSrc: '/assets/Brics-girl-blue.png',
   },
   {
     id: 'ariel',
     handle: '$ariel',
-    whatsapp: '+27 73 555 9876',
+    subtitle: 'Large cash payments agent',
     avatarSrc: '/assets/avatar - profile (3).png',
   },
 ]
@@ -195,7 +195,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
                       </div>
                       <div className={styles.contactTextBlock}>
                         <div className={styles.contactHandle}>{contact.handle}</div>
-                        <div className={styles.contactWhatsapp}>{contact.whatsapp}</div>
+                        <div className={styles.contactSubtitle}>{contact.subtitle}</div>
                       </div>
                     </div>
                     {isSelected && (
