@@ -217,3 +217,19 @@
   opacity: 0.6;
 }
 
+/* Remove iOS yellow autofill background completely */
+.cardInput input:-webkit-autofill,
+.cardInput input:-webkit-autofill:hover,
+.cardInput input:-webkit-autofill:focus,
+.cardInput select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: inherit !important;
+  caret-color: inherit !important;
+}
+
+/* Prevent Safari from re-introducing yellow during autofill animation */
+.cardInput input:-webkit-autofill {
+  transition: background-color 9999s ease-in-out 0s !important;
+}
+
