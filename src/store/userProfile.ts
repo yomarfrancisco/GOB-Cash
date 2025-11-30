@@ -28,6 +28,13 @@ export interface LinkedBank {
   isDefault: boolean
 }
 
+export type LinkedUsdtWallet = {
+  id: string
+  address: string
+  network: 'ethereum' | 'solana' | 'tron'
+  isDefault: boolean
+}
+
 export interface UserProfile {
   fullName: string
   userHandle: string // Always starts with @
@@ -48,6 +55,8 @@ export interface UserProfile {
   linkedCards: LinkedCard[]
   // Linked banks
   linkedBanks: LinkedBank[]
+  // Linked USDT wallets
+  linkedUsdtWallets: LinkedUsdtWallet[]
 }
 
 interface UserProfileState {
@@ -60,6 +69,9 @@ interface UserProfileState {
   addOrUpdateLinkedBank: (bank: Omit<LinkedBank, 'id' | 'isDefault'> & { id?: string }) => void
   setDefaultBank: (id: string) => void
   removeLinkedBank: (id: string) => void
+  addOrUpdateUsdtWallet: (wallet: Omit<LinkedUsdtWallet, 'id' | 'isDefault'> & { id?: string }) => void
+  setDefaultUsdtWallet: (id: string) => void
+  removeUsdtWallet: (id: string) => void
 }
 
 const defaultProfile: UserProfile = {
@@ -73,6 +85,7 @@ const defaultProfile: UserProfile = {
   description: undefined,
   linkedCards: [],
   linkedBanks: [],
+  linkedUsdtWallets: [],
 }
 
 export const useUserProfileStore = create<UserProfileState>()(
@@ -245,6 +258,83 @@ export const useUserProfileStore = create<UserProfileState>()(
             profile: {
               ...state.profile,
               linkedBanks: updatedBanks,
+            },
+          }
+        })
+      },
+      addOrUpdateUsdtWallet: (
+        wallet: Omit<LinkedUsdtWallet, 'id' | 'isDefault'> & { id?: string }
+      ) =>
+        set((state) => {
+          const { linkedUsdtWallets } = state.profile
+          const editingId = wallet.id
+
+          // EDIT EXISTING WALLET
+          if (editingId) {
+            return {
+              profile: {
+                ...state.profile,
+                linkedUsdtWallets: linkedUsdtWallets.map((w) =>
+                  w.id === editingId
+                    ? {
+                        ...w,
+                        ...wallet, // overwrite address, network
+                        id: editingId,
+                        // keep existing w.isDefault unchanged
+                      }
+                    : w
+                ),
+              },
+            }
+          }
+
+          // ADD NEW WALLET (becomes default if first wallet)
+          const newId = crypto.randomUUID()
+          const isFirstWallet = linkedUsdtWallets.length === 0
+          const newWallet: LinkedUsdtWallet = {
+            id: newId,
+            address: wallet.address,
+            network: wallet.network,
+            isDefault: isFirstWallet,
+          }
+
+          return {
+            profile: {
+              ...state.profile,
+              linkedUsdtWallets: isFirstWallet
+                ? [newWallet]
+                : [
+                    // all existing wallets become non-default
+                    ...linkedUsdtWallets.map((w) => ({ ...w, isDefault: false })),
+                    newWallet,
+                  ],
+            },
+          }
+        }),
+      setDefaultUsdtWallet: (id: string) =>
+        set((state) => ({
+          profile: {
+            ...state.profile,
+            linkedUsdtWallets: state.profile.linkedUsdtWallets.map((w) => ({
+              ...w,
+              isDefault: w.id === id,
+            })),
+          },
+        })),
+      removeUsdtWallet: (id: string) => {
+        set((state) => {
+          const updatedWallets = state.profile.linkedUsdtWallets.filter((w) => w.id !== id)
+          // If we removed the default wallet and there are other wallets, make the first one default
+          if (updatedWallets.length > 0) {
+            const hadDefault = state.profile.linkedUsdtWallets.find((w) => w.id === id)?.isDefault
+            if (hadDefault) {
+              updatedWallets[0].isDefault = true
+            }
+          }
+          return {
+            profile: {
+              ...state.profile,
+              linkedUsdtWallets: updatedWallets,
             },
           }
         })

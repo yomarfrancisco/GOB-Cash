@@ -21,6 +21,7 @@ import FullNameEditSheet from '@/components/FullNameEditSheet'
 import LinkedAccountsSheet from '@/components/LinkedAccountsSheet'
 import CardDetailsSheet from '@/components/CardDetailsSheet'
 import BankingDetailsSheet from '@/components/BankingDetailsSheet'
+import UsdtWalletAddressSheet from '@/components/UsdtWalletAddressSheet'
 import ProfileDescriptionSheet from '@/components/ProfileDescriptionSheet'
 import SupportSheet from '@/components/SupportSheet'
 import ShareProfileSheet from '@/components/ShareProfileSheet'
@@ -102,6 +103,8 @@ export default function RootLayout({
               <CardDetailsSheet />
               {/* Global Banking Details Sheet */}
               <BankingDetailsSheet />
+              {/* Global USDT Wallet Address Sheet */}
+              <UsdtWalletAddressSheet />
               {/* Global Profile Description Sheet */}
               <ProfileDescriptionSheet />
               {/* Global Support Sheet */}
