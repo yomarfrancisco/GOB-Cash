@@ -171,41 +171,41 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
               </label>
             </div>
 
-          {/* Recent contacts list */}
-          <div className={styles.contactsList}>
-            {RECENT_CONTACTS.map((contact) => {
-              const isSelected = selectedContactId === contact.id
-              return (
-                <button
-                  key={contact.id}
-                  type="button"
-                  className={styles.contactRow}
-                  onClick={() => handleContactClick(contact)}
-                >
-                  <div className={styles.contactRowLeft}>
-                    <div className={styles.avatarWrapper}>
-                      <Image
-                        src={contact.avatarSrc}
-                        alt={contact.handle}
-                        width={64}
-                        height={64}
-                        className={styles.avatar}
-                        unoptimized
-                      />
+            {/* Recent contacts list */}
+            <div className={styles.contactsList}>
+              {RECENT_CONTACTS.map((contact) => {
+                const isSelected = selectedContactId === contact.id
+                return (
+                  <button
+                    key={contact.id}
+                    type="button"
+                    className={styles.contactRow}
+                    onClick={() => handleContactClick(contact)}
+                  >
+                    <div className={styles.contactRowLeft}>
+                      <div className={styles.avatarWrapper}>
+                        <Image
+                          src={contact.avatarSrc}
+                          alt={contact.handle}
+                          width={64}
+                          height={64}
+                          className={styles.avatar}
+                          unoptimized
+                        />
+                      </div>
+                      <div className={styles.contactTextBlock}>
+                        <div className={styles.contactHandle}>{contact.handle}</div>
+                        <div className={styles.contactWhatsapp}>{contact.whatsapp}</div>
+                      </div>
                     </div>
-                    <div className={styles.contactTextBlock}>
-                      <div className={styles.contactHandle}>{contact.handle}</div>
-                      <div className={styles.contactWhatsapp}>{contact.whatsapp}</div>
-                    </div>
-                  </div>
-                  {isSelected && (
-                    <Check size={18} strokeWidth={2.5} className={styles.checkIcon} />
-                  )}
-                </button>
-              )
-            })}
+                    {isSelected && (
+                      <Check size={18} strokeWidth={2.5} className={styles.checkIcon} />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        </div>
 
         {/* Fixed bottom footer with button */}
         <div className={styles.bottomFooter}>
