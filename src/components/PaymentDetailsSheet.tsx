@@ -179,19 +179,19 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
                   <button
                     key={contact.id}
                     type="button"
-                    className={styles.contactRow}
+                    className={`${styles.contactRow} ${isSelected ? styles.contactRowSelected : ''}`}
                     onClick={() => handleContactClick(contact)}
                   >
                     <div className={styles.contactRowLeft}>
                       <div className={styles.avatarWrapper}>
-                        <Image
-                          src={contact.avatarSrc}
-                          alt={contact.handle}
-                          width={64}
-                          height={64}
-                          className={styles.avatar}
-                          unoptimized
-                        />
+                      <Image
+                        src={contact.avatarSrc}
+                        alt={contact.handle}
+                        width={48}
+                        height={48}
+                        className={styles.avatar}
+                        unoptimized
+                      />
                       </div>
                       <div className={styles.contactTextBlock}>
                         <div className={styles.contactHandle}>{contact.handle}</div>

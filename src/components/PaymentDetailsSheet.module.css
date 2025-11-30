@@ -26,25 +26,22 @@
 .contactsList {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 8px;
+  margin-top: 24px;
 }
 
 .contactRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px;
-  background: transparent;
+  padding: 12px 16px;
+  background-color: transparent;
   border: 0;
+  border-radius: 23px;
   cursor: pointer;
   transition: background 150ms ease;
   text-align: left;
-  border-bottom: 1px solid #e5e5ea;
   width: 100%;
-}
-
-.contactRow:last-child {
-  border-bottom: none;
 }
 
 .contactRow:hover {
@@ -53,6 +50,10 @@
 
 .contactRow:active {
   background: rgba(0, 0, 0, 0.04);
+}
+
+.contactRowSelected {
+  background-color: rgba(17, 17, 17, 0.08);
 }
 
 .contactRowLeft {
@@ -64,8 +65,8 @@
 }
 
 .avatarWrapper {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: #fff;
   display: grid;
@@ -75,8 +76,8 @@
 }
 
 .avatar {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   object-fit: cover;
   border-radius: 50%;
 }
@@ -128,6 +129,5 @@
   justify-content: center;
   flex-shrink: 0;
   z-index: 2;
-  border-top: 1px solid #e5e5ea;
 }
 
