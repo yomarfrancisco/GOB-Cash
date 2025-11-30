@@ -5,14 +5,16 @@ export type CardMode = 'create' | 'edit'
 interface CardDetailsSheetState {
   isOpen: boolean
   mode: CardMode
-  open: (mode?: CardMode) => void
+  editingCardId: string | null
+  open: (mode?: CardMode, cardId?: string | null) => void
   close: () => void
 }
 
 export const useCardDetailsSheet = create<CardDetailsSheetState>((set) => ({
   isOpen: false,
   mode: 'create',
-  open: (mode = 'create') => set({ isOpen: true, mode }),
-  close: () => set({ isOpen: false }),
+  editingCardId: null,
+  open: (mode = 'create', cardId = null) => set({ isOpen: true, mode, editingCardId: cardId }),
+  close: () => set({ isOpen: false, editingCardId: null }),
 }))
 

@@ -1,14 +1,18 @@
 'use client'
 
+import Image from 'next/image'
 import ActionSheet from './ActionSheet'
-import { Plus } from 'lucide-react'
+import { Plus, Check, ChevronRight } from 'lucide-react'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
+import { useUserProfileStore } from '@/store/userProfile'
 import styles from './LinkedAccountsSheet.module.css'
 
 export default function LinkedAccountsSheet() {
   const { isOpen, close } = useLinkedAccountsSheet()
   const { open: openCardDetails } = useCardDetailsSheet()
+  const { profile, setDefaultCard } = useUserProfileStore()
+  const { linkedCards } = profile
 
   const handleAddCard = () => {
     close() // Close LinkedAccountsSheet
@@ -16,12 +20,31 @@ export default function LinkedAccountsSheet() {
     const checkAndOpen = () => {
       const { isOpen: linkedAccountsOpen } = useLinkedAccountsSheet.getState()
       if (!linkedAccountsOpen) {
-        openCardDetails('create')
+        openCardDetails('create', null)
       } else {
         setTimeout(checkAndOpen, 50)
       }
     }
     setTimeout(checkAndOpen, 100)
+  }
+
+  const handleCardClick = (cardId: string) => {
+    close() // Close LinkedAccountsSheet
+    // Poll until LinkedAccountsSheet is closed, then open CardDetailsSheet for editing
+    const checkAndOpen = () => {
+      const { isOpen: linkedAccountsOpen } = useLinkedAccountsSheet.getState()
+      if (!linkedAccountsOpen) {
+        openCardDetails('edit', cardId)
+      } else {
+        setTimeout(checkAndOpen, 50)
+      }
+    }
+    setTimeout(checkAndOpen, 100)
+  }
+
+  const handleSetDefault = (cardId: string, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent opening card details
+    setDefaultCard(cardId)
   }
 
   const handleAddBank = () => {
@@ -42,15 +65,71 @@ export default function LinkedAccountsSheet() {
         {/* Linked Cards Section */}
         <div className={styles.sectionWrapper}>
           <p className={styles.sectionLabel}>Linked cards</p>
-          <div className={styles.tile}>
-            <button
-              className={styles.addButton}
-              onClick={handleAddCard}
-              type="button"
-            >
-              <Plus size={24} strokeWidth={2} />
-              <span className={styles.addButtonText}>Add new card</span>
-            </button>
+          <div className={styles.linkedCardsTile}>
+            {linkedCards.map((card) => (
+              <button
+                key={card.id}
+                type="button"
+                className={styles.linkedCardRow}
+                onClick={() => handleCardClick(card.id)}
+              >
+                <div className={styles.linkedCardLeft}>
+                  {/* Brand logo */}
+                  {card.brand === 'visa' && (
+                    <Image
+                      src="/assets/visa.png"
+                      alt="Visa"
+                      width={32}
+                      height={20}
+                      className={styles.linkedCardLogo}
+                    />
+                  )}
+                  {card.brand === 'mastercard' && (
+                    <Image
+                      src="/assets/mastercard.png"
+                      alt="Mastercard"
+                      width={32}
+                      height={20}
+                      className={styles.linkedCardLogo}
+                    />
+                  )}
+                  {card.brand === 'amex' && (
+                    <Image
+                      src="/assets/amex.png"
+                      alt="American Express"
+                      width={32}
+                      height={20}
+                      className={styles.linkedCardLogo}
+                    />
+                  )}
+                  {/* Masked number */}
+                  <span className={styles.linkedCardNumber}>{card.maskedDisplay}</span>
+                </div>
+                <div className={styles.linkedCardRight}>
+                  {card.isDefault ? (
+                    <Check
+                      size={20}
+                      strokeWidth={2.5}
+                      className={styles.defaultCheckIcon}
+                      onClick={(e) => handleSetDefault(card.id, e)}
+                    />
+                  ) : (
+                    <ChevronRight size={18} strokeWidth={2} className={styles.chevronIcon} />
+                  )}
+                </div>
+              </button>
+            ))}
+            {/* Add new card button */}
+            <div className={styles.addNewCardSection}>
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={handleAddCard}
+              >
+                <Plus size={24} strokeWidth={2} />
+                <span className={styles.addButtonText}>Add new card</span>
+              </button>
+            </div>
           </div>
         </div>
 

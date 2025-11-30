@@ -35,9 +35,9 @@ const detectCardBrand = (digits: string): CardBrand => {
 }
 
 export default function CardDetailsSheet() {
-  const { isOpen, mode, close } = useCardDetailsSheet()
+  const { isOpen, mode, editingCardId, close } = useCardDetailsSheet()
   const { open: openLinkedAccounts } = useLinkedAccountsSheet()
-  const { profile, setProfile } = useUserProfileStore()
+  const { profile, addOrUpdateCard, removeCard } = useUserProfileStore()
   const cardNumberRef = useRef<HTMLInputElement>(null)
 
   // Form state
@@ -52,17 +52,23 @@ export default function CardDetailsSheet() {
   useEffect(() => {
     if (!isOpen) return
 
-    // Load existing card data from store if available
-    if (profile.cardNumber) {
-      setCardNumber(profile.cardNumber)
-      setExpDate(profile.cardExpDate || '')
-      setCvv(profile.cardCvv || '')
-      setCountry(profile.cardCountry || 'South Africa')
-      setHasSavedCard(true)
-      
-      // Detect brand from existing card number
-      const raw = profile.cardNumber.replace(/\s+/g, '')
-      setCardBrand(detectCardBrand(raw))
+    // Load existing card data if editing
+    if (editingCardId) {
+      const card = profile.linkedCards.find((c) => c.id === editingCardId)
+      if (card) {
+        setCardNumber(card.cardNumber || '')
+        setExpDate(card.cardExpDate || '')
+        setCvv(card.cardCvv || '')
+        setCountry(card.cardCountry || 'South Africa')
+        setCardBrand(card.brand)
+        setHasSavedCard(true)
+        
+        // Detect brand from existing card number
+        if (card.cardNumber) {
+          const raw = card.cardNumber.replace(/\s+/g, '')
+          setCardBrand(detectCardBrand(raw))
+        }
+      }
     } else if (mode === 'create') {
       // Reset form for create mode
       setCardNumber('')
@@ -87,7 +93,7 @@ export default function CardDetailsSheet() {
     }, 150)
 
     return () => clearTimeout(focusTimer)
-  }, [isOpen, mode, profile.cardNumber, profile.cardExpDate, profile.cardCvv, profile.cardCountry])
+  }, [isOpen, mode, editingCardId, profile.linkedCards])
 
   // Format card number with spaces (e.g., "5555 2222 0952")
   const formatCardNumber = (value: string) => {
@@ -137,10 +143,18 @@ export default function CardDetailsSheet() {
   }
 
   const handleDone = () => {
-    if (!isValid) return
+    if (!isValid || !cardBrand) return
 
-    // Save card data to store
-    setProfile({
+    const digits = cardNumber.replace(/\s+/g, '')
+    const last4 = digits.slice(-4)
+    const maskedDisplay = `*******${last4}`
+
+    // Save card to linkedCards array
+    addOrUpdateCard({
+      id: editingCardId || undefined,
+      brand: cardBrand,
+      last4,
+      maskedDisplay,
       cardNumber: formatCardNumber(cardNumber),
       cardExpDate: expDate,
       cardCvv: cvv,
@@ -154,22 +168,21 @@ export default function CardDetailsSheet() {
   }
 
   const handleRemoveCard = () => {
+    if (editingCardId) {
+      // Remove card from store
+      removeCard(editingCardId)
+    }
+
     // Clear all form fields
     setCardNumber('')
     setExpDate('')
     setCvv('')
     setCountry('South Africa')
     setCardBrand(null)
-
-    // Clear card data from store
-    setProfile({
-      cardNumber: undefined,
-      cardExpDate: undefined,
-      cardCvv: undefined,
-      cardCountry: undefined,
-    })
-
     setHasSavedCard(false)
+
+    // Close and return to Linked Accounts
+    handleClose()
   }
 
   return (
