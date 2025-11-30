@@ -30,9 +30,7 @@ import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
-import PaymentDetailsSheet from '@/components/PaymentDetailsSheet'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
-import { openAmaChatWithPaymentScenario } from '@/lib/cashDeposit/chatOrchestration'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
