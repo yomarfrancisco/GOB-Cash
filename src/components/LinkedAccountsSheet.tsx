@@ -3,13 +3,25 @@
 import ActionSheet from './ActionSheet'
 import { Plus } from 'lucide-react'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
+import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import styles from './LinkedAccountsSheet.module.css'
 
 export default function LinkedAccountsSheet() {
   const { isOpen, close } = useLinkedAccountsSheet()
+  const { open: openCardDetails } = useCardDetailsSheet()
 
   const handleAddCard = () => {
-    console.log('Add new card clicked')
+    close() // Close LinkedAccountsSheet
+    // Poll until LinkedAccountsSheet is closed, then open CardDetailsSheet
+    const checkAndOpen = () => {
+      const { isOpen: linkedAccountsOpen } = useLinkedAccountsSheet.getState()
+      if (!linkedAccountsOpen) {
+        openCardDetails('create')
+      } else {
+        setTimeout(checkAndOpen, 50)
+      }
+    }
+    setTimeout(checkAndOpen, 100)
   }
 
   const handleAddBank = () => {
