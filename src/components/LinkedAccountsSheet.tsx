@@ -108,7 +108,7 @@ export default function LinkedAccountsSheet() {
                 <div className={styles.linkedCardRight}>
                   {card.isDefault ? (
                     <Check
-                      size={20}
+                      size={18}
                       strokeWidth={2.5}
                       className={styles.defaultCheckIcon}
                       onClick={(e) => handleSetDefault(card.id, e)}
