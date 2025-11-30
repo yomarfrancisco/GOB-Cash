@@ -207,8 +207,8 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
             </div>
           </div>
 
-        {/* Fixed bottom footer with button */}
-        <div className={styles.bottomFooter}>
+          {/* Fixed bottom footer with button */}
+          <div className={styles.bottomFooter}>
           <button
             className="send-details-pay"
             disabled={!canSubmit}
@@ -234,6 +234,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
           >
             {buttonText}
           </button>
+          </div>
         </div>
       </div>
     </ActionSheet>
