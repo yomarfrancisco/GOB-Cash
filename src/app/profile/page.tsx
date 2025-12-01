@@ -492,6 +492,24 @@ export default function ProfilePage() {
     </div>
 
       {/* Sheets */}
+      <CashInOutSheet
+        open={openCashInOut}
+        onClose={() => setOpenCashInOut(false)}
+        onSelect={(mode) => {
+          setOpenCashInOut(false)
+          if (mode === 'deposit') {
+            // Existing "Top up" behavior
+            setTimeout(() => {
+              openDepositSheet()
+            }, 220)
+          } else {
+            // Existing "Cash out" behavior
+            setTimeout(() => {
+              openWithdrawSheet()
+            }, 220)
+          }
+        }}
+      />
       <PaymentsSheet
         open={openPayments}
         onClose={closePaymentsSheet}
