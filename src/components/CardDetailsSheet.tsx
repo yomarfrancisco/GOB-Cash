@@ -118,32 +118,38 @@ export default function CardDetailsSheet() {
 
   const isValid = validateForm()
 
-  const handleClose = () => {
+  const handleClose = (options?: { reason?: 'done' | 'cancel' }) => {
+    const reason = options?.reason ?? 'cancel'
+    
+    // ✅ Capture origin BEFORE closing (close() resets origin to 'settings')
+    const currentOrigin = origin
+    
+    // Close the card details sheet (can still reset origin internally)
     close()
-    // Poll until CardDetailsSheet is closed, then route based on origin
-    const checkAndRoute = () => {
-      const { isOpen: cardDetailsOpen } = useCardDetailsSheet.getState()
-      if (!cardDetailsOpen) {
-        const currentOrigin = useCardDetailsSheet.getState().origin
-        if (currentOrigin === 'depositCard') {
-          // Deposit flow: go directly to account selection (skip LinkedAccountsSheet)
-          // Reset origin after routing
-          setOrigin('settings')
-          const { amountZAR } = useCardDepositAccountSheet.getState()
-          if (amountZAR !== null) {
-            setTimeout(() => {
-              openCardDepositAccount(amountZAR)
-            }, 220)
-          }
-        } else {
-          // Settings flow: return to LinkedAccountsSheet list
-          openLinkedAccounts('settings')
+    
+    // For depositCard origin, we NEVER show LinkedAccountsSheet
+    if (currentOrigin === 'depositCard') {
+      if (reason === 'done') {
+        // Go straight to the card deposit account sheet
+        // amountZAR is already stored earlier in the deposit flow
+        const { amountZAR } = useCardDepositAccountSheet.getState()
+        if (amountZAR !== null) {
+          setTimeout(() => {
+            openCardDepositAccount(amountZAR)
+          }, 220)
         }
-      } else {
-        setTimeout(checkAndRoute, 50)
       }
+      // If reason === 'cancel', do nothing – user just closes the sheet
+      return
     }
-    setTimeout(checkAndRoute, 100)
+    
+    // For the normal "settings" origin (and any other legacy origins),
+    // keep the existing behavior: return to LinkedAccountsSheet.
+    if (currentOrigin === 'settings') {
+      setTimeout(() => {
+        openLinkedAccounts('settings')
+      }, 220)
+    }
   }
 
   const handleDone = () => {
@@ -167,8 +173,8 @@ export default function CardDetailsSheet() {
 
     setHasSavedCard(true)
 
-    // Close and return to Linked Accounts
-    handleClose()
+    // Close and route based on origin
+    handleClose({ reason: 'done' })
   }
 
   const handleRemoveCard = () => {
@@ -185,8 +191,8 @@ export default function CardDetailsSheet() {
     setCardBrand(null)
     setHasSavedCard(false)
 
-    // Close and return to Linked Accounts
-    handleClose()
+    // Close and route based on origin
+    handleClose({ reason: 'done' })
   }
 
   return (
