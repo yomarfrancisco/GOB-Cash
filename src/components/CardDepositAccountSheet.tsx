@@ -105,6 +105,9 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
   return (
     <ActionSheet open={isOpen} onClose={close} title="" className="send-details" size="tall">
       <div className="send-details-sheet">
+        <div className="send-details-header">
+          {/* Header structure kept for layout, but close button removed - using ActionSheet's .as-close-only */}
+        </div>
         <div className={styles.sheetContainer}>
           {/* Scrollable main area */}
           <div className={styles.scrollableContent}>
