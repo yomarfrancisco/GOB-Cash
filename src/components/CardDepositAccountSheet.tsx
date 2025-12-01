@@ -19,8 +19,8 @@ type Account = {
   getBalance: () => number
 }
 
-// Account configuration in requested order: ZAR, MZN, BTC, ETH, PEPE, Credit
-const getAccounts = (getCash: () => number, getEth: () => number, getPepe: () => number, alloc: { mznCents?: number; btcCents?: number }): Account[] => [
+// Account configuration for card deposit - only ZAR and MZN accounts
+const getDepositAccounts = (getCash: () => number, alloc: { mznCents?: number }): Account[] => [
   {
     id: 'savings',
     label: 'ZAR account',
@@ -33,30 +33,6 @@ const getAccounts = (getCash: () => number, getEth: () => number, getPepe: () =>
     cardImage: '/assets/cards/card-MZN2.jpg',
     getBalance: () => (alloc.mznCents || 0) / 100,
   },
-  {
-    id: 'btc',
-    label: 'BTC account',
-    cardImage: '/assets/cards/card-BTC2.jpg',
-    getBalance: () => (alloc.btcCents || 0) / 100,
-  },
-  {
-    id: 'yield',
-    label: 'ETH account',
-    cardImage: '/assets/cards/card-ETH 3.jpg',
-    getBalance: getEth,
-  },
-  {
-    id: 'pepe',
-    label: 'PEPE account',
-    cardImage: '/assets/cards/card-pepe.jpg',
-    getBalance: getPepe,
-  },
-  {
-    id: 'yieldSurprise',
-    label: 'Credit account',
-    cardImage: '/assets/cards/card-$GOB4.jpg',
-    getBalance: getEth, // Credit account uses ETH allocation
-  },
 ]
 
 type CardDepositAccountSheetProps = {
@@ -65,20 +41,26 @@ type CardDepositAccountSheetProps = {
 
 export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccountSheetProps) {
   const { isOpen, amountZAR, close } = useCardDepositAccountSheet()
-  const { getCash, getEth, getPepe, alloc } = useWalletAlloc()
+  const { getCash, alloc } = useWalletAlloc()
   const [selectedAccountId, setSelectedAccountId] = useState<AccountType | null>(null)
   const [selectedAccountLabel, setSelectedAccountLabel] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const accounts = getAccounts(getCash, getEth, getPepe, alloc)
+  const accounts = getDepositAccounts(getCash, alloc)
 
-  // Reset selection when sheet opens
+  // Reset selection when sheet opens - default to ZAR account
   useEffect(() => {
     if (isOpen) {
-      setSelectedAccountId(null)
-      setSelectedAccountLabel('')
+      const zarAccount = accounts.find((a) => a.id === 'savings')
+      if (zarAccount) {
+        setSelectedAccountId('savings')
+        setSelectedAccountLabel(zarAccount.label)
+      } else {
+        setSelectedAccountId(null)
+        setSelectedAccountLabel('')
+      }
     }
-  }, [isOpen])
+  }, [isOpen, accounts])
 
   const handleAccountClick = (account: Account) => {
     setSelectedAccountId(account.id)
