@@ -1,17 +1,17 @@
 'use client'
 
-import { Landmark, Wallet } from 'lucide-react'
+import { Landmark, Wallet, Receipt, Users } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 
 type Props = {
   open: boolean
   onClose: () => void
-  onSelect?: (method: 'bank' | 'card' | 'crypto') => void
+  onSelect?: (method: 'bank' | 'card' | 'crypto' | 'atm' | 'agent') => void
 }
 
 export default function WithdrawSheet({ open, onClose, onSelect }: Props) {
-  const handleSelect = (method: 'bank' | 'card' | 'crypto') => {
+  const handleSelect = (method: 'bank' | 'card' | 'crypto' | 'atm' | 'agent') => {
     if (onSelect) {
       onSelect(method)
     }
@@ -30,6 +30,18 @@ export default function WithdrawSheet({ open, onClose, onSelect }: Props) {
         title="External crypto wallet"
         caption="Send USDT to an external wallet."
         onClick={() => handleSelect('crypto')}
+      />
+      <ActionSheetItem
+        icon={<Receipt size={22} strokeWidth={2} />}
+        title="ATM"
+        caption="Withdraw cash at any ATM."
+        onClick={() => handleSelect('atm')}
+      />
+      <ActionSheetItem
+        icon={<Users size={22} strokeWidth={2} />}
+        title="Agent network"
+        caption="Withdraw cash from a nearby agent."
+        onClick={() => handleSelect('agent')}
       />
     </ActionSheet>
   )

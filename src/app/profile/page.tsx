@@ -112,7 +112,7 @@ export default function ProfilePage() {
     setSelectedCryptoDepositWallet(null)
   }, [])
 
-  const handleDirectSelect = useCallback((method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics') => {
+  const handleDirectSelect = useCallback((method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics' | 'atm' | 'agent') => {
     if (method === 'email' || method === 'wallet' || method === 'brics') {
       setAmountMode('send')
       setSendMethod(method)

@@ -1,19 +1,19 @@
 'use client'
 
 import Image from 'next/image'
-import { MailPlus, Globe, AtSign, Landmark, CreditCard, Wallet } from 'lucide-react'
+import { MailPlus, Globe, AtSign, Landmark, CreditCard, Wallet, Receipt, Users } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 
 type Props = {
   open: boolean
   onClose: () => void
-  onSelect?: (method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics') => void
+  onSelect?: (method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics' | 'atm' | 'agent') => void
   variant?: 'deposit' | 'direct-payment' // 'deposit' for Deposit button, 'direct-payment' for $ icon
 }
 
 export default function DepositSheet({ open, onClose, onSelect, variant = 'deposit' }: Props) {
-  const handleSelect = (method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics') => {
+  const handleSelect = (method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics' | 'atm' | 'agent') => {
     if (onSelect) {
       onSelect(method)
     }
@@ -70,6 +70,18 @@ export default function DepositSheet({ open, onClose, onSelect, variant = 'depos
           caption: 'Receive USDT directly from an external wallet.',
           method: 'crypto' as const,
           icon: <Wallet size={22} strokeWidth={2} />
+        },
+        {
+          title: 'ATM',
+          caption: 'Deposit cash via ATM.',
+          method: 'atm' as const,
+          icon: <Receipt size={22} strokeWidth={2} />
+        },
+        {
+          title: 'Agent network',
+          caption: 'Deposit cash with a nearby agent.',
+          method: 'agent' as const,
+          icon: <Users size={22} strokeWidth={2} />
         }
       ]
 
