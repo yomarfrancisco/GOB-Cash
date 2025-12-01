@@ -36,8 +36,8 @@ const detectCardBrand = (digits: string): CardBrandNullable => {
 }
 
 export default function CardDetailsSheet() {
-  const { isOpen, mode, editingCardId, close } = useCardDetailsSheet()
-  const { origin, close: closeLinkedAccounts } = useLinkedAccountsSheet()
+  const { isOpen, mode, editingCardId, origin, close, setOrigin } = useCardDetailsSheet()
+  const { open: openLinkedAccounts, close: closeLinkedAccounts } = useLinkedAccountsSheet()
   const { open: openCardDepositAccount } = useCardDepositAccountSheet()
   const { profile, addOrUpdateCard, removeCard } = useUserProfileStore()
   const cardNumberRef = useRef<HTMLInputElement>(null)
@@ -124,12 +124,11 @@ export default function CardDetailsSheet() {
     const checkAndRoute = () => {
       const { isOpen: cardDetailsOpen } = useCardDetailsSheet.getState()
       if (!cardDetailsOpen) {
-        const currentOrigin = useLinkedAccountsSheet.getState().origin
+        const currentOrigin = useCardDetailsSheet.getState().origin
         if (currentOrigin === 'depositCard') {
-          // Deposit flow: close LinkedAccountsSheet and open account selection
-          closeLinkedAccounts()
+          // Deposit flow: go directly to account selection (skip LinkedAccountsSheet)
           // Reset origin after routing
-          useLinkedAccountsSheet.getState().setOrigin('settings')
+          setOrigin('settings')
           const { amountZAR } = useCardDepositAccountSheet.getState()
           if (amountZAR !== null) {
             setTimeout(() => {
@@ -138,7 +137,6 @@ export default function CardDetailsSheet() {
           }
         } else {
           // Settings flow: return to LinkedAccountsSheet list
-          const { open: openLinkedAccounts } = useLinkedAccountsSheet.getState()
           openLinkedAccounts('settings')
         }
       } else {
