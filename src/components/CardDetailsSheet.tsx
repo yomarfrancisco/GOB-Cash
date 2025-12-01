@@ -125,9 +125,12 @@ export default function CardDetailsSheet() {
       const { isOpen: cardDetailsOpen } = useCardDetailsSheet.getState()
       if (!cardDetailsOpen) {
         const currentOrigin = useLinkedAccountsSheet.getState().origin
+        const currentOrigin = useLinkedAccountsSheet.getState().origin
         if (currentOrigin === 'depositCard') {
           // Deposit flow: close LinkedAccountsSheet and open account selection
           closeLinkedAccounts()
+          // Reset origin after routing
+          useLinkedAccountsSheet.getState().setOrigin('settings')
           const { amountZAR } = useCardDepositAccountSheet.getState()
           if (amountZAR !== null) {
             setTimeout(() => {
