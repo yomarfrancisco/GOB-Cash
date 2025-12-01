@@ -25,7 +25,7 @@ type AmountSheetProps = {
   showDualButtons?: boolean // if true, show "Cash" and "Card" buttons instead of single CTA
   onCashSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Cash button
   onCardSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Card button
-  entryPoint?: 'helicopter' | 'cashButton' // distinguishes entry point for conditional button rendering
+  entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' // distinguishes entry point for conditional button rendering
   onScanClick?: () => void // callback for scan icon (only shown for cashButton entryPoint)
   initialAmount?: number // optional initial amount to pre-fill (for back navigation)
   withdrawOnly?: boolean // if true, force single CTA button and skip dual-button logic

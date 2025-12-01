@@ -562,7 +562,7 @@ export default function ProfilePage() {
             setAmountMode('deposit')
             setAmountEntryPoint('cardDeposit')
             setTimeout(() => setOpenAmount(true), 220)
-          } else {
+          } else if (method === 'atm' || method === 'agent') {
             setDepositMethod(method)
             setAmountMode('deposit')
             setTimeout(() => setOpenAmount(true), 220)
