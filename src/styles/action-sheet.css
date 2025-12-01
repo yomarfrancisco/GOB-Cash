@@ -452,6 +452,22 @@
   min-height: 0;
 }
 
+/* Bank transfer details sheet - match tall sheet height */
+.as-sheet.bank-transfer-details.as-sheet-tall {
+  max-height: 85vh;
+  height: 85vh;
+  margin-top: 0;
+  padding-bottom: 0; /* Internal content handles safe-area */
+}
+
+/* Bank transfer details sheet - ensure as-body fills height */
+.as-sheet.bank-transfer-details .as-body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* USDT wallet address sheet - match tall sheet height */
 .as-sheet.usdt-wallet-address-sheet.as-sheet-tall {
   max-height: 85vh;

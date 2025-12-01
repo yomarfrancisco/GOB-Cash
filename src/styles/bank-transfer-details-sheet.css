@@ -1,9 +1,11 @@
 .bank-transfer-details-sheet {
-  padding: 24px;
+  padding: 0 24px;
+  padding-top: 64px;
   padding-bottom: max(24px, env(safe-area-inset-bottom));
-  max-height: calc(100vh - 120px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  flex: 1;
 }
 
 .bank-transfer-content {
