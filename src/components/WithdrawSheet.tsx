@@ -18,7 +18,7 @@ export default function WithdrawSheet({ open, onClose, onSelect }: Props) {
   }
 
   return (
-    <ActionSheet open={open} onClose={onClose} title="Withdraw method">
+    <ActionSheet open={open} onClose={onClose} title="Withdraw method" size="tall">
       <ActionSheetItem
         icon={<Landmark size={22} strokeWidth={2} />}
         title="Bank account"

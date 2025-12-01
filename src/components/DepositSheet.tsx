@@ -86,7 +86,7 @@ export default function DepositSheet({ open, onClose, onSelect, variant = 'depos
       ]
 
   return (
-    <ActionSheet open={open} onClose={onClose} title={title}>
+    <ActionSheet open={open} onClose={onClose} title={title} size="tall">
       {options.map((option) => {
         const hasIcon = 'icon' in option && option.icon
         return (
