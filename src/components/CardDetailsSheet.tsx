@@ -193,94 +193,97 @@ export default function CardDetailsSheet() {
       size="tall"
       className="card-details-sheet"
     >
-      <div className={styles.sheetContent}>
-        {/* Header */}
-        <div className={styles.header}>
-          <h2 className={styles.title}>Card details</h2>
-          <p className={styles.subtitle}>You will link this card to your profile</p>
-        </div>
+      <div className={styles.sheetContainer}>
+        {/* Scrollable main area */}
+        <div className={styles.scrollableContent}>
+          {/* Header */}
+          <div className={styles.header}>
+            <h2 className={styles.title}>Card details</h2>
+            <p className={styles.subtitle}>You will link this card to your profile</p>
+          </div>
 
-        {/* Card Input Tile */}
-        <div className={styles.cardInputWrapper}>
-          <div className={styles.cardInput}>
-            {/* Card Number */}
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Card number</label>
-              <div className={styles.field}>
-                <input
-                  ref={cardNumberRef}
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Card number"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                  className={styles.input}
-                  maxLength={19}
-                />
-                <div className={styles.cardIcon}>
-                  {cardBrand ? (
-                    <CardBrandIcon brand={cardBrand} />
-                  ) : (
-                    <CreditCard size={20} strokeWidth={2} className={styles.genericCardIcon} />
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Exp Date + CVV Row */}
-            <div className={styles.row}>
-              <div className={`${styles.col} ${styles.expDate}`}>
-                <label className={styles.fieldLabel}>Exp. date</label>
+          {/* Card Input Tile */}
+          <div className={styles.cardInputWrapper}>
+            <div className={styles.cardInput}>
+              {/* Card Number */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Card number</label>
                 <div className={styles.field}>
                   <input
+                    ref={cardNumberRef}
                     type="text"
                     inputMode="numeric"
-                    placeholder="MM/YY"
-                    value={expDate}
-                    onChange={(e) => setExpDate(formatExpDate(e.target.value))}
+                    placeholder="Card number"
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
                     className={styles.input}
-                    maxLength={5}
+                    maxLength={19}
                   />
+                  <div className={styles.cardIcon}>
+                    {cardBrand ? (
+                      <CardBrandIcon brand={cardBrand} />
+                    ) : (
+                      <CreditCard size={20} strokeWidth={2} className={styles.genericCardIcon} />
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className={`${styles.col} ${styles.cvv}`}>
-                <label className={styles.fieldLabel}>CVV</label>
-                <div className={styles.field}>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="123"
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    className={styles.input}
-                    maxLength={4}
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* Country */}
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Country</label>
-              <div className={styles.field}>
-                <select
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className={`${styles.input} ${styles.select}`}
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={20} strokeWidth={2} className={styles.chevronIcon} />
+              {/* Exp Date + CVV Row */}
+              <div className={styles.row}>
+                <div className={`${styles.col} ${styles.expDate}`}>
+                  <label className={styles.fieldLabel}>Exp. date</label>
+                  <div className={styles.field}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="MM/YY"
+                      value={expDate}
+                      onChange={(e) => setExpDate(formatExpDate(e.target.value))}
+                      className={styles.input}
+                      maxLength={5}
+                    />
+                  </div>
+                </div>
+                <div className={`${styles.col} ${styles.cvv}`}>
+                  <label className={styles.fieldLabel}>CVV</label>
+                  <div className={styles.field}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="123"
+                      value={cvv}
+                      onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      className={styles.input}
+                      maxLength={4}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Country */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Country</label>
+                <div className={styles.field}>
+                  <select
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className={`${styles.input} ${styles.select}`}
+                  >
+                    {COUNTRIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={20} strokeWidth={2} className={styles.chevronIcon} />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer - Done + Remove */}
+        {/* Fixed bottom footer with button */}
         <div className={styles.footer}>
           <div className={styles.actions}>
             <button
