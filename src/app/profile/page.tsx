@@ -669,6 +669,10 @@ export default function ProfilePage() {
       {/* NOTE: FinancialInboxSheet is now accessible from Settings → Inbox */}
       <FinancialInboxSheet />
       <NotificationsSheet />
+      <BankTransferDetailsSheet
+        open={openBankTransferDetails}
+        onClose={closeBankTransferDetails}
+      />
     </div>
   )
 }
