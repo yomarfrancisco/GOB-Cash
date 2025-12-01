@@ -35,6 +35,10 @@ import { useNotificationsStore } from '@/state/notifications'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
+import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
+import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
+import CardDepositAccountSheet from '@/components/CardDepositAccountSheet'
+import { openAmaChatWithCardDepositScenario } from '@/lib/cashDeposit/chatOrchestration'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -72,7 +76,8 @@ export default function ProfilePage() {
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
-  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | undefined>(undefined)
+  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | undefined>(undefined)
+  const [depositMethod, setDepositMethod] = useState<'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null>(null)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
   const [sendRecipient, setSendRecipient] = useState('')
@@ -547,10 +552,18 @@ export default function ProfilePage() {
         onSelect={(method) => {
           setOpenDeposit(false)
           if (method === 'bank') {
+            setDepositMethod('bank')
             setTimeout(() => setOpenCountrySelect(true), 220)
           } else if (method === 'crypto') {
+            setDepositMethod('crypto')
             setTimeout(() => setOpenDepositCryptoWallet(true), 220)
+          } else if (method === 'card') {
+            setDepositMethod('card')
+            setAmountMode('deposit')
+            setAmountEntryPoint('cardDeposit')
+            setTimeout(() => setOpenAmount(true), 220)
           } else {
+            setDepositMethod(method)
             setAmountMode('deposit')
             setTimeout(() => setOpenAmount(true), 220)
           }
@@ -608,9 +621,34 @@ export default function ProfilePage() {
           }, 220)
         } : undefined}
         onSubmit={amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
-          setOpenAmount(false)
-          setAmountEntryPoint(undefined)
-          console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
+          // Card deposit flow: branch based on linked accounts
+          if (amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card') {
+            setOpenAmount(false)
+            setAmountEntryPoint(undefined)
+            
+            // TODO: Replace with real check from wallet store
+            const { linkedCards } = useUserProfileStore.getState().profile
+            const hasLinkedAccounts = linkedCards.length > 0
+            
+            if (hasLinkedAccounts) {
+              // User has linked cards, go directly to account selection
+              setTimeout(() => {
+                useCardDepositAccountSheet.getState().open(amountZAR)
+              }, 220)
+            } else {
+              // User needs to link a card first
+              // Store amount for after card linking
+              useCardDepositAccountSheet.getState().open(amountZAR)
+              setTimeout(() => {
+                useCardDetailsSheet.getState().open('create', null)
+              }, 220)
+            }
+          } else {
+            // Other deposit methods (ATM, agent, etc.) - keep existing behavior
+            setOpenAmount(false)
+            setAmountEntryPoint(undefined)
+            console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
+          }
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
       />
@@ -648,6 +686,12 @@ export default function ProfilePage() {
         }}
       />
       {/* PaymentDetailsSheet is now rendered in root layout */}
+      <CardDepositAccountSheet
+        onConfirm={({ amountZAR, accountId, accountLabel }) => {
+          // Close sheet and open Ama chat
+          openAmaChatWithCardDepositScenario(amountZAR, accountLabel)
+        }}
+      />
       <SuccessSheet
         open={openSendSuccess}
         onClose={closeSendSuccess}
