@@ -370,8 +370,8 @@ export default function ProfilePage() {
                       <CirclePlus size={22} strokeWidth={2} style={{ color: '#111' }} />
                     </div>
                     <div className="profile-social-task-text">
-                      <span className="profile-social-task-title">Invite 5 friends & family</span>
-                      <span className="profile-social-task-subtitle">Get R100 for each sign up</span>
+                      <span className="profile-social-task-title">Invite clients, friends, family</span>
+                      <span className="profile-social-task-subtitle">Get R100 for each active sign-up</span>
                     </div>
                   </div>
                   <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
