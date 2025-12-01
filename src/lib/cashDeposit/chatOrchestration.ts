@@ -82,3 +82,38 @@ export function openAmaChatWithPaymentScenario(
   store.openChatSheet(PORTFOLIO_MANAGER_THREAD_ID)
 }
 
+/**
+ * Opens Ama's chat thread for card deposit confirmation scenarios
+ * This is called after user selects destination account for card deposit
+ */
+export function openAmaChatWithCardDepositScenario(
+  amountZAR: number,
+  accountLabel: string
+): void {
+  const store = useFinancialInboxStore.getState()
+  
+  // Ensure the portfolio manager thread exists
+  store.ensurePortfolioManagerThread()
+  
+  // Format amount for display
+  const amountLabel = formatZAR(amountZAR)
+  
+  // Seed initial confirmation messages
+  // Send first message immediately
+  store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `I've started your card deposit.`)
+  
+  // Send remaining messages with delays to simulate typing
+  setTimeout(() => {
+    store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `Your card deposit of ${amountLabel} into ${accountLabel} has been initiated.`)
+  }, 800)
+  
+  setTimeout(() => {
+    store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `The funds should appear in your account shortly.`)
+  }, 1600)
+  
+  // Open the inbox sheet
+  store.openInbox()
+  
+  // Switch to chat view and set active thread to Ama
+  store.openChatSheet(PORTFOLIO_MANAGER_THREAD_ID)
+}
