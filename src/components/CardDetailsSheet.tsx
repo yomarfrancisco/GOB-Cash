@@ -79,20 +79,8 @@ export default function CardDetailsSheet() {
       setHasSavedCard(false)
     }
 
-    // Auto-focus card number input
-    const focusTimer = setTimeout(() => {
-      if (cardNumberRef.current) {
-        cardNumberRef.current.focus()
-        // iOS Safari keyboard workaround
-        if (typeof window !== 'undefined' && 'ontouchstart' in window) {
-          setTimeout(() => {
-            cardNumberRef.current?.click()
-          }, 50)
-        }
-      }
-    }, 150)
-
-    return () => clearTimeout(focusTimer)
+    // Removed auto-focus to prevent iOS Safari layout gap on first render
+    // Keyboard will open only when user taps an input field
   }, [isOpen, mode, editingCardId, profile.linkedCards])
 
   // Format card number with spaces (e.g., "5555 2222 0952")
