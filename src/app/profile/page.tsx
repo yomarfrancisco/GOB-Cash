@@ -8,7 +8,9 @@ import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
 import CashInOutSheet from '@/components/CashInOutSheet'
+import CountrySelectSheet from '@/components/CountrySelectSheet'
 import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
+import { CountryCode } from '@/config/depositBankAccounts'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
@@ -61,7 +63,9 @@ export default function ProfilePage() {
   const [openCashInOut, setOpenCashInOut] = useState(false)
   const [openDeposit, setOpenDeposit] = useState(false)
   const [openWithdraw, setOpenWithdraw] = useState(false)
+  const [openCountrySelect, setOpenCountrySelect] = useState(false)
   const [openBankTransferDetails, setOpenBankTransferDetails] = useState(false)
+  const [bankTransferCountry, setBankTransferCountry] = useState<CountryCode>('MZ')
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
@@ -543,7 +547,7 @@ export default function ProfilePage() {
         onSelect={(method) => {
           setOpenDeposit(false)
           if (method === 'bank') {
-            setTimeout(() => setOpenBankTransferDetails(true), 220)
+            setTimeout(() => setOpenCountrySelect(true), 220)
           } else if (method === 'crypto') {
             setTimeout(() => setOpenDepositCryptoWallet(true), 220)
           } else {
@@ -669,9 +673,19 @@ export default function ProfilePage() {
       {/* NOTE: FinancialInboxSheet is now accessible from Settings → Inbox */}
       <FinancialInboxSheet />
       <NotificationsSheet />
+      <CountrySelectSheet
+        isOpen={openCountrySelect}
+        onClose={() => setOpenCountrySelect(false)}
+        onSelect={(countryCode) => {
+          setBankTransferCountry(countryCode)
+          setOpenCountrySelect(false)
+          setTimeout(() => setOpenBankTransferDetails(true), 220)
+        }}
+      />
       <BankTransferDetailsSheet
         open={openBankTransferDetails}
-        onClose={closeBankTransferDetails}
+        onClose={() => setOpenBankTransferDetails(false)}
+        countryCode={bankTransferCountry}
       />
     </div>
   )

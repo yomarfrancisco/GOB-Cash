@@ -3,26 +3,30 @@
 import { useState } from 'react'
 import { Copy } from 'lucide-react'
 import ActionSheet from './ActionSheet'
+import { CountryCode, DEPOSIT_BANK_ACCOUNTS } from '@/config/depositBankAccounts'
 import '@/styles/bank-transfer-details-sheet.css'
 
 type BankTransferDetailsSheetProps = {
   open: boolean
   onClose: () => void
-}
-
-const DETAILS = {
-  recipient: 'MULTI - INVESTIMENTOS',
-  accountNumber: '2009  8312  8100  01',
-  accountType: 'Current / Cheque',
-  bank: 'BCI',
-  swift: 'CGDIMZMA',
-  reference: 'BRICS4DC7RB',
+  countryCode: CountryCode
 }
 
 export default function BankTransferDetailsSheet({
   open,
   onClose,
+  countryCode,
 }: BankTransferDetailsSheetProps) {
+  const config = DEPOSIT_BANK_ACCOUNTS[countryCode]
+  
+  const DETAILS = {
+    recipient: config.recipient,
+    accountNumber: config.accountNumber,
+    accountType: config.accountType,
+    bank: config.bankName,
+    swift: config.swift,
+    reference: config.referencePrefix,
+  }
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async (value: string, label: string) => {
