@@ -5,6 +5,7 @@ import ActionSheet from './ActionSheet'
 import { Check, ChevronDown, CreditCard } from 'lucide-react'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
+import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
 import { useUserProfileStore, type CardBrand } from '@/store/userProfile'
 import { COUNTRIES } from '@/constants/countries'
 import { CardBrandIcon } from './CardBrandIcon'
@@ -36,7 +37,8 @@ const detectCardBrand = (digits: string): CardBrandNullable => {
 
 export default function CardDetailsSheet() {
   const { isOpen, mode, editingCardId, close } = useCardDetailsSheet()
-  const { open: openLinkedAccounts } = useLinkedAccountsSheet()
+  const { origin, close: closeLinkedAccounts } = useLinkedAccountsSheet()
+  const { open: openCardDepositAccount } = useCardDepositAccountSheet()
   const { profile, addOrUpdateCard, removeCard } = useUserProfileStore()
   const cardNumberRef = useRef<HTMLInputElement>(null)
 
@@ -118,16 +120,30 @@ export default function CardDetailsSheet() {
 
   const handleClose = () => {
     close()
-    // Poll until CardDetailsSheet is closed, then reopen LinkedAccountsSheet
-    const checkAndOpen = () => {
+    // Poll until CardDetailsSheet is closed, then route based on origin
+    const checkAndRoute = () => {
       const { isOpen: cardDetailsOpen } = useCardDetailsSheet.getState()
       if (!cardDetailsOpen) {
-        openLinkedAccounts()
+        const currentOrigin = useLinkedAccountsSheet.getState().origin
+        if (currentOrigin === 'depositCard') {
+          // Deposit flow: close LinkedAccountsSheet and open account selection
+          closeLinkedAccounts()
+          const { amountZAR } = useCardDepositAccountSheet.getState()
+          if (amountZAR !== null) {
+            setTimeout(() => {
+              openCardDepositAccount(amountZAR)
+            }, 220)
+          }
+        } else {
+          // Settings flow: return to LinkedAccountsSheet list
+          const { open: openLinkedAccounts } = useLinkedAccountsSheet.getState()
+          openLinkedAccounts('settings')
+        }
       } else {
-        setTimeout(checkAndOpen, 50)
+        setTimeout(checkAndRoute, 50)
       }
     }
-    setTimeout(checkAndOpen, 100)
+    setTimeout(checkAndRoute, 100)
   }
 
   const handleDone = () => {

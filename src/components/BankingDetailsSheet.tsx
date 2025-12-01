@@ -79,7 +79,7 @@ export default function BankingDetailsSheet() {
     const checkAndOpen = () => {
       const { isOpen: bankingDetailsOpen } = useBankingDetailsSheet.getState()
       if (!bankingDetailsOpen) {
-        openLinkedAccounts()
+        openLinkedAccounts('settings')
       } else {
         setTimeout(checkAndOpen, 50)
       }

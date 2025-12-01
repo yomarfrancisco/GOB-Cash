@@ -76,7 +76,7 @@ export default function UsdtWalletAddressSheet() {
     const checkAndOpen = () => {
       const { isOpen: usdtWalletOpen } = useUsdtWalletAddressSheet.getState()
       if (!usdtWalletOpen) {
-        openLinkedAccounts()
+        openLinkedAccounts('settings')
       } else {
         setTimeout(checkAndOpen, 50)
       }
