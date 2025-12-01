@@ -7,6 +7,7 @@ import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
+import CashInOutSheet from '@/components/CashInOutSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
@@ -56,6 +57,7 @@ export default function ProfilePage() {
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
   const [openPayments, setOpenPayments] = useState(false)
+  const [openCashInOut, setOpenCashInOut] = useState(false)
   const [openDeposit, setOpenDeposit] = useState(false)
   const [openWithdraw, setOpenWithdraw] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
@@ -332,11 +334,11 @@ export default function ProfilePage() {
                   className="btn profile-edit" 
                   onClick={() => {
                     guardAuthed(() => {
-                      openDepositSheet()
+                      setOpenCashInOut(true)
                     })
                   }}
                 >
-                  Top up
+                  Cash in / out
                 </button>
                 <button
                   className="btn profile-inbox"
@@ -411,23 +413,6 @@ export default function ProfilePage() {
                         <Edit3 size={22} strokeWidth={2} style={{ color: '#111' }} />
                       </div>
                       <span className="profile-settings-label">Edit profile</span>
-                    </div>
-                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                  </button>
-                  <button
-                    className="profile-settings-row"
-                    onClick={() => {
-                      guardAuthed(() => {
-                        openWithdrawSheet()
-                      })
-                    }}
-                    type="button"
-                  >
-                    <div className="profile-settings-left">
-                      <div className="profile-settings-icon">
-                        <BanknoteArrowDown size={22} strokeWidth={2} style={{ color: '#111' }} />
-                      </div>
-                      <span className="profile-settings-label">Cash out</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
