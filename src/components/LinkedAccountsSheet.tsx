@@ -20,7 +20,7 @@ const formatWalletAddress = (address: string): string => {
 }
 
 export default function LinkedAccountsSheet() {
-  const { isOpen, close } = useLinkedAccountsSheet()
+  const { isOpen, close, origin } = useLinkedAccountsSheet()
   const { open: openCardDetails } = useCardDetailsSheet()
   const { open: openBankingDetails } = useBankingDetailsSheet()
   const { open: openUsdtWalletAddress } = useUsdtWalletAddressSheet()
@@ -33,7 +33,9 @@ export default function LinkedAccountsSheet() {
     const checkAndOpen = () => {
       const { isOpen: linkedAccountsOpen } = useLinkedAccountsSheet.getState()
       if (!linkedAccountsOpen) {
-        openCardDetails('create', null)
+        // Pass current origin (should be 'settings' from Settings flow)
+        const currentOrigin = useLinkedAccountsSheet.getState().origin
+        openCardDetails('create', null, currentOrigin)
       } else {
         setTimeout(checkAndOpen, 50)
       }
@@ -47,7 +49,9 @@ export default function LinkedAccountsSheet() {
     const checkAndOpen = () => {
       const { isOpen: linkedAccountsOpen } = useLinkedAccountsSheet.getState()
       if (!linkedAccountsOpen) {
-        openCardDetails('edit', cardId)
+        // Pass current origin (should be 'settings' from Settings flow)
+        const currentOrigin = useLinkedAccountsSheet.getState().origin
+        openCardDetails('edit', cardId, currentOrigin)
       } else {
         setTimeout(checkAndOpen, 50)
       }
