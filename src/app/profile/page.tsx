@@ -637,14 +637,11 @@ export default function ProfilePage() {
               }, 220)
             } else {
               // User needs to link a card first
-              // Store amount for after card linking
-              useCardDepositAccountSheet.getState().open(amountZAR)
-              // Open LinkedAccountsSheet with depositCard origin, then CardDetailsSheet
+              // Store amount for after card linking (without opening the sheet)
+              useCardDepositAccountSheet.getState().setAmount(amountZAR)
+              // Open LinkedAccountsSheet with depositCard origin so user can add a card
               setTimeout(() => {
                 useLinkedAccountsSheet.getState().open('depositCard')
-                setTimeout(() => {
-                  useCardDetailsSheet.getState().open('create', null)
-                }, 220)
               }, 220)
             }
           } else {

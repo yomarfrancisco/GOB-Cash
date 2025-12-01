@@ -5,6 +5,7 @@ interface CardDepositAccountSheetState {
   amountZAR: number | null
   open: (amountZAR: number) => void
   close: () => void
+  setAmount: (amountZAR: number) => void // Store amount without opening sheet
 }
 
 export const useCardDepositAccountSheet = create<CardDepositAccountSheetState>((set) => ({
@@ -12,5 +13,6 @@ export const useCardDepositAccountSheet = create<CardDepositAccountSheetState>((
   amountZAR: null,
   open: (amountZAR) => set({ isOpen: true, amountZAR }),
   close: () => set({ isOpen: false, amountZAR: null }),
+  setAmount: (amountZAR) => set({ amountZAR }), // Store amount without opening
 }))
 
