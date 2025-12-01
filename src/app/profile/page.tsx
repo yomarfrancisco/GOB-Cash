@@ -363,7 +363,7 @@ export default function ProfilePage() {
                     })
                   }}
                   type="button"
-                  aria-label="Invite 5 friends and family"
+                  aria-label="Invite clients, friends, family"
                 >
                   <div className="profile-social-task-left">
                     <div className="profile-settings-icon">
