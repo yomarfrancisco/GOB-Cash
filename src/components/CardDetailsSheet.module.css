@@ -2,13 +2,13 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
-  flex: 1 1 auto;
+  flex: 1 1 auto; /* Use flex instead of height: 100% */
   transform: none !important;
   will-change: auto;
   padding: 0 24px;
   padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   overflow-y: auto;
+  overflow-x: hidden; /* Explicitly disable x-scroll */
   overscroll-behavior: contain;
 }
 
@@ -159,7 +159,8 @@
 }
 
 .footer {
-  margin-top: 32px;
+  margin-top: auto; /* Push footer to the bottom */
+  padding-top: 32px; /* Keep visual spacing from card */
   display: flex;
   flex-direction: column;
   align-items: center;

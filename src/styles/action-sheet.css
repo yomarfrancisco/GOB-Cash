@@ -428,12 +428,14 @@
   padding-bottom: 0; /* Internal content handles safe-area */
 }
 
-/* Card details sheet - ensure as-body fills height */
+/* Card details sheet - override default as-body behavior */
 .as-sheet.card-details-sheet .as-body {
   height: 100%;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  padding: 0; /* Remove default 0 24px padding */
+  overflow: hidden; /* Prevent horizontal scroll */
 }
 
 /* Banking details sheet - match tall sheet height */
