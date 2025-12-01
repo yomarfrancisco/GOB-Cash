@@ -338,7 +338,7 @@ export default function ProfilePage() {
                     })
                   }}
                 >
-                  Cash in / out
+                  Cash-in / out
                 </button>
                 <button
                   className="btn profile-inbox"

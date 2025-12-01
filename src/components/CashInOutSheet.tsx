@@ -18,7 +18,7 @@ export default function CashInOutSheet({ open, onClose, onSelect }: CashInOutShe
   }
 
   return (
-    <ActionSheet open={open} onClose={onClose} title="Cash in / out">
+    <ActionSheet open={open} onClose={onClose} title="Cash-in / out">
       <ActionSheetItem
         icon={<BanknoteArrowUp size={24} strokeWidth={2} />}
         title="Deposit"
