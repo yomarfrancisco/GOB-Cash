@@ -8,6 +8,7 @@ import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
 import CashInOutSheet from '@/components/CashInOutSheet'
+import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
@@ -60,6 +61,7 @@ export default function ProfilePage() {
   const [openCashInOut, setOpenCashInOut] = useState(false)
   const [openDeposit, setOpenDeposit] = useState(false)
   const [openWithdraw, setOpenWithdraw] = useState(false)
+  const [openBankTransferDetails, setOpenBankTransferDetails] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
@@ -85,6 +87,7 @@ export default function ProfilePage() {
   const openWithdrawSheet = useCallback(() => setOpenWithdraw(true), [])
   const closeDeposit = useCallback(() => setOpenDeposit(false), [])
   const closeWithdraw = useCallback(() => setOpenWithdraw(false), [])
+  const closeBankTransferDetails = useCallback(() => setOpenBankTransferDetails(false), [])
   const closeAmount = useCallback(() => {
     setOpenAmount(false)
     setAmountEntryPoint(undefined) // Reset entry point when closing
@@ -539,7 +542,9 @@ export default function ProfilePage() {
         variant="deposit"
         onSelect={(method) => {
           setOpenDeposit(false)
-          if (method === 'crypto') {
+          if (method === 'bank') {
+            setTimeout(() => setOpenBankTransferDetails(true), 220)
+          } else if (method === 'crypto') {
             setTimeout(() => setOpenDepositCryptoWallet(true), 220)
           } else {
             setAmountMode('deposit')
