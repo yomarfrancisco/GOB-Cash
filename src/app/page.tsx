@@ -10,7 +10,6 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
-import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
 import { formatUSDT } from '@/lib/money'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useAiActionCycle } from '@/lib/animations/useAiActionCycle'
@@ -88,16 +87,13 @@ export default function Home() {
       }
     }
   }, [])
-  const [openDeposit, setOpenDeposit] = useState(false)
   const [openWithdraw, setOpenWithdraw] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
-  const [openDepositSuccess, setOpenDepositSuccess] = useState(false)
   const [openCardSuccess, setOpenCardSuccess] = useState(false)
-  const [openBankTransferDetails, setOpenBankTransferDetails] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('deposit')
   const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | undefined>(undefined)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
@@ -127,9 +123,7 @@ export default function Home() {
   // Register onSelect handler for global Transact sheet
   useEffect(() => {
     setOnSelect((action) => {
-      if (action === 'deposit') {
-        setTimeout(() => setOpenDeposit(true), 220)
-      } else if (action === 'withdraw') {
+      if (action === 'withdraw') {
         setTimeout(() => setOpenWithdraw(true), 220)
       } else if (action === 'payment') {
         setFlowType('payment')
@@ -156,11 +150,9 @@ export default function Home() {
       setOnSelect(null) // Cleanup on unmount
     }
   }, [setOnSelect])
-  const openDepositSheet = useCallback(() => setOpenDeposit(true), [])
   const openDirectPaymentSheet = useCallback(() => setOpenDirectPayment(true), [])
   const closeDirectPayment = useCallback(() => setOpenDirectPayment(false), [])
   const openWithdrawSheet = useCallback(() => setOpenWithdraw(true), [])
-  const closeDeposit = useCallback(() => setOpenDeposit(false), [])
   const closeWithdraw = useCallback(() => setOpenWithdraw(false), [])
   const closeAmount = useCallback(() => {
     setOpenAmount(false)
@@ -176,13 +168,6 @@ export default function Home() {
     setSendAmountZAR(0)
     setSendAmountUSDT(0)
     setFlowType('payment') // Reset to default
-  }, [])
-  const closeDepositSuccess = useCallback(() => {
-    setOpenDepositSuccess(false)
-    setDepositAmountZAR(0)
-  }, [])
-  const closeBankTransferDetails = useCallback(() => {
-    setOpenBankTransferDetails(false)
   }, [])
   const closeInternalTransfer = useCallback(() => {
     setOpenInternalTransfer(false)
@@ -657,25 +642,6 @@ export default function Home() {
         variant="direct-payment"
         onSelect={handleDirectSelect}
       />
-      <DepositSheet
-        open={openDeposit}
-        onClose={closeDeposit}
-        variant="deposit"
-        onSelect={(method) => {
-          setOpenDeposit(false)
-          if (method === 'bank') {
-            setTimeout(() => setOpenBankTransferDetails(true), 220)
-          } else if (method === 'card') {
-            setAmountMode('depositCard')
-            setTimeout(() => setOpenAmount(true), 220)
-          } else if (method === 'crypto') {
-            setTimeout(() => setOpenDepositCryptoWallet(true), 220)
-          } else {
-            setAmountMode('deposit')
-            setTimeout(() => setOpenAmount(true), 220)
-          }
-        }}
-      />
       <WithdrawSheet
         open={openWithdraw}
         onClose={closeWithdraw}
@@ -770,13 +736,7 @@ export default function Home() {
               }
             : undefined
         }
-        onSubmit={amountMode === 'depositCard' ? ({ amountZAR, amountUSDT }) => {
-          setDepositAmountZAR(amountZAR)
-          setDepositAmountUSDT(amountUSDT || 0)
-          setOpenAmount(false)
-          setAmountEntryPoint(undefined)
-          setTimeout(() => setOpenCardSuccess(true), 220)
-        } : amountMode === 'withdraw' ? ({ amountZAR }) => {
+        onSubmit={amountMode === 'withdraw' ? ({ amountZAR }) => {
           // Cash withdrawal flow: start scenario and open Ama chat
           setConvertAmount(amountZAR)
           // Close keypad modal
@@ -840,16 +800,6 @@ export default function Home() {
         flowType={flowType}
       />
       <SuccessSheet
-        open={openDepositSuccess}
-        onClose={closeDepositSuccess}
-        amountZAR={`R ${depositAmountZAR.toLocaleString('en-ZA', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`}
-        recipient=""
-        kind="deposit"
-      />
-      <SuccessSheet
         open={openCardSuccess}
         onClose={() => {
           setOpenCardSuccess(false)
@@ -863,10 +813,6 @@ export default function Home() {
         amountUSDT={depositAmountUSDT > 0 ? formatUSDT(depositAmountUSDT) : undefined}
         recipient=""
         kind="card"
-      />
-      <BankTransferDetailsSheet
-        open={openBankTransferDetails}
-        onClose={closeBankTransferDetails}
       />
               <CashMapPopup
                 open={isMapOpen}
