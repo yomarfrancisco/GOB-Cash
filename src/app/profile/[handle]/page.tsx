@@ -127,8 +127,8 @@ export default function ProfileHandlePage() {
     <div className="app-shell profile-page">
       <div className="mobile-frame">
         <div className="dashboard-container" style={{ position: 'relative' }}>
-          {/* Overlay: Top glass bar only (NO bottom nav, NO logo) */}
-          <div className="overlay-glass">
+          {/* Overlay: Top glass bar only (NO bottom nav, NO logo) - shifted down 30px */}
+          <div className="overlay-glass" style={{ top: '30px' }}>
             <div className="overlay-glass-inner">
               <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" />
               {/* NO BottomGlassBar for public profiles */}
