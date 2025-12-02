@@ -7,9 +7,10 @@ import { useRequireAuth } from '@/hooks/useRequireAuth'
 
 type TopGlassBarProps = {
   onScanClick?: () => void
+  hideLogo?: boolean // Hide logo for third-party profiles
 }
 
-export default function TopGlassBar({ onScanClick }: TopGlassBarProps = {}) {
+export default function TopGlassBar({ onScanClick, hideLogo = false }: TopGlassBarProps = {}) {
   const pathname = usePathname()
   const isActivityPage = pathname === '/activity'
   const { open } = useShareProfileSheet()
@@ -35,27 +36,29 @@ export default function TopGlassBar({ onScanClick }: TopGlassBarProps = {}) {
         priority
         unoptimized
       />
-      {isActivityPage ? (
-        <Image
-          src="/assets/Activity.png"
-          alt="Activity"
-          className="gobankless-logo activity-logo"
-          width={220}
-          height={65}
-          priority
-          unoptimized
-          style={{ transform: 'scale(0.7)', transformOrigin: 'left center' }}
-        />
-      ) : (
-        <Image
-          src="/assets/core/goBankless_logo4x.png"
-          alt="GoBankless"
-          className="gobankless-logo"
-          width={220}
-          height={65}
-          priority
-          unoptimized
-        />
+      {!hideLogo && (
+        isActivityPage ? (
+          <Image
+            src="/assets/Activity.png"
+            alt="Activity"
+            className="gobankless-logo activity-logo"
+            width={220}
+            height={65}
+            priority
+            unoptimized
+            style={{ transform: 'scale(0.7)', transformOrigin: 'left center' }}
+          />
+        ) : (
+          <Image
+            src="/assets/core/goBankless_logo4x.png"
+            alt="GoBankless"
+            className="gobankless-logo"
+            width={220}
+            height={65}
+            priority
+            unoptimized
+          />
+        )
       )}
       <div className="icons">
         <div className="icon-group">

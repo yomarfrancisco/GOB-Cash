@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
+import { Bookmark } from 'lucide-react'
 import { useUserProfileStore } from '@/store/userProfile'
 import TopGlassBar from '@/components/TopGlassBar'
 import Avatar from '@/components/Avatar'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
-import CashInOutSheet from '@/components/CashInOutSheet'
+import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
+import PaymentDetailsSheet from '@/components/PaymentDetailsSheet'
 
 // Stub data for demo profiles
 interface StubProfile {
@@ -61,7 +63,8 @@ export default function ProfileHandlePage() {
   const { profile: currentUserProfile } = useUserProfileStore()
   const { openInbox } = useFinancialInboxStore()
   const { guardAuthed } = useRequireAuth()
-  const [openCashInOut, setOpenCashInOut] = useState(false)
+  const { open: openPaymentDetails } = usePaymentDetailsSheet()
+  const [isBookmarked, setIsBookmarked] = useState(false)
 
   // Extract handle from params (remove @ if present, handle both /profile/ama and /profile/@ama)
   const handleParam = params?.handle as string | undefined
@@ -124,10 +127,10 @@ export default function ProfileHandlePage() {
     <div className="app-shell profile-page">
       <div className="mobile-frame">
         <div className="dashboard-container" style={{ position: 'relative' }}>
-          {/* Overlay: Top glass bar only (NO bottom nav) */}
+          {/* Overlay: Top glass bar only (NO bottom nav, NO logo) */}
           <div className="overlay-glass">
             <div className="overlay-glass-inner">
-              <TopGlassBar />
+              <TopGlassBar hideLogo={true} />
               {/* NO BottomGlassBar for public profiles */}
             </div>
           </div>
@@ -142,9 +145,9 @@ export default function ProfileHandlePage() {
             <div className="profile-backdrop-fade" />
           </div>
 
-          {/* Scrollable content */}
+          {/* Scrollable content - shifted down 30px to show more backdrop */}
           <div className="scroll-content profile-scroll">
-            <div className="content profile-content">
+            <div className="content profile-content" style={{ marginTop: '30px' }}>
               {/* Avatar + name + handle */}
               <div className="profile-header">
                 <Avatar
@@ -277,28 +280,70 @@ export default function ProfileHandlePage() {
                 )}
               </div>
 
-              {/* Buttons */}
-              <div className="profile-actions">
-                <button 
-                  className="btn profile-edit" 
-                  onClick={() => {
-                    guardAuthed(() => {
-                      setOpenCashInOut(true)
-                    })
-                  }}
-                >
-                  Cash-in / out
-                </button>
+              {/* Sponsor button */}
+              <div className="profile-actions" style={{ flexDirection: 'column', gap: '8px' }}>
                 <button
-                  className="btn profile-inbox"
+                  className="btn profile-sponsor"
                   onClick={() => {
-                    guardAuthed(() => {
-                      openInbox()
-                    })
+                    // TODO: Implement sponsor functionality
+                    console.log('Sponsor:', profile.userHandle)
                   }}
+                  type="button"
                 >
-                  Inbox
+                  Sponsor
                 </button>
+
+                {/* Secondary actions row */}
+                <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                  <button
+                    className="btn profile-secondary"
+                    onClick={() => {
+                      guardAuthed(() => {
+                        // Open AMA chat / inbox for this user
+                        // For Ama, open the existing inbox chat
+                        if (normalizedHandle === '@ama') {
+                          openInbox()
+                        } else {
+                          // TODO: Open chat with this user
+                          console.log('Message:', profile.userHandle)
+                        }
+                      })
+                    }}
+                    type="button"
+                  >
+                    Message
+                  </button>
+                  <button
+                    className="btn profile-secondary"
+                    onClick={() => {
+                      guardAuthed(() => {
+                        // Open Pay/Request sheet for this user
+                        // For now, open with 0 amount (user will enter it in the sheet)
+                        openPaymentDetails('pay', 0)
+                      })
+                    }}
+                    type="button"
+                  >
+                    Pay / Request
+                  </button>
+                  <button
+                    className="btn profile-bookmark"
+                    onClick={() => {
+                      setIsBookmarked(!isBookmarked)
+                      // TODO: Persist bookmark state
+                      console.log('Bookmark toggled:', !isBookmarked)
+                    }}
+                    type="button"
+                    aria-label="Bookmark"
+                  >
+                    <Bookmark
+                      size={22}
+                      strokeWidth={2}
+                      style={{ color: '#000' }}
+                      fill={isBookmarked ? '#000' : 'none'}
+                    />
+                  </button>
+                </div>
               </div>
 
               {/* NO Invite friends section for public profiles */}
@@ -313,16 +358,7 @@ export default function ProfileHandlePage() {
         </div>
       </div>
 
-      {/* Sheets */}
-      <CashInOutSheet
-        open={openCashInOut}
-        onClose={() => setOpenCashInOut(false)}
-        onSelect={(mode) => {
-          setOpenCashInOut(false)
-          // TODO: Handle deposit/withdraw for public profiles
-          console.log('Selected mode:', mode)
-        }}
-      />
+      {/* PaymentDetailsSheet is rendered globally in layout.tsx */}
     </div>
   )
 }

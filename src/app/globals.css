@@ -977,6 +977,66 @@ body {
   background: #ff1a42;
 }
 
+/* Sponsor button (for third-party profiles) */
+.profile-sponsor {
+  background: #ff2d55;
+  color: #fff;
+  width: 100%;
+}
+
+.profile-sponsor:hover {
+  background: #ff1a42;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 45, 85, 0.3);
+}
+
+.profile-sponsor:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(255, 45, 85, 0.2);
+}
+
+/* Secondary buttons (for third-party profiles) */
+.profile-secondary {
+  background: #e5e5ea;
+  color: #000;
+  flex: 1;
+}
+
+.profile-secondary:hover {
+  background: #d1d1d6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.profile-secondary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Bookmark button (circular, for third-party profiles) */
+.profile-bookmark {
+  background: #e5e5ea;
+  color: #000;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.profile-bookmark:hover {
+  background: #d1d1d6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.profile-bookmark:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
 /* Invite friends section */
 .profile-social-task {
   width: 382px;
