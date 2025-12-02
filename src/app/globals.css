@@ -1293,7 +1293,7 @@ body {
 
 /* Adjust scrollable content position for third-party profiles */
 .profile-other-scroll {
-  margin-top: 220px; /* Position stats card with breathing room below glass identity block */
+  margin-top: 185px; /* Position stats card with breathing room below glass identity block (moved up 35px) */
 }
 
 /* Invite friends section */
