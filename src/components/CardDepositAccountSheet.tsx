@@ -60,7 +60,8 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
         setSelectedAccountLabel('')
       }
     }
-  }, [isOpen, accounts])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]) // Only reset when sheet opens/closes, not when accounts array changes
 
   const handleAccountClick = (account: Account) => {
     setSelectedAccountId(account.id)
