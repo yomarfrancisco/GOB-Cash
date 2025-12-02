@@ -148,7 +148,7 @@ export default function ProfileHandlePage() {
           {/* Scrollable content */}
           <div className="scroll-content profile-scroll">
             <div className="content profile-content">
-              {/* Avatar + name + handle */}
+              {/* Avatar + handle (no full name for third-party profiles) */}
               <div className="profile-header">
                 <Avatar
                   name={profile.fullName}
@@ -159,7 +159,7 @@ export default function ProfileHandlePage() {
                   className="profile-avatar"
                 />
                 <h1 className="profile-name">{profile.userHandle}</h1>
-                <div className="profile-handle">{profile.fullName}</div>
+                {/* Full name row removed for third-party profiles */}
 
                 {/* Meta row */}
                 <div className="profile-meta">
