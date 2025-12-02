@@ -168,8 +168,12 @@ export default function ProfileHandlePage() {
                 onClick={() => {
                   // Open ShareProfileSheet for third-party profile
                   useShareProfileSheet.getState().open({
-                    handle: profile.userHandle,
-                    isOwnProfile: false,
+                    subject: {
+                      handle: profile.userHandle,
+                      avatarUrl: profile.avatarUrl,
+                      fullName: profile.fullName,
+                    },
+                    mode: 'other',
                   })
                 }}
                 className="profile-other-icon-button"

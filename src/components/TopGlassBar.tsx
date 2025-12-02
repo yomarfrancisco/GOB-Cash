@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
+import { useUserProfileStore } from '@/store/userProfile'
 
 type TopGlassBarProps = {
   onScanClick?: () => void
@@ -17,6 +18,7 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
   const isActivityPage = pathname === '/activity'
   const { open } = useShareProfileSheet()
   const { guardAuthed } = useRequireAuth()
+  const { profile } = useUserProfileStore()
 
   const defaultGlassShard = '/assets/core/glass-top-4.png'
   const glassShard = glassShardSrc || defaultGlassShard
@@ -80,7 +82,14 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
             <button
               onClick={() => {
                 guardAuthed(() => {
-                  open({ isOwnProfile: true })
+                  open({
+                    subject: {
+                      handle: profile.userHandle || '@samakoyo',
+                      avatarUrl: profile.avatarUrl,
+                      fullName: profile.fullName,
+                    },
+                    mode: 'self',
+                  })
                 })
               }}
               className="icon-button"

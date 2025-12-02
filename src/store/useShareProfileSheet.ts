@@ -2,23 +2,29 @@
 
 import { create } from 'zustand'
 
+export type ShareProfileSubject = {
+  handle: string
+  avatarUrl?: string | null
+  fullName?: string | null
+}
+
 interface ShareProfileSheetState {
   isOpen: boolean
-  handle: string | null
-  isOwnProfile: boolean
-  open: (options?: { handle?: string; isOwnProfile?: boolean }) => void
+  subject: ShareProfileSubject | null
+  mode: 'self' | 'other'
+  open: (options: { subject: ShareProfileSubject; mode?: 'self' | 'other' }) => void
   close: () => void
 }
 
 export const useShareProfileSheet = create<ShareProfileSheetState>((set) => ({
   isOpen: false,
-  handle: null,
-  isOwnProfile: true,
+  subject: null,
+  mode: 'self',
   open: (options) => set({ 
     isOpen: true, 
-    handle: options?.handle || null,
-    isOwnProfile: options?.isOwnProfile ?? true 
+    subject: options.subject,
+    mode: options.mode || 'self'
   }),
-  close: () => set({ isOpen: false, handle: null, isOwnProfile: true }),
+  close: () => set({ isOpen: false, subject: null, mode: 'self' }),
 }))
 

@@ -5,29 +5,33 @@ import { Copy, AtSign, Share } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
-import { useUserProfileStore } from '@/store/userProfile'
 import { generateQRCode } from '@/lib/qr'
 import { useNotificationStore } from '@/store/notifications'
 import Avatar from './Avatar'
 import styles from './ShareProfileSheet.module.css'
 
 export default function ShareProfileSheet() {
-  const { isOpen, close, handle: sheetHandle, isOwnProfile } = useShareProfileSheet()
-  const { profile } = useUserProfileStore()
+  const { isOpen, close, subject, mode } = useShareProfileSheet()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   const [qrDataURL, setQrDataURL] = useState<string | null>(null)
 
-  // Determine which handle to use: from sheet state (third-party) or from user profile (own)
-  const targetHandle = sheetHandle || profile.userHandle || '@samakoyo'
-  const displayHandle = targetHandle
+  // Normalize handle to always have @ prefix (use fallback if no subject)
+  const subjectHandle = subject?.handle?.startsWith('@') 
+    ? subject.handle 
+    : subject?.handle 
+      ? `@${subject.handle}`
+      : '@samakoyo'
+  const displayHandle = subjectHandle
+
+  // Compute payment URL once based on subject handle
+  const paymentUrl = `https://gobankless.app/pay/${subjectHandle.replace(/^@/, '')}`
 
   // Generate QR code when sheet opens
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || !subject) return
 
     const generateQR = async () => {
       try {
-        const paymentUrl = `https://gobankless.app/pay/${targetHandle.replace('@', '')}`
         const qr = await generateQRCode(paymentUrl, 512)
         setQrDataURL(qr)
       } catch (error) {
@@ -41,23 +45,26 @@ export default function ShareProfileSheet() {
     }
 
     generateQR()
-  }, [isOpen, targetHandle, pushNotification])
+  }, [isOpen, subject, paymentUrl, pushNotification])
+
+  // Early return if no subject (after all hooks)
+  if (!subject) {
+    return null
+  }
 
   const handleShare = async () => {
-    const paymentUrl = `https://gobankless.app/pay/${targetHandle.replace('@', '')}`
-
     if (typeof window !== 'undefined' && navigator.share) {
       try {
-        if (isOwnProfile) {
+        if (mode === 'self') {
           await navigator.share({
             title: 'My GoBankless Profile',
-            text: `Pay me on GoBankless: ${targetHandle}`,
+            text: `Pay me on GoBankless: ${subjectHandle}`,
             url: paymentUrl,
           })
         } else {
           await navigator.share({
-            title: `Share ${targetHandle}'s profile`,
-            text: `Check out ${targetHandle} on GoBankless`,
+            title: `${subjectHandle} on GoBankless`,
+            text: `Pay ${subjectHandle} on GoBankless.`,
             url: paymentUrl,
           })
         }
@@ -72,8 +79,6 @@ export default function ShareProfileSheet() {
   }
 
   const handleCopy = async () => {
-    const paymentUrl = `https://gobankless.app/pay/${targetHandle.replace('@', '')}`
-
     try {
       await navigator.clipboard.writeText(paymentUrl)
       pushNotification({
@@ -91,23 +96,23 @@ export default function ShareProfileSheet() {
     }
   }
 
-  // Determine wording based on whether it's own profile or third-party
-  const copyCaption = isOwnProfile 
-    ? 'Copy your personal payment URL.' 
-    : `Copy ${targetHandle}'s personal payment URL.`
+  // Determine wording based on mode
+  const copyCaption = mode === 'self'
+    ? 'Copy your personal payment URL.'
+    : `Copy ${subjectHandle}'s personal payment URL.`
   
-  const shareTitle = isOwnProfile 
-    ? 'Share my profile' 
+  const shareTitle = mode === 'self'
+    ? 'Share my profile'
     : 'Share this profile'
   
-  const shareCaption = isOwnProfile
+  const shareCaption = mode === 'self'
     ? 'Send your GoBankless profile to anyone.'
     : 'Send this GoBankless profile to anyone.'
 
-  // Get avatar for display (use profile avatar for own, or fallback for third-party)
-  const avatarUrl = isOwnProfile ? profile.avatarUrl : undefined
-  const avatarName = isOwnProfile ? profile.fullName : undefined
-  const avatarEmail = isOwnProfile ? profile.email : undefined
+  // Use subject avatar data (only if subject exists)
+  const avatarUrl = subject?.avatarUrl || undefined
+  const avatarName = subject?.fullName || undefined
+  const avatarEmail = undefined // Not available in subject, use undefined for fallback
 
   return (
     <ActionSheet open={isOpen} onClose={close} title="" size="tall" className="share-sheet">
