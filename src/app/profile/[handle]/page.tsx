@@ -132,6 +132,18 @@ export default function ProfileHandlePage() {
             <div className="overlay-glass-inner">
               <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" hideIcons={true} />
               {/* NO BottomGlassBar for public profiles */}
+              
+              {/* Avatar in top glass - positioned near bottom of glass */}
+              <div className="profile-other-avatar-container">
+                <Avatar
+                  name={profile.fullName}
+                  email={profile.email}
+                  avatarUrl={profile.avatarUrl}
+                  size={72}
+                  rounded={72}
+                  className="profile-other-avatar"
+                />
+              </div>
             </div>
           </div>
 
@@ -197,37 +209,9 @@ export default function ProfileHandlePage() {
           {/* Scrollable content */}
           <div className="scroll-content profile-scroll">
             <div className="content profile-content">
-              {/* Avatar + handle (no full name for third-party profiles) */}
-              <div className="profile-header">
-                <Avatar
-                  name={profile.fullName}
-                  email={profile.email}
-                  avatarUrl={profile.avatarUrl}
-                  size={96}
-                  rounded={24}
-                  className="profile-avatar"
-                />
-                <h1 className="profile-name">{profile.userHandle}</h1>
-                {/* Full name row removed for third-party profiles */}
-
-                {/* Meta row */}
-                <div className="profile-meta">
-                  {profile.location && (
-                    <>
-                      <div className="meta-item">
-                        <Image src="/assets/profile/location-pin.svg" alt="" width={12} height={12} />
-                        <span>{profile.location}</span>
-                      </div>
-                      {profile.joinDate && <div className="meta-dot" />}
-                    </>
-                  )}
-                  {profile.joinDate && (
-                    <div className="meta-item">
-                      <Image src="/assets/profile/calendar_month.svg" alt="" width={12} height={12} />
-                      <span>{profile.joinDate}</span>
-                    </div>
-                  )}
-                </div>
+              {/* Handle below avatar (no full name, no meta row for third-party profiles) */}
+              <div className="profile-other-handle-container">
+                <h1 className="profile-other-handle">{profile.userHandle}</h1>
               </div>
 
               {/* Stats + network pill */}
