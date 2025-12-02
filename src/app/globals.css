@@ -1202,6 +1202,55 @@ body {
   flex-shrink: 0;
 }
 
+/* Third-party profile icons - positioned at original location with white color */
+.profile-other-icons {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(430px, 100vw);
+  height: 160px;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.profile-other-icon-group {
+  position: absolute;
+  top: 48px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  pointer-events: auto;
+}
+
+.profile-other-icon-button {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+
+.profile-other-icon-button:hover {
+  opacity: 0.7;
+}
+
+.profile-other-icon-button:active {
+  opacity: 0.5;
+}
+
+.profile-other-icon {
+  height: 24px;
+  width: 24px;
+  object-fit: cover;
+  filter: brightness(0) invert(1); /* Makes icons white */
+}
+
 /* Invite friends section */
 .profile-social-task {
   width: 382px;

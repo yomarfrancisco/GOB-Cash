@@ -135,6 +135,43 @@ export default function ProfileHandlePage() {
             </div>
           </div>
 
+          {/* Icons positioned at original location with white color for third-party profiles */}
+          <div className="profile-other-icons">
+            <div className="profile-other-icon-group">
+              <button
+                onClick={() => {
+                  // TODO: Handle scan for third-party profiles
+                  console.log('Scan clicked on third-party profile')
+                }}
+                className="profile-other-icon-button"
+                aria-label="Scan QR code"
+                type="button"
+              >
+                <Image src="/assets/core/scan.svg" alt="Scan" className="profile-other-icon" width={24} height={24} />
+              </button>
+              <button
+                onClick={() => {
+                  // TODO: Handle share for third-party profiles
+                  if (typeof window !== 'undefined' && navigator.share) {
+                    const profileUrl = `https://gobankless.app/profile/${normalizedHandle?.replace('@', '')}`
+                    navigator.share({
+                      title: `${profile.fullName} on GoBankless`,
+                      text: `Check out ${profile.userHandle} on GoBankless`,
+                      url: profileUrl,
+                    }).catch(() => {
+                      // User cancelled or error occurred
+                    })
+                  }
+                }}
+                className="profile-other-icon-button"
+                aria-label="Share profile"
+                type="button"
+              >
+                <Image src="/assets/core/export.svg" alt="Share" className="profile-other-icon" width={24} height={24} />
+              </button>
+            </div>
+          </div>
+
           {/* Profile backdrop: Benjamin image with white fade */}
           <div className="profile-backdrop">
             <img
