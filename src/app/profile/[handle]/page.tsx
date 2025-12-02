@@ -363,8 +363,8 @@ export default function ProfileHandlePage() {
                         <Bookmark
                           size={24}
                           strokeWidth={2}
-                          style={{ color: '#fff' }}
-                          fill={isBookmarked ? '#fff' : 'none'}
+                          style={{ color: '#000' }}
+                          fill={isBookmarked ? '#000' : 'none'}
                         />
                       </div>
                     </button>
