@@ -165,17 +165,6 @@ export default function ProfileHandlePage() {
             <div className="profile-other-icon-group">
               <button
                 onClick={() => {
-                  // TODO: Handle scan for third-party profiles
-                  console.log('Scan clicked on third-party profile')
-                }}
-                className="profile-other-icon-button"
-                aria-label="Scan QR code"
-                type="button"
-              >
-                <Image src="/assets/core/scan.svg" alt="Scan" className="profile-other-icon" width={24} height={24} />
-              </button>
-              <button
-                onClick={() => {
                   // TODO: Handle share for third-party profiles
                   if (typeof window !== 'undefined' && navigator.share) {
                     const profileUrl = `https://gobankless.app/profile/${normalizedHandle?.replace('@', '')}`
