@@ -16,10 +16,10 @@ export default function TransferCardsIcon() {
           className={styles.cardImage}
         />
       </div>
-      {/* Front card (Pepe) */}
+      {/* Front card (ZWD) */}
       <div className={styles.cardFront}>
         <Image
-          src="/assets/cards/card-pepe.jpg"
+          src="/assets/cards/card-ZIM5.jpg"
           alt=""
           width={44}
           height={28}

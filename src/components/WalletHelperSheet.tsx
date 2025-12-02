@@ -16,7 +16,7 @@ type WalletHelperSheetProps = {
 const walletTitleMap: Record<WalletKey, string> = {
   savings: 'ZAR wallet',
   mzn: 'MZN wallet',
-  pepe: 'PEPE wallet',
+  zwd: 'ZWD wallet',
   yield: 'ETH wallet',
   btc: 'BTC wallet',
   yieldSurprise: 'ETH wallet', // Reuse yield wallet title
@@ -24,7 +24,7 @@ const walletTitleMap: Record<WalletKey, string> = {
 
 const cardImages: Record<WalletKey, string> = {
   savings: '/assets/cards/card-savings.jpg',
-  pepe: '/assets/cards/card-pepe.jpg',
+  zwd: '/assets/cards/card-ZIM5.jpg',
   yield: '/assets/cards/card-ETH.jpg',
   mzn: '/assets/cards/card-MZN.jpg',
   btc: '/assets/cards/card-BTC.jpg',

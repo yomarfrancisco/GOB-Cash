@@ -6,7 +6,7 @@ export type WalletAlloc = {
   totalCents: number // total funds in cents; funds-available display derives from this
   cashCents: number
   ethCents: number
-  pepeCents: number
+  zwdCents: number
   mznCents?: number
   btcCents?: number
 }
@@ -21,15 +21,15 @@ interface WalletAllocContextType {
   alloc: WalletAlloc
   isRebalancing: boolean
   setRebalancing: (value: boolean) => void
-  applyAiAction: (action: { from: 'cash' | 'eth' | 'pepe'; to: 'cash' | 'eth' | 'pepe'; cents: number }) => void
+  applyAiAction: (action: { from: 'cash' | 'eth' | 'zwd'; to: 'cash' | 'eth' | 'zwd'; cents: number }) => void
   allocPct: (value: number) => number
   // Getters and setters for direct balance updates
   getCash: () => number
   getEth: () => number
-  getPepe: () => number
+  getZwd: () => number
   setCash: (value: number) => void
   setEth: (value: number) => void
-  setPepe: (value: number) => void
+  setZwd: (value: number) => void
 }
 
 const WalletAllocContext = createContext<WalletAllocContextType | undefined>(undefined)
@@ -38,7 +38,7 @@ const initial: WalletAlloc = {
   totalCents: 610300, // R6,103.00 (~337 USDT @ 18.1 FX)
   cashCents: 549270, // 90% of total
   ethCents: 18309, // 3% of total
-  pepeCents: 42721, // 7% of total
+  zwdCents: 42721, // 7% of total
   mznCents: 0,
   btcCents: 0,
 }
@@ -48,7 +48,7 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
   const [isRebalancing, setRebalancing] = useState(false)
 
   const applyAiAction = useCallback(
-    (action: { from: 'cash' | 'eth' | 'pepe'; to: 'cash' | 'eth' | 'pepe'; cents: number }) => {
+    (action: { from: 'cash' | 'eth' | 'zwd'; to: 'cash' | 'eth' | 'zwd'; cents: number }) => {
       setAlloc((prev) => {
         const fromKey = `${action.from}Cents` as keyof WalletAlloc
         const toKey = `${action.to}Cents` as keyof WalletAlloc
@@ -81,7 +81,7 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
 
   const getCash = useCallback(() => alloc.cashCents / 100, [alloc.cashCents])
   const getEth = useCallback(() => alloc.ethCents / 100, [alloc.ethCents])
-  const getPepe = useCallback(() => alloc.pepeCents / 100, [alloc.pepeCents])
+  const getZwd = useCallback(() => alloc.zwdCents / 100, [alloc.zwdCents])
 
   const setCash = useCallback(
     (value: number) => {
@@ -105,11 +105,11 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
     []
   )
 
-  const setPepe = useCallback(
+  const setZwd = useCallback(
     (value: number) => {
       setAlloc((prev) => {
-        const newPepeCents = Math.round(value * 100)
-        return { ...prev, pepeCents: newPepeCents }
+        const newZwdCents = Math.round(value * 100)
+        return { ...prev, zwdCents: newZwdCents }
       })
     },
     []
@@ -125,10 +125,10 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         allocPct,
         getCash,
         getEth,
-        getPepe,
+        getZwd,
         setCash,
         setEth,
-        setPepe,
+        setZwd,
       }}
     >
       {children}

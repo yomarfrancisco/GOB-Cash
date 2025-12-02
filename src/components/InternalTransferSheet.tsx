@@ -8,7 +8,7 @@ import { useWalletAlloc } from '@/state/walletAlloc'
 import { formatZAR } from '@/lib/formatCurrency'
 import styles from './InternalTransferSheet.module.css'
 
-type WalletId = 'savings' | 'pepe' | 'yield' | 'mzn' | 'btc'
+type WalletId = 'savings' | 'zwd' | 'yield' | 'mzn' | 'btc'
 
 type Wallet = {
   id: WalletId
@@ -24,9 +24,9 @@ type InternalTransferSheetProps = {
   defaultFromWalletId?: WalletId // Current active card from home screen
 }
 
-const WALLET_CONFIG: Record<WalletId, { name: string; cardImage: string; allocKey: 'cashCents' | 'ethCents' | 'pepeCents' | 'mznCents' | 'btcCents' }> = {
+const WALLET_CONFIG: Record<WalletId, { name: string; cardImage: string; allocKey: 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents' }> = {
   savings: { name: 'ZAR wallet', cardImage: '/assets/cards/card-savings.jpg', allocKey: 'cashCents' },
-  pepe: { name: 'PEPE wallet', cardImage: '/assets/cards/card-pepe.jpg', allocKey: 'pepeCents' },
+  zwd: { name: 'ZWD wallet', cardImage: '/assets/cards/card-ZIM5.jpg', allocKey: 'zwdCents' },
   yield: { name: 'ETH wallet', cardImage: '/assets/cards/card-ETH.jpg', allocKey: 'ethCents' },
   mzn: { name: 'MZN wallet', cardImage: '/assets/cards/card-MZN.jpg', allocKey: 'mznCents' },
   btc: { name: 'BTC wallet', cardImage: '/assets/cards/card-BTC.jpg', allocKey: 'btcCents' },
@@ -37,7 +37,7 @@ export default function InternalTransferSheet({ open, onClose, onNext, defaultFr
   const [fromWalletId, setFromWalletId] = useState<WalletId>(defaultFromWalletId)
   const [toWalletId, setToWalletId] = useState<WalletId>(() => {
     // Default to next wallet in list, or first different wallet
-    const walletIds: WalletId[] = ['savings', 'pepe', 'yield', 'mzn', 'btc']
+    const walletIds: WalletId[] = ['savings', 'zwd', 'yield', 'mzn', 'btc']
     const currentIndex = walletIds.indexOf(defaultFromWalletId)
     return walletIds[(currentIndex + 1) % walletIds.length]
   })
@@ -45,7 +45,7 @@ export default function InternalTransferSheet({ open, onClose, onNext, defaultFr
 
   // Build wallet list with balances
   const wallets = useMemo<Wallet[]>(() => {
-    const walletIds: WalletId[] = ['savings', 'pepe', 'yield', 'mzn', 'btc']
+    const walletIds: WalletId[] = ['savings', 'zwd', 'yield', 'mzn', 'btc']
     return walletIds.map((id) => {
       const config = WALLET_CONFIG[id]
       const balanceCents = alloc[config.allocKey] || 0

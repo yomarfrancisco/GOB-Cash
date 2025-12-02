@@ -16,13 +16,13 @@ import { useNotificationStore } from '@/store/notifications'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
-type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
+type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
 type HealthLevel = 'good' | 'moderate' | 'fragile'
 
 const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> = {
   savings: { level: 'good', percent: 100 },
-  pepe: { level: 'fragile', percent: 25 },
+  zwd: { level: 'good', percent: 100 },
   yield: { level: 'moderate', percent: 60 },
   mzn: { level: 'good', percent: 100 },
   btc: { level: 'moderate', percent: 15 },
@@ -32,24 +32,24 @@ const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> =
 const CARD_LABELS: Record<CardType, string> = {
   savings: 'CASH CARD', // ZAR fiat card
   mzn: 'CASH CARD', // MZN fiat card
-  pepe: 'CASH CARD', // PEPE crypto card
+  zwd: 'CASH CARD', // ZWD fiat card
   yield: 'CASH CARD', // ETH crypto card
   btc: 'CASH CARD', // BTC crypto card
   yieldSurprise: 'CREDIT CARD', // Credit surprise card
 }
 
-const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'pepeCents' | 'mznCents' | 'btcCents'> = {
+const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents'> = {
   savings: 'cashCents',
-  pepe: 'pepeCents',
+  zwd: 'zwdCents',
   yield: 'ethCents',
   mzn: 'mznCents',
   btc: 'btcCents',
   yieldSurprise: 'ethCents', // Reuse yield card allocation (ethCents)
 }
 
-const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'PEPE' | 'MZN' | 'BTC'> = {
+const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC'> = {
   savings: 'CASH',
-  pepe: 'PEPE',
+  zwd: 'ZWD',
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
@@ -60,12 +60,13 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'PEPE' | 'MZN' | 'BTC'> 
 const FLAG_BY_CCY: Record<string, { src: string; id: string }> = {
   ZAR: { src: '/assets/south%20africa.svg', id: 'flag-za' },
   MZN: { src: '/assets/mozambique.svg', id: 'flag-mz' },
+  ZWD: { src: '/assets/zimbabwe.png', id: 'flag-zw' },
 }
 
 // Coin mapping for crypto cards
 const COIN_BY_CARD: Record<CardType, { src: string; id: string; label: string } | null> = {
   savings: null, // Uses flag
-  pepe: { src: '/assets/pepe_coin.png', id: 'coin-pepe', label: 'PEPE' },
+  zwd: null, // Uses flag (ZWD)
   yield: { src: '/assets/eth_coin.png', id: 'coin-eth', label: 'ETH' },
   mzn: null, // Uses flag
   btc: { src: '/assets/Bitcoin-Logo.png', id: 'coin-btc', label: 'BTC' },
@@ -76,14 +77,16 @@ const COIN_BY_CARD: Record<CardType, { src: string; id: string; label: string } 
 const CURRENCY_LABEL: Record<string, string> = {
   ZAR: 'ZAR',
   MZN: 'MZN',
+  ZWD: 'ZWD',
 }
 
 // Determine currency for card type (for flags)
 const getCardCurrency = (cardType: CardType): string | null => {
   if (cardType === 'savings') return 'ZAR'
   if (cardType === 'mzn') return 'MZN'
+  if (cardType === 'zwd') return 'ZWD'
   if (cardType === 'yieldSurprise') return 'ZAR' // CREDIT CARD uses ZAR flag
-  return null // PEPE, yield, and btc use coin badges instead
+  return null // yield and btc use coin badges instead
 }
 
 type CardStackCardProps = {
@@ -256,8 +259,8 @@ export default function CardStackCard({
   // Check if ANY card exceeds threshold - if so, apply compact sizing to ALL cards for consistency
   const cashZAR = alloc.cashCents / 100
   const ethZAR = alloc.ethCents / 100
-  const pepeZAR = alloc.pepeCents / 100
-  const shouldUseCompactSizing = cashZAR > 99999.99 || ethZAR > 99999.99 || pepeZAR > 99999.99
+  const zwdZAR = alloc.zwdCents / 100
+  const shouldUseCompactSizing = cashZAR > 99999.99 || ethZAR > 99999.99 || zwdZAR > 99999.99
 
   // Get portfolio data for this card
   // Use direct selector for reactivity (Zustand will re-render when holdings[symbol] changes)
@@ -434,7 +437,7 @@ export default function CardStackCard({
           }
         }
         
-        // Check for coin badge (ETH/PEPE)
+        // Check for coin badge (ETH/BTC)
         const coinInfo = COIN_BY_CARD[card.type]
         if (coinInfo) {
           return (
@@ -443,7 +446,7 @@ export default function CardStackCard({
                 <img
                   id={coinInfo.id}
                   src={coinInfo.src}
-                  alt={card.type === 'yield' ? 'ETH coin' : card.type === 'btc' ? 'BTC coin' : 'PEPE coin'}
+                  alt={card.type === 'yield' ? 'ETH coin' : card.type === 'btc' ? 'BTC coin' : 'Crypto coin'}
                   className="flag-icon"
                   draggable={false}
                   decoding="async"

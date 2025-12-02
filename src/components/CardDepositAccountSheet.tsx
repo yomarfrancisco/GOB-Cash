@@ -10,7 +10,7 @@ import { formatZAR } from '@/lib/formatCurrency'
 import '@/styles/send-details-sheet.css'
 import styles from './CardDepositAccountSheet.module.css'
 
-type AccountType = 'savings' | 'mzn' | 'btc' | 'yield' | 'pepe' | 'yieldSurprise'
+type AccountType = 'savings' | 'mzn' | 'btc' | 'yield' | 'zwd' | 'yieldSurprise'
 
 type Account = {
   id: AccountType

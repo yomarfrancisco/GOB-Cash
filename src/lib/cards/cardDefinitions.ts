@@ -2,7 +2,7 @@
  * Card definitions - single source of truth for card titles and subtitles
  * Used by both Autonomous and Manual modes
  */
-export type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc'
+export type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc'
 
 export interface CardDefinition {
   id: CardType
@@ -24,11 +24,11 @@ export const CARD_DEFINITIONS: Record<CardType, CardDefinition> = {
     subtitle: '', // Subtitle is calculated dynamically in page.tsx
     annualYieldBps: 812, // 8.12%
   },
-  pepe: {
-    id: 'pepe',
+  zwd: {
+    id: 'zwd',
     title: 'Bankless wallet',
     subtitle: '', // Subtitle is calculated dynamically in page.tsx
-    annualYieldBps: 2134, // 21.34%
+    annualYieldBps: 812, // 8.12% (same as MZN, fiat account)
   },
   yield: {
     id: 'yield',

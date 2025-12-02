@@ -106,8 +106,8 @@ export default function Home() {
   const [isPaySomeoneFlow, setIsPaySomeoneFlow] = useState(false) // Track if coming from "Pay someone" button
   const [isAgentSheetOpen, setIsAgentSheetOpen] = useState(false)
   const [openInternalTransfer, setOpenInternalTransfer] = useState(false)
-  const [transferFromWalletId, setTransferFromWalletId] = useState<'savings' | 'pepe' | 'yield' | 'mzn' | 'btc'>('savings')
-  const [transferToWalletId, setTransferToWalletId] = useState<'savings' | 'pepe' | 'yield' | 'mzn' | 'btc'>('pepe')
+  const [transferFromWalletId, setTransferFromWalletId] = useState<'savings' | 'zwd' | 'yield' | 'mzn' | 'btc'>('savings')
+  const [transferToWalletId, setTransferToWalletId] = useState<'savings' | 'zwd' | 'yield' | 'mzn' | 'btc'>('zwd')
   const [openDepositCryptoWallet, setOpenDepositCryptoWallet] = useState(false)
   const [selectedCryptoDepositWallet, setSelectedCryptoDepositWallet] = useState<DepositCryptoWallet | null>(null)
   const [showCryptoAddressSheet, setShowCryptoAddressSheet] = useState(false)
@@ -133,9 +133,9 @@ export default function Home() {
         setAmountMode('send')
         // Map topCardType to walletId for default FROM wallet
         // yieldSurprise maps to 'yield' wallet (reuse yield card wallet)
-        const cardTypeToWalletId: Record<CardType, 'savings' | 'pepe' | 'yield' | 'mzn' | 'btc'> = {
+        const cardTypeToWalletId: Record<CardType, 'savings' | 'zwd' | 'yield' | 'mzn' | 'btc'> = {
           savings: 'savings',
-          pepe: 'pepe',
+          zwd: 'zwd',
           yield: 'yield',
           mzn: 'mzn',
           btc: 'btc',
@@ -184,7 +184,7 @@ export default function Home() {
     setShowCryptoAddressSheet(false)
     setSelectedCryptoDepositWallet(null)
   }, [])
-  const handleTransferNext = useCallback((fromWalletId: 'savings' | 'pepe' | 'yield' | 'mzn' | 'btc', toWalletId: 'savings' | 'pepe' | 'yield' | 'mzn' | 'btc') => {
+  const handleTransferNext = useCallback((fromWalletId: 'savings' | 'zwd' | 'yield' | 'mzn' | 'btc', toWalletId: 'savings' | 'zwd' | 'yield' | 'mzn' | 'btc') => {
     setTransferFromWalletId(fromWalletId)
     setTransferToWalletId(toWalletId)
     setOpenInternalTransfer(false)
@@ -211,9 +211,9 @@ export default function Home() {
       // For transfers, skip SendDetailsSheet and go directly to success
       if (flowType === 'transfer') {
         // Set recipient to wallet name for display
-        const walletNames: Record<'savings' | 'pepe' | 'yield' | 'mzn' | 'btc', string> = {
+        const walletNames: Record<'savings' | 'zwd' | 'yield' | 'mzn' | 'btc', string> = {
           savings: 'ZAR wallet',
-          pepe: 'PEPE wallet',
+          zwd: 'ZWD wallet',
           yield: 'ETH wallet',
           mzn: 'MZN wallet',
           btc: 'BTC wallet',
@@ -228,14 +228,14 @@ export default function Home() {
   }, [amountMode, flowType, transferToWalletId])
 
   // Get wallet allocation for funds available display
-  const { alloc, getCash, getEth, getPepe, setCash, setEth, setPepe } = useWalletAlloc()
+  const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd } = useWalletAlloc()
   const fundsAvailableZAR = alloc.totalCents / 100
   const formattedFunds = formatZAR(fundsAvailableZAR)
 
   // Initialize portfolio store from wallet allocation
   useEffect(() => {
-    initPortfolioFromAlloc(alloc.cashCents, alloc.ethCents, alloc.pepeCents, alloc.totalCents)
-  }, [alloc.cashCents, alloc.ethCents, alloc.pepeCents, alloc.totalCents])
+    initPortfolioFromAlloc(alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents)
+  }, [alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents])
 
   // Initialize AI action cycle - only run when NOT signed in (autonomous demo behavior)
   // When user signs in, isAuthed becomes true and animations stop
@@ -244,10 +244,10 @@ export default function Home() {
     {
       getCash,
       getEth,
-      getPepe,
+      getZwd,
       setCash,
       setEth,
-      setPepe,
+      setZwd,
     },
     !isAuthed // enable only when NOT authenticated
   )

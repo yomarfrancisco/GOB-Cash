@@ -8,11 +8,11 @@ import { useUserProfileStore } from '@/store/userProfile'
 import styles from './DepositCryptoWalletSheet.module.css'
 
 export type DepositCryptoWallet = {
-  key: 'usdt_sa' | 'usdt_mzn' | 'pepe' | 'eth' | 'btc'
+  key: 'usdt_sa' | 'usdt_mzn' | 'eth' | 'btc'
   title: string
   description: string
   cardImage: string
-  coin: 'usdt' | 'eth' | 'pepe' | 'btc'
+  coin: 'usdt' | 'eth' | 'btc'
   address: string
 }
 
@@ -20,7 +20,6 @@ export type DepositCryptoWallet = {
 const exampleAddresses = {
   usdt: '0x7F3A9b4C1D27e5f0b8931A2C45d8Bc920eA7F213',
   eth: '0x7F3A9b4C1D27e5f0b8931A2C45d8Bc920eA7F213',
-  pepe: '0x7F3A9b4C1D27e5f0b8931A2C45d8Bc920eA7F213',
   btc: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
 }
 
@@ -28,7 +27,6 @@ const exampleAddresses = {
 export const getDepositCryptoWallets = (addresses: {
   usdtSaAddress?: string
   usdtMznAddress?: string
-  pepeAddress?: string
   ethAddress?: string
   btcAddress?: string
 }): DepositCryptoWallet[] => [
@@ -47,14 +45,6 @@ export const getDepositCryptoWallets = (addresses: {
     cardImage: '/assets/cards/card-MZN.jpg',
     coin: 'usdt',
     address: addresses.usdtMznAddress || exampleAddresses.usdt,
-  },
-  {
-    key: 'pepe',
-    title: 'PEPE wallet',
-    description: 'Copy or scan the QR for this address to deposit PEPE directly into this profile.',
-    cardImage: '/assets/cards/card-pepe.jpg',
-    coin: 'pepe',
-    address: addresses.pepeAddress || exampleAddresses.pepe,
   },
   {
     key: 'eth',
@@ -87,7 +77,6 @@ export default function DepositCryptoWalletSheet({ open, onClose, onSelectCrypto
   const depositCryptoWallets = getDepositCryptoWallets({
     usdtSaAddress: profile.usdtSaAddress,
     usdtMznAddress: profile.usdtMznAddress,
-    pepeAddress: profile.pepeAddress,
     ethAddress: profile.ethAddress,
     btcAddress: profile.btcAddress,
   })

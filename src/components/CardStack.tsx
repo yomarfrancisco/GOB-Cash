@@ -20,14 +20,14 @@ type HealthLevel = 'good' | 'moderate' | 'fragile'
 // Health configuration per card type
 const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> = {
   savings: { level: 'good', percent: 100 },
-  pepe: { level: 'fragile', percent: 25 },
+  zwd: { level: 'good', percent: 100 },
   yield: { level: 'moderate', percent: 60 },
   mzn: { level: 'good', percent: 100 },
   btc: { level: 'moderate', percent: 15 },
   yieldSurprise: { level: 'moderate', percent: 60 }, // Reuse yield card health config
 }
 
-export type CardType = 'pepe' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
+export type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
 interface CardData {
   type: CardType
@@ -46,11 +46,11 @@ const cardsData: CardData[] = [
     height: 213,
   },
   {
-    type: 'pepe',
-    image: '/assets/cards/card-pepe.jpg',
-    alt: 'PEPE Card',
-    width: 398,
-    height: 238,
+    type: 'zwd',
+    image: '/assets/cards/card-ZIM5.jpg',
+    alt: 'ZWD Card',
+    width: 342,
+    height: 213,
   },
   {
     type: 'yield',
@@ -86,16 +86,16 @@ const cardsData: CardData[] = [
 const CARD_LABELS: Record<CardType, string> = {
   savings: 'CASH CARD', // ZAR fiat card
   mzn: 'CASH CARD', // MZN fiat card
-  pepe: 'INVESTMENT CARD', // PEPE crypto card
+  zwd: 'CASH CARD', // ZWD fiat card
   yield: 'INVESTMENT CARD', // ETH crypto card
   btc: 'INVESTMENT CARD', // BTC crypto card
   yieldSurprise: 'CREDIT CARD', // Credit surprise card
 }
 
 // Map card type to allocation key
-const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'pepeCents' | 'mznCents' | 'btcCents'> = {
+const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents'> = {
   savings: 'cashCents',
-  pepe: 'pepeCents',
+  zwd: 'zwdCents',
   yield: 'ethCents',
   mzn: 'mznCents',
   btc: 'btcCents',
@@ -103,9 +103,9 @@ const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'pepeCents'
 }
 
 // Map card type to portfolio symbol
-const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'PEPE' | 'MZN' | 'BTC'> = {
+const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC'> = {
   savings: 'CASH',
-  pepe: 'PEPE',
+  zwd: 'ZWD',
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
@@ -152,7 +152,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const { alloc } = useWalletAlloc()
   const [flashDirection, setFlashDirection] = useState<Record<CardType, 'up' | 'down' | null>>({
     savings: null,
-    pepe: null,
+    zwd: null,
     yield: null,
     mzn: null,
     btc: null,
@@ -161,7 +161,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   // Track previous values to compute direction
   const prevValuesRef = useRef<Record<CardType, number>>({
     savings: alloc.cashCents / 100,
-    pepe: alloc.pepeCents / 100,
+    zwd: alloc.zwdCents / 100,
     yield: alloc.ethCents / 100,
     mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
     btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
@@ -172,7 +172,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   useEffect(() => {
     const currentValues: Record<CardType, number> = {
       savings: alloc.cashCents / 100,
-      pepe: alloc.pepeCents / 100,
+      zwd: alloc.zwdCents / 100,
       yield: alloc.ethCents / 100,
       mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
       btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
@@ -181,7 +181,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
 
     const newFlashDirection: Record<CardType, 'up' | 'down' | null> = {
       savings: null,
-      pepe: null,
+      zwd: null,
       yield: null,
       mzn: null,
       btc: null,
@@ -189,7 +189,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     }
 
     // Compute direction for each card
-    ;(['savings', 'pepe', 'yield', 'mzn', 'btc', 'yieldSurprise'] as CardType[]).forEach((cardType) => {
+    ;(['savings', 'zwd', 'yield', 'mzn', 'btc', 'yieldSurprise'] as CardType[]).forEach((cardType) => {
       const prev = prevValuesRef.current[cardType]
       const current = currentValues[cardType]
       const delta = current - prev
@@ -211,7 +211,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     // Update flash direction state (this triggers re-render with flash classes)
     setFlashDirection(newFlashDirection)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alloc.cashCents, alloc.pepeCents, alloc.ethCents, (alloc as any).mznCents, (alloc as any).btcCents])
+  }, [alloc.cashCents, alloc.zwdCents, alloc.ethCents, (alloc as any).mznCents, (alloc as any).btcCents])
 
   // Notify parent of top card change
   useEffect(() => {

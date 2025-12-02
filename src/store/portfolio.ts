@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 export type Holding = {
-  symbol: 'CASH' | 'ETH' | 'BTC' | 'PEPE' | string
+  symbol: 'CASH' | 'ETH' | 'BTC' | 'ZWD' | string
   amountZAR: number
   amountUSDT: number
   allocationPct: number // 0..100 (high-precision float)
@@ -15,7 +15,7 @@ type PortfolioState = {
   setHoldingsBulk: (holdings: {
     CASH: Partial<Holding> & { symbol: 'CASH' }
     ETH: Partial<Holding> & { symbol: 'ETH' }
-    PEPE: Partial<Holding> & { symbol: 'PEPE' }
+    ZWD: Partial<Holding> & { symbol: 'ZWD' }
   }) => void
   getHolding: (symbol: string) => Holding | undefined
 }
@@ -37,13 +37,13 @@ const initialHoldings: Record<string, Holding> = {
     displayPct: 2,
     health: 60,
   },
-  PEPE: {
-    symbol: 'PEPE',
+  ZWD: {
+    symbol: 'ZWD',
     amountZAR: 427.21,
     amountUSDT: 23.6,
     allocationPct: 7,
     displayPct: 7,
-    health: 25,
+    health: 100, // ZWD is fiat like CASH
   },
 }
 
@@ -70,7 +70,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       const updated: Record<string, Holding> = { ...state.holdings }
       
       // Update all three holdings atomically
-      ;(['CASH', 'ETH', 'PEPE'] as const).forEach((symbol) => {
+      ;(['CASH', 'ETH', 'ZWD'] as const).forEach((symbol) => {
         const existing = state.holdings[symbol]
         const input = bulkHoldings[symbol]
         updated[symbol] = {

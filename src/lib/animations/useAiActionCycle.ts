@@ -14,7 +14,7 @@ import { getDemoConfig, AI_ACTION_CONFIG } from '@/lib/demo/demoConfig'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
-type CardType = 'pepe' | 'savings' | 'yield'
+type CardType = 'zwd' | 'savings' | 'yield'
 
 export const FLIP_MS = 300 // do not change
 export const CASH_UPDATE_DELAY_MS = FLIP_MS + 600 // small perceptible delay after flip back (doubled from 150, total was 450ms, now 900ms)
@@ -25,10 +25,10 @@ const DELTA_MAX = 40 // USDT max move
 type BalanceUpdaters = {
   getCash: () => number
   getEth: () => number
-  getPepe: () => number
+  getZwd: () => number
   setCash: (value: number) => void
   setEth: (value: number) => void
-  setPepe: (value: number) => void
+  setZwd: (value: number) => void
   onSlotUpdate?: (cardType: CardType, oldValue: number, newValue: number) => void
 }
 
@@ -53,32 +53,32 @@ export function useAiActionCycle(
     isProcessingRef.current = true
 
     try {
-      const { getCash, getEth, getPepe, setCash, setEth, setPepe } = balanceUpdaters
+      const { getCash, getEth, getZwd, setCash, setEth, setZwd } = balanceUpdaters
 
       // Read current holdings from portfolio store (single source of truth)
       const getHolding = usePortfolioStore.getState().getHolding
       const cashHolding = getHolding('CASH')
       const ethHolding = getHolding('ETH')
-      const pepeHolding = getHolding('PEPE')
+      const zwdHolding = getHolding('ZWD')
 
       // Get current ZAR amounts from portfolio store (single source of truth)
       // Fallback to wallet alloc if portfolio store not initialized
-      // Note: wallet alloc stores everything in ZAR cents, so getCash/Eth/Pepe return ZAR
+      // Note: wallet alloc stores everything in ZAR cents, so getCash/Eth/Zwd return ZAR
       const prev: HoldingsZAR = {
         CASH: cashHolding?.amountZAR ?? getCash(), // getCash() returns ZAR
         ETH: ethHolding?.amountZAR ?? getEth(), // getEth() returns ZAR (not USDT)
-        PEPE: pepeHolding?.amountZAR ?? getPepe(), // getPepe() returns ZAR (not USDT)
+        ZWD: zwdHolding?.amountZAR ?? getZwd(), // getZwd() returns ZAR (not USDT)
       }
 
       // Get USDT balances for logic (from wallet alloc, convert ZAR to USDT)
       const eth = getEth() / FX_USD_ZAR_DEFAULT
-      const pepe = getPepe() / FX_USD_ZAR_DEFAULT
+      const zwd = getZwd() / FX_USD_ZAR_DEFAULT
       const cash = getCash()
 
       // Pick target: random among non-cash cards that have balance > 0
       const nonCashCards: Array<{ type: CardType; balance: number }> = []
       if (eth > 0) nonCashCards.push({ type: 'yield', balance: eth })
-      if (pepe > 0) nonCashCards.push({ type: 'pepe', balance: pepe })
+      // Note: ZWD is now a fiat card, so it's not included in nonCashCards
 
       // Suppress flips without balance changes - ensure we have a valid target
       if (nonCashCards.length === 0 && cash === 0) {
@@ -91,8 +91,8 @@ export function useAiActionCycle(
       let delta: number // in USDT
 
       if (nonCashCards.length === 0 && cash > 0) {
-        // If no non-cash cards have balance, allow buying from cash
-        targetType = Math.random() < 0.5 ? 'yield' : 'pepe'
+        // If no non-cash cards have balance, allow buying from cash (only ETH now, ZWD is fiat)
+        targetType = 'yield'
         delta = rnd(DELTA_MIN, Math.min(DELTA_MAX, Math.floor(cash / FX_USD_ZAR_DEFAULT)))
       } else {
         // Pick random non-cash card
@@ -120,19 +120,19 @@ export function useAiActionCycle(
       if (delta !== 0) {
         // Convert delta to ZAR
         const deltaZAR = delta * FX_USD_ZAR_DEFAULT
-        const targetSymbol: 'ETH' | 'PEPE' = targetType === 'yield' ? 'ETH' : 'PEPE'
+        const targetSymbol: 'ETH' = 'ETH' // Only ETH is crypto now, ZWD is fiat
 
         // Compute post-trade state using single source of truth
         const trade = { symbol: targetSymbol, deltaZAR }
         const { next: rawNext } = computePostTrade(prev, trade)
 
         // Get totalZAR from prev (should be constant at 6103.00)
-        const totalZAR = prev.CASH + prev.ETH + prev.PEPE
+        const totalZAR = prev.CASH + prev.ETH + prev.ZWD
 
         // Calculate raw percentages from post-trade amounts
         const rawCashPct = (rawNext.CASH / totalZAR) * 100
         const rawEthPct = (rawNext.ETH / totalZAR) * 100
-        const rawPepePct = (rawNext.PEPE / totalZAR) * 100
+        const rawZwdPct = (rawNext.ZWD / totalZAR) * 100
 
         // Derive portfolio using single source of truth function
         // This enforces allocation rules, ensures exact totals, and returns display percentages
@@ -140,27 +140,26 @@ export function useAiActionCycle(
           totalZAR,
           cashPct: rawCashPct,
           ethPct: rawEthPct,
-          pepePct: rawPepePct,
+          zwdPct: rawZwdPct,
           fx: FX_USD_ZAR_DEFAULT,
         })
 
         // Validation guardrails (dev only)
         const { holdings, displayPercents } = portfolio
-        const pillSum = displayPercents.cash + displayPercents.eth + displayPercents.pepe
-        const sumZAR = holdings.CASH.amountZAR + holdings.ETH.amountZAR + holdings.PEPE.amountZAR
+        const pillSum = displayPercents.cash + displayPercents.eth + displayPercents.zwd
+        const sumZAR = holdings.CASH.amountZAR + holdings.ETH.amountZAR + holdings.ZWD.amountZAR
         const sumDiff = Math.abs(sumZAR - totalZAR)
         const cashPct = holdings.CASH.allocationPct
         const ethPct = holdings.ETH.allocationPct
-        const pepePct = holdings.PEPE.allocationPct
+        const zwdPct = holdings.ZWD.allocationPct
 
         const isValid =
           pillSum === 100 &&
           sumDiff <= 0.01 &&
-          cashPct >= 90 &&
+          (cashPct + zwdPct) >= 90 && // CASH + ZWD (fiat) ≥ 90%
           ethPct >= 0 &&
-          pepePct >= 0 &&
-          ethPct <= 10 &&
-          pepePct <= 10
+          zwdPct >= 0 &&
+          ethPct <= 10
 
         if (!isValid) {
           console.error(
@@ -170,7 +169,7 @@ export function useAiActionCycle(
               amounts: {
                 CASH: holdings.CASH.amountZAR.toFixed(2),
                 ETH: holdings.ETH.amountZAR.toFixed(2),
-                PEPE: holdings.PEPE.amountZAR.toFixed(2),
+                ZWD: holdings.ZWD.amountZAR.toFixed(2),
                 sum: sumZAR.toFixed(2),
                 expected: totalZAR.toFixed(2),
                 diff: sumDiff.toFixed(4),
@@ -178,7 +177,7 @@ export function useAiActionCycle(
               percents: {
                 cash: cashPct.toFixed(2),
                 eth: ethPct.toFixed(2),
-                pepe: pepePct.toFixed(2),
+                zwd: zwdPct.toFixed(2),
                 pillSum,
               },
             }
@@ -191,8 +190,8 @@ export function useAiActionCycle(
         console.info('[alloc]', {
           cashPct: cashPct.toFixed(2),
           ethPct: ethPct.toFixed(2),
-          pepePct: pepePct.toFixed(2),
-          sumPct: (cashPct + ethPct + pepePct).toFixed(2),
+          zwdPct: zwdPct.toFixed(2),
+          sumPct: (cashPct + ethPct + zwdPct).toFixed(2),
           totalZAR: totalZAR.toFixed(2),
           displayPercents,
         })
@@ -222,13 +221,13 @@ export function useAiActionCycle(
             displayPct: displayPercents.eth,
             health: holdings.ETH.health,
           },
-          PEPE: {
-            symbol: 'PEPE',
-            amountZAR: holdings.PEPE.amountZAR,
-            amountUSDT: holdings.PEPE.amountZAR / FX_USD_ZAR_DEFAULT,
-            allocationPct: holdings.PEPE.allocationPct,
-            displayPct: displayPercents.pepe,
-            health: holdings.PEPE.health,
+          ZWD: {
+            symbol: 'ZWD',
+            amountZAR: holdings.ZWD.amountZAR,
+            amountUSDT: holdings.ZWD.amountZAR / FX_USD_ZAR_DEFAULT,
+            allocationPct: holdings.ZWD.allocationPct,
+            displayPct: displayPercents.zwd,
+            health: holdings.ZWD.health,
           },
         })
 
@@ -237,11 +236,11 @@ export function useAiActionCycle(
         const newTarget = holdings[targetSymbol].amountZAR / FX_USD_ZAR_DEFAULT
         const newCashValue = holdings.CASH.amountZAR / FX_USD_ZAR_DEFAULT
 
+        // Only ETH is crypto now, ZWD is fiat (not part of crypto trading)
         if (targetType === 'yield') {
           setEth(newTarget)
-        } else {
-          setPepe(newTarget)
         }
+        // Note: ZWD is fiat, so it's not updated here (it's part of CASH allocation)
 
         // Emit AI trade notification
         const assetName = targetSymbol
@@ -285,7 +284,7 @@ export function useAiActionCycle(
             action: `Rebalanced: ${actionVerb} ${Math.abs(delta)} ${assetName} (R${zarAmount.toFixed(2)}).`,
             reason: shortWhyString,
             amountZar: zarAmount,
-            asset: assetName === 'ETH' ? 'ETH' : assetName === 'PEPE' ? 'PEPE' : 'CASH',
+            asset: assetName === 'ETH' ? 'ETH' : 'CASH', // Only ETH is crypto now
             direction: delta > 0 ? 'buy' : 'sell',
             timestamp: Date.now(),
           }

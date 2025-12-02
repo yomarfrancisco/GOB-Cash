@@ -11,26 +11,26 @@ const FX_USD_ZAR_DEFAULT = 18.1
 export function initPortfolioFromAlloc(
   cashCents: number,
   ethCents: number,
-  pepeCents: number,
+  zwdCents: number,
   totalCents: number
 ) {
   const setHoldingsBulk = usePortfolioStore.getState().setHoldingsBulk
   const cashZAR = cashCents / 100
   const ethZAR = ethCents / 100
-  const pepeZAR = pepeCents / 100
+  const zwdZAR = zwdCents / 100
   const totalZAR = totalCents / 100
 
   // Calculate raw percentages
   const rawCashPct = (cashZAR / totalZAR) * 100
   const rawEthPct = (ethZAR / totalZAR) * 100
-  const rawPepePct = (pepeZAR / totalZAR) * 100
+  const rawZwdPct = (zwdZAR / totalZAR) * 100
 
   // Derive portfolio using single source of truth
   const portfolio = derivePortfolio({
     totalZAR,
     cashPct: rawCashPct,
     ethPct: rawEthPct,
-    pepePct: rawPepePct,
+    zwdPct: rawZwdPct,
     fx: FX_USD_ZAR_DEFAULT,
   })
 
@@ -52,13 +52,13 @@ export function initPortfolioFromAlloc(
       displayPct: portfolio.displayPercents.eth,
       health: portfolio.holdings.ETH.health,
     },
-    PEPE: {
-      symbol: 'PEPE',
-      amountZAR: portfolio.holdings.PEPE.amountZAR,
-      amountUSDT: portfolio.holdings.PEPE.amountZAR / FX_USD_ZAR_DEFAULT,
-      allocationPct: portfolio.holdings.PEPE.allocationPct,
-      displayPct: portfolio.displayPercents.pepe,
-      health: portfolio.holdings.PEPE.health,
+    ZWD: {
+      symbol: 'ZWD',
+      amountZAR: portfolio.holdings.ZWD.amountZAR,
+      amountUSDT: portfolio.holdings.ZWD.amountZAR / FX_USD_ZAR_DEFAULT,
+      allocationPct: portfolio.holdings.ZWD.allocationPct,
+      displayPct: portfolio.displayPercents.zwd,
+      health: portfolio.holdings.ZWD.health,
     },
   })
 }
