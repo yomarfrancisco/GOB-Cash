@@ -343,7 +343,7 @@ export default function ProfileHandlePage() {
                     >
                       <div className="lButton5">
                         <span className="text">
-                          <span className="lBold">Pay / Request</span>
+                          <span className="lBold">Pay/Request</span>
                         </span>
                       </div>
                     </button>
