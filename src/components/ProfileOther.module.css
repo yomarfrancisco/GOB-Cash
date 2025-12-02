@@ -1,0 +1,390 @@
+/* ProfileOther - Third-party profile view */
+
+.profileOther {
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  background-color: #000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #fff;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+/* Backdrop container */
+.backdropContainer {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(430px, 100vw);
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.backdropImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.8;
+}
+
+/* Darker screen gradients */
+.darkerScreen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  background-image: url('/assets/darker%20screen.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.darkerScreen2 {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  background-image: url('/assets/darker%20screen%202.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.4;
+  transform: rotate(180deg);
+  pointer-events: none;
+}
+
+/* Glass shard overlay */
+.glassShardContainer {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(430px, 100vw);
+  height: 400px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glassShard {
+  position: absolute;
+  top: -100px;
+  left: -50px;
+  width: 729px;
+  height: 713px;
+  object-fit: contain;
+  opacity: 0.9;
+  transform: rotate(-15deg);
+}
+
+/* Top navigation */
+.topNav {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(430px, 100vw);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 20px 16px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.navButton {
+  background: transparent;
+  border: 0;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  transition: opacity 0.2s;
+}
+
+.navButton:hover {
+  opacity: 0.7;
+}
+
+.navButton:active {
+  opacity: 0.5;
+}
+
+/* Profile content */
+.profileContent {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 382px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 80px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  gap: 16px;
+}
+
+/* Profile header */
+.profileHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  position: relative;
+}
+
+.avatar {
+  margin-bottom: 4px;
+}
+
+.handle {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: #fff;
+  margin: 0;
+  text-align: center;
+}
+
+.fullName {
+  opacity: 0.7;
+  font-size: 16px;
+  color: #fff;
+  text-align: center;
+}
+
+.metaRow {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.75;
+  font-size: 13px;
+  color: #fff;
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.metaDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.25;
+}
+
+/* Stats card */
+.statsCard {
+  margin: 16px auto 0;
+  width: 382px;
+  max-width: calc(100% - 32px);
+  border-radius: 32px;
+  background: rgba(37, 37, 37, 0.1);
+  backdrop-filter: blur(50px);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.statsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.stat {
+  width: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.statTop {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 4px;
+}
+
+.statValue {
+  font-size: 18px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.statSub {
+  font-size: 15px;
+  font-weight: 300;
+  opacity: 0.5;
+  color: #fff;
+}
+
+.statDivider {
+  width: 1px;
+  height: 33px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.networkPill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.networkTrack {
+  width: 112px;
+  height: 12px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.16);
+  position: relative;
+}
+
+.networkFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: #ff3b30;
+  border-radius: 100px;
+  transition: width 0.3s ease;
+}
+
+.networkLabel {
+  font-weight: 300;
+  opacity: 0.5;
+  color: #fff;
+}
+
+/* Social icons row */
+.socialRow {
+  margin: 12px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+/* Action buttons */
+.actionButtons {
+  width: 382px;
+  max-width: calc(100% - 32px);
+  margin: 12px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Sponsor button (primary) */
+.sponsorButton {
+  width: 100%;
+  height: 56px;
+  border-radius: 56px;
+  background: #ff2d55;
+  color: #fff;
+  border: none;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.32px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sponsorButton:hover {
+  background: #ff1a42;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 45, 85, 0.3);
+}
+
+.sponsorButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(255, 45, 85, 0.2);
+}
+
+/* Secondary buttons row */
+.secondaryButtonsRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.secondaryButton {
+  flex: 1;
+  height: 56px;
+  border-radius: 56px;
+  background: #e5e5ea;
+  color: #000;
+  border: none;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.32px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.secondaryButton:hover {
+  background: #d1d1d6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.secondaryButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Bookmark button (circular) */
+.bookmarkButton {
+  width: 56px;
+  height: 56px;
+  border-radius: 56px;
+  background: #e5e5ea;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bookmarkButton:hover {
+  background: #d1d1d6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.bookmarkButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
