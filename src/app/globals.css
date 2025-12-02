@@ -1261,8 +1261,8 @@ body {
 /* Avatar + handle in top glass for third-party profiles */
 .profile-other-avatar-container {
   position: absolute;
-  /* Position 20px below scan/share icons (which are at top: 48px), then moved up 5px */
-  top: 63px; /* 48px (icons) + 20px - 5px = 63px */
+  /* Position 20px below scan/share icons (which are at top: 48px), then moved up 5px, then up another 25px */
+  top: 38px; /* 63px - 25px = 38px */
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
