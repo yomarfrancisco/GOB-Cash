@@ -1258,50 +1258,45 @@ body {
   filter: brightness(0) invert(1); /* Makes icons white */
 }
 
-/* Avatar in top glass for third-party profiles */
+/* Avatar + handle in top glass for third-party profiles */
 .profile-other-avatar-container {
   position: absolute;
   /* Position near bottom of glass shard: glass is 712.8px tall, starts at -355px relative to page-title-gobankless,
      so bottom of glass is around 357.8px from top of overlay-glass-inner.
      We want avatar near bottom of glass, so position it around 330-340px to be visible but still in glass area */
-  top: 340px; /* Near bottom of glass, overlapping slightly into content area */
+  bottom: 0; /* Bottom-aligned inside the glass */
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
   pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px; /* Space between avatar and handle */
+  padding-bottom: 20px; /* Some padding from the very bottom */
 }
 
 .profile-other-avatar {
   width: 72px !important;
   height: 72px !important;
-  border-radius: 72px !important; /* Perfect circle */
+  border-radius: 24px !important; /* Rounded square, same as normal profile */
   flex-shrink: 0;
   background-color: #fff !important; /* White background for transparent PNGs */
-}
-
-/* Handle below avatar in scrollable content for third-party profiles */
-.profile-other-handle-container {
-  /* Avatar is at 340px in glass, handle should be ~12-14px below it in scrollable content */
-  /* Since content starts after glass (around 357.8px), and avatar is at 340px (36px above content start),
-     we need to account for that gap. Avatar center is at 340px + 36px (half height) = 376px.
-     Content starts around 357.8px, so handle should be at 376px + 14px = 390px from top.
-     But we're in scrollable content, so we need padding-top to position it correctly.
-     Actually, simpler: just add top padding to position handle below where avatar visually sits */
-  padding: 50px 16px 0; /* Top: space for avatar in glass above + 12-14px gap, sides: 16px */
-  margin-top: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
 .profile-other-handle {
   font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500; /* Slightly bold for readability over glass */
   color: #ffffff;
   text-align: center;
   margin: 0;
   letter-spacing: -0.1px;
+}
+
+/* Adjust scrollable content position for third-party profiles */
+.profile-other-scroll {
+  margin-top: 220px; /* Position stats card with breathing room below glass identity block */
 }
 
 /* Invite friends section */

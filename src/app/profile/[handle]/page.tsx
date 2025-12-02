@@ -133,16 +133,17 @@ export default function ProfileHandlePage() {
               <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" hideIcons={true} />
               {/* NO BottomGlassBar for public profiles */}
               
-              {/* Avatar in top glass - positioned near bottom of glass */}
+              {/* Avatar + handle in top glass - positioned near bottom of glass */}
               <div className="profile-other-avatar-container">
                 <Avatar
                   name={profile.fullName}
                   email={profile.email}
                   avatarUrl={profile.avatarUrl}
                   size={72}
-                  rounded={72}
+                  rounded={24}
                   className="profile-other-avatar"
                 />
+                <h1 className="profile-other-handle">{profile.userHandle}</h1>
               </div>
             </div>
           </div>
@@ -207,13 +208,8 @@ export default function ProfileHandlePage() {
           </div>
 
           {/* Scrollable content */}
-          <div className="scroll-content profile-scroll">
+          <div className="scroll-content profile-scroll profile-other-scroll">
             <div className="content profile-content">
-              {/* Handle below avatar (no full name, no meta row for third-party profiles) */}
-              <div className="profile-other-handle-container">
-                <h1 className="profile-other-handle">{profile.userHandle}</h1>
-              </div>
-
               {/* Stats + network pill */}
               <div className="profile-stats-card">
                 <div className="stats-row">
