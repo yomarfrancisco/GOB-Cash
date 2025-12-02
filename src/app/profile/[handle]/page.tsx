@@ -135,8 +135,8 @@ export default function ProfileHandlePage() {
             </div>
           </div>
 
-          {/* Profile backdrop: Benjamin image with white fade */}
-          <div className="profile-backdrop">
+          {/* Profile backdrop: Benjamin image with white fade - shifted down 15px for third-party profiles */}
+          <div className="profile-backdrop" style={{ top: '15px' }}>
             <img
               src="/assets/benjamin_grey.png"
               alt=""
