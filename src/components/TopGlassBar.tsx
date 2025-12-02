@@ -8,18 +8,22 @@ import { useRequireAuth } from '@/hooks/useRequireAuth'
 type TopGlassBarProps = {
   onScanClick?: () => void
   hideLogo?: boolean // Hide logo for third-party profiles
+  glassShardSrc?: string // Custom glass shard image path
 }
 
-export default function TopGlassBar({ onScanClick, hideLogo = false }: TopGlassBarProps = {}) {
+export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardSrc }: TopGlassBarProps = {}) {
   const pathname = usePathname()
   const isActivityPage = pathname === '/activity'
   const { open } = useShareProfileSheet()
   const { guardAuthed } = useRequireAuth()
 
+  const defaultGlassShard = '/assets/core/glass-top-4.png'
+  const glassShard = glassShardSrc || defaultGlassShard
+
   return (
     <div className="page-title-gobankless">
       <Image
-        src="/assets/core/glass-top-4.png"
+        src={glassShard}
         alt=""
         className="glass-shard-small"
         width={729}
