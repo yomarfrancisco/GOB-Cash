@@ -287,9 +287,9 @@
   padding: 20px 0;
 }
 
-/* Entry sheet content - moved down by 40px (232px + 40px = 272px) */
+/* Entry sheet content - moved down by 55px total (232px + 40px + 15px = 287px) */
 .authEntryContent {
-  top: 272px !important;
+  top: 287px !important;
   align-items: flex-start !important;
   padding-top: 0;
   padding-bottom: 40px;
