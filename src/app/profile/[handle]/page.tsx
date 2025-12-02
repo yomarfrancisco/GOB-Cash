@@ -135,8 +135,20 @@ export default function ProfileHandlePage() {
             </div>
           </div>
 
-          {/* Icons positioned at original location with white color for third-party profiles */}
+          {/* GOB logo and icons positioned at original location with white color for third-party profiles */}
           <div className="profile-other-icons">
+            {/* GOB logo on the left */}
+            <div className="profile-other-logo">
+              <Image
+                src="/assets/GOBlogo-white.png"
+                alt="GoBankless"
+                width={220}
+                height={65}
+                priority
+                unoptimized
+              />
+            </div>
+            {/* Icons on the right */}
             <div className="profile-other-icon-group">
               <button
                 onClick={() => {

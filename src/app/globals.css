@@ -1214,6 +1214,13 @@ body {
   pointer-events: none;
 }
 
+.profile-other-logo {
+  position: absolute;
+  top: 48px;
+  left: 16px;
+  pointer-events: auto;
+}
+
 .profile-other-icon-group {
   position: absolute;
   top: 48px;
