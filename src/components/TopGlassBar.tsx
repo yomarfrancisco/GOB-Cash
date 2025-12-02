@@ -80,7 +80,7 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
             <button
               onClick={() => {
                 guardAuthed(() => {
-                  open()
+                  open({ isOwnProfile: true })
                 })
               }}
               className="icon-button"

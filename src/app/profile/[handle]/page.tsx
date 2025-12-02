@@ -11,6 +11,7 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import PaymentDetailsSheet from '@/components/PaymentDetailsSheet'
+import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 
 // Stub data for demo profiles
 interface StubProfile {
@@ -165,17 +166,11 @@ export default function ProfileHandlePage() {
             <div className="profile-other-icon-group">
               <button
                 onClick={() => {
-                  // TODO: Handle share for third-party profiles
-                  if (typeof window !== 'undefined' && navigator.share) {
-                    const profileUrl = `https://gobankless.app/profile/${normalizedHandle?.replace('@', '')}`
-                    navigator.share({
-                      title: `${profile.fullName} on GoBankless`,
-                      text: `Check out ${profile.userHandle} on GoBankless`,
-                      url: profileUrl,
-                    }).catch(() => {
-                      // User cancelled or error occurred
-                    })
-                  }
+                  // Open ShareProfileSheet for third-party profile
+                  useShareProfileSheet.getState().open({
+                    handle: profile.userHandle,
+                    isOwnProfile: false,
+                  })
                 }}
                 className="profile-other-icon-button"
                 aria-label="Share profile"
@@ -403,6 +398,7 @@ export default function ProfileHandlePage() {
       </div>
 
       {/* PaymentDetailsSheet is rendered globally in layout.tsx */}
+      {/* ShareProfileSheet is rendered globally in layout.tsx */}
     </div>
   )
 }

@@ -12,10 +12,14 @@ import Avatar from './Avatar'
 import styles from './ShareProfileSheet.module.css'
 
 export default function ShareProfileSheet() {
-  const { isOpen, close } = useShareProfileSheet()
+  const { isOpen, close, handle: sheetHandle, isOwnProfile } = useShareProfileSheet()
   const { profile } = useUserProfileStore()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   const [qrDataURL, setQrDataURL] = useState<string | null>(null)
+
+  // Determine which handle to use: from sheet state (third-party) or from user profile (own)
+  const targetHandle = sheetHandle || profile.userHandle || '@samakoyo'
+  const displayHandle = targetHandle
 
   // Generate QR code when sheet opens
   useEffect(() => {
@@ -23,8 +27,7 @@ export default function ShareProfileSheet() {
 
     const generateQR = async () => {
       try {
-        const handle = profile.userHandle || '@samakoyo'
-        const paymentUrl = `https://gobankless.app/pay/${handle.replace('@', '')}`
+        const paymentUrl = `https://gobankless.app/pay/${targetHandle.replace('@', '')}`
         const qr = await generateQRCode(paymentUrl, 512)
         setQrDataURL(qr)
       } catch (error) {
@@ -38,19 +41,26 @@ export default function ShareProfileSheet() {
     }
 
     generateQR()
-  }, [isOpen, profile.userHandle, pushNotification])
+  }, [isOpen, targetHandle, pushNotification])
 
   const handleShare = async () => {
-    const handle = profile.userHandle || '@samakoyo'
-    const paymentUrl = `https://gobankless.app/pay/${handle.replace('@', '')}`
+    const paymentUrl = `https://gobankless.app/pay/${targetHandle.replace('@', '')}`
 
     if (typeof window !== 'undefined' && navigator.share) {
       try {
-        await navigator.share({
-          title: 'My GoBankless Profile',
-          text: `Pay me on GoBankless: ${handle}`,
-          url: paymentUrl,
-        })
+        if (isOwnProfile) {
+          await navigator.share({
+            title: 'My GoBankless Profile',
+            text: `Pay me on GoBankless: ${targetHandle}`,
+            url: paymentUrl,
+          })
+        } else {
+          await navigator.share({
+            title: `Share ${targetHandle}'s profile`,
+            text: `Check out ${targetHandle} on GoBankless`,
+            url: paymentUrl,
+          })
+        }
       } catch (error) {
         // User cancelled or error occurred
         console.log('Share cancelled or failed:', error)
@@ -62,8 +72,7 @@ export default function ShareProfileSheet() {
   }
 
   const handleCopy = async () => {
-    const handle = profile.userHandle || '@samakoyo'
-    const paymentUrl = `https://gobankless.app/pay/${handle.replace('@', '')}`
+    const paymentUrl = `https://gobankless.app/pay/${targetHandle.replace('@', '')}`
 
     try {
       await navigator.clipboard.writeText(paymentUrl)
@@ -82,7 +91,23 @@ export default function ShareProfileSheet() {
     }
   }
 
-  const displayHandle = profile.userHandle || '@samakoyo'
+  // Determine wording based on whether it's own profile or third-party
+  const copyCaption = isOwnProfile 
+    ? 'Copy your personal payment URL.' 
+    : `Copy ${targetHandle}'s personal payment URL.`
+  
+  const shareTitle = isOwnProfile 
+    ? 'Share my profile' 
+    : 'Share this profile'
+  
+  const shareCaption = isOwnProfile
+    ? 'Send your GoBankless profile to anyone.'
+    : 'Send this GoBankless profile to anyone.'
+
+  // Get avatar for display (use profile avatar for own, or fallback for third-party)
+  const avatarUrl = isOwnProfile ? profile.avatarUrl : null
+  const avatarName = isOwnProfile ? profile.fullName : null
+  const avatarEmail = isOwnProfile ? profile.email : null
 
   return (
     <ActionSheet open={isOpen} onClose={close} title="" size="tall" className="share-sheet">
@@ -107,24 +132,24 @@ export default function ShareProfileSheet() {
         <ActionSheetItem
           icon={
             <div className={styles.avatarIcon}>
-              <Avatar avatarUrl={profile.avatarUrl} name={profile.fullName} email={profile.email} size={40} />
+              <Avatar avatarUrl={avatarUrl} name={avatarName} email={avatarEmail} size={40} />
             </div>
           }
           title="Copy payment link"
-          caption="Copy your personal payment URL."
+          caption={copyCaption}
           onClick={handleCopy}
           trailing={<Copy size={18} strokeWidth={2} style={{ color: '#111' }} />}
         />
 
-        {/* Share my profile - second */}
+        {/* Share profile - second */}
         <ActionSheetItem
           icon={
             <div className={styles.iconCircle}>
               <AtSign size={20} strokeWidth={2.2} style={{ color: '#111' }} />
             </div>
           }
-          title="Share my profile"
-          caption="Send your GoBankless profile to anyone."
+          title={shareTitle}
+          caption={shareCaption}
           onClick={handleShare}
           trailing={<Share size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
         />
