@@ -287,9 +287,9 @@
   padding: 20px 0;
 }
 
-/* Entry sheet content - adjusted after removing Instagram button (232px - 56px button - 16px gap = 160px) */
+/* Entry sheet content - moved down by 40px (232px + 40px = 272px) */
 .authEntryContent {
-  top: 160px !important; /* Moved up to fill gap left by removed Instagram button */
+  top: 272px !important;
   align-items: flex-start !important;
   padding-top: 0;
   padding-bottom: 40px;
