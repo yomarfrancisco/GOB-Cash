@@ -38,6 +38,7 @@ const Avatar = ({ name, email, avatarUrl, size = 96, rounded = 24, className }: 
         borderRadius: rounded,
         flexShrink: 0, // Prevent shrinking
         overflow: 'hidden', // Clip initial within rounded frame
+        backgroundColor: '#fff', // White background for transparent PNGs
       }}
       aria-label={`Avatar ${name || email || ''}`}
     >
