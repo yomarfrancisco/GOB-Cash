@@ -105,9 +105,9 @@ export default function ShareProfileSheet() {
     : 'Send this GoBankless profile to anyone.'
 
   // Get avatar for display (use profile avatar for own, or fallback for third-party)
-  const avatarUrl = isOwnProfile ? profile.avatarUrl : null
-  const avatarName = isOwnProfile ? profile.fullName : null
-  const avatarEmail = isOwnProfile ? profile.email : null
+  const avatarUrl = isOwnProfile ? profile.avatarUrl : undefined
+  const avatarName = isOwnProfile ? profile.fullName : undefined
+  const avatarEmail = isOwnProfile ? profile.email : undefined
 
   return (
     <ActionSheet open={isOpen} onClose={close} title="" size="tall" className="share-sheet">
