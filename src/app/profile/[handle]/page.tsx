@@ -130,7 +130,7 @@ export default function ProfileHandlePage() {
           {/* Overlay: Top glass bar only (NO bottom nav, NO logo) - shifted down 50px */}
           <div className="overlay-glass" style={{ top: '50px' }}>
             <div className="overlay-glass-inner">
-              <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" />
+              <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" hideIcons={true} />
               {/* NO BottomGlassBar for public profiles */}
             </div>
           </div>

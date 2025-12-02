@@ -9,9 +9,10 @@ type TopGlassBarProps = {
   onScanClick?: () => void
   hideLogo?: boolean // Hide logo for third-party profiles
   glassShardSrc?: string // Custom glass shard image path
+  hideIcons?: boolean // Hide icons for third-party profiles (to use separate white icons)
 }
 
-export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardSrc }: TopGlassBarProps = {}) {
+export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardSrc, hideIcons = false }: TopGlassBarProps = {}) {
   const pathname = usePathname()
   const isActivityPage = pathname === '/activity'
   const { open } = useShareProfileSheet()
@@ -64,32 +65,34 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
           />
         )
       )}
-      <div className="icons">
-        <div className="icon-group">
-          <button
-            onClick={onScanClick}
-            className="icon-button"
-            aria-label="Scan QR code"
-            type="button"
-            style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
-          >
-            <Image src="/assets/core/scan.svg" alt="Scan" className="icon" width={24} height={24} />
-          </button>
-          <button
-            onClick={() => {
-              guardAuthed(() => {
-                open()
-              })
-            }}
-            className="icon-button"
-            aria-label="Share profile"
-            type="button"
-            style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
-          >
-            <Image src="/assets/core/export.svg" alt="Share" className="icon" width={24} height={24} />
-          </button>
+      {!hideIcons && (
+        <div className="icons">
+          <div className="icon-group">
+            <button
+              onClick={onScanClick}
+              className="icon-button"
+              aria-label="Scan QR code"
+              type="button"
+              style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
+            >
+              <Image src="/assets/core/scan.svg" alt="Scan" className="icon" width={24} height={24} />
+            </button>
+            <button
+              onClick={() => {
+                guardAuthed(() => {
+                  open()
+                })
+              }}
+              className="icon-button"
+              aria-label="Share profile"
+              type="button"
+              style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
+            >
+              <Image src="/assets/core/export.svg" alt="Share" className="icon" width={24} height={24} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
