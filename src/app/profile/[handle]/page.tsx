@@ -142,8 +142,8 @@ export default function ProfileHandlePage() {
               <Image
                 src="/assets/GOBlogo-white.png"
                 alt="GoBankless"
-                width={220}
-                height={65}
+                width={51.3}
+                height={32}
                 priority
                 unoptimized
               />
