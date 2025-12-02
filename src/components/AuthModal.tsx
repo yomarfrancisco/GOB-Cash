@@ -17,7 +17,7 @@ import styles from './AuthModal.module.css'
 const MEMBER_PASSWORD = 'brics2025'
 
 export default function AuthModal() {
-  const { authPasswordOpen, closeAuthPassword, closeAllAuth, openAuthEntry, completeAuth } = useAuthStore()
+  const { authPasswordOpen, closeAuthPassword, closeAllAuth, completeAuth } = useAuthStore()
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +29,8 @@ export default function AuthModal() {
     closeAuthPassword()
     // Small delay to allow password sheet to close before opening login entry
     setTimeout(() => {
-      openAuthEntry()
+      const { openAuthEntryLogin } = useAuthStore.getState()
+      openAuthEntryLogin()
     }, 220)
   }
 

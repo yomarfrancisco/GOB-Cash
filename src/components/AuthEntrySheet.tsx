@@ -19,14 +19,14 @@ type AuthMode = 'loginEntry' | 'signup'
 export default function AuthEntrySheet() {
   const { authEntryOpen, closeAuthEntry, openAuthPassword, openPhoneSignup, setAuthIdentifier } = useAuthStore()
   const [identifier, setIdentifier] = useState('')
-  const [authMode, setAuthMode] = useState<AuthMode>('loginEntry')
+  const [authMode, setAuthMode] = useState<AuthMode>('signup')
 
-  // Reset to login entry when sheet opens, unless coming from signup flow
+  // Reset mode when sheet opens - default to signup, unless explicitly set to login
   useEffect(() => {
     if (authEntryOpen) {
       const { authView } = useAuthStore.getState()
-      // If authView is 'whatsapp-signup', start in signup mode
-      setAuthMode(authView === 'whatsapp-signup' ? 'signup' : 'loginEntry')
+      // If authView is 'whatsapp-signin', start in login mode; otherwise default to signup
+      setAuthMode(authView === 'whatsapp-signin' ? 'loginEntry' : 'signup')
       setIdentifier('')
     }
   }, [authEntryOpen])

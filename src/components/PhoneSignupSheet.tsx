@@ -64,8 +64,8 @@ export default function PhoneSignupSheet() {
     closePhoneSignup()
     // Small delay to allow phone sheet to close before opening login entry
     setTimeout(() => {
-      const { openAuthEntry } = useAuthStore.getState()
-      openAuthEntry()
+      const { openAuthEntryLogin } = useAuthStore.getState()
+      openAuthEntryLogin()
     }, 220)
   }
 
