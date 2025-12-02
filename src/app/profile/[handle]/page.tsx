@@ -145,9 +145,9 @@ export default function ProfileHandlePage() {
             <div className="profile-backdrop-fade" />
           </div>
 
-          {/* Scrollable content - shifted down 30px to show more backdrop */}
+          {/* Scrollable content */}
           <div className="scroll-content profile-scroll">
-            <div className="content profile-content" style={{ marginTop: '30px' }}>
+            <div className="content profile-content">
               {/* Avatar + name + handle */}
               <div className="profile-header">
                 <Avatar
