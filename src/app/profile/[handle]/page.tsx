@@ -280,71 +280,97 @@ export default function ProfileHandlePage() {
                 )}
               </div>
 
-              {/* Sponsor button */}
-              <div className="profile-actions" style={{ flexDirection: 'column', gap: '8px' }}>
-                <button
-                  className="btn profile-sponsor"
-                  onClick={() => {
-                    // TODO: Implement sponsor functionality
-                    console.log('Sponsor:', profile.userHandle)
-                  }}
-                  type="button"
-                >
-                  Sponsor
-                </button>
+              {/* Sponsor section - Figma-accurate structure */}
+              <section className="sponsor">
+                <div className="sponsor2">
+                  {/* Primary sponsor pill */}
+                  <div className="lButtonWrapper">
+                    <button
+                      className="lButton"
+                      onClick={() => {
+                        // TODO: Implement sponsor functionality
+                        console.log('Sponsor:', profile.userHandle)
+                      }}
+                      type="button"
+                    >
+                      <div className="lButton2">
+                        <span className="text">
+                          <span className="lBold">Sponsor</span>
+                        </span>
+                      </div>
+                    </button>
+                  </div>
 
-                {/* Secondary actions row */}
-                <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                  <button
-                    className="btn profile-secondary"
-                    onClick={() => {
-                      guardAuthed(() => {
-                        // Open AMA chat / inbox for this user
-                        // For Ama, open the existing inbox chat
-                        if (normalizedHandle === '@ama') {
-                          openInbox()
-                        } else {
-                          // TODO: Open chat with this user
-                          console.log('Message:', profile.userHandle)
-                        }
-                      })
-                    }}
-                    type="button"
-                  >
-                    Message
-                  </button>
-                  <button
-                    className="btn profile-secondary"
-                    onClick={() => {
-                      guardAuthed(() => {
-                        // Open Pay/Request sheet for this user
-                        // For now, open with 0 amount (user will enter it in the sheet)
-                        openPaymentDetails('pay', 0)
-                      })
-                    }}
-                    type="button"
-                  >
-                    Pay / Request
-                  </button>
-                  <button
-                    className="btn profile-bookmark"
-                    onClick={() => {
-                      setIsBookmarked(!isBookmarked)
-                      // TODO: Persist bookmark state
-                      console.log('Bookmark toggled:', !isBookmarked)
-                    }}
-                    type="button"
-                    aria-label="Bookmark"
-                  >
-                    <Bookmark
-                      size={22}
-                      strokeWidth={2}
-                      style={{ color: '#000' }}
-                      fill={isBookmarked ? '#000' : 'none'}
-                    />
-                  </button>
+                  {/* Secondary row: Message / Pay / Bookmark */}
+                  <div className="messageButtonLockedParent">
+                    {/* Message pill */}
+                    <div className="messageButtonLocked">
+                      <button
+                        className="button"
+                        onClick={() => {
+                          guardAuthed(() => {
+                            // Open AMA chat / inbox for this user
+                            // For Ama, open the existing inbox chat
+                            if (normalizedHandle === '@ama') {
+                              openInbox()
+                            } else {
+                              // TODO: Open chat with this user
+                              console.log('Message:', profile.userHandle)
+                            }
+                          })
+                        }}
+                        type="button"
+                      >
+                        <div className="lButton3">
+                          <span className="text">
+                            <span className="lBold">Message</span>
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Pay / Request pill */}
+                    <button
+                      className="lButton4"
+                      onClick={() => {
+                        guardAuthed(() => {
+                          // Open Pay/Request sheet for this user
+                          // For now, open with 0 amount (user will enter it in the sheet)
+                          openPaymentDetails('pay', 0)
+                        })
+                      }}
+                      type="button"
+                    >
+                      <div className="lButton5">
+                        <span className="text">
+                          <span className="lBold">Pay / Request</span>
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Bookmark circle */}
+                    <button
+                      className="lButton6"
+                      onClick={() => {
+                        setIsBookmarked(!isBookmarked)
+                        // TODO: Persist bookmark state
+                        console.log('Bookmark toggled:', !isBookmarked)
+                      }}
+                      type="button"
+                      aria-label="Bookmark"
+                    >
+                      <div className="lButton7">
+                        <Bookmark
+                          size={24}
+                          strokeWidth={2}
+                          style={{ color: '#fff' }}
+                          fill={isBookmarked ? '#fff' : 'none'}
+                        />
+                      </div>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </section>
 
               {/* NO Invite friends section for public profiles */}
               {/* NO Settings section for public profiles */}
