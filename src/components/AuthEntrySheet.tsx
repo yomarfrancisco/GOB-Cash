@@ -1,7 +1,7 @@
 /**
  * AuthEntrySheet - Sign-in method selection sheet
  * 
- * First screen in auth flow - shows Google/Instagram options and username/phone input.
+ * First screen in auth flow - shows Google option and username/phone input.
  * Uses same background image and styling as password auth sheet.
  */
 
@@ -47,10 +47,6 @@ export default function AuthEntrySheet() {
 
   const handleGoogleClick = () => {
     console.log('Google auth coming soon')
-  }
-
-  const handleInstagramClick = () => {
-    console.log('Instagram auth coming soon')
   }
 
   const handlePhoneSignUpClick = () => {
@@ -103,23 +99,6 @@ export default function AuthEntrySheet() {
                   className={styles.authEntrySocialIcon}
                 />
                 <span className={styles.authEntrySocialText}>Continue with Google</span>
-              </button>
-
-              {/* Continue with Instagram button */}
-              <button
-                type="button"
-                className={styles.authEntrySocialButton}
-                onClick={handleInstagramClick}
-              >
-              <Image
-                src="/assets/Instagram_lcon.png"
-                alt="Instagram"
-                width={20}
-                height={20}
-                unoptimized
-                className={styles.authEntrySocialIcon}
-              />
-                <span className={styles.authEntrySocialText}>Continue with Instagram</span>
               </button>
 
               {/* Divider with "or" */}
@@ -176,23 +155,6 @@ export default function AuthEntrySheet() {
                   className={styles.authEntrySocialIcon}
                 />
                 <span className={styles.authEntrySocialText}>Sign up with Google</span>
-              </button>
-
-              {/* Sign up with Instagram button */}
-              <button
-                type="button"
-                className={styles.authEntrySocialButton}
-                onClick={handleInstagramClick}
-              >
-              <Image
-                src="/assets/Instagram_lcon.png"
-                alt="Instagram"
-                width={20}
-                height={20}
-                unoptimized
-                className={styles.authEntrySocialIcon}
-              />
-                <span className={styles.authEntrySocialText}>Sign up with Instagram</span>
               </button>
 
               {/* Sign up with phone number button */}
