@@ -28,6 +28,7 @@ interface StubProfile {
   sponsors?: number
   sponsoring?: number
   socialCredit?: number
+  verified?: boolean
 }
 
 const STUB_PROFILES: Record<string, StubProfile> = {
@@ -42,6 +43,7 @@ const STUB_PROFILES: Record<string, StubProfile> = {
     sponsors: 8122,
     sponsoring: 556,
     socialCredit: 22.4,
+    verified: true,
   },
   samakoyo: {
     userHandle: '@samakoyo',
@@ -55,6 +57,7 @@ const STUB_PROFILES: Record<string, StubProfile> = {
     sponsors: 8122,
     sponsoring: 556,
     socialCredit: 22.4,
+    verified: false,
   },
 }
 
@@ -100,6 +103,7 @@ export default function ProfileHandlePage() {
       fullName: normalizedHandle.replace('@', '').charAt(0).toUpperCase() + normalizedHandle.replace('@', '').slice(1),
       avatarUrl: null,
       location: 'South Africa',
+      verified: false,
       joinDate: 'Joined Feb 2024',
       rating: 4.5,
       ratingCount: '1.2K',
@@ -144,7 +148,20 @@ export default function ProfileHandlePage() {
                   rounded={24}
                   className="profile-other-avatar"
                 />
-                <h1 className="profile-other-handle">{profile.userHandle}</h1>
+                <h1 className="profile-other-handle">
+                  {profile.userHandle}
+                  {profile.verified && (
+                    <span className="profile-verified-icon">
+                      <Image
+                        src="/assets/verified.svg"
+                        alt="Verified"
+                        width={12}
+                        height={12}
+                        unoptimized
+                      />
+                    </span>
+                  )}
+                </h1>
               </div>
             </div>
           </div>
