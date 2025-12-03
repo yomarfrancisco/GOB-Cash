@@ -498,8 +498,8 @@ export default function Home() {
   // Get title and subtitle - always use card definitions (same for both modes)
   // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
   const cardDef = getCardDefinition(topCardType === 'yieldSurprise' ? 'yield' : topCardType)
-  // Override title for home page
-  const title = `Pay anyone anywhere`
+  // Title - conditional based on auth status
+  const title = isAuthed ? `Smart wallet` : `Pay anyone anywhere`
   
   // Subtitle text - conditional based on auth status
   const totalBalanceZAR = isAuthed ? (alloc.totalCents / 100) : 0
