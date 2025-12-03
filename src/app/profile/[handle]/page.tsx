@@ -375,12 +375,11 @@ export default function ProfileHandlePage() {
                     <button
                       className="lButton4"
                       onClick={() => {
-                        guardAuthed(() => {
-                          // Profile-specific shortcut: open AmountSheet directly with locked recipient
-                          // This bypasses PaymentDetailsSheet since recipient is already known
-                          setAmountMode('convert')
-                          setOpenAmount(true)
-                        })
+                        // Profile-specific shortcut: open AmountSheet directly with locked recipient
+                        // This bypasses PaymentDetailsSheet since recipient is already known
+                        // Guest-friendly: no auth gate - allows unauthenticated users to use this flow
+                        setAmountMode('convert')
+                        setOpenAmount(true)
                       }}
                       type="button"
                     >
