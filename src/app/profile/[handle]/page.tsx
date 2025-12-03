@@ -14,6 +14,7 @@ import PaymentDetailsSheet from '@/components/PaymentDetailsSheet'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import AmountSheet from '@/components/AmountSheet'
 import { openAmaChatWithPaymentScenario } from '@/lib/cashDeposit/chatOrchestration'
+import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 
 // Stub data for demo profiles
 interface StubProfile {
@@ -456,6 +457,8 @@ export default function ProfileHandlePage() {
           }, 220)
         }}
       />
+      {/* FinancialInboxSheet: enables Ama chat to render on this route for unauthenticated Pay/Request flow */}
+      <FinancialInboxSheet />
       {/* PaymentDetailsSheet is rendered globally in layout.tsx */}
       {/* ShareProfileSheet is rendered globally in layout.tsx */}
     </div>
