@@ -33,8 +33,8 @@ const CARD_LABELS: Record<CardType, string> = {
   savings: 'CASH CARD', // ZAR fiat card
   mzn: 'CASH CARD', // MZN fiat card
   zwd: 'CASH CARD', // ZWD fiat card
-  yield: 'CASH CARD', // ETH crypto card
-  btc: 'CASH CARD', // BTC crypto card
+  yield: 'CRYPTO CARD', // ETH crypto card
+  btc: 'CRYPTO CARD', // BTC crypto card
   yieldSurprise: 'CREDIT CARD', // Credit surprise card
 }
 
