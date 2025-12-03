@@ -390,9 +390,11 @@ export default function ProfileHandlePage() {
                     <button
                       className="lButton6"
                       onClick={() => {
-                        setIsBookmarked(!isBookmarked)
-                        // TODO: Persist bookmark state
-                        console.log('Bookmark toggled:', !isBookmarked)
+                        guardAuthed(() => {
+                          setIsBookmarked(!isBookmarked)
+                          // TODO: Persist bookmark state
+                          console.log('Bookmark toggled:', !isBookmarked)
+                        })
                       }}
                       type="button"
                       aria-label="Bookmark"
