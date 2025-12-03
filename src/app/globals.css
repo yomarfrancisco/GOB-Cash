@@ -845,7 +845,7 @@ body {
 }
 
 .profile-stats-card {
-  margin: 16px auto 0;
+  margin: 41px auto 0; /* Increased from 16px to 41px (16px + 25px) to push content down */
   width: 382px;
   border-radius: 32px;
   background: rgba(127, 127, 127, 0.1);
