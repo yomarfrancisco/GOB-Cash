@@ -378,6 +378,83 @@
   color: #000;
 }
 
+/* Pill-shaped input shell for AuthEntrySheet login input */
+.inputShellPill {
+  width: 100%;
+  height: 56px;
+  border-radius: 42px; /* Match Google button border-radius */
+  background-color: #e5e5ea; /* Match chat input background */
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: visible; /* Ensure submit button isn't clipped */
+  transition: all 150ms ease-out;
+}
+
+.inputPill {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.32px;
+  line-height: 22px;
+  padding-left: 80px; /* Increased to shift text right for visual centering */
+  padding-right: 56px; /* Leave room for submit button on the right */
+  color: #000;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  box-sizing: border-box;
+  height: 100%;
+  text-align: left;
+}
+
+.inputPill::placeholder {
+  color: rgba(142, 142, 147, 0.6);
+  font-weight: 500;
+  letter-spacing: -0.32px;
+}
+
+/* Submit button (circular with up arrow) - shown when has text */
+.submitButton {
+  position: absolute;
+  top: 50%;
+  right: 8px; /* 8-12px from right edge as requested */
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #007aff; /* iOS blue - matches chat send button */
+  color: #fff;
+  cursor: pointer;
+  z-index: 2; /* Ensure button sits above input */
+  padding: 0;
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
+  box-shadow: 0 2px 4px rgba(0, 122, 255, 0.3);
+}
+
+.submitButton:hover {
+  opacity: 0.9;
+  transform: translateY(-50%) scale(1.02);
+}
+
+.submitButton:active {
+  opacity: 0.8;
+  transform: translateY(-50%) scale(0.98);
+}
+
+.submitButtonIcon {
+  width: 20px;
+  height: 20px;
+  color: #fff;
+}
+
 .eyeButton {
   border: none;
   background: transparent;

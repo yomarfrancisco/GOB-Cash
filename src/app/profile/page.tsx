@@ -223,31 +223,17 @@ export default function ProfilePage() {
           {/* Scrollable content */}
           <div className="scroll-content profile-scroll">
             <div className="content profile-content">
-              {/* Avatar + name + handle */}
+              {/* Avatar + handle (full-name and meta rows removed) */}
               <div className="profile-header">
                 <Avatar
                   name={profile.fullName}
                   email={profile.email}
                   avatarUrl={profile.avatarUrl}
-                  size={96}
+                  size={72}
                   rounded={24}
                   className="profile-avatar"
                 />
                 <h1 className="profile-name">{profile.userHandle}</h1>
-                <div className="profile-handle">{profile.fullName}</div>
-
-                {/* Meta row */}
-                <div className="profile-meta">
-                  <div className="meta-item">
-                    <Image src="/assets/profile/location-pin.svg" alt="" width={12} height={12} />
-                    <span>South Africa</span>
-                  </div>
-                  <div className="meta-dot" />
-                  <div className="meta-item">
-                    <Image src="/assets/profile/calendar_month.svg" alt="" width={12} height={12} />
-                    <span>Joined Feb 2024</span>
-                  </div>
-                </div>
               </div>
 
               {/* Stats + network pill */}
@@ -394,23 +380,26 @@ export default function ProfilePage() {
               <div className="profile-settings">
                 <h2 className="profile-settings-heading">Settings</h2>
                 <div className="profile-settings-card">
-                  <button
-                    className="profile-settings-row"
-                    onClick={() => {
-                      guardAuthed(() => {
-                        openNotifications()
-                      })
-                    }}
-                    type="button"
-                  >
-                    <div className="profile-settings-left">
-                      <div className="profile-settings-icon">
-                        <Bell size={22} strokeWidth={2} style={{ color: '#111' }} />
+                  {/* Notifications row - hidden for minimal UI */}
+                  {false && (
+                    <button
+                      className="profile-settings-row"
+                      onClick={() => {
+                        guardAuthed(() => {
+                          openNotifications()
+                        })
+                      }}
+                      type="button"
+                    >
+                      <div className="profile-settings-left">
+                        <div className="profile-settings-icon">
+                          <Bell size={22} strokeWidth={2} style={{ color: '#111' }} />
+                        </div>
+                        <span className="profile-settings-label">Notifications</span>
                       </div>
-                      <span className="profile-settings-label">Notifications</span>
-                    </div>
-                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                  </button>
+                      <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                    </button>
+                  )}
                   <button
                     className="profile-settings-row"
                     onClick={() => {
@@ -445,23 +434,26 @@ export default function ProfilePage() {
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
-                  <button
-                    className="profile-settings-row"
-                    onClick={() => {
-                      guardAuthed(() => {
-                        openSupport()
-                      })
-                    }}
-                    type="button"
-                  >
-                    <div className="profile-settings-left">
-                      <div className="profile-settings-icon">
-                        <Phone size={22} strokeWidth={2} style={{ color: '#111' }} />
+                  {/* Help and support row - hidden for minimal UI */}
+                  {false && (
+                    <button
+                      className="profile-settings-row"
+                      onClick={() => {
+                        guardAuthed(() => {
+                          openSupport()
+                        })
+                      }}
+                      type="button"
+                    >
+                      <div className="profile-settings-left">
+                        <div className="profile-settings-icon">
+                          <Phone size={22} strokeWidth={2} style={{ color: '#111' }} />
+                        </div>
+                        <span className="profile-settings-label">Help and support</span>
                       </div>
-                      <span className="profile-settings-label">Help and support</span>
-                    </div>
-                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                  </button>
+                      <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                    </button>
+                  )}
                   <button
                     className="profile-settings-row"
                     onClick={() => {

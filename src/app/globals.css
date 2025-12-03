@@ -261,6 +261,18 @@ body {
   );
 }
 
+/* Own profile view: fade starts earlier for cleaner white space */
+.profile-page .profile-backdrop-fade {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0)   0%,   /* fully transparent at the top - image visible behind logo/avatar */
+    rgba(255, 255, 255, 0)   20%,  /* still transparent through name/handle area (moved up from 30%) */
+    rgba(255, 255, 255, 0.4) 40%,  /* start soft fade around stats area (moved up from 50%) */
+    rgba(255, 255, 255, 0.85) 65%, /* nearly white near bottom of stats card (moved up from 75%) */
+    rgba(255, 255, 255, 1)   100%  /* fully white by end of stats + settings section */
+  );
+}
+
 /* Ensure profile content is drawn above the backdrop */
 .profile-scroll {
   position: relative;
@@ -779,18 +791,18 @@ body {
 
 /* PROFILE */
 .profile-header {
-  margin-top: 24px;
+  margin-top: 84px; /* Increased from 64px to 84px (64px + 20px) to move everything below glass down further */
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px; /* slightly more space between avatar and text */
+  gap: 8px; /* Reduced gap since we removed full-name and meta rows */
   padding: 0 16px;
   position: relative;
 }
 
 .profile-avatar {
-  width: 96px;
-  height: 96px;
+  width: 72px;
+  height: 72px;
   border-radius: 24px;
   flex-shrink: 0;
   /* Remove object-fit and border as they're handled by Avatar component */
@@ -798,7 +810,7 @@ body {
 }
 
 .profile-name {
-  font-size: 28px;
+  font-size: 21px; /* Reduced by ~25% from 28px */
   font-weight: 600;
   letter-spacing: -0.2px;
   color: #000;
@@ -845,7 +857,7 @@ body {
 }
 
 .profile-stats-card {
-  margin: 16px auto 0;
+  margin: 41px auto 0; /* Increased from 16px to 41px (16px + 25px) to push content down */
   width: 382px;
   border-radius: 32px;
   background: rgba(127, 127, 127, 0.1);
