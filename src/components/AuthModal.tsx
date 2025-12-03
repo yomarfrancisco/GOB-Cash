@@ -92,7 +92,7 @@ export default function AuthModal() {
         <div className={styles.content}>
           <form className={styles.form} onSubmit={handleSubmit}>
             <label className={styles.field}>
-              <div className={styles.inputShell}>
+              <div className={clsx(styles.inputShell, styles.passwordInputShell)}>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   className={styles.input}

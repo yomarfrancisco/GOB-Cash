@@ -378,6 +378,27 @@
   color: #000;
 }
 
+/* Remove iOS yellow autofill background on login password field - preserve rounded styling */
+.passwordInputShell input:-webkit-autofill,
+.passwordInputShell input:-webkit-autofill:hover,
+.passwordInputShell input:-webkit-autofill:focus,
+.passwordInputShell input:-webkit-autofill:active {
+  /* Remove browser yellow/white autofill background */
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  box-shadow: 0 0 0 1000px transparent inset !important;
+  /* Ensure text color stays correct */
+  -webkit-text-fill-color: inherit !important;
+  caret-color: inherit !important;
+  /* Preserve rounded look */
+  border-radius: inherit !important;
+  background: transparent !important;
+}
+
+/* Prevent Safari from re-introducing yellow during autofill animation */
+.passwordInputShell input:-webkit-autofill {
+  transition: background-color 9999s ease-out 0s !important;
+}
+
 /* Pill-shaped input shell for AuthEntrySheet login input */
 .inputShellPill {
   width: 100%;
