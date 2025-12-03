@@ -380,23 +380,26 @@ export default function ProfilePage() {
               <div className="profile-settings">
                 <h2 className="profile-settings-heading">Settings</h2>
                 <div className="profile-settings-card">
-                  <button
-                    className="profile-settings-row"
-                    onClick={() => {
-                      guardAuthed(() => {
-                        openNotifications()
-                      })
-                    }}
-                    type="button"
-                  >
-                    <div className="profile-settings-left">
-                      <div className="profile-settings-icon">
-                        <Bell size={22} strokeWidth={2} style={{ color: '#111' }} />
+                  {/* Notifications row - hidden for minimal UI */}
+                  {false && (
+                    <button
+                      className="profile-settings-row"
+                      onClick={() => {
+                        guardAuthed(() => {
+                          openNotifications()
+                        })
+                      }}
+                      type="button"
+                    >
+                      <div className="profile-settings-left">
+                        <div className="profile-settings-icon">
+                          <Bell size={22} strokeWidth={2} style={{ color: '#111' }} />
+                        </div>
+                        <span className="profile-settings-label">Notifications</span>
                       </div>
-                      <span className="profile-settings-label">Notifications</span>
-                    </div>
-                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                  </button>
+                      <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                    </button>
+                  )}
                   <button
                     className="profile-settings-row"
                     onClick={() => {
@@ -431,23 +434,26 @@ export default function ProfilePage() {
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
-                  <button
-                    className="profile-settings-row"
-                    onClick={() => {
-                      guardAuthed(() => {
-                        openSupport()
-                      })
-                    }}
-                    type="button"
-                  >
-                    <div className="profile-settings-left">
-                      <div className="profile-settings-icon">
-                        <Phone size={22} strokeWidth={2} style={{ color: '#111' }} />
+                  {/* Help and support row - hidden for minimal UI */}
+                  {false && (
+                    <button
+                      className="profile-settings-row"
+                      onClick={() => {
+                        guardAuthed(() => {
+                          openSupport()
+                        })
+                      }}
+                      type="button"
+                    >
+                      <div className="profile-settings-left">
+                        <div className="profile-settings-icon">
+                          <Phone size={22} strokeWidth={2} style={{ color: '#111' }} />
+                        </div>
+                        <span className="profile-settings-label">Help and support</span>
                       </div>
-                      <span className="profile-settings-label">Help and support</span>
-                    </div>
-                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                  </button>
+                      <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                    </button>
+                  )}
                   <button
                     className="profile-settings-row"
                     onClick={() => {
