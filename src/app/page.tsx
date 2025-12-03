@@ -10,11 +10,10 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
-import { formatUSDT } from '@/lib/money'
+import { formatUSDT, formatZAR } from '@/lib/money'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useAiActionCycle } from '@/lib/animations/useAiActionCycle'
 import { useRandomCardFlips } from '@/lib/animations/useRandomCardFlips'
-import { formatZAR } from '@/lib/formatCurrency'
 import { initPortfolioFromAlloc } from '@/lib/portfolio/initPortfolio'
 import ConvertCashSection from '@/components/ConvertCashSection'
 import BranchManagerFooter from '@/components/BranchManagerFooter'
@@ -502,8 +501,12 @@ export default function Home() {
   // Override title for home page
   const title = `Pay anyone anywhere`
   
-  // Subtitle text
-  const subtitleText = `Free, private and bankless.`
+  // Subtitle text - conditional based on auth status
+  const totalBalanceZAR = isAuthed ? (alloc.totalCents / 100) : 0
+  const formattedBalance = formatZAR(totalBalanceZAR || 0)
+  const subtitleText = isAuthed 
+    ? `${formattedBalance} available`
+    : `Free, private and bankless.`
 
 
   return (
