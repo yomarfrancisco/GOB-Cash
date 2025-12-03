@@ -7,7 +7,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
 import { ArrowUp } from 'lucide-react'
@@ -21,8 +21,32 @@ export default function PhoneSignupSheet() {
   const { pushNotification } = useNotificationStore()
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
 
-  const isDisabled = !password.trim() || isSubmitting
+  const canSubmit = password.trim().length > 0 && !isSubmitting
+  const isDisabled = !canSubmit
+
+  // Detect autofill - check periodically if input has value but state doesn't
+  useEffect(() => {
+    if (!phoneSignupOpen || !passwordInputRef.current) return
+
+    const checkAutofill = () => {
+      const input = passwordInputRef.current
+      if (input && input.value && !password) {
+        setPassword(input.value)
+      }
+    }
+
+    // Check immediately and after a short delay (autofill happens asynchronously)
+    checkAutofill()
+    const timeoutId = setTimeout(checkAutofill, 100)
+    const intervalId = setInterval(checkAutofill, 300)
+
+    return () => {
+      clearTimeout(timeoutId)
+      clearInterval(intervalId)
+    }
+  }, [phoneSignupOpen, password])
 
   const handleBackToSignupOptions = () => {
     closePhoneSignup()
@@ -105,32 +129,41 @@ export default function PhoneSignupSheet() {
             <label className={styles.field}>
               <div className={clsx(styles.inputShellPill, styles.passwordInputShellPill)}>
                 <input
+                  ref={passwordInputRef}
                   type="password"
                   className={styles.inputPill}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onInput={(e) => {
+                    // Handle autofill by checking input value
+                    const input = e.currentTarget
+                    if (input.value !== password) {
+                      setPassword(input.value)
+                    }
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !isDisabled) {
+                    if (e.key === 'Enter' && canSubmit) {
                       e.preventDefault()
                       handleSubmit(e)
                     }
                   }}
                   placeholder="Create a password"
                 />
-                {/* Submit button - appears when there's text */}
-                {password.trim().length > 0 && (
-                  <button
-                    type="button"
-                    className={styles.submitButton}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      handleSubmit(e)
-                    }}
-                    aria-label="Submit"
-                  >
-                    <ArrowUp className={styles.submitButtonIcon} />
-                  </button>
-                )}
+                {/* Submit button - always visible, disabled until password is entered */}
+                <button
+                  type="button"
+                  className={clsx(styles.submitButton, {
+                    [styles.submitButtonDisabled]: !canSubmit,
+                  })}
+                  onClick={canSubmit ? (e) => {
+                    e.preventDefault()
+                    handleSubmit(e)
+                  } : undefined}
+                  aria-label="Submit"
+                  aria-disabled={!canSubmit}
+                >
+                  <ArrowUp className={styles.submitButtonIcon} />
+                </button>
               </div>
             </label>
             <p className={styles.legal}>

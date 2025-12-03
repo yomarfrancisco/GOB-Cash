@@ -529,6 +529,24 @@
   transform: translateY(-50%) scale(0.98);
 }
 
+/* Disabled state for submit button - used on signup password sheet */
+.submitButtonDisabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+  /* Keep same size/position as active state */
+}
+
+.submitButtonDisabled:hover {
+  opacity: 0.4;
+  transform: translateY(-50%);
+}
+
+.submitButtonDisabled:active {
+  opacity: 0.4;
+  transform: translateY(-50%);
+}
+
 .submitButtonIcon {
   width: 20px;
   height: 20px;
