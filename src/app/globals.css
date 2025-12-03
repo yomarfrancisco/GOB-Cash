@@ -1312,7 +1312,7 @@ body {
   letter-spacing: -0.1px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .profile-verified-icon {
@@ -1320,7 +1320,6 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-left: 2px;
 }
 
 /* Adjust scrollable content position for third-party profiles */

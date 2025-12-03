@@ -155,8 +155,8 @@ export default function ProfileHandlePage() {
                       <Image
                         src="/assets/verified.svg"
                         alt="Verified"
-                        width={12}
-                        height={12}
+                        width={14}
+                        height={14}
                         unoptimized
                       />
                     </span>
