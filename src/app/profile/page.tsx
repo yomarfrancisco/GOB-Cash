@@ -223,31 +223,17 @@ export default function ProfilePage() {
           {/* Scrollable content */}
           <div className="scroll-content profile-scroll">
             <div className="content profile-content">
-              {/* Avatar + name + handle */}
+              {/* Avatar + handle (full-name and meta rows removed) */}
               <div className="profile-header">
                 <Avatar
                   name={profile.fullName}
                   email={profile.email}
                   avatarUrl={profile.avatarUrl}
-                  size={96}
+                  size={72}
                   rounded={24}
                   className="profile-avatar"
                 />
                 <h1 className="profile-name">{profile.userHandle}</h1>
-                <div className="profile-handle">{profile.fullName}</div>
-
-                {/* Meta row */}
-                <div className="profile-meta">
-                  <div className="meta-item">
-                    <Image src="/assets/profile/location-pin.svg" alt="" width={12} height={12} />
-                    <span>South Africa</span>
-                  </div>
-                  <div className="meta-dot" />
-                  <div className="meta-item">
-                    <Image src="/assets/profile/calendar_month.svg" alt="" width={12} height={12} />
-                    <span>Joined Feb 2024</span>
-                  </div>
-                </div>
               </div>
 
               {/* Stats + network pill */}
