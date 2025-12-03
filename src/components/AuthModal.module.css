@@ -433,7 +433,7 @@
 
 /* Password pill input - needs padding for submit button only (eye button removed) */
 .passwordInputShellPill .inputPill {
-  padding-left: 65px; /* Reduced from 80px to shift text left */
+  padding-left: 45px; /* Reduced by 20px from 65px */
   padding-right: 56px; /* Room for submit button on the right (same as username/phone pill) */
 }
 
