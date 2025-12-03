@@ -779,7 +779,7 @@ body {
 
 /* PROFILE */
 .profile-header {
-  margin-top: 64px; /* Increased from 24px to 64px (24px + 40px) to move everything below glass down */
+  margin-top: 84px; /* Increased from 64px to 84px (64px + 20px) to move everything below glass down further */
   display: flex;
   flex-direction: column;
   align-items: center;
