@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
-import { Bookmark } from 'lucide-react'
+import { Bookmark, Lock } from 'lucide-react'
 import { useUserProfileStore } from '@/store/userProfile'
 import TopGlassBar from '@/components/TopGlassBar'
 import Avatar from '@/components/Avatar'
@@ -344,6 +344,10 @@ export default function ProfileHandlePage() {
                           </span>
                         </div>
                       </button>
+                      {/* Lock superscript icon */}
+                      <div className="messageLockSuperscript">
+                        <Lock size={16} strokeWidth={2} />
+                      </div>
                     </div>
 
                     {/* Pay / Request pill */}
