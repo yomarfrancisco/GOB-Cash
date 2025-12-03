@@ -459,6 +459,39 @@
   transition: background-color 9999s ease-out 0s !important;
 }
 
+/* Phone signup input shell - white background to match the button */
+.phoneSignupInputShell {
+  background-color: #fff !important; /* Match primaryPhoneButton white background */
+}
+
+/* Phone signup form - remove default form styling */
+.phoneSignupForm {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove iOS yellow autofill background on phone signup input - preserve pill design */
+.phoneSignupInputShell input:-webkit-autofill,
+.phoneSignupInputShell input:-webkit-autofill:hover,
+.phoneSignupInputShell input:-webkit-autofill:focus,
+.phoneSignupInputShell input:-webkit-autofill:active {
+  /* Remove browser yellow/white autofill background */
+  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  box-shadow: 0 0 0 1000px #fff inset !important;
+  /* Ensure text color stays correct */
+  -webkit-text-fill-color: inherit !important;
+  caret-color: inherit !important;
+  /* Preserve pill look */
+  border-radius: inherit !important;
+  background: transparent !important;
+}
+
+/* Prevent Safari from re-introducing yellow during autofill animation */
+.phoneSignupInputShell input:-webkit-autofill {
+  transition: background-color 9999s ease-out 0s !important;
+}
+
 /* Submit button (circular with up arrow) - shown when has text */
 .submitButton {
   position: absolute;

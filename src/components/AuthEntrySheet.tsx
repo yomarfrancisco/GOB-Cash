@@ -7,7 +7,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
 import { ArrowUp } from 'lucide-react'
@@ -21,6 +21,9 @@ export default function AuthEntrySheet() {
   const { authEntryOpen, closeAuthEntry, openAuthPassword, openPhoneSignup, setAuthIdentifier } = useAuthStore()
   const [identifier, setIdentifier] = useState('')
   const [authMode, setAuthMode] = useState<AuthMode>('signup')
+  const [isPhoneSignupEditing, setIsPhoneSignupEditing] = useState(false)
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const phoneInputRef = useRef<HTMLInputElement>(null)
 
   // Reset mode when sheet opens - default to signup, unless explicitly set to login
   useEffect(() => {
@@ -29,6 +32,8 @@ export default function AuthEntrySheet() {
       // If authView is 'whatsapp-signin', start in login mode; otherwise default to signup
       setAuthMode(authView === 'whatsapp-signin' ? 'loginEntry' : 'signup')
       setIdentifier('')
+      setIsPhoneSignupEditing(false)
+      setPhoneNumber('')
     }
   }, [authEntryOpen])
 
@@ -52,6 +57,28 @@ export default function AuthEntrySheet() {
 
   const handlePhoneSignUpClick = () => {
     openPhoneSignup()
+  }
+
+  const handlePhoneButtonClick = () => {
+    setIsPhoneSignupEditing(true)
+    // Focus the input after a brief delay to ensure it's rendered
+    setTimeout(() => {
+      phoneInputRef.current?.focus()
+    }, 0)
+  }
+
+  const handlePhoneInputBlur = () => {
+    // Only revert to button if input is empty
+    if (phoneNumber.trim().length === 0) {
+      setIsPhoneSignupEditing(false)
+    }
+  }
+
+  const handlePhoneSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (phoneNumber.trim().length === 0) return
+    // Use the existing phone signup handler
+    handlePhoneSignUpClick()
   }
 
   if (!authEntryOpen) return null
@@ -178,22 +205,63 @@ export default function AuthEntrySheet() {
                 <span className={styles.authEntrySocialText}>Sign up with Google</span>
               </button>
 
-              {/* Sign up with phone number button */}
-              <button
-                type="button"
-                className={styles.primaryPhoneButton}
-                onClick={handlePhoneSignUpClick}
-              >
-                <Image
-                  src="/assets/Phone-icon.svg"
-                  alt="Phone"
-                  width={23}
-                  height={23}
-                  unoptimized
-                  className={styles.phoneIcon}
-                />
-                <span>Sign up with phone number</span>
-              </button>
+              {/* Sign up with phone number - transforms from button to pill input */}
+              {!isPhoneSignupEditing ? (
+                <button
+                  type="button"
+                  className={styles.primaryPhoneButton}
+                  onClick={handlePhoneButtonClick}
+                >
+                  <Image
+                    src="/assets/Phone-icon.svg"
+                    alt="Phone"
+                    width={23}
+                    height={23}
+                    unoptimized
+                    className={styles.phoneIcon}
+                  />
+                  <span>Sign up with phone number</span>
+                </button>
+              ) : (
+                <form onSubmit={handlePhoneSubmit} className={styles.phoneSignupForm}>
+                  <div className={clsx(styles.inputShellPill, styles.phoneSignupInputShell)}>
+                    <input
+                      ref={phoneInputRef}
+                      type="tel"
+                      className={clsx(styles.inputPill, styles.phoneSignupInputPill)}
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      onBlur={handlePhoneInputBlur}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && phoneNumber.trim().length > 0) {
+                          e.preventDefault()
+                          handlePhoneSubmit(e)
+                        }
+                        if (e.key === 'Escape') {
+                          setPhoneNumber('')
+                          setIsPhoneSignupEditing(false)
+                        }
+                      }}
+                      placeholder="WhatsApp phone number"
+                      autoFocus
+                    />
+                    {/* Submit button - appears when there's text */}
+                    {phoneNumber.trim().length > 0 && (
+                      <button
+                        type="button"
+                        className={styles.submitButton}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handlePhoneSubmit(e)
+                        }}
+                        aria-label="Submit"
+                      >
+                        <ArrowUp className={styles.submitButtonIcon} />
+                      </button>
+                    )}
+                  </div>
+                </form>
+              )}
 
               {/* Log in link */}
               <p className={styles.switchAuthText}>
