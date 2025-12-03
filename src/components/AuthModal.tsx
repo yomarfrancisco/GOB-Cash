@@ -10,6 +10,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
+import { ArrowUp } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
@@ -79,33 +80,30 @@ export default function AuthModal() {
             unoptimized
           />
         </button>
-        {/* Centered GoBankless logo at top */}
-        <div className={styles.passwordLogoWrapper}>
-          <Image
-            src="/assets/core/gobankless-logo.png"
-            alt="GoBankless"
-            width={152}
-            height={40}
-            unoptimized
-          />
-        </div>
         <div className={styles.content}>
-          <form className={styles.form} onSubmit={handleSubmit}>
+          <form className={clsx(styles.form, styles.passwordForm)} onSubmit={handleSubmit}>
             <label className={styles.field}>
-              <div className={clsx(styles.inputShell, styles.passwordInputShell)}>
+              <div className={clsx(styles.inputShellPill, styles.passwordInputShellPill)}>
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className={styles.input}
+                  className={styles.inputPill}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value)
                     setError(null) // Clear error when user types
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !isDisabled) {
+                      e.preventDefault()
+                      handleSubmit(e)
+                    }
+                  }}
                   placeholder="Password"
                 />
+                {/* Eye button for password visibility toggle */}
                 <button
                   type="button"
-                  className={styles.eyeButton}
+                  className={styles.passwordEyeButton}
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
@@ -117,6 +115,20 @@ export default function AuthModal() {
                     className={styles.eyeIcon}
                   />
                 </button>
+                {/* Submit button - appears when there's text */}
+                {password.trim().length > 0 && (
+                  <button
+                    type="button"
+                    className={styles.submitButton}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleSubmit(e)
+                    }}
+                    aria-label="Submit"
+                  >
+                    <ArrowUp className={styles.submitButtonIcon} />
+                  </button>
+                )}
               </div>
             </label>
             {error && (
@@ -124,15 +136,6 @@ export default function AuthModal() {
                 {error}
               </p>
             )}
-            <button
-              type="submit"
-              className={clsx(styles.primaryButton, {
-                [styles.primaryButtonDisabled]: isDisabled,
-              })}
-              disabled={isDisabled}
-            >
-              Log in
-            </button>
             <p className={styles.legal}>
               Gobankless is a service provider of the National Stokvel Association of
               South Africa, an authorised Financial Services Provider (FSP 52815) and

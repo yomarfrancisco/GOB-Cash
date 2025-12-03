@@ -305,6 +305,11 @@
   pointer-events: auto; /* enable interaction */
 }
 
+/* Password form - reduced gap to bring legal text closer after removing Log in button */
+.passwordForm {
+  gap: 16px !important; /* Reduced from 24px to bring legal text closer to input */
+}
+
 /* Phone signup content - moved up to compensate for explanatory text */
 .phoneSignupContent {
   top: calc(50% - 160px) !important; /* Moved up from calc(50% - 140px) by additional 20px */
@@ -378,27 +383,6 @@
   color: #000;
 }
 
-/* Remove iOS yellow autofill background on login password field - preserve rounded styling */
-.passwordInputShell input:-webkit-autofill,
-.passwordInputShell input:-webkit-autofill:hover,
-.passwordInputShell input:-webkit-autofill:focus,
-.passwordInputShell input:-webkit-autofill:active {
-  /* Remove browser yellow/white autofill background */
-  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
-  box-shadow: 0 0 0 1000px transparent inset !important;
-  /* Ensure text color stays correct */
-  -webkit-text-fill-color: inherit !important;
-  caret-color: inherit !important;
-  /* Preserve rounded look */
-  border-radius: inherit !important;
-  background: transparent !important;
-}
-
-/* Prevent Safari from re-introducing yellow during autofill animation */
-.passwordInputShell input:-webkit-autofill {
-  transition: background-color 9999s ease-out 0s !important;
-}
-
 /* Pill-shaped input shell for AuthEntrySheet login input */
 .inputShellPill {
   width: 100%;
@@ -430,6 +414,11 @@
   box-sizing: border-box;
   height: 100%;
   text-align: left;
+}
+
+/* Password pill input - needs extra padding for eye button + submit button */
+.passwordInputShellPill .inputPill {
+  padding-right: 104px; /* Room for eye button (40px) + gap (8px) + submit button (40px) + margin (16px) */
 }
 
 .inputPill::placeholder {
@@ -495,6 +484,34 @@
   width: 20px;
   height: 20px;
   color: #fff;
+}
+
+/* Password eye button - positioned absolutely within pill, left of submit button */
+.passwordEyeButton {
+  position: absolute;
+  top: 50%;
+  right: 56px; /* Positioned to the left of submit button (8px gap from submit at right: 48px) */
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  z-index: 2;
+}
+
+.passwordEyeButton:hover {
+  opacity: 0.7;
+}
+
+.passwordEyeButton:active {
+  opacity: 0.5;
 }
 
 .eyeButton {
