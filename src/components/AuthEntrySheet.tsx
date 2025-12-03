@@ -10,6 +10,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
+import { ArrowUp } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
@@ -108,15 +109,35 @@ export default function AuthEntrySheet() {
                 <div className={styles.authEntryDividerLine} />
               </div>
 
-              {/* Username or phone input - no label, submit on Enter/Done */}
-              <div className={styles.inputShell}>
+              {/* Username or phone input - pill shape with in-field submit button */}
+              <div className={styles.inputShellPill}>
                 <input
                   type="text"
-                  className={styles.input}
+                  className={styles.inputPill}
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !isDisabled) {
+                      e.preventDefault()
+                      handleSubmit(e)
+                    }
+                  }}
                   placeholder="Username or phone number"
                 />
+                {/* Submit button - appears when there's text */}
+                {identifier.trim().length > 0 && (
+                  <button
+                    type="button"
+                    className={styles.submitButton}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleSubmit(e)
+                    }}
+                    aria-label="Submit"
+                  >
+                    <ArrowUp className={styles.submitButtonIcon} />
+                  </button>
+                )}
               </div>
 
               {/* Sign up link */}
