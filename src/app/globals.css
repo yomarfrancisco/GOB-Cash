@@ -1320,6 +1320,7 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transform: translateY(2px);
 }
 
 /* Adjust scrollable content position for third-party profiles */
