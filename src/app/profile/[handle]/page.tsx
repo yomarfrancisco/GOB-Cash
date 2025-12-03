@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Bookmark, Lock } from 'lucide-react'
 import { useUserProfileStore } from '@/store/userProfile'
 import TopGlassBar from '@/components/TopGlassBar'
@@ -174,16 +175,18 @@ export default function ProfileHandlePage() {
 
           {/* GOB logo and icons positioned at original location with white color for third-party profiles */}
           <div className="profile-other-icons">
-            {/* GOB logo on the left */}
+            {/* GOB logo on the left - link to home page */}
             <div className="profile-other-logo">
-              <Image
-                src="/assets/GOBlogo-white.png"
-                alt="GoBankless"
-                width={51.3}
-                height={32}
-                priority
-                unoptimized
-              />
+              <Link href="https://gobankless.app" target="_blank" rel="noopener noreferrer">
+                <Image
+                  src="/assets/GOBlogo-white.png"
+                  alt="GoBankless"
+                  width={51.3}
+                  height={32}
+                  priority
+                  unoptimized
+                />
+              </Link>
             </div>
             {/* Icons on the right */}
             <div className="profile-other-icon-group">
