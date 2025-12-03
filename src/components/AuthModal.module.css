@@ -417,6 +417,27 @@
   letter-spacing: -0.32px;
 }
 
+/* Remove iOS yellow autofill background completely - preserve pill design */
+.inputShellPill input:-webkit-autofill,
+.inputShellPill input:-webkit-autofill:hover,
+.inputShellPill input:-webkit-autofill:focus,
+.inputShellPill input:-webkit-autofill:active {
+  /* Remove browser yellow/white autofill background */
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  box-shadow: 0 0 0 1000px transparent inset !important;
+  /* Ensure text color stays correct */
+  -webkit-text-fill-color: inherit !important;
+  caret-color: inherit !important;
+  /* Preserve pill look */
+  border-radius: inherit !important;
+  background: transparent !important;
+}
+
+/* Prevent Safari from re-introducing yellow during autofill animation */
+.inputShellPill input:-webkit-autofill {
+  transition: background-color 9999s ease-out 0s !important;
+}
+
 /* Submit button (circular with up arrow) - shown when has text */
 .submitButton {
   position: absolute;
