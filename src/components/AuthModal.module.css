@@ -287,6 +287,16 @@
   padding: 20px 0;
 }
 
+/* Password form - reduced gap to bring legal text closer after removing Log in button */
+.passwordForm {
+  gap: 16px !important; /* Reduced from 24px to bring legal text closer to input */
+}
+
+/* Password content - shifted down by 30px */
+.passwordContent {
+  top: calc(50% - 80px) !important; /* Shifted down by 30px from default (110px -> 80px) */
+}
+
 /* Entry sheet content - moved down by 55px total (232px + 40px + 15px = 287px) */
 .authEntryContent {
   top: 287px !important;
@@ -416,9 +426,9 @@
   text-align: left;
 }
 
-/* Password pill input - needs extra padding for eye button + submit button */
+/* Password pill input - needs padding for submit button only (eye button removed) */
 .passwordInputShellPill .inputPill {
-  padding-right: 104px; /* Room for eye button (40px) + gap (8px) + submit button (40px) + margin (16px) */
+  padding-right: 56px; /* Room for submit button on the right (same as username/phone pill) */
 }
 
 .inputPill::placeholder {

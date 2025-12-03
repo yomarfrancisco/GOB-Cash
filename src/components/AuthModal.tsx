@@ -20,7 +20,6 @@ const MEMBER_PASSWORD = 'brics2025'
 export default function AuthModal() {
   const { authPasswordOpen, closeAuthPassword, closeAllAuth, completeAuth } = useAuthStore()
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -80,12 +79,12 @@ export default function AuthModal() {
             unoptimized
           />
         </button>
-        <div className={styles.content}>
+        <div className={clsx(styles.content, styles.passwordContent)}>
           <form className={clsx(styles.form, styles.passwordForm)} onSubmit={handleSubmit}>
             <label className={styles.field}>
               <div className={clsx(styles.inputShellPill, styles.passwordInputShellPill)}>
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type="password"
                   className={styles.inputPill}
                   value={password}
                   onChange={(e) => {
@@ -100,21 +99,6 @@ export default function AuthModal() {
                   }}
                   placeholder="Password"
                 />
-                {/* Eye button for password visibility toggle */}
-                <button
-                  type="button"
-                  className={styles.passwordEyeButton}
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  <Image
-                    src="/assets/hidden_outlined.svg"
-                    alt=""
-                    width={24}
-                    height={24}
-                    className={styles.eyeIcon}
-                  />
-                </button>
                 {/* Submit button - appears when there's text */}
                 {password.trim().length > 0 && (
                   <button
