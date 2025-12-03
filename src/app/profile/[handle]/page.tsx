@@ -13,7 +13,7 @@ import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import PaymentDetailsSheet from '@/components/PaymentDetailsSheet'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import AmountSheet from '@/components/AmountSheet'
-import { openAmaChatWithPaymentScenario } from '@/lib/cashDeposit/chatOrchestration'
+import { openAmaChatWithPaymentScenario, openAmaChatWithSponsorshipScenario } from '@/lib/cashDeposit/chatOrchestration'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 
 // Stub data for demo profiles
@@ -74,6 +74,7 @@ export default function ProfileHandlePage() {
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('convert')
+  const [openSponsorAmount, setOpenSponsorAmount] = useState(false)
 
   // Extract handle from params (remove @ if present, handle both /profile/ama and /profile/@ama)
   const handleParam = params?.handle as string | undefined
@@ -327,8 +328,10 @@ export default function ProfileHandlePage() {
                     <button
                       className="lButton"
                       onClick={() => {
-                        // TODO: Implement sponsor functionality
-                        console.log('Sponsor:', profile.userHandle)
+                        // Profile-specific sponsor flow: open AmountSheet with sponsorship entry point
+                        // Guest-friendly: no auth gate - allows unauthenticated users to use this flow
+                        setAmountMode('convert')
+                        setOpenSponsorAmount(true)
                       }}
                       type="button"
                     >
@@ -454,6 +457,35 @@ export default function ProfileHandlePage() {
           setOpenAmount(false)
           setTimeout(() => {
             openAmaChatWithPaymentScenario('pay', amountZAR, normalizedHandle)
+          }, 220)
+        }}
+      />
+      {/* AmountSheet for profile Sponsor flow - same keypad but with Weekly/Monthly buttons */}
+      <AmountSheet
+        open={openSponsorAmount}
+        onClose={() => {
+          setOpenSponsorAmount(false)
+        }}
+        mode={amountMode}
+        flowType="payment"
+        balanceZAR={200}
+        fxRateZARperUSDT={18.1}
+        entryPoint="sponsorButton"
+        sponsorHandle={normalizedHandle || undefined}
+        onWeeklySubmit={({ amountZAR }) => {
+          // Profile sponsor flow: go straight to Ama chat with weekly sponsorship
+          if (!normalizedHandle) return
+          setOpenSponsorAmount(false)
+          setTimeout(() => {
+            openAmaChatWithSponsorshipScenario('weekly', amountZAR, normalizedHandle)
+          }, 220)
+        }}
+        onMonthlySubmit={({ amountZAR }) => {
+          // Profile sponsor flow: go straight to Ama chat with monthly sponsorship
+          if (!normalizedHandle) return
+          setOpenSponsorAmount(false)
+          setTimeout(() => {
+            openAmaChatWithSponsorshipScenario('monthly', amountZAR, normalizedHandle)
           }, 220)
         }}
       />

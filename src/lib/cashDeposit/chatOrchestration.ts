@@ -117,3 +117,40 @@ export function openAmaChatWithCardDepositScenario(
   // Switch to chat view and set active thread to Ama
   store.openChatSheet(PORTFOLIO_MANAGER_THREAD_ID)
 }
+
+/**
+ * Opens Ama's chat thread for sponsorship scenarios
+ * This is called after user submits sponsorship amount and frequency from profile Sponsor button
+ */
+export function openAmaChatWithSponsorshipScenario(
+  frequency: 'weekly' | 'monthly',
+  amountZAR: number,
+  handle: string
+): void {
+  const store = useFinancialInboxStore.getState()
+  
+  // Ensure the portfolio manager thread exists
+  store.ensurePortfolioManagerThread()
+  
+  // Format amount for display
+  const amountLabel = formatZAR(amountZAR)
+  
+  // Seed initial confirmation messages based on frequency
+  // Send first message immediately
+  store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `Sponsorship created`)
+  
+  // Send remaining messages with delays to simulate typing
+  setTimeout(() => {
+    store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `You've set up a ${frequency} sponsorship of ${amountLabel} for ${handle}.`)
+  }, 800)
+  
+  setTimeout(() => {
+    store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', `I'll send you a proof of payment for your first sponsorship transaction now and keep you updated each time a payment runs.`)
+  }, 1600)
+  
+  // Open the inbox sheet
+  store.openInbox()
+  
+  // Switch to chat view and set active thread to Ama
+  store.openChatSheet(PORTFOLIO_MANAGER_THREAD_ID)
+}

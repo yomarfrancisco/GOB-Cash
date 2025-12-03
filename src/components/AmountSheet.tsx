@@ -27,7 +27,10 @@ type AmountSheetProps = {
   showDualButtons?: boolean // if true, show "Cash" and "Card" buttons instead of single CTA
   onCashSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Cash button
   onCardSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Card button
-  entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' // distinguishes entry point for conditional button rendering
+  entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' | 'sponsorButton' // distinguishes entry point for conditional button rendering
+  sponsorHandle?: string // profile handle for sponsor flow (e.g. '@ama')
+  onWeeklySubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Weekly button (sponsor flow)
+  onMonthlySubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Monthly button (sponsor flow)
   onScanClick?: () => void // callback for scan icon (only shown for cashButton entryPoint)
   initialAmount?: number // optional initial amount to pre-fill (for back navigation)
   withdrawOnly?: boolean // if true, force single CTA button and skip dual-button logic
@@ -52,6 +55,9 @@ export default function AmountSheet({
   initialAmount,
   withdrawOnly = false,
   onHelicopterWithdraw,
+  sponsorHandle,
+  onWeeklySubmit,
+  onMonthlySubmit,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
   const { isAuthed } = useAuthStore()
@@ -196,7 +202,7 @@ export default function AmountSheet({
     : mode === 'withdraw' 
     ? 'Withdraw' 
     : mode === 'convert'
-    ? (isHelicopterConvert ? 'Cash Transactions' : entryPoint === 'cashButton' ? 'Pay or request' : 'Convert to crypto')
+    ? (isHelicopterConvert ? 'Cash Transactions' : entryPoint === 'cashButton' ? 'Pay or request' : entryPoint === 'sponsorButton' ? (sponsorHandle ? `Sponsor ${sponsorHandle}` : 'Sponsor') : 'Convert to crypto')
     : 'Send'
   const defaultCtaLabel = mode === 'depositCard' 
     ? 'Deposit' 
@@ -214,8 +220,9 @@ export default function AmountSheet({
   // Show scan icon only for cashButton entryPoint
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
 
-  // Determine if keypad should use lime green background (both helicopter and $-button flows)
-  const useLimeGreenBackground = isHelicopterConvert || isCashButtonConvert
+  // Determine if keypad should use lime green background (helicopter, $-button, and sponsor flows)
+  const isSponsorButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'sponsorButton'
+  const useLimeGreenBackground = isHelicopterConvert || isCashButtonConvert || isSponsorButtonConvert
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" className={`amount ${useLimeGreenBackground ? 'cash-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`} size="tall">
@@ -262,7 +269,7 @@ export default function AmountSheet({
             amountZAR={amountZAR}
           />
         </div>
-        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {withdrawOnly ? (
             // Force single button for withdrawal flow
             <button 
@@ -299,6 +306,40 @@ export default function AmountSheet({
                 disabled={!meetsMinCash}
               >
                 Withdraw Cash
+              </button>
+            </>
+          ) : entryPoint === 'sponsorButton' ? (
+            // Dual buttons for sponsor entry point: "Weekly" and "Monthly"
+            <>
+              <button 
+                className="amount-keypad__cta amount-keypad__cta--cash" 
+                onClick={() => {
+                  if (!amountZAR || !onWeeklySubmit) return
+                  onWeeklySubmit({
+                    amountZAR: amountZAR,
+                    amountUSDT: amountUSDT,
+                    mode: 'convert',
+                  })
+                }} 
+                type="button"
+                disabled={!isPositive}
+              >
+                Weekly
+              </button>
+              <button 
+                className="amount-keypad__cta amount-keypad__cta--card" 
+                onClick={() => {
+                  if (!amountZAR || !onMonthlySubmit) return
+                  onMonthlySubmit({
+                    amountZAR: amountZAR,
+                    amountUSDT: amountUSDT,
+                    mode: 'convert',
+                  })
+                }} 
+                type="button"
+                disabled={!isPositive}
+              >
+                Monthly
               </button>
             </>
           ) : entryPoint === 'cashButton' ? (
