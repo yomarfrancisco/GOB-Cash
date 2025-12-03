@@ -266,9 +266,9 @@ body {
   background: linear-gradient(
     to bottom,
     rgba(255, 255, 255, 0)   0%,   /* fully transparent at the top - image visible behind logo/avatar */
-    rgba(255, 255, 255, 0)   30%,  /* still transparent through name/handle area (moved up from 40%) */
-    rgba(255, 255, 255, 0.4) 50%,  /* start soft fade around stats area (moved up from 60%) */
-    rgba(255, 255, 255, 0.85) 75%, /* nearly white near bottom of stats card (moved up from 85%) */
+    rgba(255, 255, 255, 0)   20%,  /* still transparent through name/handle area (moved up from 30%) */
+    rgba(255, 255, 255, 0.4) 40%,  /* start soft fade around stats area (moved up from 50%) */
+    rgba(255, 255, 255, 0.85) 65%, /* nearly white near bottom of stats card (moved up from 75%) */
     rgba(255, 255, 255, 1)   100%  /* fully white by end of stats + settings section */
   );
 }
