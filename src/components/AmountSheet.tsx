@@ -6,6 +6,8 @@ import ActionSheet from './ActionSheet'
 import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
 import { formatZAR, formatZARWithDot, formatUSDT } from '@/lib/money'
+import { useAuthStore } from '@/store/auth'
+import { useWalletAlloc } from '@/state/walletAlloc'
 import '@/styles/amount-sheet.css'
 
 type AmountSheetProps = {
@@ -52,6 +54,11 @@ export default function AmountSheet({
   onHelicopterWithdraw,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
+  const { isAuthed } = useAuthStore()
+  const { alloc } = useWalletAlloc()
+  
+  // Calculate balance: show 0 for unauthenticated users, real balance for authenticated
+  const displayBalanceZAR = isAuthed ? alloc.totalCents / 100 : 0
 
   // Reset amount when sheet opens, or use initialAmount if provided
   useEffect(() => {
@@ -156,7 +163,7 @@ export default function AmountSheet({
   }
 
   const handleCardSubmit = () => {
-    // Handler for card payment flow ("Pay someone")
+    // Handler for card payment flow ("Pay")
     if (onCardSubmit) {
       onCardSubmit({
         amountZAR: amountZAR,
@@ -175,7 +182,7 @@ export default function AmountSheet({
   // Detect helicopter convert flow for dual buttons (only if not withdraw-only)
   const isHelicopterConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'helicopter'
   
-  // Detect $-button convert flow (Request/Pay someone) (only if not withdraw-only)
+  // Detect $-button convert flow (Request/Pay) (only if not withdraw-only)
   const isCashButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'cashButton'
   
   // Minimum amount for cash transactions (helicopter flow only)
@@ -226,7 +233,7 @@ export default function AmountSheet({
           )}
           <div className="amount-sheet__header-content">
             <div className="amount-sheet__balance">
-              {formatZAR(balanceZAR)} <span className="amount-sheet__balance-label">balance</span>
+              {formatZAR(displayBalanceZAR)} <span className="amount-sheet__balance-label">balance</span>
             </div>
             <div className="amount-sheet__title">{modeLabel}</div>
           </div>
@@ -295,7 +302,7 @@ export default function AmountSheet({
               </button>
             </>
           ) : entryPoint === 'cashButton' ? (
-            // Dual buttons for $ button entry point: "Request" and "Pay someone"
+            // Dual buttons for $ button entry point: "Request" and "Pay"
             <>
               <button 
                 className="amount-keypad__cta amount-keypad__cta--cash" 
@@ -311,7 +318,7 @@ export default function AmountSheet({
                 type="button"
                 disabled={!isPositive}
               >
-                Pay someone
+                Pay
               </button>
             </>
           ) : showDualButtons ? (
