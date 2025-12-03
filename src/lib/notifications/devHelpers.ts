@@ -34,7 +34,7 @@ export function setupDevNotificationHelpers() {
       // 1. Me / user
       push({
         kind: 'payment_sent',
-        title: 'You sent R120 to Nomsa',
+        title: 'You paid R120 to @member1',
         body: 'Payment complete.',
         actor: { type: 'user' },
       })
@@ -42,29 +42,30 @@ export function setupDevNotificationHelpers() {
       // 2. AI manager
       push({
         kind: 'ai_trade',
-        title: 'AI manager rebalanced your portfolio',
-        body: 'Shifted R250 from PEPE to USDT.',
+        title: 'AI reduced market risk',
+        action: 'Shifted R250 to stable assets.',
+        reason: 'Fragility increased in crypto markets; preserving purchasing power.',
         actor: { type: 'ai_manager' },
       })
 
-      // 3. Co-op
+      // 3. Cross-border payment
       push({
         kind: 'payment_received',
-        title: 'Co-op reached R10,000',
-        body: 'New contribution added to the shared pool.',
-        actor: { type: 'co_op', name: 'GoBankless Co-op' },
+        title: 'Cross-border transfer received',
+        body: 'You received R450 from Mozambique.',
+        actor: { type: 'system', name: 'GoBankless' },
       })
 
       // 4. Member
       push({
         kind: 'payment_received',
-        title: 'Amanda topped up R50',
-        body: 'Member nearby just contributed.',
+        title: 'You received R320',
+        body: 'Payment from @member2 received.',
         actor: {
           type: 'member',
-          id: 'demo-amanda',
-          name: 'Amanda',
-          handle: '@amanda',
+          id: 'demo-member',
+          name: 'Member',
+          handle: '@member2',
           avatar: '/assets/avatar_agent2.png',
         },
       })
@@ -134,9 +135,9 @@ export function setupDevNotificationHelpers() {
       ai_trade: {
         ...baseNotification,
         kind: 'ai_trade',
-        title: 'AI trade executed',
-        action: 'Rebalanced: bought 12 PEPE (R120).',
-        reason: 'Reason: portfolio rebalancing to maintain target allocation.',
+        title: 'AI reduced market risk',
+        action: 'Shifted R120 to stable assets.',
+        reason: 'Fragility increased in crypto markets; preserving purchasing power.',
         amount: { currency: 'ZAR', value: -120 },
         direction: 'down',
         actor: {
@@ -155,26 +156,26 @@ export function setupDevNotificationHelpers() {
 
     pushNotification({
       kind: 'ai_trade',
-      title: 'AI trade executed',
-      action: 'Rebalanced: sold 1.86 PEPE, bought 0.04 ETH.',
-      reason: "Reason: short-term volatility spike in PEPE; shifting risk to ETH's steadier trend.",
+      title: 'AI reduced market risk',
+      action: 'Shifted R250 to stable assets.',
+      reason: 'Fragility increased in crypto markets; preserving purchasing power.',
       actor: { type: 'ai' },
       routeOnTap: '/transactions',
     })
 
     pushNotification({
       kind: 'ai_trade',
-      title: 'AI trade executed',
-      action: 'Reduced ETH exposure by 0.5%.',
-      reason: 'Reason: CPI print hotter than forecast; raising cash buffer.',
+      title: 'AI increased defensive position',
+      action: 'Moved R180 to cash buffer.',
+      reason: 'Short-term volatility detected in ZAR/MZN corridor.',
       actor: { type: 'ai' },
     })
 
     pushNotification({
       kind: 'ai_trade',
-      title: 'AI trade executed',
-      action: 'Added 2.4 PEPE after retracement.',
-      reason: 'Reason: sentiment reversed from RSI 28 to neutral; capturing rebound zone.',
+      title: 'AI restored growth exposure',
+      action: 'Redeployed R150 from cash buffer.',
+      reason: 'Market stabilized; restoring balanced allocation.',
       actor: { type: 'ai' },
     })
   }
@@ -198,11 +199,12 @@ export function setupDevNotificationHelpers() {
       const agent = agents[index]
       
       // Push notification
+      const amount = 150 + Math.floor(Math.random() * 100)
       push({
         kind: 'payment_received',
-        title: `${agent.name} added R${150 + Math.floor(Math.random() * 100)}`,
-        body: `${agent.name} just contributed from their location.`,
-        amount: { currency: 'ZAR', value: 150 + Math.floor(Math.random() * 100) },
+        title: `You received R${amount}`,
+        body: `Payment from @${agent.name.toLowerCase()} received.`,
+        amount: { currency: 'ZAR', value: amount },
         direction: 'up',
         actor: {
           type: 'member',
@@ -247,8 +249,8 @@ export function setupDevNotificationHelpers() {
       {
         id: crypto.randomUUID(),
         actor: { type: 'ai' },
-        title: 'AI trade executed',
-        body: "Rebalanced: sold 1.86 PEPE, bought 0.04 ETH. — Reason: short-term volatility spike in PEPE; shifting risk to ETH's steadier trend.",
+        title: 'AI reduced market risk',
+        body: 'Shifted R120.50 to stable assets. — Fragility increased in crypto markets; preserving purchasing power.',
         amount: { currency: 'ZAR', value: 120.50, sign: 'debit' },
         createdAt: now - oneHour,
         routeOnTap: '/activity',
@@ -256,8 +258,8 @@ export function setupDevNotificationHelpers() {
       {
         id: crypto.randomUUID(),
         actor: { type: 'user' },
-        title: 'Payment sent',
-        body: 'You sent R100 to recipient@email.com for "Deposit for the next batch. Thanx."',
+        title: 'You paid R100 to @member1',
+        body: 'Payment complete.',
         amount: { currency: 'ZAR', value: 100, sign: 'debit' },
         createdAt: now - 2 * oneHour,
         routeOnTap: '/activity',
@@ -265,8 +267,8 @@ export function setupDevNotificationHelpers() {
       {
         id: crypto.randomUUID(),
         actor: { type: 'user' },
-        title: 'Payment received',
-        body: 'sender@email.com sent you R250 for "[reference]"',
+        title: 'You received R250',
+        body: 'Payment from @member2 received.',
         amount: { currency: 'ZAR', value: 250, sign: 'credit' },
         createdAt: now - oneDay,
         routeOnTap: '/activity',
@@ -274,8 +276,8 @@ export function setupDevNotificationHelpers() {
       {
         id: crypto.randomUUID(),
         actor: { type: 'ai' },
-        title: 'AI trade executed',
-        body: 'Reduced ETH exposure by 0.5%. — Reason: CPI print hotter than forecast; raising cash buffer.',
+        title: 'AI increased defensive position',
+        body: 'Moved R85.30 to cash buffer. — Short-term volatility detected in ZAR/MZN corridor.',
         amount: { currency: 'ZAR', value: 85.30, sign: 'debit' },
         createdAt: now - threeDays,
         routeOnTap: '/activity',
@@ -299,7 +301,7 @@ export function setupDevNotificationHelpers() {
     // 1. Me / user
     push({
       kind: 'payment_sent',
-      title: 'You sent R120 to Nomsa',
+      title: 'You paid R120 to @member1',
       body: 'Payment complete.',
       actor: { type: 'user' },
     })
@@ -307,29 +309,30 @@ export function setupDevNotificationHelpers() {
     // 2. AI manager
     push({
       kind: 'ai_trade',
-      title: 'AI manager rebalanced your portfolio',
-      body: 'Shifted R250 from PEPE to USDT.',
+      title: 'AI reduced market risk',
+      action: 'Shifted R250 to stable assets.',
+      reason: 'Fragility increased in crypto markets; preserving purchasing power.',
       actor: { type: 'ai_manager' },
     })
 
-    // 3. Co-op
+    // 3. Cross-border payment
     push({
       kind: 'payment_received',
-      title: 'Co-op reached R10,000',
-      body: 'New contribution added to the shared pool.',
-      actor: { type: 'co_op', name: 'GoBankless Co-op' },
+      title: 'Cross-border transfer received',
+      body: 'You received R450 from Mozambique.',
+      actor: { type: 'system', name: 'GoBankless' },
     })
 
     // 4. Member
     push({
       kind: 'payment_received',
-      title: 'Amanda topped up R50',
-      body: 'Member nearby just contributed.',
+      title: 'You received R320',
+      body: 'Payment from @member2 received.',
       actor: {
         type: 'member',
-        id: 'demo-amanda',
-        name: 'Amanda',
-        handle: '@amanda',
+        id: 'demo-member',
+        name: 'Member',
+        handle: '@member2',
         avatar: '/assets/avatar_agent2.png',
       },
     })

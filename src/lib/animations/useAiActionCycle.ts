@@ -247,20 +247,38 @@ export function useAiActionCycle(
         const zarAmount = Math.abs(deltaZAR)
         const actionVerb = delta > 0 ? 'bought' : 'sold'
         
-        // Generate a simple reason based on the trade
-        const reasons = [
-          `Short-term volatility in ${assetName}; shifting risk to ${delta > 0 ? assetName : 'cash'}.`,
-          `Rebalancing to maintain target allocation.`,
-          `Market conditions favor this adjustment.`,
-          `Portfolio optimization based on current trends.`,
-        ]
+        // Generate fragility-focused reasons based on the adjustment
+        const isDefensive = delta < 0 // Moving to cash/stable assets
+        const reasons = isDefensive
+          ? [
+              `Fragility increased in ${assetName} markets; preserving purchasing power.`,
+              `Short-term volatility detected in ZAR/MZN corridor; raising cash buffer.`,
+              `ACD engine detected risk spike; shifting to defensive position.`,
+              `Market instability detected; protecting your purchasing power.`,
+            ]
+          : [
+              `Market stabilized; restoring balanced allocation.`,
+              `Fragility reduced; redeploying part of cash buffer.`,
+              `Risk levels normalized; increasing growth exposure.`,
+              `Market conditions improved; rebalancing to target allocation.`,
+            ]
         const shortWhyString = reasons[Math.floor(Math.random() * reasons.length)]
+        
+        // Determine title based on direction
+        const title = isDefensive
+          ? 'AI reduced market risk'
+          : 'AI restored growth exposure'
+        
+        // Action description focused on protection/restoration
+        const actionDescription = isDefensive
+          ? `Shifted R${zarAmount.toFixed(2)} to stable assets.`
+          : `Redeployed R${zarAmount.toFixed(2)} from cash buffer.`
         
         pushNotification({
           kind: 'ai_trade',
-          title: 'AI trade executed',
-          action: `Rebalanced: ${actionVerb} ${Math.abs(delta)} ${assetName} (R${zarAmount.toFixed(2)}).`,
-          reason: 'Market shift detected; protecting group savings.',
+          title: title,
+          action: actionDescription,
+          reason: shortWhyString,
           amount: {
             currency: 'ZAR',
             value: delta > 0 ? -zarAmount : zarAmount,

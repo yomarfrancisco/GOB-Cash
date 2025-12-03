@@ -1,6 +1,6 @@
 /**
  * Demo Notification Engine
- * Simulates a "crowded house" co-op with multiple identities generating notifications
+ * Simulates a smart, social, cross-border bank with AI protection and community activity
  * Only runs when NEXT_PUBLIC_DEMO_MODE === 'true'
  */
 
@@ -23,164 +23,140 @@ let windowStartTime = Date.now()
 let engineStartTime = Date.now()
 let currentIsAuthed = false // Track auth state for config
 
-// Demo event templates - refined for "catching up with the world" narrative
+// Demo event templates - aligned with smart, social, cross-border bank identity
 const demoEvents: NotificationInput[] = [
-  // AI Manager events - appear early to show AI is already working
+  // AI Manager events - Smart: AI defending purchasing power
   {
     kind: 'ai_trade',
-    title: 'AI trade executed',
-    action: 'Rebalanced 10.11 PEPE → ETH (R183.09).',
-    reason: 'Keeping your co-op portfolio aligned with current trends.',
-    amount: { currency: 'ZAR', value: -183.09 },
+    title: 'AI reduced market risk',
+    action: 'Shifted R250 to stable assets.',
+    reason: 'Fragility increased in crypto markets; preserving purchasing power.',
+    amount: { currency: 'ZAR', value: -250 },
     direction: 'down',
     actor: { type: 'ai_manager' },
     routeOnTap: '/transactions',
   },
   {
     kind: 'ai_trade',
-    title: 'AI manager reduced risk',
-    action: 'Shifted R250 from PEPE to cash.',
-    reason: 'Short-term volatility detected; raising cash buffer.',
-    amount: { currency: 'ZAR', value: -250 },
+    title: 'AI increased defensive position',
+    action: 'Moved R180 to cash buffer.',
+    reason: 'Short-term volatility detected in ZAR/MZN corridor.',
+    amount: { currency: 'ZAR', value: -180 },
     direction: 'down',
     actor: { type: 'ai_manager' },
   },
   {
     kind: 'ai_trade',
-    title: 'AI trade executed',
-    action: 'Bought 5.2 PEPE (R94.20).',
-    reason: 'Market conditions favor this adjustment.',
-    amount: { currency: 'ZAR', value: -94.2 },
-    direction: 'down',
-    actor: { type: 'ai_manager' },
-  },
-  {
-    kind: 'ai_trade',
-    title: 'AI manager preparing',
-    body: 'Setting up your community wallet...',
-    actor: { type: 'ai_manager' },
-  },
-
-  // Co-op events - show the co-op is active
-  {
-    kind: 'payment_received',
-    title: 'Co-op contribution',
-    body: '3 members added R270 to the shared wallet.',
-    amount: { currency: 'ZAR', value: 270 },
-    direction: 'up',
-    actor: { type: 'co_op', name: 'GoBankless Co-op' },
-    map: { lat: -26.1069, lng: 28.0567, markerId: 'co-op-sandton' }, // Sandton-ish
-  },
-  {
-    kind: 'payment_received',
-    title: 'Co-op crossed R12,500',
-    body: 'Your community reached R12,500 toward its goal.',
-    amount: { currency: 'ZAR', value: 500 },
-    direction: 'up',
-    actor: { type: 'co_op', name: 'GoBankless Co-op' },
-  },
-  {
-    kind: 'payment_received',
-    title: 'Co-op opened new cell',
-    body: 'Co-op opened a new cell in Maputo CBD.',
-    actor: { type: 'co_op', name: 'GoBankless Co-op' },
-    map: { lat: -25.9692, lng: 32.5732, markerId: 'co-op-maputo' }, // Maputo
-  },
-
-  // Member events - with map coordinates for panning (using new high-quality avatars)
-  {
-    kind: 'payment_received',
-    title: 'Naledi added R200',
-    body: 'Naledi added R200 from Johannesburg.',
-    amount: { currency: 'ZAR', value: 200 },
-    direction: 'up',
-    actor: {
-      type: 'member',
-      id: 'demo-naledi',
-      name: 'Naledi',
-      handle: '@naledi',
-      avatar: '/assets/avatar_agent5.png',
-    },
-    map: { lat: -26.2041, lng: 28.0473, markerId: 'member-naledi-jhb' }, // Johannesburg
-  },
-  {
-    kind: 'payment_sent',
-    title: 'João cashed out R350',
-    body: 'João cashed out R350 in Maputo.',
-    amount: { currency: 'ZAR', value: -350 },
-    direction: 'down',
-    actor: {
-      type: 'member',
-      id: 'demo-joao',
-      name: 'João',
-      handle: '@joao',
-      avatar: '/assets/avatar_agent6.png',
-    },
-    map: { lat: -25.9692, lng: 32.5732, markerId: 'member-joao-maputo' }, // Maputo
-  },
-  {
-    kind: 'payment_received',
-    title: 'Thabo added R150',
-    body: 'Thabo added R150 to the co-op from Cape Town.',
+    title: 'AI restored growth exposure',
+    action: 'Redeployed R150 from cash buffer.',
+    reason: 'Market stabilized; restoring balanced allocation.',
     amount: { currency: 'ZAR', value: 150 },
     direction: 'up',
-    actor: {
-      type: 'member',
-      id: 'demo-thabo',
-      name: 'Thabo',
-      handle: '@thabo',
-      avatar: '/assets/avatar_agent7.png',
-    },
-    map: { lat: -33.9249, lng: 18.4241, markerId: 'member-thabo-cpt' }, // Cape Town
+    actor: { type: 'ai_manager' },
   },
   {
+    kind: 'ai_trade',
+    title: 'ACD engine alert',
+    action: 'Protected R320 of purchasing power.',
+    reason: 'Fragility spike detected; shifted to defensive assets.',
+    amount: { currency: 'ZAR', value: -320 },
+    direction: 'down',
+    actor: { type: 'ai_manager' },
+  },
+
+  // Social: Cross-border payments and remittances
+  {
     kind: 'payment_received',
-    title: 'Sarah added R180',
-    body: 'Sarah added R180 from Durban.',
-    amount: { currency: 'ZAR', value: 180 },
+    title: 'Cross-border transfer received',
+    body: 'You received R450 from Mozambique.',
+    amount: { currency: 'ZAR', value: 450 },
     direction: 'up',
     actor: {
       type: 'member',
-      id: 'demo-sarah',
-      name: 'Sarah',
-      handle: '@sarah',
-      avatar: '/assets/avatar_agent8.png',
+      id: 'demo-member-1',
+      name: 'Member',
+      handle: '@member1',
+      avatar: '/assets/avatar_agent5.png',
     },
-    map: { lat: -29.8587, lng: 31.0218, markerId: 'member-sarah-dbn' }, // Durban
+    map: { lat: -25.9692, lng: 32.5732, markerId: 'member-moz' }, // Maputo
   },
-
-  // User events (only show if user has done something)
   {
     kind: 'payment_sent',
-    title: 'You paid R120 to @thando',
-    body: 'You paid R120 to @thando for materials.',
-    amount: { currency: 'ZAR', value: -120 },
+    title: 'Payment sent across border',
+    body: 'You sent R280 to Zimbabwe. Payment complete.',
+    amount: { currency: 'ZAR', value: -280 },
     direction: 'down',
     actor: { type: 'user' },
   },
   {
-    kind: 'transfer',
-    title: 'You topped up R300',
-    body: 'You topped up R300 into your MZN card.',
-    amount: { currency: 'ZAR', value: -300 },
-    direction: 'down',
-    actor: { type: 'user' },
+    kind: 'payment_received',
+    title: 'You received R320',
+    body: 'Payment from @member2 received.',
+    amount: { currency: 'ZAR', value: 320 },
+    direction: 'up',
+    actor: {
+      type: 'member',
+      id: 'demo-member-2',
+      name: 'Member',
+      handle: '@member2',
+      avatar: '/assets/avatar_agent6.png',
+    },
   },
   {
-    kind: 'payment_sent',
-    title: 'You supported the co-op',
-    body: 'You sent R150 to the co-op wallet.',
+    kind: 'sponsorship',
+    title: 'Sponsorship activated',
+    body: 'You\'ll send R150 weekly to @member3. First payment processed.',
     amount: { currency: 'ZAR', value: -150 },
     direction: 'down',
     actor: { type: 'user' },
   },
 
-  // System events
+  // Bank: Deposits, withdrawals, transfers
   {
-    kind: 'payment_failed',
-    title: 'Temporary network issue',
-    body: 'We retried a trade due to a network hiccup.',
-    actor: { type: 'system', name: 'System' },
+    kind: 'payment_received',
+    title: 'Cash deposit secured',
+    body: 'Your cash deposit of R500 has been received at GoBankless HQ.',
+    amount: { currency: 'ZAR', value: 500 },
+    direction: 'up',
+    actor: { type: 'system', name: 'GoBankless' },
+  },
+  {
+    kind: 'transfer',
+    title: 'Card top-up completed',
+    body: 'You moved R300 into your MZN card.',
+    amount: { currency: 'ZAR', value: -300 },
+    direction: 'down',
+    actor: { type: 'user' },
+  },
+  {
+    kind: 'transfer',
+    title: 'Transfer completed',
+    body: 'You topped up your ZAR card with R200.',
+    amount: { currency: 'ZAR', value: -200 },
+    direction: 'down',
+    actor: { type: 'user' },
+  },
+  {
+    kind: 'transfer',
+    title: 'Transfer completed',
+    body: 'You moved R180 into your Crypto Card.',
+    amount: { currency: 'ZAR', value: -180 },
+    direction: 'down',
+    actor: { type: 'user' },
+  },
+
+  // Social proximity (anonymous, privacy-respecting)
+  {
+    kind: 'payment_received',
+    title: 'Community activity',
+    body: 'Someone nearby just made a cross-border transfer.',
+    actor: { type: 'system', name: 'GoBankless' },
+  },
+  {
+    kind: 'payment_received',
+    title: 'Local activity',
+    body: 'Users around you have sent R1,200 today.',
+    actor: { type: 'system', name: 'GoBankless' },
   },
 ]
 
@@ -267,7 +243,7 @@ export function startDemoNotificationEngine(
         const secondsSinceStart = (Date.now() - engineStartTime) / 1000
         const event = getRandomEvent(secondsSinceStart)
         
-        // Trigger map pan for member/co-op events with coordinates
+        // Trigger map pan for member events with coordinates
         if (event.map && options.onMapPan) {
           options.onMapPan(event.map.lat, event.map.lng)
         }
@@ -326,4 +302,3 @@ export function stopDemoNotificationEngine(): void {
   windowStartTime = Date.now()
   engineStartTime = Date.now()
 }
-

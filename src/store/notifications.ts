@@ -11,6 +11,7 @@ export type NotificationKind =
   | 'ai_trade'
   | 'mode-change'
   | 'transfer'
+  | 'sponsorship'
 
 // New identity-based actor type
 export type ActorIdentity =
@@ -61,10 +62,10 @@ export const migrateLegacyActor = (
 export type NotificationItem = {
   id: string // uuid
   kind: NotificationKind
-  title: string // e.g., "Payment sent", "Payment received", "Payment failed", "AI trade executed"
+  title: string // e.g., "Payment sent", "Payment received", "Payment failed", "AI adjustment completed"
   body?: string // detail line (non-bold) - kept for backward compatibility
-  action?: string // e.g., "Rebalanced: sold 1.2 PEPE, bought 0.01 ETH."
-  reason?: string // e.g., "Reason: volatility crossed 25%—moved to cash."
+  action?: string // e.g., "Shifted R250 to stable assets."
+  reason?: string // e.g., "Fragility increased in crypto markets; preserving purchasing power."
   amount?: {
     // optional: for later Transactions page
     currency: 'ZAR' | 'USDT'

@@ -61,12 +61,31 @@ export default function SuccessSheet({
       const isUSDT = amountZAR.includes('USDT')
       
       if (flowType === 'transfer') {
+        // Determine card type from recipient
+        const isMZN = recipient.toLowerCase().includes('mzn') || recipient.toLowerCase().includes('mozambique')
+        const isZAR = recipient.toLowerCase().includes('zar') || recipient.toLowerCase().includes('south africa')
+        const isCrypto = recipient.toLowerCase().includes('crypto') || recipient.toLowerCase().includes('eth') || recipient.toLowerCase().includes('btc')
+        
+        let title = 'Transfer completed'
+        let body = `You transferred ${amountZAR} to ${recipient}.`
+        
+        if (isMZN) {
+          title = 'Card top-up completed'
+          body = `You moved R${numericAmount.toFixed(2)} into your MZN card.`
+        } else if (isZAR) {
+          title = 'Card top-up completed'
+          body = `You topped up your ZAR card with R${numericAmount.toFixed(2)}.`
+        } else if (isCrypto) {
+          title = 'Transfer completed'
+          body = `You moved R${numericAmount.toFixed(2)} into your Crypto Card.`
+        } else if (recipient.includes('@')) {
+          body = `You transferred R${numericAmount.toFixed(2)} to ${recipient}.`
+        }
+        
         pushNotification({
           kind: 'transfer',
-          title: 'Transfer completed',
-          body: recipient.includes('@')
-            ? `You transferred R${numericAmount.toFixed(2)} to ${recipient}.`
-            : `You transferred ${amountZAR} to ${recipient}.`,
+          title: title,
+          body: body,
           amount: {
             currency: isUSDT ? 'USDT' : 'ZAR',
             value: -numericAmount,
@@ -78,12 +97,30 @@ export default function SuccessSheet({
           routeOnTap: '/transactions',
         })
       } else {
+        // Determine if it's a cross-border payment
+        const isCrossBorder = recipient.includes('@') && (
+          recipient.toLowerCase().includes('mzn') ||
+          recipient.toLowerCase().includes('zwd') ||
+          recipient.toLowerCase().includes('zim') ||
+          recipient.toLowerCase().includes('moz')
+        )
+        
+        const title = isCrossBorder 
+          ? 'Payment sent across border'
+          : recipient.includes('@')
+          ? `You paid R${numericAmount.toFixed(2)} to ${recipient}`
+          : 'Payment sent'
+        
+        const body = isCrossBorder
+          ? `You sent R${numericAmount.toFixed(2)} to ${recipient}. Payment complete.`
+          : recipient.includes('@')
+          ? 'Payment complete.'
+          : `You sent ${amountZAR} to ${recipient}.`
+        
         pushNotification({
           kind: 'payment_sent',
-          title: 'Payment sent',
-          body: recipient.includes('@') || recipient.includes('.')
-            ? `You sent R${numericAmount.toFixed(2)} to ${recipient}.`
-            : `You sent ${amountZAR} to ${recipient}.`,
+          title: title,
+          body: body,
           amount: {
             currency: isUSDT ? 'USDT' : 'ZAR',
             value: -numericAmount,
@@ -101,8 +138,8 @@ export default function SuccessSheet({
       
       pushNotification({
         kind: 'payment_received',
-        title: 'Deposit received at HQ',
-        body: `Your cash deposit of R${numericAmount.toFixed(2)} has been received and secured at GoBankless HQ.`,
+        title: 'Cash deposit secured',
+        body: `Your cash deposit of R${numericAmount.toFixed(2)} has been received at GoBankless HQ.`,
         amount: {
           currency: 'ZAR',
           value: numericAmount,
