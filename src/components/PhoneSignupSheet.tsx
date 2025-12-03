@@ -84,11 +84,11 @@ export default function PhoneSignupSheet() {
       className="handAuthSheet phoneSignupSheet"
     >
       <div className={styles.handAuthWrapper}>
-        <div className={clsx(styles.handAuthRoot, styles.handAuthRootPhone)} />
+        <div className={styles.handAuthRoot} />
         {/* Back chevron in top-left */}
         <button
           type="button"
-          className={styles.phoneBackButton}
+          className={styles.passwordBackButton}
           onClick={handleBackToSignupOptions}
           aria-label="Back to sign up options"
         >
@@ -133,13 +133,17 @@ export default function PhoneSignupSheet() {
                 )}
               </div>
             </label>
-
-            {/* Bottom text */}
-            <p className={styles.switchText}>
+            <p className={styles.legal}>
+              Gobankless is a service provider of the National Stokvel Association of
+              South Africa, an authorised Financial Services Provider (FSP 52815) and
+              Co-operative bank (Certificate no. CFI0024).
+            </p>
+            {/* Already have an account link - positioned below legal text */}
+            <p className={styles.switchAuthText}>
               Already have an account?{' '}
               <button
                 type="button"
-                className={styles.switchLink}
+                className={styles.switchAuthLink}
                 onClick={handleGoToLogin}
               >
                 Log in

@@ -292,6 +292,11 @@
   gap: 16px !important; /* Reduced from 24px to bring legal text closer to input */
 }
 
+/* Switch auth text in password form - add spacing below legal text */
+.passwordForm .switchAuthText {
+  margin-top: 24px;
+}
+
 /* Password content - shifted down by 30px */
 .passwordContent {
   top: calc(50% - 80px) !important; /* Shifted down by 30px from default (110px -> 80px) */
