@@ -12,6 +12,8 @@ import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import PaymentDetailsSheet from '@/components/PaymentDetailsSheet'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
+import AmountSheet from '@/components/AmountSheet'
+import { openAmaChatWithPaymentScenario } from '@/lib/cashDeposit/chatOrchestration'
 
 // Stub data for demo profiles
 interface StubProfile {
@@ -69,6 +71,8 @@ export default function ProfileHandlePage() {
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails } = usePaymentDetailsSheet()
   const [isBookmarked, setIsBookmarked] = useState(false)
+  const [openAmount, setOpenAmount] = useState(false)
+  const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('convert')
 
   // Extract handle from params (remove @ if present, handle both /profile/ama and /profile/@ama)
   const handleParam = params?.handle as string | undefined
@@ -372,9 +376,10 @@ export default function ProfileHandlePage() {
                       className="lButton4"
                       onClick={() => {
                         guardAuthed(() => {
-                          // Open Pay/Request sheet for this user
-                          // For now, open with 0 amount (user will enter it in the sheet)
-                          openPaymentDetails('pay', 0)
+                          // Profile-specific shortcut: open AmountSheet directly with locked recipient
+                          // This bypasses PaymentDetailsSheet since recipient is already known
+                          setAmountMode('convert')
+                          setOpenAmount(true)
                         })
                       }}
                       type="button"
@@ -424,6 +429,34 @@ export default function ProfileHandlePage() {
         </div>
       </div>
 
+      {/* AmountSheet for profile Pay/Request flow - bypasses PaymentDetailsSheet since recipient is known */}
+      <AmountSheet
+        open={openAmount}
+        onClose={() => {
+          setOpenAmount(false)
+        }}
+        mode={amountMode}
+        flowType="payment"
+        balanceZAR={200}
+        fxRateZARperUSDT={18.1}
+        entryPoint="cashButton"
+        onCashSubmit={({ amountZAR }) => {
+          // Profile flow: skip PaymentDetailsSheet, go straight to Ama chat with locked recipient
+          if (!normalizedHandle) return
+          setOpenAmount(false)
+          setTimeout(() => {
+            openAmaChatWithPaymentScenario('request', amountZAR, normalizedHandle)
+          }, 220)
+        }}
+        onCardSubmit={({ amountZAR }) => {
+          // Profile flow: skip PaymentDetailsSheet, go straight to Ama chat with locked recipient
+          if (!normalizedHandle) return
+          setOpenAmount(false)
+          setTimeout(() => {
+            openAmaChatWithPaymentScenario('pay', amountZAR, normalizedHandle)
+          }, 220)
+        }}
+      />
       {/* PaymentDetailsSheet is rendered globally in layout.tsx */}
       {/* ShareProfileSheet is rendered globally in layout.tsx */}
     </div>
