@@ -56,7 +56,7 @@ export default function ConvertCashSection({ onHelpClick, onMapClick }: ConvertC
           </button>
         </div>
         <p className={styles.mapHeaderSub}>
-          Vetted agents collect and deliver cash door-to-door globally.
+          Vetted agents collect and deliver cash across SA, Moz and Zimbabwe.
         </p>
       </div>
 
