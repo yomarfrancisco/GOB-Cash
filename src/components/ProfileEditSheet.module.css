@@ -272,9 +272,8 @@
 /* Done Button */
 .doneButtonContainer {
   margin-top: 24px; /* Space above button (24px for preview, works for edit too) */
-  margin-bottom: 32px; /* Space below button to container edge */
+  margin-bottom: calc(32px + env(safe-area-inset-bottom, 0px)); /* 32px + safe area */
   padding: 0 24px;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 0px); /* Safe area handled by margin-bottom */
   width: 100%;
   display: flex;
   justify-content: center;
