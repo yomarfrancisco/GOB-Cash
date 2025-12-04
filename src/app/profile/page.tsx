@@ -38,7 +38,8 @@ import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import CardDepositAccountSheet from '@/components/CardDepositAccountSheet'
-import { openAmaChatWithCardDepositScenario } from '@/lib/cashDeposit/chatOrchestration'
+import { openAmaChatWithCardDepositScenario, openAmaChatWithAgentInduction } from '@/lib/cashDeposit/chatOrchestration'
+import { useAgentOnboardingStore } from '@/state/agentOnboarding'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -356,20 +357,24 @@ export default function ProfilePage() {
                   className="profile-social-task-row"
                   onClick={() => {
                     guardAuthed(() => {
-                      console.log('Invite friends tapped')
-                      // TODO: navigate to invite flow
+                      // Open agent induction flow in Ama chat
+                      openAmaChatWithAgentInduction()
                     })
                   }}
                   type="button"
-                  aria-label="Start earning as a cash agent"
+                  aria-label={hasCompletedAgentOnboarding ? "Clock in as an agent" : "Start earning as a cash agent"}
                 >
                   <div className="profile-social-task-left">
                     <div className="profile-settings-icon">
                       <SmartphoneNfc size={22} strokeWidth={2} style={{ color: '#111' }} />
                     </div>
                     <div className="profile-social-task-text">
-                      <span className="profile-social-task-title">Start earning as a cash agent</span>
-                      <span className="profile-social-task-subtitle">Clock in and build your agent credit</span>
+                      <span className="profile-social-task-title">
+                        {hasCompletedAgentOnboarding ? 'Clock in as an agent' : 'Start earning as a cash agent'}
+                      </span>
+                      <span className="profile-social-task-subtitle">
+                        {hasCompletedAgentOnboarding ? 'Come online and boost your agent credit' : 'Clock in and build your agent credit'}
+                      </span>
                     </div>
                   </div>
                   <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />

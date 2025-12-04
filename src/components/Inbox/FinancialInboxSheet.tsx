@@ -9,6 +9,8 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { useUserProfileStore } from '@/store/userProfile'
+import { useAgentOnboardingStore } from '@/state/agentOnboarding'
+import { handleAgentInductionAction } from '@/lib/cashDeposit/chatOrchestration'
 import ChatInputBar from './ChatInputBar'
 import ChatMapEmbed from './ChatMapEmbed'
 import listStyles from './FinancialInboxListSheet.module.css'
@@ -192,6 +194,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   const { isAuthed, openAuthEntrySignup } = useAuthStore()
   const { cashFlowState, confirmCashDeposit, confirmCashWithdrawal } = useCashFlowStateStore()
   const { profile } = useUserProfileStore()
+  const { agentInductionStep, photoUploaded, idUploaded, selfieUploaded, agentFloatToday } = useAgentOnboardingStore()
   
   // Use prop if provided, otherwise fall back to store flag
   const isDemoIntro = propIsDemoIntro !== undefined ? propIsDemoIntro : storeIsDemoIntro
@@ -315,6 +318,47 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   const handleSend = useCallback(() => {
     if (!inputText.trim()) return
     
+    // Check if we're in agent induction float custom input mode
+    if (agentInductionStep === 'float' && agentFloatToday === null) {
+      // Try to parse as number
+      const amount = parseFloat(inputText.trim().replace(/[^0-9.]/g, ''))
+      if (!isNaN(amount) && amount > 0) {
+        const agentStore = useAgentOnboardingStore.getState()
+        agentStore.setAgentFloat(amount)
+        agentStore.setInductionStep('credit_explanation')
+        
+        sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'user', `R${amount.toFixed(2)}`)
+        setInputText('')
+        
+        setTimeout(() => {
+          const amountLabel = new Intl.NumberFormat('en-ZA', {
+            style: 'currency',
+            currency: 'ZAR',
+            minimumFractionDigits: 2,
+          }).format(amount)
+          
+          sendMessage(
+            PORTFOLIO_MANAGER_THREAD_ID,
+            'ai',
+            `Perfect. I've noted that you're starting today with ${amountLabel} in cash.\n\nHere's how your agent credit works in simple terms:\n\n• We start you off with a small credit boost on top of your own cash\n\n• As you complete safe, on-time transactions, your credit can grow\n\n• If you go offline for long periods, your credit slowly decays until you check in again\n\nThis is how we protect customers and help good agents grow quickly.`
+          )
+        }, 500)
+        return
+      } else {
+        // Invalid amount
+        sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'user', inputText.trim())
+        setInputText('')
+        setTimeout(() => {
+          sendMessage(
+            PORTFOLIO_MANAGER_THREAD_ID,
+            'ai',
+            "That doesn't look like a valid amount. Please type a number, like 350 or 1200."
+          )
+        }, 500)
+        return
+      }
+    }
+    
     // Send user message
     sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'user', inputText.trim())
     setInputText('')
@@ -327,7 +371,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
         "Got it – I'll help you with that. This will later come from the BabyCDO backend."
       )
     }, 800)
-  }, [inputText, sendMessage])
+  }, [inputText, sendMessage, agentInductionStep, agentFloatToday])
 
   // Manage intro stages for demo intro - only in chat view
   useEffect(() => {
@@ -857,6 +901,155 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                                 </div>
                               )
                             })}
+                            {/* Agent Induction Buttons */}
+                            {agentInductionStep && message.from === 'ai' && (
+                              <>
+                                {/* Message 1: Welcome buttons */}
+                                {message.text.includes("You're about to earn as a cash agent") && (
+                                  <>
+                                    <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('want_to_earn')}
+                                        type="button"
+                                      >
+                                        I want to earn as an agent
+                                      </button>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('not_now')}
+                                        type="button"
+                                        style={{ background: 'transparent', border: '1px solid #000', color: '#000' }}
+                                      >
+                                        Not now
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {/* Message 2: Identity buttons */}
+                                {message.text.includes('I\'ll need 3 things to set up your agent profile') && (
+                                  <>
+                                    <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('take_profile_photo')}
+                                        type="button"
+                                        style={{ background: photoUploaded ? '#e5f0ff' : undefined }}
+                                      >
+                                        {photoUploaded ? '✓ Take profile photo' : 'Take profile photo'}
+                                      </button>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('scan_id')}
+                                        type="button"
+                                        style={{ background: idUploaded ? '#e5f0ff' : undefined }}
+                                      >
+                                        {idUploaded ? '✓ Scan ID / passport' : 'Scan ID / passport'}
+                                      </button>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('take_selfie')}
+                                        type="button"
+                                        style={{ background: selfieUploaded ? '#e5f0ff' : undefined }}
+                                      >
+                                        {selfieUploaded ? '✓ Take selfie for verification' : 'Take selfie for verification'}
+                                      </button>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('done_for_now')}
+                                        type="button"
+                                        style={{ background: 'transparent', border: '1px solid #000', color: '#000' }}
+                                      >
+                                        I'm done for now
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {/* Message 3: Float amount buttons */}
+                                {message.text.includes('How much cash could you realistically use') && (
+                                  <>
+                                    <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('float_200')}
+                                        type="button"
+                                      >
+                                        R200
+                                      </button>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('float_500')}
+                                        type="button"
+                                      >
+                                        R500
+                                      </button>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('float_1000')}
+                                        type="button"
+                                      >
+                                        R1,000
+                                      </button>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('float_2000')}
+                                        type="button"
+                                      >
+                                        R2,000+
+                                      </button>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('float_custom')}
+                                        type="button"
+                                        style={{ background: 'transparent', border: '1px solid #000', color: '#000' }}
+                                      >
+                                        I want to type my own amount
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {/* Message 4: Credit explanation button */}
+                                {message.text.includes('Here\'s how your agent credit works') && (
+                                  <>
+                                    <div style={{ marginTop: '14px' }}>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('okay_makes_sense')}
+                                        type="button"
+                                      >
+                                        Okay, makes sense
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {/* Message 5: Clock in buttons */}
+                                {message.text.includes('Ready to clock in and start your first session') && (
+                                  <>
+                                    <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('clock_me_in')}
+                                        type="button"
+                                      >
+                                        Clock me in for 4 hours
+                                      </button>
+                                      <button
+                                        className={chatStyles.chatCtaButton}
+                                        onClick={() => handleAgentInductionAction('not_yet')}
+                                        type="button"
+                                        style={{ background: 'transparent', border: '1px solid #000', color: '#000' }}
+                                      >
+                                        Not yet
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </>
+                            )}
                             {/* Show map inside this bubble if it's the "Great news" message and map should be visible */}
                             {(isCashDepositActive || isCashWithdrawalActive) && 
                              showMapCard && 
