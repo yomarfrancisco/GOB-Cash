@@ -369,7 +369,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="profile-social-task-text">
                       <span className="profile-social-task-title">Start earning as a cash agent</span>
-                      <span className="profile-social-task-subtitle">Clock in to boost your time credit</span>
+                      <span className="profile-social-task-subtitle">Clock in to boost your credit</span>
                     </div>
                   </div>
                   <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
