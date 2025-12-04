@@ -23,7 +23,7 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useSupportSheet } from '@/store/useSupportSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
-import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, CirclePlus, Bell } from 'lucide-react'
+import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, MapPinPlus, Bell } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
@@ -361,15 +361,15 @@ export default function ProfilePage() {
                     })
                   }}
                   type="button"
-                  aria-label="Invite clients, friends, family"
+                  aria-label="Start earning as a cash agent"
                 >
                   <div className="profile-social-task-left">
                     <div className="profile-settings-icon">
-                      <CirclePlus size={22} strokeWidth={2} style={{ color: '#111' }} />
+                      <MapPinPlus size={22} strokeWidth={2} style={{ color: '#111' }} />
                     </div>
                     <div className="profile-social-task-text">
-                      <span className="profile-social-task-title">Invite clients, friends, family</span>
-                      <span className="profile-social-task-subtitle">Get R100 for each active sign-up</span>
+                      <span className="profile-social-task-title">Start earning as a cash agent</span>
+                      <span className="profile-social-task-subtitle">Clock in to boost your time credit</span>
                     </div>
                   </div>
                   <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />

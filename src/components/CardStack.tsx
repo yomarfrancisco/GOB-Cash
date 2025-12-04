@@ -89,7 +89,7 @@ const CARD_LABELS: Record<CardType, string> = {
   zwd: 'CASH CARD', // ZWD fiat card
   yield: 'INVESTMENT CARD', // ETH crypto card
   btc: 'INVESTMENT CARD', // BTC crypto card
-  yieldSurprise: 'CREDIT CARD', // Credit surprise card
+  yieldSurprise: 'TIME CREDIT', // Time credit card
 }
 
 // Map card type to allocation key
