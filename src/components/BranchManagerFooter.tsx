@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { Helicopter, ClipboardClock } from 'lucide-react'
+import { Helicopter } from 'lucide-react'
 import styles from './BranchManagerFooter.module.css'
 
 type BranchManagerFooterProps = {
@@ -80,28 +80,6 @@ export default function BranchManagerFooter({ onWhatsAppClick, onHelicopterClick
         </div>
       </div>
       <div className={styles.whatsappIconWrapper} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            console.log('[Agent Clock] clicked')
-            // TODO: later we can wire this to a clock-in / agent-credit screen
-          }}
-          aria-label="Agent clock"
-          style={{ 
-            background: 'transparent', 
-            border: 0, 
-            padding: 0, 
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '28px',
-            height: '28px',
-          }}
-        >
-          <ClipboardClock size={24} strokeWidth={2} style={{ color: '#111' }} />
-        </button>
         <button
           type="button"
           onClick={(e) => {
