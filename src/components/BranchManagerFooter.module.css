@@ -98,13 +98,12 @@
 }
 
 .whatsappIconWrapper {
-  width: 28px;
-  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   flex-shrink: 0;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .whatsappIcon {

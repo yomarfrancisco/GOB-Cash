@@ -258,7 +258,7 @@ export default function ProfileHandlePage() {
                       style={{ width: `${profile.socialCredit || 0}%` }}
                     />
                   </div>
-                  <div className="network-label">Time credit</div>
+                  <div className="network-label">Agent credit</div>
                 </div>
               </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { Helicopter } from 'lucide-react'
+import { Helicopter, ClipboardClock } from 'lucide-react'
 import styles from './BranchManagerFooter.module.css'
 
 type BranchManagerFooterProps = {
@@ -79,13 +79,61 @@ export default function BranchManagerFooter({ onWhatsAppClick, onHelicopterClick
           <span className={styles.label}>agents nearby</span>
         </div>
       </div>
-      <div className={styles.whatsappIconWrapper}>
-        <Helicopter
-          size={24}
-          strokeWidth={2}
-          className={styles.whatsappIcon}
-          style={{ color: '#111' }}
-        />
+      <div className={styles.whatsappIconWrapper} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            console.log('[Agent Clock] clicked')
+            // TODO: later we can wire this to a clock-in / agent-credit screen
+          }}
+          aria-label="Agent clock"
+          style={{ 
+            background: 'transparent', 
+            border: 0, 
+            padding: 0, 
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '28px',
+            height: '28px',
+          }}
+        >
+          <ClipboardClock size={24} strokeWidth={2} style={{ color: '#111' }} />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            if (onHelicopterClick) {
+              onHelicopterClick()
+            } else if (onWhatsAppClick) {
+              onWhatsAppClick()
+            } else if (typeof window !== 'undefined') {
+              window.open('https://wa.me/27823306256', '_blank')
+            }
+          }}
+          aria-label="Helicopter cash pickup"
+          style={{ 
+            background: 'transparent', 
+            border: 0, 
+            padding: 0, 
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '28px',
+            height: '28px',
+          }}
+        >
+          <Helicopter
+            size={24}
+            strokeWidth={2}
+            className={styles.whatsappIcon}
+            style={{ color: '#111' }}
+          />
+        </button>
       </div>
     </div>
   )

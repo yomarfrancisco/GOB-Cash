@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import type { StaticImageData } from 'next/image'
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import SlotCounter from './SlotCounter'
 import { formatZAR, formatUSDT } from '@/lib/formatCurrency'
 import { useWalletAlloc } from '@/state/walletAlloc'
@@ -35,7 +35,7 @@ const CARD_LABELS: Record<CardType, string> = {
   zwd: 'CASH CARD', // ZWD fiat card
   yield: 'CRYPTO CARD', // ETH crypto card
   btc: 'CRYPTO CARD', // BTC crypto card
-  yieldSurprise: 'TIME CREDIT', // Time credit card
+  yieldSurprise: 'AGENT CREDIT', // Agent credit card
 }
 
 const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents'> = {
@@ -344,6 +344,29 @@ export default function CardStackCard({
   const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
   const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
 
+  // 4-hour countdown timer for yieldSurprise card
+  const FOUR_HOURS = 4 * 60 * 60 // seconds
+  const [countdown, setCountdown] = useState(FOUR_HOURS)
+  
+  useEffect(() => {
+    if (card.type !== 'yieldSurprise') return
+    if (countdown <= 0) return
+    
+    const id = setInterval(() => {
+      setCountdown((prev) => Math.max(prev - 1, 0))
+    }, 1000)
+    
+    return () => clearInterval(id)
+  }, [countdown, card.type])
+  
+  const formattedCountdown = useMemo(() => {
+    if (card.type !== 'yieldSurprise') return null
+    const hours = Math.floor(countdown / 3600)
+    const minutes = Math.floor((countdown % 3600) / 60)
+    const seconds = countdown % 60
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  }, [countdown, card.type])
+
   // Compose className with special mode classes
   const finalClassName = clsx(
     className,
@@ -501,21 +524,29 @@ export default function CardStackCard({
       {/* Top-right card label */}
       <div className="card-label">{CARD_LABELS[card.type]}</div>
 
-      {/* Bottom-left annual yield pill */}
+      {/* Bottom-left annual yield pill or countdown timer */}
       <div className="card-allocation-pill">
         <span className="card-allocation-pill__text">
-          <span className="card-allocation-pill__yield-strong">
-            {formattedAnnualYield}%
-          </span>{' '}
-          <span className="card-allocation-pill__yield-label">
-            APY
-          </span>
+          {card.type === 'yieldSurprise' && formattedCountdown ? (
+            <span className="card-allocation-pill__yield-strong">
+              {formattedCountdown}
+            </span>
+          ) : (
+            <>
+              <span className="card-allocation-pill__yield-strong">
+                {formattedAnnualYield}%
+              </span>{' '}
+              <span className="card-allocation-pill__yield-label">
+                APY
+              </span>
+            </>
+          )}
         </span>
       </div>
 
       {/* Bottom-right health bar */}
       <div className="card-health-group">
-        <span className="card-health-label">{card.type === 'yieldSurprise' ? 'Social score' : 'Market Health'}</span>
+        <span className="card-health-label">{card.type === 'yieldSurprise' ? 'Time left' : 'Market Health'}</span>
         <div className="card-health-bar-container">
           <div
             className={clsx(

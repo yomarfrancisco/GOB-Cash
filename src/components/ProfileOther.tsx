@@ -191,7 +191,7 @@ export default function ProfileOther({ profile }: ProfileOtherProps) {
                 style={{ width: `${profile.socialCredit || 0}%` }}
               />
             </div>
-            <div className={styles.networkLabel}>Time credit</div>
+            <div className={styles.networkLabel}>Agent credit</div>
           </div>
         </div>
 
