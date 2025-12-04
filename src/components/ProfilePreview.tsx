@@ -216,7 +216,7 @@ export default function ProfilePreview({
                 <button className={styles.sponsorButton} type="button" disabled>
                   <div className={styles.sponsorButtonInner}>
                     <span className={styles.sponsorButtonText}>
-                      <span className={styles.sponsorButtonBold}>Sponsor {userHandle}</span>
+                      <span className={styles.sponsorButtonBold}>Sponsor this Agent</span>
                     </span>
                   </div>
                 </button>

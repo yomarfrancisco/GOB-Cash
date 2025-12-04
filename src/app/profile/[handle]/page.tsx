@@ -340,7 +340,7 @@ export default function ProfileHandlePage() {
                     >
                       <div className="lButton2">
                         <span className="text">
-                          <span className="lBold">Sponsor {normalizedHandle || '@agent'}</span>
+                          <span className="lBold">Sponsor this Agent</span>
                         </span>
                       </div>
                     </button>
