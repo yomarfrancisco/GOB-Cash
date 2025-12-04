@@ -243,12 +243,12 @@ export default function ProfileHandlePage() {
                   )}
                   <div className="stat">
                     <div className="stat-value">{profile.sponsors?.toLocaleString() || '0'}</div>
-                    <div className="stat-sub">Backers</div>
+                    <div className="stat-sub">Sponsors</div>
                   </div>
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">{profile.sponsoring?.toLocaleString() || '0'}</div>
-                    <div className="stat-sub">Backing</div>
+                    <div className="stat-sub">Sponsoring</div>
                   </div>
                 </div>
                 <div className="network-pill">
@@ -340,7 +340,7 @@ export default function ProfileHandlePage() {
                     >
                       <div className="lButton2">
                         <span className="text">
-                          <span className="lBold">Back this agent</span>
+                          <span className="lBold">Sponsor {normalizedHandle || '@agent'}</span>
                         </span>
                       </div>
                     </button>

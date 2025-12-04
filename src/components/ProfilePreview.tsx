@@ -128,12 +128,12 @@ export default function ProfilePreview({
               )}
               <div className={styles.stat}>
                 <div className={styles.statValue}>{sponsors.toLocaleString()}</div>
-                <div className={styles.statSub}>Backers</div>
+                <div className={styles.statSub}>Sponsors</div>
               </div>
               <div className={styles.statDivider} />
               <div className={styles.stat}>
                 <div className={styles.statValue}>{sponsoring.toLocaleString()}</div>
-                <div className={styles.statSub}>Backing</div>
+                <div className={styles.statSub}>Sponsoring</div>
               </div>
             </div>
             <div className={styles.networkPill}>
@@ -216,7 +216,7 @@ export default function ProfilePreview({
                 <button className={styles.sponsorButton} type="button" disabled>
                   <div className={styles.sponsorButtonInner}>
                     <span className={styles.sponsorButtonText}>
-                      <span className={styles.sponsorButtonBold}>Back this agent</span>
+                      <span className={styles.sponsorButtonBold}>Sponsor {userHandle}</span>
                     </span>
                   </div>
                 </button>

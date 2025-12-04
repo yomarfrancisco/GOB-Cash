@@ -249,12 +249,12 @@ export default function ProfilePage() {
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">8,122</div>
-                    <div className="stat-sub">Backers</div>
+                    <div className="stat-sub">Sponsors</div>
                   </div>
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">556</div>
-                    <div className="stat-sub">Backing</div>
+                    <div className="stat-sub">Sponsoring</div>
                   </div>
                 </div>
                 <div className="network-pill">
