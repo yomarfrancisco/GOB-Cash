@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
-import { Copy, RefreshCcw } from 'lucide-react'
+import { Copy, RefreshCcw, Volume2 } from 'lucide-react'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
