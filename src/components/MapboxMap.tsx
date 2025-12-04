@@ -32,6 +32,7 @@ import { useMapHighlightStore } from '@/state/mapHighlight'
 import { DEMO_AGENTS } from '@/lib/demo/demoAgents'
 import { KEY_CITY_AVATARS } from '@/lib/demo/keyCityAvatars'
 import YouAreHere from './YouAreHere'
+import { ClockCheck } from 'lucide-react'
 // static import so Next bundles it and gives us a stable .src
 import userIcon from '../../public/assets/character.png'
 
@@ -273,13 +274,13 @@ export default function MapboxMap({
             button.className = 'mapboxgl-ctrl-icon gobankless-time-button'
             button.setAttribute('aria-label', 'Time credit')
 
-            // Simple icon placeholder: clock emoji
-            // We'll style this via CSS; can later replace with Lucide SVG
-            const icon = document.createElement('span')
-            icon.className = 'gobankless-time-icon'
-            icon.textContent = '⏱' // placeholder; CSS will refine the look
+            // Render Lucide ClockCheck icon using ReactDOM
+            const iconContainer = document.createElement('div')
+            iconContainer.className = 'gobankless-time-icon'
+            const root = ReactDOM.createRoot(iconContainer)
+            root.render(<ClockCheck size={16} strokeWidth={2} style={{ color: '#333' }} />)
 
-            button.appendChild(icon)
+            button.appendChild(iconContainer)
 
             button.addEventListener('click', () => {
               if (this._onClick) {

@@ -1601,9 +1601,12 @@ body {
   background-color: #e5f0ff; /* subtle blue-ish active state */
 }
 
-/* Icon inside the time button */
+/* Icon container inside the time button */
 .gobankless-time-icon {
-  font-size: 16px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 
