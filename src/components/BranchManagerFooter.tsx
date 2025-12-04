@@ -79,7 +79,7 @@ export default function BranchManagerFooter({ onWhatsAppClick, onHelicopterClick
           <span className={styles.label}>agents nearby</span>
         </div>
       </div>
-      <div className={styles.whatsappIconWrapper} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className={styles.whatsappIconWrapper} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <button
           type="button"
           onClick={(e) => {
