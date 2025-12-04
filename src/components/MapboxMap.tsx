@@ -245,6 +245,110 @@ export default function MapboxMap({
         branchEl.className = styles.branchMarker
         new mapboxgl.Marker(branchEl).setLngLat(branchLngLat).addTo(map)
         log(`branch marker added at [${branchLngLat[0]}, ${branchLngLat[1]}]`)
+
+        const geolocate = new mapboxgl.GeolocateControl({
+          positionOptions: { enableHighAccuracy: true },
+          trackUserLocation: true,
+          showUserLocation: false, // hide default dot
+          showAccuracyCircle: false,
+        })
+
+        map.addControl(geolocate, 'top-right')
+
+        // Helper to (re)place custom user marker (using const arrow function to avoid ES5 strict mode error)
+        const upsertUserMarker = (lng: number, lat: number) => {
+          // create DOM element once
+          let el = userMarkerRef.current?.getElement()
+          if (!el) {
+            el = document.createElement('div')
+            el.className = styles.userMarker
+            // add our PNG as <img> to preserve sharpness on retina
+            const img = document.createElement('img')
+            img.className = styles.userImg
+            img.alt = 'You are here'
+            // Use static import if available, else fall back to public path:
+            const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
+            img.src = userIconUrl
+            // Helpful diagnostics the first time we deploy
+            img.addEventListener('load', () =>
+              log(
+                `[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`
+              )
+            )
+            img.addEventListener('error', (e) =>
+              console.error('[user-icon] failed to load', userIconUrl, e)
+            )
+            img.decoding = 'async'
+            img.loading = 'eager'
+            img.referrerPolicy = 'no-referrer'
+            el.appendChild(img)
+            userMarkerRef.current = new mapboxgl.Marker({
+              element: el,
+              anchor: 'center',
+            })
+              .setLngLat([lng, lat])
+              .addTo(map)
+          } else {
+            userMarkerRef.current!.setLngLat([lng, lat])
+          }
+
+          // Add "You are here" bubble above the user marker
+          let bubbleEl = youAreHereMarkerRef.current?.getElement()
+          if (!bubbleEl) {
+            bubbleEl = document.createElement('div')
+            bubbleEl.style.zIndex = '9999'
+            const root = ReactDOM.createRoot(bubbleEl)
+            root.render(<YouAreHere />)
+            
+            youAreHereMarkerRef.current = new mapboxgl.Marker({
+              element: bubbleEl,
+              anchor: 'bottom',
+              offset: [0, -40], // Position above the avatar PNG
+            })
+              .setLngLat([lng, lat])
+              .addTo(map)
+          } else {
+            youAreHereMarkerRef.current!.setLngLat([lng, lat])
+          }
+        }
+
+        let centeredOnce = false
+
+        geolocate.on('geolocate', (e: any) => {
+          const lng = e.coords.longitude
+          const lat = e.coords.latitude
+
+          // Update custom user marker on every geolocate event
+          upsertUserMarker(lng, lat)
+
+          // (optional) keep map centered on the user when first found
+          // Skip auto-center for landing variant when fitToMarkers is false (fixed viewport mode)
+          if (!centeredOnce) {
+            centeredOnce = true
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('[camera]', 'variant=', variant, 'reason=geolocate-first-center', [lng, lat])
+            }
+            // Only auto-center if fitToMarkers is true (default behavior) or not landing variant
+            if (fitToMarkers || variant !== 'landing') {
+              map.setCenter([lng, lat])
+              console.log('[Mapbox] Centered on user:', { lng, lat })
+            }
+            // Set user location state (will trigger zoom effect)
+            setUserLngLat([lng, lat])
+          } else {
+            // Update user location state for route recalculation
+            setUserLngLat([lng, lat])
+          }
+        })
+
+        // Trigger geolocate after a short delay
+        setTimeout(() => {
+          try {
+            geolocate.trigger()
+          } catch (err) {
+            console.warn('[Mapbox] Geolocate trigger failed', err)
+          }
+        }, 500)
       }
 
       // Trigger resize after load - use requestAnimationFrame to avoid reflow
