@@ -261,7 +261,7 @@ export default function ProfilePage() {
                   <div className="network-track">
                     <div className="network-fill" />
                   </div>
-                  <div className="network-label">Social credit</div>
+                  <div className="network-label">Time credit</div>
                 </div>
               </div>
 
