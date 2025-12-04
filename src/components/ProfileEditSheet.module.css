@@ -354,18 +354,21 @@
   background: #f5f5f7;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
   overflow: hidden;
-  /* Phone proportions */
-  width: min(360px, 100%);
+  /* Phone proportions - iPhone-like aspect ratio (390x844) scaled down */
+  width: min(390px, 100%);
+  aspect-ratio: 390 / 844;
   min-height: 640px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 /* Ensure responsiveness */
 @media (min-width: 768px) {
   .previewPhoneInner {
     width: 390px;
+    aspect-ratio: 390 / 844;
     min-height: 720px;
   }
 }

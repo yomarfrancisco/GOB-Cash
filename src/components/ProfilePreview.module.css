@@ -1,8 +1,9 @@
-/* Profile Preview - Phone-shaped preview of public profile */
+/* Profile Preview - Phone-shaped preview matching third-party profile view */
 
 .previewContainer {
   position: relative;
   width: 100%;
+  height: 100%;
   min-height: 640px;
   background: #000;
   overflow: hidden;
@@ -12,13 +13,13 @@
   font-family: 'Inter', -apple-system, sans-serif;
 }
 
-/* Backdrop */
+/* Backdrop - matches profile-backdrop from globals.css */
 .backdropContainer {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: 550px; /* Match actual profile backdrop height */
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
@@ -34,35 +35,54 @@
   opacity: 0.8;
 }
 
+/* White fade gradient - matches profile-backdrop-fade */
 .backdropFade {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0)   0%,
+    rgba(255, 255, 255, 0)   40%,
+    rgba(255, 255, 255, 0.4) 60%,
+    rgba(255, 255, 255, 0.85) 80%,
+    rgba(255, 255, 255, 1)   100%
+  );
+  pointer-events: none;
+}
+
+/* Glass overlay - matches overlay-glass structure */
+.glassOverlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  height: 50%;
-  background-image: url('/assets/darker%20screen.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: 0.6;
+  height: 160px; /* Match TopGlassBar height */
   pointer-events: none;
-}
-
-/* Glass overlay with avatar and handle */
-.glassOverlay {
-  position: relative;
   z-index: 1;
-  padding-top: 92px;
-  padding-bottom: 20px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, transparent 100%);
+  overflow: visible;
 }
 
+.glassOverlayInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Avatar + handle in top glass - matches profile-other-avatar-container */
 .avatarContainer {
+  position: absolute;
+  top: 13px; /* Match exact positioning from globals.css */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 0 20px;
 }
 
 .avatar {
@@ -94,22 +114,79 @@
   transform: translateY(1px);
 }
 
-/* Scrollable content */
+/* GOB logo and icons - matches profile-other-icons */
+.iconsContainer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 160px;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.logoContainer {
+  position: absolute;
+  top: 38px;
+  left: 16px;
+  pointer-events: auto;
+}
+
+.iconGroup {
+  position: absolute;
+  top: 48px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  pointer-events: auto;
+}
+
+.iconButton {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.icon {
+  height: 24px;
+  width: 24px;
+  object-fit: cover;
+  filter: brightness(0) invert(1); /* Makes icons white */
+}
+
+/* Scrollable content - matches profile-other-scroll */
 .scrollContent {
   position: relative;
   z-index: 1;
-  margin-top: 150px;
+  margin-top: 150px; /* Match exact positioning */
   padding-bottom: 40px;
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Stats card */
-.statsCard {
+.content {
+  width: 100%;
+  max-width: 382px;
   margin: 0 auto;
-  width: 342px;
-  max-width: calc(100% - 40px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px;
+}
+
+/* Stats card - matches profile-stats-card */
+.statsCard {
+  margin: 41px auto 0; /* Match exact margin */
+  width: 100%;
+  max-width: 382px;
   border-radius: 32px;
   background: rgba(127, 127, 127, 0.1);
   backdrop-filter: blur(50px);
@@ -144,7 +221,7 @@
 
 .statValue {
   font-size: 18px;
-  color: #fff;
+  color: #000;
   font-weight: 600;
 }
 
@@ -152,13 +229,13 @@
   font-size: 15px;
   font-weight: 300;
   opacity: 0.5;
-  color: #fff;
+  color: #000;
 }
 
 .statDivider {
   width: 1px;
   height: 33px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .networkPill {
@@ -173,7 +250,7 @@
   width: 112px;
   height: 12px;
   border-radius: 30px;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(120, 120, 128, 0.16);
   position: relative;
 }
 
@@ -189,10 +266,10 @@
 .networkLabel {
   font-weight: 300;
   opacity: 0.5;
-  color: #fff;
+  color: #000;
 }
 
-/* Social row */
+/* Social row - matches profile-social */
 .socialRow {
   margin: 12px auto 0;
   display: flex;
@@ -202,10 +279,10 @@
   justify-content: center;
 }
 
-/* Sponsor section */
+/* Sponsor section - matches sponsor classes from globals.css */
 .sponsorSection {
-  width: 342px;
-  max-width: calc(100% - 40px);
+  width: 100%;
+  max-width: 382px;
   margin: 12px auto 0;
   position: relative;
   display: flex;
@@ -247,36 +324,55 @@
   border: none;
   cursor: default;
   width: 100%;
-  opacity: 0.7;
+  opacity: 0.9;
+}
+
+.sponsorButtonInner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 0px;
 }
 
 .sponsorButtonText {
-  font-size: 16px;
-  font-weight: 400;
-  color: #fff;
+  display: flex;
+  align-items: center;
 }
 
 .sponsorButtonBold {
+  position: relative;
+  letter-spacing: -0.32px;
+  line-height: 22px;
   font-weight: 500;
+  font-size: 15px;
+  color: #fff;
 }
 
+/* Secondary button row - matches messageButtonLockedParent */
 .secondaryButtonsRow {
+  align-self: stretch;
   display: flex;
-  gap: 8px;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
   width: 100%;
 }
 
 .messageButtonWrapper {
+  height: 56px;
   flex: 1;
   position: relative;
 }
 
 .messageButton {
+  position: absolute;
   width: 100%;
-  height: 56px;
+  top: 0;
+  right: 0;
+  left: 0;
   border-radius: 56px;
-  background-color: #e5e5ea;
+  background-color: #e6e6eb;
+  height: 56px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -285,24 +381,53 @@
   box-sizing: border-box;
   border: none;
   cursor: default;
-  opacity: 0.7;
+  opacity: 0.9;
+}
+
+.messageButtonInner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 0px;
 }
 
 .messageButtonText {
-  font-size: 16px;
-  font-weight: 400;
-  color: #000;
+  display: flex;
+  align-items: center;
 }
 
 .messageButtonBold {
+  position: relative;
+  letter-spacing: -0.32px;
+  line-height: 22px;
   font-weight: 500;
+  font-size: 15px;
+  color: #000;
+}
+
+.messageLockSuperscript {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.messageLockSuperscript svg {
+  color: #000;
 }
 
 .payRequestButton {
-  flex: 1;
   height: 56px;
+  flex: 1;
   border-radius: 56px;
-  background-color: #e5e5ea;
+  background-color: #e6e6eb;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -311,30 +436,51 @@
   box-sizing: border-box;
   border: none;
   cursor: default;
-  opacity: 0.7;
+  opacity: 0.9;
 }
 
-.payRequestButtonText {
-  font-size: 16px;
-  font-weight: 400;
-  color: #000;
-}
-
-.payRequestButtonBold {
-  font-weight: 500;
-}
-
-.bookmarkButton {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background-color: #e5e5ea;
+.payRequestButtonInner {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  cursor: default;
-  opacity: 0.7;
+  padding: 1px 0px;
   flex-shrink: 0;
 }
 
+.payRequestButtonText {
+  display: flex;
+  align-items: center;
+}
+
+.payRequestButtonBold {
+  position: relative;
+  letter-spacing: -0.32px;
+  line-height: 22px;
+  font-weight: 500;
+  font-size: 15px;
+  color: #000;
+}
+
+.bookmarkButton {
+  height: 56px;
+  width: 56px;
+  border-radius: 56px;
+  background-color: #e6e6eb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0px;
+  box-sizing: border-box;
+  border: none;
+  cursor: default;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.bookmarkButtonInner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
