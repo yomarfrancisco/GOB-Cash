@@ -528,9 +528,14 @@ export default function CardStackCard({
       <div className="card-allocation-pill">
         <span className="card-allocation-pill__text">
           {card.type === 'yieldSurprise' && formattedCountdown ? (
-            <span className="card-allocation-pill__yield-strong">
-              {formattedCountdown}
-            </span>
+            <>
+              <span className="card-allocation-pill__yield-strong">
+                {formattedCountdown}
+              </span>{' '}
+              <span className="card-allocation-pill__yield-label">
+                credit window
+              </span>
+            </>
           ) : (
             <>
               <span className="card-allocation-pill__yield-strong">
