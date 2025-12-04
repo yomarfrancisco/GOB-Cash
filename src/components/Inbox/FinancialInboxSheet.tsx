@@ -961,7 +961,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                                         type="button"
                                         style={{ background: 'transparent', border: '1px solid #000', color: '#000' }}
                                       >
-                                        I'm done for now
+                                        I&apos;m done for now
                                       </button>
                                     </div>
                                   </>

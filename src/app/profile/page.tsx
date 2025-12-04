@@ -47,6 +47,7 @@ const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false
 export default function ProfilePage() {
   const router = useRouter()
   const { isAuthed } = useAuthStore()
+  const { hasCompletedAgentOnboarding } = useAgentOnboardingStore()
   
   // Redirect unauthenticated users to home
   useEffect(() => {
