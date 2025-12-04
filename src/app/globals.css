@@ -1573,4 +1573,38 @@ body {
   display: none !important;
 }
 
+/* Hide the "Use two fingers to move the map" overlay visually,
+   but keep it in the DOM so cooperativeGestures still works. */
+.mapboxgl-ctrl-cooperative-gesture {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  color: transparent !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide any text inside the overlay */
+.mapboxgl-ctrl-cooperative-gesture * {
+  color: transparent !important;
+  opacity: 0 !important;
+}
+
+/* Alternative class names Mapbox might use */
+.mapboxgl-ctrl[class*="cooperative"],
+.mapboxgl-ctrl[class*="gesture"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  color: transparent !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.mapboxgl-ctrl[class*="cooperative"] *,
+.mapboxgl-ctrl[class*="gesture"] * {
+  color: transparent !important;
+  opacity: 0 !important;
+}
+
 

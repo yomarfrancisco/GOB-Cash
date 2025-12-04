@@ -222,7 +222,7 @@ export default function MapboxMap({
       center: initialCenter,
       zoom: initialZoom,
       attributionControl: false,
-      cooperativeGestures: false,
+      cooperativeGestures: true,
       preserveDrawingBuffer: false,
     })
 
