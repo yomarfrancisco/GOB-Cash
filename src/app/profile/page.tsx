@@ -249,12 +249,12 @@ export default function ProfilePage() {
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">8,122</div>
-                    <div className="stat-sub">Sponsors</div>
+                    <div className="stat-sub">Backers</div>
                   </div>
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">556</div>
-                    <div className="stat-sub">Sponsoring</div>
+                    <div className="stat-sub">Backing</div>
                   </div>
                 </div>
                 <div className="network-pill">
@@ -369,7 +369,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="profile-social-task-text">
                       <span className="profile-social-task-title">Start earning as a cash agent</span>
-                      <span className="profile-social-task-subtitle">Clock in to boost your credit</span>
+                      <span className="profile-social-task-subtitle">Clock in and build your agent credit</span>
                     </div>
                   </div>
                   <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
