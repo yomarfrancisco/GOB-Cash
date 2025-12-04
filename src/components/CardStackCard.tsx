@@ -363,8 +363,7 @@ export default function CardStackCard({
     if (card.type !== 'yieldSurprise') return null
     const hours = Math.floor(countdown / 3600)
     const minutes = Math.floor((countdown % 3600) / 60)
-    const seconds = countdown % 60
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+    return `${hours}h${minutes.toString().padStart(2, '0')}`
   }, [countdown, card.type])
 
   // Compose className with special mode classes
@@ -533,7 +532,7 @@ export default function CardStackCard({
                 {formattedCountdown}
               </span>{' '}
               <span className="card-allocation-pill__yield-label">
-                credit window
+                left
               </span>
             </>
           ) : (
@@ -551,7 +550,7 @@ export default function CardStackCard({
 
       {/* Bottom-right health bar */}
       <div className="card-health-group">
-        <span className="card-health-label">{card.type === 'yieldSurprise' ? 'Time left' : 'Market Health'}</span>
+        <span className="card-health-label">{card.type === 'yieldSurprise' ? 'Credit window' : 'Market Health'}</span>
         <div className="card-health-bar-container">
           <div
             className={clsx(
