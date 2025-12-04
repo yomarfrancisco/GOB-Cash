@@ -667,25 +667,40 @@ export default function ProfileEditSheet() {
             </>
           ) : (
             /* Preview Mode */
-            <div className={styles.previewPhoneShell}>
-              <div className={styles.previewPhoneInner}>
-                <ProfilePreview
-                  userHandle={profile.userHandle || '@handle'}
-                  fullName={profile.fullName}
-                  email={profile.email}
-                  avatarUrl={avatarUrl}
-                  backdropUrl={backdropUrl}
-                  instagramUrl={profile.instagramUrl}
-                  linkedinUrl={profile.linkedinUrl}
-                  rating={4.8}
-                  ratingCount="11.5K"
-                  sponsors={8122}
-                  sponsoring={556}
-                  socialCredit={22.4}
-                  verified={false}
-                />
+            <>
+              <div className={styles.previewPhoneShell}>
+                <div className={styles.previewPhoneInner}>
+                  <ProfilePreview
+                    userHandle={profile.userHandle || '@handle'}
+                    fullName={profile.fullName}
+                    email={profile.email}
+                    avatarUrl={avatarUrl}
+                    backdropUrl={backdropUrl}
+                    instagramUrl={profile.instagramUrl}
+                    linkedinUrl={profile.linkedinUrl}
+                    rating={4.8}
+                    ratingCount="11.5K"
+                    sponsors={8122}
+                    sponsoring={556}
+                    socialCredit={22.4}
+                    verified={false}
+                  />
+                </div>
               </div>
-            </div>
+
+              {/* Done Button */}
+              <div className={styles.doneButtonContainer}>
+                <button
+                  className={`${styles.doneButton} ${doneIsActive ? styles.doneButtonActive : styles.doneButtonInactive}`}
+                  onClick={close}
+                  type="button"
+                  disabled={!doneIsActive}
+                >
+                  {doneIsActive && <Check size={18} strokeWidth={2.5} style={{ marginRight: 8 }} />}
+                  Done
+                </button>
+              </div>
+            </>
           )}
         </div>
       </ActionSheet>

@@ -271,9 +271,10 @@
 
 /* Done Button */
 .doneButtonContainer {
-  margin-top: 32px;
-  margin-bottom: 16px;
+  margin-top: 24px; /* Space above button (24px for preview, works for edit too) */
+  margin-bottom: 32px; /* Space below button to container edge */
   padding: 0 24px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0px); /* Safe area handled by margin-bottom */
   width: 100%;
   display: flex;
   justify-content: center;
@@ -346,7 +347,7 @@
   display: flex;
   justify-content: center;
   padding: 0 24px;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+  margin-bottom: 0; /* Spacing handled by doneButtonContainer */
   background: #fff; /* White backdrop around phone frame */
 }
 
