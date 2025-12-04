@@ -351,14 +351,12 @@
 
 .previewPhoneInner {
   border-radius: 32px;
-  background: #f5f5f7;
+  background: #000; /* Black "bezel" feel */
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
-  /* Phone proportions - iPhone-like aspect ratio (390x844) scaled down */
+  overflow: hidden; /* Prevent any extra black band from showing */
+  /* Phone proportions - iPhone-like aspect ratio (390x844) */
   width: min(390px, 100%);
   aspect-ratio: 390 / 844;
-  min-height: 640px;
-  max-height: 80vh;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -369,6 +367,5 @@
   .previewPhoneInner {
     width: 390px;
     aspect-ratio: 390 / 844;
-    min-height: 720px;
   }
 }
