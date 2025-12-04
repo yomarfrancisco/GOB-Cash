@@ -23,7 +23,7 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useSupportSheet } from '@/store/useSupportSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
-import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, ClipboardClock, Bell } from 'lucide-react'
+import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
@@ -365,7 +365,7 @@ export default function ProfilePage() {
                 >
                   <div className="profile-social-task-left">
                     <div className="profile-settings-icon">
-                      <ClipboardClock size={22} strokeWidth={2} style={{ color: '#111' }} />
+                      <SmartphoneNfc size={22} strokeWidth={2} style={{ color: '#111' }} />
                     </div>
                     <div className="profile-social-task-text">
                       <span className="profile-social-task-title">Start earning as a cash agent</span>
