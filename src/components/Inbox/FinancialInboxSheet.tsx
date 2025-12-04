@@ -1092,6 +1092,31 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                             >
                               <RefreshCcw size={14} />
                             </button>
+                            <button
+                              type="button"
+                              className={chatStyles.iconButton}
+                              aria-label="Read message aloud"
+                              onClick={() => {
+                                // Use speechSynthesis to read the message
+                                if ('speechSynthesis' in window) {
+                                  // Cancel any ongoing speech
+                                  window.speechSynthesis.cancel()
+                                  
+                                  // Create a new utterance with the message text
+                                  const utterance = new SpeechSynthesisUtterance(message.text)
+                                  
+                                  // Set voice properties (optional, uses browser defaults)
+                                  utterance.rate = 1.0
+                                  utterance.pitch = 1.0
+                                  utterance.volume = 1.0
+                                  
+                                  // Speak the message
+                                  window.speechSynthesis.speak(utterance)
+                                }
+                              }}
+                            >
+                              <Volume2 size={14} />
+                            </button>
                           </div>
                         )}
                       </>
