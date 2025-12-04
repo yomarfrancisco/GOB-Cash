@@ -1581,7 +1581,6 @@ body {
   border: none !important;
   color: transparent !important;
   opacity: 0 !important;
-  pointer-events: none !important;
 }
 
 /* Hide any text inside the overlay */
@@ -1598,7 +1597,6 @@ body {
   border: none !important;
   color: transparent !important;
   opacity: 0 !important;
-  pointer-events: none !important;
 }
 
 .mapboxgl-ctrl[class*="cooperative"] *,
