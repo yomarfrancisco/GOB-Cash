@@ -128,7 +128,7 @@
 /* GOB logo and icons - matches profile-other-icons */
 .iconsContainer {
   position: absolute;
-  top: 0;
+  top: -60px; /* Move up by 60px in preview only */
   left: 0;
   width: 100%;
   height: 160px;
