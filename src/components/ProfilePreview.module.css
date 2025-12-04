@@ -5,8 +5,8 @@
   width: 100%;
   height: 100%;
   flex: 1; /* Fill available space in parent */
-  background: #000;
-  overflow-y: auto; /* Allow internal scroll if content is taller than frame */
+  background: #fff; /* White backdrop instead of black */
+  overflow: hidden; /* Prevent frame from moving/scrolling within container */
   display: flex;
   flex-direction: column;
   color: #fff;
