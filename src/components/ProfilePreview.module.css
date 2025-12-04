@@ -1,0 +1,340 @@
+/* Profile Preview - Phone-shaped preview of public profile */
+
+.previewContainer {
+  position: relative;
+  width: 100%;
+  min-height: 640px;
+  background: #000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+/* Backdrop */
+.backdropContainer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.backdropImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.8;
+}
+
+.backdropFade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  background-image: url('/assets/darker%20screen.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Glass overlay with avatar and handle */
+.glassOverlay {
+  position: relative;
+  z-index: 1;
+  padding-top: 92px;
+  padding-bottom: 20px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, transparent 100%);
+}
+
+.avatarContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px;
+}
+
+.avatar {
+  width: 72px !important;
+  height: 72px !important;
+  border-radius: 24px !important;
+  flex-shrink: 0;
+  background-color: #fff !important;
+}
+
+.handle {
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+  text-align: center;
+  margin: 0;
+  letter-spacing: -0.1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.verifiedIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transform: translateY(1px);
+}
+
+/* Scrollable content */
+.scrollContent {
+  position: relative;
+  z-index: 1;
+  margin-top: 150px;
+  padding-bottom: 40px;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Stats card */
+.statsCard {
+  margin: 0 auto;
+  width: 342px;
+  max-width: calc(100% - 40px);
+  border-radius: 32px;
+  background: rgba(127, 127, 127, 0.1);
+  backdrop-filter: blur(50px);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.statsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.stat {
+  width: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.statTop {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 4px;
+  border-radius: 42px;
+}
+
+.statValue {
+  font-size: 18px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.statSub {
+  font-size: 15px;
+  font-weight: 300;
+  opacity: 0.5;
+  color: #fff;
+}
+
+.statDivider {
+  width: 1px;
+  height: 33px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.networkPill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.networkTrack {
+  width: 112px;
+  height: 12px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.16);
+  position: relative;
+}
+
+.networkFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: #ff3b30;
+  border-radius: 100px;
+}
+
+.networkLabel {
+  font-weight: 300;
+  opacity: 0.5;
+  color: #fff;
+}
+
+/* Social row */
+.socialRow {
+  margin: 12px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 8px;
+  justify-content: center;
+}
+
+/* Sponsor section */
+.sponsorSection {
+  width: 342px;
+  max-width: calc(100% - 40px);
+  margin: 12px auto 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  font-size: 16px;
+  color: #f5f5f5;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+.sponsorContainer {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.sponsorButtonWrapper {
+  align-self: stretch;
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.sponsorButton {
+  height: 56px;
+  flex: 1;
+  border-radius: 56px;
+  background-color: #ff2d55;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 40px;
+  box-sizing: border-box;
+  border: none;
+  cursor: default;
+  width: 100%;
+  opacity: 0.7;
+}
+
+.sponsorButtonText {
+  font-size: 16px;
+  font-weight: 400;
+  color: #fff;
+}
+
+.sponsorButtonBold {
+  font-weight: 500;
+}
+
+.secondaryButtonsRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.messageButtonWrapper {
+  flex: 1;
+  position: relative;
+}
+
+.messageButton {
+  width: 100%;
+  height: 56px;
+  border-radius: 56px;
+  background-color: #e5e5ea;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 40px;
+  box-sizing: border-box;
+  border: none;
+  cursor: default;
+  opacity: 0.7;
+}
+
+.messageButtonText {
+  font-size: 16px;
+  font-weight: 400;
+  color: #000;
+}
+
+.messageButtonBold {
+  font-weight: 500;
+}
+
+.payRequestButton {
+  flex: 1;
+  height: 56px;
+  border-radius: 56px;
+  background-color: #e5e5ea;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 40px;
+  box-sizing: border-box;
+  border: none;
+  cursor: default;
+  opacity: 0.7;
+}
+
+.payRequestButtonText {
+  font-size: 16px;
+  font-weight: 400;
+  color: #000;
+}
+
+.payRequestButtonBold {
+  font-weight: 500;
+}
+
+.bookmarkButton {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #e5e5ea;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: default;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+

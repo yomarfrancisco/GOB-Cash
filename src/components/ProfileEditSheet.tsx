@@ -16,6 +16,7 @@ import { uploadAvatar, removeAvatar, uploadBackdrop, removeBackdrop } from '@/li
 import { resizeImage } from '@/lib/imageResize'
 import { useNotificationStore } from '@/store/notifications'
 import Avatar from './Avatar'
+import ProfilePreview from './ProfilePreview'
 import styles from './ProfileEditSheet.module.css'
 import '@/styles/profile-toggle.css'
 
@@ -503,164 +504,189 @@ export default function ProfileEditSheet() {
             </div>
           </div>
 
-          {/* Main Profile Card */}
-          <div className={styles.profileCard}>
-            {/* Avatar */}
-            <div className={styles.avatarContainer}>
-              <div className={styles.avatarWrapper}>
-                <Avatar
-                  name={profile.fullName}
+          {editMode === 'edit' ? (
+            <>
+              {/* Main Profile Card */}
+              <div className={styles.profileCard}>
+                {/* Avatar */}
+                <div className={styles.avatarContainer}>
+                  <div className={styles.avatarWrapper}>
+                    <Avatar
+                      name={profile.fullName}
+                      email={profile.email}
+                      avatarUrl={avatarUrl}
+                      size={112}
+                      rounded={32}
+                    />
+                    {isUploading && (
+                      <div className={styles.uploadingOverlay}>
+                        <div className={styles.spinner} />
+                      </div>
+                    )}
+                    <button
+                      className={styles.avatarEditButton}
+                      onClick={handleAvatarClick}
+                      aria-label={hasCustomAvatar ? 'Remove profile photo' : 'Change profile photo'}
+                      type="button"
+                    >
+                      <Camera size={20} strokeWidth={2} style={{ color: '#fff' }} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Username Row */}
+                <button
+                  className={styles.profileRow}
+                  onClick={handleEditUsername}
+                  type="button"
+                >
+                  <div className={styles.profileRowLeft}>
+                    <span className={styles.profileRowLabel}>Username</span>
+                    <span className={styles.profileRowValue}>{profile.userHandle || '@handle'}</span>
+                  </div>
+                  <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                </button>
+
+                {/* Full Name Row */}
+                <button
+                  className={styles.profileRow}
+                  onClick={handleEditFullName}
+                  type="button"
+                >
+                  <div className={styles.profileRowLeft}>
+                    <span className={styles.profileRowLabel}>Full name (private)</span>
+                    <span className={styles.profileRowValue}>
+                      {profile.fullName || (
+                        <span style={{ opacity: 0.3 }}>Enter your first and last name</span>
+                      )}
+                    </span>
+                  </div>
+                  <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                </button>
+              </div>
+
+              {/* Public Links Card */}
+              <div className={styles.sectionContainer}>
+                <h2 className={styles.sectionHeading}>Public links</h2>
+                <div className={styles.linksCard}>
+                  <button
+                    className={styles.linkRow}
+                    onClick={handleEditInstagram}
+                    type="button"
+                  >
+                    <div className={styles.linkRowLeft}>
+                      <div className={styles.linkIcon}>
+                        <Instagram size={22} strokeWidth={2} style={{ color: '#111' }} />
+                      </div>
+                      <span className={styles.linkRowLabel}>Instagram</span>
+                    </div>
+                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                  </button>
+                  <button
+                    className={styles.linkRow}
+                    onClick={handleEditLinkedIn}
+                    type="button"
+                  >
+                    <div className={styles.linkRowLeft}>
+                      <div className={styles.linkIcon}>
+                        <Linkedin size={22} strokeWidth={2} style={{ color: '#111' }} />
+                      </div>
+                      <span className={styles.linkRowLabel}>LinkedIn</span>
+                    </div>
+                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                  </button>
+                  <button
+                    className={styles.linkRow}
+                    onClick={handleEditEmail}
+                    type="button"
+                  >
+                    <div className={styles.linkRowLeft}>
+                      <div className={styles.linkIcon}>
+                        <Mail size={22} strokeWidth={2} style={{ color: '#111' }} />
+                      </div>
+                      <span className={styles.linkRowLabel}>Email</span>
+                    </div>
+                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                  </button>
+                  <button
+                    className={styles.linkRow}
+                    onClick={handleEditWhatsApp}
+                    type="button"
+                  >
+                    <div className={styles.linkRowLeft}>
+                      <div className={styles.linkIcon}>
+                        <Image src="/assets/WhatsApp_Balck 2.png" alt="WhatsApp" width={22} height={22} />
+                      </div>
+                      <span className={styles.linkRowLabel}>WhatsApp</span>
+                    </div>
+                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Backdrop Card */}
+              <div className={styles.sectionContainer}>
+                <h2 className={styles.sectionHeading}>Backdrop</h2>
+                <div className={styles.backdropCard}>
+                  <div className={styles.backdropImageContainer}>
+                    <Image
+                      src={backdropUrl || '/assets/benjamin_grey.png'}
+                      alt="Backdrop"
+                      fill
+                      style={{ objectFit: 'cover', borderRadius: '24px' }}
+                    />
+                    {isUploadingBackdrop && (
+                      <div className={styles.uploadingOverlay}>
+                        <div className={styles.spinner} />
+                      </div>
+                    )}
+                    <button
+                      className={styles.backdropEditButton}
+                      onClick={handleBackdropClick}
+                      aria-label={hasCustomBackdrop ? 'Remove backdrop' : 'Change backdrop'}
+                      type="button"
+                    >
+                      <Camera size={20} strokeWidth={2} style={{ color: '#fff' }} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Done Button */}
+              <div className={styles.doneButtonContainer}>
+                <button
+                  className={`${styles.doneButton} ${doneIsActive ? styles.doneButtonActive : styles.doneButtonInactive}`}
+                  onClick={close}
+                  type="button"
+                  disabled={!doneIsActive}
+                >
+                  {doneIsActive && <Check size={18} strokeWidth={2.5} style={{ marginRight: 8 }} />}
+                  Done
+                </button>
+              </div>
+            </>
+          ) : (
+            /* Preview Mode */
+            <div className={styles.previewPhoneShell}>
+              <div className={styles.previewPhoneInner}>
+                <ProfilePreview
+                  userHandle={profile.userHandle || '@handle'}
+                  fullName={profile.fullName}
                   email={profile.email}
                   avatarUrl={avatarUrl}
-                  size={112}
-                  rounded={32}
+                  backdropUrl={backdropUrl}
+                  instagramUrl={profile.instagramUrl}
+                  linkedinUrl={profile.linkedinUrl}
+                  rating={4.8}
+                  ratingCount="11.5K"
+                  sponsors={8122}
+                  sponsoring={556}
+                  socialCredit={22.4}
+                  verified={false}
                 />
-                {isUploading && (
-                  <div className={styles.uploadingOverlay}>
-                    <div className={styles.spinner} />
-                  </div>
-                )}
-                <button
-                  className={styles.avatarEditButton}
-                  onClick={handleAvatarClick}
-                  aria-label={hasCustomAvatar ? 'Remove profile photo' : 'Change profile photo'}
-                  type="button"
-                >
-                  <Camera size={20} strokeWidth={2} style={{ color: '#fff' }} />
-                </button>
               </div>
             </div>
-
-            {/* Username Row */}
-            <button
-              className={styles.profileRow}
-              onClick={handleEditUsername}
-              type="button"
-            >
-              <div className={styles.profileRowLeft}>
-                <span className={styles.profileRowLabel}>Username</span>
-                <span className={styles.profileRowValue}>{profile.userHandle || '@handle'}</span>
-              </div>
-              <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-            </button>
-
-            {/* Full Name Row */}
-            <button
-              className={styles.profileRow}
-              onClick={handleEditFullName}
-              type="button"
-            >
-              <div className={styles.profileRowLeft}>
-                <span className={styles.profileRowLabel}>Full name (optional)</span>
-                <span className={styles.profileRowValue}>
-                  {profile.fullName || (
-                    <span style={{ opacity: 0.3 }}>Enter your first and last name</span>
-                  )}
-                </span>
-              </div>
-              <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-            </button>
-          </div>
-
-          {/* Public Links Card */}
-          <div className={styles.sectionContainer}>
-            <h2 className={styles.sectionHeading}>Public links</h2>
-            <div className={styles.linksCard}>
-              <button
-                className={styles.linkRow}
-                onClick={handleEditInstagram}
-                type="button"
-              >
-                <div className={styles.linkRowLeft}>
-                  <div className={styles.linkIcon}>
-                    <Instagram size={22} strokeWidth={2} style={{ color: '#111' }} />
-                  </div>
-                  <span className={styles.linkRowLabel}>Instagram</span>
-                </div>
-                <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-              </button>
-              <button
-                className={styles.linkRow}
-                onClick={handleEditLinkedIn}
-                type="button"
-              >
-                <div className={styles.linkRowLeft}>
-                  <div className={styles.linkIcon}>
-                    <Linkedin size={22} strokeWidth={2} style={{ color: '#111' }} />
-                  </div>
-                  <span className={styles.linkRowLabel}>LinkedIn</span>
-                </div>
-                <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-              </button>
-              <button
-                className={styles.linkRow}
-                onClick={handleEditEmail}
-                type="button"
-              >
-                <div className={styles.linkRowLeft}>
-                  <div className={styles.linkIcon}>
-                    <Mail size={22} strokeWidth={2} style={{ color: '#111' }} />
-                  </div>
-                  <span className={styles.linkRowLabel}>Email</span>
-                </div>
-                <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-              </button>
-              <button
-                className={styles.linkRow}
-                onClick={handleEditWhatsApp}
-                type="button"
-              >
-                <div className={styles.linkRowLeft}>
-                  <div className={styles.linkIcon}>
-                    <Image src="/assets/WhatsApp_Balck 2.png" alt="WhatsApp" width={22} height={22} />
-                  </div>
-                  <span className={styles.linkRowLabel}>WhatsApp</span>
-                </div>
-                <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-              </button>
-            </div>
-          </div>
-
-          {/* Backdrop Card */}
-          <div className={styles.sectionContainer}>
-            <h2 className={styles.sectionHeading}>Backdrop</h2>
-            <div className={styles.backdropCard}>
-              <div className={styles.backdropImageContainer}>
-                <Image
-                  src={backdropUrl || '/assets/benjamin_grey.png'}
-                  alt="Backdrop"
-                  fill
-                  style={{ objectFit: 'cover', borderRadius: '24px' }}
-                />
-                {isUploadingBackdrop && (
-                  <div className={styles.uploadingOverlay}>
-                    <div className={styles.spinner} />
-                  </div>
-                )}
-                <button
-                  className={styles.backdropEditButton}
-                  onClick={handleBackdropClick}
-                  aria-label={hasCustomBackdrop ? 'Remove backdrop' : 'Change backdrop'}
-                  type="button"
-                >
-                  <Camera size={20} strokeWidth={2} style={{ color: '#fff' }} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Done Button */}
-          <div className={styles.doneButtonContainer}>
-            <button
-              className={`${styles.doneButton} ${doneIsActive ? styles.doneButtonActive : styles.doneButtonInactive}`}
-              onClick={close}
-              type="button"
-              disabled={!doneIsActive}
-            >
-              {doneIsActive && <Check size={18} strokeWidth={2.5} style={{ marginRight: 8 }} />}
-              Done
-            </button>
-          </div>
+          )}
         </div>
       </ActionSheet>
 
