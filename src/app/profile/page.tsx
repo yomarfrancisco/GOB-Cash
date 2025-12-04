@@ -254,7 +254,7 @@ export default function ProfilePage() {
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">556</div>
-                    <div className="stat-sub">Sponosring</div>
+                    <div className="stat-sub">Sponsoring</div>
                   </div>
                 </div>
                 <div className="network-pill">
