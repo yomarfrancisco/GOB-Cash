@@ -255,6 +255,60 @@ export default function MapboxMap({
 
         map.addControl(geolocate, 'top-right')
 
+        // Custom Time Credit Control
+        class TimeCreditControl {
+          private _container: HTMLElement | null = null
+          private _onClick: (() => void) | null
+
+          constructor(onClick?: () => void) {
+            this._onClick = onClick || null
+          }
+
+          onAdd(map: mapboxgl.Map) {
+            const container = document.createElement('div')
+            container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group gobankless-time-control'
+
+            const button = document.createElement('button')
+            button.type = 'button'
+            button.className = 'mapboxgl-ctrl-icon gobankless-time-button'
+            button.setAttribute('aria-label', 'Time credit')
+
+            // Simple icon placeholder: clock emoji
+            // We'll style this via CSS; can later replace with Lucide SVG
+            const icon = document.createElement('span')
+            icon.className = 'gobankless-time-icon'
+            icon.textContent = '⏱' // placeholder; CSS will refine the look
+
+            button.appendChild(icon)
+
+            button.addEventListener('click', () => {
+              if (this._onClick) {
+                this._onClick()
+              } else {
+                console.log('[TimeCreditControl] clicked')
+              }
+            })
+
+            container.appendChild(button)
+            this._container = container
+
+            return container
+          }
+
+          onRemove() {
+            if (this._container && this._container.parentNode) {
+              this._container.parentNode.removeChild(this._container)
+            }
+            this._container = null
+          }
+        }
+
+        const timeControl = new TimeCreditControl(() => {
+          // TODO: Replace with real time-credit / sheet logic
+          console.log('[TimeCreditControl] time credit button pressed')
+        })
+        map.addControl(timeControl, 'top-right')
+
         // Helper to (re)place custom user marker (using const arrow function to avoid ES5 strict mode error)
         const upsertUserMarker = (lng: number, lat: number) => {
           // create DOM element once

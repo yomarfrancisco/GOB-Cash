@@ -1573,3 +1573,37 @@ body {
   display: none !important;
 }
 
+/* Custom Time Credit Control - stacked under GeolocateControl */
+.mapboxgl-ctrl-top-right .gobankless-time-control {
+  margin-top: 8px; /* space below the geolocate button */
+}
+
+/* The button itself – match Mapbox control size & style */
+.gobankless-time-button {
+  width: 29px;
+  height: 29px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  padding: 0;
+}
+
+.gobankless-time-button:hover {
+  background-color: #f5f5f5;
+}
+
+.gobankless-time-button:active {
+  background-color: #e5f0ff; /* subtle blue-ish active state */
+}
+
+/* Icon inside the time button */
+.gobankless-time-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
