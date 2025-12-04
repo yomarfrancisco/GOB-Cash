@@ -40,7 +40,7 @@ export default function ProfilePreview({
 }: ProfilePreviewProps) {
   return (
     <div className={styles.previewContainer}>
-      {/* Backdrop */}
+      {/* Backdrop - stays in place */}
       <div className={styles.backdropContainer}>
         <img
           src={backdropUrl || '/assets/benjamin_grey.png'}
@@ -50,62 +50,64 @@ export default function ProfilePreview({
         <div className={styles.backdropFade} />
       </div>
 
-      {/* Glass overlay with TopGlassBar */}
-      <div className={styles.glassOverlay}>
-        <div className={styles.glassOverlayInner}>
-          <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" hideIcons={true} />
-          
-          {/* Avatar + handle in top glass */}
-          <div className={styles.avatarContainer}>
-            <Avatar
-              name={fullName}
-              email={email}
-              avatarUrl={avatarUrl}
-              size={72}
-              rounded={24}
-              className={styles.avatar}
-            />
-            <h1 className={styles.handle}>
-              {userHandle}
-              {verified && (
-                <span className={styles.verifiedIcon}>
-                  <Image
-                    src="/assets/verified.svg"
-                    alt="Verified"
-                    width={13}
-                    height={13}
-                    unoptimized
-                  />
-                </span>
-              )}
-            </h1>
+      {/* Content wrapper - shifts down by 60px */}
+      <div className={styles.previewContent}>
+        {/* Glass overlay with TopGlassBar */}
+        <div className={styles.glassOverlay}>
+          <div className={styles.glassOverlayInner}>
+            <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" hideIcons={true} />
+            
+            {/* Avatar + handle in top glass */}
+            <div className={styles.avatarContainer}>
+              <Avatar
+                name={fullName}
+                email={email}
+                avatarUrl={avatarUrl}
+                size={72}
+                rounded={24}
+                className={styles.avatar}
+              />
+              <h1 className={styles.handle}>
+                {userHandle}
+                {verified && (
+                  <span className={styles.verifiedIcon}>
+                    <Image
+                      src="/assets/verified.svg"
+                      alt="Verified"
+                      width={13}
+                      height={13}
+                      unoptimized
+                    />
+                  </span>
+                )}
+              </h1>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* GOB logo and icons */}
-      <div className={styles.iconsContainer}>
-        <div className={styles.logoContainer}>
-          <Link href="https://gobankless.app" target="_blank" rel="noopener noreferrer">
-            <Image
-              src="/assets/GOBlogo-white.png"
-              alt="GoBankless"
-              width={51.3}
-              height={32}
-              priority
-              unoptimized
-            />
-          </Link>
+        {/* GOB logo and icons */}
+        <div className={styles.iconsContainer}>
+          <div className={styles.logoContainer}>
+            <Link href="https://gobankless.app" target="_blank" rel="noopener noreferrer">
+              <Image
+                src="/assets/GOBlogo-white.png"
+                alt="GoBankless"
+                width={51.3}
+                height={32}
+                priority
+                unoptimized
+              />
+            </Link>
+          </div>
+          <div className={styles.iconGroup}>
+            <button className={styles.iconButton} type="button" disabled aria-label="Share profile">
+              <Image src="/assets/core/export.svg" alt="Share" className={styles.icon} width={24} height={24} />
+            </button>
+          </div>
         </div>
-        <div className={styles.iconGroup}>
-          <button className={styles.iconButton} type="button" disabled aria-label="Share profile">
-            <Image src="/assets/core/export.svg" alt="Share" className={styles.icon} width={24} height={24} />
-          </button>
-        </div>
-      </div>
 
-      {/* Scrollable content */}
-      <div className={styles.scrollContent}>
+        {/* Scrollable content */}
+        <div className={styles.scrollContent}>
         <div className={styles.content}>
           {/* Stats + network pill */}
           <div className={styles.statsCard}>
@@ -256,6 +258,7 @@ export default function ProfilePreview({
             </div>
           </section>
         </div>
+      </div>
       </div>
     </div>
   )
