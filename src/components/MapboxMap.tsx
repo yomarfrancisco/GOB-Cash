@@ -32,7 +32,6 @@ import { useMapHighlightStore } from '@/state/mapHighlight'
 import { DEMO_AGENTS } from '@/lib/demo/demoAgents'
 import { KEY_CITY_AVATARS } from '@/lib/demo/keyCityAvatars'
 import YouAreHere from './YouAreHere'
-import { ClockCheck } from 'lucide-react'
 // static import so Next bundles it and gives us a stable .src
 import userIcon from '../../public/assets/character.png'
 
@@ -223,7 +222,7 @@ export default function MapboxMap({
       center: initialCenter,
       zoom: initialZoom,
       attributionControl: false,
-      cooperativeGestures: true,
+      cooperativeGestures: false,
       preserveDrawingBuffer: false,
     })
 
@@ -246,164 +245,6 @@ export default function MapboxMap({
         branchEl.className = styles.branchMarker
         new mapboxgl.Marker(branchEl).setLngLat(branchLngLat).addTo(map)
         log(`branch marker added at [${branchLngLat[0]}, ${branchLngLat[1]}]`)
-
-        const geolocate = new mapboxgl.GeolocateControl({
-          positionOptions: { enableHighAccuracy: true },
-          trackUserLocation: true,
-          showUserLocation: false, // hide default dot
-          showAccuracyCircle: false,
-        })
-
-        map.addControl(geolocate, 'top-right')
-
-        // Custom Time Credit Control
-        class TimeCreditControl {
-          private _container: HTMLElement | null = null
-          private _onClick: (() => void) | null
-
-          constructor(onClick?: () => void) {
-            this._onClick = onClick || null
-          }
-
-          onAdd(map: mapboxgl.Map) {
-            const container = document.createElement('div')
-            container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group gobankless-time-control'
-
-            const button = document.createElement('button')
-            button.type = 'button'
-            button.className = 'mapboxgl-ctrl-icon gobankless-time-button'
-            button.setAttribute('aria-label', 'Time credit')
-
-            // Render Lucide ClockCheck icon using ReactDOM
-            const iconContainer = document.createElement('div')
-            iconContainer.className = 'gobankless-time-icon'
-            const root = ReactDOM.createRoot(iconContainer)
-            root.render(<ClockCheck size={16} strokeWidth={2} style={{ color: '#333' }} />)
-
-            button.appendChild(iconContainer)
-
-            button.addEventListener('click', () => {
-              if (this._onClick) {
-                this._onClick()
-              } else {
-                console.log('[TimeCreditControl] clicked')
-              }
-            })
-
-            container.appendChild(button)
-            this._container = container
-
-            return container
-          }
-
-          onRemove() {
-            if (this._container && this._container.parentNode) {
-              this._container.parentNode.removeChild(this._container)
-            }
-            this._container = null
-          }
-        }
-
-        const timeControl = new TimeCreditControl(() => {
-          // TODO: Replace with real time-credit / sheet logic
-          console.log('[TimeCreditControl] time credit button pressed')
-        })
-        map.addControl(timeControl, 'top-right')
-
-        // Helper to (re)place custom user marker (using const arrow function to avoid ES5 strict mode error)
-        const upsertUserMarker = (lng: number, lat: number) => {
-          // create DOM element once
-          let el = userMarkerRef.current?.getElement()
-          if (!el) {
-            el = document.createElement('div')
-            el.className = styles.userMarker
-            // add our PNG as <img> to preserve sharpness on retina
-            const img = document.createElement('img')
-            img.className = styles.userImg
-            img.alt = 'You are here'
-            // Use static import if available, else fall back to public path:
-            const userIconUrl = (userIcon as any)?.src ?? '/assets/character.png'
-            img.src = userIconUrl
-            // Helpful diagnostics the first time we deploy
-            img.addEventListener('load', () =>
-              log(
-                `[user-icon] loaded w=${img.naturalWidth} h=${img.naturalHeight} url=${userIconUrl}`
-              )
-            )
-            img.addEventListener('error', (e) =>
-              console.error('[user-icon] failed to load', userIconUrl, e)
-            )
-            img.decoding = 'async'
-            img.loading = 'eager'
-            img.referrerPolicy = 'no-referrer'
-            el.appendChild(img)
-            userMarkerRef.current = new mapboxgl.Marker({
-              element: el,
-              anchor: 'center',
-            })
-              .setLngLat([lng, lat])
-              .addTo(map)
-          } else {
-            userMarkerRef.current!.setLngLat([lng, lat])
-          }
-
-          // Add "You are here" bubble above the user marker
-          let bubbleEl = youAreHereMarkerRef.current?.getElement()
-          if (!bubbleEl) {
-            bubbleEl = document.createElement('div')
-            bubbleEl.style.zIndex = '9999'
-            const root = ReactDOM.createRoot(bubbleEl)
-            root.render(<YouAreHere />)
-            
-            youAreHereMarkerRef.current = new mapboxgl.Marker({
-              element: bubbleEl,
-              anchor: 'bottom',
-              offset: [0, -40], // Position above the avatar PNG
-            })
-              .setLngLat([lng, lat])
-              .addTo(map)
-          } else {
-            youAreHereMarkerRef.current!.setLngLat([lng, lat])
-          }
-        }
-
-        let centeredOnce = false
-
-        geolocate.on('geolocate', (e: any) => {
-          const lng = e.coords.longitude
-          const lat = e.coords.latitude
-
-          // Update custom user marker on every geolocate event
-          upsertUserMarker(lng, lat)
-
-          // (optional) keep map centered on the user when first found
-          // Skip auto-center for landing variant when fitToMarkers is false (fixed viewport mode)
-          if (!centeredOnce) {
-            centeredOnce = true
-            if (process.env.NODE_ENV !== 'production') {
-              console.log('[camera]', 'variant=', variant, 'reason=geolocate-first-center', [lng, lat])
-            }
-            // Only auto-center if fitToMarkers is true (default behavior) or not landing variant
-            if (fitToMarkers || variant !== 'landing') {
-              map.setCenter([lng, lat])
-              console.log('[Mapbox] Centered on user:', { lng, lat })
-            }
-            // Set user location state (will trigger zoom effect)
-            setUserLngLat([lng, lat])
-          } else {
-            // Update user location state for route recalculation
-            setUserLngLat([lng, lat])
-          }
-        })
-
-        // Trigger geolocate after a short delay
-        setTimeout(() => {
-          try {
-            geolocate.trigger()
-          } catch (err) {
-            console.warn('[Mapbox] Geolocate trigger failed', err)
-          }
-        }, 500)
       }
 
       // Trigger resize after load - use requestAnimationFrame to avoid reflow
