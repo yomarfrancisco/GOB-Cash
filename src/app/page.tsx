@@ -89,6 +89,19 @@ export default function Home() {
       }
     }
   }, [])
+
+  // Auto-open search sheet when searchOpen=1 query param is present
+  useEffect(() => {
+    const shouldOpenSearch = searchParams?.get('searchOpen') === '1'
+    if (shouldOpenSearch) {
+      openSearch()
+      // Clear the query param from URL without reload
+      const url = new URL(window.location.href)
+      url.searchParams.delete('searchOpen')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams, openSearch])
+
   const [openWithdraw, setOpenWithdraw] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
