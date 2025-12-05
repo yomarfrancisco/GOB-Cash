@@ -147,8 +147,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 src="/assets/nav/search.svg" 
                 alt="Search" 
                 className="nav-icon nav-icon-dim" 
-                width={28} 
-                height={28} 
+                width={27} 
+                height={27} 
               />
             </button>
           </div>
