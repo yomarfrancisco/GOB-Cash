@@ -1,94 +1,82 @@
 'use client'
 
-import { useEffect, useMemo, useState, Suspense } from 'react'
-import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
 import { Bookmark, Lock } from 'lucide-react'
-import { useUserProfileStore } from '@/store/userProfile'
-import { useAuthStore } from '@/store/auth'
-import TopGlassBar from '@/components/TopGlassBar'
-import Avatar from '@/components/Avatar'
-import { useFinancialInboxStore } from '@/state/financialInbox'
-import { useRequireAuth } from '@/hooks/useRequireAuth'
-import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
-import PaymentDetailsSheet from '@/components/PaymentDetailsSheet'
-import { useShareProfileSheet } from '@/store/useShareProfileSheet'
-import AmountSheet from '@/components/AmountSheet'
-import { openAmaChatWithPaymentScenario, openAmaChatWithSponsorshipScenario } from '@/lib/cashDeposit/chatOrchestration'
-import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
+import ActionSheet from './ActionSheet'
+import Avatar from './Avatar'
+import { useProfilePreviewSheet } from '@/store/useProfilePreviewSheet'
 import { getProfileByHandle, type StubProfile } from '@/lib/demo/profileData'
+import { useRequireAuth } from '@/hooks/useRequireAuth'
+import { useFinancialInboxStore } from '@/state/financialInbox'
+import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
+import AmountSheet from './AmountSheet'
+import { openAmaChatWithPaymentScenario, openAmaChatWithSponsorshipScenario } from '@/lib/cashDeposit/chatOrchestration'
+import FinancialInboxSheet from './Inbox/FinancialInboxSheet'
+import { useShareProfileSheet } from '@/store/useShareProfileSheet'
+import listStyles from './Inbox/FinancialInboxListSheet.module.css'
 
-// Component that uses search params (must be wrapped in Suspense)
-function ProfileHandlePageWithSearchParams() {
-  const searchParams = useSearchParams()
-  // Detect if user came from search
-  const fromSearch = searchParams?.get('fromSearch') === '1'
-  return <ProfileHandlePageContent fromSearch={fromSearch} />
+type ProfilePreviewSheetProps = {
+  open: boolean
+  handle: string | null
+  onClose: () => void
 }
 
-// Main profile page content
-function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
-  const router = useRouter()
-  const params = useParams()
-  const { profile: currentUserProfile } = useUserProfileStore()
-  const { openInbox } = useFinancialInboxStore()
+export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePreviewSheetProps) {
   const { guardAuthed } = useRequireAuth()
+  const { openInbox } = useFinancialInboxStore()
   const { open: openPaymentDetails } = usePaymentDetailsSheet()
-  const { isAuthed } = useAuthStore()
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('convert')
   const [openSponsorAmount, setOpenSponsorAmount] = useState(false)
 
-  // Extract handle from params (remove @ if present, handle both /profile/ama and /profile/@ama)
-  const handleParam = params?.handle as string | undefined
-  const normalizedHandle = useMemo(() => {
-    if (!handleParam) return null
-    // Remove leading @ if present, then add it back for consistency
-    const cleanHandle = handleParam.replace(/^@/, '')
-    return `@${cleanHandle}`
-  }, [handleParam])
-
-  // Check if viewing own profile and redirect
-  useEffect(() => {
-    if (normalizedHandle && currentUserProfile.userHandle === normalizedHandle) {
-      router.replace('/profile')
-    }
-  }, [normalizedHandle, currentUserProfile.userHandle, router])
-
-  // Get profile data (stub for now, later will fetch from API)
+  // Get profile data
   const profile = useMemo<StubProfile | null>(() => {
-    if (!normalizedHandle) return null
-    return getProfileByHandle(normalizedHandle)
-  }, [normalizedHandle])
+    if (!handle) return null
+    return getProfileByHandle(handle)
+  }, [handle])
 
-  if (!normalizedHandle || !profile) {
-    return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        color: '#000',
-        fontFamily: 'Inter, sans-serif',
-      }}>
-        Loading...
-      </div>
-    )
+  const normalizedHandle = useMemo(() => {
+    if (!handle) return null
+    return `@${handle.replace(/^@/, '').replace(/^\$/, '')}`
+  }, [handle])
+
+  if (!profile || !normalizedHandle) {
+    return null
   }
 
   return (
-    <div className="app-shell profile-page">
-      <div className="mobile-frame">
-        <div className="dashboard-container" style={{ position: 'relative' }}>
-          {/* Overlay: Top glass bar only (NO bottom nav, NO logo) - shifted down 92px */}
-          <div className="overlay-glass" style={{ top: '92px' }}>
+    <>
+      <ActionSheet
+        open={open}
+        onClose={onClose}
+        title=""
+        size="tall"
+        className={`${listStyles.financialInboxSheet} inboxTallSheet`}
+      >
+        <div style={{ 
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          background: '#000',
+        }}>
+          {/* Profile backdrop */}
+          <div className="profile-backdrop" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+            <img
+              src="/assets/benjamin_grey.png"
+              alt=""
+              className="profile-backdrop-image"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+            <div className="profile-backdrop-fade" />
+          </div>
+
+          {/* Glass overlay with avatar and handle */}
+          <div className="overlay-glass" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '200px', zIndex: 1 }}>
             <div className="overlay-glass-inner">
-              <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" hideIcons={true} />
-              {/* NO BottomGlassBar for public profiles */}
-              
-              {/* Avatar + handle in top glass - positioned near bottom of glass */}
+              {/* Avatar + handle in top glass */}
               <div className="profile-other-avatar-container">
                 <Avatar
                   name={profile.fullName}
@@ -116,60 +104,11 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
             </div>
           </div>
 
-          {/* GOB logo and icons positioned at original location with white color for third-party profiles */}
-          <div className="profile-other-icons">
-            {/* GOB logo or back arrow on the left */}
-            <div className="profile-other-logo">
-              {fromSearch ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    router.push('/?searchOpen=1')
-                  }}
-                  className="profile-back-button"
-                  aria-label="Back to search"
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m12 19-7-7 7-7" />
-                    <path d="M19 12H5" />
-                  </svg>
-                </button>
-              ) : (
-                <Link href="https://gobankless.app" target="_blank" rel="noopener noreferrer">
-                  <Image
-                    src="/assets/GOBlogo-white.png"
-                    alt="GoBankless"
-                    width={51.3}
-                    height={32}
-                    priority
-                    unoptimized
-                  />
-                </Link>
-              )}
-            </div>
-            {/* Icons on the right */}
+          {/* Share icon */}
+          <div className="profile-other-icons" style={{ position: 'absolute', top: '48px', right: '24px', zIndex: 2 }}>
             <div className="profile-other-icon-group">
               <button
                 onClick={() => {
-                  // Open ShareProfileSheet for third-party profile
                   useShareProfileSheet.getState().open({
                     subject: {
                       handle: profile.userHandle,
@@ -188,18 +127,14 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
             </div>
           </div>
 
-          {/* Profile backdrop: Benjamin image with white fade */}
-          <div className="profile-backdrop">
-            <img
-              src="/assets/benjamin_grey.png"
-              alt=""
-              className="profile-backdrop-image"
-            />
-            <div className="profile-backdrop-fade" />
-          </div>
-
           {/* Scrollable content */}
-          <div className="scroll-content profile-scroll profile-other-scroll">
+          <div className="scroll-content profile-scroll profile-other-scroll" style={{ 
+            position: 'relative',
+            zIndex: 1,
+            marginTop: '200px',
+            height: 'calc(100% - 200px)',
+            overflowY: 'auto',
+          }}>
             <div className="content profile-content">
               {/* Stats + network pill */}
               <div className="profile-stats-card">
@@ -300,17 +235,14 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                 )}
               </div>
 
-              {/* Sponsor section - Figma-accurate structure */}
+              {/* Action buttons section */}
               <section className="sponsor">
                 <div className="sponsor2">
-                  {/* Primary Pay/Request pill (swapped from Sponsor) */}
+                  {/* Primary Pay/Request pill */}
                   <div className="lButtonWrapper">
                     <button
                       className="lButton"
                       onClick={() => {
-                        // Profile-specific shortcut: open AmountSheet directly with locked recipient
-                        // This bypasses PaymentDetailsSheet since recipient is already known
-                        // Guest-friendly: no auth gate - allows unauthenticated users to use this flow
                         setAmountMode('convert')
                         setOpenAmount(true)
                       }}
@@ -324,7 +256,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                     </button>
                   </div>
 
-                  {/* Secondary row: Message / Sponsor / Bookmark */}
+                  {/* Secondary row: Message / Invest / Bookmark */}
                   <div className="messageButtonLockedParent">
                     {/* Message pill */}
                     <div className="messageButtonLocked">
@@ -332,12 +264,9 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                         className="button"
                         onClick={() => {
                           guardAuthed(() => {
-                            // Open AMA chat / inbox for this user
-                            // For Ama, open the existing inbox chat
                             if (normalizedHandle === '@ama') {
                               openInbox()
                             } else {
-                              // TODO: Open chat with this user
                               console.log('Message:', profile.userHandle)
                             }
                           })
@@ -350,18 +279,15 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                           </span>
                         </div>
                       </button>
-                      {/* Lock superscript icon */}
                       <div className="messageLockSuperscript">
                         <Lock size={16} strokeWidth={2} />
                       </div>
                     </div>
 
-                    {/* Sponsor pill (swapped from Pay/Request) */}
+                    {/* Invest pill */}
                     <button
                       className="lButton4"
                       onClick={() => {
-                        // Profile-specific sponsor flow: open AmountSheet with sponsorship entry point
-                        // Guest-friendly: no auth gate - allows unauthenticated users to use this flow
                         setAmountMode('convert')
                         setOpenSponsorAmount(true)
                       }}
@@ -380,7 +306,6 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                       onClick={() => {
                         guardAuthed(() => {
                           setIsBookmarked(!isBookmarked)
-                          // TODO: Persist bookmark state
                           console.log('Bookmark toggled:', !isBookmarked)
                         })
                       }}
@@ -399,20 +324,12 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                   </div>
                 </div>
               </section>
-
-              {/* NO Invite friends section for public profiles */}
-              {/* NO Settings section for public profiles */}
             </div>
           </div>
-
-          {/* Top fade overlay - fades content behind top glass/logo */}
-          <div className="content-fade-top" />
-
-          {/* NO Bottom fade overlay for public profiles (no bottom nav) */}
         </div>
-      </div>
+      </ActionSheet>
 
-      {/* AmountSheet for profile Pay/Request flow - bypasses PaymentDetailsSheet since recipient is known */}
+      {/* AmountSheet for Pay/Request flow */}
       <AmountSheet
         open={openAmount}
         onClose={() => {
@@ -424,7 +341,6 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
         fxRateZARperUSDT={18.1}
         entryPoint="cashButton"
         onCashSubmit={({ amountZAR }) => {
-          // Profile flow: skip PaymentDetailsSheet, go straight to Ama chat with locked recipient
           if (!normalizedHandle) return
           setOpenAmount(false)
           setTimeout(() => {
@@ -432,7 +348,6 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
           }, 220)
         }}
         onCardSubmit={({ amountZAR }) => {
-          // Profile flow: skip PaymentDetailsSheet, go straight to Ama chat with locked recipient
           if (!normalizedHandle) return
           setOpenAmount(false)
           setTimeout(() => {
@@ -440,7 +355,8 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
           }, 220)
         }}
       />
-      {/* AmountSheet for profile Sponsor flow - same keypad but with Weekly/Monthly buttons */}
+
+      {/* AmountSheet for Invest flow */}
       <AmountSheet
         open={openSponsorAmount}
         onClose={() => {
@@ -453,7 +369,6 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
         entryPoint="sponsorButton"
         sponsorHandle={normalizedHandle || undefined}
         onWeeklySubmit={({ amountZAR }) => {
-          // Profile sponsor flow: go straight to Ama chat with weekly sponsorship
           if (!normalizedHandle) return
           setOpenSponsorAmount(false)
           setTimeout(() => {
@@ -461,7 +376,6 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
           }, 220)
         }}
         onMonthlySubmit={({ amountZAR }) => {
-          // Profile sponsor flow: go straight to Ama chat with monthly sponsorship
           if (!normalizedHandle) return
           setOpenSponsorAmount(false)
           setTimeout(() => {
@@ -469,30 +383,10 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
           }, 220)
         }}
       />
-      {/* FinancialInboxSheet: enables Ama chat to render on this route for unauthenticated Pay/Request flow */}
+
+      {/* FinancialInboxSheet for Ama chat */}
       <FinancialInboxSheet />
-      {/* PaymentDetailsSheet is rendered globally in layout.tsx */}
-      {/* ShareProfileSheet is rendered globally in layout.tsx */}
-    </div>
+    </>
   )
 }
 
-// Default export wraps in Suspense for useSearchParams
-export default function ProfileHandlePage() {
-  return (
-    <Suspense fallback={
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        color: '#000',
-        fontFamily: 'Inter, sans-serif',
-      }}>
-        Loading...
-      </div>
-    }>
-      <ProfileHandlePageWithSearchParams />
-    </Suspense>
-  )
-}

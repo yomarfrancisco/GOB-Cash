@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useSearchSheet } from '@/store/useSearchSheet'
+import { useAuthStore } from '@/store/auth'
+import { useProfilePreviewSheet } from '@/store/useProfilePreviewSheet'
 import listStyles from './Inbox/FinancialInboxListSheet.module.css'
 import paymentStyles from './PaymentDetailsSheet.module.css'
 import styles from './SearchSheet.module.css'
@@ -35,6 +37,8 @@ export default function SearchSheet() {
   const { isOpen, close } = useSearchSheet()
   const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
+  const isAuthed = useAuthStore((s) => s.isAuthed)
+  const { openSheet } = useProfilePreviewSheet()
 
   // Clear search query when modal opens
   useEffect(() => {
@@ -44,11 +48,18 @@ export default function SearchSheet() {
   }, [isOpen])
 
   const handleContactClick = (contact: SearchContact) => {
-    // Extract handle without $ prefix for routing
+    // Extract handle without $ prefix
     const handleWithoutPrefix = contact.handle.replace(/^\$/, '')
-    // Navigate to profile with fromSearch query parameter
-    close() // Close the search modal first
-    router.push(`/profile/${handleWithoutPrefix}?fromSearch=1`)
+    
+    if (isAuthed) {
+      // Authenticated: open profile in tall popup sheet
+      openSheet(handleWithoutPrefix)
+      // Keep search sheet open (don't close it)
+    } else {
+      // Unauthenticated: navigate to full-page profile view
+      close() // Close the search modal first
+      router.push(`/profile/${handleWithoutPrefix}?fromSearch=1`)
+    }
   }
 
   return (
