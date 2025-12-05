@@ -183,7 +183,7 @@ export default function ProfileHandlePage() {
           <div className="profile-other-icons">
             {/* GOB logo or back arrow on the left */}
             <div className="profile-other-logo">
-              {isAuthed && fromSearch ? (
+              {fromSearch ? (
                 <button
                   type="button"
                   onClick={() => {
