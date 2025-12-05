@@ -35,7 +35,7 @@ const CARD_LABELS: Record<CardType, string> = {
   zwd: 'CASH CARD', // ZWD fiat card
   yield: 'CRYPTO CARD', // ETH crypto card
   btc: 'CRYPTO CARD', // BTC crypto card
-  yieldSurprise: 'AGENT EARNINGS', // Agent earnings card
+  yieldSurprise: 'EARNINGS', // Agent earnings card
 }
 
 const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents'> = {
