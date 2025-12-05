@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Suspense } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -66,10 +66,18 @@ const STUB_PROFILES: Record<string, StubProfile> = {
   },
 }
 
-export default function ProfileHandlePage() {
+// Component that uses search params (must be wrapped in Suspense)
+function ProfileHandlePageWithSearchParams() {
+  const searchParams = useSearchParams()
+  // Detect if user came from search
+  const fromSearch = searchParams?.get('fromSearch') === '1'
+  return <ProfileHandlePageContent fromSearch={fromSearch} />
+}
+
+// Main profile page content
+function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
   const router = useRouter()
   const params = useParams()
-  const searchParams = useSearchParams()
   const { profile: currentUserProfile } = useUserProfileStore()
   const { openInbox } = useFinancialInboxStore()
   const { guardAuthed } = useRequireAuth()
@@ -79,9 +87,6 @@ export default function ProfileHandlePage() {
   const [openAmount, setOpenAmount] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('convert')
   const [openSponsorAmount, setOpenSponsorAmount] = useState(false)
-
-  // Detect if user came from search
-  const fromSearch = searchParams?.get('fromSearch') === '1'
 
   // Extract handle from params (remove @ if present, handle both /profile/ama and /profile/@ama)
   const handleParam = params?.handle as string | undefined
@@ -537,5 +542,25 @@ export default function ProfileHandlePage() {
       {/* PaymentDetailsSheet is rendered globally in layout.tsx */}
       {/* ShareProfileSheet is rendered globally in layout.tsx */}
     </div>
+  )
+}
+
+// Default export wraps in Suspense for useSearchParams
+export default function ProfileHandlePage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        color: '#000',
+        fontFamily: 'Inter, sans-serif',
+      }}>
+        Loading...
+      </div>
+    }>
+      <ProfileHandlePageWithSearchParams />
+    </Suspense>
   )
 }
