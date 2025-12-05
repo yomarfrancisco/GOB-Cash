@@ -72,8 +72,8 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
             />
           </div>
           
-          {/* Fixed fade overlay on top of image - non-scrolling */}
-          <div className="profile-backdrop-fade" />
+          {/* Gradient overlay - white base extends high to hide image edge */}
+          <div className="profile-preview-gradient" />
 
           {/* Glass overlay with avatar and handle - matches profile page structure */}
           <div className="overlay-glass" style={{ top: '92px' }}>

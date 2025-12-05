@@ -308,31 +308,45 @@ body {
 .profile-preview-sheet-container .scroll-content.profile-scroll.profile-other-scroll.profile-preview-no-scroll {
   position: absolute;
   inset: 0;
-  overflow-y: hidden !important; /* No scrolling - fixed composition */
+  overflow-y: hidden !important; /* No vertical scrolling - fixed composition */
+  overflow-x: hidden !important; /* No horizontal scrolling */
   background: transparent !important;
 }
 
-/* ProfilePreviewSheet: fixed fade overlay - transparent at top, white at bottom */
-.profile-preview-sheet-container .profile-backdrop-fade {
+/* ProfilePreviewSheet: gradient overlay - white base extends high to hide image edge */
+.profile-preview-sheet-container .profile-preview-gradient {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 1; /* Above backdrop image, below content */
+  z-index: 1; /* Below content, above backdrop image */
   background: linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0)   0%,   /* fully transparent at the top - image visible */
-    rgba(255, 255, 255, 0)   40%,  /* still transparent through name/handle area */
-    rgba(255, 255, 255, 0.5) 60%,  /* start fading around stats area */
-    rgba(255, 255, 255, 0.9) 75%,  /* nearly white near bottom */
-    rgba(255, 255, 255, 1)   100%  /* fully white at bottom */
+    rgba(255, 255, 255, 0)   0%,   /* fully transparent over top of Benjamin */
+    rgba(255, 255, 255, 0)   35%,  /* still transparent through most of the face */
+    rgba(255, 255, 255, 0.65) 55%, /* start whitening BEFORE the image ends */
+    rgba(255, 255, 255, 1)   70%,  /* solid white well above the image bottom */
+    rgba(255, 255, 255, 1)   100%  /* solid white all the way down */
   );
 }
 
-/* Content ABOVE the fade - fully opaque */
+/* Content ABOVE the gradient - fully opaque */
 .profile-preview-sheet-container .profile-preview-content {
   position: relative;
-  z-index: 2; /* Above fade overlay */
+  z-index: 2; /* Above gradient overlay */
   background: transparent !important;
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Prevent horizontal scrolling in content elements */
+.profile-preview-sheet-container .profile-stats-card,
+.profile-preview-sheet-container .sponsor,
+.profile-preview-sheet-container .sponsor2 {
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  overflow-x: hidden;
 }
 
 /* Bottom fade overlay - softly fades content behind bottom glass nav */
