@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import { Bookmark, Lock, ChevronLeft, Share2 } from 'lucide-react'
+import { Bookmark, Lock, ChevronLeft, Share } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import Avatar from './Avatar'
 import TopGlassBar from './TopGlassBar'
@@ -143,7 +143,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                 aria-label="Share profile"
                 type="button"
               >
-                <Share2 size={24} strokeWidth={2} color="#FFFFFF" />
+                <Share size={24} strokeWidth={2} color="#FFFFFF" />
               </button>
             </div>
           </div>
