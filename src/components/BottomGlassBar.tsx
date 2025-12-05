@@ -130,7 +130,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               )}
             </Link>
           </div>
-          {/* Search icon - far right */}
+          {/* Search icon - far right (icon only, no label) */}
           <div className="nav-item">
             <button
               onClick={openSearch}
@@ -141,10 +141,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 border: 'none',
                 padding: 0,
                 cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '5px',
               }}
             >
               <Image 
@@ -154,7 +150,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 width={28} 
                 height={28} 
               />
-              <div className="nav-label">Search</div>
             </button>
           </div>
         </div>

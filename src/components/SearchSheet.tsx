@@ -5,6 +5,7 @@ import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useSearchSheet } from '@/store/useSearchSheet'
 import listStyles from './Inbox/FinancialInboxListSheet.module.css'
+import paymentStyles from './PaymentDetailsSheet.module.css'
 import styles from './SearchSheet.module.css'
 
 type SearchContact = {
@@ -68,33 +69,29 @@ export default function SearchSheet() {
           />
         </div>
 
-        {/* Default contacts list - reuse Inbox row layout */}
-        <div className={listStyles.conversationList}>
+        {/* Default contacts list - match Make payment to sheet style */}
+        <div className={paymentStyles.contactsList}>
           {DEFAULT_CONTACTS.map((contact) => (
             <button
               key={contact.id}
-              className={listStyles.inboxRow}
+              className={paymentStyles.contactRow}
               onClick={() => handleContactClick(contact)}
               type="button"
             >
-              <div className={listStyles.inboxRowLeft}>
-                <div className={listStyles.avatarWrapper}>
+              <div className={paymentStyles.contactRowLeft}>
+                <div className={paymentStyles.avatarWrapper}>
                   <Image
                     src={contact.avatarSrc}
                     alt={contact.handle}
-                    width={64}
-                    height={64}
-                    className={listStyles.avatar}
+                    width={48}
+                    height={48}
+                    className={paymentStyles.avatar}
                     unoptimized
                   />
                 </div>
-                <div className={listStyles.inboxTextBlock}>
-                  <div className={listStyles.inboxHeader}>
-                    <div className={listStyles.inboxTitle}>{contact.handle}</div>
-                  </div>
-                  <div className={listStyles.inboxPreview}>
-                    {contact.subtitle}
-                  </div>
+                <div className={paymentStyles.contactTextBlock}>
+                  <div className={paymentStyles.contactHandle}>{contact.handle}</div>
+                  <div className={paymentStyles.contactSubtitle}>{contact.subtitle}</div>
                 </div>
               </div>
             </button>
