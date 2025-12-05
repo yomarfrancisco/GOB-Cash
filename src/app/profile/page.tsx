@@ -40,6 +40,8 @@ import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import CardDepositAccountSheet from '@/components/CardDepositAccountSheet'
 import { openAmaChatWithCardDepositScenario, openAmaChatWithAgentInduction } from '@/lib/cashDeposit/chatOrchestration'
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
+import { ChevronRight } from 'lucide-react'
+import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -89,6 +91,7 @@ export default function ProfilePage() {
   const [openDepositCryptoWallet, setOpenDepositCryptoWallet] = useState(false)
   const [selectedCryptoDepositWallet, setSelectedCryptoDepositWallet] = useState<DepositCryptoWallet | null>(null)
   const [showCryptoAddressSheet, setShowCryptoAddressSheet] = useState(false)
+  const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
 
   const openPaymentsSheet = useCallback(() => setOpenPayments(true), [])
   const closePaymentsSheet = useCallback(() => setOpenPayments(false), [])
@@ -263,7 +266,10 @@ export default function ProfilePage() {
                   <div className="network-track">
                     <div className="network-fill" />
                   </div>
-                  <div className="network-label">Agent credit</div>
+                  <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
+                    <span>Productivity</span>
+                    <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
+                  </div>
                 </div>
               </div>
 
@@ -729,6 +735,10 @@ export default function ProfilePage() {
         open={openBankTransferDetails}
         onClose={() => setOpenBankTransferDetails(false)}
         countryCode={bankTransferCountry}
+      />
+      <ProductivityHelperSheet
+        isOpen={isProductivityHelperOpen}
+        onClose={() => setIsProductivityHelperOpen(false)}
       />
     </div>
   )

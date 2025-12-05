@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, Suspense } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Bookmark, Lock } from 'lucide-react'
+import { Bookmark, Lock, ChevronRight } from 'lucide-react'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useAuthStore } from '@/store/auth'
 import TopGlassBar from '@/components/TopGlassBar'
@@ -18,6 +18,7 @@ import AmountSheet from '@/components/AmountSheet'
 import { openAmaChatWithPaymentScenario, openAmaChatWithSponsorshipScenario } from '@/lib/cashDeposit/chatOrchestration'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { getProfileByHandle, type StubProfile } from '@/lib/demo/profileData'
+import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
 
 // Component that uses search params (must be wrapped in Suspense)
 function ProfileHandlePageWithSearchParams() {
@@ -40,6 +41,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
   const [openAmount, setOpenAmount] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('convert')
   const [openSponsorAmount, setOpenSponsorAmount] = useState(false)
+  const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
 
   // Extract handle from params (remove @ if present, handle both /profile/ama and /profile/@ama)
   const handleParam = params?.handle as string | undefined
@@ -235,7 +237,10 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                       style={{ width: `${profile.socialCredit || 0}%` }}
                     />
                   </div>
-                  <div className="network-label">Productivity</div>
+                  <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
+                    <span>Productivity</span>
+                    <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
+                  </div>
                 </div>
               </div>
 
@@ -471,6 +476,10 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
       />
       {/* FinancialInboxSheet: enables Ama chat to render on this route for unauthenticated Pay/Request flow */}
       <FinancialInboxSheet />
+      <ProductivityHelperSheet
+        isOpen={isProductivityHelperOpen}
+        onClose={() => setIsProductivityHelperOpen(false)}
+      />
       {/* PaymentDetailsSheet is rendered globally in layout.tsx */}
       {/* ShareProfileSheet is rendered globally in layout.tsx */}
     </div>

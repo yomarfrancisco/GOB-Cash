@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Bookmark } from 'lucide-react'
+import { Bookmark, ChevronRight } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import styles from './ProfileOther.module.css'
+import ProductivityHelperSheet from './ProductivityHelperSheet'
 
 export interface OtherProfileData {
   userHandle: string
@@ -30,6 +31,7 @@ type ProfileOtherProps = {
 export default function ProfileOther({ profile }: ProfileOtherProps) {
   const router = useRouter()
   const [isBookmarked, setIsBookmarked] = useState(false)
+  const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
 
   const handleBack = () => {
     router.back()
@@ -191,7 +193,10 @@ export default function ProfileOther({ profile }: ProfileOtherProps) {
                 style={{ width: `${profile.socialCredit || 0}%` }}
               />
             </div>
-            <div className={styles.networkLabel}>Productivity</div>
+            <div className={styles.networkLabel} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
+              <span>Productivity</span>
+              <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
+            </div>
           </div>
         </div>
 
@@ -299,6 +304,10 @@ export default function ProfileOther({ profile }: ProfileOtherProps) {
           </div>
         </div>
       </div>
+      <ProductivityHelperSheet
+        isOpen={isProductivityHelperOpen}
+        onClose={() => setIsProductivityHelperOpen(false)}
+      />
     </div>
   )
 }

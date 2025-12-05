@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import { Bookmark, Lock, ChevronLeft, Share } from 'lucide-react'
+import { Bookmark, Lock, ChevronLeft, Share, ChevronRight } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import Avatar from './Avatar'
 import TopGlassBar from './TopGlassBar'
@@ -17,6 +17,7 @@ import { openAmaChatWithPaymentScenario, openAmaChatWithSponsorshipScenario } fr
 import FinancialInboxSheet from './Inbox/FinancialInboxSheet'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import listStyles from './Inbox/FinancialInboxListSheet.module.css'
+import ProductivityHelperSheet from './ProductivityHelperSheet'
 
 type ProfilePreviewSheetProps = {
   open: boolean
@@ -34,6 +35,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
   const [openAmount, setOpenAmount] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('convert')
   const [openSponsorAmount, setOpenSponsorAmount] = useState(false)
+  const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
 
   // Get profile data
   const profile = useMemo<StubProfile | null>(() => {
@@ -210,7 +212,10 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                       style={{ width: `${profile.socialCredit || 0}%` }}
                     />
                   </div>
-                  <div className="network-label">Productivity</div>
+                  <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
+                    <span>Productivity</span>
+                    <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
+                  </div>
                 </div>
               </div>
 
@@ -426,6 +431,10 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
 
       {/* FinancialInboxSheet for Ama chat */}
       <FinancialInboxSheet />
+      <ProductivityHelperSheet
+        isOpen={isProductivityHelperOpen}
+        onClose={() => setIsProductivityHelperOpen(false)}
+      />
     </>
   )
 }

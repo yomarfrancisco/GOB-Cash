@@ -550,7 +550,7 @@ export default function CardStackCard({
 
       {/* Bottom-right health bar */}
       <div className="card-health-group">
-        <span className="card-health-label">{card.type === 'yieldSurprise' ? 'Credit window' : 'Market Health'}</span>
+        <span className="card-health-label">{card.type === 'yieldSurprise' ? '3x Cash available' : 'Market Health'}</span>
         <div className="card-health-bar-container">
           <div
             className={clsx(
