@@ -130,15 +130,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               )}
             </Link>
           </div>
-          {/* Search icon - positioned absolutely to match share icon X position */}
-          <div 
-            className="nav-item"
-            style={{
-              position: 'absolute',
-              right: 'calc((100% - min(430px, 100%)) / 2 + 24px)',
-              transform: 'translateX(50%)',
-            }}
-          >
+          {/* Search icon - far right (icon only, no label) */}
+          <div className="nav-item">
             <button
               onClick={openSearch}
               aria-label="Search"
