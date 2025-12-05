@@ -326,27 +326,28 @@ export default function ProfileHandlePage() {
               {/* Sponsor section - Figma-accurate structure */}
               <section className="sponsor">
                 <div className="sponsor2">
-                  {/* Primary sponsor pill */}
+                  {/* Primary Pay/Request pill (swapped from Sponsor) */}
                   <div className="lButtonWrapper">
                     <button
                       className="lButton"
                       onClick={() => {
-                        // Profile-specific sponsor flow: open AmountSheet with sponsorship entry point
+                        // Profile-specific shortcut: open AmountSheet directly with locked recipient
+                        // This bypasses PaymentDetailsSheet since recipient is already known
                         // Guest-friendly: no auth gate - allows unauthenticated users to use this flow
                         setAmountMode('convert')
-                        setOpenSponsorAmount(true)
+                        setOpenAmount(true)
                       }}
                       type="button"
                     >
                       <div className="lButton2">
                         <span className="text">
-                          <span className="lBold">Sponsor</span>
+                          <span className="lBold">Pay / Request</span>
                         </span>
                       </div>
                     </button>
                   </div>
 
-                  {/* Secondary row: Message / Pay / Bookmark */}
+                  {/* Secondary row: Message / Sponsor / Bookmark */}
                   <div className="messageButtonLockedParent">
                     {/* Message pill */}
                     <div className="messageButtonLocked">
@@ -378,21 +379,20 @@ export default function ProfileHandlePage() {
                       </div>
                     </div>
 
-                    {/* Pay / Request pill */}
+                    {/* Sponsor pill (swapped from Pay/Request) */}
                     <button
                       className="lButton4"
                       onClick={() => {
-                        // Profile-specific shortcut: open AmountSheet directly with locked recipient
-                        // This bypasses PaymentDetailsSheet since recipient is already known
+                        // Profile-specific sponsor flow: open AmountSheet with sponsorship entry point
                         // Guest-friendly: no auth gate - allows unauthenticated users to use this flow
                         setAmountMode('convert')
-                        setOpenAmount(true)
+                        setOpenSponsorAmount(true)
                       }}
                       type="button"
                     >
                       <div className="lButton5">
                         <span className="text">
-                          <span className="lBold">Pay/Request</span>
+                          <span className="lBold">Sponsor</span>
                         </span>
                       </div>
                     </button>
