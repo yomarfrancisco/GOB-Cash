@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Bookmark, Lock } from 'lucide-react'
 import { useUserProfileStore } from '@/store/userProfile'
+import { useAuthStore } from '@/store/auth'
 import TopGlassBar from '@/components/TopGlassBar'
 import Avatar from '@/components/Avatar'
 import { useFinancialInboxStore } from '@/state/financialInbox'
@@ -68,14 +69,19 @@ const STUB_PROFILES: Record<string, StubProfile> = {
 export default function ProfileHandlePage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const { profile: currentUserProfile } = useUserProfileStore()
   const { openInbox } = useFinancialInboxStore()
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails } = usePaymentDetailsSheet()
+  const { isAuthed } = useAuthStore()
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('convert')
   const [openSponsorAmount, setOpenSponsorAmount] = useState(false)
+
+  // Detect if user came from search
+  const fromSearch = searchParams?.get('fromSearch') === '1'
 
   // Extract handle from params (remove @ if present, handle both /profile/ama and /profile/@ama)
   const handleParam = params?.handle as string | undefined

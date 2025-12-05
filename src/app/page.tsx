@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import CardStack, { type CardStackHandle, type CardType } from '@/components/CardStack'
 import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
@@ -47,6 +48,7 @@ import { useCashFlowStateStore } from '@/state/cashFlowState'
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
 export default function Home() {
+  const searchParams = useSearchParams()
   const [topCardType, setTopCardType] = useState<CardType>('savings')
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const [helperWalletKey, setHelperWalletKey] = useState<CardType | null>(null)
@@ -60,6 +62,7 @@ export default function Home() {
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
   const { play: playDollarSound } = useSoundEffect('/assets/Drum_3b.mp3')
+  const { open: openSearch } = useSearchSheet()
 
   // Debug: verify card and map widths match - instrument parent chain
   useEffect(() => {

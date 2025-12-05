@@ -36,15 +36,19 @@ export default function SearchSheet() {
   const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
 
-  const handleContactClick = (contact: SearchContact) => {
-    // For $ama, navigate to profile and close search modal
-    if (contact.id === 'ama') {
-      close() // Close the search modal first
-      router.push('/profile/ama') // Navigate to Ama's profile (handle without $ prefix)
-    } else {
-      // Other contacts remain non-clickable for now
-      console.log('Contact clicked:', contact.handle)
+  // Clear search query when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSearchQuery('')
     }
+  }, [isOpen])
+
+  const handleContactClick = (contact: SearchContact) => {
+    // Extract handle without $ prefix for routing
+    const handleWithoutPrefix = contact.handle.replace(/^\$/, '')
+    // Navigate to profile with fromSearch query parameter
+    close() // Close the search modal first
+    router.push(`/profile/${handleWithoutPrefix}?fromSearch=1`)
   }
 
   return (
