@@ -304,34 +304,34 @@ body {
   background: transparent; /* make inner wrapper transparent too */
 }
 
-/* ProfilePreviewSheet: scroll-content as scroll container with gradient behind content */
-.profile-preview-sheet-container .scroll-content.profile-scroll.profile-other-scroll {
+/* ProfilePreviewSheet: no scrolling, white base background */
+.profile-preview-sheet-container .scroll-content.profile-scroll.profile-other-scroll.profile-preview-no-scroll {
   position: absolute;
   inset: 0;
-  overflow-y: auto;
-  background: transparent !important; /* gradient handled by profile-preview-gradient */
+  overflow-y: hidden !important; /* No scrolling - fixed composition */
+  background: transparent !important;
 }
 
-/* Gradient overlay BEHIND content - white at bottom, transparent at top */
-.profile-preview-sheet-container .profile-preview-gradient {
+/* ProfilePreviewSheet: fixed fade overlay - transparent at top, white at bottom */
+.profile-preview-sheet-container .profile-backdrop-fade {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: 1; /* Above backdrop image, below content */
   background: linear-gradient(
-    to top,
-    rgba(255, 255, 255, 1)   0%,   /* absolute bottom: pure white */
-    rgba(255, 255, 255, 1)   25%,  /* keep it fully white for the bottom ~25% */
-    rgba(255, 255, 255, 0.6) 40%,  /* start fading above the white "floor" */
-    rgba(255, 255, 255, 0.0) 60%,  /* fully transparent by ~60% height */
-    rgba(255, 255, 255, 0.0) 100%  /* stays transparent at top */
+    to bottom,
+    rgba(255, 255, 255, 0)   0%,   /* fully transparent at the top - image visible */
+    rgba(255, 255, 255, 0)   40%,  /* still transparent through name/handle area */
+    rgba(255, 255, 255, 0.5) 60%,  /* start fading around stats area */
+    rgba(255, 255, 255, 0.9) 75%,  /* nearly white near bottom */
+    rgba(255, 255, 255, 1)   100%  /* fully white at bottom */
   );
 }
 
-/* Content ABOVE the gradient - fully opaque */
-.profile-preview-sheet-container .scroll-inner.profile-content {
+/* Content ABOVE the fade - fully opaque */
+.profile-preview-sheet-container .profile-preview-content {
   position: relative;
-  z-index: 1;
+  z-index: 2; /* Above fade overlay */
   background: transparent !important;
 }
 

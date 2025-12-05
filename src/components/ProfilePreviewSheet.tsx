@@ -61,7 +61,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
           width: '100%',
           height: '100%',
           overflow: 'hidden',
-          background: '#000',
+          background: '#ffffff', // White base ensures no black shows below image
         }}>
           {/* Profile backdrop - matches globals.css structure */}
           <div className="profile-backdrop">
@@ -71,6 +71,9 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
               className="profile-backdrop-image"
             />
           </div>
+          
+          {/* Fixed fade overlay on top of image - non-scrolling */}
+          <div className="profile-backdrop-fade" />
 
           {/* Glass overlay with avatar and handle - matches profile page structure */}
           <div className="overlay-glass" style={{ top: '92px' }}>
@@ -161,23 +164,20 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
             </div>
           </div>
 
-          {/* Scrollable content - matches profile page structure */}
+          {/* Content - non-scrollable for v1 */}
           <div 
-            className="scroll-content profile-scroll profile-other-scroll"
+            className="scroll-content profile-scroll profile-other-scroll profile-preview-no-scroll"
             style={{
               position: 'absolute',
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              overflowY: 'auto',
+              overflowY: 'hidden', // No scrolling
             }}
           >
-            {/* Gradient overlay BEHIND content */}
-            <div className="profile-preview-gradient" />
-            
-            {/* Content ABOVE gradient */}
-            <div className="scroll-inner content profile-content">
+            {/* Content wrapper - above fade */}
+            <div className="profile-preview-content content profile-content">
               {/* Stats + network pill */}
               <div className="profile-stats-card">
                 <div className="stats-row">
