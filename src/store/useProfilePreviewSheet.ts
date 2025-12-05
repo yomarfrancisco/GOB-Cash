@@ -8,14 +8,16 @@ import { create } from 'zustand'
 type ProfilePreviewSheetState = {
   open: boolean
   handle: string | null
-  openSheet: (handle: string) => void
+  fromSearch: boolean
+  openSheet: (handle: string, fromSearch?: boolean) => void
   closeSheet: () => void
 }
 
 export const useProfilePreviewSheet = create<ProfilePreviewSheetState>((set) => ({
   open: false,
   handle: null,
-  openSheet: (handle) => set({ open: true, handle }),
-  closeSheet: () => set({ open: false, handle: null }),
+  fromSearch: false,
+  openSheet: (handle, fromSearch = false) => set({ open: true, handle, fromSearch }),
+  closeSheet: () => set({ open: false, handle: null, fromSearch: false }),
 }))
 

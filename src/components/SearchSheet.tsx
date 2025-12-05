@@ -53,7 +53,7 @@ export default function SearchSheet() {
     
     if (isAuthed) {
       // Authenticated: open profile in tall popup sheet
-      openSheet(handleWithoutPrefix)
+      openSheet(handleWithoutPrefix, true) // Pass fromSearch=true
       // Keep search sheet open (don't close it)
     } else {
       // Unauthenticated: navigate to full-page profile view

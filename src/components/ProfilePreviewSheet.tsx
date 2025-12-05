@@ -7,6 +7,7 @@ import ActionSheet from './ActionSheet'
 import Avatar from './Avatar'
 import TopGlassBar from './TopGlassBar'
 import { useProfilePreviewSheet } from '@/store/useProfilePreviewSheet'
+import { useSearchSheet } from '@/store/useSearchSheet'
 import { getProfileByHandle, type StubProfile } from '@/lib/demo/profileData'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { useFinancialInboxStore } from '@/state/financialInbox'
@@ -27,6 +28,8 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
   const { guardAuthed } = useRequireAuth()
   const { openInbox } = useFinancialInboxStore()
   const { open: openPaymentDetails } = usePaymentDetailsSheet()
+  const fromSearch = useProfilePreviewSheet((s) => s.fromSearch)
+  const { close: closeSearch } = useSearchSheet()
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('convert')
@@ -47,11 +50,22 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
     return null
   }
 
+  // Enhanced close handler: dismiss both profile and search if opened from search
+  const handleClose = () => {
+    onClose() // Close profile sheet first
+    if (fromSearch) {
+      // Small delay to ensure profile sheet closes first, then close search
+      setTimeout(() => {
+        closeSearch()
+      }, 100)
+    }
+  }
+
   return (
     <>
       <ActionSheet
         open={open}
-        onClose={onClose}
+        onClose={handleClose}
         title=""
         size="tall"
         className={`${listStyles.financialInboxSheet} inboxTallSheet`}
