@@ -46,7 +46,7 @@ export default function SearchSheet() {
       onClose={close}
       title="Search"
       size="tall"
-      className={listStyles.financialInboxSheet}
+      className={`${listStyles.financialInboxSheet} inboxTallSheet`}
     >
       <div className={listStyles.content}>
         <p className={listStyles.subtitle}>Find cash agents and community members near you.</p>
