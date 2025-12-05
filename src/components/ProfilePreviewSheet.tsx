@@ -56,7 +56,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
         size="tall"
         className={`${listStyles.financialInboxSheet} inboxTallSheet`}
       >
-        <div style={{ 
+        <div className="profile-preview-sheet-container" style={{ 
           position: 'relative',
           width: '100%',
           height: '100%',

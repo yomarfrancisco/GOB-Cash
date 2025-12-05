@@ -288,6 +288,15 @@ body {
   background: transparent; /* make inner wrapper transparent too */
 }
 
+/* ProfilePreviewSheet: make scroll-content transparent so Benjamin image shows through */
+.profile-preview-sheet-container .scroll-content.profile-scroll {
+  background: transparent !important;
+}
+
+.profile-preview-sheet-container .content.profile-content {
+  background: transparent !important;
+}
+
 /* Bottom fade overlay - softly fades content behind bottom glass nav */
 .content-fade-bottom {
   position: fixed;
