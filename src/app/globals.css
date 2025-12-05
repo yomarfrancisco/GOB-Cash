@@ -261,6 +261,22 @@ body {
   );
 }
 
+/* ProfilePreviewSheet: bottom-anchored white overlay - white at bottom, transparent at top */
+.profile-preview-sheet-container .profile-backdrop-fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2; /* below glass/content but above the backdrop image */
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 1)   0%,   /* absolute bottom: pure white */
+    rgba(255, 255, 255, 1)   25%,  /* keep it fully white for the bottom ~25% */
+    rgba(255, 255, 255, 0.8) 35%,  /* start fading above the white "floor" */
+    rgba(255, 255, 255, 0.4) 45%,
+    rgba(255, 255, 255, 0.0) 60%   /* fully transparent by ~60% height */
+  );
+}
+
 /* Own profile view: fade starts earlier for cleaner white space */
 .profile-page .profile-backdrop-fade {
   background: linear-gradient(
@@ -288,16 +304,9 @@ body {
   background: transparent; /* make inner wrapper transparent too */
 }
 
-/* ProfilePreviewSheet: gradient background on scroll-content - transparent at top, white at bottom */
+/* ProfilePreviewSheet: make scroll-content transparent so gradient overlay works */
 .profile-preview-sheet-container .scroll-content.profile-scroll {
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0)   0%,   /* fully transparent at the top - Benjamin image visible */
-    rgba(255, 255, 255, 0)   40%,  /* still transparent through name/handle area */
-    rgba(255, 255, 255, 0.4) 60%,  /* start soft fade around stats area */
-    rgba(255, 255, 255, 0.85) 85%, /* nearly white near bottom of stats card */
-    rgba(255, 255, 255, 1)   100%  /* fully white at bottom for content readability */
-  ) !important;
+  background: transparent !important;
 }
 
 .profile-preview-sheet-container .content.profile-content {
