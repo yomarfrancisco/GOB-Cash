@@ -44,8 +44,6 @@ import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { useSearchSheet } from '@/store/useSearchSheet'
-import { useProfilePreviewSheet } from '@/store/useProfilePreviewSheet'
-import ProfilePreviewSheet from '@/components/ProfilePreviewSheet'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -72,7 +70,6 @@ function HomeWithSearchParams() {
 
 // Main home page content
 function HomeContent() {
-  const { open: profilePreviewOpen, handle: profilePreviewHandle, closeSheet: closeProfilePreview } = useProfilePreviewSheet()
   const [topCardType, setTopCardType] = useState<CardType>('savings')
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const [helperWalletKey, setHelperWalletKey] = useState<CardType | null>(null)
@@ -891,11 +888,6 @@ function HomeContent() {
       )}
       <FinancialInboxSheet />
       <NotificationsSheet />
-      <ProfilePreviewSheet
-        open={profilePreviewOpen}
-        handle={profilePreviewHandle}
-        onClose={closeProfilePreview}
-      />
     </div>
   )
 }
