@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Bookmark, Lock } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import Avatar from './Avatar'
+import TopGlassBar from './TopGlassBar'
 import { useProfilePreviewSheet } from '@/store/useProfilePreviewSheet'
 import { getProfileByHandle, type StubProfile } from '@/lib/demo/profileData'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
@@ -62,20 +63,21 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
           overflow: 'hidden',
           background: '#000',
         }}>
-          {/* Profile backdrop */}
-          <div className="profile-backdrop" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+          {/* Profile backdrop - matches globals.css structure */}
+          <div className="profile-backdrop">
             <img
               src="/assets/benjamin_grey.png"
               alt=""
               className="profile-backdrop-image"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
             <div className="profile-backdrop-fade" />
           </div>
 
-          {/* Glass overlay with avatar and handle */}
-          <div className="overlay-glass" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '200px', zIndex: 1 }}>
+          {/* Glass overlay with avatar and handle - matches profile page structure */}
+          <div className="overlay-glass" style={{ top: '92px' }}>
             <div className="overlay-glass-inner">
+              <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" hideIcons={true} />
+              
               {/* Avatar + handle in top glass */}
               <div className="profile-other-avatar-container">
                 <Avatar
@@ -104,8 +106,41 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
             </div>
           </div>
 
-          {/* Share icon */}
-          <div className="profile-other-icons" style={{ position: 'absolute', top: '48px', right: '24px', zIndex: 2 }}>
+          {/* GOB logo and icons - matches profile page structure */}
+          <div className="profile-other-icons">
+            {/* Close button on the left (replaces GOB logo for sheet context) */}
+            <div className="profile-other-logo">
+              <button
+                type="button"
+                onClick={onClose}
+                className="profile-back-button"
+                aria-label="Close"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M18 6L6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {/* Icons on the right */}
             <div className="profile-other-icon-group">
               <button
                 onClick={() => {
@@ -127,14 +162,8 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
             </div>
           </div>
 
-          {/* Scrollable content */}
-          <div className="scroll-content profile-scroll profile-other-scroll" style={{ 
-            position: 'relative',
-            zIndex: 1,
-            marginTop: '200px',
-            height: 'calc(100% - 200px)',
-            overflowY: 'auto',
-          }}>
+          {/* Scrollable content - matches profile page structure */}
+          <div className="scroll-content profile-scroll profile-other-scroll">
             <div className="content profile-content">
               {/* Stats + network pill */}
               <div className="profile-stats-card">
