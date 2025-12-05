@@ -40,7 +40,6 @@ import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import CardDepositAccountSheet from '@/components/CardDepositAccountSheet'
 import { openAmaChatWithCardDepositScenario, openAmaChatWithAgentInduction } from '@/lib/cashDeposit/chatOrchestration'
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
-import { ChevronRight } from 'lucide-react'
 import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
 
 // Toggle flag to compare both scanner implementations
@@ -268,7 +267,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
                     <span>Productivity</span>
-                    <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
+                    <div className="help-icon" style={{ width: '16px', height: '16px', fontSize: '11px', borderWidth: '1.5px' }}>?</div>
                   </div>
                 </div>
               </div>

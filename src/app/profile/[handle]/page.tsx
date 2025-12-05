@@ -239,7 +239,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                   </div>
                   <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
                     <span>Productivity</span>
-                    <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
+                    <div className="help-icon" style={{ width: '16px', height: '16px', fontSize: '11px', borderWidth: '1.5px' }}>?</div>
                   </div>
                 </div>
               </div>
