@@ -1015,6 +1015,12 @@ body {
   padding-top: 8px;
 }
 
+/* ProfilePreviewSheet: adjust social icons spacing to center between stats and button */
+.profile-preview-sheet-container .profile-social {
+  margin-top: 8px; /* Reduced from 12px to move up */
+  margin-bottom: 8px; /* Add bottom margin to center between stats and Pay/Request */
+}
+
 .profile-actions {
   width: 382px;
   margin: 12px auto 0;
@@ -1327,6 +1333,27 @@ body {
   align-items: center;
   justify-content: center;
   gap: 16px;
+  pointer-events: auto;
+}
+
+/* ProfilePreviewSheet: left-aligned icon group (back chevron + share) */
+.profile-preview-icons-left {
+  position: absolute; /* Changed from fixed to absolute within sheet */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 160px;
+  z-index: 5; /* Below ActionSheet close button (z:10) but above glass (z:50) */
+  pointer-events: none;
+}
+
+.profile-preview-icons-group {
+  position: absolute;
+  top: 38px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   pointer-events: auto;
 }
 

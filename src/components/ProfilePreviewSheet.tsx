@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import { Bookmark, Lock } from 'lucide-react'
+import { Bookmark, Lock, ChevronLeft } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import Avatar from './Avatar'
 import TopGlassBar from './TopGlassBar'
@@ -108,15 +108,14 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
             </div>
           </div>
 
-          {/* GOB logo and icons - matches profile page structure */}
-          <div className="profile-other-icons">
-            {/* Close button on the left (replaces GOB logo for sheet context) */}
-            <div className="profile-other-logo">
+          {/* Back chevron and share icons - left-aligned group */}
+          <div className="profile-other-icons profile-preview-icons-left">
+            <div className="profile-preview-icons-group">
               <button
                 type="button"
                 onClick={onClose}
                 className="profile-back-button"
-                aria-label="Close"
+                aria-label="Back"
                 style={{
                   background: 'transparent',
                   border: 'none',
@@ -127,23 +126,8 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                   justifyContent: 'center',
                 }}
               >
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M18 6L6 18" />
-                  <path d="M6 6l12 12" />
-                </svg>
+                <ChevronLeft size={24} strokeWidth={2} color="white" />
               </button>
-            </div>
-            {/* Icons on the right */}
-            <div className="profile-other-icon-group">
               <button
                 onClick={() => {
                   useShareProfileSheet.getState().open({
