@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import { Bookmark, Lock, ChevronLeft, Share } from 'lucide-react'
+import { Bookmark, Lock, ChevronLeft, Share, ChevronRight } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import Avatar from './Avatar'
 import TopGlassBar from './TopGlassBar'
@@ -214,7 +214,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                   </div>
                   <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
                     <span>Productivity</span>
-                    <div className="help-icon" style={{ width: '16px', height: '16px', fontSize: '11px', borderWidth: '1.5px' }}>?</div>
+                    <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
                   </div>
                 </div>
               </div>
