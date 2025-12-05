@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useSearchSheet } from '@/store/useSearchSheet'
@@ -33,11 +34,17 @@ const DEFAULT_CONTACTS: SearchContact[] = [
 export default function SearchSheet() {
   const { isOpen, close } = useSearchSheet()
   const [searchQuery, setSearchQuery] = useState('')
+  const router = useRouter()
 
   const handleContactClick = (contact: SearchContact) => {
-    // UI-only for now - no navigation or payment logic
-    console.log('Contact clicked:', contact.handle)
-    // TODO: Wire up to payment/chat flow if needed
+    // For $ama, navigate to profile and close search modal
+    if (contact.id === 'ama') {
+      close() // Close the search modal first
+      router.push('/profile/ama') // Navigate to Ama's profile (handle without $ prefix)
+    } else {
+      // Other contacts remain non-clickable for now
+      console.log('Contact clicked:', contact.handle)
+    }
   }
 
   return (
