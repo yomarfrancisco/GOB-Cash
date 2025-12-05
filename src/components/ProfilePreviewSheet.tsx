@@ -210,7 +210,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                       style={{ width: `${profile.socialCredit || 0}%` }}
                     />
                   </div>
-                  <div className="network-label">Agent credit</div>
+                  <div className="network-label">Productivity</div>
                 </div>
               </div>
 

@@ -235,7 +235,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                       style={{ width: `${profile.socialCredit || 0}%` }}
                     />
                   </div>
-                  <div className="network-label">Agent credit</div>
+                  <div className="network-label">Productivity</div>
                 </div>
               </div>
 
