@@ -109,7 +109,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
           </div>
 
           {/* Back chevron and share icons - left-aligned group */}
-          <div className="profile-other-icons profile-preview-icons-left">
+          <div className="profile-preview-icons-left">
             <div className="profile-preview-icons-group">
               <button
                 type="button"
