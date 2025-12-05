@@ -1017,8 +1017,8 @@ body {
 
 /* ProfilePreviewSheet: adjust social icons spacing to center between stats and button */
 .profile-preview-sheet-container .profile-social {
-  margin-top: 8px; /* Reduced from 12px to move up */
-  margin-bottom: 8px; /* Add bottom margin to center between stats and Pay/Request */
+  margin-top: 12px; /* Increased from 8px for more space from stats */
+  margin-bottom: 12px; /* Increased from 8px for more space to Pay/Request button */
 }
 
 .profile-actions {
@@ -1343,7 +1343,7 @@ body {
   left: 0;
   width: 100%;
   height: 160px;
-  z-index: 5; /* Below ActionSheet close button (z:10) but above glass (z:50) */
+  z-index: 60; /* Above glass (z:50) and content (z:2), below global sheet close (z:80) */
   pointer-events: none;
 }
 
@@ -1355,6 +1355,26 @@ body {
   align-items: center;
   gap: 12px;
   pointer-events: auto;
+}
+
+/* ProfilePreviewSheet icon buttons - white icons visible on glass */
+.profile-preview-icon-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.profile-preview-icon-btn:hover {
+  opacity: 0.7;
+}
+
+.profile-preview-icon-btn:active {
+  opacity: 0.5;
 }
 
 .profile-other-icon-button {

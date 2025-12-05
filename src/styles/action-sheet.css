@@ -271,7 +271,7 @@
   position: absolute;
   top: 16px;
   right: 16px;
-  z-index: 10;
+  z-index: 80; /* Above profile preview icons (z:60) and glass (z:50) */
   background: rgba(255, 255, 255, 0.9);
   border: none;
   border-radius: 50%;
