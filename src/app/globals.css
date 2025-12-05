@@ -304,12 +304,33 @@ body {
   background: transparent; /* make inner wrapper transparent too */
 }
 
-/* ProfilePreviewSheet: make scroll-content transparent so gradient overlay works */
-.profile-preview-sheet-container .scroll-content.profile-scroll {
+/* ProfilePreviewSheet: make scroll-content transparent and position for gradient overlay */
+.profile-preview-sheet-container .scroll-content.profile-scroll.profile-other-scroll {
+  position: relative;
+  overflow-y: auto;
   background: transparent !important;
 }
 
-.profile-preview-sheet-container .content.profile-content {
+/* Gradient overlay BEHIND content */
+.profile-preview-sheet-container .profile-preview-gradient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 1)   0%,   /* absolute bottom: pure white */
+    rgba(255, 255, 255, 1)   25%,  /* keep it fully white for the bottom ~25% */
+    rgba(255, 255, 255, 0.8) 35%,  /* start fading above the white "floor" */
+    rgba(255, 255, 255, 0.4) 45%,
+    rgba(255, 255, 255, 0.0) 60%   /* fully transparent by ~60% height */
+  );
+}
+
+/* Content ABOVE the gradient */
+.profile-preview-sheet-container .scroll-inner.profile-content {
+  position: relative;
+  z-index: 1;
   background: transparent !important;
 }
 

@@ -173,8 +173,22 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
           </div>
 
           {/* Scrollable content - matches profile page structure */}
-          <div className="scroll-content profile-scroll profile-other-scroll">
-            <div className="content profile-content">
+          <div 
+            className="scroll-content profile-scroll profile-other-scroll"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              overflowY: 'auto',
+            }}
+          >
+            {/* Gradient overlay BEHIND content */}
+            <div className="profile-preview-gradient" />
+            
+            {/* Content ABOVE gradient */}
+            <div className="scroll-inner content profile-content">
               {/* Stats + network pill */}
               <div className="profile-stats-card">
                 <div className="stats-row">
