@@ -6,6 +6,7 @@ import clsx from 'clsx'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
 import { useFinancialInboxStore } from '@/state/financialInbox'
+import { useSearchSheet } from '@/store/useSearchSheet'
 import '@/styles/bottom-glass.css'
 
 interface BottomGlassBarProps {
@@ -20,6 +21,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const { isAuthed, requireAuth } = useAuthStore()
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const { hasUnreadNotification } = useFinancialInboxStore()
+  const { open: openSearch } = useSearchSheet()
   
   const handleCenterButtonClick = () => {
     // NOTE: Dollar FAB now opens the amount sheet directly (via onDollarClick callback)
@@ -127,6 +129,33 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 <span className="nav-notification-dot" aria-label="Unread messages" />
               )}
             </Link>
+          </div>
+          {/* Search icon - far right */}
+          <div className="nav-item">
+            <button
+              onClick={openSearch}
+              aria-label="Search"
+              type="button"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+            >
+              <Image 
+                src="/assets/nav/search.svg" 
+                alt="Search" 
+                className="nav-icon nav-icon-dim" 
+                width={28} 
+                height={28} 
+              />
+              <div className="nav-label">Search</div>
+            </button>
           </div>
         </div>
       </div>

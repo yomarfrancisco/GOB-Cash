@@ -29,6 +29,7 @@ import AuthModal from '@/components/AuthModal'
 import AuthEntrySheet from '@/components/AuthEntrySheet'
 import PhoneSignupSheet from '@/components/PhoneSignupSheet'
 import PaymentDetailsSheetWrapper from '@/components/PaymentDetailsSheetWrapper'
+import SearchSheet from '@/components/SearchSheet'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -120,6 +121,8 @@ export default function RootLayout({
               <PhoneSignupSheet />
               {/* Global Payment Details Sheet */}
               <PaymentDetailsSheetWrapper />
+              {/* Global Search Sheet */}
+              <SearchSheet />
             </WalletAllocProvider>
           </WalletModeProvider>
         </SplashOnceProvider>
