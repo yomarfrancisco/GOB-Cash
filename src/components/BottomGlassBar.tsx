@@ -133,7 +133,16 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           {/* Search icon - far right (icon only, no label) */}
           <div className="nav-item">
             <button
-              onClick={openSearch}
+              onClick={() => {
+                if (!isAuthed) {
+                  requireAuth(() => {
+                    // After auth, user can open search
+                    openSearch()
+                  })
+                } else {
+                  openSearch()
+                }
+              }}
               aria-label="Search"
               type="button"
               style={{
