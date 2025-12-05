@@ -67,11 +67,13 @@ The helper sheet uses the `ActionSheet` component as its base container.
 - **Top:** `16px`
 - **Right:** `16px`
 - **Size:** `32px × 32px`
-- **Border Radius:** `50%` (circular)
-- **Background:** `rgba(0, 0, 0, 0.05)`
-- **Display:** `flex`, `align-items: center`, `justify-content: center`
+- **Border Radius:** `27px` (slightly rounded, not fully circular)
+- **Background:** `#E9E9EB` (light gray)
+- **Display:** `grid`, `place-items: center`
+- **Border:** `0`
 - **Cursor:** `pointer`
-- **Transition:** `background 200ms ease`
+- **Padding:** `0`
+- **Transition:** `background 300ms ease`
 - **Hover Background:** `#D1D1D6`
 - **Active Background:** `#C7C7CC`
 
@@ -323,7 +325,7 @@ All tiles share a base structure with consistent styling.
 - **Tile Background:** `#f2f2f7`
 - **APY Pill Background:** `rgba(0, 0, 0, 0.75)`
 - **Overlay Background:** `rgba(0, 0, 0, 0.35)`
-- **Close Button Background:** `rgba(0, 0, 0, 0.05)`
+- **Close Button Background:** `#E9E9EB`
 - **Close Button Hover:** `#D1D1D6`
 - **Close Button Active:** `#C7C7CC`
 
@@ -386,7 +388,7 @@ All tiles share a base structure with consistent styling.
 - **Tiles:** `24px` (all corners)
 - **Card Preview:** `17px` (all corners)
 - **APY Pill:** `20px` (pill-shaped)
-- **Close Button:** `50%` (circular)
+- **Close Button:** `27px` (slightly rounded, not fully circular)
 
 ---
 
@@ -468,7 +470,7 @@ All tiles share a base structure with consistent styling.
 ## 18. Interaction States
 
 **Close Button:**
-- Default: `rgba(0, 0, 0, 0.05)` background
+- Default: `#E9E9EB` background
 - Hover: `#D1D1D6` background
 - Active: `#C7C7CC` background
 - Cursor: `pointer`
