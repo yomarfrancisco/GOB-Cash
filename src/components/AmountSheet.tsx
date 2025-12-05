@@ -202,7 +202,7 @@ export default function AmountSheet({
     : mode === 'withdraw' 
     ? 'Withdraw' 
     : mode === 'convert'
-    ? (isHelicopterConvert ? 'Cash Transactions' : entryPoint === 'cashButton' ? 'Pay or request' : entryPoint === 'sponsorButton' ? (sponsorHandle ? `Sponsor ${sponsorHandle}` : 'Sponsor') : 'Convert to crypto')
+    ? (isHelicopterConvert ? 'Cash Transactions' : entryPoint === 'cashButton' ? 'Pay or request' : entryPoint === 'sponsorButton' ? (sponsorHandle ? `Invest ${sponsorHandle}` : 'Invest') : 'Convert to crypto')
     : 'Send'
   const defaultCtaLabel = mode === 'depositCard' 
     ? 'Deposit' 

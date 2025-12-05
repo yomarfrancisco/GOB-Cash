@@ -243,12 +243,12 @@ export default function ProfileHandlePage() {
                   )}
                   <div className="stat">
                     <div className="stat-value">{profile.sponsors?.toLocaleString() || '0'}</div>
-                    <div className="stat-sub">Sponsors</div>
+                    <div className="stat-sub">Investors</div>
                   </div>
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">{profile.sponsoring?.toLocaleString() || '0'}</div>
-                    <div className="stat-sub">Sponsoring</div>
+                    <div className="stat-sub">Investing</div>
                   </div>
                 </div>
                 <div className="network-pill">
@@ -392,7 +392,7 @@ export default function ProfileHandlePage() {
                     >
                       <div className="lButton5">
                         <span className="text">
-                          <span className="lBold">Sponsor</span>
+                          <span className="lBold">Invest</span>
                         </span>
                       </div>
                     </button>

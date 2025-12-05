@@ -174,14 +174,14 @@ export default function ProfileOther({ profile }: ProfileOtherProps) {
               <div className={styles.statValue}>
                 {profile.sponsors?.toLocaleString() || '0'}
               </div>
-              <div className={styles.statSub}>Sponsors</div>
+              <div className={styles.statSub}>Investors</div>
             </div>
             <div className={styles.statDivider} />
             <div className={styles.stat}>
               <div className={styles.statValue}>
                 {profile.sponsoring?.toLocaleString() || '0'}
               </div>
-              <div className={styles.statSub}>Sponsoring</div>
+              <div className={styles.statSub}>Investing</div>
             </div>
           </div>
           <div className={styles.networkPill}>
@@ -264,7 +264,7 @@ export default function ProfileOther({ profile }: ProfileOtherProps) {
             className={styles.sponsorButton}
             type="button"
           >
-            Sponsor
+            Invest
           </button>
 
           {/* Secondary buttons row */}
