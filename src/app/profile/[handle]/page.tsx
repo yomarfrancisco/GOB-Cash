@@ -181,18 +181,52 @@ export default function ProfileHandlePage() {
 
           {/* GOB logo and icons positioned at original location with white color for third-party profiles */}
           <div className="profile-other-icons">
-            {/* GOB logo on the left - link to home page */}
+            {/* GOB logo or back arrow on the left */}
             <div className="profile-other-logo">
-              <Link href="https://gobankless.app" target="_blank" rel="noopener noreferrer">
-                <Image
-                  src="/assets/GOBlogo-white.png"
-                  alt="GoBankless"
-                  width={51.3}
-                  height={32}
-                  priority
-                  unoptimized
-                />
-              </Link>
+              {isAuthed && fromSearch ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.push('/?searchOpen=1')
+                  }}
+                  className="profile-back-button"
+                  aria-label="Back to search"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m12 19-7-7 7-7" />
+                    <path d="M19 12H5" />
+                  </svg>
+                </button>
+              ) : (
+                <Link href="https://gobankless.app" target="_blank" rel="noopener noreferrer">
+                  <Image
+                    src="/assets/GOBlogo-white.png"
+                    alt="GoBankless"
+                    width={51.3}
+                    height={32}
+                    priority
+                    unoptimized
+                  />
+                </Link>
+              )}
             </div>
             {/* Icons on the right */}
             <div className="profile-other-icon-group">
