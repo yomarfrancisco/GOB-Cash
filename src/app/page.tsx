@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import CardStack, { type CardStackHandle, type CardType } from '@/components/CardStack'
 import TopGlassBar from '@/components/TopGlassBar'
@@ -43,12 +43,33 @@ import { useUserProfileStore } from '@/store/userProfile'
 import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
+import { useSearchSheet } from '@/store/useSearchSheet'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
-export default function Home() {
+// Inner component that uses search params (must be wrapped in Suspense)
+function HomeWithSearchParams() {
   const searchParams = useSearchParams()
+  const { open: openSearch } = useSearchSheet()
+
+  // Auto-open search sheet when searchOpen=1 query param is present
+  useEffect(() => {
+    const shouldOpenSearch = searchParams?.get('searchOpen') === '1'
+    if (shouldOpenSearch) {
+      openSearch()
+      // Clear the query param from URL without reload
+      const url = new URL(window.location.href)
+      url.searchParams.delete('searchOpen')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams, openSearch])
+
+  return <HomeContent />
+}
+
+// Main home page content
+function HomeContent() {
   const [topCardType, setTopCardType] = useState<CardType>('savings')
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const [helperWalletKey, setHelperWalletKey] = useState<CardType | null>(null)
@@ -89,18 +110,6 @@ export default function Home() {
       }
     }
   }, [])
-
-  // Auto-open search sheet when searchOpen=1 query param is present
-  useEffect(() => {
-    const shouldOpenSearch = searchParams?.get('searchOpen') === '1'
-    if (shouldOpenSearch) {
-      openSearch()
-      // Clear the query param from URL without reload
-      const url = new URL(window.location.href)
-      url.searchParams.delete('searchOpen')
-      window.history.replaceState({}, '', url.toString())
-    }
-  }, [searchParams, openSearch])
 
   const [openWithdraw, setOpenWithdraw] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
@@ -878,7 +887,16 @@ export default function Home() {
         />
       )}
       <FinancialInboxSheet />
-      <NotificationsSheet />
+      <NotificationsSheet       />
     </div>
+  )
+}
+
+// Default export wraps in Suspense for useSearchParams
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeWithSearchParams />
+    </Suspense>
   )
 }
