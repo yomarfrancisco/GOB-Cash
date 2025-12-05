@@ -288,9 +288,16 @@ body {
   background: transparent; /* make inner wrapper transparent too */
 }
 
-/* ProfilePreviewSheet: make scroll-content transparent so Benjamin image shows through */
+/* ProfilePreviewSheet: gradient background on scroll-content - transparent at top, white at bottom */
 .profile-preview-sheet-container .scroll-content.profile-scroll {
-  background: transparent !important;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0)   0%,   /* fully transparent at the top - Benjamin image visible */
+    rgba(255, 255, 255, 0)   40%,  /* still transparent through name/handle area */
+    rgba(255, 255, 255, 0.4) 60%,  /* start soft fade around stats area */
+    rgba(255, 255, 255, 0.85) 85%, /* nearly white near bottom of stats card */
+    rgba(255, 255, 255, 1)   100%  /* fully white at bottom for content readability */
+  ) !important;
 }
 
 .profile-preview-sheet-container .content.profile-content {
