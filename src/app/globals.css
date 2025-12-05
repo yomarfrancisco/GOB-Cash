@@ -789,6 +789,10 @@ body {
   opacity: 0.4;
 }
 
+.nav-icon-search-active {
+  opacity: 0.7; /* Subtle darkened state when search modal is open */
+}
+
 /* PROFILE */
 .profile-header {
   margin-top: 84px; /* Increased from 64px to 84px (64px + 20px) to move everything below glass down further */

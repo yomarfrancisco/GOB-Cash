@@ -21,7 +21,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const { isAuthed, requireAuth } = useAuthStore()
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const { hasUnreadNotification } = useFinancialInboxStore()
-  const { open: openSearch } = useSearchSheet()
+  const { open: openSearch, isOpen: isSearchOpen } = useSearchSheet()
   
   const handleCenterButtonClick = () => {
     // NOTE: Dollar FAB now opens the amount sheet directly (via onDollarClick callback)
@@ -48,7 +48,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           <div className="nav-item">
             <Link href="/" aria-label="Home">
               <Image 
-                src="/assets/nav/home.svg" 
+                src={isHome ? "/assets/nav/home.svg" : "/assets/nav/home_outlined.svg"}
                 alt="Home" 
                 className={`nav-icon ${isHome ? 'nav-icon-active' : 'nav-icon-dim'}`} 
                 width={28} 
@@ -118,7 +118,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               }}
             >
               <Image 
-                src="/assets/nav/user-outlined.svg" 
+                src={isProfile ? "/assets/nav/user_filled.svg" : "/assets/nav/user-outlined.svg"}
                 alt="Profile" 
                 className={`nav-icon ${isProfile ? 'nav-icon-active' : 'nav-icon-dim'}`} 
                 width={28} 
@@ -155,7 +155,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               <Image 
                 src="/assets/nav/search.svg" 
                 alt="Search" 
-                className="nav-icon nav-icon-dim" 
+                className={`nav-icon ${isSearchOpen ? 'nav-icon-search-active' : 'nav-icon-dim'}`} 
                 width={28} 
                 height={28} 
               />
