@@ -71,17 +71,6 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
               className="profile-backdrop-image"
             />
           </div>
-          
-          {/* Bottom-anchored white fade overlay - white at bottom, transparent at top */}
-          <div 
-            className="profile-backdrop-fade"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              pointerEvents: 'none',
-              zIndex: 2, // below glass/content but above the backdrop image
-            }}
-          />
 
           {/* Glass overlay with avatar and handle - matches profile page structure */}
           <div className="overlay-glass" style={{ top: '92px' }}>
