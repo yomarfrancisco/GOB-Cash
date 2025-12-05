@@ -24,7 +24,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose }: Productivit
             <Image
               src="/assets/stopwatch.png"
               alt="Stopwatch"
-              width={85}
+              width={204}
               height={85}
               className={styles.productivityImage}
               unoptimized
