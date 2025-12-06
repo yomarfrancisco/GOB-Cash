@@ -40,18 +40,21 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
   }
 
   return (
-    <ActionSheet open={isOpen} onClose={onClose} title="Productivity Score" size="tall">
+    <ActionSheet open={isOpen} onClose={onClose} title="" size="tall">
       <div className={styles.bodyRoot}>
-        {/* Back button for pages 2-4 - positioned in header area */}
-        {page > 1 && (
-          <button
-            type="button"
-            className={styles.backButton}
-            onClick={handlePrevPage}
-          >
-            <ChevronLeft size={20} />
-          </button>
-        )}
+        {/* Header row with back button and title */}
+        <div className={styles.headerRow}>
+          {page > 1 && (
+            <button
+              type="button"
+              className={styles.backButton}
+              onClick={handlePrevPage}
+            >
+              <ChevronLeft size={20} />
+            </button>
+          )}
+          <h2 className={styles.title}>Productivity Score</h2>
+        </div>
         
         <div className={styles.content}>
 
@@ -285,9 +288,8 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
             </div>
           </>
         )}
-        </div>
 
-        {/* Pagination Footer - Fixed at bottom */}
+        {/* Pagination Footer - Fixed at bottom with gradient fade */}
         <div className={styles.pageFooter}>
           <div className={styles.pageParent}>
             <div className={styles.pageLabel}>
@@ -305,6 +307,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
               </button>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </ActionSheet>
