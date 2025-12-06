@@ -6,6 +6,7 @@ import { ChevronRight } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import styles from './WalletHelperSheet.module.css'
 import { type CardType } from './CardStack'
+import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 
 // Unify WalletKey with CardType - every card corresponds to a wallet key
 export type WalletKey = CardType
@@ -105,25 +106,24 @@ const HELPER_COPY: Record<WalletKey, HelperCopy> = {
     ],
   },
   yieldSurprise: {
-    description: 'A wallet where all your shift earnings, bonuses and referral rewards are collected and compounding for you.',
-    apyHeading: 'Turn your earnings into long-term savings',
-    apySubtext: 'Income that lands here keeps growing until you move it.',
+    description: 'Your Earnings wallet is where Gobankless deposits the fees you earn from helping customers move cash to and from crypto.',
+    apyHeading: 'Turn your shifts into 25% annual yield',
+    apySubtext: 'Compounded as your agent earnings grow',
     tiles: [
       { title: 'APY_CARD' },
       {
-        title: 'Automatic',
-        line1: 'Income flows in',
-        line2: 'Every shift, bonus or referral tops up this wallet.',
+        title: 'Anytime',
+        line1: 'Access to your earnings',
+        line2: 'Withdraw to cash or crypto anytime at no additional cost',
       },
       {
-        title: 'Flexible',
-        line1: 'Move earnings anytime',
-        line2: 'Swap into ZAR, MZN or crypto with no extra Gobankless fee.',
+        title: '0%',
+        line1: 'Account fees on earnings',
       },
       {
-        title: 'Separate',
-        line1: 'Keep savings separate',
-        line2: 'Use other wallets for spending while this one grows.',
+        title: 'Zero',
+        line1: 'Fees on Gobankless payouts',
+        line2: 'Keep 100% of what you earn from your shifts',
       },
     ],
   },
@@ -252,17 +252,23 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
   // Get copy for current wallet
   const walletCopy = HELPER_COPY[currentWalletKey] || HELPER_COPY.savings // Fallback to savings if not found
   
-  // APY percentage - keep existing logic for now (can be moved to copy map later if needed)
-  const isZARWallet = currentWalletKey === 'savings'
-  const isETHWallet = currentWalletKey === 'yield'
-  const isEarningsWallet = currentWalletKey === 'yieldSurprise'
-  const apyPercentage = isZARWallet 
-    ? '18.0%' 
-    : isETHWallet 
-    ? '22.0%' 
-    : isEarningsWallet 
-    ? '25.0%' 
-    : '9.38%'
+  // Get APY from card definitions (single source of truth)
+  // Earnings wallet (yieldSurprise) uses ZAR wallet's APY as special case
+  const getApyForWallet = (walletKey: WalletKey): number => {
+    if (walletKey === 'yieldSurprise') {
+      // Earnings wallet always uses ZAR wallet's APY
+      const zarCard = getCardDefinition('savings')
+      return zarCard.annualYieldBps ? zarCard.annualYieldBps / 100 : 9.38
+    }
+    
+    // For other wallets, use their own APY from card definitions
+    // Note: walletKey from CardStack may include 'yieldSurprise', but cardDefinitions only has: 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc'
+    const cardDef = getCardDefinition(walletKey as 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc')
+    return cardDef.annualYieldBps ? cardDef.annualYieldBps / 100 : 9.38
+  }
+  
+  const apyValue = getApyForWallet(currentWalletKey)
+  const apyPercentage = `${apyValue.toFixed(1)}%`
 
   return (
     <ActionSheet open={!!walletKey} onClose={onClose} title={title} size="tall">
