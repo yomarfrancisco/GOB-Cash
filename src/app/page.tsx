@@ -524,7 +524,7 @@ function HomeContent() {
   // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
   const cardDef = getCardDefinition(topCardType === 'yieldSurprise' ? 'yield' : topCardType)
   // Title - conditional based on auth status
-  const title = isAuthed ? `Smart wallet` : `Pay anyone anywhere`
+  const title = isAuthed ? `Global cash wallet` : `Pay anyone anywhere`
   
   // Subtitle text - conditional based on auth status
   const totalBalanceZAR = isAuthed ? (alloc.totalCents / 100) : 0
