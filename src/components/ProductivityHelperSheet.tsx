@@ -50,7 +50,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
               className={styles.backButton}
               onClick={handlePrevPage}
             >
-              <ChevronLeft size={20} />
+              <ChevronLeft size={20} strokeWidth={2} color="#0a0a0a" />
             </button>
           )}
           <h2 className={styles.title}>Productivity Score</h2>
