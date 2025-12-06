@@ -271,7 +271,7 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
   const apyPercentage = `${apyValue.toFixed(1)}%`
 
   return (
-    <ActionSheet open={!!walletKey} onClose={onClose} title={title} size="tall">
+    <ActionSheet open={!!walletKey} onClose={onClose} title={title} size="tall" className="wallet-helper-sheet">
       <div className={styles.content}>
         <div className={styles.tiles}>
           {/* Descriptive paragraph */}

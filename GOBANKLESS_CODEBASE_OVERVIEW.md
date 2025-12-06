@@ -685,5 +685,172 @@
 
 ---
 
+---
+
+## Phase 1 – Implementation Log
+
+### Task 1: Remove Duplicate " 2" Files ✅
+
+**Removed Files** (15 total):
+- `src/data/demoInitialAvatars 2.ts`
+- `src/components/Inbox/ChatInputBar 2.tsx`
+- `src/components/Inbox/ChatInputBar.module 2.css`
+- `src/lib/demo/autoAmaIntro 2.ts`
+- `src/lib/demo/demoConfig 2.ts`
+- `src/lib/demo/keyCityAvatars 2.ts`
+- `src/lib/imageResize 2.ts`
+- `src/store/useSupportSheet 2.ts`
+- `src/store/useProfileDescriptionSheet 2.ts`
+- `src/store/userProfile 2.ts`
+- `src/store/useSocialLinksSheet 2.ts`
+- `src/store/useNameHandleSheet 2.ts`
+- `src/store/useAvatarEditSheet 2.ts`
+- `src/store/useProfileEditSheet 2.ts`
+- `src/store/useTransactSheet 2.ts`
+
+**Verification**: 
+- No imports found pointing to " 2" files
+- All imports use canonical (non-" 2") versions
+- Build passes successfully
+
+**Result**: All duplicate files removed, no broken imports
+
+---
+
+### Task 2: Fix ActionSheet Scrolling Regressions ✅
+
+**Sheets Fixed**:
+1. **WalletHelperSheet** - Added `className="wallet-helper-sheet"` and CSS override
+2. **MapHelperSheet** - Added `className="map-helper-sheet"` and CSS override
+3. **ProductivityHelperSheet** - Added `className="productivity-helper-sheet"` and CSS override
+4. **Compact Sheets** - Added default scrolling for all `.as-sheet-compact .as-body`
+
+**CSS Changes** (`src/styles/action-sheet.css`):
+```css
+/* Helper Sheets - enable scrolling */
+.as-sheet.wallet-helper-sheet .as-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.as-sheet.map-helper-sheet .as-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.as-sheet.productivity-helper-sheet .as-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Compact sheets - enable scrolling by default */
+.as-sheet-compact .as-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+```
+
+**Component Changes**:
+- `WalletHelperSheet.tsx`: Added `className="wallet-helper-sheet"` to ActionSheet
+- `MapHelperSheet.tsx`: Added `className="map-helper-sheet"` to ActionSheet
+- `ProductivityHelperSheet.tsx`: Added `className="productivity-helper-sheet"` to ActionSheet
+
+**Result**: All helper sheets and compact sheets now scroll properly on mobile Safari
+
+---
+
+### Task 3: Remove or Gate Debug Map Route ✅
+
+**Action**: Gated `/debug/map` route behind environment variable
+
+**Implementation**:
+- Added check for `NEXT_PUBLIC_ENABLE_DEBUG_MAP === 'true'`
+- If not enabled, route shows 404-like message
+- Default: disabled (route not accessible)
+
+**File Changes**:
+- `src/app/debug/map/page.tsx`: Added environment check with early return (after hooks)
+
+**Result**: Debug route is now gated and not accessible in production by default
+
+---
+
+### Task 4: Normalize File Naming ✅
+
+**Status**: No files with spaces or problematic naming found in source code after removing duplicates.
+
+**Note**: Public assets and scripts may have " 2" suffixes, but these are outside the scope of Phase 1 (source code cleanup).
+
+**Result**: Source code filenames are clean and consistent
+
+---
+
+### Task 5: Clean Up Root Documentation ✅
+
+**Files Moved to `/docs/`**:
+- `ANIMATION_FREQUENCY_CHANGES.md`
+- `AUTH_MODAL_SPECIFICATION.md`
+- `AVATAR_CASING_POSITIONING_GUIDE.md`
+- `DIAGNOSTIC_REPORT.md`
+- `IMPLEMENTATION_SUMMARY.md`
+- `JITTER_DIAGNOSIS.md`
+- `POPUP_MAP_FLICKER_DIAGNOSIS.md`
+- `SEND_DETAILS_HEIGHT_DIAGNOSIS.md`
+- `WALLET_HELPER_SHEET_DESIGN_SPEC.md`
+
+**Files Kept in Root**:
+- `README.md` - Main project documentation
+- `GOBANKLESS_CODEBASE_OVERVIEW.md` - Codebase overview (this file)
+
+**Result**: Root directory is cleaner, all documentation organized in `/docs/`
+
+---
+
+## Phase 1 – Summary
+
+### What Changed ✅
+
+1. **Removed 15 duplicate " 2" files** - All unused backup files deleted
+2. **Fixed scrolling for helper sheets** - Wallet, Map, and Productivity helpers now scroll correctly
+3. **Fixed scrolling for compact sheets** - All compact ActionSheets now scroll by default
+4. **Gated debug route** - `/debug/map` now requires `NEXT_PUBLIC_ENABLE_DEBUG_MAP=true`
+5. **Organized documentation** - Moved 9 markdown files from root to `/docs/`
+
+### What Didn't Change ✅
+
+- **No state architecture changes** - Zustand and Context remain as-is
+- **No visual redesign** - All UI looks and behaves identically
+- **No component refactoring** - No base components or pattern unification
+- **No demo/production separation** - Demo code remains mixed
+- **No styling approach changes** - CSS Modules and global CSS remain as-is
+
+### Validation ✅
+
+- ✅ `pnpm build` - Passes successfully
+- ✅ `pnpm lint` - Passes (only pre-existing warnings, no new errors)
+- ✅ `npx tsc --noEmit` - Passes (no type errors)
+
+### Follow-ups for Phase 2
+
+1. **Unify Helper Sheet Pattern** - Extract base component for Wallet/Map/Productivity helpers
+2. **Unify Edit Sheet Pattern** - Extract base component for all edit sheets
+3. **Consolidate Sheet State Stores** - Create unified `useSheetStore` with sheet IDs
+4. **Organize Components by Feature** - Move components into feature folders
+5. **Extract Profile Components** - Unify ProfileDark and ProfileOther logic
+
+### Risks Noticed
+
+- None - Phase 1 was low-risk hygiene only, all changes easily reversible
+
+---
+
 **End of Overview**
 

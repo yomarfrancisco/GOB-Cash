@@ -40,7 +40,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
   }
 
   return (
-    <ActionSheet open={isOpen} onClose={onClose} title="" size="tall">
+    <ActionSheet open={isOpen} onClose={onClose} title="" size="tall" className="productivity-helper-sheet">
       <div className={styles.bodyRoot}>
         {/* Header row with back button and title */}
         <div className={styles.headerRow}>

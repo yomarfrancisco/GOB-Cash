@@ -12,7 +12,7 @@ type MapHelperSheetProps = {
 
 export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps) {
   return (
-    <ActionSheet open={isOpen} onClose={onClose} title="Send cash anywhere" size="tall">
+    <ActionSheet open={isOpen} onClose={onClose} title="Send cash anywhere" size="tall" className="map-helper-sheet">
       <div className={styles.content}>
         {/* Subtitle */}
         <p className={styles.subtitle}>

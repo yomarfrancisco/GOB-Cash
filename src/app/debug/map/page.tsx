@@ -4,6 +4,9 @@ import { useRef } from 'react'
 import MapboxMap, { type Marker } from '@/components/MapboxMap'
 import styles from './page.module.css'
 
+// Gate debug route behind environment variable
+const DEBUG_MAP_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEBUG_MAP === 'true'
+
 const testMarkers: Marker[] = [
   { id: 'dealer-1', lng: 28.0549, lat: -26.1064, kind: 'dealer', label: 'Nearest dealer' },
   { id: 'branch-1', lng: 28.0598, lat: -26.1089, kind: 'branch', label: 'Partner branch' },
@@ -11,6 +14,18 @@ const testMarkers: Marker[] = [
 
 export default function DebugMapPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null)
+
+  // If debug map is not enabled, return 404-like content
+  if (!DEBUG_MAP_ENABLED) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h1>404 - Page Not Found</h1>
+          <p>This page is only available when NEXT_PUBLIC_ENABLE_DEBUG_MAP=true</p>
+        </div>
+      </div>
+    )
+  }
 
   const handleForceResize = () => {
     // Find the mapbox map instance in the DOM and call resize

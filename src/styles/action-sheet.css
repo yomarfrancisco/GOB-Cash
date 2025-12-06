@@ -411,6 +411,39 @@
   overscroll-behavior: contain;
 }
 
+/* Helper Sheets - enable scrolling */
+/* Wallet Helper Sheet */
+.as-sheet.wallet-helper-sheet .as-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Map Helper Sheet */
+.as-sheet.map-helper-sheet .as-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Productivity Helper Sheet */
+.as-sheet.productivity-helper-sheet .as-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Compact sheets - enable scrolling by default */
+.as-sheet-compact .as-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 /* Linked accounts sheet - force exact height match with AmountSheet/Inbox */
 .as-sheet.send-details.as-sheet-tall.linked-accounts-sheet,
 .as-sheet.linked-accounts-sheet.as-sheet-tall {
