@@ -107,8 +107,8 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
             <div className={styles.tile}>
               <div className={styles.imageContainer}>
                 <Image
-                  src="/assets/robot.png"
-                  alt="Robot"
+                  src="/assets/coin.png"
+                  alt="Coin"
                   width={204}
                   height={85}
                   className={styles.productivityImage}
@@ -123,8 +123,8 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
             <div className={styles.tile}>
               <div className={styles.imageContainer}>
                 <Image
-                  src="/assets/launch.png"
-                  alt="Launch"
+                  src="/assets/coinMultiple.png"
+                  alt="Coin Multiple"
                   width={204}
                   height={85}
                   className={styles.productivityImage}
@@ -139,8 +139,8 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
             <div className={styles.tile}>
               <div className={styles.imageContainer}>
                 <Image
-                  src="/assets/mobile.png"
-                  alt="Mobile"
+                  src="/assets/hourglass.png"
+                  alt="Hourglass"
                   width={204}
                   height={85}
                   className={styles.productivityImage}
