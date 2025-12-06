@@ -36,7 +36,13 @@ export default function InstagramEditSheet() {
     return () => clearTimeout(focusTimer)
   }, [isOpen, profile.instagramUrl])
 
+  // Simple close handler for X button - just closes this sheet
   const handleClose = () => {
+    close()
+  }
+
+  // Close and reopen ProfileEditSheet (used by Done/Remove buttons)
+  const handleCloseAndReopen = () => {
     close()
     const checkAndOpen = () => {
       const { isOpen: instagramEditOpen } = useInstagramEditSheet.getState()
@@ -60,7 +66,7 @@ export default function InstagramEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   const handleRemove = () => {
@@ -70,7 +76,7 @@ export default function InstagramEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   // Button is enabled when value is non-empty

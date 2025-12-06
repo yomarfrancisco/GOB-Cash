@@ -1405,5 +1405,145 @@ Migrated three additional profile edit sheets (FullName, Instagram, LinkedIn) to
 
 ---
 
+## Phase 2 – Edit Sheet Unification (Step 5): Close Button Standardization
+
+**Date**: 2025-01-27  
+**Branch**: `refactor/base-edit-sheet-close-buttons`
+
+### Goal
+
+Add standard close ("X") buttons to all profile edit sheets to match the helper sheets pattern. The close button should only close the detail sheet and return the user to the Edit Profile sheet (ProfileEditSheet) underneath.
+
+### Changes Made
+
+#### 1. Extended BaseEditSheet with Header + Close Button
+
+**File**: `src/components/helpers/BaseEditSheet.tsx`
+
+- Added `showCloseButton?: boolean` prop (default: `true`)
+- Added custom header with title and close button in `send-details-header` div
+- Close button uses `send-details-close` class (matches helper sheets styling)
+- Close button renders `/assets/clear.svg` icon (same as helper sheets)
+- Passes empty `title=""` to ActionSheet to prevent duplicate header
+- Header layout: Close button (left) | Title (center) | Spacer (right, balances close button)
+
+**Visual Pattern**:
+- Close button: 32x32px, rounded, gray background (#E9E9EB)
+- Same hover/active states as helper sheets
+- Positioned top-right in header
+
+#### 2. Updated Close Behavior for Migrated Sheets
+
+**Files Updated**:
+- `src/components/EmailEditSheet.tsx`
+- `src/components/WhatsAppEditSheet.tsx`
+- `src/components/UsernameEditSheet.tsx`
+- `src/components/FullNameEditSheet.tsx`
+- `src/components/InstagramEditSheet.tsx`
+- `src/components/LinkedInEditSheet.tsx`
+
+**Changes**:
+- Split `handleClose` into two handlers:
+  - `handleClose()` - Simple close for X button (just closes sheet)
+  - `handleCloseAndReopen()` - Close and reopen ProfileEditSheet (used by Done/Remove buttons)
+- X button calls `handleClose()` (returns to ProfileEditSheet without reopening)
+- Done/Remove buttons call `handleCloseAndReopen()` (preserves existing behavior)
+
+#### 3. Migrated Remaining Edit Sheets to BaseEditSheet
+
+**Files Migrated**:
+- `src/components/ProfileDescriptionSheet.tsx`
+- `src/components/ProfileNameHandleSheet.tsx`
+- `src/components/SocialLinksSheet.tsx`
+- `src/components/AvatarEditSheet.tsx`
+
+**Migration Pattern**:
+- Replaced `ActionSheet` with `BaseEditSheet`
+- Moved Save button from header to bottom (matches BaseEditSheet pattern)
+- Preserved all validation, text, and functionality
+- Close button now provided by BaseEditSheet header
+
+**ProfileDescriptionSheet**:
+- Single textarea field
+- Save button moved to bottom
+- All text and validation preserved
+
+**ProfileNameHandleSheet**:
+- Two fields: Full name, User handle
+- Validation preserved (required fields, handle format)
+- Save button moved to bottom
+- Enter key handling preserved
+
+**SocialLinksSheet**:
+- Four fields: Email, Instagram, LinkedIn, WhatsApp
+- Email validation preserved
+- Save button moved to bottom
+- All placeholders and labels unchanged
+
+**AvatarEditSheet**:
+- Custom body layout (avatar preview, camera/delete buttons, metadata)
+- Done button moved to bottom
+- Custom body structure preserved as children of BaseEditSheet
+
+### Close Button Behavior
+
+**X Button (Close)**:
+- Closes only the detail sheet
+- Returns user to ProfileEditSheet (which should already be open underneath)
+- Does NOT mutate data
+- Does NOT reopen ProfileEditSheet (assumes it's already open)
+
+**Done/Remove Buttons**:
+- Save/clear data as before
+- Close detail sheet
+- Reopen ProfileEditSheet (preserves existing behavior)
+
+### Files Changed
+
+**Modified**:
+- `src/components/helpers/BaseEditSheet.tsx` - Added header with close button
+- `src/components/EmailEditSheet.tsx` - Updated close behavior
+- `src/components/WhatsAppEditSheet.tsx` - Updated close behavior
+- `src/components/UsernameEditSheet.tsx` - Updated close behavior
+- `src/components/FullNameEditSheet.tsx` - Updated close behavior
+- `src/components/InstagramEditSheet.tsx` - Updated close behavior
+- `src/components/LinkedInEditSheet.tsx` - Updated close behavior
+- `src/components/ProfileDescriptionSheet.tsx` - Migrated to BaseEditSheet
+- `src/components/ProfileNameHandleSheet.tsx` - Migrated to BaseEditSheet
+- `src/components/SocialLinksSheet.tsx` - Migrated to BaseEditSheet
+- `src/components/AvatarEditSheet.tsx` - Migrated to BaseEditSheet
+- `GOBANKLESS_CODEBASE_OVERVIEW.md` - Added Phase 2 Step 5 documentation
+
+### Validation
+
+- ✅ `pnpm build` - Success
+- ✅ `npx tsc --noEmit` - No type errors
+- ✅ `pnpm lint` - Only pre-existing warnings (no new errors)
+- ✅ All edit sheets now use BaseEditSheet
+- ✅ All edit sheets have consistent close button styling
+- ✅ Close behavior matches helper sheets pattern
+
+### Migration Status
+
+**All Profile Edit Sheets Now Use BaseEditSheet** (10 sheets):
+- ✅ EmailEditSheet
+- ✅ WhatsAppEditSheet
+- ✅ UsernameEditSheet
+- ✅ FullNameEditSheet
+- ✅ InstagramEditSheet
+- ✅ LinkedInEditSheet
+- ✅ ProfileDescriptionSheet
+- ✅ ProfileNameHandleSheet
+- ✅ SocialLinksSheet
+- ✅ AvatarEditSheet
+
+**All sheets now have**:
+- Standard header with title and close button
+- Consistent close button styling (matches helper sheets)
+- Primary action button at bottom (Done/Save)
+- Secondary action button where applicable (Remove link/Clear name)
+
+---
+
 **End of Overview**
 

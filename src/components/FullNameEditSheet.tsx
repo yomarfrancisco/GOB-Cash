@@ -36,7 +36,13 @@ export default function FullNameEditSheet() {
     return () => clearTimeout(focusTimer)
   }, [isOpen, profile.fullName])
 
+  // Simple close handler for X button - just closes this sheet
   const handleClose = () => {
+    close()
+  }
+
+  // Close and reopen ProfileEditSheet (used by Done/Clear buttons)
+  const handleCloseAndReopen = () => {
     close()
     // Use state-based polling to prevent DOM overlap
     const checkAndOpen = () => {
@@ -61,7 +67,7 @@ export default function FullNameEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   const handleClear = () => {
@@ -71,7 +77,7 @@ export default function FullNameEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   // Button is enabled when value is non-empty

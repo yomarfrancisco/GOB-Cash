@@ -44,7 +44,13 @@ export default function WhatsAppEditSheet() {
     return cleaned.length >= 6
   }
 
+  // Simple close handler for X button - just closes this sheet
   const handleClose = () => {
+    close()
+  }
+
+  // Close and reopen ProfileEditSheet (used by Done/Remove buttons)
+  const handleCloseAndReopen = () => {
     close()
     const checkAndOpen = () => {
       const { isOpen: whatsappEditOpen } = useWhatsAppEditSheet.getState()
@@ -74,7 +80,7 @@ export default function WhatsAppEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   const handleRemove = () => {
@@ -84,7 +90,7 @@ export default function WhatsAppEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   // Button is enabled when value is non-empty and valid (length >= 6 after cleaning)

@@ -49,7 +49,13 @@ export default function EmailEditSheet() {
     return emailRegex.test(value)
   }
 
+  // Simple close handler for X button - just closes this sheet
   const handleClose = () => {
+    close()
+  }
+
+  // Close and reopen ProfileEditSheet (used by Done/Remove buttons)
+  const handleCloseAndReopen = () => {
     close()
     // Use a shorter delay and check that EmailEditSheet is actually closed
     // This prevents multiple sheets in DOM while keeping transition smooth
@@ -82,7 +88,7 @@ export default function EmailEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   const handleRemove = () => {
@@ -92,7 +98,7 @@ export default function EmailEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   // Check if email is valid for button state

@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
+import Image from 'next/image'
 import { Check } from 'lucide-react'
 import ActionSheet from '../ActionSheet'
 import styles from './BaseEditSheet.module.css'
@@ -18,6 +19,7 @@ export type BaseEditSheetProps = {
   isPrimaryDisabled?: boolean
   children: ReactNode
   className?: string
+  showCloseButton?: boolean
 }
 
 export default function BaseEditSheet({
@@ -32,6 +34,7 @@ export default function BaseEditSheet({
   isPrimaryDisabled = false,
   children,
   className = '',
+  showCloseButton = true,
 }: BaseEditSheetProps) {
   const handlePrimaryClick = async () => {
     if (onPrimary && !isPrimaryDisabled) {
@@ -43,13 +46,21 @@ export default function BaseEditSheet({
     <ActionSheet
       open={open}
       onClose={onClose}
-      title={title}
+      title="" // Empty title - we render custom header below
       className={`send-details ${className}`.trim()}
       size="tall"
     >
       <div className="send-details-sheet">
         <div className="send-details-header">
-          {/* Header structure kept for layout, but close button removed - using ActionSheet&apos;s .as-close-only */}
+          {/* Custom header with title and close button */}
+          {showCloseButton && (
+            <button className="send-details-close" onClick={onClose} aria-label="Close">
+              <Image src="/assets/clear.svg" alt="" width={18} height={18} />
+            </button>
+          )}
+          <h3 className="send-details-title">{title}</h3>
+          {/* Spacer to balance the close button */}
+          {showCloseButton && <div style={{ width: 32 }} />}
         </div>
         <div className="send-details-fields">
           {/* Optional description */}

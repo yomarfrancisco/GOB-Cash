@@ -3,9 +3,8 @@
 import { useState, useRef } from 'react'
 import Image from 'next/image'
 import { Camera, Trash2 } from 'lucide-react'
-import ActionSheet from './ActionSheet'
+import BaseEditSheet from './helpers/BaseEditSheet'
 import { useAvatarEditSheet } from '@/store/useAvatarEditSheet'
-import '@/styles/send-details-sheet.css'
 import styles from './AvatarEditSheet.module.css'
 
 // Temporary profile data - will use store when available
@@ -60,22 +59,15 @@ export default function AvatarEditSheet() {
   const initial = getInitial(profile.fullName, profile.email, profile.handle)
 
   return (
-    <ActionSheet open={isOpen} onClose={close} title="" className="send-details">
-      <div className="send-details-sheet">
-        <div className="send-details-header">
-          <button className="send-details-close" onClick={close} aria-label="Close">
-            <Image src="/assets/clear.svg" alt="" width={18} height={18} />
-          </button>
-          <div style={{ flex: 1 }} /> {/* Spacer */}
-          <button
-            className={styles.doneBtn}
-            onClick={handleDone}
-            type="button"
-          >
-            Done
-          </button>
-        </div>
-        <div className={styles.body}>
+    <BaseEditSheet
+      open={isOpen}
+      onClose={close}
+      title="Profile Picture"
+      primaryLabel="Done"
+      onPrimary={handleDone}
+      isPrimaryDisabled={false}
+    >
+      <div className={styles.body}>
           <div className={styles.avatarContainer}>
             <div className={styles.avatarWrapper}>
               {showDefault ? (
@@ -141,8 +133,7 @@ export default function AvatarEditSheet() {
             </div>
           </div>
         </div>
-      </div>
-    </ActionSheet>
+    </BaseEditSheet>
   )
 }
 

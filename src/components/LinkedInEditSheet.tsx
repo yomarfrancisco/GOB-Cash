@@ -42,7 +42,13 @@ export default function LinkedInEditSheet() {
     return value.toLowerCase().includes('linkedin.com')
   }
 
+  // Simple close handler for X button - just closes this sheet
   const handleClose = () => {
+    close()
+  }
+
+  // Close and reopen ProfileEditSheet (used by Done/Remove buttons)
+  const handleCloseAndReopen = () => {
     close()
     const checkAndOpen = () => {
       const { isOpen: linkedinEditOpen } = useLinkedInEditSheet.getState()
@@ -72,7 +78,7 @@ export default function LinkedInEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   const handleRemove = () => {
@@ -82,7 +88,7 @@ export default function LinkedInEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   // Button is enabled when value is non-empty and valid

@@ -37,7 +37,13 @@ export default function UsernameEditSheet() {
     return () => clearTimeout(focusTimer)
   }, [isOpen, profile.userHandle])
 
+  // Simple close handler for X button - just closes this sheet
   const handleClose = () => {
+    close()
+  }
+
+  // Close and reopen ProfileEditSheet (used by Done button)
+  const handleCloseAndReopen = () => {
     close()
     // Use state-based polling to prevent DOM overlap
     const checkAndOpen = () => {
@@ -67,7 +73,7 @@ export default function UsernameEditSheet() {
     })
 
     // Close and reopen Edit Profile
-    handleClose()
+    handleCloseAndReopen()
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
