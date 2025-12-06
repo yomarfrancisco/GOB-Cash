@@ -38,7 +38,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
         {/* Descriptive paragraph - conditional based on page */}
         {page === 1 && (
           <p className={styles.description}>
-            Your Productivity Score measures how well you use the time you unlock each day to earn on Gobankless.
+            Your Productivity score measures how well you use the time you unlock each day to make money on Gobankless. It combines three things:
           </p>
         )}
         {page === 2 && (
@@ -115,7 +115,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
                   unoptimized
                 />
               </div>
-              <h3 className={styles.tileTitle}>Your earnings</h3>
+              <h3 className={styles.tileTitle}>1. Your earnings</h3>
               <p className={styles.tileLine1}>Higher productivity → higher daily payouts + higher commissions.</p>
             </div>
 
@@ -131,7 +131,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
                   unoptimized
                 />
               </div>
-              <h3 className={styles.tileTitle}>Your cash multiple</h3>
+              <h3 className={styles.tileTitle}>2. Your cash multiple</h3>
               <p className={styles.tileLine1}>A higher score increases the "Cash x…" available on your Agent Earnings card.</p>
             </div>
 
@@ -147,7 +147,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
                   unoptimized
                 />
               </div>
-              <h3 className={styles.tileTitle}>Your priority</h3>
+              <h3 className={styles.tileTitle}>3. Your priority</h3>
               <p className={styles.tileLine1}>High-Productivity agents are matched first when customers request service.</p>
             </div>
           </>
