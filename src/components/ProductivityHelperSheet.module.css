@@ -1,11 +1,44 @@
 .content {
   padding: 24px 20px 32px;
+  padding-bottom: calc(32px + 100px); /* Extra space for sticky footer */
   display: flex;
   flex-direction: column;
   gap: 20px;
   max-height: calc(85vh - 100px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Header Row */
+.productivityHeaderRow {
+  display: flex;
+  align-items: center;
+  padding: 0 0 16px;
+  margin-bottom: 4px;
+}
+
+.backTitleButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: -0.22px;
+  color: #0a0a0a;
+}
+
+.productivityTitleOnly {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: -0.22px;
+  color: #0a0a0a;
 }
 
 /* Description */
@@ -69,20 +102,35 @@
   text-align: center;
 }
 
-/* Pagination Footer */
+/* Pagination Footer - Sticky */
+.pageFooter {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #ffffff;
+  padding: 8px 0 calc(env(safe-area-inset-bottom, 0px) + 8px);
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+  margin-top: auto;
+}
+
 .pageParent {
   width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px 0px 8px;
+  padding: 16px 0 8px;
   box-sizing: border-box;
   gap: 12px;
   text-align: center;
   font-size: 13px;
   color: #007aff;
-  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 .pageLabel {
@@ -137,5 +185,12 @@
   width: 24px;
   position: relative;
   flex-shrink: 0;
+}
+
+.lBold {
+  position: relative;
+  letter-spacing: -0.43px;
+  line-height: 22px;
+  font-weight: 500;
 }
 

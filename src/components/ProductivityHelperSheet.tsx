@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { ChevronRight, MoveRight } from 'lucide-react'
+import { ChevronRight, ChevronLeft } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import styles from './ProductivityHelperSheet.module.css'
 
@@ -32,13 +32,37 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
     }
   }
 
+  const handlePrevPage = () => {
+    setPage((p) => {
+      const newPage = p - 1
+      return (newPage >= 1 ? newPage : 1) as 1 | 2 | 3 | 4
+    })
+  }
+
   return (
-    <ActionSheet open={isOpen} onClose={onClose} title="Productivity Score" size="tall">
+    <ActionSheet open={isOpen} onClose={onClose} title="" size="tall">
       <div className={styles.content}>
+        {/* Header row with back button on pages 2-4 */}
+        <div className={styles.productivityHeaderRow}>
+          {page > 1 && (
+            <button
+              type="button"
+              className={styles.backTitleButton}
+              onClick={handlePrevPage}
+            >
+              <ChevronLeft size={20} />
+              <span>Productivity Score</span>
+            </button>
+          )}
+          {page === 1 && (
+            <h2 className={styles.productivityTitleOnly}>Productivity Score</h2>
+          )}
+        </div>
+
         {/* Descriptive paragraph - conditional based on page */}
         {page === 1 && (
           <p className={styles.description}>
-            Your Productivity score measures how well you use the time you unlock each day to make money on Gobankless. It combines three things:
+            Your Productivity score measures <strong>how well you use the time you unlock each day to make money</strong> on Gobankless. It combines three things:
           </p>
         )}
         {page === 2 && (
@@ -89,7 +113,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
                 />
               </div>
               <h3 className={styles.tileTitle}>2. Moving Volume</h3>
-              <p className={styles.tileLine1}>How much cash-to-crypto or crypto-to-cash activity you complete while you're active.</p>
+              <p className={styles.tileLine1}>How much <strong>cash-to-crypto</strong> or <strong>crypto-to-cash</strong> activity you complete while you're active.</p>
             </div>
 
             {/* Tile 3: Working Clean */}
@@ -179,7 +203,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
                 />
               </div>
               <h3 className={styles.tileTitle}>1. Check in daily</h3>
-              <p className={styles.tileLine1}>Each shift is 3 hours. Reliable presence increases your baseline score.</p>
+              <p className={styles.tileLine1}>Each shift is <strong>3 hours</strong>. Reliable presence increases your baseline score.</p>
             </div>
 
             {/* Tile 2: Complete more transactions */}
@@ -231,10 +255,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
                   unoptimized
                 />
               </div>
-              <h3 className={styles.tileTitle}>More value</h3>
-              <p className={styles.tileLine1} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <MoveRight size={20} strokeWidth={2} color="rgba(10, 10, 10, 0.7)" />
-              </p>
+              <h3 className={styles.tileTitle}>More value <strong>=</strong></h3>
             </div>
 
             {/* Tile 2: More earnings */}
@@ -249,10 +270,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
                   unoptimized
                 />
               </div>
-              <h3 className={styles.tileTitle}>More earnings</h3>
-              <p className={styles.tileLine1} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <MoveRight size={20} strokeWidth={2} color="rgba(10, 10, 10, 0.7)" />
-              </p>
+              <h3 className={styles.tileTitle}>More earnings <strong>=</strong></h3>
             </div>
 
             {/* Tile 3: more cash available */}
@@ -267,26 +285,28 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
                   unoptimized
                 />
               </div>
-              <h3 className={styles.tileTitle}>more cash available to you in the app.</h3>
+              <h3 className={styles.tileTitle}>More cash available to you in the app.</h3>
             </div>
           </>
         )}
 
-        {/* Pagination Footer */}
-        <div className={styles.pageParent}>
-          <div className={styles.pageLabel}>
-            {page === 1 && 'Page 1 of 4'}
-            {page === 2 && 'Page 2 of 4'}
-            {page === 3 && 'Page 3 of 4'}
-            {page === 4 && 'Page 4 of 4'}
-          </div>
-          <div className={styles.lButtonWrapper}>
-            <button className={styles.lButton} onClick={handleNext} type="button">
-              <div className={styles.lButtonContent}>
-                <span>Next</span>
-                <ChevronRight size={24} strokeWidth={2} className={styles.ico24ArrowsNextUi} />
-              </div>
-            </button>
+        {/* Pagination Footer - Sticky at bottom */}
+        <div className={styles.pageFooter}>
+          <div className={styles.pageParent}>
+            <div className={styles.pageLabel}>
+              {page === 1 && 'Page 1 of 4'}
+              {page === 2 && 'Page 2 of 4'}
+              {page === 3 && 'Page 3 of 4'}
+              {page === 4 && 'Page 4 of 4'}
+            </div>
+            <div className={styles.lButtonWrapper}>
+              <button className={styles.lButton} onClick={handleNext} type="button">
+                <div className={styles.lButtonContent}>
+                  <span className={styles.lBold}>Next</span>
+                  <ChevronRight size={24} strokeWidth={2} className={styles.ico24ArrowsNextUi} />
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       </div>
