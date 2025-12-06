@@ -587,6 +587,10 @@ export default function ProfilePage() {
       <WithdrawSheet
         open={openWithdraw}
         onClose={closeWithdraw}
+        onBack={() => {
+          setOpenWithdraw(false)
+          setTimeout(() => setOpenCashInOut(true), 220)
+        }}
         onSelect={(method) => {
           setOpenWithdraw(false)
           setAmountMode('withdraw')

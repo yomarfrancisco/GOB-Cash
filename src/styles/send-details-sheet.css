@@ -13,6 +13,11 @@
   display: none;
 }
 
+/* Hide ActionSheet's default header for withdraw-sheet-with-back */
+.as-sheet.withdraw-sheet-with-back .as-header {
+  display: none;
+}
+
 .send-details-sheet {
   display: flex;
   flex-direction: column;
