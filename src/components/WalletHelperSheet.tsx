@@ -99,20 +99,85 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
 
   // Content varies by wallet type
   const isZARWallet = currentWalletKey === 'savings'
+  const isETHWallet = currentWalletKey === 'yield'
+  const isEarningsWallet = currentWalletKey === 'yieldSurprise'
   
+  // Description text
   const descriptionText = isZARWallet
-    ? 'A RAND savings account that earns high interest on your deposits while enabling you to make direct payments on the app'
+    ? 'A RAND savings account that pays you high yield from Gobankless agent fees while still letting you pay and withdraw in cash.'
+    : isETHWallet
+    ? 'An ETH savings wallet that lets you earn high yield while keeping your balance in crypto you can spend or withdraw.'
+    : isEarningsWallet
+    ? 'Your Earnings wallet is where Gobankless deposits the fees you earn from helping customers move cash to and from crypto.'
     : 'A savings account that earns interest on your deposits while enabling you to make direct payments on the app'
 
-  const tile2Line2Text = isZARWallet
-    ? 'Move money in or out at any time at no extra cost'
-    : 'Withdraw anytime at no additional cost'
-
   // APY values vary by wallet type
-  const apyPercentage = isZARWallet ? '18.5%' : '9.38%'
+  const apyPercentage = isZARWallet 
+    ? '18.0%' 
+    : isETHWallet 
+    ? '22.0%' 
+    : isEarningsWallet 
+    ? '25.0%' 
+    : '9.38%'
+    
   const apyHeading = isZARWallet 
     ? 'Earn 18% annually on your deposits'
+    : isETHWallet
+    ? 'Earn 22% annually on your deposits'
+    : isEarningsWallet
+    ? 'Turn your shifts into 25% annual yield'
     : 'Earn 9% annually on your deposits'
+    
+  const apySubtext = isZARWallet
+    ? 'Compounded monthly in RAND'
+    : isETHWallet
+    ? 'Compounded monthly in ETH'
+    : isEarningsWallet
+    ? 'Compounded as your agent earnings grow'
+    : 'Compounded monthly'
+
+  // Tile 2 content
+  const tile2Line1 = isZARWallet
+    ? 'Instant access to your cash'
+    : isETHWallet
+    ? 'Access to your ETH'
+    : isEarningsWallet
+    ? 'Access to your earnings'
+    : 'Access to funds'
+    
+  const tile2Line2 = isZARWallet
+    ? 'Withdraw or spend anytime at no additional cost'
+    : isETHWallet
+    ? 'Move or withdraw anytime at no additional cost'
+    : isEarningsWallet
+    ? 'Withdraw to cash or crypto anytime at no additional cost'
+    : 'Withdraw anytime at no additional cost'
+
+  // Tile 3 content
+  const tile3Line1 = isZARWallet
+    ? 'Tax on interest earned'
+    : isETHWallet
+    ? 'Gobankless fees on interest earned'
+    : isEarningsWallet
+    ? 'Account fees on earnings'
+    : 'Tax on interest earned'
+
+  // Tile 4 content
+  const tile4Line1 = isZARWallet
+    ? 'Fees on payments'
+    : isETHWallet
+    ? 'Fees on payments'
+    : isEarningsWallet
+    ? 'Fees on Gobankless payouts'
+    : 'Fees on payments'
+    
+  const tile4Line2 = isZARWallet
+    ? 'Pay any Gobankless account for free'
+    : isETHWallet
+    ? 'Pay any Gobankless account for free'
+    : isEarningsWallet
+    ? 'Keep 100% of what you earn from your shifts'
+    : 'Pay any Gobankless account for free'
 
   return (
     <ActionSheet open={!!walletKey} onClose={onClose} title={title} size="tall">
@@ -144,27 +209,27 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
               </div>
             </div>
             <h3 className={styles.apyHeading}>{apyHeading}</h3>
-            <p className={styles.apySubtext}>Compounded monthly</p>
+            <p className={styles.apySubtext}>{apySubtext}</p>
           </div>
 
           {/* Tile 2: Anytime */}
           <div className={styles.tile}>
             <h3 className={styles.tileTitle}>Anytime</h3>
-            <p className={styles.tileLine1}>Access to funds</p>
-            <p className={styles.tileLine2}>{tile2Line2Text}</p>
+            <p className={styles.tileLine1}>{tile2Line1}</p>
+            <p className={styles.tileLine2}>{tile2Line2}</p>
           </div>
 
           {/* Tile 3: 0% */}
           <div className={styles.tile}>
             <h3 className={styles.tileTitle}>0%</h3>
-            <p className={styles.tileLine1}>Tax on interest earned</p>
+            <p className={styles.tileLine1}>{tile3Line1}</p>
           </div>
 
           {/* Tile 4: Zero */}
           <div className={styles.tile}>
             <h3 className={styles.tileTitle}>Zero</h3>
-            <p className={styles.tileLine1}>Fees on payments</p>
-            <p className={styles.tileLine2}>Pay any Gobankless account for free</p>
+            <p className={styles.tileLine1}>{tile4Line1}</p>
+            <p className={styles.tileLine2}>{tile4Line2}</p>
           </div>
         </div>
 
