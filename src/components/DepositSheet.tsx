@@ -72,18 +72,6 @@ export default function DepositSheet({ open, onClose, onSelect, variant = 'depos
           caption: 'Receive USDT directly from an external wallet.',
           method: 'crypto' as const,
           icon: <Wallet size={22} strokeWidth={2} />
-        },
-        {
-          title: 'ATM',
-          caption: 'Deposit cash via ATM.',
-          method: 'atm' as const,
-          icon: <Receipt size={22} strokeWidth={2} />
-        },
-        {
-          title: 'Agent network',
-          caption: 'Deposit cash with a nearby agent.',
-          method: 'agent' as const,
-          icon: <Users size={22} strokeWidth={2} />
         }
       ]
 

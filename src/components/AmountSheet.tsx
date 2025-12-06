@@ -35,6 +35,8 @@ type AmountSheetProps = {
   initialAmount?: number // optional initial amount to pre-fill (for back navigation)
   withdrawOnly?: boolean // if true, force single CTA button and skip dual-button logic
   onHelicopterWithdraw?: (payload: { amountZAR: number; amountUSDT?: number }) => void // callback for helicopter "Withdraw Cash" button
+  depositMethod?: 'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null // deposit method for card deposit flow customization
+  customFeeText?: string // custom fee text override (for card deposit: "excl. 3% transaction fee")
 }
 
 export default function AmountSheet({
@@ -58,6 +60,8 @@ export default function AmountSheet({
   sponsorHandle,
   onWeeklySubmit,
   onMonthlySubmit,
+  depositMethod,
+  customFeeText,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
   const { isAuthed } = useAuthStore()
@@ -191,11 +195,16 @@ export default function AmountSheet({
   // Detect $-button convert flow (Request/Pay) (only if not withdraw-only)
   const isCashButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'cashButton'
   
+  // Detect card deposit flow for custom text
+  const isCardDeposit = mode === 'deposit' && entryPoint === 'cardDeposit' && depositMethod === 'card'
+  
   // Minimum amount for cash transactions (helicopter flow only)
   const MIN_CASH_ZAR = 5000
   const meetsMinCash = isHelicopterConvert ? amountZAR >= MIN_CASH_ZAR : true
   
-  const modeLabel = flowType === 'transfer' 
+  const modeLabel = isCardDeposit
+    ? 'Deposit'
+    : flowType === 'transfer' 
     ? 'Transfer' 
     : mode === 'deposit' || mode === 'depositCard' 
     ? 'Buy' 
@@ -204,7 +213,9 @@ export default function AmountSheet({
     : mode === 'convert'
     ? (isHelicopterConvert ? 'Cash Transactions' : entryPoint === 'cashButton' ? 'Pay or request' : entryPoint === 'sponsorButton' ? (sponsorHandle ? `Invest ${sponsorHandle}` : 'Invest') : 'Convert to crypto')
     : 'Send'
-  const defaultCtaLabel = mode === 'depositCard' 
+  const defaultCtaLabel = isCardDeposit
+    ? 'Next'
+    : mode === 'depositCard' 
     ? 'Deposit' 
     : mode === 'send' 
     ? 'Send' 
@@ -267,6 +278,7 @@ export default function AmountSheet({
             isConvertMode={mode === 'convert'}
             isHelicopterConvert={isHelicopterConvert}
             amountZAR={amountZAR}
+            customFeeText={customFeeText}
           />
         </div>
         <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>

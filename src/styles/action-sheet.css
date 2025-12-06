@@ -127,6 +127,7 @@
 /* Tall sheets - for Amount keypad, Success/confirmation, Bank deposit details */
 .as-sheet-tall {
   max-height: 85vh;
+  min-height: 85vh; /* Ensure consistent height even with fewer items */
   min-height: auto;
 }
 
