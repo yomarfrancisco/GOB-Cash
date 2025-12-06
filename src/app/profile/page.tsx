@@ -581,10 +581,6 @@ export default function ProfilePage() {
             setAmountMode('deposit')
             setAmountEntryPoint('cardDeposit')
             setTimeout(() => setOpenAmount(true), 220)
-          } else if (method === 'atm' || method === 'agent') {
-            setDepositMethod(method)
-            setAmountMode('deposit')
-            setTimeout(() => setOpenAmount(true), 220)
           }
         }}
       />
@@ -600,8 +596,17 @@ export default function ProfilePage() {
       <AmountSheet
         open={openAmount}
         onClose={() => {
-          setOpenAmount(false)
-          setAmountEntryPoint(undefined) // Reset entry point when closing
+          // Special handling for card deposit flow: return to DepositSheet
+          if (amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card') {
+            setOpenAmount(false)
+            setAmountEntryPoint(undefined)
+            setTimeout(() => {
+              setOpenDeposit(true)
+            }, 220)
+          } else {
+            setOpenAmount(false)
+            setAmountEntryPoint(undefined) // Reset entry point when closing
+          }
         }}
         mode={amountMode}
         flowType={flowType}
@@ -610,6 +615,8 @@ export default function ProfilePage() {
         ctaLabel={amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
+        depositMethod={depositMethod}
+        customFeeText={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'excl. 3% transaction fee' : undefined}
         onScanClick={amountEntryPoint === 'cashButton' ? () => {
           guardAuthed(() => {
             // 1) Close the keypad sheet first
