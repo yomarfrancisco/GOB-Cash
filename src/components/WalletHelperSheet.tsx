@@ -17,7 +17,7 @@ const WALLET_SEQUENCE: WalletKey[] = [
   'zwd',          // ZWD wallet
   'yield',        // ETH wallet
   'btc',          // BTC wallet
-  // Note: yieldSurprise is not in sequence as it reuses yield content
+  'yieldSurprise' // Earnings wallet
 ]
 
 type WalletHelperSheetProps = {
@@ -31,7 +31,7 @@ const walletTitleMap: Record<WalletKey, string> = {
   zwd: 'ZWD wallet',
   yield: 'ETH wallet',
   btc: 'BTC wallet',
-  yieldSurprise: 'ETH wallet', // Reuse yield wallet title
+  yieldSurprise: 'Earnings wallet',
 }
 
 const cardImages: Record<WalletKey, string> = {
@@ -50,9 +50,7 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
   // Build circular sequence starting from entry point
   useEffect(() => {
     if (walletKey) {
-      // Map yieldSurprise to yield for navigation purposes
-      const normalizedKey = walletKey === 'yieldSurprise' ? 'yield' : walletKey
-      const entryIndex = WALLET_SEQUENCE.indexOf(normalizedKey)
+      const entryIndex = WALLET_SEQUENCE.indexOf(walletKey)
       
       if (entryIndex === -1) {
         // Fallback: if key not found, use first wallet
