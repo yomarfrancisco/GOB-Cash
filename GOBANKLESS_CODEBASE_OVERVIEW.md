@@ -1272,10 +1272,7 @@ Created BaseEditSheet component and migrated three profile edit sheets (Email, W
 ### Next Steps
 
 **Remaining Edit Sheets** (Future PRs):
-- InstagramEditSheet
-- LinkedInEditSheet
-- FullNameEditSheet
-- ProfileDescriptionEditSheet (if exists)
+- ProfileDescriptionSheet (uses different pattern: header buttons, textarea)
 - AvatarEditSheet (may need special handling)
 
 **Migration Pattern**:
@@ -1284,6 +1281,127 @@ Created BaseEditSheet component and migrated three profile edit sheets (Email, W
 3. Add secondaryLabel/onSecondary if "Remove link" is needed
 4. Keep all validation and form logic
 5. Remove duplicate button markup
+
+---
+
+## Phase 2 – Edit Sheet Unification (Step 4)
+
+**Status**: ✅ Complete
+
+**Branch**: `refactor/base-edit-sheet-remaining`
+
+**Date**: 2025-01-27
+
+### Summary
+
+Migrated three additional profile edit sheets (FullName, Instagram, LinkedIn) to use BaseEditSheet, continuing the unification effort. All simple single-field edit sheets are now using the shared component.
+
+### Migrated Sheets
+
+#### 1. FullNameEditSheet
+
+**Changes**:
+- Replaced ActionSheet with BaseEditSheet
+- Wired props: `title="Full name"`, `primaryLabel="Done"`, `secondaryLabel="Clear name"`
+- Kept all form inputs and focus management
+- Kept save/clear handlers
+- Removed duplicate button markup
+
+**Preserved**:
+- Auto-focus behavior
+- Enter key handling
+- Normalization (trim)
+- "Clear name" button functionality
+- Button enabled when non-empty
+
+#### 2. InstagramEditSheet
+
+**Changes**:
+- Replaced ActionSheet with BaseEditSheet
+- Wired props: `title="Instagram"`, `primaryLabel="Done"`, `secondaryLabel="Remove link"`
+- Kept all form inputs and focus management
+- Kept save/remove handlers
+- Removed duplicate button markup
+
+**Preserved**:
+- Auto-focus behavior
+- Enter key handling
+- Normalization (trim)
+- "Remove link" button functionality
+- Button enabled when non-empty
+
+#### 3. LinkedInEditSheet
+
+**Changes**:
+- Replaced ActionSheet with BaseEditSheet
+- Wired props: `title="LinkedIn"`, `primaryLabel="Done"`, `secondaryLabel="Remove link"`
+- Kept all validation logic (linkedin.com URL check)
+- Kept all form inputs and error handling
+- Kept save/remove handlers
+- Removed duplicate button markup
+
+**Preserved**:
+- URL validation (must contain "linkedin.com")
+- Error messages
+- Auto-focus behavior
+- Enter key handling
+- Normalization (trim)
+- "Remove link" button functionality
+- Button enabled when non-empty and valid
+
+### Behavior Preservation
+
+**All Sheets**:
+- ✅ Open/close behavior unchanged (Zustand stores unchanged)
+- ✅ Validation rules identical (LinkedIn has URL validation)
+- ✅ Error messages identical
+- ✅ Auto-focus on open (mobile keyboard workaround preserved)
+- ✅ Enter key handling preserved
+- ✅ Save handlers unchanged (store updates, close/reopen ProfileEditSheet)
+- ✅ Visual appearance identical (same button colors, spacing, typography)
+- ✅ Secondary button functionality preserved (Clear name / Remove link)
+
+**No Breaking Changes**:
+- All public APIs unchanged (Zustand stores, component exports)
+- All props and callbacks work the same
+- All visual appearance identical
+- All copy and content unchanged
+
+### Files Changed
+
+**Modified**:
+- `src/components/FullNameEditSheet.tsx` - Migrated to BaseEditSheet
+- `src/components/InstagramEditSheet.tsx` - Migrated to BaseEditSheet
+- `src/components/LinkedInEditSheet.tsx` - Migrated to BaseEditSheet
+- `GOBANKLESS_CODEBASE_OVERVIEW.md` - Added Phase 2 Step 4 documentation
+
+**No Changes**:
+- Zustand stores (useFullNameEditSheet, useInstagramEditSheet, useLinkedInEditSheet)
+- Global CSS (send-details-sheet.css)
+- BaseEditSheet component (no changes needed)
+
+### Validation
+
+- ✅ `pnpm build` - Success
+- ✅ `npx tsc --noEmit` - No type errors
+- ✅ `pnpm lint` - No errors
+- ✅ All three sheets use BaseEditSheet
+- ✅ No duplicate button/layout code
+- ✅ Consistent styling across sheets
+
+### Migration Status
+
+**Completed** (6 sheets):
+- ✅ EmailEditSheet
+- ✅ WhatsAppEditSheet
+- ✅ UsernameEditSheet
+- ✅ FullNameEditSheet
+- ✅ InstagramEditSheet
+- ✅ LinkedInEditSheet
+
+**Remaining** (different patterns):
+- ProfileDescriptionSheet - Uses custom header with Save button, textarea instead of input
+- AvatarEditSheet - Likely uses image upload, may need special handling
 
 ---
 

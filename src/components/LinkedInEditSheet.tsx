@@ -1,12 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import ActionSheet from './ActionSheet'
-import { Check } from 'lucide-react'
+import BaseEditSheet from './helpers/BaseEditSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useLinkedInEditSheet } from '@/store/useLinkedInEditSheet'
 import { useProfileEditSheet } from '@/store/useProfileEditSheet'
-import '@/styles/send-details-sheet.css'
 
 export default function LinkedInEditSheet() {
   const { isOpen, close } = useLinkedInEditSheet()
@@ -93,96 +91,47 @@ export default function LinkedInEditSheet() {
   const canSave = trimmedValue !== '' && isValid && !linkedinError
 
   return (
-    <ActionSheet open={isOpen} onClose={handleClose} title="" className="send-details" size="tall">
-      <div className="send-details-sheet">
-        <div className="send-details-header">
-          {/* Header structure kept for layout, but close button removed - using ActionSheet's .as-close-only */}
-        </div>
-        <div className="send-details-fields">
-          <label className="send-details-row">
-            <span className="send-details-label">Enter your LinkedIn link</span>
-            <input
-              ref={linkedinRef}
-              className="send-details-input"
-              placeholder="https://www.linkedin.com/in/samakoyo"
-              value={linkedinUrl}
-              onChange={(e) => {
-                setLinkedinUrl(e.target.value)
-                setLinkedinError('')
-              }}
-              inputMode="url"
-              autoCapitalize="none"
-              autoCorrect="off"
-              autoComplete="url"
-              enterKeyHint="done"
-              type="url"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && canSave) {
-                  e.preventDefault()
-                  handleSave()
-                }
-              }}
-            />
-            <div className="send-details-underline" />
-            {linkedinError && (
-              <div style={{ marginTop: 4, fontSize: 14, color: '#ff3b30' }}>
-                {linkedinError}
-              </div>
-            )}
-          </label>
-
-          {/* Done Button */}
-          <div style={{ marginTop: 32, display: 'flex', justifyContent: 'center' }}>
-            <button
-              className="send-details-pay"
-              disabled={!canSave}
-              onClick={handleSave}
-              type="button"
-              style={{
-                width: '100%',
-                maxWidth: '382px',
-                height: '56px',
-                borderRadius: '56px',
-                background: canSave ? '#FF2D55' : '#E9E9EB',
-                color: canSave ? '#fff' : '#999',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '0 24px',
-                fontSize: '16px',
-                fontWeight: 500,
-                letterSpacing: '-0.32px',
-                cursor: canSave ? 'pointer' : 'not-allowed',
-              }}
-            >
-              {canSave && <Check size={18} strokeWidth={2.5} />}
-              Done
-            </button>
+    <BaseEditSheet
+      open={isOpen}
+      onClose={handleClose}
+      title="LinkedIn"
+      primaryLabel="Done"
+      secondaryLabel="Remove link"
+      onPrimary={handleSave}
+      onSecondary={handleRemove}
+      isPrimaryDisabled={!canSave}
+    >
+      <label className="send-details-row">
+        <span className="send-details-label">Enter your LinkedIn link</span>
+        <input
+          ref={linkedinRef}
+          className="send-details-input"
+          placeholder="https://www.linkedin.com/in/samakoyo"
+          value={linkedinUrl}
+          onChange={(e) => {
+            setLinkedinUrl(e.target.value)
+            setLinkedinError('')
+          }}
+          inputMode="url"
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete="url"
+          enterKeyHint="done"
+          type="url"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && canSave) {
+              e.preventDefault()
+              handleSave()
+            }
+          }}
+        />
+        <div className="send-details-underline" />
+        {linkedinError && (
+          <div style={{ marginTop: 4, fontSize: 14, color: '#ff3b30' }}>
+            {linkedinError}
           </div>
-
-          {/* Remove Link Button - Always visible */}
-          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-            <button
-              onClick={handleRemove}
-              type="button"
-              style={{
-                background: 'transparent',
-                border: 0,
-                color: '#FF453A',
-                fontSize: '16px',
-                fontWeight: 400,
-                cursor: 'pointer',
-                padding: '8px 16px',
-                textDecoration: 'none',
-              }}
-            >
-              Remove link
-            </button>
-          </div>
-        </div>
-      </div>
-    </ActionSheet>
+        )}
+      </label>
+    </BaseEditSheet>
   )
 }
-
