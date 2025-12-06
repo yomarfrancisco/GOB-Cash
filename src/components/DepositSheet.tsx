@@ -4,15 +4,17 @@ import Image from 'next/image'
 import { MailPlus, Globe, AtSign, Landmark, CreditCard, Wallet, Receipt, Users } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
+import '@/styles/send-details-sheet.css'
 
 type Props = {
   open: boolean
   onClose: () => void
   onSelect?: (method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics' | 'atm' | 'agent') => void
   variant?: 'deposit' | 'direct-payment' // 'deposit' for Deposit button, 'direct-payment' for $ icon
+  onBack?: () => void // Callback for back button (only used for variant="deposit")
 }
 
-export default function DepositSheet({ open, onClose, onSelect, variant = 'deposit' }: Props) {
+export default function DepositSheet({ open, onClose, onSelect, variant = 'deposit', onBack }: Props) {
   const handleSelect = (method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics' | 'atm' | 'agent') => {
     if (onSelect) {
       onSelect(method)
@@ -85,8 +87,32 @@ export default function DepositSheet({ open, onClose, onSelect, variant = 'depos
         }
       ]
 
+  // Show back button only for deposit variant when onBack is provided
+  const showBackButton = variant === 'deposit' && !!onBack
+
   return (
-    <ActionSheet open={open} onClose={onClose} title={title} size="tall">
+    <ActionSheet open={open} onClose={onClose} title="" className={showBackButton ? 'deposit-sheet-with-back' : ''} size="tall">
+      {showBackButton && (
+        <div className="send-details-header">
+          <button className="send-details-back" onClick={onBack} aria-label="Back">
+            <Image src="/assets/back_ui.svg" alt="" width={24} height={24} />
+          </button>
+          <h3 className="send-details-title">{title}</h3>
+          {/* Spacer to push title to center */}
+          <div style={{ width: '32px', height: '32px' }} />
+        </div>
+      )}
+      {!showBackButton && title && (
+        <div style={{ paddingTop: 'var(--sheet-header-offset, 64px)' }}>
+          <h3 style={{ 
+            font: '300 22px/1.2 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            letterSpacing: '-0.22px',
+            color: '#0a0a0a',
+            margin: '0 20px 16px 20px',
+            textAlign: 'center'
+          }}>{title}</h3>
+        </div>
+      )}
       {options.map((option) => {
         const hasIcon = 'icon' in option && option.icon
         return (

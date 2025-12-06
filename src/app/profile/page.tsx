@@ -25,7 +25,7 @@ import { useSupportSheet } from '@/store/useSupportSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
 import Avatar from '@/components/Avatar'
-import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
+import DepositCryptoWalletSheet, { type DepositCryptoWallet, getDepositCryptoWallets } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import PaymentsSheet from '@/components/PaymentsSheet'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
@@ -553,6 +553,10 @@ export default function ProfilePage() {
         open={openDeposit}
         onClose={closeDeposit}
         variant="deposit"
+        onBack={() => {
+          setOpenDeposit(false)
+          setTimeout(() => setOpenCashInOut(true), 220)
+        }}
         onSelect={(method) => {
           setOpenDeposit(false)
           if (method === 'bank') {
@@ -560,7 +564,18 @@ export default function ProfilePage() {
             setTimeout(() => setOpenCountrySelect(true), 220)
           } else if (method === 'crypto') {
             setDepositMethod('crypto')
-            setTimeout(() => setOpenDepositCryptoWallet(true), 220)
+            // Skip DepositCryptoWalletSheet and go directly to USDT SA wallet
+            const { profile } = useUserProfileStore.getState()
+            const wallets = getDepositCryptoWallets({
+              usdtSaAddress: profile.usdtSaAddress,
+              usdtMznAddress: profile.usdtMznAddress,
+              ethAddress: profile.ethAddress,
+              btcAddress: profile.btcAddress,
+            })
+            // Select USDT SA wallet (first wallet in the list)
+            const usdtSaWallet = wallets.find(w => w.key === 'usdt_sa') || wallets[0]
+            setSelectedCryptoDepositWallet(usdtSaWallet)
+            setTimeout(() => setShowCryptoAddressSheet(true), 220)
           } else if (method === 'card') {
             setDepositMethod('card')
             setAmountMode('deposit')
