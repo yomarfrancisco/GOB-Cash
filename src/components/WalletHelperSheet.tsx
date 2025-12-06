@@ -97,13 +97,24 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
 
   const primaryCtaLabel = isLast ? 'Done' : 'Next'
 
+  // Content varies by wallet type
+  const isZARWallet = currentWalletKey === 'savings'
+  
+  const descriptionText = isZARWallet
+    ? 'A rand savings wallet that pays 9% annual yield on your balance while letting you save, spend, and pay anyone on Gobankless.'
+    : 'A savings account that earns interest on your deposits while enabling you to make direct payments on the app'
+
+  const tile2Line2Text = isZARWallet
+    ? 'Move money in or out at any time at no extra cost'
+    : 'Withdraw anytime at no additional cost'
+
   return (
     <ActionSheet open={!!walletKey} onClose={onClose} title={title} size="tall">
       <div className={styles.content}>
         <div className={styles.tiles}>
           {/* Descriptive paragraph */}
           <p className={styles.description}>
-            A savings account that earns interest on your deposits while enabling you to make direct payments on the app
+            {descriptionText}
           </p>
 
           {/* Tile 1: Card + APY */}
@@ -134,7 +145,7 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
           <div className={styles.tile}>
             <h3 className={styles.tileTitle}>Anytime</h3>
             <p className={styles.tileLine1}>Access to funds</p>
-            <p className={styles.tileLine2}>Withdraw anytime at no additional cost</p>
+            <p className={styles.tileLine2}>{tile2Line2Text}</p>
           </div>
 
           {/* Tile 3: 0% */}
