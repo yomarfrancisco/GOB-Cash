@@ -737,7 +737,18 @@ export default function ProfilePage() {
       {selectedCryptoDepositWallet && (
         <CryptoDepositAddressSheet
           open={showCryptoAddressSheet}
-          onClose={closeCryptoAddressSheet}
+          onClose={() => {
+            setShowCryptoAddressSheet(false)
+            // If opened from deposit flow, return to Deposit method sheet
+            if (depositMethod === 'crypto') {
+              setTimeout(() => {
+                setOpenDeposit(true)
+              }, 220)
+            } else {
+              // For other flows, just close (existing behavior)
+              closeCryptoAddressSheet()
+            }
+          }}
           wallet={selectedCryptoDepositWallet}
         />
       )}
