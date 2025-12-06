@@ -369,7 +369,7 @@ export default function ProfilePage() {
                     })
                   }}
                   type="button"
-                  aria-label={hasCompletedAgentOnboarding ? "Clock in as an agent" : "Start earning as a cash agent"}
+                  aria-label={hasCompletedAgentOnboarding ? "Clock in as an agent" : "Become an agent"}
                 >
                   <div className="profile-social-task-left">
                     <div className="profile-settings-icon">
@@ -377,10 +377,10 @@ export default function ProfilePage() {
                     </div>
                     <div className="profile-social-task-text">
                       <span className="profile-social-task-title">
-                        {hasCompletedAgentOnboarding ? 'Clock in as an agent' : 'Start earning as a cash agent'}
+                        {hasCompletedAgentOnboarding ? 'Clock in as an agent' : 'Become an agent'}
                       </span>
                       <span className="profile-social-task-subtitle">
-                        {hasCompletedAgentOnboarding ? 'Come online and boost your agent credit' : 'Clock in and build your agent credit'}
+                        {hasCompletedAgentOnboarding ? 'Come online and boost your agent credit' : 'Check in, move cash, earn based on your productivity'}
                       </span>
                     </div>
                   </div>
