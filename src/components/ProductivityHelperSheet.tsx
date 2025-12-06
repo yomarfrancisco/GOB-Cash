@@ -254,7 +254,11 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
                   unoptimized
                 />
               </div>
-              <h3 className={styles.tileTitle}>More value <strong>=</strong></h3>
+              <h3 className={styles.tileTitle}>
+                More value
+                <br />
+                <strong>=</strong>
+              </h3>
             </div>
 
             {/* Tile 2: More earnings */}
@@ -269,7 +273,11 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
                   unoptimized
                 />
               </div>
-              <h3 className={styles.tileTitle}>More earnings <strong>=</strong></h3>
+              <h3 className={styles.tileTitle}>
+                More earnings
+                <br />
+                <strong>=</strong>
+              </h3>
             </div>
 
             {/* Tile 3: more cash available */}
