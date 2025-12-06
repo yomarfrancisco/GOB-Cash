@@ -380,7 +380,7 @@ export default function ProfilePage() {
                         {hasCompletedAgentOnboarding ? 'Clock in as an agent' : 'Start earning as a cash agent'}
                       </span>
                       <span className="profile-social-task-subtitle">
-                        {hasCompletedAgentOnboarding ? 'Come online and boost your agent credit' : 'Check in, move cash, earn your productivity'}
+                        {hasCompletedAgentOnboarding ? 'Come online and boost your agent credit' : 'Clock in, move cash, earn productivity'}
                       </span>
                     </div>
                   </div>
