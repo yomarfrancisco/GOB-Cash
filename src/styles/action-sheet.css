@@ -412,6 +412,14 @@
 }
 
 /* Helper Sheets - enable scrolling */
+/* Base Helper Sheet */
+.as-sheet.base-helper-sheet .as-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 /* Wallet Helper Sheet */
 .as-sheet.wallet-helper-sheet .as-body {
   overflow-y: auto;

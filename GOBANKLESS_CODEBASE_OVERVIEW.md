@@ -852,5 +852,89 @@
 
 ---
 
+## Phase 2 – Helper Sheet Unification (Step 1)
+
+### BaseHelperSheet Introduction ✅
+
+**Created**: `src/components/helpers/BaseHelperSheet.tsx`
+
+**Purpose**: Shared base component for all helper sheets (Wallet, Productivity, Map) to reduce duplication and standardize pagination/footer behavior.
+
+**Features**:
+- Wraps `ActionSheet` with proper scrolling support
+- Handles header (title + optional description)
+- Manages paginated body content
+- Provides footer with Next/Done button and chevron logic
+- Supports dynamic title/description per page (via functions)
+- Flexible CTA configuration per page
+
+**Props**:
+- `isOpen`, `onClose` - Sheet open/close state
+- `title` - String or function `(pageIndex) => string` for dynamic titles
+- `description` - Optional string or function `(pageIndex) => string`
+- `pages` - Array of `HelperPage` objects (each with `content: ReactNode`)
+- `currentPage` - Controlled page index (parent manages state)
+- `className` - Additional CSS class for sheet
+- `primaryCtaForPage` - Optional function to customize CTA per page
+- `onPageChange` - Callback when page changes
+
+**CSS Module**: `BaseHelperSheet.module.css`
+- Contains shared footer, button, and layout styles
+- Gradient fade effect for footer
+- Responsive button styling (Next vs Done variants)
+
+---
+
+### WalletHelperSheet Migration ✅
+
+**Refactored**: `src/components/WalletHelperSheet.tsx`
+
+**Changes**:
+1. **Removed direct ActionSheet usage** - Now uses `BaseHelperSheet`
+2. **Extracted wallet content rendering** - `renderWalletContent()` function creates ReactNode for each wallet
+3. **Converted wallet sequence to pages** - Each wallet in sequence becomes a page
+4. **Dynamic title/description** - Title and description update per wallet via functions
+5. **Preserved all behavior**:
+   - Circular navigation (all 6 wallets, starting from entry point)
+   - Next/Done button logic (Done on last wallet)
+   - All copy, APY values, and styling unchanged
+   - Same visual appearance and spacing
+
+**Preserved**:
+- All wallet-specific CSS (tiles, card preview, APY pill) in `WalletHelperSheet.module.css`
+- All copy from `HELPER_COPY` map
+- APY calculation logic (including Earnings → ZAR APY special case)
+- Circular sequence logic
+- Public API unchanged (same props: `walletKey`, `onClose`)
+
+**Result**: WalletHelperSheet now uses BaseHelperSheet internally, but external API and behavior are identical.
+
+---
+
+### Migration Path for Other Helpers
+
+**ProductivityHelperSheet** (Future):
+- Has 4 pages with back button on pages 2-4
+- Can migrate by:
+  1. Converting 4 pages to `HelperPage[]`
+  2. Using `primaryCtaForPage` for Next button
+  3. Adding back button as custom header content (or extending BaseHelperSheet)
+  4. Preserving all copy and tile styles
+
+**MapHelperSheet** (Future):
+- Single page with multiple tiles
+- Can migrate by:
+  1. Creating single `HelperPage` with map content
+  2. Using BaseHelperSheet (or could stay simple if no pagination needed)
+  3. Preserving map preview and tile styles
+
+**Benefits**:
+- Consistent footer/button behavior across all helpers
+- Shared scrolling and fade gradient logic
+- Easier to maintain and extend
+- Foundation for future helper sheet features
+
+---
+
 **End of Overview**
 

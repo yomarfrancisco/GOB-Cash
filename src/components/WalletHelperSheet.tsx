@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Image from 'next/image'
-import { ChevronRight } from 'lucide-react'
-import ActionSheet from './ActionSheet'
+import BaseHelperSheet, { type HelperPage, type PrimaryCtaConfig } from './helpers/BaseHelperSheet'
 import styles from './WalletHelperSheet.module.css'
 import { type CardType } from './CardStack'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
@@ -195,9 +194,69 @@ const HELPER_COPY: Record<WalletKey, HelperCopy> = {
   },
 }
 
+// Get APY from card definitions (single source of truth)
+// Earnings wallet (yieldSurprise) uses ZAR wallet's APY as special case
+const getApyForWallet = (walletKey: WalletKey): number => {
+  if (walletKey === 'yieldSurprise') {
+    // Earnings wallet always uses ZAR wallet's APY
+    const zarCard = getCardDefinition('savings')
+    return zarCard.annualYieldBps ? zarCard.annualYieldBps / 100 : 9.38
+  }
+  
+  // For other wallets, use their own APY from card definitions
+  // Note: walletKey from CardStack may include 'yieldSurprise', but cardDefinitions only has: 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc'
+  const cardDef = getCardDefinition(walletKey as 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc')
+  return cardDef.annualYieldBps ? cardDef.annualYieldBps / 100 : 9.38
+}
+
+// Render wallet content for a given wallet key
+const renderWalletContent = (walletKey: WalletKey) => {
+  const walletCopy = HELPER_COPY[walletKey] || HELPER_COPY.savings
+  const cardImage = cardImages[walletKey]
+  const apyValue = getApyForWallet(walletKey)
+  const apyPercentage = `${apyValue.toFixed(1)}%`
+
+  return (
+    <div className={styles.tiles}>
+      {/* Tile 1: Card + APY */}
+      <div className={styles.tile}>
+        <div className={styles.cardPreviewContainer}>
+          {/* Dark pill with APY */}
+          <div className={styles.apyPill}>
+            <span className={styles.apyPercentage}>{apyPercentage}</span>
+            <span className={styles.apyLabel}>annual yield</span>
+          </div>
+          {/* Card preview - showing top third/half */}
+          <div className={styles.cardPreview}>
+            <Image
+              src={cardImage}
+              alt={walletTitleMap[walletKey]}
+              fill
+              className={styles.cardImage}
+              sizes="204px"
+              unoptimized
+            />
+          </div>
+        </div>
+        <h3 className={styles.apyHeading}>{walletCopy.apyHeading}</h3>
+        <p className={styles.apySubtext}>{walletCopy.apySubtext}</p>
+      </div>
+
+      {/* Tiles 2-4: Render from copy map (skip index 0 which is APY_CARD sentinel) */}
+      {walletCopy.tiles.slice(1).map((tile, index) => (
+        <div key={index} className={styles.tile}>
+          <h3 className={styles.tileTitle}>{tile.title}</h3>
+          {tile.line1 && <p className={styles.tileLine1}>{tile.line1}</p>}
+          {tile.line2 && <p className={styles.tileLine2}>{tile.line2}</p>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSheetProps) {
   const [sequence, setSequence] = useState<WalletKey[]>([])
-  const [sequenceIndex, setSequenceIndex] = useState<number>(0)
+  const [currentPageIndex, setCurrentPageIndex] = useState<number>(0)
 
   // Build circular sequence starting from entry point
   useEffect(() => {
@@ -207,7 +266,7 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
       if (entryIndex === -1) {
         // Fallback: if key not found, use first wallet
         setSequence(WALLET_SEQUENCE)
-        setSequenceIndex(0)
+        setCurrentPageIndex(0)
         return
       }
 
@@ -221,119 +280,60 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
       }
 
       setSequence(circularSequence)
-      setSequenceIndex(0)
+      setCurrentPageIndex(0)
     } else {
       setSequence([])
-      setSequenceIndex(0)
+      setCurrentPageIndex(0)
     }
   }, [walletKey])
 
-  if (sequence.length === 0 || sequenceIndex >= sequence.length) return null
+  // Build pages array from sequence
+  const pages = useMemo<HelperPage[]>(() => {
+    return sequence.map((walletKey) => ({
+      content: renderWalletContent(walletKey),
+    }))
+  }, [sequence])
 
-  const currentWalletKey = sequence[sequenceIndex]
-  const title = walletTitleMap[currentWalletKey]
-  const cardImage = cardImages[currentWalletKey]
+  if (sequence.length === 0 || pages.length === 0) return null
 
-  // Check if we're on the last item in the sequence
-  const isLast = sequenceIndex === sequence.length - 1
-
-  const handleNext = () => {
-    if (isLast) {
-      onClose()
-      return
+  // CTA configuration: Done on last page, Next otherwise
+  const primaryCtaForPage = (pageIndex: number, totalPages: number): PrimaryCtaConfig => {
+    const isLast = pageIndex === totalPages - 1
+    return {
+      label: isLast ? 'Done' : 'Next',
+      variant: isLast ? 'done' : 'next',
     }
-
-    // Advance to next item in sequence
-    setSequenceIndex((prev) => prev + 1)
   }
 
-  const primaryCtaLabel = isLast ? 'Done' : 'Next'
-
-  // Get copy for current wallet
-  const walletCopy = HELPER_COPY[currentWalletKey] || HELPER_COPY.savings // Fallback to savings if not found
-  
-  // Get APY from card definitions (single source of truth)
-  // Earnings wallet (yieldSurprise) uses ZAR wallet's APY as special case
-  const getApyForWallet = (walletKey: WalletKey): number => {
-    if (walletKey === 'yieldSurprise') {
-      // Earnings wallet always uses ZAR wallet's APY
-      const zarCard = getCardDefinition('savings')
-      return zarCard.annualYieldBps ? zarCard.annualYieldBps / 100 : 9.38
-    }
-    
-    // For other wallets, use their own APY from card definitions
-    // Note: walletKey from CardStack may include 'yieldSurprise', but cardDefinitions only has: 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc'
-    const cardDef = getCardDefinition(walletKey as 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc')
-    return cardDef.annualYieldBps ? cardDef.annualYieldBps / 100 : 9.38
+  // Title function: returns title for current page
+  const getTitleForPage = (pageIndex: number): string => {
+    const walletKey = sequence[pageIndex]
+    return walletTitleMap[walletKey] || 'Wallet'
   }
-  
-  const apyValue = getApyForWallet(currentWalletKey)
-  const apyPercentage = `${apyValue.toFixed(1)}%`
+
+  // Description function: returns description for current page
+  const getDescriptionForPage = (pageIndex: number): string => {
+    const walletKey = sequence[pageIndex]
+    const walletCopy = HELPER_COPY[walletKey] || HELPER_COPY.savings
+    return walletCopy.description
+  }
+
+  const handlePageChange = (newPageIndex: number) => {
+    setCurrentPageIndex(newPageIndex)
+  }
 
   return (
-    <ActionSheet open={!!walletKey} onClose={onClose} title={title} size="tall" className="wallet-helper-sheet">
-      <div className={styles.content}>
-        <div className={styles.tiles}>
-          {/* Descriptive paragraph */}
-          <p className={styles.description}>
-            {walletCopy.description}
-          </p>
-
-          {/* Tile 1: Card + APY */}
-          <div className={styles.tile}>
-            <div className={styles.cardPreviewContainer}>
-              {/* Dark pill with APY */}
-              <div className={styles.apyPill}>
-                <span className={styles.apyPercentage}>{apyPercentage}</span>
-                <span className={styles.apyLabel}>annual yield</span>
-              </div>
-              {/* Card preview - showing top third/half */}
-              <div className={styles.cardPreview}>
-                <Image
-                  src={cardImage}
-                  alt={title}
-                  fill
-                  className={styles.cardImage}
-                  sizes="204px"
-                  unoptimized
-                />
-              </div>
-            </div>
-            <h3 className={styles.apyHeading}>{walletCopy.apyHeading}</h3>
-            <p className={styles.apySubtext}>{walletCopy.apySubtext}</p>
-          </div>
-
-          {/* Tiles 2-4: Render from copy map (skip index 0 which is APY_CARD sentinel) */}
-          {walletCopy.tiles.slice(1).map((tile, index) => (
-            <div key={index} className={styles.tile}>
-              <h3 className={styles.tileTitle}>{tile.title}</h3>
-              {tile.line1 && <p className={styles.tileLine1}>{tile.line1}</p>}
-              {tile.line2 && <p className={styles.tileLine2}>{tile.line2}</p>}
-            </div>
-          ))}
-        </div>
-
-        {/* Footer with gradient fade */}
-        <div className={styles.pageFooter}>
-          <div className={styles.pageParent}>
-            <div className={styles.lButtonWrapper}>
-              <button
-                type="button"
-                className={`${styles.lButton} ${isLast ? styles.lButtonDone : ''}`}
-                onClick={handleNext}
-              >
-                <div className={styles.lButtonContent}>
-                  <span className={styles.lBold}>{primaryCtaLabel}</span>
-                  {!isLast && (
-                    <ChevronRight size={24} strokeWidth={2} className={styles.ico24ArrowsNextUi} />
-                  )}
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </ActionSheet>
+    <BaseHelperSheet
+      isOpen={!!walletKey}
+      onClose={onClose}
+      title={getTitleForPage}
+      description={getDescriptionForPage}
+      pages={pages}
+      currentPage={currentPageIndex}
+      className="wallet-helper-sheet"
+      primaryCtaForPage={primaryCtaForPage}
+      onPageChange={handlePageChange}
+    />
   )
 }
 
