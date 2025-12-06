@@ -106,8 +106,8 @@ const HELPER_COPY: Record<WalletKey, HelperCopy> = {
   },
   yieldSurprise: {
     description: 'Your Earnings wallet is where Gobankless deposits the fees you earn from helping customers move cash to and from crypto.',
-    apyHeading: 'Turn your shifts into 25% annual yield',
-    apySubtext: 'Compounded as your agent earnings grow',
+    apyHeading: 'Leave your earnings here and they earn yield — just like your main wallet.',
+    apySubtext: 'Active agents can earn 25%+ annually (commissions + yield combined).',
     tiles: [
       { title: 'APY_CARD' },
       {
