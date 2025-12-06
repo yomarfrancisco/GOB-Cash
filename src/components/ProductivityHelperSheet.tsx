@@ -299,10 +299,14 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
               {page === 4 && 'Page 4 of 4'}
             </div>
             <div className={styles.lButtonWrapper}>
-              <button className={styles.lButton} onClick={handleNext} type="button">
+              <button 
+                className={`${styles.lButton} ${page === 4 ? styles.lButtonDone : ''}`} 
+                onClick={page === 4 ? onClose : handleNext} 
+                type="button"
+              >
                 <div className={styles.lButtonContent}>
-                  <span className={styles.lBold}>Next</span>
-                  <ChevronRight size={24} strokeWidth={2} className={styles.ico24ArrowsNextUi} />
+                  <span className={styles.lBold}>{page === 4 ? 'Done' : 'Next'}</span>
+                  {page !== 4 && <ChevronRight size={24} strokeWidth={2} className={styles.ico24ArrowsNextUi} />}
                 </div>
               </button>
             </div>

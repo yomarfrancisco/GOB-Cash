@@ -165,7 +165,7 @@
 
 .pageLabel {
   font-size: 13px;
-  color: #007aff;
+  color: transparent;
   font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
 }
 
@@ -202,6 +202,23 @@
 
 .lButton:active {
   background-color: #c7c7cc;
+}
+
+.lButtonDone {
+  background-color: #FF2D55 !important;
+  color: #fff !important;
+}
+
+.lButtonDone:hover {
+  background-color: #E0244A !important;
+}
+
+.lButtonDone:active {
+  background-color: #C91E3F !important;
+}
+
+.lButtonDone .lBold {
+  color: #fff !important;
 }
 
 .lButtonContent {
