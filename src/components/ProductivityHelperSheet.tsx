@@ -56,8 +56,8 @@ export default function ProductivityHelperSheet({ isOpen, onClose }: Productivit
             <Image
               src="/assets/hazard.png"
               alt="Hazard"
-              width={204}
-              height={85}
+              width={163}
+              height={68}
               className={styles.productivityImage}
               unoptimized
             />
