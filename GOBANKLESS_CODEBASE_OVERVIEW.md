@@ -1075,5 +1075,217 @@ All helper sheets are now unified. Future helper sheets can easily use BaseHelpe
 
 ---
 
+## Edit Sheet Pattern Analysis
+
+**Date**: 2025-01-27
+
+### Common Structure
+
+All profile edit sheets (Email, WhatsApp, Username, Instagram, LinkedIn, etc.) follow a consistent pattern:
+
+**Layout**:
+- Wrapper: `send-details-sheet` class (flex column, full height)
+- Header: Empty `send-details-header` div (layout spacing only, close button handled by ActionSheet)
+- Fields container: `send-details-fields` class (scrollable, padded)
+- Form rows: `send-details-row` labels containing:
+  - Label text: `send-details-label` (bold, 16px)
+  - Input: `send-details-input` (transparent, underlined)
+  - Underline: `send-details-underline` (1px black line)
+  - Error message: Inline red text (conditional)
+
+**ActionSheet Usage**:
+- `open={isOpen}` from Zustand store
+- `onClose={handleClose}` (closes current sheet, reopens ProfileEditSheet)
+- `title=""` (empty, using ActionSheet's default close button)
+- `className="send-details"` (hides ActionSheet header)
+- `size="tall"`
+
+**Common Behaviors**:
+- **Focus Management**: All use `useRef` + `useEffect` to auto-focus input when sheet opens (with mobile keyboard workaround)
+- **Validation**: Each sheet has field-specific validation logic
+- **Save Handler**: Validates → saves to `useUserProfileStore` → closes and reopens ProfileEditSheet
+- **Button State**: Primary button disabled when invalid/empty, enabled when valid
+- **Primary Button**: 
+  - Pink (#FF2D55) when enabled, gray (#E9E9EB) when disabled
+  - Shows Check icon (lucide-react) when enabled
+  - Label: "Done" (or custom)
+  - Styling: 56px height, 56px border-radius, full-width (max 382px)
+- **Secondary Actions**: Some sheets have "Remove link" button (Email, WhatsApp), others don't (Username)
+
+**Styling Source**: `src/styles/send-details-sheet.css` (shared global CSS)
+
+**State Management**: Each sheet has its own Zustand store (e.g., `useEmailEditSheet`, `useWhatsAppEditSheet`) that manages `isOpen` and `close()`.
+
+---
+
+## Phase 2 – Edit Sheet Unification (Step 3)
+
+**Status**: ✅ Complete
+
+**Branch**: `refactor/base-edit-sheet-profile`
+
+**Date**: 2025-01-27
+
+### Summary
+
+Created BaseEditSheet component and migrated three profile edit sheets (Email, WhatsApp, Username) to use it. This establishes a shared pattern for all profile edit sheets, reducing duplication and ensuring consistent behavior.
+
+### BaseEditSheet Component
+
+**Files**:
+- `src/components/helpers/BaseEditSheet.tsx`
+- `src/components/helpers/BaseEditSheet.module.css`
+
+**Purpose**: Reusable wrapper for profile edit sheets that provides consistent layout, button styling, and behavior.
+
+**Props**:
+- `open: boolean` - Sheet visibility
+- `onClose: () => void` - Close handler
+- `title: string` - Sheet title (passed to ActionSheet, hidden by CSS for send-details class)
+- `description?: string` - Optional description text above form
+- `primaryLabel?: string` - Primary button label (default: "Save")
+- `secondaryLabel?: string` - Secondary button label (e.g., "Remove link")
+- `onPrimary?: () => void | Promise<void>` - Primary button handler
+- `onSecondary?: () => void` - Secondary button handler
+- `isPrimaryDisabled?: boolean` - Disable primary button
+- `children: ReactNode` - Form body content
+- `className?: string` - Additional CSS classes
+
+**Features**:
+- Wraps ActionSheet with `send-details` class (hides header, uses tall size)
+- Provides consistent button styling (pink when enabled, gray when disabled)
+- Shows Check icon in primary button when enabled
+- Supports optional secondary button (e.g., "Remove link")
+- Uses shared `send-details-sheet.css` for layout and input styling
+- No business logic - purely presentational
+
+**Styling**:
+- Reuses existing `send-details-sheet.css` global styles
+- Primary button: 56px height, 56px border-radius, pink (#FF2D55) when enabled
+- Secondary button: Transparent background, red text (#FF453A)
+- Description: 16px Inter, gray text, 20px bottom margin
+
+### Migrated Sheets
+
+#### 1. EmailEditSheet
+
+**Changes**:
+- Replaced ActionSheet with BaseEditSheet
+- Wired props: `title="Email address"`, `primaryLabel="Done"`, `secondaryLabel="Remove link"`
+- Kept all validation logic (email regex)
+- Kept all form inputs and error handling
+- Kept focus management (auto-focus on open)
+- Kept save/remove handlers
+- Removed duplicate button markup (now handled by BaseEditSheet)
+
+**Preserved**:
+- Email validation rules
+- Normalization (trim, lowercase)
+- Auto-focus behavior
+- Enter key handling
+- Error messages
+- Remove link functionality
+
+#### 2. WhatsAppEditSheet
+
+**Changes**:
+- Replaced ActionSheet with BaseEditSheet
+- Wired props: `title="WhatsApp number"`, `primaryLabel="Done"`, `secondaryLabel="Remove link"`
+- Kept all validation logic (phone number length >= 6)
+- Kept all form inputs and error handling
+- Kept focus management
+- Kept save/remove handlers
+- Removed duplicate button markup
+
+**Preserved**:
+- Phone number validation (strip formatting, check length)
+- Normalization (trim)
+- Auto-focus behavior
+- Enter key handling
+- Error messages
+- Remove link functionality
+
+#### 3. UsernameEditSheet
+
+**Changes**:
+- Replaced ActionSheet with BaseEditSheet
+- Wired props: `title="Username"`, `primaryLabel="Done"` (no secondary button)
+- Kept all validation logic (handle normalization and validation)
+- Kept all form inputs and error handling
+- Kept focus management
+- Kept save handler
+- Removed duplicate button markup
+
+**Preserved**:
+- Handle normalization (@ prefix, character rules)
+- Handle validation
+- Auto-focus behavior
+- Enter key handling
+- Error messages
+- No remove button (username is required)
+
+### Behavior Preservation
+
+**All Sheets**:
+- ✅ Open/close behavior unchanged (Zustand stores unchanged)
+- ✅ Validation rules identical
+- ✅ Error messages identical
+- ✅ Auto-focus on open (mobile keyboard workaround preserved)
+- ✅ Enter key handling preserved
+- ✅ Save handlers unchanged (store updates, close/reopen ProfileEditSheet)
+- ✅ Visual appearance identical (same button colors, spacing, typography)
+- ✅ Remove link functionality preserved (Email, WhatsApp)
+
+**No Breaking Changes**:
+- All public APIs unchanged (Zustand stores, component exports)
+- All props and callbacks work the same
+- All visual appearance identical
+- All copy and content unchanged
+
+### Files Changed
+
+**Created**:
+- `src/components/helpers/BaseEditSheet.tsx`
+- `src/components/helpers/BaseEditSheet.module.css`
+
+**Modified**:
+- `src/components/EmailEditSheet.tsx` - Migrated to BaseEditSheet
+- `src/components/WhatsAppEditSheet.tsx` - Migrated to BaseEditSheet
+- `src/components/UsernameEditSheet.tsx` - Migrated to BaseEditSheet
+- `GOBANKLESS_CODEBASE_OVERVIEW.md` - Added pattern analysis and Phase 2 Step 3 documentation
+
+**No Changes**:
+- Zustand stores (useEmailEditSheet, useWhatsAppEditSheet, useUsernameEditSheet)
+- Global CSS (send-details-sheet.css)
+- Validation utilities
+- Profile store (useUserProfileStore)
+
+### Validation
+
+- ✅ `pnpm build` - Success
+- ✅ `npx tsc --noEmit` - No type errors
+- ✅ `pnpm lint` - No errors (fixed unescaped entities in comments)
+- ✅ All three sheets use BaseEditSheet
+- ✅ No duplicate button/layout code
+- ✅ Consistent styling across sheets
+
+### Next Steps
+
+**Remaining Edit Sheets** (Future PRs):
+- InstagramEditSheet
+- LinkedInEditSheet
+- FullNameEditSheet
+- ProfileDescriptionEditSheet (if exists)
+- AvatarEditSheet (may need special handling)
+
+**Migration Pattern**:
+1. Replace ActionSheet with BaseEditSheet
+2. Wire up props (title, primaryLabel, onPrimary, isPrimaryDisabled)
+3. Add secondaryLabel/onSecondary if "Remove link" is needed
+4. Keep all validation and form logic
+5. Remove duplicate button markup
+
+---
+
 **End of Overview**
 

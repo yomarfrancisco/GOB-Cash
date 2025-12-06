@@ -1,0 +1,12 @@
+/* Base Edit Sheet - Shared styles for profile edit sheets */
+
+/* Optional description text */
+.description {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(10, 10, 10, 0.7);
+  margin: 0 0 20px 0;
+}
+
