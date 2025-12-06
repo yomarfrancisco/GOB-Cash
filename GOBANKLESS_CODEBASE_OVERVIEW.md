@@ -936,5 +936,144 @@
 
 ---
 
+## Phase 2 – Helper Sheet Unification (Step 2)
+
+**Status**: ✅ Complete
+
+**Branch**: `refactor/base-helper-sheet-productivity-map`
+
+**Date**: 2025-01-27
+
+### Summary
+
+Migrated ProductivityHelperSheet and MapHelperSheet to use BaseHelperSheet, completing the helper sheet unification. All three helper sheets (Wallet, Productivity, Map) now share the same base component, reducing duplication and ensuring consistent behavior.
+
+### Changes Made
+
+#### 1. Enhanced BaseHelperSheet
+
+**File**: `src/components/helpers/BaseHelperSheet.tsx`
+
+**New Features**:
+- **Back button support**: Optional back button in header (shows conditionally based on page index)
+- **Page label**: Optional "Page X of Y" label in footer
+- **Subtitle support**: Optional subtitle (shown before description)
+- **Divider support**: Optional divider after subtitle
+- **ReactNode descriptions**: Support for JSX in descriptions (for `<strong>` tags, etc.)
+- **Optional footer**: Can hide footer button for single-page helpers
+
+**New Props**:
+- `showBackButton?: boolean | ((pageIndex: number) => boolean)`
+- `onBack?: (pageIndex: number) => void`
+- `showPageLabel?: boolean | ((pageIndex: number, totalPages: number) => boolean)`
+- `pageLabelFormatter?: (pageIndex: number, totalPages: number) => string`
+- `showFooter?: boolean`
+- `subtitle?: string | ReactNode | ((pageIndex: number) => string | ReactNode)`
+- `showDivider?: boolean`
+
+**CSS Updates** (`BaseHelperSheet.module.css`):
+- Added `.headerRow`, `.backButton`, `.title` styles
+- Added `.subtitle`, `.divider` styles
+- Added `.pageLabel` style (visible, blue color matching design)
+- All styles match existing helper sheet patterns
+
+#### 2. Refactored ProductivityHelperSheet
+
+**File**: `src/components/ProductivityHelperSheet.tsx`
+
+**Changes**:
+- Converted from custom ActionSheet wrapper to BaseHelperSheet
+- Converted 4 pages to `HelperPage[]` format
+- Moved page state from 1-indexed to 0-indexed (for BaseHelperSheet compatibility)
+- Preserved all tile content exactly as before
+- Preserved all descriptions with `<strong>` tags
+- Uses `showBackButton={(pageIndex) => pageIndex > 0}` to show back on pages 2-4
+- Uses `showPageLabel={true}` with custom formatter
+- All copy, images, and tile structure unchanged
+
+**CSS Cleanup** (`ProductivityHelperSheet.module.css`):
+- Removed duplicate styles now in BaseHelperSheet:
+  - `.bodyRoot`, `.headerRow`, `.backButton`, `.title`
+  - `.content`, `.description`
+  - `.pageFooter`, `.pageParent`, `.pageLabel`
+  - `.lButtonWrapper`, `.lButton`, `.lButtonDone`, etc.
+- Kept only tile-specific styles:
+  - `.tile`, `.imageContainer`, `.productivityImage`
+  - `.tileTitle`, `.tileLine1`
+
+#### 3. Refactored MapHelperSheet
+
+**File**: `src/components/MapHelperSheet.tsx`
+
+**Changes**:
+- Converted from custom ActionSheet wrapper to BaseHelperSheet
+- Single page converted to `HelperPage` format
+- Uses `subtitle` prop for "Find dealers..." text
+- Uses `showDivider={true}` for divider after subtitle
+- Uses `showFooter={false}` to hide footer button (single page, no navigation)
+- All tile content, map preview, and verified dealer marker unchanged
+
+**CSS Cleanup** (`MapHelperSheet.module.css`):
+- Removed duplicate styles now in BaseHelperSheet:
+  - `.content`, `.subtitle`, `.divider`
+- Kept only map-specific styles:
+  - `.tile`, `.mapPreview`, `.mapImage`
+  - `.verifiedMarker`, `.markerBackground`, `.avatarWrapper`, etc.
+  - `.iconContainer`, `.icon`
+  - `.mapTitle`, `.mapSubtext`, `.verifiedDealerTitle`, `.tileTitle`, `.tileLine1`
+
+### Behavior Preservation
+
+**ProductivityHelperSheet**:
+- ✅ 4 pages with same content and order
+- ✅ Back button appears on pages 2-4 only
+- ✅ Page label shows "Page X of 4"
+- ✅ Next button on pages 1-3, Done button on page 4
+- ✅ All descriptions with bold text preserved
+- ✅ All tile images and text unchanged
+- ✅ Same scrolling and fade gradient behavior
+
+**MapHelperSheet**:
+- ✅ Single page with all 4 tiles
+- ✅ Subtitle and divider preserved
+- ✅ No footer button (as before)
+- ✅ All map preview, verified dealer, and icon tiles unchanged
+- ✅ Same scrolling behavior
+
+**WalletHelperSheet**:
+- ✅ No regressions - still works exactly as before
+- ✅ All wallet helpers (ZAR, MZN, ZWD, ETH, BTC, Earnings) unchanged
+
+### Files Changed
+
+**Modified**:
+- `src/components/helpers/BaseHelperSheet.tsx` - Enhanced with back button, page label, subtitle, divider support
+- `src/components/helpers/BaseHelperSheet.module.css` - Added header, subtitle, divider, page label styles
+- `src/components/ProductivityHelperSheet.tsx` - Refactored to use BaseHelperSheet
+- `src/components/ProductivityHelperSheet.module.css` - Removed duplicate styles, kept only tile styles
+- `src/components/MapHelperSheet.tsx` - Refactored to use BaseHelperSheet
+- `src/components/MapHelperSheet.module.css` - Removed duplicate styles, kept only map-specific styles
+
+**No Breaking Changes**:
+- All public APIs unchanged
+- All props and callbacks work the same
+- All visual appearance identical
+- All copy and content unchanged
+
+### Validation
+
+- ✅ `pnpm build` - Success
+- ✅ `npx tsc --noEmit` - No type errors
+- ✅ `pnpm lint` - Only pre-existing warnings (unrelated)
+- ✅ All three helper sheets use BaseHelperSheet
+- ✅ No duplicate footer/pagination logic
+- ✅ Consistent styling across helpers
+
+### Next Steps
+
+All helper sheets are now unified. Future helper sheets can easily use BaseHelperSheet with minimal setup.
+
+---
+
 **End of Overview**
 

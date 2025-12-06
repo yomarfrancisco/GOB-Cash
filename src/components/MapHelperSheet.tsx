@@ -1,8 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import ActionSheet from './ActionSheet'
-import { MessageSquare, Package, Plane, Helicopter } from 'lucide-react'
+import { MessageSquare, Helicopter } from 'lucide-react'
+import BaseHelperSheet, { type HelperPage } from './helpers/BaseHelperSheet'
 import styles from './MapHelperSheet.module.css'
 
 type MapHelperSheetProps = {
@@ -11,17 +11,9 @@ type MapHelperSheetProps = {
 }
 
 export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps) {
-  return (
-    <ActionSheet open={isOpen} onClose={onClose} title="Send cash anywhere" size="tall" className="map-helper-sheet">
-      <div className={styles.content}>
-        {/* Subtitle */}
-        <p className={styles.subtitle}>
-          Find dealers to collect and deliver cash anywhere in the world.
-        </p>
-        
-        {/* Divider */}
-        <div className={styles.divider} />
-
+  const page: HelperPage = {
+    content: (
+      <>
         {/* Tile 1: Map Preview */}
         <div className={styles.tile}>
           <div className={styles.mapPreview}>
@@ -100,8 +92,21 @@ export default function MapHelperSheet({ isOpen, onClose }: MapHelperSheetProps)
             Get someone to collect cash and deposit into your account, or withdraw and deliver cash for you anywhere
           </p>
         </div>
-      </div>
-    </ActionSheet>
+      </>
+    ),
+  }
+
+  return (
+    <BaseHelperSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Send cash anywhere"
+      subtitle="Find dealers to collect and deliver cash anywhere in the world."
+      showDivider={true}
+      pages={[page]}
+      currentPage={0}
+      className="map-helper-sheet"
+      showFooter={false}
+    />
   )
 }
-
