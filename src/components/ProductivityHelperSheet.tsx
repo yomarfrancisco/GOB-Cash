@@ -1,21 +1,23 @@
 'use client'
 
 import Image from 'next/image'
+import { ChevronRight } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import styles from './ProductivityHelperSheet.module.css'
 
 type ProductivityHelperSheetProps = {
   isOpen: boolean
   onClose: () => void
+  onNextPage?: () => void
 }
 
-export default function ProductivityHelperSheet({ isOpen, onClose }: ProductivityHelperSheetProps) {
+export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }: ProductivityHelperSheetProps) {
   return (
     <ActionSheet open={isOpen} onClose={onClose} title="Productivity Score" size="tall">
       <div className={styles.content}>
         {/* Descriptive paragraph */}
         <p className={styles.description}>
-          Your Productivity score measures how effectively you turn your time into earnings. It combines three things:
+          Your Productivity Score measures how well you use the time you unlock each day to earn on Gobankless.
         </p>
 
         {/* Tile 1: Showing Up */}
@@ -64,6 +66,19 @@ export default function ProductivityHelperSheet({ isOpen, onClose }: Productivit
           </div>
           <h3 className={styles.tileTitle}>3. Working Clean</h3>
           <p className={styles.tileLine1}>Low dispute rates, no errors, no reversals.</p>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className={styles.pageParent}>
+          <div className={styles.pageLabel}>Page 1 of 3</div>
+          <div className={styles.lButtonWrapper}>
+            <button className={styles.lButton} onClick={onNextPage} type="button">
+              <div className={styles.lButtonContent}>
+                <span>Next</span>
+                <ChevronRight size={24} strokeWidth={2} className={styles.ico24ArrowsNextUi} />
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     </ActionSheet>

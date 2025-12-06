@@ -69,3 +69,73 @@
   text-align: center;
 }
 
+/* Pagination Footer */
+.pageParent {
+  width: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0px 8px;
+  box-sizing: border-box;
+  gap: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #007aff;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+}
+
+.pageLabel {
+  font-size: 13px;
+  color: #007aff;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+}
+
+.lButtonWrapper {
+  display: flex;
+  align-items: flex-start;
+  text-align: left;
+  font-size: 16px;
+  color: #000;
+}
+
+.lButton {
+  height: 56px;
+  width: 272px;
+  border-radius: 56px;
+  background-color: #e5e5ea;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 40px;
+  box-sizing: border-box;
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  color: #000;
+  transition: background-color 200ms ease;
+}
+
+.lButton:hover {
+  background-color: #d1d1d6;
+}
+
+.lButton:active {
+  background-color: #c7c7cc;
+}
+
+.lButtonContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ico24ArrowsNextUi {
+  height: 24px;
+  width: 24px;
+  position: relative;
+  flex-shrink: 0;
+}
+

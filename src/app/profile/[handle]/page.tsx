@@ -479,6 +479,10 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
       <ProductivityHelperSheet
         isOpen={isProductivityHelperOpen}
         onClose={() => setIsProductivityHelperOpen(false)}
+        onNextPage={() => {
+          // Placeholder for page 2 navigation
+          console.log('[ProductivityHelperSheet] Next page clicked')
+        }}
       />
       {/* PaymentDetailsSheet is rendered globally in layout.tsx */}
       {/* ShareProfileSheet is rendered globally in layout.tsx */}

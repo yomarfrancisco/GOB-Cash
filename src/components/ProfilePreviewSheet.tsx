@@ -434,6 +434,10 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
       <ProductivityHelperSheet
         isOpen={isProductivityHelperOpen}
         onClose={() => setIsProductivityHelperOpen(false)}
+        onNextPage={() => {
+          // Placeholder for page 2 navigation
+          console.log('[ProductivityHelperSheet] Next page clicked')
+        }}
       />
     </>
   )

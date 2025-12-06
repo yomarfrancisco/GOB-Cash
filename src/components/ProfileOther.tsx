@@ -307,6 +307,10 @@ export default function ProfileOther({ profile }: ProfileOtherProps) {
       <ProductivityHelperSheet
         isOpen={isProductivityHelperOpen}
         onClose={() => setIsProductivityHelperOpen(false)}
+        onNextPage={() => {
+          // Placeholder for page 2 navigation
+          console.log('[ProductivityHelperSheet] Next page clicked')
+        }}
       />
     </div>
   )
