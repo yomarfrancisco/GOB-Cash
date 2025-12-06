@@ -44,40 +44,57 @@ const cardImages: Record<WalletKey, string> = {
 }
 
 export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSheetProps) {
-  const [currentWalletKey, setCurrentWalletKey] = useState<WalletKey | null>(null)
+  const [sequence, setSequence] = useState<WalletKey[]>([])
+  const [sequenceIndex, setSequenceIndex] = useState<number>(0)
 
-  // Whenever sheet opens or walletKey changes, reset currentWalletKey
+  // Build circular sequence starting from entry point
   useEffect(() => {
     if (walletKey) {
       // Map yieldSurprise to yield for navigation purposes
       const normalizedKey = walletKey === 'yieldSurprise' ? 'yield' : walletKey
-      setCurrentWalletKey(normalizedKey)
+      const entryIndex = WALLET_SEQUENCE.indexOf(normalizedKey)
+      
+      if (entryIndex === -1) {
+        // Fallback: if key not found, use first wallet
+        setSequence(WALLET_SEQUENCE)
+        setSequenceIndex(0)
+        return
+      }
+
+      // Build circular sequence: entryIndex, entryIndex+1, ..., N-1, 0, 1, ..., entryIndex-1
+      const N = WALLET_SEQUENCE.length
+      const circularSequence: WalletKey[] = []
+      
+      for (let i = 0; i < N; i++) {
+        const index = (entryIndex + i) % N
+        circularSequence.push(WALLET_SEQUENCE[index])
+      }
+
+      setSequence(circularSequence)
+      setSequenceIndex(0)
     } else {
-      setCurrentWalletKey(null)
+      setSequence([])
+      setSequenceIndex(0)
     }
   }, [walletKey])
 
-  if (!currentWalletKey) return null
+  if (sequence.length === 0 || sequenceIndex >= sequence.length) return null
 
+  const currentWalletKey = sequence[sequenceIndex]
   const title = walletTitleMap[currentWalletKey]
   const cardImage = cardImages[currentWalletKey]
 
-  // Find current position in sequence
-  const currentIndex = WALLET_SEQUENCE.indexOf(currentWalletKey)
-  const isLast = currentIndex === WALLET_SEQUENCE.length - 1
+  // Check if we're on the last item in the sequence
+  const isLast = sequenceIndex === sequence.length - 1
 
   const handleNext = () => {
-    if (currentIndex === -1) return
-
     if (isLast) {
       onClose()
       return
     }
 
-    const nextKey = WALLET_SEQUENCE[currentIndex + 1]
-    if (nextKey) {
-      setCurrentWalletKey(nextKey)
-    }
+    // Advance to next item in sequence
+    setSequenceIndex((prev) => prev + 1)
   }
 
   const primaryCtaLabel = isLast ? 'Done' : 'Next'
