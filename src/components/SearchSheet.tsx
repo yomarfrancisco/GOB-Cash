@@ -22,13 +22,13 @@ const DEFAULT_CONTACTS: SearchContact[] = [
   {
     id: 'ama',
     handle: '$ama',
-    subtitle: 'Portfolio Manager',
+    subtitle: 'AI yield manager',
     avatarSrc: '/assets/Brics-girl-blue.png',
   },
   {
     id: 'ariel',
     handle: '$ariel',
-    subtitle: 'Large Cash Payments Manager',
+    subtitle: 'AI cash agent',
     avatarSrc: '/assets/avatar - profile (3).png',
   },
 ]
@@ -71,7 +71,7 @@ export default function SearchSheet() {
       className={`${listStyles.financialInboxSheet} inboxTallSheet`}
     >
       <div className={listStyles.content}>
-        <p className={listStyles.subtitle}>Find cash agents and community members near you.</p>
+        <p className={listStyles.subtitle}>Find agents and members near you.</p>
         <div className={listStyles.divider} />
         
         {/* Search bar - reuse Inbox style */}

@@ -22,13 +22,13 @@ const RECENT_CONTACTS: PaymentContact[] = [
   {
     id: 'ama',
     handle: '$ama',
-    subtitle: 'Portfolio Manager',
+    subtitle: 'AI yield manager',
     avatarSrc: '/assets/Brics-girl-blue.png',
   },
   {
     id: 'ariel',
     handle: '$ariel',
-    subtitle: 'Large Cash Payments Manager',
+    subtitle: 'AI cash agent',
     avatarSrc: '/assets/avatar - profile (3).png',
   },
 ]
