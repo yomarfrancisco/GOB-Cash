@@ -69,7 +69,7 @@ export default function PhoneSignupSheet() {
     // Show success notification
     pushNotification({
       kind: 'payment_sent', // Using existing kind for now
-      title: 'Your GoBankless account has been created.',
+      title: 'You\'re in. Your wallet is ready.',
       actor: {
         type: 'system',
         id: 'system',
