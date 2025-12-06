@@ -101,12 +101,18 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
   const isZARWallet = currentWalletKey === 'savings'
   
   const descriptionText = isZARWallet
-    ? 'A rand savings wallet that pays 9% annual yield on your balance while letting you save, spend, and pay anyone on Gobankless.'
+    ? 'A RAND savings account that earns high interest on your deposits while enabling you to make direct payments on the app'
     : 'A savings account that earns interest on your deposits while enabling you to make direct payments on the app'
 
   const tile2Line2Text = isZARWallet
     ? 'Move money in or out at any time at no extra cost'
     : 'Withdraw anytime at no additional cost'
+
+  // APY values vary by wallet type
+  const apyPercentage = isZARWallet ? '18.5%' : '9.38%'
+  const apyHeading = isZARWallet 
+    ? 'Earn 18% annually on your deposits'
+    : 'Earn 9% annually on your deposits'
 
   return (
     <ActionSheet open={!!walletKey} onClose={onClose} title={title} size="tall">
@@ -122,7 +128,7 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
             <div className={styles.cardPreviewContainer}>
               {/* Dark pill with APY */}
               <div className={styles.apyPill}>
-                <span className={styles.apyPercentage}>9.38%</span>
+                <span className={styles.apyPercentage}>{apyPercentage}</span>
                 <span className={styles.apyLabel}>annual yield</span>
               </div>
               {/* Card preview - showing top third/half */}
@@ -137,7 +143,7 @@ export default function WalletHelperSheet({ walletKey, onClose }: WalletHelperSh
                 />
               </div>
             </div>
-            <h3 className={styles.apyHeading}>Earn 9% annually on your deposits</h3>
+            <h3 className={styles.apyHeading}>{apyHeading}</h3>
             <p className={styles.apySubtext}>Compounded monthly</p>
           </div>
 
