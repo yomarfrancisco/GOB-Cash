@@ -115,7 +115,7 @@ const CHARACTERS: Record<string, CharacterConfig> = {
   ariel: {
     id: 'ariel',
     name: '$ariel',
-    avatar: '/assets/Brics-girl-blue.png', // TODO: Get $ariel avatar
+    avatar: '/assets/avatar - profile (3).png', // Bold, operations-focused (already used in inbox)
     voice: {
       pronoun: 'I',
       tone: 'direct',
