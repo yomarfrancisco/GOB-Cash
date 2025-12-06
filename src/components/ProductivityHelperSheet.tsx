@@ -13,7 +13,7 @@ type ProductivityHelperSheetProps = {
 }
 
 export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }: ProductivityHelperSheetProps) {
-  const [page, setPage] = useState<1 | 2 | 3>(1)
+  const [page, setPage] = useState<1 | 2 | 3 | 4>(1)
 
   // Reset to page 1 when sheet closes
   useEffect(() => {
@@ -23,8 +23,8 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
   }, [isOpen])
 
   const handleNext = () => {
-    if (page < 3) {
-      setPage((prev) => (prev + 1) as 2 | 3)
+    if (page < 4) {
+      setPage((prev) => (prev + 1) as 2 | 3 | 4)
     }
     // Call external callback if provided
     if (onNextPage) {
@@ -44,6 +44,11 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
         {page === 2 && (
           <p className={styles.description}>
             Your Productivity score directly influences:
+          </p>
+        )}
+        {page === 3 && (
+          <p className={styles.description}>
+            Here's how to increase your score:
           </p>
         )}
 
@@ -153,12 +158,66 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
           </>
         )}
 
+        {/* Page 3: Three tiles */}
+        {page === 3 && (
+          <>
+            {/* Tile 1: Check in daily */}
+            <div className={styles.tile}>
+              <div className={styles.imageContainer}>
+                <Image
+                  src="/assets/mobile.png"
+                  alt="Mobile"
+                  width={204}
+                  height={85}
+                  className={styles.productivityImage}
+                  unoptimized
+                />
+              </div>
+              <h3 className={styles.tileTitle}>1. Check in daily</h3>
+              <p className={styles.tileLine1}>Each shift is 3 hours. Reliable presence increases your baseline score.</p>
+            </div>
+
+            {/* Tile 2: Complete more transactions */}
+            <div className={styles.tile}>
+              <div className={styles.imageContainer}>
+                <Image
+                  src="/assets/truck cash.png"
+                  alt="Truck Cash"
+                  width={204}
+                  height={85}
+                  className={styles.productivityImage}
+                  unoptimized
+                />
+              </div>
+              <h3 className={styles.tileTitle}>2. Complete more transactions</h3>
+              <p className={styles.tileLine1}>The more real activity you process, the faster your score grows.</p>
+            </div>
+
+            {/* Tile 3: Keep a clean record */}
+            <div className={styles.tile}>
+              <div className={styles.imageContainer}>
+                <Image
+                  src="/assets/police.png"
+                  alt="Police"
+                  width={204}
+                  height={85}
+                  className={styles.productivityImage}
+                  unoptimized
+                />
+              </div>
+              <h3 className={styles.tileTitle}>3. Keep a clean record</h3>
+              <p className={styles.tileLine1}>Low dispute rate = stronger Productivity.</p>
+            </div>
+          </>
+        )}
+
         {/* Pagination Footer */}
         <div className={styles.pageParent}>
           <div className={styles.pageLabel}>
-            {page === 1 && 'Page 1 of 3'}
-            {page === 2 && 'Page 2 of 3'}
-            {page === 3 && 'Page 3 of 3'}
+            {page === 1 && 'Page 1 of 4'}
+            {page === 2 && 'Page 2 of 4'}
+            {page === 3 && 'Page 3 of 4'}
+            {page === 4 && 'Page 4 of 4'}
           </div>
           <div className={styles.lButtonWrapper}>
             <button className={styles.lButton} onClick={handleNext} type="button">
