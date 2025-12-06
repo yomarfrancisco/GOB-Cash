@@ -15,7 +15,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose }: Productivit
       <div className={styles.content}>
         {/* Descriptive paragraph */}
         <p className={styles.description}>
-          Your Productivity Score measures how well you use the time you unlock each day to make money on Gobankless. Higher productivity means higher income, better float access, and stronger reliability in the network.
+          Your Productivity score measures how effectively you turn your time into earnings. It combines three things:
         </p>
 
         {/* Tile 1: Showing Up */}
