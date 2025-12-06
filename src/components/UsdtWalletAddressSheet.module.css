@@ -1,19 +1,25 @@
-.sheetContent {
+.sheetContainer {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
   height: 100%;
+  overflow: hidden;
+}
+
+/* Scrollable area (header + wallet form) */
+.scrollableContent {
   flex: 1 1 auto;
-  transform: none !important;
-  will-change: auto;
-  padding: 0 24px;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  min-height: 0;
   overflow-y: auto;
+  padding: 0 24px;
+  padding-bottom: 16px; /* Content spacing, not safe-area */
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .header {
-  padding: 64px 0 32px 0;
+  padding: 64px 0 48px 0;
   flex-shrink: 0;
   text-align: center;
 }
@@ -121,7 +127,12 @@
 }
 
 .footer {
-  margin-top: 32px;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background-color: #fff;
+  padding: 16px 24px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   align-items: center;

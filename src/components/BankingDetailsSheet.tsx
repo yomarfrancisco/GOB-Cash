@@ -45,20 +45,8 @@ export default function BankingDetailsSheet() {
       setHasSavedBank(false)
     }
 
-    // Auto-focus account holder name input
-    const focusTimer = setTimeout(() => {
-      if (accountHolderRef.current) {
-        accountHolderRef.current.focus()
-        // iOS Safari keyboard workaround
-        if (typeof window !== 'undefined' && 'ontouchstart' in window) {
-          setTimeout(() => {
-            accountHolderRef.current?.click()
-          }, 50)
-        }
-      }
-    }, 150)
-
-    return () => clearTimeout(focusTimer)
+    // Removed auto-focus to prevent iOS Safari layout gap on first render
+    // Keyboard will open only when user taps an input field
   }, [isOpen, mode, editingBankId, profile.linkedBanks])
 
   // Validation
@@ -134,84 +122,87 @@ export default function BankingDetailsSheet() {
       size="tall"
       className="banking-details-sheet"
     >
-      <div className={styles.sheetContent}>
-        {/* Header */}
-        <div className={styles.header}>
-          <h2 className={styles.title}>Banking details</h2>
-          <p className={styles.subtitle}>You can top up and payout with this account</p>
-        </div>
+      <div className={styles.sheetContainer}>
+        {/* Scrollable main area */}
+        <div className={styles.scrollableContent}>
+          {/* Header */}
+          <div className={styles.header}>
+            <h2 className={styles.title}>Banking details</h2>
+            <p className={styles.subtitle}>You can top up and payout with this account</p>
+          </div>
 
-        {/* Banking Input Tile */}
-        <div className={styles.bankingInputWrapper}>
-          <div className={styles.bankingInput}>
-            {/* Country */}
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Country</label>
-              <div className={styles.field}>
-                <select
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className={`${styles.input} ${styles.select}`}
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={20} strokeWidth={2} className={styles.chevronIcon} />
+          {/* Banking Input Tile */}
+          <div className={styles.bankingInputWrapper}>
+            <div className={styles.bankingInput}>
+              {/* Country */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Country</label>
+                <div className={styles.field}>
+                  <select
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className={`${styles.input} ${styles.select}`}
+                  >
+                    {COUNTRIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={20} strokeWidth={2} className={styles.chevronIcon} />
+                </div>
               </div>
-            </div>
 
-            {/* Account Holder Name */}
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Full name of the account holder</label>
-              <div className={styles.field}>
-                <input
-                  ref={accountHolderRef}
-                  type="text"
-                  inputMode="text"
-                  placeholder="Account holder"
-                  value={accountHolderName}
-                  onChange={(e) => setAccountHolderName(e.target.value)}
-                  className={styles.input}
-                />
+              {/* Account Holder Name */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Full name of the account holder</label>
+                <div className={styles.field}>
+                  <input
+                    ref={accountHolderRef}
+                    type="text"
+                    inputMode="text"
+                    placeholder="Account holder"
+                    value={accountHolderName}
+                    onChange={(e) => setAccountHolderName(e.target.value)}
+                    className={styles.input}
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* SWIFT / BIC Code */}
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>SWIFT / BIC code</label>
-              <div className={styles.field}>
-                <input
-                  type="text"
-                  inputMode="text"
-                  placeholder="SWIFT / BIC code"
-                  value={swiftBic}
-                  onChange={(e) => setSwiftBic(e.target.value.toUpperCase())}
-                  className={styles.input}
-                />
+              {/* SWIFT / BIC Code */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>SWIFT / BIC code</label>
+                <div className={styles.field}>
+                  <input
+                    type="text"
+                    inputMode="text"
+                    placeholder="SWIFT / BIC code"
+                    value={swiftBic}
+                    onChange={(e) => setSwiftBic(e.target.value.toUpperCase())}
+                    className={styles.input}
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* IBAN / Account Number */}
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>IBAN / Account number</label>
-              <div className={styles.field}>
-                <input
-                  type="text"
-                  inputMode="text"
-                  placeholder="IBAN / Account number"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  className={styles.input}
-                />
+              {/* IBAN / Account Number */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>IBAN / Account number</label>
+                <div className={styles.field}>
+                  <input
+                    type="text"
+                    inputMode="text"
+                    placeholder="IBAN / Account number"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    className={styles.input}
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer - Done + Remove */}
+        {/* Fixed bottom footer with button */}
         <div className={styles.footer}>
           <div className={styles.actions}>
             <button

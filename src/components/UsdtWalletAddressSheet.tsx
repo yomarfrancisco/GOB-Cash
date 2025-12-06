@@ -44,20 +44,8 @@ export default function UsdtWalletAddressSheet() {
       setHasSavedWallet(false)
     }
 
-    // Auto-focus address input
-    const focusTimer = setTimeout(() => {
-      if (addressRef.current) {
-        addressRef.current.focus()
-        // iOS Safari keyboard workaround
-        if (typeof window !== 'undefined' && 'ontouchstart' in window) {
-          setTimeout(() => {
-            addressRef.current?.click()
-          }, 50)
-        }
-      }
-    }, 150)
-
-    return () => clearTimeout(focusTimer)
+    // Removed auto-focus to prevent iOS Safari layout gap on first render
+    // Keyboard will open only when user taps an input field
   }, [isOpen, mode, editingWalletId, profile.linkedUsdtWallets])
 
   // Validation
@@ -123,54 +111,57 @@ export default function UsdtWalletAddressSheet() {
       size="tall"
       className="usdt-wallet-address-sheet"
     >
-      <div className={styles.sheetContent}>
-        {/* Header */}
-        <div className={styles.header}>
-          <h2 className={styles.title}>USDT wallet address</h2>
-          <p className={styles.subtitle}>Payout USDT into this address</p>
-        </div>
+      <div className={styles.sheetContainer}>
+        {/* Scrollable main area */}
+        <div className={styles.scrollableContent}>
+          {/* Header */}
+          <div className={styles.header}>
+            <h2 className={styles.title}>USDT wallet address</h2>
+            <p className={styles.subtitle}>Payout USDT into this address</p>
+          </div>
 
-        {/* Wallet Input Tile */}
-        <div className={styles.walletInputWrapper}>
-          <div className={styles.walletInput}>
-            {/* USDT Wallet Address */}
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>USDT wallet address</label>
-              <div className={styles.field}>
-                <input
-                  ref={addressRef}
-                  type="text"
-                  inputMode="text"
-                  placeholder="USDT wallet address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className={styles.input}
-                />
+          {/* Wallet Input Tile */}
+          <div className={styles.walletInputWrapper}>
+            <div className={styles.walletInput}>
+              {/* USDT Wallet Address */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>USDT wallet address</label>
+                <div className={styles.field}>
+                  <input
+                    ref={addressRef}
+                    type="text"
+                    inputMode="text"
+                    placeholder="USDT wallet address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className={styles.input}
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Network */}
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Network</label>
-              <div className={styles.field}>
-                <select
-                  value={network}
-                  onChange={(e) => setNetwork(e.target.value as 'ethereum' | 'solana' | 'tron')}
-                  className={`${styles.input} ${styles.select}`}
-                >
-                  {NETWORKS.map((n) => (
-                    <option key={n.value} value={n.value}>
-                      {n.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={20} strokeWidth={2} className={styles.chevronIcon} />
+              {/* Network */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Network</label>
+                <div className={styles.field}>
+                  <select
+                    value={network}
+                    onChange={(e) => setNetwork(e.target.value as 'ethereum' | 'solana' | 'tron')}
+                    className={`${styles.input} ${styles.select}`}
+                  >
+                    {NETWORKS.map((n) => (
+                      <option key={n.value} value={n.value}>
+                        {n.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={20} strokeWidth={2} className={styles.chevronIcon} />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer - Done + Remove */}
+        {/* Fixed bottom footer with button */}
         <div className={styles.footer}>
           <div className={styles.actions}>
             <button
