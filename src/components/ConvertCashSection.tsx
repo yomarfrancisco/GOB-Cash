@@ -44,7 +44,7 @@ export default function ConvertCashSection({ onHelpClick, onMapClick }: ConvertC
       <div className={styles.mapHeader}>
         <div className={styles.headerRow}>
           <h2 id="convert-title" className={styles.mapHeaderTitle}>
-            Send hard cash anywhere
+            Cash agents near you
           </h2>
           <button 
             className={styles.helpBtn} 
@@ -56,7 +56,7 @@ export default function ConvertCashSection({ onHelpClick, onMapClick }: ConvertC
           </button>
         </div>
         <p className={styles.mapHeaderSub}>
-          Vetted agents collect and deliver cash door-to-door globally.
+          Verified agents collect and deliver physical cash
         </p>
       </div>
 
