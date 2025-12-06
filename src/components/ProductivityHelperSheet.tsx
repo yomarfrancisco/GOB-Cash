@@ -40,8 +40,8 @@ export default function ProductivityHelperSheet({ isOpen, onClose }: Productivit
             <Image
               src="/assets/currency.png"
               alt="Currency"
-              width={204}
-              height={85}
+              width={245}
+              height={102}
               className={styles.productivityImage}
               unoptimized
             />
