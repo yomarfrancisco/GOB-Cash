@@ -1219,7 +1219,9 @@ if (USE_V2_NOTIFICATIONS) {
 }
 ```
 
-**Recommendation**: Not necessary if migration is clean, but useful for A/B testing
+**Recommendation**: ✅ **Yes, use feature flag** (see section 11.5)
+
+Allows A/B testing, quick rollback, and gradual rollout.
 
 ---
 
@@ -1259,15 +1261,15 @@ if (USE_V2_NOTIFICATIONS) {
 ### 7.1 Required Assets
 
 - ✅ **$ama avatar**: `/assets/Brics-girl-blue.png` (exists)
-- ⚠️ **$ariel avatar**: Need to confirm if different from $ama or use same
+- ✅ **$ariel avatar**: `/assets/avatar - profile (3).png` (confirmed, already used in inbox)
 - ✅ **Agent avatars**: 8 agent avatars available
 - ✅ **System avatar**: GoBankless admin avatar exists
 
 ### 7.2 Required Data
 
 - ✅ **Agent locations**: Coordinates for 10 agents (can use existing demo agents)
-- ✅ **City coordinates**: Map coordinates for cross-border notifications
-- ⚠️ **User agent status**: Need to check if user is an agent (may need new store/API)
+- ✅ **City coordinates**: Map coordinates provided (see section 11.8)
+- ✅ **User agent status**: Skip agent-you templates in demo mode; check user profile for authenticated mode
 
 ### 7.3 Code Dependencies
 
@@ -1275,7 +1277,7 @@ if (USE_V2_NOTIFICATIONS) {
 - ✅ **Activity store**: No changes needed
 - ✅ **Map integration**: Existing `onMapPan` callback works
 - ✅ **Card animations**: Existing `onCardAnimation` callback works
-- ⚠️ **Agent role detection**: May need new store/API to check if user is an agent
+- ✅ **Agent role detection**: Skip in demo mode; check user profile for authenticated (see section 11.3)
 
 ---
 
@@ -1320,14 +1322,15 @@ if (USE_V2_NOTIFICATIONS) {
 - [ ] Create `notificationTemplates.ts` file
 - [ ] Create `notificationCharacters.ts` file
 - [ ] Create `agentRegistry.ts` file
-- [ ] Implement all $ama templates (39)
+- [ ] Implement all $ama templates (42 - includes 3 new failure/recovery templates)
 - [ ] Implement all $ariel templates (17)
-- [ ] Implement all agent templates (34)
+- [ ] Implement all agent templates (37 - includes 3 new competing templates)
 - [ ] Implement all cross-border templates (20)
 - [ ] Implement all network templates (30)
 - [ ] Implement all user action templates (19)
 - [ ] Implement all competition templates (17)
 - [ ] Implement all agent-specific templates (20)
+- [ ] Implement backing returns templates (3 new)
 
 ### Phase 2: Selection Logic
 - [ ] Implement repeat prevention (cooldowns)
@@ -1347,7 +1350,7 @@ if (USE_V2_NOTIFICATIONS) {
 - [ ] Test all character voices
 
 ### Phase 4: Sequencing
-- [ ] Create extended demo sequence (5+ minutes)
+- [ ] Create extended demo sequence (fixed for first 2 minutes, then dynamic)
 - [ ] Implement sequence step matching
 - [ ] Implement sequence fallback to random
 - [ ] Update timing config (12-20s intervals)
@@ -1380,28 +1383,193 @@ if (USE_V2_NOTIFICATIONS) {
 
 | Phase | Tasks | Estimated Time |
 |-------|-------|----------------|
-| **Phase 1: Foundation** | Create templates (180+), character system, agent registry | 40-60 hours |
-| **Phase 2: Selection Logic** | Repeat prevention, intelligent selection | 16-24 hours |
-| **Phase 3: Character System** | Voice formatting, agent rotation | 12-16 hours |
-| **Phase 4: Sequencing** | Extended sequence, timing adjustments | 8-12 hours |
-| **Phase 5: Integration** | Refactor engine, integrate all systems | 16-24 hours |
-| **Phase 6: Testing** | Test suite, manual testing, fixes | 20-30 hours |
-| **Total** | | **112-166 hours** (~3-4 weeks for 1 developer) |
+| **Phase 1: Foundation** | Create templates (185+), character system, agent registry | 50-60 hours |
+| **Phase 2: Selection Logic** | Repeat prevention, intelligent selection | 15-20 hours |
+| **Phase 3: Character System** | Voice formatting, agent rotation | 10-15 hours |
+| **Phase 4: Sequencing** | Extended sequence (fixed + dynamic hybrid), timing adjustments | 8-10 hours |
+| **Phase 5: Integration** | Refactor engine, integrate all systems | 15-20 hours |
+| **Phase 6: Testing** | Test suite, manual testing, fixes | 20-25 hours |
+| **Total** | | **118-150 hours** (~3 weeks for 1 developer) |
 
 ---
 
-## 11. Open Questions for Review
+## 11. Refinements & Answers to Open Questions ✅
 
-1. **$ariel Avatar**: Should $ariel have a different avatar from $ama, or use the same?
-2. **Agent Role Detection**: How do we detect if a user is an agent? Is there existing store/API?
-3. **Notification Kinds**: Should we add new notification kinds or reuse existing ones?
-4. **Feature Flag**: Should we use a feature flag to toggle v1/v2, or direct migration?
-5. **Template Organization**: Should templates be in one large file or split by category?
-6. **Amount Ranges**: What are the min/max amounts for each category? (e.g., large transfers R20K+, cross-border R280-R4,500)
-7. **City Coordinates**: Do we have coordinates for all cities mentioned in cross-border notifications?
-8. **Agent Productivity Data**: For competition notifications, do we have real productivity/ranking data, or use demo data?
-9. **Extended Sequence**: Should the 5+ minute sequence be fixed or dynamically generated?
-10. **Performance**: Is 180+ templates in memory acceptable, or should we lazy load?
+### 11.1 $ariel Avatar
+
+**Answer**: ✅ **$ariel uses distinct avatar from $ama**
+
+- **$ama**: `/assets/Brics-girl-blue.png` (sophisticated, portfolio-focused)
+- **$ariel**: `/assets/avatar - profile (3).png` (bold, operations-focused, already used in inbox)
+
+**Implementation**: Update character config to use correct avatar path.
+
+---
+
+### 11.2 Terminology: Backing vs Sponsorship
+
+**Answer**: ✅ **Change all user-facing copy to "backing"**
+
+| Current | Change To |
+|---------|-----------|
+| `kind: 'sponsorship'` (internal) | Keep internal kind, but all user-facing copy says "backing" |
+| "Sponsorship activated" | "Now backing @thabo" |
+| "You'll send R150 weekly..." | "R150/week committed. You earn when they move cash." |
+
+**Implementation**: 
+- Keep `kind: 'sponsorship'` internally (no breaking changes)
+- All template titles/bodies use "backing" terminology
+- Update existing templates that reference "sponsorship"
+
+---
+
+### 11.3 Agent Role Detection
+
+**Answer**: ✅ **Skip agent-specific notifications in demo mode**
+
+**Approach**:
+```typescript
+// For demo mode (unauthenticated): skip agent-you templates entirely
+if (template.metadata.requiresAgentRole && !currentIsAuthed) {
+  return false
+}
+
+// For authenticated mode: check user profile
+if (template.metadata.requiresAgentRole && currentIsAuthed) {
+  const user = useUserProfileStore.getState().profile
+  const isAgent = user?.isAgent || user?.roles?.includes('agent') || false
+  if (!isAgent) {
+    return false
+  }
+}
+```
+
+**Note**: If no role system exists yet, add `isAgent: boolean` to user profile. Don't block v2.0 on this - just exclude `agent-you-*` templates from demo mode.
+
+---
+
+### 11.4 Notification Kinds — New vs Reuse
+
+**Answer**: ✅ **Reuse existing kinds**
+
+| Category | Reuse Kind |
+|----------|------------|
+| Agent check-ins | `payment_received` with `actor.type: 'member'` |
+| Agent productivity | `payment_received` with `actor.type: 'member'` |
+| Network pulse | `payment_received` with `actor.type: 'system', name: 'Network'` |
+| Competition | `payment_received` with `actor.type: 'system'` |
+| Agent-you | `payment_sent` or `payment_received` with `actor.type: 'user'` |
+
+The `kind` is about UI treatment (icon, color). The `actor` and `title` carry the meaning.
+
+---
+
+### 11.5 Feature Flag
+
+**Answer**: ✅ **Yes, use feature flag for safety**
+
+```typescript
+const USE_V2_NOTIFICATIONS = process.env.NEXT_PUBLIC_V2_NOTIFICATIONS === 'true'
+```
+
+**Benefits**:
+- A/B testing
+- Quick rollback if issues arise
+- Gradual rollout
+
+**Implementation**: Add to `.env.local` and check in demo engine.
+
+---
+
+### 11.6 Template Organization
+
+**Answer**: ✅ **Confirmed: Split by category**
+
+```
+src/lib/demo/templates/
+├── index.ts                  # Exports ALL_TEMPLATES
+├── amaTemplates.ts           # 39 $ama
+├── arielTemplates.ts         # 17 $ariel
+├── agentTemplates.ts         # 34 agent activity
+├── crossBorderTemplates.ts   # 20 cross-border
+├── networkTemplates.ts       # 30 network pulse
+├── userActionTemplates.ts    # 19 user actions
+├── competitionTemplates.ts   # 17 competition
+└── agentYouTemplates.ts      # 20 agent-specific (auth only)
+```
+
+---
+
+### 11.7 Amount Ranges
+
+**Answer**: ✅ **Defined ranges for each category**
+
+| Category | Min | Max | Notes |
+|----------|-----|-----|-------|
+| $ama protection | R150 | R400 | Smaller moves feel tactical |
+| $ama opportunity | R150 | R300 | Similar range |
+| $ariel large transfers | R20,000 | R200,000 | This is the "big money" AI |
+| Agent productivity | R8,000 | R52,000 | Daily/weekly volumes |
+| Cross-border incoming | R450 | R4,500 | Realistic remittance range |
+| Cross-border outgoing | R280 | R4,500 | Same range |
+| User payments | R200 | R1,500 | Smaller peer payments |
+| User deposits | R500 | R5,000 | Cash deposits |
+| Backing | R100 | R200/week | Micro-investment |
+| Network volumes | R1M | R50M | Big numbers for FOMO |
+
+**Implementation**: Use these ranges when creating base values for templates.
+
+---
+
+### 11.8 City Coordinates
+
+**Answer**: ✅ **Coordinates provided for all cities**
+
+| City | Country | Lat | Lng |
+|------|---------|-----|-----|
+| Johannesburg | South Africa | -26.2041 | 28.0473 |
+| Durban | South Africa | -29.8587 | 31.0218 |
+| Cape Town | South Africa | -33.9249 | 18.4241 |
+| Pretoria | South Africa | -25.7479 | 28.2293 |
+| Soweto | South Africa | -26.2485 | 27.8540 |
+| Sandton | South Africa | -26.1076 | 28.0567 |
+| Harare | Zimbabwe | -17.8292 | 31.0522 |
+| Bulawayo | Zimbabwe | -20.1325 | 28.5851 |
+| Mutare | Zimbabwe | -18.9707 | 32.6709 |
+| Maputo | Mozambique | -25.9692 | 32.5732 |
+| Beira | Mozambique | -19.8436 | 34.8389 |
+| Inhambane | Mozambique | -23.8650 | 35.3833 |
+| Lusaka | Zambia | -15.3875 | 28.3228 |
+| Blantyre | Malawi | -15.7667 | 35.0168 |
+
+**Implementation**: Use these coordinates in cross-border and agent templates.
+
+---
+
+### 11.9 Extended Sequence — Fixed vs Dynamic
+
+**Answer**: ✅ **Hybrid approach**
+
+- **First 2 minutes**: Fixed sequence (ensure narrative arc)
+- **After 2 minutes**: Dynamic selection with intelligent weights
+
+This gives a reliable "story" for new visitors while keeping variety for longer sessions.
+
+**Implementation**: 
+- Create fixed sequence for 0-120 seconds
+- After 120 seconds, use dynamic selection with category weights
+
+---
+
+### 11.10 Performance — 180+ Templates in Memory
+
+**Answer**: ✅ **Fine. 180 objects is trivial**
+
+Each template is ~500 bytes. 180 templates = ~90KB. Modern devices handle this easily.
+
+**If concerned**: Lazy load category files on first use, but honestly not worth the complexity.
+
+**Implementation**: Load all templates at startup. No lazy loading needed.
 
 ---
 
@@ -1477,11 +1645,145 @@ This implementation plan provides a detailed roadmap for transforming the notifi
 - Variety and naturalness
 - Performance and maintainability
 
-**Estimated Timeline**: 3-4 weeks for full implementation (112-166 hours)
+**Estimated Timeline**: 3 weeks for full implementation (118-150 hours)
 
 **Risk Level**: Medium (complexity is manageable, but 180+ templates require careful attention to detail)
 
 ---
 
-**Status**: Ready for review. Awaiting approval before execution.
+---
+
+## 15. Copy Refinements
+
+### 15.1 $ama Voice Refinements
+
+Some templates should be tightened for brevity:
+
+| Original | Refined |
+|----------|---------|
+| "BTC is flat but ETH is moving. Staying defensive." | "BTC flat. ETH moving. Staying defensive." (shorter) |
+| "Your portfolio drifted 4%. Rebalancing now." | "Portfolio drifted. Rebalancing." (even shorter) |
+| "Zimbabwe agents yielding 14% this week. Shifting R200 there." | "Zimbabwe agents at 14% yield. Moving R200 there." |
+
+$ama should feel like someone who doesn't waste words.
+
+### 15.2 Network Voice Refinements
+
+Network should feel observational, slightly awe-inspiring:
+
+| Original | Refined |
+|----------|---------|
+| "Network: Harare corridor is busy. R2.4M moved since morning." | "Network: R2.4M through Harare since morning. Busy day." |
+| "Network: 10,000 cross-border transfers this week. Record." | "Network: 10,000 cross-border transfers this week. New record." |
+| "Network: Your area moved R120,000 today. Active zone." | "Network: R120,000 moved in your area today." |
+
+### 15.3 Cross-Border Celebratory Refinements
+
+These should feel rebellious, triumphant:
+
+| Original | Refined |
+|----------|---------|
+| "Another border crossed. Banks hate this." | Keep — this is perfect |
+| "R450 moved across an international border in 180 seconds. Welcome to the future." | "R450 crossed a border in 3 minutes. Banks take 3 days." |
+| "No SWIFT. No fees. No waiting. Just money where it needs to be." | Keep — this is perfect |
+| "Your grandmother's generation waited weeks. You waited 4 minutes." | Keep — this is great |
+
+---
+
+## 16. Additional Templates to Add
+
+The proposal is missing a few notification types:
+
+### 16.1 AI Failure/Recovery (New)
+
+When something goes wrong but $ama handles it:
+
+| ID | Preview |
+|----|---------|
+| ama-40 | **$ama**: "Transaction failed on first route. Rerouted. Done." |
+| ama-41 | **$ama**: "Network hiccup. Your funds are safe. Retrying." |
+| ama-42 | **$ama**: "Exchange rate spiked. Waited 30 seconds. Got you a better deal." |
+
+**Total $ama templates**: 42 (was 39)
+
+### 16.2 Agent Competing (New)
+
+Hints of friendly competition between agents:
+
+| ID | Preview |
+|----|---------|
+| agent-35 | **@lindiwe** just passed **@thabo** on the leaderboard. |
+| agent-36 | Top 3 agents today: @grace, @lindiwe, @tendai. |
+| agent-37 | **@sipho** is climbing fast. Up 40 spots this week. |
+
+**Total agent templates**: 37 (was 34)
+
+### 16.3 Backer Returns (Clearer)
+
+Make the investment model clearer:
+
+| ID | Preview |
+|----|---------|
+| backing-01 | Your agents moved R45,000 today. Your cut: R180. |
+| backing-02 | **@thabo** generated R23 yield for you this shift. |
+| backing-03 | Weekly backer report: R420 earned from 3 agents. |
+
+**New category**: `backing_returns` (3 templates)
+
+**Updated total**: **185+ notifications** (was 180+)
+
+---
+
+## 17. Revised Estimate
+
+| Phase | Hours | Notes |
+|-------|-------|-------|
+| Templates (185+) | 50-60 | Bulk of the work is writing good copy |
+| Selection logic | 15-20 | Not overly complex |
+| Character system | 10-15 | Straightforward |
+| Sequencing | 8-10 | Fixed + dynamic hybrid |
+| Integration | 15-20 | Careful refactoring |
+| Testing | 20-25 | Thorough testing is critical |
+| **Total** | **118-150 hours** | ~3 weeks |
+
+---
+
+## 18. Final Checklist Before Execution
+
+Before starting implementation:
+
+- [ ] Confirm $ariel avatar path: `/assets/avatar - profile (3).png`
+- [ ] Confirm agent avatars exist for all 10 agents
+- [ ] Confirm city coordinates are accurate (provided in section 11.8)
+- [ ] Review all copy for tone/voice consistency
+- [ ] Set up feature flag in environment: `NEXT_PUBLIC_V2_NOTIFICATIONS=true`
+- [ ] Create file structure (templates/ directory)
+- [ ] Add `backing` terminology (replace all user-facing "sponsorship" copy)
+- [ ] Add new templates (AI failure/recovery, agent competing, backer returns)
+
+---
+
+## 19. Priority Order (Approved)
+
+**Implementation priority**:
+
+1. **$ama templates** (42) - Most important for establishing AI
+2. **Cross-border templates** (20) - The "wow" factor
+3. **Network pulse** (30) - Creates FOMO
+4. **Agent activity** (37) - Shows the network is alive
+5. **User actions** (19) - Confirmation layer
+6. **$ariel** (17) - Large transfers
+7. **Competition** (17) - Gamification
+8. **Agent-you** (20) - Auth-only, lower priority
+9. **Backing returns** (3) - Investment model clarity
+
+---
+
+## 20. Approval Status
+
+**✅ PLAN APPROVED WITH REFINEMENTS**
+
+All open questions answered. Ready to proceed with implementation.
+
+**Status**: Approved for execution. Proceed with Phase 1.
 
