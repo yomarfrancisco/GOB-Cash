@@ -758,6 +758,10 @@ export default function ProfilePage() {
       <CountrySelectSheet
         isOpen={openCountrySelect}
         onClose={() => setOpenCountrySelect(false)}
+        onBack={() => {
+          setOpenCountrySelect(false)
+          setTimeout(() => setOpenDeposit(true), 220)
+        }}
         onSelect={(countryCode) => {
           setBankTransferCountry(countryCode)
           setOpenCountrySelect(false)

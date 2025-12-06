@@ -8,6 +8,11 @@
   display: none;
 }
 
+/* Hide ActionSheet's default header for country-select-sheet-with-back */
+.as-sheet.country-select-sheet-with-back .as-header {
+  display: none;
+}
+
 .send-details-sheet {
   display: flex;
   flex-direction: column;
