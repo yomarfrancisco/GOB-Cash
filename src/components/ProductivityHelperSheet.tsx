@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, MoveRight } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import styles from './ProductivityHelperSheet.module.css'
 
@@ -49,6 +49,11 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
         {page === 3 && (
           <p className={styles.description}>
             Here's how to increase your score:
+          </p>
+        )}
+        {page === 4 && (
+          <p className={styles.description}>
+            A simple way to think about it. Productivity = how much value you create per hour unlocked.
           </p>
         )}
 
@@ -207,6 +212,62 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
               </div>
               <h3 className={styles.tileTitle}>3. Keep a clean record</h3>
               <p className={styles.tileLine1}>Low dispute rate = stronger Productivity.</p>
+            </div>
+          </>
+        )}
+
+        {/* Page 4: Three tiles */}
+        {page === 4 && (
+          <>
+            {/* Tile 1: More value */}
+            <div className={styles.tile}>
+              <div className={styles.imageContainer}>
+                <Image
+                  src="/assets/americas.png"
+                  alt="Americas"
+                  width={204}
+                  height={85}
+                  className={styles.productivityImage}
+                  unoptimized
+                />
+              </div>
+              <h3 className={styles.tileTitle}>More value</h3>
+              <p className={styles.tileLine1} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <MoveRight size={20} strokeWidth={2} color="rgba(10, 10, 10, 0.7)" />
+              </p>
+            </div>
+
+            {/* Tile 2: More earnings */}
+            <div className={styles.tile}>
+              <div className={styles.imageContainer}>
+                <Image
+                  src="/assets/launch.png"
+                  alt="Launch"
+                  width={204}
+                  height={85}
+                  className={styles.productivityImage}
+                  unoptimized
+                />
+              </div>
+              <h3 className={styles.tileTitle}>More earnings</h3>
+              <p className={styles.tileLine1} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <MoveRight size={20} strokeWidth={2} color="rgba(10, 10, 10, 0.7)" />
+              </p>
+            </div>
+
+            {/* Tile 3: more cash available */}
+            <div className={styles.tile}>
+              <div className={styles.imageContainer}>
+                <Image
+                  src="/assets/lock.png"
+                  alt="Lock"
+                  width={204}
+                  height={85}
+                  className={styles.productivityImage}
+                  unoptimized
+                />
+              </div>
+              <h3 className={styles.tileTitle}>more cash available to you in the app.</h3>
             </div>
           </>
         )}
