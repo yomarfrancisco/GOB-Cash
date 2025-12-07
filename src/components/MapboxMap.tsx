@@ -81,6 +81,10 @@ const DEBUG_MAP =
 const SADC_CENTER: [number, number] = [30, -23] // [lng, lat] - central SADC region
 const SADC_ZOOM = 4.2 // region-level zoom
 
+// Johannesburg hub view for pre-auth demo (educational: show the main activity hub)
+const JOHANNESBURG_CENTER: [number, number] = [28.0473, -26.2041] // [lng, lat] - Johannesburg city center
+const JOHANNESBURG_CITY_ZOOM = 11.5 // City view - shows suburbs and activity density
+
 export default function MapboxMap({
   className,
   containerId,
@@ -987,15 +991,43 @@ export default function MapboxMap({
   }, [highlight, variant, landingAnimationsEnabled, isAuthed])
 
   // Effect to keep nearest branch in view while user stays centered
+  // PRE-AUTH DEMO: Centers on Johannesburg hub to show activity (educational)
+  // AUTHENTICATED: Centers on user with dynamic zoom to nearest branch
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     if (!loadedRef.current) return // ensure map is fully loaded
     if (variant === 'popup') return // popup: no auto-zoom logic
+    if (variant === 'landing' && !landingAnimationsEnabled) return // Wait for 10s hold period
     
-    // Don't auto-zoom until landing animations are enabled (after 10s hold) or for authenticated users
-    if (variant === 'landing' && (!landingAnimationsEnabled || isAuthed)) return
-    
+    // PRE-AUTH DEMO: Show Johannesburg hub view (educational - demonstrate main activity hub)
+    if (variant === 'landing' && !isAuthed) {
+      // Don't recenter if camera is locked (during highlight animations)
+      if (Date.now() < cameraLockedUntilRef.current) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('[map] camera locked, skipping JHB center')
+        }
+        return
+      }
+
+      // Center on Johannesburg to show the hub with activity
+      requestAnimationFrame(() => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[camera]', 'variant=', variant, 'reason=demo-jhb-hub-view', JOHANNESBURG_CENTER)
+        }
+        map.easeTo({
+          center: JOHANNESBURG_CENTER,
+          zoom: JOHANNESBURG_CITY_ZOOM,
+          duration: 800, // Smooth transition
+        })
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('[map] Demo: Centered on Johannesburg hub at zoom', JOHANNESBURG_CITY_ZOOM)
+        }
+      })
+      return // Skip user-centered logic for pre-auth demo
+    }
+
+    // AUTHENTICATED: Original behavior - center on user with dynamic zoom
     if (!userLngLat) return
     if (!markers?.length) return
 
