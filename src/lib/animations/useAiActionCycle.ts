@@ -396,14 +396,38 @@ export function useAiActionCycle(
 
   useEffect(() => {
     if (enabled) {
-      start()
+      // Wait for cardStackRef to be ready before starting
+      if (!cardStackRef.current) {
+        // Use a small polling interval to check when ref becomes available
+        const checkRef = setInterval(() => {
+          if (cardStackRef.current) {
+            clearInterval(checkRef)
+            start()
+          }
+        }, 50) // Check every 50ms
+        
+        // Timeout after 2 seconds to prevent infinite waiting
+        const timeout = setTimeout(() => {
+          clearInterval(checkRef)
+          if (cardStackRef.current) {
+            start()
+          }
+        }, 2000)
+        
+        return () => {
+          clearInterval(checkRef)
+          clearTimeout(timeout)
+        }
+      } else {
+        start()
+      }
     } else {
       stop()
     }
     return () => {
       stop()
     }
-  }, [enabled, start, stop])
+  }, [enabled, start, stop, cardStackRef])
 
   return {
     start,
