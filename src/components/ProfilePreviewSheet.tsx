@@ -197,12 +197,12 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                   )}
                   <div className="stat">
                     <div className="stat-value">{profile.sponsors?.toLocaleString() || '0'}</div>
-                    <div className="stat-sub">Investors</div>
+                    <div className="stat-sub">Backers</div>
                   </div>
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">{profile.sponsoring?.toLocaleString() || '0'}</div>
-                    <div className="stat-sub">Investing</div>
+                    <div className="stat-sub">Backing</div>
                   </div>
                 </div>
                 <div className="network-pill">
@@ -340,7 +340,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                     >
                       <div className="lButton5">
                         <span className="text">
-                          <span className="lBold">Invest</span>
+                          <span className="lBold">Fund</span>
                         </span>
                       </div>
                     </button>

@@ -132,12 +132,12 @@ export default function ProfilePreview({
               )}
               <div className={styles.stat}>
                 <div className={styles.statValue}>{sponsors.toLocaleString()}</div>
-                <div className={styles.statSub}>Investors</div>
+                <div className={styles.statSub}>Backers</div>
               </div>
               <div className={styles.statDivider} />
               <div className={styles.stat}>
                 <div className={styles.statValue}>{sponsoring.toLocaleString()}</div>
-                <div className={styles.statSub}>Investing</div>
+                <div className={styles.statSub}>Backing</div>
               </div>
             </div>
             <div className={styles.networkPill}>
@@ -223,7 +223,7 @@ export default function ProfilePreview({
                 <button className={styles.sponsorButton} type="button" disabled>
                   <div className={styles.sponsorButtonInner}>
                     <span className={styles.sponsorButtonText}>
-                      <span className={styles.sponsorButtonBold}>Invest</span>
+                      <span className={styles.sponsorButtonBold}>Fund</span>
                     </span>
                   </div>
                 </button>
