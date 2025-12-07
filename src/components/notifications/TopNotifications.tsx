@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import clsx from 'clsx'
@@ -13,7 +13,8 @@ import { useAuthStore } from '@/store/auth'
 import '@/styles/notifications.css'
 
 const MAX_VISIBLE = 2
-const AUTO_DISMISS_MS = 3000
+const AUTO_DISMISS_MS = 5000
+const ANIMATION_DURATION_MS = 400
 
 export default function TopNotifications() {
   const router = useRouter()
@@ -21,14 +22,58 @@ export default function TopNotifications() {
   const { isInboxOpen } = useFinancialInboxStore() // Check if financial inbox is open
   const { isAuthed, requireAuth } = useAuthStore()
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set())
+  const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
+  const dismissTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
+
+  // Handle dismiss with exit animation
+  const handleDismiss = useCallback((id: string) => {
+    // Prevent double-dismissing
+    if (exitingIds.has(id)) {
+      return
+    }
+
+    // Clear any existing auto-dismiss timer for this notification
+    const existingTimer = dismissTimersRef.current.get(id)
+    if (existingTimer) {
+      clearTimeout(existingTimer)
+      dismissTimersRef.current.delete(id)
+    }
+
+    // Step 1: Mark as exiting to trigger exit animation
+    setExitingIds((prev) => new Set(prev).add(id))
+
+    // Step 2: After animation completes, remove from store
+    setTimeout(() => {
+      dismissNotification(id)
+      setVisibleIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+      setExitingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }, ANIMATION_DURATION_MS)
+  }, [exitingIds, dismissNotification])
 
   // Show notifications up to MAX_VISIBLE
   useEffect(() => {
-    const visible = notifications.slice(0, MAX_VISIBLE)
-    setVisibleIds(new Set(visible.map((n) => n.id)))
+    // Exiting notifications still count towards MAX_VISIBLE
+    const exiting = notifications.filter((n) => exitingIds.has(n.id))
+    const nonExiting = notifications.filter((n) => !exitingIds.has(n.id))
+    
+    // Calculate how many slots are available for new notifications
+    const availableSlots = Math.max(0, MAX_VISIBLE - exiting.length)
+    const newVisible = nonExiting.slice(0, availableSlots)
+    
+    // Combine exiting + new visible (total never exceeds MAX_VISIBLE)
+    const allVisible = [...exiting, ...newVisible]
+    setVisibleIds(new Set(allVisible.map((n) => n.id)))
 
-    // Handle map highlighting for member/co-op notifications
-    visible.forEach((notification) => {
+    // Handle map highlighting for member/co-op notifications (only non-exiting)
+    newVisible.forEach((notification) => {
       if (notification.map && (notification.actor?.type === 'member' || notification.actor?.type === 'co_op')) {
         // Trigger map highlight after a short delay
         setTimeout(() => {
@@ -37,20 +82,31 @@ export default function TopNotifications() {
       }
     })
 
-    // Auto-dismiss after delay
-    visible.forEach((notification) => {
+    // Auto-dismiss after delay (only for notifications not already exiting)
+    newVisible.forEach((notification) => {
+      // Skip if already has a timer or is exiting
+      if (dismissTimersRef.current.has(notification.id) || exitingIds.has(notification.id)) {
+        return
+      }
+
       const timer = setTimeout(() => {
-        dismissNotification(notification.id)
-        setVisibleIds((prev) => {
-          const next = new Set(prev)
-          next.delete(notification.id)
-          return next
-        })
+        handleDismiss(notification.id)
       }, AUTO_DISMISS_MS)
 
-      return () => clearTimeout(timer)
+      dismissTimersRef.current.set(notification.id, timer)
     })
-  }, [notifications, dismissNotification])
+
+    // Cleanup: clear timers for notifications that are no longer visible
+    return () => {
+      const visibleIdsSet = new Set(allVisible.map((n) => n.id))
+      dismissTimersRef.current.forEach((timer, id) => {
+        if (!visibleIdsSet.has(id)) {
+          clearTimeout(timer)
+          dismissTimersRef.current.delete(id)
+        }
+      })
+    }
+  }, [notifications, dismissNotification, exitingIds, handleDismiss])
 
   const handleTap = (notification: NotificationItem) => {
     requireAuth(() => {
@@ -60,12 +116,12 @@ export default function TopNotifications() {
       } else {
         router.push('/transactions')
       }
-      dismissNotification(notification.id)
+      handleDismiss(notification.id)
     })
     
     // If not authed, requireAuth will open the modal, but we still dismiss the notification
     if (!isAuthed) {
-      dismissNotification(notification.id)
+      handleDismiss(notification.id)
     }
   }
 
@@ -78,7 +134,7 @@ export default function TopNotifications() {
     }
   }
 
-  const visibleNotifications = notifications.filter((n) => visibleIds.has(n.id))
+  const visibleNotifications = notifications.filter((n) => visibleIds.has(n.id) || exitingIds.has(n.id))
 
   // Hide notifications only if there are none (don't hide when inbox is open - we'll close inbox before showing convert notifications)
   if (visibleNotifications.length === 0) {
@@ -110,6 +166,11 @@ export default function TopNotifications() {
           }
         }
 
+        const isExiting = exitingIds.has(notification.id)
+        const animationName = isExiting ? 'slideUpFadeOut' : 'slideDownFadeIn'
+        const animationTiming = isExiting ? 'ease-in' : 'ease-out'
+        const animationDelay = isExiting ? '0ms' : `${index * 50}ms`
+
         return (
           <div
             key={notification.id}
@@ -121,14 +182,18 @@ export default function TopNotifications() {
               'notification--user': actor?.type === 'user',
             })}
             style={{
-              animationDelay: `${index * 50}ms`,
+              animationName,
+              animationDuration: `${ANIMATION_DURATION_MS}ms`,
+              animationTimingFunction: animationTiming,
+              animationFillMode: 'forwards',
+              animationDelay,
             }}
             onClick={() => {
               triggerHaptic()
               handleTap(notification)
             }}
             onAnimationStart={() => {
-              if (index === 0) {
+              if (index === 0 && !isExiting) {
                 triggerHaptic()
               }
             }}
