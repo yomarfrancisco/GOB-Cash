@@ -68,12 +68,12 @@ export default function PhoneSignupSheet() {
     
     // Show success notification
     pushNotification({
-      kind: 'payment_sent', // Using existing kind for now
-      title: 'You\'re in. Your wallet is ready.',
+      kind: 'payment_sent',
+      title: '$ama: You\'re in. Your wallet is ready. Let\'s make your money work.',
       actor: {
-        type: 'system',
-        id: 'system',
-        name: 'System',
+        type: 'ai_manager',
+        name: '$ama',
+        avatar: '/assets/Brics-girl-blue.png',
       },
     })
 

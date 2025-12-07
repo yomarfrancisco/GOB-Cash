@@ -7,6 +7,13 @@
 import type { NotificationItem } from '@/store/notifications'
 import { useAiFabHighlightStore, shouldHighlightAiFab } from '@/state/aiFabHighlight'
 import { getDemoConfig, DEMO_NOTIFICATION_CONFIG } from './demoConfig'
+import { 
+  getNextDemoNotification, 
+  resetDemoState 
+} from './templates/notificationSelection'
+
+// Feature flag: v2 notifications enabled by default unless explicitly disabled
+const USE_V2_NOTIFICATIONS = process.env.NEXT_PUBLIC_V2_NOTIFICATIONS !== 'false'
 
 type NotificationInput = Omit<NotificationItem, 'id' | 'timestamp'>
 
@@ -162,10 +169,39 @@ const demoEvents: NotificationInput[] = [
 
 /**
  * Get a random event from the demo events pool
- * Prioritizes AI events in the first 5-8 seconds for "catching up" narrative
+ * Uses v2 template system if enabled, otherwise falls back to v1
  */
-function getRandomEvent(secondsSinceStart: number): NotificationInput {
-  // In first 8 seconds, 60% chance of AI event to establish "AI is working" narrative
+function getRandomEvent(secondsSinceStart: number, isAuthed: boolean): NotificationInput {
+  // Try v2 notification system first
+  if (USE_V2_NOTIFICATIONS) {
+    try {
+      const template = getNextDemoNotification(isAuthed)
+      
+      // Convert template to notification format
+      const notification: NotificationInput = {
+        kind: template.kind,
+        title: template.title,
+        body: template.body,
+        action: template.action,
+        reason: template.reason,
+        amount: template.amount ? {
+          currency: template.amount.currency,
+          value: template.amount.baseValue // Convert baseValue to value
+        } : undefined,
+        direction: template.amount?.direction,
+        actor: template.actor,
+        map: template.map,
+        routeOnTap: template.routeOnTap
+      }
+      
+      return notification
+    } catch (error) {
+      console.error('V2 notification error, falling back to v1:', error)
+      // Fall through to v1 logic
+    }
+  }
+  
+  // V1 fallback: In first 8 seconds, 60% chance of AI event to establish "AI is working" narrative
   const isEarly = secondsSinceStart < 8
   const shouldPrioritizeAI = isEarly && Math.random() < 0.6
   
@@ -231,6 +267,11 @@ export function startDemoNotificationEngine(
   const config = DEMO_NOTIFICATION_CONFIG[intensity]
   engineStartTime = Date.now()
   
+  // Reset v2 state when demo starts
+  if (USE_V2_NOTIFICATIONS) {
+    resetDemoState()
+  }
+  
   const scheduleNext = () => {
     // Use config-based random interval
     const INTERVAL_MS = config.INTERVAL_MIN_MS + Math.random() * (config.INTERVAL_MAX_MS - config.INTERVAL_MIN_MS)
@@ -241,7 +282,7 @@ export function startDemoNotificationEngine(
       
       if (canSendNotification()) {
         const secondsSinceStart = (Date.now() - engineStartTime) / 1000
-        const event = getRandomEvent(secondsSinceStart)
+        const event = getRandomEvent(secondsSinceStart, currentIsAuthed)
         
         // Trigger map pan for member events with coordinates
         if (event.map && options.onMapPan) {
