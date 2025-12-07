@@ -1,0 +1,159 @@
+/**
+ * Notification System v2.0 - Agent Registry
+ * Defines 10 demo agents with locations, avatars, and specialties
+ */
+
+export type AgentProfile = {
+  id: string // e.g., "thabo", "lindiwe"
+  name: string // Display name (e.g., "@thabo")
+  handle: string // Full handle (e.g., "@thabo")
+  city: string // e.g., "Johannesburg"
+  country: string // e.g., "South Africa"
+  avatar: string // Avatar path
+  lat: number
+  lng: number
+  productivity: number // 0-100, for ranking
+  specialties: string[] // e.g., ["cross-border", "large-transactions"]
+}
+
+export const AGENT_REGISTRY: AgentProfile[] = [
+  {
+    id: 'thabo',
+    name: '@thabo',
+    handle: '@thabo',
+    city: 'Johannesburg',
+    country: 'South Africa',
+    avatar: '/assets/avatar_agent5.png',
+    lat: -26.2041,
+    lng: 28.0473,
+    productivity: 85,
+    specialties: ['reliable', 'steady-earner']
+  },
+  {
+    id: 'lindiwe',
+    name: '@lindiwe',
+    handle: '@lindiwe',
+    city: 'Durban',
+    country: 'South Africa',
+    avatar: '/assets/avatar_agent6.png',
+    lat: -29.8587,
+    lng: 31.0218,
+    productivity: 95,
+    specialties: ['high-performer', 'top-productivity']
+  },
+  {
+    id: 'sipho',
+    name: '@sipho',
+    handle: '@sipho',
+    city: 'Pretoria',
+    country: 'South Africa',
+    avatar: '/assets/avatar_agent7.png',
+    lat: -25.7479,
+    lng: 28.2293,
+    productivity: 70,
+    specialties: ['rising', 'fast-growing']
+  },
+  {
+    id: 'grace',
+    name: '@grace',
+    handle: '@grace',
+    city: 'Soweto',
+    country: 'South Africa',
+    avatar: '/assets/avatar_agent8.png',
+    lat: -26.2485,
+    lng: 27.8540,
+    productivity: 98,
+    specialties: ['veteran', 'highest-rated']
+  },
+  {
+    id: 'tendai',
+    name: '@tendai',
+    handle: '@tendai',
+    city: 'Harare',
+    country: 'Zimbabwe',
+    avatar: '/assets/avatar_agent1.png',
+    lat: -17.8292,
+    lng: 31.0522,
+    productivity: 88,
+    specialties: ['cross-border', 'harare-corridor']
+  },
+  {
+    id: 'blessing',
+    name: '@blessing',
+    handle: '@blessing',
+    city: 'Maputo',
+    country: 'Mozambique',
+    avatar: '/assets/avatar_agent2.png',
+    lat: -25.9692,
+    lng: 32.5732,
+    productivity: 82,
+    specialties: ['cross-border', 'maputo-corridor']
+  },
+  {
+    id: 'chipo',
+    name: '@chipo',
+    handle: '@chipo',
+    city: 'Bulawayo',
+    country: 'Zimbabwe',
+    avatar: '/assets/avatar_agent3.png',
+    lat: -20.1325,
+    lng: 28.5851,
+    productivity: 75,
+    specialties: ['consistent', 'reliable']
+  },
+  {
+    id: 'nomsa',
+    name: '@nomsa',
+    handle: '@nomsa',
+    city: 'Cape Town',
+    country: 'South Africa',
+    avatar: '/assets/avatar_agent4.png',
+    lat: -33.9249,
+    lng: 18.4241,
+    productivity: 90,
+    specialties: ['large-transactions', 'high-volume']
+  },
+  {
+    id: 'tawanda',
+    name: '@tawanda',
+    handle: '@tawanda',
+    city: 'Mutare',
+    country: 'Zimbabwe',
+    avatar: '/assets/avatar_agent1.png',
+    lat: -18.9707,
+    lng: 32.6709,
+    productivity: 80,
+    specialties: ['border-specialist', 'cross-border']
+  },
+  {
+    id: 'fatima',
+    name: '@fatima',
+    handle: '@fatima',
+    city: 'Inhambane',
+    country: 'Mozambique',
+    avatar: '/assets/avatar_agent2.png',
+    lat: -23.8650,
+    lng: 35.3833,
+    productivity: 78,
+    specialties: ['coastal-corridor', 'cross-border']
+  }
+]
+
+// City coordinates for cross-border notifications
+export const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  'johannesburg': { lat: -26.2041, lng: 28.0473 },
+  'durban': { lat: -29.8587, lng: 31.0218 },
+  'cape-town': { lat: -33.9249, lng: 18.4241 },
+  'pretoria': { lat: -25.7479, lng: 28.2293 },
+  'soweto': { lat: -26.2485, lng: 27.8540 },
+  'sandton': { lat: -26.1076, lng: 28.0567 },
+  'harare': { lat: -17.8292, lng: 31.0522 },
+  'bulawayo': { lat: -20.1325, lng: 28.5851 },
+  'mutare': { lat: -18.9707, lng: 32.6709 },
+  'maputo': { lat: -25.9692, lng: 32.5732 },
+  'beira': { lat: -19.8436, lng: 34.8389 },
+  'inhambane': { lat: -23.8650, lng: 35.3833 },
+  'lusaka': { lat: -15.3875, lng: 28.3228 },
+  'blantyre': { lat: -15.7667, lng: 35.0168 }
+}
+
