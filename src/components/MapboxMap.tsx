@@ -39,6 +39,7 @@ import {
   generateInitialBasePoints,
   spawnNewActivePoints,
   updatePointWeights,
+  updatePointPositions,
   triggerRandomPulses,
   removeExpiredPoints,
   pointsToGeoJSON,
@@ -331,9 +332,12 @@ export default function MapboxMap({
 
         log('[Heatmap] Source and layer added to map')
 
-        // Update point weights every 1 second (smooth morphing)
+        // Update point positions and weights every 1 second (smooth morphing)
         heatmapIntervalsRef.current.weightUpdate = setInterval(() => {
           if (mapRef.current && transactionPointsRef.current.length > 0) {
+            // Update positions first (creates morphing movement)
+            transactionPointsRef.current = updatePointPositions(transactionPointsRef.current)
+            // Then update weights (intensity changes)
             transactionPointsRef.current = updatePointWeights(transactionPointsRef.current)
           }
         }, 1000)

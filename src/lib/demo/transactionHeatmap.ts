@@ -13,7 +13,7 @@ export interface CityDef {
 
 export interface TransactionPoint {
   id: string
-  coordinates: [number, number] // [lng, lat]
+  coordinates: [number, number] // [lng, lat] - MUTABLE for morphing
   weight: number // 0.3 to 1.0
   timestamp: number
   city: string
@@ -21,6 +21,11 @@ export interface TransactionPoint {
   pulseStartTime?: number
   fadeStartTime?: number
   baseWeight: number // Original weight before animations
+  // Movement properties for morphing effect
+  velocity?: [number, number] // [lngVelocity, latVelocity] in degrees per second
+  driftDirection?: number // Angle in radians (0-2π)
+  driftSpeed?: number // Degrees per second
+  movementStartTime?: number // When current movement direction started
 }
 
 // SADC Cities with weighted distribution
@@ -246,6 +251,64 @@ export function spawnNewActivePoints(count: number = 2): TransactionPoint[] {
   }
 
   return newPoints
+}
+
+/**
+ * Update point positions with random drift (creates morphing effect)
+ * Points slowly drift in random directions, changing direction every 30-60 seconds
+ */
+export function updatePointPositions(points: TransactionPoint[]): TransactionPoint[] {
+  const now = Date.now()
+  
+  return points.map((point) => {
+    // Skip movement for fading points (they're disappearing anyway)
+    if (point.state === 'fading') {
+      return point
+    }
+    
+    // Initialize movement if not set
+    if (!point.velocity || !point.movementStartTime) {
+      // Random drift direction
+      const angle = Math.random() * Math.PI * 2
+      const speed = 0.00015 + Math.random() * 0.00015 // 0.00015-0.0003 deg/sec (subtle but noticeable)
+      point.velocity = [
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed
+      ]
+      point.movementStartTime = now
+      point.driftDirection = angle
+      point.driftSpeed = speed
+    }
+    
+    // Change direction occasionally (every 30-60 seconds) for organic flow
+    const movementAge = now - (point.movementStartTime || point.timestamp)
+    if (movementAge > 30000 + Math.random() * 30000) {
+      // New random direction
+      const newAngle = Math.random() * Math.PI * 2
+      const speed = point.driftSpeed || (0.00015 + Math.random() * 0.00015)
+      point.velocity = [
+        Math.cos(newAngle) * speed,
+        Math.sin(newAngle) * speed
+      ]
+      point.driftDirection = newAngle
+      point.movementStartTime = now
+    }
+    
+    // Update position based on velocity (assuming ~1 second update interval)
+    const [lng, lat] = point.coordinates
+    const [lngVel, latVel] = point.velocity
+    
+    // Use fixed 1 second delta since we're called every 1 second
+    // This creates smooth, continuous movement
+    const deltaTime = 1.0
+    
+    point.coordinates = [
+      lng + lngVel * deltaTime,
+      lat + latVel * deltaTime
+    ]
+    
+    return point
+  })
 }
 
 /**
