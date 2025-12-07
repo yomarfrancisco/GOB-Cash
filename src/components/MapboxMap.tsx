@@ -285,47 +285,48 @@ export default function MapboxMap({
               0, 0,
               1, 1,
             ],
-            // Intensity: Higher at lower zoom for visibility
+            // Intensity: Reduced for softer appearance while maintaining visibility
             'heatmap-intensity': [
               'interpolate',
               ['linear'],
               ['zoom'],
-              0, 1.0, // World view
-              4, 1.5, // Region view (SADC)
-              8, 2.0, // City view
-              10, 2.5, // Suburb view
+              0, 0.8, // World view (reduced from 1.0)
+              4, 1.2, // Region view (SADC) (reduced from 1.5)
+              8, 1.6, // City view (reduced from 2.0)
+              10, 2.0, // Suburb view (reduced from 2.5)
             ],
-            // Color: Blue → Yellow → Red gradient
+            // Color: Softer gradient - cream → peach → soft coral → muted red
             'heatmap-color': [
               'interpolate',
               ['linear'],
               ['heatmap-density'],
               0, 'rgba(0, 0, 255, 0)', // Transparent (no density)
-              0.1, '#ffffb2', // Light yellow (low)
-              0.3, '#feb24c', // Orange (medium)
-              0.5, '#fd8d3c', // Dark orange (medium-high)
-              0.7, '#fc4e2a', // Red-orange (high)
-              1, '#e31a1c', // Deep red (maximum)
+              0.15, '#fff9e6', // Soft cream (low) - starts later for softer appearance
+              0.3, '#ffe4b5', // Light peach (low-medium)
+              0.5, '#ffcc99', // Soft peach (medium)
+              0.7, '#ff9966', // Muted coral (medium-high)
+              0.85, '#ff704d', // Soft red-orange (high)
+              1, '#e85a4f', // Muted red (maximum) - less harsh than #e31a1c
             ],
-            // Radius: Larger at lower zoom, smaller at higher zoom
+            // Radius: Slightly reduced for less overwhelming presence
             'heatmap-radius': [
               'interpolate',
               ['linear'],
               ['zoom'],
-              0, 20, // 20px at world view
-              4, 30, // 30px at region view
-              8, 45, // 45px at city view
-              10, 60, // 60px at suburb view
+              0, 18, // 18px at world view (reduced from 20)
+              4, 26, // 26px at region view (reduced from 30)
+              8, 40, // 40px at city view (reduced from 45)
+              10, 52, // 52px at suburb view (reduced from 60)
             ],
-            // Opacity: Slightly transparent to see map
+            // Opacity: Reduced for softer integration while maintaining visibility
             'heatmap-opacity': [
               'interpolate',
               ['linear'],
               ['zoom'],
-              0, 0.65,
-              4, 0.7,
-              8, 0.75,
-              10, 0.8,
+              0, 0.5, // World view (reduced from 0.65)
+              4, 0.55, // Region view (reduced from 0.7)
+              8, 0.6, // City view (reduced from 0.75)
+              10, 0.65, // Suburb view (reduced from 0.8)
             ],
           },
         })
