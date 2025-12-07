@@ -247,32 +247,34 @@ export function useAiActionCycle(
         const zarAmount = Math.abs(deltaZAR)
         const actionVerb = delta > 0 ? 'bought' : 'sold'
         
-        // Generate fragility-focused reasons based on the adjustment
+        // Generate natural, conversational reasons based on the adjustment
         const isDefensive = delta < 0 // Moving to cash/stable assets
         const reasons = isDefensive
           ? [
-              `Fragility increased in ${assetName} markets; preserving purchasing power.`,
-              `Short-term volatility detected in ZAR/MZN corridor; raising cash buffer.`,
-              `ACD engine detected risk spike; shifting to defensive position.`,
-              `Market instability detected; protecting your purchasing power.`,
+              `Crypto looked nervous. Your money isn't.`,
+              `Something felt off in the order books.`,
+              `ZAR/MZN felt shaky this morning.`,
+              `Caught movement before it hit.`,
+              `Playing it safe for now.`,
+              `Markets felt uncertain. Holding steady.`,
             ]
           : [
-              `Market stabilized; restoring balanced allocation.`,
-              `Fragility reduced; redeploying part of cash buffer.`,
-              `Risk levels normalized; increasing growth exposure.`,
-              `Market conditions improved; rebalancing to target allocation.`,
+              `All clear. Storm passed.`,
+              `Things calmed down.`,
+              `Back to normal.`,
+              `Conditions look good again.`,
             ]
         const shortWhyString = reasons[Math.floor(Math.random() * reasons.length)]
         
-        // Determine title based on direction
+        // Determine title based on direction - natural, conversational
         const title = isDefensive
-          ? 'AI reduced market risk'
-          : 'AI restored growth exposure'
+          ? '$ama: Moved to safety'
+          : '$ama: Back to earning'
         
-        // Action description focused on protection/restoration
+        // Action description - simple, natural language
         const actionDescription = isDefensive
-          ? `Shifted R${zarAmount.toFixed(2)} to stable assets.`
-          : `Redeployed R${zarAmount.toFixed(2)} from cash buffer.`
+          ? `Moved R${zarAmount.toFixed(2)} to cash.`
+          : `Put R${zarAmount.toFixed(2)} back to work.`
         
         pushNotification({
           kind: 'ai_trade',
@@ -286,6 +288,8 @@ export function useAiActionCycle(
           direction: delta > 0 ? 'down' : 'up',
           actor: {
             type: 'ai_manager',
+            name: '$ama',
+            avatar: '/assets/Brics-girl-blue.png',
           },
           routeOnTap: '/transactions',
         })
