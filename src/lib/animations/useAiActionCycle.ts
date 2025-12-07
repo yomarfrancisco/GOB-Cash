@@ -364,19 +364,19 @@ export function useAiActionCycle(
       }, intervalMs)
     }
 
-    // Start schedule earlier: fire first action at ~5s, then preserve quiet period (18-30s) for subsequent actions
-    const INITIAL_DELAY_MS = 5000
+    // Start schedule earlier: fire first action at ~4s, then preserve quiet period (10-60s) for subsequent actions
+    const INITIAL_DELAY_MS = 4000
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     const isAuthed = useAuthStore.getState().isAuthed
     
     if (isDemoMode && !isAuthed && cardStackRef.current) {
-      // Wait 5 seconds, then fire first action immediately, then start normal schedule
+      // Wait 4 seconds, then fire first action immediately, then start normal schedule
       setTimeout(async () => {
         // Re-check conditions before firing first action
         if (isRunningRef.current && cardStackRef.current && !useAuthStore.getState().isAuthed) {
           // Fire first action immediately
           await processAction()
-          // Then start normal schedule (which will wait 18-30s for next action)
+          // Then start normal schedule (which will wait 10-60s for next action)
           scheduleNext()
         }
       }, INITIAL_DELAY_MS)

@@ -37,8 +37,8 @@ export const DEMO_NOTIFICATION_CONFIG = {
  */
 export const AI_ACTION_CONFIG = {
   lively: {
-    INTERVAL_MIN_MS: 18000,           // 18s - minimum between actions
-    INTERVAL_MAX_MS: 30000,           // 30s - maximum between actions
+    INTERVAL_MIN_MS: 10000,           // 10s - minimum between actions
+    INTERVAL_MAX_MS: 60000,           // 60s - maximum between actions
   },
   calm: {
     INTERVAL_MIN_MS: 90000,           // 90s - current value
