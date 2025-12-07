@@ -34,6 +34,16 @@ import { KEY_CITY_AVATARS } from '@/lib/demo/keyCityAvatars'
 import YouAreHere from './YouAreHere'
 // static import so Next bundles it and gives us a stable .src
 import userIcon from '../../public/assets/character.png'
+import {
+  type TransactionPoint,
+  generateInitialBasePoints,
+  spawnNewActivePoints,
+  updatePointWeights,
+  updatePointPositions,
+  triggerRandomPulses,
+  removeExpiredPoints,
+  pointsToGeoJSON,
+} from '@/lib/demo/transactionHeatmap'
 
 const DEFAULT_MAP_STYLE = 'mapbox://styles/mapbox/navigation-day-v1'
 
@@ -109,6 +119,16 @@ export default function MapboxMap({
   const hqMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const cameraLockedUntilRef = useRef<number>(0) // Timestamp when camera lock expires
   const routeCoordinatesRef = useRef<[number, number][] | undefined>(routeCoordinates)
+  
+  // Transaction heatmap state (only for landing variant, unauthenticated)
+  const transactionPointsRef = useRef<TransactionPoint[]>([])
+  const heatmapIntervalsRef = useRef<{
+    weightUpdate?: NodeJS.Timeout
+    spawn?: NodeJS.Timeout
+    pulse?: NodeJS.Timeout
+    cleanup?: NodeJS.Timeout
+    sourceUpdate?: NodeJS.Timeout
+  }>({})
   
   const highlight = useMapHighlightStore((state) => state.highlight)
   
@@ -236,6 +256,147 @@ export default function MapboxMap({
       loadedRef.current = true
       setIsMapLoaded(true)
       log('event: load')
+
+      // Initialize transaction heatmap (only for landing variant, unauthenticated)
+      if (variant === 'landing' && !isAuthed) {
+        // Generate initial base points
+        transactionPointsRef.current = generateInitialBasePoints(175)
+        log(`[Heatmap] Initialized with ${transactionPointsRef.current.length} base points`)
+
+        // Add GeoJSON source
+        const initialGeoJSON = pointsToGeoJSON(transactionPointsRef.current)
+        map.addSource('transactions', {
+          type: 'geojson',
+          data: initialGeoJSON,
+        })
+
+        // Add heatmap layer
+        map.addLayer({
+          id: 'transaction-heatmap',
+          type: 'heatmap',
+          source: 'transactions',
+          maxzoom: 12, // Hide at high zoom (show individual markers instead)
+          paint: {
+            // Weight: Use dynamic weight from point properties
+            'heatmap-weight': [
+              'interpolate',
+              ['linear'],
+              ['get', 'weight'],
+              0, 0,
+              1, 1,
+            ],
+            // Intensity: Higher at lower zoom for visibility
+            'heatmap-intensity': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              0, 1.0, // World view
+              4, 1.5, // Region view (SADC)
+              8, 2.0, // City view
+              10, 2.5, // Suburb view
+            ],
+            // Color: Blue → Yellow → Red gradient
+            'heatmap-color': [
+              'interpolate',
+              ['linear'],
+              ['heatmap-density'],
+              0, 'rgba(0, 0, 255, 0)', // Transparent (no density)
+              0.1, '#ffffb2', // Light yellow (low)
+              0.3, '#feb24c', // Orange (medium)
+              0.5, '#fd8d3c', // Dark orange (medium-high)
+              0.7, '#fc4e2a', // Red-orange (high)
+              1, '#e31a1c', // Deep red (maximum)
+            ],
+            // Radius: Larger at lower zoom, smaller at higher zoom
+            'heatmap-radius': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              0, 20, // 20px at world view
+              4, 30, // 30px at region view
+              8, 45, // 45px at city view
+              10, 60, // 60px at suburb view
+            ],
+            // Opacity: Slightly transparent to see map
+            'heatmap-opacity': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              0, 0.65,
+              4, 0.7,
+              8, 0.75,
+              10, 0.8,
+            ],
+          },
+        })
+
+        log('[Heatmap] Source and layer added to map')
+
+        // Update point positions and weights every 500ms (more fluid, smoother morphing)
+        heatmapIntervalsRef.current.weightUpdate = setInterval(() => {
+          if (mapRef.current && transactionPointsRef.current.length > 0) {
+            // Update positions first (creates morphing movement)
+            transactionPointsRef.current = updatePointPositions(transactionPointsRef.current)
+            // Then update weights (intensity changes)
+            transactionPointsRef.current = updatePointWeights(transactionPointsRef.current)
+          }
+        }, 500) // 500ms = 2x more frequent for smoother motion
+
+        // Spawn new active points every 3-5 seconds
+        const scheduleSpawn = () => {
+          const delay = 3000 + Math.random() * 2000 // 3-5 seconds
+          heatmapIntervalsRef.current.spawn = setTimeout(() => {
+            if (mapRef.current && transactionPointsRef.current.length < 200) {
+              const newPoints = spawnNewActivePoints(1 + Math.floor(Math.random() * 3)) // 1-3 points
+              transactionPointsRef.current = [...transactionPointsRef.current, ...newPoints]
+              log(`[Heatmap] Spawned ${newPoints.length} new active points`)
+            }
+            scheduleSpawn() // Schedule next spawn
+          }, delay)
+        }
+        scheduleSpawn()
+
+        // Trigger random pulses every 10-15 seconds
+        const schedulePulse = () => {
+          const delay = 10000 + Math.random() * 5000 // 10-15 seconds
+          heatmapIntervalsRef.current.pulse = setTimeout(() => {
+            if (mapRef.current && transactionPointsRef.current.length > 0) {
+              transactionPointsRef.current = triggerRandomPulses(transactionPointsRef.current)
+              log('[Heatmap] Triggered random pulses')
+            }
+            schedulePulse() // Schedule next pulse
+          }, delay)
+        }
+        schedulePulse()
+
+        // Cleanup expired points every 30 seconds
+        heatmapIntervalsRef.current.cleanup = setInterval(() => {
+          if (mapRef.current) {
+            const before = transactionPointsRef.current.length
+            transactionPointsRef.current = removeExpiredPoints(transactionPointsRef.current)
+            const after = transactionPointsRef.current.length
+            if (before !== after) {
+              log(`[Heatmap] Removed ${before - after} expired points`)
+            }
+          }
+        }, 30000)
+
+        // Update GeoJSON source every 500ms (matches position/weight updates for fluid rendering)
+        const scheduleSourceUpdate = () => {
+          const delay = 500 // 500ms = same as position/weight updates for smooth rendering
+          heatmapIntervalsRef.current.sourceUpdate = setTimeout(() => {
+            if (mapRef.current && transactionPointsRef.current.length > 0) {
+              const source = mapRef.current.getSource('transactions')
+              if (source && source.type === 'geojson') {
+                const updatedGeoJSON = pointsToGeoJSON(transactionPointsRef.current)
+                source.setData(updatedGeoJSON)
+              }
+            }
+            scheduleSourceUpdate() // Schedule next update
+          }, delay)
+        }
+        scheduleSourceUpdate()
+      }
 
       // Only add geolocation, branch marker, and user marker logic for landing maps
       if (variant === 'landing') {
@@ -447,6 +608,38 @@ export default function MapboxMap({
         roRef.current = null
       }
       window.removeEventListener('orientationchange', handleOrientationChange)
+      
+      // Clean up heatmap intervals
+      if (heatmapIntervalsRef.current.weightUpdate) {
+        clearInterval(heatmapIntervalsRef.current.weightUpdate)
+      }
+      if (heatmapIntervalsRef.current.spawn) {
+        clearTimeout(heatmapIntervalsRef.current.spawn)
+      }
+      if (heatmapIntervalsRef.current.pulse) {
+        clearTimeout(heatmapIntervalsRef.current.pulse)
+      }
+      if (heatmapIntervalsRef.current.cleanup) {
+        clearInterval(heatmapIntervalsRef.current.cleanup)
+      }
+      if (heatmapIntervalsRef.current.sourceUpdate) {
+        clearTimeout(heatmapIntervalsRef.current.sourceUpdate)
+      }
+      
+      // Remove heatmap layer and source if they exist
+      if (mapRef.current) {
+        try {
+          if (mapRef.current.getLayer('transaction-heatmap')) {
+            mapRef.current.removeLayer('transaction-heatmap')
+          }
+          if (mapRef.current.getSource('transactions')) {
+            mapRef.current.removeSource('transactions')
+          }
+        } catch (e) {
+          // Source/layer might not exist or map destroyed
+        }
+      }
+      
       // Clean up user marker
       if (userMarkerRef.current) {
         userMarkerRef.current.remove()
