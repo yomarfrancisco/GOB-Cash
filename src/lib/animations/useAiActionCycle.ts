@@ -365,11 +365,11 @@ export function useAiActionCycle(
     }
 
     // Fire first action immediately after page loads, then preserve quiet period (4-90s) for subsequent actions
-    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     const isAuthed = useAuthStore.getState().isAuthed
     
     // FIX 2: Prevent duplicate scheduleNext() calls
-    if (isDemoMode && !isAuthed && cardStackRef.current) {
+    // Immediate first action works for both demo mode ON and OFF
+    if (!isAuthed && cardStackRef.current) {
       // Fire first action immediately, then start normal schedule
       // Re-check conditions before firing first action
       if (isRunningRef.current && cardStackRef.current && !useAuthStore.getState().isAuthed) {
@@ -388,10 +388,9 @@ export function useAiActionCycle(
     }
     
     // Normal schedule (no initial delay) - runs if:
-    // 1. Not in demo mode, OR
-    // 2. User is authenticated, OR
-    // 3. cardStackRef is not ready, OR
-    // 4. Inner condition in demo mode failed
+    // 1. User is authenticated, OR
+    // 2. cardStackRef is not ready, OR
+    // 3. Inner condition failed
     scheduleNext()
   }, [cardStackRef, processAction])
 
