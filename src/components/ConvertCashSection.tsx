@@ -73,7 +73,7 @@ export default function ConvertCashSection({ onHelpClick, onMapClick }: ConvertC
           <MapboxMap
             containerId="mapbox-container"
             markers={[sandtonBranch, ...BRANCH_MARKERS]}
-            styleUrl="mapbox://styles/mapbox/satellite-streets-v12"
+            styleUrl="mapbox://styles/mapbox/light-v11"
             variant="landing"
             initialCenter={SADC_CENTER}
             initialZoom={SADC_ZOOM}

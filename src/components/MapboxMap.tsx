@@ -45,7 +45,7 @@ import {
   pointsToGeoJSON,
 } from '@/lib/demo/transactionHeatmap'
 
-const DEFAULT_MAP_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12'
+const DEFAULT_MAP_STYLE = 'mapbox://styles/mapbox/light-v11'
 
 export type Marker = {
   id: string
