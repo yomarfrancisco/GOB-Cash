@@ -8,7 +8,7 @@ export type CharacterConfig = {
   name: string // Display name (e.g., "$ama", "$ariel", "Network")
   avatar: string // Avatar path
   voice: {
-    pronoun: 'I' | 'we' | 'they' // For $ama: "I", for network: "we"
+    pronoun: 'I' | 'we' | 'they' | 'you' // For $ama: "I", for network: "we", for user: "you"
     tone: 'calm' | 'direct' | 'observational'
     sentenceLength: 'short' | 'medium' | 'long'
   }
