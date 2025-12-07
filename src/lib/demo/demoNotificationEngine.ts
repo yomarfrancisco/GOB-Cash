@@ -175,45 +175,70 @@ function getRandomEvent(secondsSinceStart: number, isAuthed: boolean): Notificat
   // Try v2 notification system first
   if (USE_V2_NOTIFICATIONS) {
     try {
-      const template = getNextDemoNotification(isAuthed)
+      // FIX 1: Filter out ai_trade notifications - retry if we get one
+      let template = getNextDemoNotification(isAuthed)
+      let retries = 0
+      const MAX_RETRIES = 10
       
-      // Convert template to notification format
-      const notification: NotificationInput = {
-        kind: template.kind,
-        title: template.title,
-        body: template.body,
-        action: template.action,
-        reason: template.reason,
-        amount: template.amount ? {
-          currency: template.amount.currency,
-          value: template.amount.baseValue // Convert baseValue to value
-        } : undefined,
-        direction: template.amount?.direction,
-        actor: template.actor,
-        map: template.map,
-        routeOnTap: template.routeOnTap
+      // Keep retrying until we get a non-ai_trade notification (or max retries)
+      while (template.kind === 'ai_trade' && retries < MAX_RETRIES) {
+        template = getNextDemoNotification(isAuthed)
+        retries++
       }
       
-      return notification
+      // If we still got ai_trade after retries, fall through to v1
+      if (template.kind === 'ai_trade') {
+        console.warn('[DemoNotificationEngine] Could not get non-ai_trade notification from v2, falling back to v1')
+        // Fall through to v1 logic
+      } else {
+        // Convert template to notification format
+        const notification: NotificationInput = {
+          kind: template.kind,
+          title: template.title,
+          body: template.body,
+          action: template.action,
+          reason: template.reason,
+          amount: template.amount ? {
+            currency: template.amount.currency,
+            value: template.amount.baseValue // Convert baseValue to value
+          } : undefined,
+          direction: template.amount?.direction,
+          actor: template.actor,
+          map: template.map,
+          routeOnTap: template.routeOnTap
+        }
+        
+        return notification
+      }
     } catch (error) {
       console.error('V2 notification error, falling back to v1:', error)
       // Fall through to v1 logic
     }
   }
   
-  // V1 fallback: In first 8 seconds, 60% chance of AI event to establish "AI is working" narrative
+  // V1 fallback: Filter out ai_trade events (AI Action Cycle handles these)
+  // In first 8 seconds, prioritize other events to establish narrative
   const isEarly = secondsSinceStart < 8
-  const shouldPrioritizeAI = isEarly && Math.random() < 0.6
+  const nonAiEvents = demoEvents.filter((e) => e.kind !== 'ai_trade')
+  
+  // If no non-AI events available, fall back to all events (shouldn't happen)
+  const availableEvents = nonAiEvents.length > 0 ? nonAiEvents : demoEvents.filter((e) => e.kind !== 'ai_trade')
   
   let event: NotificationInput
   
-  if (shouldPrioritizeAI) {
-    // Pick from AI events only
-    const aiEvents = demoEvents.filter((e) => e.actor?.type === 'ai_manager')
-    event = { ...aiEvents[Math.floor(Math.random() * aiEvents.length)] }
+  if (availableEvents.length > 0) {
+    // Pick from non-AI events only
+    event = { ...availableEvents[Math.floor(Math.random() * availableEvents.length)] }
   } else {
-    // Pick from all events
-    event = { ...demoEvents[Math.floor(Math.random() * demoEvents.length)] }
+    // Last resort: return a default payment event if somehow all events are filtered
+    event = {
+      kind: 'payment_received',
+      title: 'Payment received',
+      body: 'R100 received',
+      amount: { currency: 'ZAR', value: 100 },
+      direction: 'up',
+      actor: { type: 'system' },
+    }
   }
   
   // Randomize amounts slightly (±10%)
@@ -282,32 +307,22 @@ export function startDemoNotificationEngine(
       
       if (canSendNotification()) {
         const secondsSinceStart = (Date.now() - engineStartTime) / 1000
-        const event = getRandomEvent(secondsSinceStart, currentIsAuthed)
+        let event = getRandomEvent(secondsSinceStart, currentIsAuthed)
+        
+        // FIX 1: Filter out ai_trade notifications - AI Action Cycle handles these with real card animations
+        // Skip this notification and schedule the next one if it's an ai_trade
+        if (event.kind === 'ai_trade') {
+          scheduleNext()
+          return
+        }
         
         // Trigger map pan for member events with coordinates
         if (event.map && options.onMapPan) {
           options.onMapPan(event.map.lat, event.map.lng)
         }
 
-        // Trigger card animation for AI trades
-        if (event.kind === 'ai_trade' && options.onCardAnimation) {
-          options.onCardAnimation('ai_trade')
-        }
-
         // Push the notification
         pushNotification(event)
-        
-        // Trigger FAB highlight for "important" AI trades in demo mode
-        if (event.kind === 'ai_trade' && event.amount) {
-          const amountZar = Math.abs(event.amount.value)
-          if (shouldHighlightAiFab(amountZar)) {
-            const { triggerAiFabHighlight } = useAiFabHighlightStore.getState()
-            triggerAiFabHighlight({
-              reason: event.reason,
-              amountZar: amountZar,
-            })
-          }
-        }
         
         notificationCount++
         lastNotificationTime = Date.now()

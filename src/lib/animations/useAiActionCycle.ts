@@ -368,20 +368,31 @@ export function useAiActionCycle(
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     const isAuthed = useAuthStore.getState().isAuthed
     
+    // FIX 2: Prevent duplicate scheduleNext() calls
     if (isDemoMode && !isAuthed && cardStackRef.current) {
       // Fire first action immediately, then start normal schedule
       // Re-check conditions before firing first action
       if (isRunningRef.current && cardStackRef.current && !useAuthStore.getState().isAuthed) {
-        // Fire first action immediately
+        // Fire first action immediately, then start normal schedule
         processAction().then(() => {
           // Then start normal schedule (which will wait 4-90s for next action)
           scheduleNext()
+        }).catch(() => {
+          // If processAction fails, still start the schedule
+          scheduleNext()
         })
+        // Return early to prevent falling through to scheduleNext() in else branch
+        return
       }
-    } else {
-      // Normal schedule (no initial delay)
-      scheduleNext()
+      // If inner condition fails, fall through to normal schedule
     }
+    
+    // Normal schedule (no initial delay) - runs if:
+    // 1. Not in demo mode, OR
+    // 2. User is authenticated, OR
+    // 3. cardStackRef is not ready, OR
+    // 4. Inner condition in demo mode failed
+    scheduleNext()
   }, [cardStackRef, processAction])
 
   const stop = useCallback(() => {
