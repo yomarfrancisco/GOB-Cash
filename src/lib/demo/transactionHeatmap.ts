@@ -26,6 +26,8 @@ export interface TransactionPoint {
   driftDirection?: number // Angle in radians (0-2π)
   driftSpeed?: number // Degrees per second
   movementStartTime?: number // When current movement direction started
+  targetDirection?: number // Target angle for smooth turns
+  turnStartTime?: number // When turn began
 }
 
 // SADC Cities with weighted distribution
@@ -254,8 +256,8 @@ export function spawnNewActivePoints(count: number = 2): TransactionPoint[] {
 }
 
 /**
- * Update point positions with random drift (creates morphing effect)
- * Points slowly drift in random directions, changing direction every 30-60 seconds
+ * Update point positions with smooth, fluid drift (creates morphing effect)
+ * Points drift in random directions with smooth, gradual turns
  */
 export function updatePointPositions(points: TransactionPoint[]): TransactionPoint[] {
   const now = Date.now()
@@ -268,9 +270,9 @@ export function updatePointPositions(points: TransactionPoint[]): TransactionPoi
     
     // Initialize movement if not set
     if (!point.velocity || !point.movementStartTime) {
-      // Random drift direction
+      // Random drift direction - FASTER for more fluid movement
       const angle = Math.random() * Math.PI * 2
-      const speed = 0.00015 + Math.random() * 0.00015 // 0.00015-0.0003 deg/sec (subtle but noticeable)
+      const speed = 0.0003 + Math.random() * 0.0003 // 0.0003-0.0006 deg/sec (2x faster, more fluid)
       point.velocity = [
         Math.cos(angle) * speed,
         Math.sin(angle) * speed
@@ -278,29 +280,56 @@ export function updatePointPositions(points: TransactionPoint[]): TransactionPoi
       point.movementStartTime = now
       point.driftDirection = angle
       point.driftSpeed = speed
+      point.targetDirection = angle
     }
     
-    // Change direction occasionally (every 30-60 seconds) for organic flow
+    // Smooth direction changes (every 20-40 seconds, more frequent for fluidity)
     const movementAge = now - (point.movementStartTime || point.timestamp)
-    if (movementAge > 30000 + Math.random() * 30000) {
-      // New random direction
-      const newAngle = Math.random() * Math.PI * 2
-      const speed = point.driftSpeed || (0.00015 + Math.random() * 0.00015)
+    if (movementAge > 20000 + Math.random() * 20000) {
+      // Set new target direction for smooth turn
+      const newTargetAngle = Math.random() * Math.PI * 2
+      point.targetDirection = newTargetAngle
+      point.turnStartTime = now
+      point.movementStartTime = now
+    }
+    
+    // Smoothly interpolate toward target direction (gradual turns)
+    if (point.targetDirection !== undefined && point.driftDirection !== undefined) {
+      const currentAngle = point.driftDirection
+      let targetAngle = point.targetDirection
+      
+      // Find shortest rotation path (handle wrap-around)
+      let angleDiff = targetAngle - currentAngle
+      if (angleDiff > Math.PI) angleDiff -= Math.PI * 2
+      if (angleDiff < -Math.PI) angleDiff += Math.PI * 2
+      
+      // Smooth interpolation (turn over 3-5 seconds)
+      const turnDuration = 3000 + Math.random() * 2000 // 3-5 seconds
+      const turnAge = point.turnStartTime ? (now - point.turnStartTime) : 0
+      const turnProgress = Math.min(1, turnAge / turnDuration)
+      
+      // Ease-in-out for smooth acceleration/deceleration
+      const easedProgress = turnProgress < 0.5
+        ? 2 * turnProgress * turnProgress
+        : 1 - Math.pow(-2 * turnProgress + 2, 2) / 2
+      
+      const newAngle = currentAngle + angleDiff * easedProgress
+      point.driftDirection = newAngle
+      
+      // Update velocity based on new direction
+      const speed = point.driftSpeed || (0.0003 + Math.random() * 0.0003)
       point.velocity = [
         Math.cos(newAngle) * speed,
         Math.sin(newAngle) * speed
       ]
-      point.driftDirection = newAngle
-      point.movementStartTime = now
     }
     
-    // Update position based on velocity (assuming ~1 second update interval)
+    // Update position based on velocity (assuming ~0.5 second update interval for smoother motion)
     const [lng, lat] = point.coordinates
     const [lngVel, latVel] = point.velocity
     
-    // Use fixed 1 second delta since we're called every 1 second
-    // This creates smooth, continuous movement
-    const deltaTime = 1.0
+    // Use 0.5 second delta since we'll update every 500ms for smoother motion
+    const deltaTime = 0.5
     
     point.coordinates = [
       lng + lngVel * deltaTime,

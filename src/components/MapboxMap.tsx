@@ -332,7 +332,7 @@ export default function MapboxMap({
 
         log('[Heatmap] Source and layer added to map')
 
-        // Update point positions and weights every 1 second (smooth morphing)
+        // Update point positions and weights every 500ms (more fluid, smoother morphing)
         heatmapIntervalsRef.current.weightUpdate = setInterval(() => {
           if (mapRef.current && transactionPointsRef.current.length > 0) {
             // Update positions first (creates morphing movement)
@@ -340,7 +340,7 @@ export default function MapboxMap({
             // Then update weights (intensity changes)
             transactionPointsRef.current = updatePointWeights(transactionPointsRef.current)
           }
-        }, 1000)
+        }, 500) // 500ms = 2x more frequent for smoother motion
 
         // Spawn new active points every 3-5 seconds
         const scheduleSpawn = () => {
@@ -381,9 +381,9 @@ export default function MapboxMap({
           }
         }, 30000)
 
-        // Update GeoJSON source every 1-2 seconds (batched)
+        // Update GeoJSON source every 500ms (matches position/weight updates for fluid rendering)
         const scheduleSourceUpdate = () => {
-          const delay = 1000 + Math.random() * 1000 // 1-2 seconds
+          const delay = 500 // 500ms = same as position/weight updates for smooth rendering
           heatmapIntervalsRef.current.sourceUpdate = setTimeout(() => {
             if (mapRef.current && transactionPointsRef.current.length > 0) {
               const source = mapRef.current.getSource('transactions')
