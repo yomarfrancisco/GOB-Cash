@@ -304,37 +304,34 @@ function HomeContent() {
     return () => clearTimeout(timer)
   }, [isAuthed])
 
-  // Demo notification engine - only run in demo mode AND when NOT authenticated
+  // Demo notification engine - run when NOT authenticated (regardless of demo mode setting)
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   useEffect(() => {
-    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
-    
     // Stop demo notifications if user is authenticated
     if (isAuthed) {
       stopDemoNotificationEngine()
       return
     }
     
-    if (isDemoMode) {
-      // Stub callbacks for map panning and card animations
-      const onMapPan = (lat: number, lng: number) => {
-        // TODO: Wire up to MapboxMap component for actual panning
-        console.log('[Demo] Map pan to:', { lat, lng })
-      }
+    // Run demo notifications for unauthenticated users (demo mode ON or OFF)
+    // Stub callbacks for map panning and card animations
+    const onMapPan = (lat: number, lng: number) => {
+      // TODO: Wire up to MapboxMap component for actual panning
+      console.log('[Demo] Map pan to:', { lat, lng })
+    }
 
-      const onCardAnimation = (type: 'ai_trade' | 'portfolio_rebalanced') => {
-        // TODO: Trigger card animation (balance pulse, health bar wiggle)
-        console.log('[Demo] Card animation:', type)
-      }
+    const onCardAnimation = (type: 'ai_trade' | 'portfolio_rebalanced') => {
+      // TODO: Trigger card animation (balance pulse, health bar wiggle)
+      console.log('[Demo] Card animation:', type)
+    }
 
-      startDemoNotificationEngine(pushNotification, {
-        onMapPan,
-        onCardAnimation,
-      }, isAuthed)
+    startDemoNotificationEngine(pushNotification, {
+      onMapPan,
+      onCardAnimation,
+    }, isAuthed)
 
-      return () => {
-        stopDemoNotificationEngine()
-      }
+    return () => {
+      stopDemoNotificationEngine()
     }
   }, [pushNotification, isAuthed])
 
