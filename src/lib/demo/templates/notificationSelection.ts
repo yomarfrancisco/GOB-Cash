@@ -248,16 +248,35 @@ function selectNotification(isAuthed: boolean): NotificationTemplate {
   // Phase 2: Next 2 minutes (30-150 seconds) - Weighted mix
   if (secondsSinceStart < 150) {
     const categoryWeights: Record<string, number> = {
+      // AI (30% total)
       ai_protection: 0.10,
       ai_recovery: 0.05,
-      ai_opportunity: 0.10,
-      ai_performance: 0.05,
-      cross_border: 0.25,
-      agent_checkin: 0.10,
-      agent_productivity: 0.10,
-      network_corridor: 0.10,
-      network_local: 0.10,
-      network_milestone: 0.05
+      ai_opportunity: 0.05,
+      ai_performance: 0.03,
+      ai_rebalancing: 0.02,
+      ai_commentary: 0.03,
+      ai_failure_recovery: 0.02,
+      // $ariel (5%)
+      large_transfer: 0.03,
+      agent_coordination: 0.01,
+      routing_decision: 0.01,
+      // Cross-border (25%)
+      cross_border_incoming: 0.10,
+      cross_border_outgoing: 0.08,
+      cross_border_multi_hop: 0.04,
+      cross_border_celebratory: 0.03,
+      // Agent (25%)
+      agent_checkin: 0.08,
+      agent_productivity: 0.07,
+      agent_milestone: 0.05,
+      agent_shift_end: 0.03,
+      backing_update: 0.02,
+      // Network (15%)
+      network_corridor: 0.04,
+      network_milestone: 0.03,
+      network_local: 0.03,
+      network_economy: 0.03,
+      network_time: 0.02
     }
     return selectByCategoryWeights(availableTemplates, categoryWeights)
   }

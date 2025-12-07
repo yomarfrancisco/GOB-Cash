@@ -15,7 +15,7 @@ import { BACKING_TEMPLATES } from './backingTemplates'
 import type { NotificationTemplate } from './types'
 
 /**
- * All notification templates (185+)
+ * All notification templates (202)
  * Organized by category for easy filtering and selection
  */
 export const ALL_TEMPLATES: NotificationTemplate[] = [
@@ -27,7 +27,7 @@ export const ALL_TEMPLATES: NotificationTemplate[] = [
   ...USER_ACTION_TEMPLATES, // 19 templates
   ...COMPETITION_TEMPLATES, // 17 templates
   ...AGENT_YOU_TEMPLATES, // 20 templates
-  ...BACKING_TEMPLATES // TBD templates
+  ...BACKING_TEMPLATES // 0 templates (placeholder for future)
 ]
 
 // Re-export types and utilities
