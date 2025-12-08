@@ -285,7 +285,7 @@ function HomeContent() {
   const flipControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
   useRandomCardFlips(cardStackRef, flipControllerRef)
 
-  // Test trigger: Earnings surprise animation 8 seconds after page load
+  // Test trigger: Earnings surprise animation 20 seconds after page load
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (cardStackRef.current?.triggerEarningsSurprise) {
@@ -298,7 +298,7 @@ function HomeContent() {
           console.warn('[EarningsSurprise] Test trigger failed:', err)
         })
       }
-    }, 8000) // 8 seconds after page load
+    }, 20000) // 20 seconds after page load
 
     return () => clearTimeout(timeoutId)
   }, []) // Only run once on mount
