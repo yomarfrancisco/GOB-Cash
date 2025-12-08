@@ -34,6 +34,13 @@ export function useGoogleAuth() {
 
       const userInfo = await userInfoResponse.json()
 
+      // Debug: Log userInfo to verify picture URL
+      console.log('[GoogleAuth] userInfo', {
+        name: userInfo?.name,
+        email: userInfo?.email,
+        picture: userInfo?.picture,
+      })
+
       // 2. Fetch Google Contacts (non-blocking)
       let contacts: any[] = []
       try {
