@@ -115,6 +115,7 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC'> =
 interface CardStackProps {
   onTopCardChange?: (cardType: CardType) => void
   flipControllerRef?: React.MutableRefObject<{ pause: () => void; resume: () => void } | null>
+  aiCycleControllerRef?: React.MutableRefObject<{ pause: () => void; resume: () => void } | null>
   onCardClick?: () => void // Optional auth guard wrapper for card clicks
   onCreditSurprise?: (amountZAR: number) => void // Callback for credit surprise animation
   onApyPillClick?: (cardType: CardType) => void // Callback for APY pill clicks (opens helper)
@@ -139,7 +140,7 @@ const FLIP_DURATION_MS = FLIP_MS
 // Number of cards visible in the stack at any time
 const VISIBLE_COUNT = 5
 
-const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, onCardClick, onCreditSurprise, onApyPillClick }, ref) {
+const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, aiCycleControllerRef, onCardClick, onCreditSurprise, onApyPillClick }, ref) {
   // Dynamic order initialization based on cards.length
   // Note: order.length === 6 (includes hidden card), but only first VISIBLE_COUNT are rendered
   const initialOrder = Array.from({ length: cardsData.length }, (_, i) => i)
@@ -264,6 +265,9 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       let cyclesNeeded = targetPosition
 
       return new Promise((resolve) => {
+        let pollCount = 0
+        const MAX_POLL_COUNT = 20 // Maximum number of times to poll (20 * 350ms = 7 seconds max wait)
+        
         const performCycle = (remaining: number) => {
           if (remaining === 0) {
             resolve()
@@ -271,11 +275,21 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
           }
 
           if (isAnimating) {
-            // Wait for current animation to finish
-            setTimeout(() => performCycle(remaining), FLIP_DURATION_MS + 50)
+            pollCount++
+            // Safety: If we've been waiting too long, resolve anyway to prevent infinite blocking
+            if (pollCount > MAX_POLL_COUNT) {
+              console.warn('[flipToCard] Max poll count reached, resolving to prevent infinite wait')
+              resolve()
+              return
+            }
+            // Wait for current animation to finish with exponential backoff (capped)
+            const waitTime = Math.min(FLIP_DURATION_MS + 50, 500)
+            setTimeout(() => performCycle(remaining), waitTime)
             return
           }
 
+          // Reset poll count when we can proceed
+          pollCount = 0
           setIsAnimating(true)
           setPhase('animating')
 
@@ -423,6 +437,10 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
         return
       }
 
+      // Guard: Check if AI cycle is processing (via pause mechanism)
+      // We'll pause it, but if it's mid-action, we should wait or skip
+      // For now, we pause and let the AI cycle's processAction guard handle it
+
       // Guard: Cooldown check
       const lastSurprise = earningsSurpriseMeta?.timestamp ?? 0
       const cooldownMs = 30000 // 30 seconds
@@ -472,9 +490,12 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       setEarningsSurpriseActive(true)
       setEarningsSurpriseMeta(meta)
 
-      // Pause external systems
+      // Pause external systems (random flips and AI cycle)
       if (externalFlipControllerRef?.current) {
         externalFlipControllerRef.current.pause()
+      }
+      if (aiCycleControllerRef?.current) {
+        aiCycleControllerRef.current.pause()
       }
 
       // Timeout safety: Force clear after max duration
@@ -486,6 +507,9 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
           setEarningsSurpriseMeta(null)
           if (externalFlipControllerRef?.current) {
             externalFlipControllerRef.current.resume()
+          }
+          if (aiCycleControllerRef?.current) {
+            aiCycleControllerRef.current.resume()
           }
         }
       }, MAX_SURPRISE_DURATION)
@@ -500,12 +524,15 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       setEarningsSurpriseActive(false)
       setEarningsSurpriseMeta(null)
 
-      // Resume external systems
+      // Resume external systems (random flips and AI cycle)
       if (externalFlipControllerRef?.current) {
         externalFlipControllerRef.current.resume()
       }
+      if (aiCycleControllerRef?.current) {
+        aiCycleControllerRef.current.resume()
+      }
     },
-    [order, phase, isAnimating, earningsSurpriseActive, earningsSurpriseMeta, externalFlipControllerRef]
+    [order, phase, isAnimating, earningsSurpriseActive, earningsSurpriseMeta, externalFlipControllerRef, aiCycleControllerRef]
   )
 
   useImperativeHandle(ref, () => ({

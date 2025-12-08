@@ -263,7 +263,9 @@ function HomeContent() {
 
   // Initialize AI action cycle - only run when NOT signed in (autonomous demo behavior)
   // When user signs in, isAuthed becomes true and animations stop
-  useAiActionCycle(
+  // Create controller ref to pause/resume during earnings surprise
+  const aiCycleControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
+  const aiCycle = useAiActionCycle(
     cardStackRef,
     {
       getCash,
@@ -275,6 +277,8 @@ function HomeContent() {
     },
     !isAuthed // enable only when NOT authenticated
   )
+  // Store pause/resume in ref for CardStack to access
+  aiCycleControllerRef.current = { pause: aiCycle.pause, resume: aiCycle.resume }
 
   // Random card flips - only run when NOT authenticated
   // Create controller ref to pause/resume during credit surprise
@@ -648,6 +652,7 @@ function HomeContent() {
                     })
                   }}
                   flipControllerRef={flipControllerRef}
+                  aiCycleControllerRef={aiCycleControllerRef}
                   onCreditSurprise={handleCreditSurprise}
                   onApyPillClick={(cardType: CardType) => {
                     setHelperWalletKey(cardType)

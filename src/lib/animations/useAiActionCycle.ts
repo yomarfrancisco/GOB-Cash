@@ -41,6 +41,7 @@ export function useAiActionCycle(
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const isRunningRef = useRef(false)
   const isProcessingRef = useRef(false)
+  const isPausedRef = useRef(false)
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   const setHoldingsBulk = usePortfolioStore((state) => state.setHoldingsBulk)
   const triggerAiFabHighlight = useAiFabHighlightStore((state) => state.triggerAiFabHighlight)
@@ -50,7 +51,7 @@ export function useAiActionCycle(
   const rnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
 
   const processAction = useCallback(async () => {
-    if (isProcessingRef.current || !cardStackRef.current) return
+    if (isProcessingRef.current || !cardStackRef.current || isPausedRef.current) return
     isProcessingRef.current = true
 
     try {
@@ -378,8 +379,11 @@ export function useAiActionCycle(
         : config.INTERVAL_MIN_MS
       
       intervalRef.current = setTimeout(async () => {
-        if (isRunningRef.current && cardStackRef.current) {
+        if (isRunningRef.current && cardStackRef.current && !isPausedRef.current) {
           await processAction()
+          scheduleNext()
+        } else if (isPausedRef.current) {
+          // If paused, reschedule check (will wait until resumed)
           scheduleNext()
         }
       }, intervalMs)
@@ -417,11 +421,58 @@ export function useAiActionCycle(
 
   const stop = useCallback(() => {
     isRunningRef.current = false
+    isPausedRef.current = false
     if (intervalRef.current) {
       clearTimeout(intervalRef.current)
       intervalRef.current = null
     }
   }, [])
+
+  const pause = useCallback(() => {
+    isPausedRef.current = true
+    // Don't clear interval - let it reschedule when resumed
+  }, [])
+
+  const resume = useCallback(() => {
+    isPausedRef.current = false
+    // The existing scheduleNext loop will automatically pick up when isPausedRef becomes false
+    // If no interval is running, we need to restart scheduling
+    if (isRunningRef.current && !intervalRef.current && cardStackRef.current) {
+      // Restart by calling start's scheduleNext logic inline
+      const isAuthed = useAuthStore.getState().isAuthed
+      const intensity = getDemoConfig(isAuthed)
+      const config = AI_ACTION_CONFIG[intensity]
+      const intervalMs = config.INTERVAL_MAX_MS > config.INTERVAL_MIN_MS
+        ? config.INTERVAL_MIN_MS + Math.random() * (config.INTERVAL_MAX_MS - config.INTERVAL_MIN_MS)
+        : config.INTERVAL_MIN_MS
+      
+      const scheduleNext = () => {
+        const isAuthed = useAuthStore.getState().isAuthed
+        const intensity = getDemoConfig(isAuthed)
+        const config = AI_ACTION_CONFIG[intensity]
+        const nextIntervalMs = config.INTERVAL_MAX_MS > config.INTERVAL_MIN_MS
+          ? config.INTERVAL_MIN_MS + Math.random() * (config.INTERVAL_MAX_MS - config.INTERVAL_MIN_MS)
+          : config.INTERVAL_MIN_MS
+        intervalRef.current = setTimeout(async () => {
+          if (isRunningRef.current && cardStackRef.current && !isPausedRef.current) {
+            await processAction()
+            scheduleNext()
+          } else if (isPausedRef.current) {
+            scheduleNext()
+          }
+        }, nextIntervalMs)
+      }
+      
+      intervalRef.current = setTimeout(async () => {
+        if (isRunningRef.current && cardStackRef.current && !isPausedRef.current) {
+          await processAction()
+          scheduleNext()
+        } else if (isPausedRef.current) {
+          scheduleNext()
+        }
+      }, intervalMs)
+    }
+  }, [cardStackRef, processAction])
 
   useEffect(() => {
     if (enabled) {
@@ -461,5 +512,7 @@ export function useAiActionCycle(
   return {
     start,
     stop,
+    pause,
+    resume,
   }
 }
