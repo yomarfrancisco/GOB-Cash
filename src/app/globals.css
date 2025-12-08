@@ -127,9 +127,10 @@ body {
   position: absolute;
   top: 48px;
   left: 16px;
-  width: 220px;
-  height: 65px;
-  object-fit: cover;
+  width: auto;
+  height: 40px;
+  max-width: 120px;
+  object-fit: contain;
   z-index: 2;
   background: transparent !important;
 }
