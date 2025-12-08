@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { useNotificationStore } from '@/store/notifications'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
+import { CHARACTERS } from '@/lib/demo/templates/characters'
 
 export type WalletMode = 'autonomous' | 'manual'
 
@@ -66,10 +67,12 @@ export function WalletModeProvider({ children }: { children: ReactNode }) {
           })
 
           // Trigger FAB highlight animation when switching to autonomous mode
+          // $ama manages autonomous mode - pass $ama's avatar
           if (newMode === 'autonomous' && oldMode === 'manual') {
             triggerAiFabHighlight({
               reason: 'Community wallet enabled',
               amountZar: undefined,
+              avatar: CHARACTERS.ama.avatar,
             })
           }
         }

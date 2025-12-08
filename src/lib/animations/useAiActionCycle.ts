@@ -7,6 +7,7 @@ import { usePortfolioStore } from '@/store/portfolio'
 import { computePostTrade, type HoldingsZAR } from '@/lib/portfolio/applyTrade'
 import { derivePortfolio } from '@/lib/portfolio/calculateMetrics'
 import { useAiFabHighlightStore, shouldHighlightAiFab } from '@/state/aiFabHighlight'
+import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { useBabyCdoChatStore } from '@/state/babyCdoChat'
 import { formatBabyCdoIntroFromTradeContext, type TradeContext } from '@/lib/babycdo/formatIntroMessage'
 import { useAuthStore } from '@/store/auth'
@@ -295,10 +296,12 @@ export function useAiActionCycle(
         })
 
         // Trigger FAB highlight for "important" trades (above R150 threshold)
+        // $ama's AI trades - pass $ama's avatar
         if (shouldHighlightAiFab(zarAmount)) {
           triggerAiFabHighlight({
             reason: shortWhyString,
             amountZar: zarAmount,
+            avatar: CHARACTERS.ama.avatar,
           })
 
           // Open BabyCDO chat with intro message for important trades

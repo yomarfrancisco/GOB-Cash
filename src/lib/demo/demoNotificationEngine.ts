@@ -5,7 +5,12 @@
  */
 
 import type { NotificationItem } from '@/store/notifications'
-import { useAiFabHighlightStore, shouldHighlightAiFab } from '@/state/aiFabHighlight'
+import { 
+  useAiFabHighlightStore, 
+  shouldHighlightAiFab,
+  shouldHighlightArielFab,
+} from '@/state/aiFabHighlight'
+import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { getDemoConfig, DEMO_NOTIFICATION_CONFIG } from './demoConfig'
 import { 
   getNextDemoNotification, 
@@ -319,6 +324,20 @@ export function startDemoNotificationEngine(
         // Trigger map pan for member events with coordinates
         if (event.map && options.onMapPan) {
           options.onMapPan(event.map.lat, event.map.lng)
+        }
+
+        // Check if $ariel notification should trigger FAB highlight
+        // Avoid spamming: only trigger if not already highlighted
+        const { isHighlighted, triggerAiFabHighlight } = useAiFabHighlightStore.getState()
+        if (
+          !isHighlighted &&
+          shouldHighlightArielFab(event.actor, event.amount?.value)
+        ) {
+          triggerAiFabHighlight({
+            reason: 'ariel-high-volume',
+            amountZar: event.amount?.value,
+            avatar: CHARACTERS.ariel.avatar,
+          })
         }
 
         // Push the notification

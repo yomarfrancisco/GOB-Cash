@@ -7,6 +7,7 @@ import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useSearchSheet } from '@/store/useSearchSheet'
+import { CHARACTERS } from '@/lib/demo/templates/characters'
 import '@/styles/bottom-glass.css'
 
 interface BottomGlassBarProps {
@@ -19,7 +20,10 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isHome = currentPath === '/'
   const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
   const { isAuthed, requireAuth } = useAuthStore()
-  const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
+  const { isHighlighted, lastAvatar } = useAiFabHighlightStore((state) => ({
+    isHighlighted: state.isHighlighted,
+    lastAvatar: state.lastAvatar,
+  }))
   const { hasUnreadNotification } = useFinancialInboxStore()
   const { open: openSearch, isOpen: isSearchOpen } = useSearchSheet()
   
@@ -85,8 +89,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               })}>
                 <div className="fab-avatar-container">
                   <Image 
-                    src="/assets/Brics-girl-blue.png" 
-                    alt="AI Manager" 
+                    src={lastAvatar || CHARACTERS.ama.avatar} 
+                    alt="FAB avatar" 
                     width={72} 
                     height={72} 
                     className="fab-avatar-image"
