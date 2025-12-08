@@ -37,7 +37,7 @@ export const STUB_PROFILES: Record<string, StubProfile> = {
   ariel: {
     userHandle: '@ariel',
     fullName: 'Ariel',
-    avatarUrl: '/assets/avatar - profile (3).png',
+    avatarUrl: '/assets/avatar-ariel.png',
     location: 'South Africa',
     joinDate: 'Joined Feb 2024',
     rating: 4.8,
