@@ -521,14 +521,14 @@ function HomeContent() {
   // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
   const cardDef = getCardDefinition(topCardType === 'yieldSurprise' ? 'yield' : topCardType)
   // Title - conditional based on auth status
-  const title = isAuthed ? `Cash wallet` : `Pay anyone anywhere`
+  const title = isAuthed ? `Cash wallet` : `Cash wallet`
   
   // Subtitle text - conditional based on auth status
   const totalBalanceZAR = isAuthed ? (alloc.totalCents / 100) : 0
   const formattedBalance = formatZAR(totalBalanceZAR || 0)
   const subtitleText = isAuthed 
     ? `${formattedBalance} available`
-    : `Free, private, and bankless.`
+    : `Pay anyone anywhere. Free, private, and bankless.`
 
 
   return (
