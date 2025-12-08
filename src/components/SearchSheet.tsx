@@ -29,7 +29,7 @@ const DEFAULT_CONTACTS: SearchContact[] = [
     id: 'ariel',
     handle: '$ariel',
     subtitle: 'AI cash agent',
-    avatarSrc: '/assets/avatar-ariel.png',
+    avatarSrc: '/assets/avatar-bricsASIA.png',
   },
 ]
 

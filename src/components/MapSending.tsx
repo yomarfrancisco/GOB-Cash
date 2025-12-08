@@ -31,7 +31,7 @@ const AGENT_DATA: Record<string, { avatar: string; name: string; rating: number;
     time: '15 min',
   },
   '$ariel': {
-    avatar: '/assets/avatar-ariel.png',
+    avatar: '/assets/avatar-bricsASIA.png',
     name: '$ariel',
     rating: 4.7,
     distance: '12 km away',

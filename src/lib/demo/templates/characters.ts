@@ -28,7 +28,7 @@ export const CHARACTERS: Record<string, CharacterConfig> = {
   ariel: {
     id: 'ariel',
     name: '$ariel',
-    avatar: '/assets/avatar-ariel.png', // Bold, operations-focused (already used in inbox)
+    avatar: '/assets/avatar-bricsASIA.png', // Bold, operations-focused (already used in inbox)
     voice: {
       pronoun: 'I',
       tone: 'direct',

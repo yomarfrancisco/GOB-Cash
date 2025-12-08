@@ -688,7 +688,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     {
       id: 'ariel',
       name: '$ariel',
-      avatar: '/assets/avatar-ariel.png',
+      avatar: '/assets/avatar-bricsASIA.png',
       preview: 'Verified agent · specialises in larger amounts.',
       time: '13:20',
       isOnline: false,
