@@ -20,10 +20,9 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isHome = currentPath === '/'
   const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
   const { isAuthed, requireAuth } = useAuthStore()
-  const { isHighlighted, lastAvatar } = useAiFabHighlightStore((state) => ({
-    isHighlighted: state.isHighlighted,
-    lastAvatar: state.lastAvatar,
-  }))
+  // Select values separately to prevent infinite re-renders from object creation in selector
+  const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
+  const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
   const { hasUnreadNotification } = useFinancialInboxStore()
   const { open: openSearch, isOpen: isSearchOpen } = useSearchSheet()
   
