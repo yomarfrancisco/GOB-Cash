@@ -7,6 +7,7 @@ import DevNotificationSetup from '@/components/notifications/DevNotificationSetu
 import { WalletModeProvider } from '@/state/walletMode'
 import { WalletAllocProvider } from '@/state/walletAlloc'
 import SplashOnceProvider from '@/providers/SplashOnceProvider'
+import GoogleOAuthProviderClient from '@/providers/GoogleOAuthProvider'
 import TransactionSheet from '@/components/TransactionSheet'
 import ProfileEditSheet from '@/components/ProfileEditSheet'
 import AvatarEditSheet from '@/components/AvatarEditSheet'
@@ -72,9 +73,10 @@ export default function RootLayout({
           }}
         />
         <IosKeyboardShim />
-        <SplashOnceProvider>
-          <WalletModeProvider>
-            <WalletAllocProvider>
+        <GoogleOAuthProviderClient>
+          <SplashOnceProvider>
+            <WalletModeProvider>
+              <WalletAllocProvider>
               <TopNotifications />
               <DevNotificationSetup />
               {children}
@@ -129,6 +131,7 @@ export default function RootLayout({
             </WalletAllocProvider>
           </WalletModeProvider>
         </SplashOnceProvider>
+        </GoogleOAuthProviderClient>
       </body>
     </html>
   )

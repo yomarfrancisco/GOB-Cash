@@ -1,0 +1,108 @@
+'use client'
+
+import { useGoogleLogin } from '@react-oauth/google'
+import { useAuthStore } from '@/store/auth'
+import { useUserProfileStore } from '@/store/userProfile'
+import { useContactsStore } from '@/store/contacts'
+import { fetchGoogleContacts } from '@/lib/google/contacts'
+import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
+import { useNotificationStore } from '@/store/notifications'
+
+/**
+ * Hook for Google OAuth authentication
+ * Handles sign-in/sign-up flow with profile and contacts import
+ * 
+ * Note: This hook must only be used in client components that are
+ * dynamically imported or rendered client-side only.
+ */
+export function useGoogleAuth() {
+  const { completeAuth, closeAllAuth } = useAuthStore()
+  const { setProfile, profile } = useUserProfileStore()
+  const { setContacts } = useContactsStore()
+  const { pushNotification } = useNotificationStore()
+
+  const handleGoogleSuccess = async (tokenResponse: any) => {
+    try {
+      // 1. Fetch user profile from Google
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+      })
+
+      if (!userInfoResponse.ok) {
+        throw new Error(`Failed to fetch user info: ${userInfoResponse.statusText}`)
+      }
+
+      const userInfo = await userInfoResponse.json()
+
+      // 2. Fetch Google Contacts (non-blocking)
+      let contacts: any[] = []
+      try {
+        contacts = await fetchGoogleContacts(tokenResponse.access_token)
+      } catch (contactsError) {
+        console.warn('Failed to fetch contacts (non-blocking):', contactsError)
+        // Continue without contacts
+      }
+
+      // 3. Generate handle from email if needed
+      const generatedHandle = userInfo.email
+        ? generateHandleFromEmail(userInfo.email)
+        : profile.userHandle || '@user'
+
+      // 4. Update user profile store
+      setProfile({
+        fullName: userInfo.name || profile.fullName,
+        email: userInfo.email || profile.email,
+        avatarUrl: userInfo.picture || profile.avatarUrl,
+        // Only update handle if it's the default or doesn't exist
+        userHandle:
+          !profile.userHandle || profile.userHandle === '@samakoyo'
+            ? generatedHandle
+            : profile.userHandle,
+      })
+
+      // 5. Store contacts
+      if (contacts.length > 0) {
+        setContacts(contacts)
+      }
+
+      // 6. Complete authentication
+      completeAuth()
+      closeAllAuth()
+
+      // 7. Show success notification
+      pushNotification({
+        kind: 'payment_received', // Using existing kind for system messages
+        title: 'Signed in with Google',
+        body: `Welcome, ${userInfo.name || 'User'}!`,
+        actor: { type: 'system' },
+      })
+    } catch (error) {
+      console.error('Google auth error:', error)
+      
+      // Show error notification
+      pushNotification({
+        kind: 'payment_failed', // Using existing kind for errors
+        title: 'Google sign-in failed',
+        body: error instanceof Error ? error.message : 'Please try again',
+        actor: { type: 'system' },
+      })
+    }
+  }
+
+  const login = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: (error) => {
+      console.error('Google login error:', error)
+      pushNotification({
+        kind: 'payment_failed', // Using existing kind for errors
+        title: 'Google sign-in failed',
+        body: 'Please try again',
+        actor: { type: 'system' },
+      })
+    },
+    scope: 'openid email profile https://www.googleapis.com/auth/contacts.readonly',
+  })
+
+  return { login }
+}
+

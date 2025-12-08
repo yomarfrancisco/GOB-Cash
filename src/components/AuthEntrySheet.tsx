@@ -12,6 +12,7 @@ import Image from 'next/image'
 import clsx from 'clsx'
 import { ArrowUp } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
+import { useGoogleAuth } from '@/hooks/useGoogleAuth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
@@ -19,6 +20,7 @@ type AuthMode = 'loginEntry' | 'signup'
 
 export default function AuthEntrySheet() {
   const { authEntryOpen, closeAuthEntry, openAuthPassword, openPhoneSignup, setAuthIdentifier } = useAuthStore()
+  const { login } = useGoogleAuth()
   const [identifier, setIdentifier] = useState('')
   const [authMode, setAuthMode] = useState<AuthMode>('signup')
   const [isPhoneSignupEditing, setIsPhoneSignupEditing] = useState(false)
@@ -52,7 +54,7 @@ export default function AuthEntrySheet() {
   }
 
   const handleGoogleClick = () => {
-    console.log('Google auth coming soon')
+    login()
   }
 
   const handlePhoneSignUpClick = () => {
@@ -126,7 +128,9 @@ export default function AuthEntrySheet() {
                   unoptimized
                   className={styles.authEntrySocialIcon}
                 />
-                <span className={styles.authEntrySocialText}>Continue with Google</span>
+                <span className={styles.authEntrySocialText}>
+                  {authMode === 'loginEntry' ? 'Sign in with Google' : 'Sign up with Google'}
+                </span>
               </button>
 
               {/* Divider with "or" */}
