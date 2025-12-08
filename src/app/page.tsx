@@ -358,13 +358,14 @@ function HomeContent() {
   }, [pushNotification, isAuthed])
 
   // Auto-show Ama chat intro on landing page (pre-sign-in demo)
-  // Shows Ama chat sheet after 30s, keeps it open for 14s, then closes automatically
+  // Shows Ama chat sheet after 50s, keeps it open for 14s, then closes automatically
   // Hard block: if auth flow starts, never show the chat intro for this page view
   const hasShownAmaIntroRef = useRef(false)
   useEffect(() => {
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     const authState = useAuthStore.getState()
-    const isAuthFlowActive = authState.authEntryOpen
+    // Check if any auth sheet is open (entry, password, or phone signup)
+    const isAuthFlowActive = authState.authEntryOpen || authState.authPasswordOpen || authState.phoneSignupOpen
     
     // If demo mode is off, user authed, intro already used, or auth flow already active → bail
     if (!isDemoMode || isAuthed || hasShownAmaIntroRef.current || isAuthFlowActive) {
@@ -373,7 +374,7 @@ function HomeContent() {
     
     hasShownAmaIntroRef.current = true
     
-    const OPEN_DELAY_MS = 30000 // 30 seconds
+    const OPEN_DELAY_MS = 50000 // 50 seconds
     const AUTO_CLOSE_DELAY_MS = 14000 // 14 seconds
     
     let openTimer: ReturnType<typeof setTimeout> | undefined
@@ -392,19 +393,22 @@ function HomeContent() {
       hasShownAmaIntroRef.current = true
     }
     
-    // 🔔 Subscribe to auth popup state – if it opens, kill the chat timers
+    // 🔔 Subscribe to auth popup state – if any auth sheet opens, kill the chat timers
     const unsubscribeAuth = useAuthStore.subscribe(
       (state) => {
-        if (state.authEntryOpen) {
+        // Cancel if any auth sheet opens (entry, password, or phone signup)
+        if (state.authEntryOpen || state.authPasswordOpen || state.phoneSignupOpen) {
           cancelTimersAndLock()
         }
       }
     )
     
-    // ⏲️ Schedule Ama intro after 30s, with final guards
+    // ⏲️ Schedule Ama intro after 50s, with final guards
     openTimer = setTimeout(() => {
-      const currentIsAuthed = useAuthStore.getState().isAuthed
-      const currentIsAuthFlowActive = useAuthStore.getState().authEntryOpen
+      const currentAuthState = useAuthStore.getState()
+      const currentIsAuthed = currentAuthState.isAuthed
+      // Check if any auth sheet is open
+      const currentIsAuthFlowActive = currentAuthState.authEntryOpen || currentAuthState.authPasswordOpen || currentAuthState.phoneSignupOpen
       
       if (currentIsAuthed || currentIsAuthFlowActive) {
         cancelTimersAndLock()
