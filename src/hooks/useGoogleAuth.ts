@@ -45,6 +45,19 @@ export function useGoogleAuth() {
       let contacts: any[] = []
       try {
         contacts = await fetchGoogleContacts(tokenResponse.access_token)
+        
+        // Log contacts in a friendly console table
+        console.groupCollapsed(
+          `[GoogleAuth] Retrieved ${contacts.length} contacts from Google People API`
+        )
+        console.table(
+          contacts.map((c) => ({
+            name: c.name,
+            email: c.email,
+            phone: c.phone,
+          }))
+        )
+        console.groupEnd()
       } catch (contactsError) {
         console.warn('Failed to fetch contacts (non-blocking):', contactsError)
         // Continue without contacts

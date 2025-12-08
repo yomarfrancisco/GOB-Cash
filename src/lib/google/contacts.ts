@@ -33,10 +33,19 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
       return []
     }
 
+    const connections = data.connections
+
+    // Optional: Log raw API response for debugging
+    console.groupCollapsed(
+      `[Contacts] Raw People API connections (count = ${connections.length})`
+    )
+    console.log(connections.slice(0, 5))
+    console.groupEnd()
+
     // Map People API response to GoogleContact format
-    return data.connections
+    return connections
       .filter((person: any) => person.names?.[0]) // Only include contacts with names
-      .map((person: any) => ({
+      .map((person: any): GoogleContact => ({
         id: person.resourceName || crypto.randomUUID(),
         name: person.names?.[0]?.displayName || 'Unknown',
         email: person.emailAddresses?.[0]?.value,
