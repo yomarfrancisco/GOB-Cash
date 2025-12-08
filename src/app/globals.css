@@ -128,8 +128,8 @@ body {
   top: 48px;
   left: 16px;
   width: auto;
-  height: 40px;
-  max-width: 120px;
+  height: 100px;
+  max-width: 300px;
   object-fit: contain;
   z-index: 2;
   background: transparent !important;
