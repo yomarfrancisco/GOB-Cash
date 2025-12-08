@@ -4,7 +4,9 @@
  */
 
 import { create } from 'zustand'
-import { CHARACTERS } from '@/lib/demo/templates/characters'
+
+// Default avatar path for $ama (avoiding circular dependency with CHARACTERS)
+const DEFAULT_AMA_AVATAR = '/assets/Brics-girl-blue.png'
 
 export type AiFabHighlightState = {
   isHighlighted: boolean
@@ -26,7 +28,7 @@ export const useAiFabHighlightStore = create<AiFabHighlightState>((set) => ({
       isHighlighted: true,
       lastReason: meta?.reason,
       lastAmountZar: meta?.amountZar,
-      lastAvatar: meta?.avatar ?? CHARACTERS.ama.avatar, // default to $ama
+      lastAvatar: meta?.avatar ?? DEFAULT_AMA_AVATAR, // default to $ama
     })
 
     // Auto-reset after duration
