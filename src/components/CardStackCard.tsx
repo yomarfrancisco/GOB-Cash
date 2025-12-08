@@ -128,6 +128,8 @@ type CardStackCardProps = {
   onFlashEnd: () => void
   isSpecialMode?: boolean
   isSpecialCard?: boolean
+  isEarningsSurprise?: boolean
+  isDimmedForEarnings?: boolean
   onApyPillClick?: (cardType: CardType) => void
 }
 
@@ -147,6 +149,8 @@ export default function CardStackCard({
   onFlashEnd,
   isSpecialMode = false,
   isSpecialCard = false,
+  isEarningsSurprise = false,
+  isDimmedForEarnings = false,
   onApyPillClick,
 }: CardStackCardProps) {
   const isAuthed = useAuthStore((state) => state.isAuthed)
@@ -408,7 +412,9 @@ export default function CardStackCard({
     className,
     'card-noselect', // Prevent native long-press context menu
     isSpecialMode && !isSpecialCard && 'dimmed-for-special',
-    isSpecialMode && isSpecialCard && 'credit-surprise'
+    isSpecialMode && isSpecialCard && 'credit-surprise',
+    isEarningsSurprise && 'earnings-surprise',
+    isDimmedForEarnings && 'dimmed-for-earnings'
   )
 
   return (

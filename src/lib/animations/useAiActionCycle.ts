@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
-import type { CardStackHandle } from '@/components/CardStack'
+import type { CardStackHandle, EarningsSurpriseMeta } from '@/components/CardStack'
 import { useNotificationStore } from '@/store/notifications'
 import { usePortfolioStore } from '@/store/portfolio'
 import { computePostTrade, type HoldingsZAR } from '@/lib/portfolio/applyTrade'

@@ -107,6 +107,63 @@
   transition: opacity 300ms ease, filter 300ms ease;
 }
 
+/* Earnings Surprise Animation */
+@keyframes earningsSurpriseWobble {
+  0% {
+    transform: translateY(0) scale(1) rotateZ(0deg);
+    opacity: 1;
+  }
+  15% {
+    transform: translateY(-12px) scale(1.08) rotateZ(-3deg);
+    opacity: 1;
+  }
+  30% {
+    transform: translateY(-8px) scale(1.05) rotateZ(2deg);
+  }
+  45% {
+    transform: translateY(-14px) scale(1.1) rotateZ(-2deg);
+  }
+  60% {
+    transform: translateY(-6px) scale(1.04) rotateZ(1deg);
+  }
+  75% {
+    transform: translateY(-10px) scale(1.06) rotateZ(-1deg);
+  }
+  90% {
+    transform: translateY(-4px) scale(1.02) rotateZ(0.5deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotateZ(0deg);
+    opacity: 1;
+  }
+}
+
+/* Base surprise animation - additive to existing card styles */
+.card.earnings-surprise {
+  /* Ensure on top during animation */
+  z-index: 100 !important;
+  
+  /* Lock interactions during animation */
+  pointer-events: none;
+  
+  /* Animation plays for 1200ms */
+  animation: earningsSurpriseWobble 1.2s cubic-bezier(0.23, 1, 0.32, 1);
+  
+  /* Enhanced glow during animation */
+  box-shadow: 
+    0 0 24px rgba(255, 215, 0, 0.6),      /* Gold glow */
+    0 0 12px rgba(255, 255, 255, 0.8),    /* White highlight */
+    0px 1px 1px rgba(0, 0, 0, 0.1), 
+    0px 8px 28px rgba(0, 0, 0, 0.08);
+}
+
+/* Dim other cards during surprise */
+.card.dimmed-for-earnings {
+  opacity: 0.5;
+  filter: blur(2px);
+  transition: opacity 300ms ease, filter 300ms ease;
+}
+
 /* Accessibility: respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   .card {
@@ -115,6 +172,11 @@
   
   .card.credit-surprise {
     animation: none;
+  }
+  
+  .card.earnings-surprise {
+    animation: none;
+    transform: none;
   }
 }
 

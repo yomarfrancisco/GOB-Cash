@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle, useCallba
 import type React from 'react'
 import type { StaticImageData } from 'next/image'
 import { CARD_FLIP_CLASSES } from '@/lib/animations/cardFlipClassNames'
-import { DEV_CARD_FLIP_DEBUG } from '@/lib/flags'
+import { DEV_CARD_FLIP_DEBUG, EARNINGS_SURPRISE_ENABLED } from '@/lib/flags'
 import { FLIP_MS } from '@/lib/animations/useAiActionCycle'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { getStackStyle } from '@/lib/stack/getStackStyle'
@@ -120,10 +120,18 @@ interface CardStackProps {
   onApyPillClick?: (cardType: CardType) => void // Callback for APY pill clicks (opens helper)
 }
 
+// Earnings Surprise Meta Type
+export type EarningsSurpriseMeta = {
+  amountZAR: number
+  source: 'yield' | 'bonus' | 'streak' | 'ai_trade'
+  timestamp: number
+}
+
 export type CardStackHandle = {
   cycleNext: () => void
   flipToCard: (cardType: CardType, direction?: 'forward' | 'back') => Promise<void>
   revealCreditSurprise: () => void
+  triggerEarningsSurprise: (meta: EarningsSurpriseMeta) => Promise<void>
 }
 
 const FLIP_DURATION_MS = FLIP_MS
@@ -147,6 +155,10 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   
   // Track if credit has been applied for this reveal (prevent multiple credits)
   const hasCreditedRef = useRef(false)
+
+  // Earnings surprise state
+  const [earningsSurpriseActive, setEarningsSurpriseActive] = useState(false)
+  const [earningsSurpriseMeta, setEarningsSurpriseMeta] = useState<EarningsSurpriseMeta | null>(null)
 
   // Flash state: track direction for each card type
   // Note: alloc values are now read in CardStackCard component
@@ -384,10 +396,123 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     }, FLIP_DURATION_MS + 50) // Wait for any ongoing animation + buffer
   }, [order, specialMode, isAnimating, externalFlipControllerRef, onCreditSurprise])
 
+  // Earnings Surprise trigger method
+  const triggerEarningsSurprise = useCallback(
+    async (meta: EarningsSurpriseMeta): Promise<void> => {
+      // Feature flag check
+      if (!EARNINGS_SURPRISE_ENABLED) {
+        if (DEV_CARD_FLIP_DEBUG) {
+          console.debug('[EarningsSurprise] Feature disabled via flag')
+        }
+        return
+      }
+
+      // Guard: Already in surprise mode
+      if (earningsSurpriseActive) {
+        if (DEV_CARD_FLIP_DEBUG) {
+          console.warn('[EarningsSurprise] Already active, ignoring trigger')
+        }
+        return
+      }
+
+      // Guard: Currently animating
+      if (phase === 'animating' || isAnimating) {
+        if (DEV_CARD_FLIP_DEBUG) {
+          console.warn('[EarningsSurprise] Animation in progress, ignoring')
+        }
+        return
+      }
+
+      // Guard: Cooldown check
+      const lastSurprise = earningsSurpriseMeta?.timestamp ?? 0
+      const cooldownMs = 30000 // 30 seconds
+      if (Date.now() - lastSurprise < cooldownMs) {
+        if (DEV_CARD_FLIP_DEBUG) {
+          console.warn('[EarningsSurprise] Cooldown active, ignoring')
+        }
+        return
+      }
+
+      // Find yieldSurprise card
+      const yieldSurpriseIndex = cardsData.findIndex((c) => c.type === 'yieldSurprise')
+      if (yieldSurpriseIndex === -1) {
+        if (DEV_CARD_FLIP_DEBUG) {
+          console.warn('[EarningsSurprise] yieldSurprise card not found')
+        }
+        return
+      }
+
+      const currentPosition = order.indexOf(yieldSurpriseIndex)
+      if (currentPosition < 0) {
+        if (DEV_CARD_FLIP_DEBUG) {
+          console.warn('[EarningsSurprise] yieldSurprise not in order array')
+        }
+        return
+      }
+
+      // If not at top, rotate order first
+      if (currentPosition > 0) {
+        setIsAnimating(true)
+        setPhase('animating')
+
+        // Rotate order to bring yieldSurprise to index 0
+        setOrder((prevOrder) => {
+          const pos = prevOrder.indexOf(yieldSurpriseIndex)
+          return [...prevOrder.slice(pos), ...prevOrder.slice(0, pos)]
+        })
+
+        // Wait for rotation animation
+        await new Promise((resolve) => setTimeout(resolve, FLIP_DURATION_MS))
+
+        setPhase('idle')
+        setIsAnimating(false)
+      }
+
+      // Now activate surprise mode
+      setEarningsSurpriseActive(true)
+      setEarningsSurpriseMeta(meta)
+
+      // Pause external systems
+      if (externalFlipControllerRef?.current) {
+        externalFlipControllerRef.current.pause()
+      }
+
+      // Timeout safety: Force clear after max duration
+      const MAX_SURPRISE_DURATION = 2000 // 2 seconds max
+      const timeoutId = setTimeout(() => {
+        if (earningsSurpriseActive) {
+          console.warn('[EarningsSurprise] Force-clearing stuck state')
+          setEarningsSurpriseActive(false)
+          setEarningsSurpriseMeta(null)
+          if (externalFlipControllerRef?.current) {
+            externalFlipControllerRef.current.resume()
+          }
+        }
+      }, MAX_SURPRISE_DURATION)
+
+      // Wait for animation to complete
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+
+      // Clear timeout if animation completed normally
+      clearTimeout(timeoutId)
+
+      // Cleanup
+      setEarningsSurpriseActive(false)
+      setEarningsSurpriseMeta(null)
+
+      // Resume external systems
+      if (externalFlipControllerRef?.current) {
+        externalFlipControllerRef.current.resume()
+      }
+    },
+    [order, phase, isAnimating, earningsSurpriseActive, earningsSurpriseMeta, externalFlipControllerRef]
+  )
+
   useImperativeHandle(ref, () => ({
     cycleNext,
     flipToCard,
     revealCreditSurprise,
+    triggerEarningsSurprise,
   }))
 
   const handleCardClick = (index: number) => {
@@ -432,6 +557,17 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     // Keep base card class for transitions and hover effects
     return `${CARD_FLIP_CLASSES.card} ${isCyclingOut ? CARD_FLIP_CLASSES.cyclingOut : ''} ${!isTop ? CARD_FLIP_CLASSES.noHover : ''}`
   }
+
+  // Cleanup earnings surprise on unmount
+  useEffect(() => {
+    return () => {
+      setEarningsSurpriseActive(false)
+      setEarningsSurpriseMeta(null)
+      if (externalFlipControllerRef?.current) {
+        externalFlipControllerRef.current.resume()
+      }
+    }
+  }, [externalFlipControllerRef])
 
   // Debug logging when flag is enabled
   useEffect(() => {
@@ -495,6 +631,10 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
         // Determine if this card is in special mode
         const isSpecialMode = specialMode === 'credit'
         const isSpecialCard = isSpecialMode && card.type === specialCardType
+        
+        // Determine if this card is in earnings surprise mode
+        const isEarningsSurprise = earningsSurpriseActive && card.type === 'yieldSurprise'
+        const isDimmedForEarnings = earningsSurpriseActive && card.type !== 'yieldSurprise'
 
         return (
           <CardStackCard
@@ -528,6 +668,8 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             }}
             isSpecialMode={isSpecialMode}
             isSpecialCard={isSpecialCard}
+            isEarningsSurprise={isEarningsSurprise}
+            isDimmedForEarnings={isDimmedForEarnings}
           />
         )
       })}
