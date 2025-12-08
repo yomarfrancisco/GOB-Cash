@@ -810,6 +810,114 @@ const shiftEndTemplates: NotificationTemplate[] = [
       priority: 6,
       cooldown: 60
     }
+  },
+  {
+    id: 'agent-19',
+    category: 'agent_productivity',
+    kind: 'payment_received',
+    title: '@kwame processed R35,000 today. West Africa specialist.',
+    body: '18 transactions. Accra active.',
+    amount: {
+      currency: 'ZAR',
+      baseValue: 35000,
+      direction: 'up'
+    },
+    actor: {
+      type: 'member',
+      name: '@kwame',
+      avatar: '/assets/avatar_agent9.png'
+    },
+    map: {
+      lat: getAgentData('kwame').lat,
+      lng: getAgentData('kwame').lng
+    },
+    metadata: {
+      character: 'agent',
+      agentName: 'kwame',
+      priority: 7,
+      cooldown: 60
+    }
+  },
+  {
+    id: 'agent-20',
+    category: 'agent_productivity',
+    kind: 'payment_received',
+    title: '@amina moved R38,000 today. East Africa corridor active.',
+    body: '20 transactions. Nairobi high volume.',
+    amount: {
+      currency: 'ZAR',
+      baseValue: 38000,
+      direction: 'up'
+    },
+    actor: {
+      type: 'member',
+      name: '@amina',
+      avatar: '/assets/avatar_agent10.png'
+    },
+    map: {
+      lat: getAgentData('amina').lat,
+      lng: getAgentData('amina').lng
+    },
+    metadata: {
+      character: 'agent',
+      agentName: 'amina',
+      priority: 7,
+      cooldown: 60
+    }
+  },
+  {
+    id: 'agent-21',
+    category: 'agent_productivity',
+    kind: 'payment_received',
+    title: '@joseph processed R32,000 today. Lagos specialist.',
+    body: '16 transactions. West Africa active.',
+    amount: {
+      currency: 'ZAR',
+      baseValue: 32000,
+      direction: 'up'
+    },
+    actor: {
+      type: 'member',
+      name: '@joseph',
+      avatar: '/assets/avatar_agent11.png'
+    },
+    map: {
+      lat: getAgentData('joseph').lat,
+      lng: getAgentData('joseph').lng
+    },
+    metadata: {
+      character: 'agent',
+      agentName: 'joseph',
+      priority: 6,
+      cooldown: 60
+    }
+  },
+  {
+    id: 'agent-22',
+    category: 'agent_productivity',
+    kind: 'payment_received',
+    title: '@zainab moved R28,000 today. Dar es Salaam active.',
+    body: '15 transactions. East Africa reliable.',
+    amount: {
+      currency: 'ZAR',
+      baseValue: 28000,
+      direction: 'up'
+    },
+    actor: {
+      type: 'member',
+      name: '@zainab',
+      avatar: '/assets/avatar_agent12.png'
+    },
+    map: {
+      lat: getAgentData('zainab').lat,
+      lng: getAgentData('zainab').lng
+    },
+    metadata: {
+      character: 'agent',
+      agentName: 'zainab',
+      priority: 6,
+      cooldown: 60
+    }
   }
 ]
 

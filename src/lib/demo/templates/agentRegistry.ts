@@ -136,6 +136,54 @@ export const AGENT_REGISTRY: AgentProfile[] = [
     lng: 35.3833,
     productivity: 78,
     specialties: ['coastal-corridor', 'cross-border']
+  },
+  {
+    id: 'kwame',
+    name: '@kwame',
+    handle: '@kwame',
+    city: 'Accra',
+    country: 'Ghana',
+    avatar: '/assets/avatar_agent9.png',
+    lat: 5.6037,
+    lng: -0.1870,
+    productivity: 87,
+    specialties: ['west-africa', 'high-volume']
+  },
+  {
+    id: 'amina',
+    name: '@amina',
+    handle: '@amina',
+    city: 'Nairobi',
+    country: 'Kenya',
+    avatar: '/assets/avatar_agent10.png',
+    lat: -1.2921,
+    lng: 36.8219,
+    productivity: 92,
+    specialties: ['east-africa', 'cross-border']
+  },
+  {
+    id: 'joseph',
+    name: '@joseph',
+    handle: '@joseph',
+    city: 'Lagos',
+    country: 'Nigeria',
+    avatar: '/assets/avatar_agent11.png',
+    lat: 6.5244,
+    lng: 3.3792,
+    productivity: 89,
+    specialties: ['west-africa', 'large-transactions']
+  },
+  {
+    id: 'zainab',
+    name: '@zainab',
+    handle: '@zainab',
+    city: 'Dar es Salaam',
+    country: 'Tanzania',
+    avatar: '/assets/avatar_agent12.png',
+    lat: -6.7924,
+    lng: 39.2083,
+    productivity: 85,
+    specialties: ['east-africa', 'reliable']
   }
 ]
 
