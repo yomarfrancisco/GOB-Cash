@@ -125,12 +125,11 @@ body {
 
 .gobankless-logo {
   position: absolute;
-  top: 23px;
+  top: 48px;
   left: 16px;
-  width: auto;
-  height: 116px;
-  max-width: 347px;
-  object-fit: contain;
+  width: 220px;
+  height: 65px;
+  object-fit: cover;
   z-index: 2;
   background: transparent !important;
 }

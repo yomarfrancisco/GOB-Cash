@@ -57,14 +57,13 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
           />
         ) : (
           <Image
-            src="/assets/samba2.png"
+            src="/assets/core/goBankless_logo4x.png"
             alt="GoBankless"
             className="gobankless-logo"
-            width={347}
-            height={191}
+            width={220}
+            height={65}
             priority
             unoptimized
-            style={{ objectFit: 'contain' }}
           />
         )
       )}
