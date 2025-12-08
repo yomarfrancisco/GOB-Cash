@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import CardStack, { type CardStackHandle, type CardType } from '@/components/CardStack'
+import CardStack, { type CardStackHandle, type CardType, type EarningsSurpriseMeta } from '@/components/CardStack'
 import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
