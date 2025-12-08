@@ -29,9 +29,14 @@
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.18); /* Original semi-transparent white background */
   border: 1px solid rgba(255, 255, 255, 0.25);
-  pointer-events: none;
+  pointer-events: none; /* Default: non-interactive overlay */
   z-index: 3;
   opacity: 1;
+}
+
+/* Override pointer-events when pill is clickable (handler provided) */
+.card-allocation-pill--clickable {
+  pointer-events: auto;
 }
 
 .card-allocation-pill__text {

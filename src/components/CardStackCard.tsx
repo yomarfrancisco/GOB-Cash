@@ -376,6 +376,12 @@ export default function CardStackCard({
     }
   }
 
+  // Conditionally add clickable class when handler is provided
+  const pillClassName = clsx(
+    'card-allocation-pill',
+    onApyPillClick && 'card-allocation-pill--clickable'
+  )
+
   // Compose className with special mode classes
   const finalClassName = clsx(
     className,
@@ -535,7 +541,7 @@ export default function CardStackCard({
 
       {/* Bottom-left annual yield pill or countdown timer */}
       <div 
-        className="card-allocation-pill"
+        className={pillClassName}
         onClick={handlePillClick}
         onTouchEnd={handlePillClick}
         style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
