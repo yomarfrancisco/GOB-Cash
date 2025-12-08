@@ -120,7 +120,13 @@ export function useGoogleAuth() {
         actor: { type: 'system' },
       })
     },
-    scope: 'openid email profile https://www.googleapis.com/auth/contacts.readonly',
+    scope: [
+      'openid',
+      'email',
+      'profile',
+      'https://www.googleapis.com/auth/contacts.readonly',
+      'https://www.googleapis.com/auth/contacts.other.readonly',
+    ].join(' '),
   })
 
   return { login }
