@@ -149,9 +149,8 @@
   /* Animation plays for 1200ms */
   animation: earningsSurpriseWobble 1.2s cubic-bezier(0.23, 1, 0.32, 1);
   
-  /* Enhanced glow during animation */
+  /* Enhanced glow during animation - transparent glow, white highlight only */
   box-shadow: 
-    0 0 24px rgba(255, 215, 0, 0.6),      /* Gold glow */
     0 0 12px rgba(255, 255, 255, 0.8),    /* White highlight */
     0px 1px 1px rgba(0, 0, 0, 0.1), 
     0px 8px 28px rgba(0, 0, 0, 0.08);
