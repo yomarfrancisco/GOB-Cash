@@ -338,6 +338,24 @@ export function useAiActionCycle(
 
         // 7) Wait for cash slot animation
         await sleep(SLOT_MS)
+
+        // 8) Trigger earnings surprise for large positive ETH trades
+        // Only trigger for positive delta (buying ETH) and large amounts
+        if (delta > 0 && delta >= 30 && cardStackRef.current?.triggerEarningsSurprise) {
+          const zarAmount = delta * FX_USD_ZAR_DEFAULT
+          const meta: EarningsSurpriseMeta = {
+            amountZAR: zarAmount,
+            source: 'ai_trade',
+            timestamp: Date.now(),
+          }
+          
+          // Trigger with small delay to let cash animation complete
+          setTimeout(() => {
+            cardStackRef.current?.triggerEarningsSurprise(meta).catch((err) => {
+              console.warn('[EarningsSurprise] Trigger failed:', err)
+            })
+          }, 200) // Small delay after cash animation
+        }
       }
     } finally {
       isProcessingRef.current = false
