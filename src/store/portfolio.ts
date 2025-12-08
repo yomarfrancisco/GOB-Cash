@@ -23,23 +23,23 @@ type PortfolioState = {
 const initialHoldings: Record<string, Holding> = {
   CASH: {
     symbol: 'CASH',
-    amountZAR: 5492.70,
-    amountUSDT: 303.464,
-    allocationPct: 90,
-    displayPct: 90,
+    amountZAR: 4882.40, // 80% of R6,103.00
+    amountUSDT: 269.69,
+    allocationPct: 80,
+    displayPct: 80,
     health: 100,
   },
   ETH: {
     symbol: 'ETH',
-    amountZAR: 146.98,
+    amountZAR: 146.98, // 3% of R6,103.00
     amountUSDT: 8.12,
-    allocationPct: 2,
-    displayPct: 2,
+    allocationPct: 3,
+    displayPct: 3,
     health: 60,
   },
   ZWD: {
     symbol: 'ZWD',
-    amountZAR: 427.21,
+    amountZAR: 427.21, // 7% of R6,103.00
     amountUSDT: 23.6,
     allocationPct: 7,
     displayPct: 7,
