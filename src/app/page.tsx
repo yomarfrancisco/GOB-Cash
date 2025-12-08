@@ -281,6 +281,24 @@ function HomeContent() {
   const flipControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
   useRandomCardFlips(cardStackRef, flipControllerRef)
 
+  // Test trigger: Earnings surprise animation 8 seconds after page load
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (cardStackRef.current?.triggerEarningsSurprise) {
+        const testMeta: EarningsSurpriseMeta = {
+          amountZAR: 543.00, // Test amount
+          source: 'ai_trade',
+          timestamp: Date.now(),
+        }
+        cardStackRef.current.triggerEarningsSurprise(testMeta).catch((err) => {
+          console.warn('[EarningsSurprise] Test trigger failed:', err)
+        })
+      }
+    }, 8000) // 8 seconds after page load
+
+    return () => clearTimeout(timeoutId)
+  }, []) // Only run once on mount
+
   // Credit surprise handler: adds R500 to ETH balance (which yieldSurprise card displays)
   // Note: We use the hook values already available in the component scope
   const handleCreditSurprise = useCallback((amountZAR: number) => {
