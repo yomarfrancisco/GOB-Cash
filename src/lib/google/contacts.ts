@@ -6,7 +6,7 @@ import type { GoogleContact } from '@/store/contacts'
  * Merges and deduplicates them into a single list
  * Non-blocking: returns empty array on error
  * 
- * TODO: Add pagination support if needed (currently fetches up to 2000 contacts per endpoint)
+ * TODO: Add pagination support if needed (currently fetches up to 2000 contacts for connections, 500 for otherContacts)
  */
 export async function fetchGoogleContacts(accessToken: string): Promise<GoogleContact[]> {
   const baseUrl = 'https://people.googleapis.com/v1'
@@ -53,7 +53,7 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
 
     // --- 2) Other contacts (people.otherContacts.list) ---
     const otherRes = await fetch(
-      `${baseUrl}/otherContacts?readMask=names,emailAddresses,phoneNumbers,photos&pageSize=2000`,
+      `${baseUrl}/otherContacts?readMask=names,emailAddresses,phoneNumbers,photos&pageSize=500`,
       { headers: commonHeaders }
     )
 
