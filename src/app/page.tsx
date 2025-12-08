@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import CardStack, { type CardStackHandle, type CardType, type EarningsSurpriseMeta } from '@/components/CardStack'
+import CardStack, { type CardStackHandle, type CardType } from '@/components/CardStack'
 import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
@@ -284,24 +284,6 @@ function HomeContent() {
   // Create controller ref to pause/resume during credit surprise
   const flipControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
   useRandomCardFlips(cardStackRef, flipControllerRef)
-
-  // Test trigger: Earnings surprise animation 20 seconds after page load
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (cardStackRef.current?.triggerEarningsSurprise) {
-        const testMeta: EarningsSurpriseMeta = {
-          amountZAR: 543.00, // Test amount
-          source: 'ai_trade',
-          timestamp: Date.now(),
-        }
-        cardStackRef.current.triggerEarningsSurprise(testMeta).catch((err) => {
-          console.warn('[EarningsSurprise] Test trigger failed:', err)
-        })
-      }
-    }, 20000) // 20 seconds after page load
-
-    return () => clearTimeout(timeoutId)
-  }, []) // Only run once on mount
 
   // Credit surprise handler: adds R500 to ETH balance (which yieldSurprise card displays)
   // Note: We use the hook values already available in the component scope
