@@ -357,18 +357,17 @@ function HomeContent() {
     }
   }, [pushNotification, isAuthed])
 
-  // Auto-show Ama chat intro on landing page (pre-sign-in demo)
+  // Auto-show Ama chat intro on landing page (pre-sign-in)
   // Shows Ama chat sheet after 50s, keeps it open for 14s, then closes automatically
   // Hard block: if auth flow starts, never show the chat intro for this page view
   const hasShownAmaIntroRef = useRef(false)
   useEffect(() => {
-    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
     const authState = useAuthStore.getState()
     // Check if any auth sheet is open (entry, password, or phone signup)
     const isAuthFlowActive = authState.authEntryOpen || authState.authPasswordOpen || authState.phoneSignupOpen
     
-    // If demo mode is off, user authed, intro already used, or auth flow already active → bail
-    if (!isDemoMode || isAuthed || hasShownAmaIntroRef.current || isAuthFlowActive) {
+    // If user authed, intro already used, or auth flow already active → bail
+    if (isAuthed || hasShownAmaIntroRef.current || isAuthFlowActive) {
       return
     }
     
