@@ -13,6 +13,7 @@ import clsx from 'clsx'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import { BASE_USDT_ADDRESS } from '@/config/addresses'
 import { useNotificationStore } from '@/store/notifications'
+import { useAuthStore } from '@/store/auth'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -148,6 +149,7 @@ export default function CardStackCard({
   isSpecialCard = false,
   onApyPillClick,
 }: CardStackCardProps) {
+  const isAuthed = useAuthStore((state) => state.isAuthed)
   const { alloc, allocPct } = useWalletAlloc()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
 
@@ -487,7 +489,9 @@ export default function CardStackCard({
                     decoding="async"
                     loading="eager"
                   />
-                  <span className="currency-code">{CURRENCY_LABEL[currency]}</span>
+                  <span className="currency-code">
+                    {card.type === 'yieldSurprise' ? 'EARNINGS' : CURRENCY_LABEL[currency]}
+                  </span>
                 </span>
               </div>
             )
@@ -555,8 +559,10 @@ export default function CardStackCard({
         </div>
       )}
 
-      {/* Top-right card label */}
-      <div className="card-label">{CARD_LABELS[card.type]}</div>
+      {/* Top-right card label - only show in unauthenticated state */}
+      {!isAuthed && (
+        <div className="card-label">{CARD_LABELS[card.type]}</div>
+      )}
 
       {/* Bottom-left annual yield pill or countdown timer */}
       <div 
