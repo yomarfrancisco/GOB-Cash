@@ -528,7 +528,7 @@ function HomeContent() {
   const formattedBalance = formatZAR(totalBalanceZAR || 0)
   const subtitleText = isAuthed 
     ? `${formattedBalance} available`
-    : `Pay anyone anywhere. Free, private, and bankless.`
+    : `Pay anyone anywhere. Free. Private. Bankless.`
 
 
   return (
