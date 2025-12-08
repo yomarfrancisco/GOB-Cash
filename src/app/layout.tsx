@@ -37,6 +37,11 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'GoBankless',
   description: 'GoBankless cash-card UI',
+  icons: {
+    icon: '/assets/gobankless-webclip-1.png',
+    shortcut: '/assets/gobankless-webclip-1.png',
+    apple: '/assets/gobankless-webclip-1.png',
+  },
 }
 
 export const viewport: Viewport = {
