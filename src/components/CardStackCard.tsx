@@ -595,9 +595,13 @@ export default function CardStackCard({
         </span>
         <div className="card-health-bar-container">
           <div
-            className={clsx('card-health-bar-fill', {
-              'card-health-bar-fill--changing': isHealthBarChanging,
-            })}
+            className={clsx(
+              'card-health-bar-fill',
+              `card-health-bar-fill--${healthLevel}`,
+              {
+                'card-health-bar-fill--changing': isHealthBarChanging,
+              }
+            )}
             style={{ width: `${Math.max(0, Math.min(100, animatedHealth))}%` }}
           />
         </div>

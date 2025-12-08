@@ -118,7 +118,23 @@
   transition: width 520ms cubic-bezier(0.33, 1, 0.68, 1); /* easeOutCubic fallback */
   transform-origin: left center;
   animation: healthJitter 2s ease-in-out infinite;
-  background: rgba(255, 255, 255, 0.5); /* Subtle fill, single monochrome color */
+}
+
+/* Health level colors for bar fill */
+.card-health-bar-fill--good {
+  background: #22C55E;
+}
+
+.card-health-bar-fill--moderate {
+  background: #F59E0B;
+}
+
+.card-health-bar-fill--caution {
+  background: #F97316; /* Orange-600, slightly more urgent than amber */
+}
+
+.card-health-bar-fill--fragile {
+  background: #EF4444;
 }
 
 /* Subtle jitter animation for liveliness */
