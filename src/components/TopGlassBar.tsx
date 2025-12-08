@@ -57,7 +57,7 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
           />
         ) : (
           <Image
-            src="/assets/samba.png"
+            src="/assets/samba2.png"
             alt="GoBankless"
             className="gobankless-logo"
             width={347}
