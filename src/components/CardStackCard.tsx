@@ -111,6 +111,7 @@ type CardStackCardProps = {
   onFlashEnd: () => void
   isSpecialMode?: boolean
   isSpecialCard?: boolean
+  onApyPillClick?: (cardType: CardType) => void
 }
 
 export default function CardStackCard({
@@ -129,6 +130,7 @@ export default function CardStackCard({
   onFlashEnd,
   isSpecialMode = false,
   isSpecialCard = false,
+  onApyPillClick,
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
@@ -366,6 +368,14 @@ export default function CardStackCard({
     return `${hours}h${minutes.toString().padStart(2, '0')}`
   }, [countdown, card.type])
 
+  // Handler for APY/timer pill clicks - does NOT stop propagation to allow card flips
+  const handlePillClick = (e: React.MouseEvent | React.TouchEvent) => {
+    // DO NOT stop propagation - we want card tap behavior to still work
+    if (onApyPillClick) {
+      onApyPillClick(card.type)
+    }
+  }
+
   // Compose className with special mode classes
   const finalClassName = clsx(
     className,
@@ -524,7 +534,12 @@ export default function CardStackCard({
       <div className="card-label">{CARD_LABELS[card.type]}</div>
 
       {/* Bottom-left annual yield pill or countdown timer */}
-      <div className="card-allocation-pill">
+      <div 
+        className="card-allocation-pill"
+        onClick={handlePillClick}
+        onTouchEnd={handlePillClick}
+        style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
+      >
         <span className="card-allocation-pill__text">
           {card.type === 'yieldSurprise' && formattedCountdown ? (
             <>

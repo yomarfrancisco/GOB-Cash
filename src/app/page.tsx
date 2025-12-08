@@ -631,6 +631,10 @@ function HomeContent() {
                   }}
                   flipControllerRef={flipControllerRef}
                   onCreditSurprise={handleCreditSurprise}
+                  onApyPillClick={(cardType: CardType) => {
+                    setHelperWalletKey(cardType)
+                    setIsHelperOpen(true)
+                  }}
                 />
               </div>
 
