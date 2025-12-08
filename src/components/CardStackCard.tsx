@@ -18,7 +18,7 @@ const FX_USD_ZAR_DEFAULT = 18.1
 
 type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
-type HealthLevel = 'good' | 'moderate' | 'fragile'
+type HealthLevel = 'good' | 'moderate' | 'caution' | 'fragile'
 
 const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> = {
   savings: { level: 'good', percent: 100 },
@@ -27,6 +27,22 @@ const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> =
   mzn: { level: 'good', percent: 100 },
   btc: { level: 'moderate', percent: 15 },
   yieldSurprise: { level: 'moderate', percent: 60 }, // Reuse yield card health config
+}
+
+// Derive health level from percent value
+function getHealthLevel(percent: number): HealthLevel {
+  if (percent >= 80) return 'good'
+  if (percent >= 50) return 'moderate'
+  if (percent >= 25) return 'caution'
+  return 'fragile'
+}
+
+// Dynamic status labels based on health level
+const HEALTH_STATUS: Record<HealthLevel, string> = {
+  good: 'All clear',
+  moderate: 'Watching closely',
+  caution: 'Moved to safety',
+  fragile: 'High risk',
 }
 
 const CARD_LABELS: Record<CardType, string> = {
@@ -271,6 +287,9 @@ export default function CardStackCard({
   const portfolioAllocationPct = holding?.allocationPct ?? pct
   const portfolioDisplayPct = holding?.displayPct ?? Math.round(pct)
   const portfolioHealth = holding?.health ?? HEALTH_CONFIG[card.type].percent
+  
+  // Derive health level from percent (dynamic, not fixed per card type)
+  const healthLevel = getHealthLevel(portfolioHealth)
 
   // Animate allocation % with fade in/out (use displayPct for pill, allocationPct for internal calculations)
   const animatedAllocationPct = useTweenNumber(portfolioDisplayPct, {
@@ -571,11 +590,13 @@ export default function CardStackCard({
 
       {/* Bottom-right health bar */}
       <div className="card-health-group">
-        <span className="card-health-label">{card.type === 'yieldSurprise' ? '3x Cash available' : 'Market Health'}</span>
+        <span className={clsx('card-health-label', `card-health-label--${healthLevel}`)}>
+          {card.type === 'yieldSurprise' ? '3x Cash available' : HEALTH_STATUS[healthLevel]}
+        </span>
         <div className="card-health-bar-container">
           <div
             className={clsx(
-              `card-health-bar-fill card-health-bar-fill--${HEALTH_CONFIG[card.type].level}`,
+              `card-health-bar-fill card-health-bar-fill--${healthLevel}`,
               {
                 'card-health-bar-fill--changing': isHealthBarChanging,
               }

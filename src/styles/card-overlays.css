@@ -83,6 +83,23 @@
   align-items: center;
 }
 
+/* Label colors match bar colors for visual cohesion */
+.card-health-label--good {
+  color: #22C55E;
+}
+
+.card-health-label--moderate {
+  color: #F59E0B;
+}
+
+.card-health-label--caution {
+  color: #F97316;
+}
+
+.card-health-label--fragile {
+  color: #EF4444;
+}
+
 .health-value {
   opacity: 0;
   transition: opacity 320ms ease-out;
@@ -117,6 +134,23 @@
   border-radius: 9999px;
   transition: width 520ms cubic-bezier(0.33, 1, 0.68, 1); /* easeOutCubic fallback */
   transform-origin: left center;
+  animation: healthJitter 2s ease-in-out infinite;
+}
+
+/* Subtle jitter animation for liveliness */
+@keyframes healthJitter {
+  0%, 100% {
+    transform: scaleX(1);
+  }
+  25% {
+    transform: scaleX(0.995);
+  }
+  50% {
+    transform: scaleX(1.003);
+  }
+  75% {
+    transform: scaleX(0.998);
+  }
 }
 
 /* Micro-pulse animation for visibility */
@@ -143,6 +177,7 @@
 @media (prefers-reduced-motion: reduce) {
   .card-health-bar-fill {
     transition: none;
+    animation: none; /* Disable jitter animation for reduced motion */
   }
   .card-health-bar-fill--changing {
     animation: none;
@@ -156,6 +191,10 @@
 
 .card-health-bar-fill--moderate {
   background: #F59E0B;
+}
+
+.card-health-bar-fill--caution {
+  background: #F97316; /* Orange-600, slightly more urgent than amber */
 }
 
 .card-health-bar-fill--fragile {

@@ -15,7 +15,7 @@ import CardStackCard from './CardStackCard'
 const FX_USD_ZAR_DEFAULT = 18.1
 
 // Health levels: 'good' | 'moderate' | 'fragile'
-type HealthLevel = 'good' | 'moderate' | 'fragile'
+type HealthLevel = 'good' | 'moderate' | 'caution' | 'fragile'
 
 // Health configuration per card type
 const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> = {
