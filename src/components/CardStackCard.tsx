@@ -559,10 +559,7 @@ export default function CardStackCard({
         </div>
       )}
 
-      {/* Top-right card label - only show in unauthenticated state */}
-      {!isAuthed && (
-        <div className="card-label">{CARD_LABELS[card.type]}</div>
-      )}
+      {/* Top-right card label - removed in both auth and non-auth states */}
 
       {/* Bottom-left annual yield pill or countdown timer */}
       <div 
