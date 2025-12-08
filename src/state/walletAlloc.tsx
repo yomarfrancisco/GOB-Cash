@@ -7,6 +7,7 @@ export type WalletAlloc = {
   cashCents: number
   ethCents: number
   zwdCents: number
+  earningsCents: number // Earnings card balance (separate from ETH)
   mznCents?: number
   btcCents?: number
 }
@@ -27,18 +28,21 @@ interface WalletAllocContextType {
   getCash: () => number
   getEth: () => number
   getZwd: () => number
+  getEarnings: () => number
   setCash: (value: number) => void
   setEth: (value: number) => void
   setZwd: (value: number) => void
+  setEarnings: (value: number) => void
 }
 
 const WalletAllocContext = createContext<WalletAllocContextType | undefined>(undefined)
 
 const initial: WalletAlloc = {
   totalCents: 610300, // R6,103.00 (~337 USDT @ 18.1 FX)
-  cashCents: 549270, // 90% of total
+  cashCents: 488240, // 80% of total
   ethCents: 18309, // 3% of total
   zwdCents: 42721, // 7% of total
+  earningsCents: 61030, // 10% of total (R610.30) - Earnings card never starts at 0
   mznCents: 0,
   btcCents: 0,
 }
@@ -82,6 +86,7 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
   const getCash = useCallback(() => alloc.cashCents / 100, [alloc.cashCents])
   const getEth = useCallback(() => alloc.ethCents / 100, [alloc.ethCents])
   const getZwd = useCallback(() => alloc.zwdCents / 100, [alloc.zwdCents])
+  const getEarnings = useCallback(() => alloc.earningsCents / 100, [alloc.earningsCents])
 
   const setCash = useCallback(
     (value: number) => {
@@ -115,6 +120,16 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
     []
   )
 
+  const setEarnings = useCallback(
+    (value: number) => {
+      setAlloc((prev) => {
+        const newEarningsCents = Math.round(value * 100)
+        return { ...prev, earningsCents: newEarningsCents }
+      })
+    },
+    []
+  )
+
   return (
     <WalletAllocContext.Provider
       value={{
@@ -126,9 +141,11 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         getCash,
         getEth,
         getZwd,
+        getEarnings,
         setCash,
         setEth,
         setZwd,
+        setEarnings,
       }}
     >
       {children}

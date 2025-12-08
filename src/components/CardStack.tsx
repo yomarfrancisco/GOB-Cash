@@ -93,13 +93,13 @@ const CARD_LABELS: Record<CardType, string> = {
 }
 
 // Map card type to allocation key
-const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents'> = {
+const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'earningsCents' | 'mznCents' | 'btcCents'> = {
   savings: 'cashCents',
   zwd: 'zwdCents',
   yield: 'ethCents',
   mzn: 'mznCents',
   btc: 'btcCents',
-  yieldSurprise: 'ethCents', // Reuse yield card allocation (ethCents)
+  yieldSurprise: 'earningsCents', // Earnings card has its own balance (never starts at 0)
 }
 
 // Map card type to portfolio symbol
@@ -179,7 +179,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     yield: alloc.ethCents / 100,
     mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
     btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
-    yieldSurprise: alloc.ethCents / 100, // Reuse yield card allocation (ethCents)
+    yieldSurprise: alloc.earningsCents / 100, // Earnings card has its own balance
   })
 
   // Compute flash direction when values change
@@ -190,7 +190,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       yield: alloc.ethCents / 100,
       mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
       btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
-      yieldSurprise: alloc.ethCents / 100, // Reuse yield card allocation (ethCents)
+      yieldSurprise: alloc.earningsCents / 100, // Earnings card has its own balance
     }
 
     const newFlashDirection: Record<CardType, 'up' | 'down' | null> = {
@@ -225,7 +225,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     // Update flash direction state (this triggers re-render with flash classes)
     setFlashDirection(newFlashDirection)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alloc.cashCents, alloc.zwdCents, alloc.ethCents, (alloc as any).mznCents, (alloc as any).btcCents])
+  }, [alloc.cashCents, alloc.zwdCents, alloc.ethCents, alloc.earningsCents, (alloc as any).mznCents, (alloc as any).btcCents])
 
   // Notify parent of top card change
   useEffect(() => {
