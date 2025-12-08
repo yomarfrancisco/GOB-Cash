@@ -590,17 +590,14 @@ export default function CardStackCard({
 
       {/* Bottom-right health bar */}
       <div className="card-health-group">
-        <span className={clsx('card-health-label', `card-health-label--${healthLevel}`)}>
-          {card.type === 'yieldSurprise' ? '3x Cash available' : HEALTH_STATUS[healthLevel]}
+        <span className="card-health-label">
+          {card.type === 'yieldSurprise' ? '3x Cash available' : 'Risk'}
         </span>
         <div className="card-health-bar-container">
           <div
-            className={clsx(
-              `card-health-bar-fill card-health-bar-fill--${healthLevel}`,
-              {
-                'card-health-bar-fill--changing': isHealthBarChanging,
-              }
-            )}
+            className={clsx('card-health-bar-fill', {
+              'card-health-bar-fill--changing': isHealthBarChanging,
+            })}
             style={{ width: `${Math.max(0, Math.min(100, animatedHealth))}%` }}
           />
         </div>
