@@ -7,181 +7,160 @@ export type BasicContact = {
   source?: 'connections' | 'otherContacts' | string
 }
 
-export type RankedContact = BasicContact & {
+// Extended contact type for ranking with payment-focused fields
+export type RankedContactInput = {
+  id: string
+  name: string
+  givenName?: string
+  familyName?: string
+  primaryEmail?: string
+  primaryPhone?: string
+  emailCount: number
+  phoneCount: number
+  hasPhoto: boolean
+  hasAddress: boolean
+  contactAgeDays?: number
+  source: 'contacts' | 'otherContacts'
+  mutualContact?: boolean
+}
+
+export type RankedContact = {
+  id: string
+  name: string
+  email?: string
+  phone?: string
+  photoUrl?: string
+  source?: 'connections' | 'otherContacts' | string
   qualityScore: number
   handle: string
   subtitle: string
+  score?: number // Keep for debug logging
 }
 
-// Bulk/system sender detection
-function isLikelyBulkSender(email?: string, name?: string): boolean {
-  if (!email) return false
+// Simple bulk contact detection
+function isBulkContact(email?: string, name?: string): boolean {
+  const s = `${email || ''} ${name || ''}`.toLowerCase()
 
-  const emailLower = email.toLowerCase()
-  const localPart = emailLower.split('@')[0]
-  const domain = emailLower.split('@')[1] || ''
-
-  // Check local part for bulk keywords
-  const bulkKeywords = [
-    'no-reply',
+  const bad = [
     'noreply',
-    'donotreply',
+    'no-reply',
     'do-not-reply',
-    'notifications',
+    'donotreply',
     'notification',
-    'support',
-    'help',
-    'info',
-    'billing',
-    'sales',
+    'notifications',
+    'mailer',
     'newsletter',
-    'updates',
-    'receipts',
-    'receipt',
-    'alerts',
-    'noreply+',
+    'support',
+    'help@',
+    'billing',
+    'payments@',
+    'team@',
   ]
 
-  if (bulkKeywords.some((keyword) => localPart.includes(keyword))) {
-    return true
-  }
-
-  // Check domain for platform/marketing services
-  const bulkDomains = [
-    'facebookmail.com',
-    'linkedin.com',
-    'twitter.com',
-    'slack.com',
-    'asana.com',
-    'notion.so',
-    'github.com',
-    'stripe.com',
-    'paypal.com',
-    'mailchimp.com',
-    'substack.com',
-    'sendgrid.net',
-    'amazonses.com',
-  ]
-
-  if (bulkDomains.some((bulkDomain) => domain.includes(bulkDomain))) {
-    return true
-  }
-
-  // Empty/whitespace name AND no phone AND no photo = likely system
-  const hasName = name && name.trim().length > 0
-  // Note: we don't have phone/photo here, so we'll check this in the caller
-
-  return false
+  return bad.some((k) => s.includes(k))
 }
 
-// Check if contact is a human candidate
-function isHumanCandidate(contact: BasicContact): boolean {
-  // First check bulk sender heuristics
-  if (isLikelyBulkSender(contact.email, contact.name)) {
-    return false
-  }
-
-  // Additional check: empty name AND no phone AND no photo = likely system
-  const hasName = contact.name && contact.name.trim().length > 0 && contact.name !== 'Unknown'
-  const hasPhone = !!contact.phone
-  const hasPhoto = !!contact.photoUrl
-
-  if (!hasName && !hasPhone && !hasPhoto) {
-    return false
-  }
-
-  return true
-}
-
-// Helper: check if name has at least 2 tokens (full name)
-function hasFullName(name?: string): boolean {
-  if (!name) return false
-  const trimmed = name.trim()
-  if (trimmed === 'Unknown' || trimmed.length === 0) return false
-  const tokens = trimmed.split(/\s+/).filter((t) => t.length > 0)
-  return tokens.length >= 2
-}
-
-// Helper: normalize phone (basic check)
-function hasPhone(phone?: string): boolean {
-  return !!phone && phone.trim().length > 0
-}
-
-// Helper: normalize email
-function hasEmail(email?: string): boolean {
-  return !!email && email.trim().length > 0
-}
-
-// Helper: check if has photo
-function hasPhoto(photoUrl?: string): boolean {
-  return !!photoUrl && photoUrl.trim().length > 0
-}
-
-// Helper: get normalized name for sorting
-function getNormalizedName(contact: BasicContact): string {
-  const name = contact.name?.trim() && contact.name !== 'Unknown' ? contact.name.trim() : ''
-  const email = contact.email || ''
-  const phone = contact.phone || ''
-  return (name || email || phone).toLowerCase()
-}
-
-// Tier 1 scoring (saved contacts / connections)
-function scoreTier1(contact: BasicContact): number {
+// Payment-focused scoring function
+function scoreForPayments(c: RankedContactInput): number {
   let score = 0
 
-  if (hasPhone(contact.phone)) score += 4 // phone is strong signal
-  if (hasPhoto(contact.photoUrl)) score += 3 // avatar suggests "real person"
-  if (hasFullName(contact.name)) score += 2 // at least two tokens in name
-  if (hasEmail(contact.email)) score += 1 // good but weaker than phone
+  // Tier by source
+  if (c.source === 'contacts') {
+    score += 200
+  }
 
-  // Optional: recency bonus would go here if we had timestamps
-  // For now, we'll skip it
+  // Day-zero trust (stub for now, but keep in logic)
+  if (c.mutualContact) {
+    score += 200
+  }
+
+  // Payability & "real person" signals
+  if (c.phoneCount > 0) score += 120
+  if (c.hasPhoto) score += 40
+  if (c.hasAddress) score += 40
+  if (c.givenName) score += 30
+  if (c.familyName) score += 30
+  if (c.givenName && c.familyName) score += 20 // nice full name bonus
+  if (c.emailCount > 1) score += 10
+  if (c.phoneCount > 1) score += 10
+
+  if (typeof c.contactAgeDays === 'number') {
+    if (c.contactAgeDays >= 365) score += 20
+    if (c.contactAgeDays >= 3 * 365) score += 20
+  }
 
   return score
 }
 
-// Tier 2 scoring (otherContacts)
-function scoreTier2(contact: BasicContact): number {
-  let score = 0
-
-  if (hasPhone(contact.phone)) score += 3 // phone is rare in Other Contacts
-  if (hasFullName(contact.name)) score += 2
-  if (hasPhoto(contact.photoUrl)) score += 1
-  if (hasEmail(contact.email)) score += 1
-
-  // Domain bonus for freemail (more often individuals)
-  if (contact.email) {
-    const domain = contact.email.toLowerCase().split('@')[1] || ''
-    const freemailDomains = [
-      'gmail.com',
-      'googlemail.com',
-      'yahoo.com',
-      'hotmail.com',
-      'outlook.com',
-      'icloud.com',
-      'live.com',
-      'proton.me',
-    ]
-
-    if (freemailDomains.includes(domain)) {
-      score += 1
+// Helper: compute contact age in days from metadata
+function computeContactAgeDays(person: any): number | undefined {
+  try {
+    const sources = person.metadata?.sources || []
+    for (const source of sources) {
+      if (source.updateTime) {
+        const updateTime = new Date(source.updateTime)
+        const now = new Date()
+        const diffMs = now.getTime() - updateTime.getTime()
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+        return diffDays
+      }
     }
+  } catch (e) {
+    // Ignore errors
   }
-
-  // Optional: recency bonus would go here if we had timestamps
-
-  return score
+  return undefined
 }
 
-function computeHandle(contact: BasicContact): string {
-  // Treat empty string or 'Unknown' as missing name
-  const name = contact.name?.trim() && contact.name !== 'Unknown' ? contact.name.trim() : null
+// Map raw Google People API contact to RankedContactInput
+function mapToRankedContactInput(person: any, source: 'contacts' | 'otherContacts'): RankedContactInput | null {
+  const name = person.names?.[0]?.displayName || 'Unknown'
+  const givenName = person.names?.[0]?.givenName
+  const familyName = person.names?.[0]?.familyName
+  const primaryEmail = person.emailAddresses?.[0]?.value
+  const primaryPhone = person.phoneNumbers?.[0]?.value
+  const emailCount = person.emailAddresses?.length || 0
+  const phoneCount = person.phoneNumbers?.length || 0
+  const hasPhoto = !!(person.photos?.[0]?.url)
+  const hasAddress = !!(person.addresses?.[0])
+  const contactAgeDays = computeContactAgeDays(person)
 
-  const base =
-    name ||
-    contact.email?.split('@')[0] ||
-    contact.phone?.toString() ||
-    'friend'
+  // Filter out contacts with no email and no phone
+  if (emailCount === 0 && phoneCount === 0) {
+    return null
+  }
+
+  // Filter out bulk contacts
+  if (isBulkContact(primaryEmail, name)) {
+    return null
+  }
+
+  return {
+    id: person.resourceName || primaryEmail || name || crypto.randomUUID(),
+    name,
+    givenName,
+    familyName,
+    primaryEmail,
+    primaryPhone,
+    emailCount,
+    phoneCount,
+    hasPhoto,
+    hasAddress,
+    contactAgeDays,
+    source,
+    mutualContact: false, // Stub for now
+  }
+}
+
+function computeHandle(contact: RankedContactInput | BasicContact): string {
+  const name =
+    'name' in contact && contact.name?.trim() && contact.name !== 'Unknown'
+      ? contact.name.trim()
+      : null
+
+  const email = 'primaryEmail' in contact ? contact.primaryEmail : 'email' in contact ? contact.email : undefined
+  const phone = 'primaryPhone' in contact ? contact.primaryPhone : 'phone' in contact ? contact.phone : undefined
+
+  const base = name || email?.split('@')[0] || phone?.toString() || 'friend'
 
   const normalized = base
     .toLowerCase()
@@ -192,81 +171,132 @@ function computeHandle(contact: BasicContact): string {
   return `$${safe}`
 }
 
-function computeSubtitle(contact: BasicContact): string {
-  if (contact.phone && contact.email) {
-    return `${contact.phone} · ${contact.email}`
+function computeSubtitle(contact: RankedContactInput | BasicContact): string {
+  const phone = 'primaryPhone' in contact ? contact.primaryPhone : 'phone' in contact ? contact.phone : undefined
+  const email = 'primaryEmail' in contact ? contact.primaryEmail : 'email' in contact ? contact.email : undefined
+
+  if (phone && email) {
+    return `${phone} · ${email}`
   }
 
-  if (contact.phone) return contact.phone
-  if (contact.email) return contact.email
+  if (phone) return phone
+  if (email) return email
 
   return ''
+}
+
+// Helper: get normalized name for sorting
+function getSortName(contact: RankedContactInput): string {
+  const name = contact.name?.trim() && contact.name !== 'Unknown' ? contact.name.trim() : ''
+  const email = contact.primaryEmail || ''
+  const phone = contact.primaryPhone || ''
+  return (name || email || phone).toLowerCase()
 }
 
 export function getRankedContacts(
   contacts: BasicContact[],
   max = 25
 ): RankedContact[] {
-  // Step 1: Filter to human candidates only
-  const humanCandidates = contacts.filter((c) => isHumanCandidate(c))
+  // Map BasicContact (from store) to RankedContactInput
+  // The store now includes extended fields if available
+  const rankedInputs: RankedContactInput[] = contacts
+    .map((c): RankedContactInput | null => {
+      // Use extended fields if available, otherwise compute from basic fields
+      const emailCount = (c as any).emailCount ?? (c.email ? 1 : 0)
+      const phoneCount = (c as any).phoneCount ?? (c.phone ? 1 : 0)
 
-  // Step 2: Split into Tier 1 (saved contacts) and Tier 2 (other contacts)
-  // Note: saved contacts use source 'contacts' (from fetchGoogleContacts)
-  const tier1 = humanCandidates.filter((c) => c.source === 'contacts')
-  const preFilteredTier2 = humanCandidates.filter((c) => c.source === 'otherContacts')
+      // Filter out contacts with no email and no phone
+      if (emailCount === 0 && phoneCount === 0) {
+        return null
+      }
 
-  // Step 3: Score each tier
-  const scoredTier1: Array<BasicContact & { score: number }> = tier1.map((c) => ({
+      // Filter out bulk contacts
+      if (isBulkContact(c.email, c.name)) {
+        return null
+      }
+
+      // Use extended fields if available, otherwise extract from name
+      const givenName = (c as any).givenName
+      const familyName = (c as any).familyName
+      const hasAddress = (c as any).hasAddress ?? false
+      const contactAgeDays = (c as any).contactAgeDays
+
+      // Determine source - handle both 'contacts' and 'connections' for backward compatibility
+      const source = c.source === 'contacts' || c.source === 'connections' ? 'contacts' : 'otherContacts'
+
+      return {
+        id: c.id,
+        name: c.name || 'Unknown',
+        givenName,
+        familyName,
+        primaryEmail: c.email,
+        primaryPhone: c.phone,
+        emailCount,
+        phoneCount,
+        hasPhoto: !!c.photoUrl,
+        hasAddress,
+        contactAgeDays,
+        source: source as 'contacts' | 'otherContacts',
+        mutualContact: false,
+      }
+    })
+    .filter((c): c is RankedContactInput => c !== null)
+
+  // Score each contact
+  const scored = rankedInputs.map((c) => ({
     ...c,
-    score: scoreTier1(c),
+    score: scoreForPayments(c),
   }))
 
-  const scoredTier2: Array<BasicContact & { score: number }> = preFilteredTier2
-    .map((c) => ({
-      ...c,
-      score: scoreTier2(c),
-    }))
-    .filter((c) => c.score >= 4) // Throw away Tier 2 contacts with score < 4
-
-  // Step 4: Sort each tier
-  // Primary: score descending
-  // Secondary: normalized name ascending
-  const sortedTier1 = scoredTier1.sort((a, b) => {
+  // Sort: score descending, then source (contacts before otherContacts), then name
+  const sorted = scored.sort((a, b) => {
+    // Primary: score descending
     if (b.score !== a.score) {
       return b.score - a.score
     }
-    const aName = getNormalizedName(a)
-    const bName = getNormalizedName(b)
-    return aName.localeCompare(bName)
-  })
 
-  const sortedTier2 = scoredTier2.sort((a, b) => {
-    if (b.score !== a.score) {
-      return b.score - a.score
+    // Secondary: source (contacts before otherContacts)
+    if (a.source !== b.source) {
+      if (a.source === 'contacts') return -1
+      if (b.source === 'contacts') return 1
     }
-    const aName = getNormalizedName(a)
-    const bName = getNormalizedName(b)
+
+    // Tertiary: name alphabetically
+    const aName = getSortName(a)
+    const bName = getSortName(b)
     return aName.localeCompare(bName)
   })
 
-  // Step 5: Merge final ranked list (Tier 1 first, then Tier 2)
-  const mergedContacts = [...sortedTier1, ...sortedTier2]
-
-  // Step 6: Map to RankedContact format and slice
-  const rankedContacts: RankedContact[] = mergedContacts.slice(0, max).map((c) => ({
-    ...c,
-    qualityScore: c.score,
-    handle: computeHandle(c),
-    subtitle: computeSubtitle(c),
-  }))
+  // Map to RankedContact format
+  // Find original contact to preserve photoUrl
+  const contactMap = new Map(contacts.map((c) => [c.id, c]))
+  const rankedContacts: RankedContact[] = sorted.slice(0, max).map((c) => {
+    const original = contactMap.get(c.id)
+    return {
+      id: c.id,
+      name: c.name,
+      email: c.primaryEmail,
+      phone: c.primaryPhone,
+      photoUrl: original?.photoUrl,
+      source: c.source === 'contacts' ? 'connections' : 'otherContacts',
+      qualityScore: c.score,
+      handle: computeHandle(c),
+      subtitle: computeSubtitle(c),
+      score: c.score, // Keep for debug
+    }
+  })
 
   // Debug logging
-  console.log('[ContactsRank] Tier1 saved contacts', { count: tier1.length })
-  console.log('[ContactsRank] Tier2 human otherContacts (pre-threshold)', {
-    count: preFilteredTier2.length,
-  })
-  console.log('[ContactsRank] Tier2 kept after threshold', { count: sortedTier2.length })
-  console.log('[ContactsRank] Final ranked contacts', { count: rankedContacts.length })
+  console.log(
+    '[Contacts] Ranked payment contacts',
+    rankedContacts.slice(0, 25).map((c) => ({
+      name: c.name,
+      email: c.email,
+      phone: c.phone,
+      source: c.source,
+      score: c.score,
+    }))
+  )
 
   return rankedContacts
 }

@@ -17,7 +17,7 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
   try {
     // --- 1) My Contacts (people/me/connections) ---
     const connectionsRes = await fetch(
-      `${baseUrl}/people/me/connections?personFields=names,emailAddresses,phoneNumbers,photos&pageSize=2000`,
+      `${baseUrl}/people/me/connections?personFields=names,emailAddresses,phoneNumbers,photos,addresses,metadata&pageSize=2000`,
       { headers: commonHeaders }
     )
 
@@ -37,23 +37,51 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
       .filter((person: any) => person.names?.[0]) // Only include contacts with names
       .map((person: any) => {
         const name = person.names?.[0]?.displayName ?? 'Unknown'
+        const givenName = person.names?.[0]?.givenName
+        const familyName = person.names?.[0]?.familyName
         const email = person.emailAddresses?.[0]?.value
         const phone = person.phoneNumbers?.[0]?.value
         const photoUrl = person.photos?.[0]?.url
+        const emailCount = person.emailAddresses?.length || 0
+        const phoneCount = person.phoneNumbers?.length || 0
+        const hasAddress = !!(person.addresses?.[0])
+        
+        // Compute contact age in days from metadata
+        let contactAgeDays: number | undefined
+        try {
+          const sources = person.metadata?.sources || []
+          for (const source of sources) {
+            if (source.updateTime) {
+              const updateTime = new Date(source.updateTime)
+              const now = new Date()
+              const diffMs = now.getTime() - updateTime.getTime()
+              contactAgeDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+              break
+            }
+          }
+        } catch (e) {
+          // Ignore errors
+        }
 
         return {
           id: person.resourceName ?? email ?? name ?? crypto.randomUUID(),
           name,
+          givenName,
+          familyName,
           email,
           phone,
           photoUrl,
+          emailCount,
+          phoneCount,
+          hasAddress,
+          contactAgeDays,
           source: 'contacts' as const,
         }
       })
 
     // --- 2) Other contacts (people.otherContacts.list) ---
     const otherRes = await fetch(
-      `${baseUrl}/otherContacts?readMask=names,emailAddresses,phoneNumbers,photos&pageSize=500`,
+      `${baseUrl}/otherContacts?readMask=names,emailAddresses,phoneNumbers,photos,addresses,metadata&pageSize=500`,
       { headers: commonHeaders }
     )
 
@@ -73,16 +101,44 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
       .filter((person: any) => person.names?.[0]) // Only include contacts with names
       .map((person: any) => {
         const name = person.names?.[0]?.displayName ?? 'Unknown'
+        const givenName = person.names?.[0]?.givenName
+        const familyName = person.names?.[0]?.familyName
         const email = person.emailAddresses?.[0]?.value
         const phone = person.phoneNumbers?.[0]?.value
         const photoUrl = person.photos?.[0]?.url
+        const emailCount = person.emailAddresses?.length || 0
+        const phoneCount = person.phoneNumbers?.length || 0
+        const hasAddress = !!(person.addresses?.[0])
+        
+        // Compute contact age in days from metadata
+        let contactAgeDays: number | undefined
+        try {
+          const sources = person.metadata?.sources || []
+          for (const source of sources) {
+            if (source.updateTime) {
+              const updateTime = new Date(source.updateTime)
+              const now = new Date()
+              const diffMs = now.getTime() - updateTime.getTime()
+              contactAgeDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+              break
+            }
+          }
+        } catch (e) {
+          // Ignore errors
+        }
 
         return {
           id: person.resourceName ?? email ?? name ?? crypto.randomUUID(),
           name,
+          givenName,
+          familyName,
           email,
           phone,
           photoUrl,
+          emailCount,
+          phoneCount,
+          hasAddress,
+          contactAgeDays,
           source: 'otherContacts' as const,
         }
       })

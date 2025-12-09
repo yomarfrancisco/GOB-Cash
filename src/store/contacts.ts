@@ -10,6 +10,13 @@ export type GoogleContact = {
   phone?: string
   photoUrl?: string
   source?: 'connections' | 'otherContacts' | string
+  // Extended fields for payment ranking
+  givenName?: string
+  familyName?: string
+  emailCount?: number
+  phoneCount?: number
+  hasAddress?: boolean
+  contactAgeDays?: number
 }
 
 interface ContactsState {
