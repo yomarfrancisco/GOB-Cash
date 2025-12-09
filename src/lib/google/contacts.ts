@@ -8,6 +8,15 @@ import type { GoogleContact } from '@/store/contacts'
  * 
  * TODO: Add pagination support if needed (currently fetches up to 2000 contacts for connections, 500 for otherContacts)
  */
+
+// Person fields for connections.list (can include addresses)
+const PEOPLE_PERSON_FIELDS_CONNECTIONS =
+  'names,emailAddresses,phoneNumbers,photos,addresses,organizations,metadata'
+
+// Person fields for otherContacts.list (DO NOT include addresses - causes 400 error)
+const PEOPLE_PERSON_FIELDS_OTHER_CONTACTS =
+  'names,emailAddresses,phoneNumbers,photos,metadata'
+
 export async function fetchGoogleContacts(accessToken: string): Promise<GoogleContact[]> {
   const baseUrl = 'https://people.googleapis.com/v1'
   const commonHeaders = {
@@ -17,7 +26,7 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
   try {
     // --- 1) My Contacts (people/me/connections) ---
     const connectionsRes = await fetch(
-      `${baseUrl}/people/me/connections?personFields=names,emailAddresses,phoneNumbers,photos,addresses,metadata&pageSize=2000`,
+      `${baseUrl}/people/me/connections?personFields=${PEOPLE_PERSON_FIELDS_CONNECTIONS}&pageSize=2000`,
       { headers: commonHeaders }
     )
 
@@ -37,108 +46,59 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
       .filter((person: any) => person.names?.[0]) // Only include contacts with names
       .map((person: any) => {
         const name = person.names?.[0]?.displayName ?? 'Unknown'
-        const givenName = person.names?.[0]?.givenName
-        const familyName = person.names?.[0]?.familyName
         const email = person.emailAddresses?.[0]?.value
         const phone = person.phoneNumbers?.[0]?.value
         const photoUrl = person.photos?.[0]?.url
-        const emailCount = person.emailAddresses?.length || 0
-        const phoneCount = person.phoneNumbers?.length || 0
-        const hasAddress = !!(person.addresses?.[0])
-        
-        // Compute contact age in days from metadata
-        let contactAgeDays: number | undefined
-        try {
-          const sources = person.metadata?.sources || []
-          for (const source of sources) {
-            if (source.updateTime) {
-              const updateTime = new Date(source.updateTime)
-              const now = new Date()
-              const diffMs = now.getTime() - updateTime.getTime()
-              contactAgeDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-              break
-            }
-          }
-        } catch (e) {
-          // Ignore errors
-        }
 
         return {
           id: person.resourceName ?? email ?? name ?? crypto.randomUUID(),
           name,
-          givenName,
-          familyName,
           email,
           phone,
           photoUrl,
-          emailCount,
-          phoneCount,
-          hasAddress,
-          contactAgeDays,
           source: 'contacts' as const,
         }
       })
 
     // --- 2) Other contacts (people.otherContacts.list) ---
-    const otherRes = await fetch(
-      `${baseUrl}/otherContacts?readMask=names,emailAddresses,phoneNumbers,photos,addresses,metadata&pageSize=500`,
-      { headers: commonHeaders }
-    )
+    // Wrap in try/catch to prevent 400 errors from breaking the entire fetch
+    let otherContacts: any[] = []
+    try {
+      const otherRes = await fetch(
+        `${baseUrl}/otherContacts?readMask=${PEOPLE_PERSON_FIELDS_OTHER_CONTACTS}&pageSize=500`,
+        { headers: commonHeaders }
+      )
 
-    if (!otherRes.ok) {
-      if (otherRes.status === 403) {
-        console.warn('[GoogleAuth] Permission denied for Other contacts (otherContacts)')
+      if (!otherRes.ok) {
+        if (otherRes.status === 403) {
+          console.warn('[GoogleAuth] Permission denied for Other contacts (otherContacts)')
+        } else {
+          const errorText = await otherRes.text()
+          console.error('[GoogleAuth] Failed to fetch otherContacts (Other contacts)', otherRes.status, errorText)
+        }
       } else {
-        const errorText = await otherRes.text()
-        console.error('[GoogleAuth] Failed to fetch otherContacts (Other contacts)', otherRes.status, errorText)
+        const otherData = await otherRes.json()
+        otherContacts = (otherData.otherContacts ?? []) as any[]
       }
+    } catch (err) {
+      console.error('[GoogleAuth] Failed to fetch otherContacts', err)
+      otherContacts = []
     }
-
-    const otherData = otherRes.ok ? await otherRes.json() : { otherContacts: [] as any[] }
-    const otherContacts = (otherData.otherContacts ?? []) as any[]
 
     const mappedOther: (GoogleContact & { source: 'otherContacts' })[] = otherContacts
       .filter((person: any) => person.names?.[0]) // Only include contacts with names
       .map((person: any) => {
         const name = person.names?.[0]?.displayName ?? 'Unknown'
-        const givenName = person.names?.[0]?.givenName
-        const familyName = person.names?.[0]?.familyName
         const email = person.emailAddresses?.[0]?.value
         const phone = person.phoneNumbers?.[0]?.value
         const photoUrl = person.photos?.[0]?.url
-        const emailCount = person.emailAddresses?.length || 0
-        const phoneCount = person.phoneNumbers?.length || 0
-        const hasAddress = !!(person.addresses?.[0])
-        
-        // Compute contact age in days from metadata
-        let contactAgeDays: number | undefined
-        try {
-          const sources = person.metadata?.sources || []
-          for (const source of sources) {
-            if (source.updateTime) {
-              const updateTime = new Date(source.updateTime)
-              const now = new Date()
-              const diffMs = now.getTime() - updateTime.getTime()
-              contactAgeDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-              break
-            }
-          }
-        } catch (e) {
-          // Ignore errors
-        }
 
         return {
           id: person.resourceName ?? email ?? name ?? crypto.randomUUID(),
           name,
-          givenName,
-          familyName,
           email,
           phone,
           photoUrl,
-          emailCount,
-          phoneCount,
-          hasAddress,
-          contactAgeDays,
           source: 'otherContacts' as const,
         }
       })
@@ -166,8 +126,8 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
     console.log('[Contacts] Merged & deduped contacts', merged.length, merged)
     console.groupEnd()
 
-    // Preserve source field in returned contacts (store now supports it)
-    const result: GoogleContact[] = merged
+    // Strip the internal `source` before returning (store expects plain GoogleContact)
+    const result: GoogleContact[] = merged.map(({ source, ...rest }) => rest)
 
     return result
   } catch (error) {

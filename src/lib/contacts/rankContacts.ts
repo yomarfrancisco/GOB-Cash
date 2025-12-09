@@ -286,16 +286,14 @@ export function getRankedContacts(
     }
   })
 
-  // Debug logging
+  // Debug logging with counts
   console.log(
-    '[Contacts] Ranked payment contacts',
-    rankedContacts.slice(0, 25).map((c) => ({
-      name: c.name,
-      email: c.email,
-      phone: c.phone,
-      source: c.source,
-      score: c.score,
-    }))
+    '[RankContacts] ranked:',
+    sorted.length,
+    'returned:',
+    rankedContacts.length,
+    'max:',
+    max
   )
 
   return rankedContacts

@@ -68,10 +68,15 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   
   // Debug logging for ranked contacts
   useEffect(() => {
-    if (rankedContacts.length > 0) {
-      console.log('[PaymentDetailsSheet] rankedContacts:', rankedContacts.length, 'shown:', suggestions.length)
+    if (contacts && contacts.length > 0) {
+      console.log(
+        '[PaymentDetailsSheet] rankedContacts:',
+        contacts.length,
+        'shown:',
+        rankedContacts.length
+      )
     }
-  }, [rankedContacts, suggestions.length])
+  }, [contacts, rankedContacts.length])
 
   // Initialize when sheet opens
   useEffect(() => {
