@@ -12,6 +12,7 @@ import '@/styles/send-details-sheet.css'
 import styles from './PaymentDetailsSheet.module.css'
 
 const RECIPIENT_PLACEHOLDER = 'Username or WhatsApp number'
+const MAX_PAYMENT_SUGGESTIONS = 300
 
 type PaymentContact = {
   id: string
@@ -53,7 +54,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   // Get contacts from store and compute ranked list
   const contacts = useContactsStore((state) => state.contacts)
   const rankedContacts = useMemo(
-    () => getRankedContacts(contacts || [], 25),
+    () => getRankedContacts(contacts || [], MAX_PAYMENT_SUGGESTIONS),
     [contacts]
   )
   
@@ -68,9 +69,9 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   // Debug logging for ranked contacts
   useEffect(() => {
     if (rankedContacts.length > 0) {
-      console.log('[PaymentDetailsSheet] rankedContacts (top 25):', rankedContacts)
+      console.log('[PaymentDetailsSheet] rankedContacts:', rankedContacts.length, 'shown:', suggestions.length)
     }
-  }, [rankedContacts])
+  }, [rankedContacts, suggestions.length])
 
   // Initialize when sheet opens
   useEffect(() => {
