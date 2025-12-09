@@ -171,12 +171,12 @@ export default function HomeStreamSection() {
       <div className={sharedStyles.mapHeader}>
         <div className={sharedStyles.headerRow}>
           <h2 id="stream-title" className={sharedStyles.mapHeaderTitle}>
-            Become an agent
+            The Job Board
           </h2>
         </div>
-      <p className={sharedStyles.mapHeaderSub}>
-        Show up. Convert cash to crypto. Earn
-      </p>
+        <p className={sharedStyles.mapHeaderSub}>
+          Explore agent opportunities. Show up. Earn
+        </p>
       </div>
 
       {/* Stream items feed */}
