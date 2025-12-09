@@ -73,16 +73,6 @@
   box-sizing: border-box;
 }
 
-.streamStack {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.streamCardWrapper {
-  width: 100%;
-}
-
 /* Map card wrapper - fixed height to avoid resize churn */
 .mapCard {
   position: relative;
@@ -94,8 +84,63 @@
   background: #efece7;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
+}
+
+@media (min-width: 390px) {
+  .mapCard {
+    height: 560px; /* Slightly taller on larger phones */
+  }
+}
+
+/* Empty map container - Mapbox will attach here */
+.mapInnerContainer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* Folds over the live map */
+.fold1,
+.fold2 {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: multiply;
+  opacity: 0.22;
+  pointer-events: none;
+  object-fit: cover;
+  z-index: 3; /* Above map */
+}
+
+/* Optional slight variance to mimic mock */
+.fold2 {
+  opacity: 0.18;
+}
+
+/* Texture overlay */
+.textureOverlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: -85px; /* Move left by 85px (35px + 50px) */
+  z-index: 3; /* same layer as fold overlays */
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.textureOverlayImg {
+  object-fit: cover;
+  mix-blend-mode: multiply;
+  opacity: 0.32; /* adjust if needed */
+  border-radius: inherit;
+}
+
+/* Respect safe areas */
+@supports (padding: max(0px)) {
+  .mapHeader {
+    padding-left: max(24px, env(safe-area-inset-left));
+    padding-right: max(24px, env(safe-area-inset-right));
+  }
 }
 
 /* Reusable card shell header/footer */
@@ -187,105 +232,68 @@
 }
 
 .footerCta {
-  border: none;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  background: #007AFF;
   color: #fff;
-  padding: 10px 16px;
-  font-weight: 700;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 16px;
   font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 6px 14px rgba(255, 75, 43, 0.35);
+  flex-shrink: 0;
+  transition: background 0.2s ease;
 }
 
-@media (min-width: 390px) {
-  .cardBody {
-    min-height: 380px;
-  }
+.footerCta:hover {
+  background: #0056b3;
 }
 
-.postBody {
-  flex: 1;
+.footerCta:active {
+  background: #004494;
+}
+
+/* Stream section styles */
+.streamCardsContainer {
+  width: 100%;
+  max-width: 398px;
+  margin: 16px auto 0;
+  padding: 0 24px 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.streamCardWrapper {
+  width: 100%;
+}
+
+.streamCardBody {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(239, 236, 231, 0.6) 0%, rgba(239, 236, 231, 0.4) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #f7f5f1 0%, #efece7 100%);
+  padding: 40px 24px;
 }
 
-.postBodyInner {
+.streamCardContent {
   text-align: center;
-  padding: 32px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  max-width: 280px;
 }
 
-.postTitle {
+.streamCardTitle {
   font-size: 18px;
   font-weight: 700;
   color: #111;
+  margin-bottom: 8px;
 }
 
-.postSubtitle {
+.streamCardSubtitle {
   font-size: 14px;
-  color: rgba(0,0,0,0.65);
+  color: rgba(0,0,0,0.6);
+  font-weight: 400;
   line-height: 1.4;
-}
-
-@media (min-width: 390px) {
-  .mapCard {
-    height: 560px; /* Slightly taller on larger phones */
-  }
-}
-
-/* Empty map container - Mapbox will attach here */
-.mapInnerContainer {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-}
-
-/* Folds over the live map */
-.fold1,
-.fold2 {
-  position: absolute;
-  inset: 0;
-  mix-blend-mode: multiply;
-  opacity: 0.22;
-  pointer-events: none;
-  object-fit: cover;
-  z-index: 3; /* Above map */
-}
-
-/* Optional slight variance to mimic mock */
-.fold2 {
-  opacity: 0.18;
-}
-
-/* Texture overlay */
-.textureOverlay {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: -85px; /* Move left by 85px (35px + 50px) */
-  z-index: 3; /* same layer as fold overlays */
-  pointer-events: none;
-  border-radius: inherit;
-}
-
-.textureOverlayImg {
-  object-fit: cover;
-  mix-blend-mode: multiply;
-  opacity: 0.32; /* adjust if needed */
-  border-radius: inherit;
-}
-
-/* Respect safe areas */
-@supports (padding: max(0px)) {
-  .mapHeader {
-    padding-left: max(24px, env(safe-area-inset-left));
-    padding-right: max(24px, env(safe-area-inset-right));
-  }
 }
 

@@ -28,7 +28,7 @@ import InternalTransferSheet from '@/components/InternalTransferSheet'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import { useNotificationStore } from '@/store/notifications'
-import { StreamSection } from '@/components/home/StreamSection'
+import HomeStreamSection from '@/components/HomeStreamSection'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
@@ -512,7 +512,7 @@ function HomeContent() {
 
   // Homepage map tap handler - ignores GeolocateControl clicks
   const handleHomeMapClick = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
+    (e: React.MouseEvent<HTMLDivElement>) => {
       // If click originated from the Mapbox geolocate control, do nothing.
       const target = e.target as HTMLElement | null
       if (target && target.closest('.mapboxgl-ctrl-geolocate')) {
@@ -652,7 +652,7 @@ function HomeContent() {
                 onHelpClick={() => setIsMapHelperOpen(true)} 
                 onMapClick={handleHomeMapClick}
               />
-              <StreamSection />
+              <HomeStreamSection />
               <BranchManagerFooter 
                 onHelicopterClick={handleHelicopterConvertClick}
                 onWhatsAppClick={() => {
