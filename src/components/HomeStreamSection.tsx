@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { CirclePlus, Tag, Clock3, Percent } from 'lucide-react'
+import { CirclePlus, Tag, Clock3, BadgeDollarSign } from 'lucide-react'
 import styles from './HomeStreamSection.module.css'
 import sharedStyles from './ConvertCashSection.module.css'
 
@@ -146,7 +146,7 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
               <span className={styles.tagLabel}>{item.showUpTag}</span>
             </div>
             <div className={`${styles.tagPill} ${styles.commissionTag}`}>
-              <Percent className={styles.tagIcon} />
+              <BadgeDollarSign className={styles.tagIcon} />
               <span className={styles.tagLabel}>{item.commissionTag}</span>
             </div>
           </div>
@@ -178,7 +178,7 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
             ))}
           </div>
           <div className={styles.streamFooterText}>
-            <span className={styles.streamFooterLabel}>Become an agent</span>
+            <span className={styles.streamFooterLabel}>Clock-in for work</span>
           </div>
         </div>
         <div className={styles.streamFooterRight}>
