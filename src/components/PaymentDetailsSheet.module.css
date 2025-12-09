@@ -17,6 +17,7 @@
   overflow-x: hidden;
   padding: 0 24px;
   padding-right: 40px; /* Extra space for A-Z index (16px index + 8px gap + 16px padding) */
+  padding-top: 15px; /* Shift scrollable content up by 15px */
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   position: relative; /* For absolute positioning of A-Z index */
