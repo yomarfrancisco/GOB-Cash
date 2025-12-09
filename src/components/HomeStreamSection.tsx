@@ -127,11 +127,6 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
             className={styles.streamCardPoster}
             priority
           />
-          {/* Content overlay - text on top of poster */}
-          <div className={styles.streamCardContent}>
-            <div className={styles.streamCardTitle}>{item.bodyTitle}</div>
-            <div className={styles.streamCardSubtitle}>{item.bodySubtitle}</div>
-          </div>
         </div>
       </div>
 
