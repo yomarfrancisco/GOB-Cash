@@ -304,6 +304,6 @@
 
 /* Internal spacer for Section 2 → Section 3 separation */
 .streamSectionSpacer {
-  height: 32px;
+  height: 64px; /* previously 32px */
 }
 
