@@ -7,6 +7,7 @@ import ActionSheet from './ActionSheet'
 import { usePaymentDetailsSheet, type PaymentDetailsMode } from '@/store/usePaymentDetailsSheet'
 import { normalizeRecipientInput, validateRecipientInput } from '@/lib/recipientValidation'
 import { useContactsStore } from '@/store/contacts'
+import { useAuthStore } from '@/store/auth'
 import { getRankedContacts, type RankedContact } from '@/lib/contacts/rankContacts'
 import { groupByFirstLetter } from '@/lib/contacts/contactGrouping'
 import { ContactListWithIndex, type ContactListHandle } from './contacts/ContactListWithIndex'
@@ -58,6 +59,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [alphabetLetters, setAlphabetLetters] = useState<string[]>([])
   const [availableLetters, setAvailableLetters] = useState<Set<string>>(new Set())
+  const isAuthed = useAuthStore((s) => s.isAuthed)
   
   // Get contacts from store and compute ranked list
   const contacts = useContactsStore((state) => state.contacts)
@@ -240,6 +242,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
                 sections={sections}
                 selectedContactId={selectedContactId}
                 onSelectContact={handleContactClick}
+                isAuthenticated={isAuthed}
                 onHandleReady={(handle) => {
                   contactListRef.current = handle
                   setAlphabetLetters(handle.allLetters)

@@ -11,7 +11,7 @@ import { useContactsStore } from '@/store/contacts'
 import { getRankedContacts, type RankedContact } from '@/lib/contacts/rankContacts'
 import { groupByFirstLetter } from '@/lib/contacts/contactGrouping'
 import { getContactTags } from '@/lib/contacts/contactTags'
-import { getContactDescription } from '@/lib/contacts/contactDescription'
+import { buildContactSubtitle, tagsToMeta } from '@/lib/contacts/contactDescription'
 import { AlphabetIndex } from './contacts/AlphabetIndex'
 import listStyles from './Inbox/FinancialInboxListSheet.module.css'
 import paymentStyles from './PaymentDetailsSheet.module.css'
@@ -229,7 +229,7 @@ export default function SearchSheet() {
   const renderContactRow = (contact: RankedContact) => {
     const avatarUrl = contact.photoUrl || '/assets/avatar-profile.png'
     
-    // Get tags and generate description for this contact
+    // Get tags and generate short subtitle for this contact
     const tags = getContactTags({
       handle: contact.handle,
       name: contact.name,
@@ -239,7 +239,8 @@ export default function SearchSheet() {
       sourceType: contact.source === 'connections' || contact.source === 'otherContacts' ? 'google_contact' : contact.source || null,
     })
     
-    const subtitle = getContactDescription(tags, { isAuthenticated: isAuthed })
+    const meta = tagsToMeta(tags)
+    const subtitle = buildContactSubtitle(meta, { isAuthenticated: isAuthed })
     
     return (
       <button

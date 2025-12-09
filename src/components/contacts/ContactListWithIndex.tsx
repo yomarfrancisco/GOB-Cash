@@ -5,6 +5,8 @@ import Image from 'next/image'
 import { Check } from 'lucide-react'
 import type { RankedContact } from '@/lib/contacts/rankContacts'
 import type { ContactSection } from '@/lib/contacts/contactGrouping'
+import { getContactTags } from '@/lib/contacts/contactTags'
+import { buildContactSubtitle, tagsToMeta } from '@/lib/contacts/contactDescription'
 import { AlphabetIndex } from './AlphabetIndex'
 import styles from './ContactListWithIndex.module.css'
 import contactRowStyles from '../PaymentDetailsSheet.module.css'
@@ -21,6 +23,7 @@ type ContactListWithIndexProps = {
   onSelectContact: (c: RankedContact) => void
   selectedContactId?: string | null
   onHandleReady?: (handle: ContactListHandle) => void // Callback to expose handle to parent
+  isAuthenticated?: boolean // For computing subtitles
 }
 
 // Reusable contact row component
@@ -28,13 +31,26 @@ function ContactRow({
   contact,
   selected,
   onClick,
+  isAuthenticated = false,
 }: {
   contact: RankedContact
   selected: boolean
   onClick: () => void
+  isAuthenticated?: boolean
 }) {
   const avatarUrl =
     contact.photoUrl || '/assets/avatar-profile.png'
+
+  // Compute short subtitle using tag-based helper
+  const tags = getContactTags({
+    handle: contact.handle,
+    name: contact.name,
+    phoneNumber: contact.phone,
+    email: contact.email,
+    sourceType: contact.source === 'connections' || contact.source === 'otherContacts' ? 'google_contact' : contact.source || null,
+  })
+  const meta = tagsToMeta(tags)
+  const subtitle = buildContactSubtitle(meta, { isAuthenticated })
 
   return (
     <button
@@ -55,9 +71,7 @@ function ContactRow({
         </div>
         <div className={contactRowStyles.contactTextBlock}>
           <div className={contactRowStyles.contactHandle}>{contact.handle}</div>
-          {contact.subtitle && (
-            <div className={contactRowStyles.contactSubtitle}>{contact.subtitle}</div>
-          )}
+          <div className={contactRowStyles.contactSubtitle}>{subtitle}</div>
         </div>
       </div>
       {selected && (
@@ -73,6 +87,7 @@ export const ContactListWithIndex = forwardRef<ContactListHandle, ContactListWit
   onSelectContact,
   selectedContactId,
   onHandleReady,
+  isAuthenticated = false,
 }, ref) => {
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [sectionOffsets, setSectionOffsets] = useState<Record<string, number>>({})
@@ -180,14 +195,15 @@ export const ContactListWithIndex = forwardRef<ContactListHandle, ContactListWit
         {suggested.length > 0 && (
           <>
             <div className={styles.contactsSectionHeader}>Suggested</div>
-            {suggested.map((c) => (
-              <ContactRow
-                key={c.id}
-                contact={c}
-                selected={c.id === selectedContactId}
-                onClick={() => onSelectContact(c)}
-              />
-            ))}
+                {suggested.map((c) => (
+                  <ContactRow
+                    key={c.id}
+                    contact={c}
+                    selected={c.id === selectedContactId}
+                    onClick={() => onSelectContact(c)}
+                    isAuthenticated={isAuthenticated}
+                  />
+                ))}
             {sections.length > 0 && <div className={styles.contactsSectionDivider} />}
           </>
         )}
@@ -205,14 +221,15 @@ export const ContactListWithIndex = forwardRef<ContactListHandle, ContactListWit
                 }}
               >
                 <div className={styles.contactsLetterHeader}>{section.letter}</div>
-                {section.contacts.map((c) => (
-                  <ContactRow
-                    key={c.id}
-                    contact={c}
-                    selected={c.id === selectedContactId}
-                    onClick={() => onSelectContact(c)}
-                  />
-                ))}
+                    {section.contacts.map((c) => (
+                      <ContactRow
+                        key={c.id}
+                        contact={c}
+                        selected={c.id === selectedContactId}
+                        onClick={() => onSelectContact(c)}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    ))}
               </div>
             ))}
           </>
