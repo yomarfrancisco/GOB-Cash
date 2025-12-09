@@ -28,6 +28,7 @@ import InternalTransferSheet from '@/components/InternalTransferSheet'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import { useNotificationStore } from '@/store/notifications'
+import { StreamSection } from '@/components/home/StreamSection'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
@@ -651,6 +652,7 @@ function HomeContent() {
                 onHelpClick={() => setIsMapHelperOpen(true)} 
                 onMapClick={handleHomeMapClick}
               />
+              <StreamSection />
               <BranchManagerFooter 
                 onHelicopterClick={handleHelicopterConvertClick}
                 onWhatsAppClick={() => {

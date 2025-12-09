@@ -2,6 +2,7 @@ import Image from 'next/image'
 import styles from './ConvertCashSection.module.css'
 import MapboxMap, { type Marker } from './MapboxMap'
 import { useAuthStore } from '@/store/auth'
+import { CardShell } from './home/CardShell'
 
 const sandtonBranch: Marker = {
   id: 'branch-sandton-city',
@@ -61,53 +62,60 @@ export default function ConvertCashSection({ onHelpClick, onMapClick }: ConvertC
       </div>
 
       <div className={styles.mapContainer}>
-        <div 
-          className={styles.mapCard}
-          onClick={onMapClick}
-          style={onMapClick ? { cursor: 'pointer' } : undefined}
+        <CardShell
+          headerTitle="Cash couriers"
+          headerSubtitle="Agents collect and deliver cash"
+          footerCtaLabel="Open map"
+          onFooterCtaClick={onMapClick}
         >
-          {/* Empty map container - Mapbox will attach here */}
-          <div className={styles.mapInnerContainer} id="mapbox-container" />
-          
-          {/* Live map component - renders into mapContainer */}
-          <MapboxMap
-            containerId="mapbox-container"
-            markers={[sandtonBranch, ...BRANCH_MARKERS]}
-            styleUrl="mapbox://styles/mapbox/navigation-day-v1"
-            variant="landing"
-            initialCenter={SADC_CENTER}
-            initialZoom={SADC_ZOOM}
-            fitToMarkers={false}
-            isAuthed={isAuthed}
-          />
+          <div
+            className={styles.cardBodyInner}
+            onClick={onMapClick}
+            style={onMapClick ? { cursor: 'pointer' } : undefined}
+          >
+            {/* Empty map container - Mapbox will attach here */}
+            <div className={styles.mapInnerContainer} id="mapbox-container" />
+            
+            {/* Live map component - renders into mapContainer */}
+            <MapboxMap
+              containerId="mapbox-container"
+              markers={[sandtonBranch, ...BRANCH_MARKERS]}
+              styleUrl="mapbox://styles/mapbox/navigation-day-v1"
+              variant="landing"
+              initialCenter={SADC_CENTER}
+              initialZoom={SADC_ZOOM}
+              fitToMarkers={false}
+              isAuthed={isAuthed}
+            />
 
-          {/* Paper/fold overlays as siblings, not children of map container */}
-          <Image
-            src="/assets/fold1.png"
-            alt=""
-            fill
-            className={styles.fold1}
-            priority
-          />
-          <Image
-            src="/assets/fold2.png"
-            alt=""
-            fill
-            className={styles.fold2}
-            priority
-          />
-          
-          {/* Texture overlay */}
-          <div className={styles.textureOverlay} aria-hidden="true">
+            {/* Paper/fold overlays as siblings, not children of map container */}
             <Image
-              src="/assets/texture.png"
+              src="/assets/fold1.png"
               alt=""
               fill
-              className={styles.textureOverlayImg}
+              className={styles.fold1}
               priority
             />
+            <Image
+              src="/assets/fold2.png"
+              alt=""
+              fill
+              className={styles.fold2}
+              priority
+            />
+            
+            {/* Texture overlay */}
+            <div className={styles.textureOverlay} aria-hidden="true">
+              <Image
+                src="/assets/texture.png"
+                alt=""
+                fill
+                className={styles.textureOverlayImg}
+                priority
+              />
+            </div>
           </div>
-        </div>
+        </CardShell>
       </div>
     </section>
   )
