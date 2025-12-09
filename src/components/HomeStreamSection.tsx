@@ -174,19 +174,21 @@ export default function HomeStreamSection() {
             Become an agent
           </h2>
         </div>
-        <p className={sharedStyles.mapHeaderSub}>
-          Show up. Convert cash to crypto. Earn
-        </p>
+      <p className={sharedStyles.mapHeaderSub}>
+        Show up. Convert cash to crypto. Earn
+      </p>
       </div>
 
       {/* Stream items feed */}
-      {STREAM_ITEMS.map((item) => (
-        <StreamItem
-          key={item.id}
-          item={item}
-          onItemClick={handleItemClick}
-        />
-      ))}
+      <div className={styles.streamFeedWrapper}>
+        {STREAM_ITEMS.map((item) => (
+          <StreamItem
+            key={item.id}
+            item={item}
+            onItemClick={handleItemClick}
+          />
+        ))}
+      </div>
     </section>
   )
 }

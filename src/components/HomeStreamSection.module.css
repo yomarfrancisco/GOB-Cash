@@ -1,5 +1,10 @@
 /* Stream section styles - matches map section container sizing */
 
+/* Stream feed wrapper - reduces gap between section subtitle and first item */
+.streamFeedWrapper {
+  margin-top: -4px; /* Tighten spacing above feed by ~5px */
+}
+
 /* Stream item wrapper - spacing between items */
 .streamItem {
   width: 100%;
