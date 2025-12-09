@@ -66,8 +66,8 @@
 /* Bottom nav profile avatar container */
 .nav-avatar-container {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.25);

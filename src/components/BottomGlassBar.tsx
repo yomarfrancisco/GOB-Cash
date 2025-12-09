@@ -130,7 +130,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                     alt="User avatar"
                     fill
                     className="nav-avatar-image"
-                    sizes="36px"
+                    sizes="30px"
                   />
                 </div>
               ) : isAuthed && !profile.avatarUrl ? (
@@ -140,7 +140,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                     alt="Default avatar"
                     fill
                     className="nav-avatar-image nav-avatar-fallback-image"
-                    sizes="36px"
+                    sizes="30px"
                   />
                   {profile.fullName && (
                     <span className="nav-avatar-initial">
@@ -157,11 +157,11 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                   height={28} 
                 />
               )}
-              {/* Red notification dot */}
-              {hasUnreadNotification && (
-                <span className="nav-notification-dot" aria-label="Unread messages" />
-              )}
             </Link>
+            {/* Red notification dot - positioned relative to nav-item */}
+            {hasUnreadNotification && (
+              <span className="nav-notification-dot" aria-label="Unread messages" />
+            )}
           </div>
           {/* Search icon - far right (icon only, no label) */}
           <div className="nav-item">
