@@ -4,29 +4,43 @@
   top: 0;
   right: 8px;
   bottom: 0;
-  width: 16px;
+  width: 20px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 500;
   color: rgba(0, 0, 0, 0.4);
   user-select: none;
   touch-action: none; /* required for pointer events on mobile */
   z-index: 10;
   pointer-events: auto;
-  padding: 16px 0;
-  /* Position relative to scrollableContent (which has padding: 0 24px) */
-  /* So right: 8px means 8px from the right edge of scrollableContent */
+  padding: 12px 0;
 }
 
 .alphabetIndexLetter {
-  padding: 2px 0;
+  padding: 1.5px 0;
+  min-height: 26px; /* Ensure touch target is large enough */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: color 0.1s ease;
+  transition: color 0.15s ease, font-weight 0.15s ease;
+  width: 100%;
 }
 
 .alphabetIndexLetter:hover {
   color: rgba(0, 0, 0, 0.6);
+}
+
+.alphabetIndexLetterActive {
+  color: rgba(0, 0, 0, 0.9);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.alphabetIndexLetterUnavailable {
+  opacity: 0.3;
 }
 

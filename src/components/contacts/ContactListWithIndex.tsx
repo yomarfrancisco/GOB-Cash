@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState, useLayoutEffect, useCallback, useMemo } from 'react'
 import Image from 'next/image'
 import { Check } from 'lucide-react'
 import type { RankedContact } from '@/lib/contacts/rankContacts'
@@ -67,36 +67,91 @@ export function ContactListWithIndex({
   selectedContactId,
 }: ContactListWithIndexProps) {
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [sectionOffsets, setSectionOffsets] = useState<Record<string, number>>({})
+  const contentRef = useRef<HTMLDivElement | null>(null)
 
   const letters = sections.map((s) => s.letter)
+  const availableLetters = new Set(sections.map((s) => s.letter))
 
-  const handleJumpToLetter = (letter: string) => {
+  // Find scrollable container helper - look for element with overflow-y: auto or scroll
+  const findScrollContainer = useCallback((): HTMLElement | null => {
+    if (!contentRef.current) return null
+    
+    // Walk up the DOM tree to find the scrollable container
+    let parent: HTMLElement | null = contentRef.current.parentElement
+    while (parent && parent !== document.body) {
+      const style = window.getComputedStyle(parent)
+      // Check if this element is scrollable
+      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+        return parent
+      }
+      parent = parent.parentElement
+    }
+    return null
+  }, [])
+
+  // Calculate section offsets after render
+  useLayoutEffect(() => {
+    const offsets: Record<string, number> = {}
+    const scrollContainer = findScrollContainer()
+    
+    if (!scrollContainer) return
+
+    // Small delay to ensure DOM is fully rendered
+    const timeoutId = setTimeout(() => {
+      sections.forEach((section) => {
+        const sectionEl = sectionRefs.current[section.letter]
+        if (sectionEl) {
+          // Calculate offset relative to scroll container
+          const containerRect = scrollContainer.getBoundingClientRect()
+          const sectionRect = sectionEl.getBoundingClientRect()
+          const scrollTop = scrollContainer.scrollTop
+          const offset = sectionRect.top - containerRect.top + scrollTop - 8 // Small offset for visibility
+          offsets[section.letter] = Math.max(0, offset)
+        }
+      })
+      setSectionOffsets(offsets)
+    }, 0)
+
+    return () => clearTimeout(timeoutId)
+  }, [sections, suggested.length, findScrollContainer]) // Recalculate when sections or suggested change
+
+  const handleJumpToLetter = useCallback((letter: string) => {
+    const scrollContainer = findScrollContainer()
+    if (!scrollContainer) return
+
+    // Use pre-calculated offset if available
+    const offset = sectionOffsets[letter]
+    if (offset !== undefined) {
+      scrollContainer.scrollTo({ top: offset, behavior: 'auto' })
+      return
+    }
+
+    // Fallback: calculate on-the-fly
     const target = sectionRefs.current[letter]
     if (!target) return
 
-    // Find the scrollable parent container (scrollableContent)
-    let scrollContainer: HTMLElement | null = target.parentElement
-    while (scrollContainer && scrollContainer !== document.body) {
-      const style = window.getComputedStyle(scrollContainer)
-      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-        break
-      }
-      scrollContainer = scrollContainer.parentElement
-    }
+    const containerRect = scrollContainer.getBoundingClientRect()
+    const targetRect = target.getBoundingClientRect()
+    const scrollTop = scrollContainer.scrollTop
+    const calculatedOffset = targetRect.top - containerRect.top + scrollTop - 8
+    scrollContainer.scrollTo({ top: Math.max(0, calculatedOffset), behavior: 'auto' })
+  }, [sectionOffsets, findScrollContainer])
 
-    if (scrollContainer) {
-      const containerRect = scrollContainer.getBoundingClientRect()
-      const targetRect = target.getBoundingClientRect()
-      const scrollTop = scrollContainer.scrollTop
-      const offset = targetRect.top - containerRect.top + scrollTop - 8
-      scrollContainer.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' })
+  // Generate all letters A-Z + # for the index (even if no contacts)
+  const allLetters = useMemo(() => {
+    const letters: string[] = []
+    for (let i = 65; i <= 90; i++) {
+      letters.push(String.fromCharCode(i))
     }
-  }
+    letters.push('#')
+    return letters
+  }, [])
 
   return (
     <div className={styles.contactsListWrapper}>
       {/* Content (scrolls within parent scrollableContent) */}
-      <div className={styles.contactsListContent}>
+      <div ref={contentRef} className={styles.contactsListContent}>
         {suggested.length > 0 && (
           <>
             <div className={styles.contactsSectionHeader}>Suggested</div>
@@ -139,10 +194,12 @@ export function ContactListWithIndex({
         )}
       </div>
 
-      {/* A–Z index on the right */}
-      {letters.length > 0 && (
-        <AlphabetIndex letters={letters} onSelectLetter={handleJumpToLetter} />
-      )}
+      {/* A–Z index on the right - show all letters A-Z + # */}
+      <AlphabetIndex
+        letters={allLetters}
+        onSelectLetter={handleJumpToLetter}
+        availableLetters={availableLetters}
+      />
     </div>
   )
 }
