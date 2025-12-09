@@ -10,6 +10,8 @@ import { useProfilePreviewSheet } from '@/store/useProfilePreviewSheet'
 import { useContactsStore } from '@/store/contacts'
 import { getRankedContacts, type RankedContact } from '@/lib/contacts/rankContacts'
 import { groupByFirstLetter } from '@/lib/contacts/contactGrouping'
+import { getContactTags } from '@/lib/contacts/contactTags'
+import { getContactDescription } from '@/lib/contacts/contactDescription'
 import { AlphabetIndex } from './contacts/AlphabetIndex'
 import listStyles from './Inbox/FinancialInboxListSheet.module.css'
 import paymentStyles from './PaymentDetailsSheet.module.css'
@@ -299,7 +301,7 @@ export default function SearchSheet() {
                 {/* Top ranked contacts */}
                 {suggested.length > 0 && (
                   <>
-                    {suggested.map((contact) => renderContactRow(contact))}
+                    {suggested.map((contact, index) => renderContactRow(contact, index))}
                   </>
                 )}
 
@@ -316,7 +318,7 @@ export default function SearchSheet() {
                         }}
                       >
                         <div className={contactListStyles.contactsLetterHeader}>{section.letter}</div>
-                        {section.contacts.map((contact) => renderContactRow(contact))}
+                        {section.contacts.map((contact, index) => renderContactRow(contact, suggested.length + index))}
                       </div>
                     ))}
                   </>
@@ -333,11 +335,11 @@ export default function SearchSheet() {
               /* Search results: flat filtered list */
               <>
                 {filteredResults.length > 0 ? (
-                  filteredResults.map((item) => {
+                  filteredResults.map((item, index) => {
                     if (item.type === 'agent') {
                       return renderAgentRow(item)
                     } else {
-                      return renderContactRow(item.contact)
+                      return renderContactRow(item.contact, index)
                     }
                   })
                 ) : (
