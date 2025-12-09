@@ -1,7 +1,7 @@
 /* Wrapper for list + index */
 .contactsListWrapper {
   position: relative;
-  margin-top: 24px; /* Match existing contactsList margin-top */
+  margin-top: 9px; /* Reduced from 24px to shift contact list up by 15px */
   /* No padding-right here - index is positioned absolutely relative to scrollableContent */
 }
 
