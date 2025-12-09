@@ -63,3 +63,41 @@
   transform: scale(1.5); /* ~50% zoom to make it larger while keeping same crop point */
 }
 
+/* Bottom nav profile avatar container */
+.nav-avatar-container {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+}
+
+.nav-avatar-image {
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Fallback avatar with initial overlay */
+.nav-avatar-fallback {
+  background-color: rgba(229, 231, 235, 0.3); /* gray-200 with opacity */
+}
+
+.nav-avatar-fallback-image {
+  opacity: 0.8;
+}
+
+.nav-avatar-initial {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+  z-index: 1;
+  pointer-events: none;
+  line-height: 1;
+}
+

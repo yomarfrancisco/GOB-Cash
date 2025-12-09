@@ -7,6 +7,7 @@ import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useSearchSheet } from '@/store/useSearchSheet'
+import { useUserProfileStore } from '@/store/userProfile'
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import '@/styles/bottom-glass.css'
 
@@ -25,6 +26,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
   const { hasUnreadNotification } = useFinancialInboxStore()
   const { open: openSearch, isOpen: isSearchOpen } = useSearchSheet()
+  const { profile } = useUserProfileStore()
   
   const handleCenterButtonClick = () => {
     // NOTE: Dollar FAB now opens the amount sheet directly (via onDollarClick callback)
@@ -120,13 +122,41 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 }
               }}
             >
-              <Image 
-                src={isProfile ? "/assets/nav/user_filled.svg" : "/assets/nav/user-outlined.svg"}
-                alt="Profile" 
-                className={`nav-icon ${isProfile ? 'nav-icon-active' : 'nav-icon-dim'}`} 
-                width={28} 
-                height={28} 
-              />
+              {/* Dynamic avatar: Google avatar or fallback with initial */}
+              {isAuthed && profile.avatarUrl ? (
+                <div className="nav-avatar-container">
+                  <Image 
+                    src={profile.avatarUrl}
+                    alt="User avatar"
+                    fill
+                    className="nav-avatar-image"
+                    sizes="36px"
+                  />
+                </div>
+              ) : isAuthed && !profile.avatarUrl ? (
+                <div className="nav-avatar-container nav-avatar-fallback">
+                  <Image 
+                    src="/assets/avatar-profile.png"
+                    alt="Default avatar"
+                    fill
+                    className="nav-avatar-image nav-avatar-fallback-image"
+                    sizes="36px"
+                  />
+                  {profile.fullName && (
+                    <span className="nav-avatar-initial">
+                      {profile.fullName.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <Image 
+                  src={isProfile ? "/assets/nav/user_filled.svg" : "/assets/nav/user-outlined.svg"}
+                  alt="Profile" 
+                  className={`nav-icon ${isProfile ? 'nav-icon-active' : 'nav-icon-dim'}`} 
+                  width={28} 
+                  height={28} 
+                />
+              )}
               {/* Red notification dot */}
               {hasUnreadNotification && (
                 <span className="nav-notification-dot" aria-label="Unread messages" />
