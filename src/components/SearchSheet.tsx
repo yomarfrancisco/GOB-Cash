@@ -1,31 +1,43 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useSearchSheet } from '@/store/useSearchSheet'
 import { useAuthStore } from '@/store/auth'
 import { useProfilePreviewSheet } from '@/store/useProfilePreviewSheet'
+import { useContactsStore } from '@/store/contacts'
+import { getRankedContacts, type RankedContact } from '@/lib/contacts/rankContacts'
+import { groupByFirstLetter } from '@/lib/contacts/contactGrouping'
+import { AlphabetIndex } from './contacts/AlphabetIndex'
 import listStyles from './Inbox/FinancialInboxListSheet.module.css'
 import paymentStyles from './PaymentDetailsSheet.module.css'
+import contactListStyles from './contacts/ContactListWithIndex.module.css'
 import styles from './SearchSheet.module.css'
 
-type SearchContact = {
-  id: string
+type SearchAgent = {
+  type: 'agent'
+  id: 'ama' | 'ariel'
   handle: string
   subtitle: string
   avatarSrc: string
 }
 
-const DEFAULT_CONTACTS: SearchContact[] = [
+type SearchRow =
+  | SearchAgent
+  | { type: 'contact'; contact: RankedContact }
+
+const AGENTS: SearchAgent[] = [
   {
+    type: 'agent',
     id: 'ama',
     handle: '$ama',
     subtitle: 'AI yield manager',
     avatarSrc: '/assets/Brics-girl-blue.png',
   },
   {
+    type: 'agent',
     id: 'ariel',
     handle: '$ariel',
     subtitle: 'AI cash agent',
@@ -33,12 +45,61 @@ const DEFAULT_CONTACTS: SearchContact[] = [
   },
 ]
 
+const MAX_SEARCH_CONTACTS = 300
+const MAX_SUGGESTED_CONTACTS = 10 // Top N contacts to show in Suggested section
+
 export default function SearchSheet() {
   const { isOpen, close } = useSearchSheet()
   const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const { openSheet } = useProfilePreviewSheet()
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  // Get contacts from store and compute ranked list
+  const contacts = useContactsStore((state) => state.contacts)
+  const rankedContacts = useMemo(
+    () => getRankedContacts(contacts || [], MAX_SEARCH_CONTACTS),
+    [contacts]
+  )
+
+  // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
+  const { suggested, sections, allLetters, availableLettersSet } = useMemo(() => {
+    if (rankedContacts.length === 0) {
+      return { suggested: [], sections: [], allLetters: [], availableLettersSet: new Set<string>() }
+    }
+
+    // 1) Suggested slice (top N)
+    const suggested = rankedContacts.slice(0, MAX_SUGGESTED_CONTACTS)
+
+    // 2) All contacts for the alphabetical list
+    //    - Remove suggested (no duplication)
+    //    - Sort alphabetically by displayName / handle
+    const suggestedIds = new Set(suggested.map((c) => c.id))
+    const allAlphabetical = rankedContacts
+      .filter((c) => !suggestedIds.has(c.id))
+      .sort((a, b) => {
+        const aName = (a.name || a.handle || a.email || '').toLowerCase()
+        const bName = (b.name || b.handle || b.email || '').toLowerCase()
+        return aName.localeCompare(bName)
+      })
+
+    // 3) Group into sections by first letter
+    const sections = groupByFirstLetter(allAlphabetical)
+
+    // 4) Generate all letters A-Z + # for the index
+    const allLetters: string[] = []
+    for (let i = 65; i <= 90; i++) {
+      allLetters.push(String.fromCharCode(i))
+    }
+    allLetters.push('#')
+
+    // 5) Get available letters (letters that have contacts)
+    const availableLettersSet = new Set(sections.map((s) => s.letter))
+
+    return { suggested, sections, allLetters, availableLettersSet }
+  }, [rankedContacts])
 
   // Clear search query when modal opens
   useEffect(() => {
@@ -47,9 +108,58 @@ export default function SearchSheet() {
     }
   }, [isOpen])
 
-  const handleContactClick = (contact: SearchContact) => {
+  // Filter function for search
+  const matchesQuery = (query: string, item: SearchRow): boolean => {
+    if (!query.trim()) return true
+    
+    const lowerQuery = query.toLowerCase()
+    
+    if (item.type === 'agent') {
+      return (
+        item.handle.toLowerCase().includes(lowerQuery) ||
+        item.subtitle.toLowerCase().includes(lowerQuery)
+      )
+    } else {
+      // item.type === 'contact'
+      const c = item.contact
+      return (
+        (c.name || '').toLowerCase().includes(lowerQuery) ||
+        (c.handle || '').toLowerCase().includes(lowerQuery) ||
+        (c.email || '').toLowerCase().includes(lowerQuery) ||
+        (c.phone || '').toLowerCase().includes(lowerQuery)
+      )
+    }
+  }
+
+  // Filtered results when searching
+  const filteredResults = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return null // null means show default layout
+    }
+
+    const query = searchQuery.trim()
+    const results: SearchRow[] = []
+
+    // Add matching agents first
+    AGENTS.forEach((agent) => {
+      if (matchesQuery(query, agent)) {
+        results.push(agent)
+      }
+    })
+
+    // Add matching contacts
+    rankedContacts.forEach((contact) => {
+      if (matchesQuery(query, { type: 'contact', contact })) {
+        results.push({ type: 'contact', contact })
+      }
+    })
+
+    return results
+  }, [searchQuery, rankedContacts])
+
+  const handleAgentClick = (agent: SearchAgent) => {
     // Extract handle without $ prefix
-    const handleWithoutPrefix = contact.handle.replace(/^\$/, '')
+    const handleWithoutPrefix = agent.handle.replace(/^\$/, '')
     
     if (isAuthed) {
       // Authenticated: open profile in tall popup sheet
@@ -60,6 +170,89 @@ export default function SearchSheet() {
       close() // Close the search modal first
       router.push(`/profile/${handleWithoutPrefix}?fromSearch=1`)
     }
+  }
+
+  const handleContactClick = (contact: RankedContact) => {
+    // Extract handle without $ prefix if present
+    const handle = contact.handle || contact.email || contact.phone || ''
+    const handleWithoutPrefix = handle.replace(/^\$/, '')
+    
+    if (isAuthed) {
+      // Authenticated: open profile in tall popup sheet
+      openSheet(handleWithoutPrefix, true) // Pass fromSearch=true
+      // Keep search sheet open (don't close it)
+    } else {
+      // Unauthenticated: navigate to full-page profile view
+      close() // Close the search modal first
+      router.push(`/profile/${handleWithoutPrefix}?fromSearch=1`)
+    }
+    
+    // Scroll to top to show the selected contact
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      })
+    }
+  }
+
+  // Render agent row (for $ama and $ariel)
+  const renderAgentRow = (agent: SearchAgent) => (
+    <button
+      key={agent.id}
+      className={paymentStyles.contactRow}
+      onClick={() => handleAgentClick(agent)}
+      type="button"
+    >
+      <div className={paymentStyles.contactRowLeft}>
+        <div className={paymentStyles.avatarWrapper}>
+          <Image
+            src={agent.avatarSrc}
+            alt={agent.handle}
+            width={48}
+            height={48}
+            className={paymentStyles.avatar}
+            unoptimized
+          />
+        </div>
+        <div className={paymentStyles.contactTextBlock}>
+          <div className={paymentStyles.contactHandle}>{agent.handle}</div>
+          <div className={paymentStyles.contactSubtitle}>{agent.subtitle}</div>
+        </div>
+      </div>
+    </button>
+  )
+
+  // Render contact row (for ranked contacts)
+  const renderContactRow = (contact: RankedContact) => {
+    const avatarUrl = contact.photoUrl || '/assets/avatar-profile.png'
+    return (
+      <button
+        key={contact.id}
+        type="button"
+        className={paymentStyles.contactRow}
+        onClick={() => handleContactClick(contact)}
+      >
+        <div className={paymentStyles.contactRowLeft}>
+          <div className={paymentStyles.avatarWrapper}>
+            <Image
+              src={avatarUrl}
+              alt={contact.handle || contact.name || ''}
+              width={48}
+              height={48}
+              className={paymentStyles.avatar}
+              unoptimized
+            />
+          </div>
+          <div className={paymentStyles.contactTextBlock}>
+            <div className={paymentStyles.contactHandle}>{contact.handle || contact.name || contact.email || ''}</div>
+            {contact.subtitle && (
+              <div className={paymentStyles.contactSubtitle}>{contact.subtitle}</div>
+            )}
+          </div>
+        </div>
+      </button>
+    )
   }
 
   return (
@@ -91,33 +284,91 @@ export default function SearchSheet() {
           />
         </div>
 
-        {/* Default contacts list - match Make payment to sheet style */}
-        <div className={paymentStyles.contactsList}>
-          {DEFAULT_CONTACTS.map((contact) => (
-            <button
-              key={contact.id}
-              className={paymentStyles.contactRow}
-              onClick={() => handleContactClick(contact)}
-              type="button"
-            >
-              <div className={paymentStyles.contactRowLeft}>
-                <div className={paymentStyles.avatarWrapper}>
-                  <Image
-                    src={contact.avatarSrc}
-                    alt={contact.handle}
-                    width={48}
-                    height={48}
-                    className={paymentStyles.avatar}
-                    unoptimized
-                  />
-                </div>
-                <div className={paymentStyles.contactTextBlock}>
-                  <div className={paymentStyles.contactHandle}>{contact.handle}</div>
-                  <div className={paymentStyles.contactSubtitle}>{contact.subtitle}</div>
-                </div>
-              </div>
-            </button>
-          ))}
+        {/* Scrollable content container */}
+        <div className={styles.sheetContainer}>
+          <div ref={scrollContainerRef} className={styles.scrollableContent}>
+            {filteredResults === null ? (
+              /* Default layout: Suggested + A-Z list */
+              <>
+                {/* Suggested section */}
+                <div className={contactListStyles.contactsSectionHeader}>Suggested</div>
+                
+                {/* Agents ($ama and $ariel) */}
+                {AGENTS.map((agent) => renderAgentRow(agent))}
+                
+                {/* Top ranked contacts */}
+                {suggested.length > 0 && (
+                  <>
+                    {suggested.map((contact) => renderContactRow(contact))}
+                  </>
+                )}
+
+                {/* Alphabetical contacts list - manually render to match layout */}
+                {sections.length > 0 && (
+                  <>
+                    <div className={contactListStyles.contactsSectionDivider} />
+                    <div className={contactListStyles.contactsSectionHeader}>All contacts</div>
+                    {sections.map((section) => (
+                      <div
+                        key={section.letter}
+                        ref={(el) => {
+                          sectionRefs.current[section.letter] = el
+                        }}
+                      >
+                        <div className={contactListStyles.contactsLetterHeader}>{section.letter}</div>
+                        {section.contacts.map((contact) => renderContactRow(contact))}
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* Show fallback if no contacts */}
+                {rankedContacts.length === 0 && sections.length === 0 && (
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(0, 0, 0, 0.4)' }}>
+                    No contacts available
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Search results: flat filtered list */
+              <>
+                {filteredResults.length > 0 ? (
+                  filteredResults.map((item) => {
+                    if (item.type === 'agent') {
+                      return renderAgentRow(item)
+                    } else {
+                      return renderContactRow(item.contact)
+                    }
+                  })
+                ) : (
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(0, 0, 0, 0.4)' }}>
+                    No results found
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* A-Z index overlay - only show when not searching and we have contacts */}
+          {filteredResults === null && rankedContacts.length > 0 && allLetters.length > 0 && (
+            <div className={styles.alphabetIndexOverlay}>
+              <AlphabetIndex
+                letters={allLetters}
+                onSelectLetter={(letter) => {
+                  // Find the section with this letter and scroll to it
+                  const targetSection = sectionRefs.current[letter]
+                  if (targetSection && scrollContainerRef.current) {
+                    const containerRect = scrollContainerRef.current.getBoundingClientRect()
+                    const targetRect = targetSection.getBoundingClientRect()
+                    const scrollTop = scrollContainerRef.current.scrollTop
+                    const offset = targetRect.top - containerRect.top + scrollTop - 8
+                    scrollContainerRef.current.scrollTo({ top: Math.max(0, offset), behavior: 'auto' })
+                  }
+                }}
+                availableLetters={availableLettersSet}
+              />
+            </div>
+          )}
         </div>
       </div>
     </ActionSheet>
