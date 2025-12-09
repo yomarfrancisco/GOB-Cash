@@ -73,6 +73,7 @@ export default function HomeStreamSection() {
 
   return (
     <section className={`sectionShell ${styles.mapSectionShell} ${styles.streamSectionSpacing}`} aria-labelledby="stream-title">
+      <div className={styles.streamSectionSpacer} />
       <div className={styles.mapHeader}>
         <div className={styles.headerRow}>
           <h2 id="stream-title" className={styles.mapHeaderTitle}>

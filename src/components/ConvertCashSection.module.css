@@ -302,3 +302,8 @@
   margin-top: 40px;
 }
 
+/* Internal spacer for Section 2 → Section 3 separation */
+.streamSectionSpacer {
+  height: 32px;
+}
+
