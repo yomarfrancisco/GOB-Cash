@@ -156,17 +156,20 @@
   z-index: 15; /* Ensure button is above gradient and A-Z index */
 }
 
-/* Fixed A-Z index overlay - always visible, positioned relative to sheetContainer */
+/* Fixed A-Z index overlay - compact, centered, always visible */
 .alphabetIndexOverlay {
   position: absolute;
   right: 8px;
-  top: 0;
-  bottom: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 50%;
+  max-height: min(320px, calc(100% - 200px)); /* Cap height: 320px max or calc to ensure space for header + footer */
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
+  align-items: center;
   pointer-events: none; /* Container ignores events */
   z-index: 12; /* Above list (z:1), below button (z:15) and close button */
-  padding-bottom: 120px; /* Stop above footer to avoid blocking button */
+  padding: 4px 4px 4px 8px;
 }
 

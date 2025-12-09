@@ -1,29 +1,30 @@
-/* A–Z index strip */
+/* A–Z index strip - compact, centered */
 .alphabetIndex {
   position: relative; /* Changed from absolute - parent handles positioning */
   width: 20px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-between; /* Distribute letters evenly */
   align-items: center;
-  font-size: 11px;
+  font-size: 10px; /* Smaller font for compact look */
   font-weight: 500;
   color: rgba(0, 0, 0, 0.4);
   user-select: none;
   touch-action: none; /* required for pointer events on mobile */
   pointer-events: auto; /* Letters receive taps */
-  padding: 12px 0;
+  height: 100%; /* Fill parent container */
 }
 
 .alphabetIndexLetter {
-  padding: 1.5px 0;
-  min-height: 26px; /* Ensure touch target is large enough */
+  padding: 1px 0; /* Minimal vertical padding */
+  min-height: 18px; /* Smaller touch target but still tappable */
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: color 0.15s ease, font-weight 0.15s ease;
   width: 100%;
+  line-height: 1.1; /* Tight line height for compact spacing */
 }
 
 .alphabetIndexLetter:hover {
