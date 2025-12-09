@@ -1,0 +1,37 @@
+/* Wrapper for list + index */
+.contactsListWrapper {
+  position: relative;
+  margin-top: 24px; /* Match existing contactsList margin-top */
+  /* No padding-right here - index is positioned absolutely relative to scrollableContent */
+}
+
+/* Content (scrolls within parent scrollableContent) */
+.contactsListContent {
+  /* No overflow here - parent handles scrolling */
+  width: 100%;
+}
+
+/* Section headers */
+.contactsSectionHeader {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.5);
+  margin: 16px 0 8px;
+  padding: 0;
+}
+
+.contactsLetterHeader {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.4);
+  margin: 8px 0 4px;
+  padding: 0;
+}
+
+/* Divider between Suggested and All contacts */
+.contactsSectionDivider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  margin: 12px 0;
+}
+

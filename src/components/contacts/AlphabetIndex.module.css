@@ -1,0 +1,32 @@
+/* A–Z index strip */
+.alphabetIndex {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  bottom: 0;
+  width: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.4);
+  user-select: none;
+  touch-action: none; /* required for pointer events on mobile */
+  z-index: 10;
+  pointer-events: auto;
+  padding: 16px 0;
+  /* Position relative to scrollableContent (which has padding: 0 24px) */
+  /* So right: 8px means 8px from the right edge of scrollableContent */
+}
+
+.alphabetIndexLetter {
+  padding: 2px 0;
+  cursor: pointer;
+  transition: color 0.1s ease;
+}
+
+.alphabetIndexLetter:hover {
+  color: rgba(0, 0, 0, 0.6);
+}
+

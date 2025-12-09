@@ -8,11 +8,14 @@ import { usePaymentDetailsSheet, type PaymentDetailsMode } from '@/store/usePaym
 import { normalizeRecipientInput, validateRecipientInput } from '@/lib/recipientValidation'
 import { useContactsStore } from '@/store/contacts'
 import { getRankedContacts, type RankedContact } from '@/lib/contacts/rankContacts'
+import { groupByFirstLetter } from '@/lib/contacts/contactGrouping'
+import { ContactListWithIndex } from './contacts/ContactListWithIndex'
 import '@/styles/send-details-sheet.css'
 import styles from './PaymentDetailsSheet.module.css'
 
 const RECIPIENT_PLACEHOLDER = 'Username or WhatsApp number'
 const MAX_PAYMENT_SUGGESTIONS = 300
+const MAX_SUGGESTED = 25
 
 type PaymentContact = {
   id: string
@@ -57,13 +60,33 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     () => getRankedContacts(contacts || [], MAX_PAYMENT_SUGGESTIONS),
     [contacts]
   )
-  
-  // Use ranked contacts if available, otherwise fall back to hardcoded contacts
-  const suggestions: Array<RankedContact | PaymentContact> = useMemo(() => {
-    if (rankedContacts.length > 0) {
-      return rankedContacts
+
+  // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
+  const { suggested, sections } = useMemo(() => {
+    if (rankedContacts.length === 0) {
+      return { suggested: [], sections: [] }
     }
-    return FALLBACK_CONTACTS
+
+    // 1) Suggested slice (keep current order)
+    const suggested = rankedContacts.slice(0, MAX_SUGGESTED)
+
+    // 2) All contacts for the alphabetical list
+    //    - Start from ranked
+    //    - Remove suggested (no duplication)
+    //    - Sort alphabetically by displayName / handle
+    const suggestedIds = new Set(suggested.map((c) => c.id))
+    const allAlphabetical = rankedContacts
+      .filter((c) => !suggestedIds.has(c.id))
+      .sort((a, b) => {
+        const aName = (a.name || a.handle || a.email || '').toLowerCase()
+        const bName = (b.name || b.handle || b.email || '').toLowerCase()
+        return aName.localeCompare(bName)
+      })
+
+    // 3) Group into sections by first letter
+    const sections = groupByFirstLetter(allAlphabetical)
+
+    return { suggested, sections }
   }, [rankedContacts])
   
   // Debug logging for ranked contacts
@@ -72,11 +95,13 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
       console.log(
         '[PaymentDetailsSheet] rankedContacts:',
         contacts.length,
-        'shown:',
-        rankedContacts.length
+        'suggested:',
+        suggested.length,
+        'sections:',
+        sections.length
       )
     }
-  }, [contacts, rankedContacts.length])
+  }, [contacts, suggested.length, sections.length])
 
   // Initialize when sheet opens
   useEffect(() => {
@@ -86,19 +111,8 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     setRecipientError('')
     setSelectedContactId(null)
     
-    // Focus input field to open keyboard immediately on mobile
-    const focusTimer = setTimeout(() => {
-      if (recipientRef.current) {
-        recipientRef.current.focus()
-        if (typeof window !== 'undefined' && 'ontouchstart' in window) {
-          setTimeout(() => {
-            recipientRef.current?.click()
-          }, 50)
-        }
-      }
-    }, 150)
-    
-    return () => clearTimeout(focusTimer)
+    // Removed auto-focus to prevent iOS Safari layout gap on first render
+    // Keyboard will open only when user taps an input field
   }, [isOpen])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,7 +123,8 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     
     // Clear selected contact if user modifies the input away from a known contact
     if (selectedContactId) {
-      const selectedContact = suggestions.find(c => c.id === selectedContactId)
+      const allContacts = [...suggested, ...sections.flatMap((s) => s.contacts)]
+      const selectedContact = allContacts.find((c) => c.id === selectedContactId)
       if (selectedContact) {
         const contactHandle = selectedContact.handle
         if (value !== contactHandle) {
@@ -119,7 +134,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     }
   }
 
-  const handleContactClick = (contact: RankedContact | PaymentContact) => {
+  const handleContactClick = (contact: RankedContact) => {
     const handle = contact.handle
     setRecipient(handle)
     setSelectedContactId(contact.id)
@@ -205,50 +220,54 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
               </label>
             </div>
 
-            {/* Recent contacts list */}
-            <div className={styles.contactsList}>
-              {suggestions.map((contact) => {
-                const isSelected = selectedContactId === contact.id
-                const handle = contact.handle
-                const subtitle = contact.subtitle
-                const avatarUrl = 'photoUrl' in contact && contact.photoUrl
-                  ? contact.photoUrl
-                  : 'avatarSrc' in contact
-                    ? contact.avatarSrc
-                    : '/assets/avatar-profile.png'
-                
-                return (
-                  <button
-                    key={contact.id}
-                    type="button"
-                    className={`${styles.contactRow} ${isSelected ? styles.contactRowSelected : ''}`}
-                    onClick={() => handleContactClick(contact)}
-                  >
-                    <div className={styles.contactRowLeft}>
-                      <div className={styles.avatarWrapper}>
-                        <Image
-                          src={avatarUrl}
-                          alt={handle}
-                          width={48}
-                          height={48}
-                          className={styles.avatar}
-                          unoptimized
-                        />
+            {/* Contacts list with A-Z index */}
+            {rankedContacts.length > 0 ? (
+              <ContactListWithIndex
+                suggested={suggested}
+                sections={sections}
+                selectedContactId={selectedContactId}
+                onSelectContact={handleContactClick}
+              />
+            ) : (
+              /* Fallback to hardcoded contacts if no Google contacts */
+              <div className={styles.contactsList}>
+                {FALLBACK_CONTACTS.map((contact) => {
+                  const isSelected = selectedContactId === contact.id
+                  return (
+                    <button
+                      key={contact.id}
+                      type="button"
+                      className={`${styles.contactRow} ${isSelected ? styles.contactRowSelected : ''}`}
+                      onClick={() => {
+                        setRecipient(contact.handle)
+                        setSelectedContactId(contact.id)
+                        setRecipientError('')
+                      }}
+                    >
+                      <div className={styles.contactRowLeft}>
+                        <div className={styles.avatarWrapper}>
+                          <Image
+                            src={contact.avatarSrc}
+                            alt={contact.handle}
+                            width={48}
+                            height={48}
+                            className={styles.avatar}
+                            unoptimized
+                          />
+                        </div>
+                        <div className={styles.contactTextBlock}>
+                          <div className={styles.contactHandle}>{contact.handle}</div>
+                          <div className={styles.contactSubtitle}>{contact.subtitle}</div>
+                        </div>
                       </div>
-                      <div className={styles.contactTextBlock}>
-                        <div className={styles.contactHandle}>{handle}</div>
-                        {subtitle && (
-                          <div className={styles.contactSubtitle}>{subtitle}</div>
-                        )}
-                      </div>
-                    </div>
-                    {isSelected && (
-                      <Check size={18} strokeWidth={2.5} className={styles.checkIcon} />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
+                      {isSelected && (
+                        <Check size={18} strokeWidth={2.5} className={styles.checkIcon} />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Fixed bottom footer with button */}
