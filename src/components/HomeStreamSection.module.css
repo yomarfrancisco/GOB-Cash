@@ -1,0 +1,297 @@
+/* Stream section styles - matches map section container sizing */
+
+/* Stream feed wrapper - spacing between section subtitle and first item */
+.streamFeedWrapper {
+  margin-top: 21px; /* Add spacing above feed */
+}
+
+/* Stream item wrapper - spacing between items */
+.streamItem {
+  width: 100%;
+  margin-top: 32px;
+}
+
+.streamItem:first-child {
+  margin-top: 0;
+}
+
+/* Content header - avatar + title + subtitle (outside card) */
+.streamHeader {
+  width: 100%;
+  max-width: 398px;
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.streamHeaderAvatar {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+
+.streamHeaderAvatarImg {
+  object-fit: cover;
+}
+
+.streamHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.streamHeaderTitle {
+  color: #000;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: normal;
+  font-feature-settings: 'liga' off, 'clig' off;
+}
+
+.streamHeaderSubtitle {
+  color: #121212;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 300;
+  line-height: normal;
+  letter-spacing: -0.091px;
+  font-feature-settings: 'liga' off, 'clig' off;
+}
+
+/* Stream card container - matches map container sizing */
+.streamCardContainer {
+  width: 100%;
+  max-width: 398px;
+  margin: 0 auto 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Stream card - matches map card styling */
+.streamCard {
+  position: relative;
+  width: 100%;
+  border-radius: 24px;
+  background: #efece7;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  margin: 0;
+  height: 512px; /* Fixed height to match map card */
+  overflow: hidden; /* Clip poster to rounded corners */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+@media (min-width: 390px) {
+  .streamCard {
+    height: 560px; /* Slightly taller on larger phones - matches map card */
+  }
+}
+
+/* Poster image - fills card */
+.streamCardPoster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+}
+
+.streamCardContent {
+  position: relative;
+  z-index: 2; /* Above poster */
+  text-align: center;
+  max-width: 280px;
+  padding: 40px 24px;
+}
+
+.streamCardTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 8px;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+}
+
+.streamCardSubtitle {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: 400;
+  line-height: 1.4;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+}
+
+/* Stream footer - matches map footer pattern */
+.streamFooter {
+  width: 100%;
+  max-width: 398px;
+  margin: 8px auto 0;
+  padding: 8px 16px 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #000;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+.streamFooter:active {
+  opacity: 0.7;
+}
+
+.streamFooterLeft {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.streamFooterAvatars {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.streamFooterAvatarContainer {
+  width: 31px;
+  height: 31px;
+  border-radius: 9999px;
+  border: 2.5px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -7px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.streamFooterAvatarContainer:first-child {
+  margin-left: 0;
+}
+
+.streamFooterAvatar {
+  width: 31px;
+  height: 31px;
+  border-radius: 9999px;
+  object-fit: cover;
+}
+
+.streamFooterText {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0px;
+  border-radius: 4px;
+  background: transparent;
+}
+
+.streamFooterLabel {
+  font-weight: 300;
+  font-size: 13px;
+  color: #000;
+  font-family: 'Acumin VF', system-ui, -apple-system, sans-serif;
+}
+
+.streamFooterRight {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+
+.streamFooterIcon {
+  width: 27px;
+  height: 27px;
+  color: #000;
+  flex-shrink: 0;
+}
+
+/* Tag row overlay - positioned at top-left of poster */
+.tagRowOverlay {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  display: inline-flex;
+  padding: 16px 16px 0 0;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none; /* ensures the poster is still fully tappable */
+  z-index: 10; /* Above poster image */
+}
+
+/* Base pill styling – Figma pill */
+.tagPill {
+  display: flex;
+  height: 24px;
+  padding: 8px 12px;
+  align-items: center;
+  gap: 2px;
+  border-radius: 50px;
+  color: #fff;
+  font-family: "Acumin VF", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: normal;
+  white-space: nowrap;
+}
+
+/* Icon inside pill */
+.tagIcon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* Label text */
+.tagLabel {
+  font-family: "Acumin VF", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+/* Industry tag – neutral gray pill */
+.industryTag {
+  background: rgba(61, 61, 61, 0.75);
+}
+
+/* Show-up tag – gray gradient blend (per Figma) */
+.showUpTag {
+  border-radius: 50px;
+  background:
+    linear-gradient(0deg, #3D3D3D 0%, #3D3D3D 100%),
+    rgba(127, 127, 127, 0.5);
+  background-blend-mode: overlay, luminosity;
+}
+
+/* Commission tag – greenish gradient blend (per Figma) */
+.commissionTag {
+  border-radius: 47px;
+  background:
+    linear-gradient(0deg, #3D3D3D 0%, #3D3D3D 100%),
+    rgba(52, 199, 89, 0.5);
+  background-blend-mode: overlay, normal;
+}
+

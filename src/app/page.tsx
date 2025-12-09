@@ -28,6 +28,7 @@ import InternalTransferSheet from '@/components/InternalTransferSheet'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import { useNotificationStore } from '@/store/notifications'
+import HomeStreamSection from '@/components/HomeStreamSection'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
@@ -659,6 +660,7 @@ function HomeContent() {
                   })
                 }} 
               />
+              <HomeStreamSection />
 
             </div>
           </div>
