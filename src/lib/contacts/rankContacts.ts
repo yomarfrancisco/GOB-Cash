@@ -1,3 +1,5 @@
+import { getContactTags, type RankedContactMinimal } from './contactTags'
+
 export type BasicContact = {
   id: string
   name?: string
@@ -295,6 +297,38 @@ export function getRankedContacts(
     'max:',
     max
   )
+
+  // Tag engine logging - sample first 30 contacts
+  try {
+    const sample = rankedContacts.slice(0, 30)
+    const taggedSample = sample.map((c) => {
+      const tags = getContactTags({
+        handle: c.handle,
+        name: c.name,
+        phoneNumber: c.phone, // Map phone to phoneNumber
+        email: c.email,
+        // Map source to sourceType - 'connections'/'otherContacts' are Google contacts
+        sourceType: c.source === 'connections' || c.source === 'otherContacts' ? 'google_contact' : c.source || null,
+      })
+
+      return {
+        handle: c.handle ?? c.name ?? 'unknown',
+        phone: c.phone ?? null,
+        tags,
+      }
+    })
+
+    // Single structured log to avoid spamming
+    // eslint-disable-next-line no-console
+    console.log('[ContactTags] sample', {
+      count: rankedContacts.length,
+      sampleSize: taggedSample.length,
+      contacts: taggedSample,
+    })
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[ContactTags] tagging error', err)
+  }
 
   return rankedContacts
 }
