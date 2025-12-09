@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import { Check } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import { usePaymentDetailsSheet, type PaymentDetailsMode } from '@/store/usePaymentDetailsSheet'
 import { normalizeRecipientInput, validateRecipientInput } from '@/lib/recipientValidation'
+import { useContactsStore } from '@/store/contacts'
+import { getRankedContacts, type RankedContact } from '@/lib/contacts/rankContacts'
 import '@/styles/send-details-sheet.css'
 import styles from './PaymentDetailsSheet.module.css'
 
@@ -18,7 +20,7 @@ type PaymentContact = {
   avatarSrc: string
 }
 
-const RECENT_CONTACTS: PaymentContact[] = [
+const FALLBACK_CONTACTS: PaymentContact[] = [
   {
     id: 'ama',
     handle: '$ama',
@@ -47,6 +49,28 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   const [recipientError, setRecipientError] = useState('')
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
   const recipientRef = useRef<HTMLInputElement>(null)
+  
+  // Get contacts from store and compute ranked list
+  const contacts = useContactsStore((state) => state.contacts)
+  const rankedContacts = useMemo(
+    () => getRankedContacts(contacts || [], 25),
+    [contacts]
+  )
+  
+  // Use ranked contacts if available, otherwise fall back to hardcoded contacts
+  const suggestions: Array<RankedContact | PaymentContact> = useMemo(() => {
+    if (rankedContacts.length > 0) {
+      return rankedContacts
+    }
+    return FALLBACK_CONTACTS
+  }, [rankedContacts])
+  
+  // Debug logging for ranked contacts
+  useEffect(() => {
+    if (rankedContacts.length > 0) {
+      console.log('[PaymentDetailsSheet] rankedContacts (top 25):', rankedContacts)
+    }
+  }, [rankedContacts])
 
   // Initialize when sheet opens
   useEffect(() => {
@@ -79,22 +103,26 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     
     // Clear selected contact if user modifies the input away from a known contact
     if (selectedContactId) {
-      const selectedContact = RECENT_CONTACTS.find(c => c.id === selectedContactId)
-      if (selectedContact && value !== selectedContact.handle) {
-        setSelectedContactId(null)
+      const selectedContact = suggestions.find(c => c.id === selectedContactId)
+      if (selectedContact) {
+        const contactHandle = selectedContact.handle
+        if (value !== contactHandle) {
+          setSelectedContactId(null)
+        }
       }
     }
   }
 
-  const handleContactClick = (contact: PaymentContact) => {
-    setRecipient(contact.handle)
+  const handleContactClick = (contact: RankedContact | PaymentContact) => {
+    const handle = contact.handle
+    setRecipient(handle)
     setSelectedContactId(contact.id)
     setRecipientError('')
     
     // Move caret to end of input
     if (recipientRef.current) {
       recipientRef.current.focus()
-      const length = contact.handle.length
+      const length = handle.length
       recipientRef.current.setSelectionRange(length, length)
     }
   }
@@ -173,8 +201,16 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
 
             {/* Recent contacts list */}
             <div className={styles.contactsList}>
-              {RECENT_CONTACTS.map((contact) => {
+              {suggestions.map((contact) => {
                 const isSelected = selectedContactId === contact.id
+                const handle = contact.handle
+                const subtitle = contact.subtitle
+                const avatarUrl = 'photoUrl' in contact && contact.photoUrl
+                  ? contact.photoUrl
+                  : 'avatarSrc' in contact
+                    ? contact.avatarSrc
+                    : '/assets/avatar-profile.png'
+                
                 return (
                   <button
                     key={contact.id}
@@ -184,18 +220,20 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
                   >
                     <div className={styles.contactRowLeft}>
                       <div className={styles.avatarWrapper}>
-                      <Image
-                        src={contact.avatarSrc}
-                        alt={contact.handle}
-                        width={48}
-                        height={48}
-                        className={styles.avatar}
-                        unoptimized
-                      />
+                        <Image
+                          src={avatarUrl}
+                          alt={handle}
+                          width={48}
+                          height={48}
+                          className={styles.avatar}
+                          unoptimized
+                        />
                       </div>
                       <div className={styles.contactTextBlock}>
-                        <div className={styles.contactHandle}>{contact.handle}</div>
-                        <div className={styles.contactSubtitle}>{contact.subtitle}</div>
+                        <div className={styles.contactHandle}>{handle}</div>
+                        {subtitle && (
+                          <div className={styles.contactSubtitle}>{subtitle}</div>
+                        )}
                       </div>
                     </div>
                     {isSelected && (

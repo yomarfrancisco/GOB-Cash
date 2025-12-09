@@ -9,6 +9,7 @@ export type GoogleContact = {
   email?: string
   phone?: string
   photoUrl?: string
+  source?: 'connections' | 'otherContacts' | string
 }
 
 interface ContactsState {

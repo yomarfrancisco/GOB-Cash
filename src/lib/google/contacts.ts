@@ -110,8 +110,8 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
     console.log('[Contacts] Merged & deduped contacts', merged.length, merged)
     console.groupEnd()
 
-    // Strip the internal `source` before returning (store expects plain GoogleContact)
-    const result: GoogleContact[] = merged.map(({ source, ...rest }) => rest)
+    // Preserve source field in returned contacts (store now supports it)
+    const result: GoogleContact[] = merged
 
     return result
   } catch (error) {
