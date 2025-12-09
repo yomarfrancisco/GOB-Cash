@@ -125,43 +125,57 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               {/* Dynamic avatar: Google avatar or fallback with initial */}
               {isAuthed && profile.avatarUrl ? (
                 <div className="nav-avatar-container">
-                  <Image 
-                    src={profile.avatarUrl}
-                    alt="User avatar"
-                    fill
-                    className="nav-avatar-image"
-                    sizes="30px"
-                  />
+                  <div className="nav-avatar-image-wrapper">
+                    <Image 
+                      src={profile.avatarUrl}
+                      alt="User avatar"
+                      fill
+                      className="nav-avatar-image"
+                      sizes="28px"
+                    />
+                  </div>
+                  {/* Red notification dot - positioned relative to avatar container */}
+                  {hasUnreadNotification && (
+                    <span className="nav-notification-dot" aria-label="Unread messages" />
+                  )}
                 </div>
               ) : isAuthed && !profile.avatarUrl ? (
                 <div className="nav-avatar-container nav-avatar-fallback">
-                  <Image 
-                    src="/assets/avatar-profile.png"
-                    alt="Default avatar"
-                    fill
-                    className="nav-avatar-image nav-avatar-fallback-image"
-                    sizes="30px"
-                  />
-                  {profile.fullName && (
-                    <span className="nav-avatar-initial">
-                      {profile.fullName.charAt(0).toUpperCase()}
-                    </span>
+                  <div className="nav-avatar-image-wrapper">
+                    <Image 
+                      src="/assets/avatar-profile.png"
+                      alt="Default avatar"
+                      fill
+                      className="nav-avatar-image nav-avatar-fallback-image"
+                      sizes="28px"
+                    />
+                    {profile.fullName && (
+                      <span className="nav-avatar-initial">
+                        {profile.fullName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  {/* Red notification dot - positioned relative to avatar container */}
+                  {hasUnreadNotification && (
+                    <span className="nav-notification-dot" aria-label="Unread messages" />
                   )}
                 </div>
               ) : (
-                <Image 
-                  src={isProfile ? "/assets/nav/user_filled.svg" : "/assets/nav/user-outlined.svg"}
-                  alt="Profile" 
-                  className={`nav-icon ${isProfile ? 'nav-icon-active' : 'nav-icon-dim'}`} 
-                  width={28} 
-                  height={28} 
-                />
+                <>
+                  <Image 
+                    src={isProfile ? "/assets/nav/user_filled.svg" : "/assets/nav/user-outlined.svg"}
+                    alt="Profile" 
+                    className={`nav-icon ${isProfile ? 'nav-icon-active' : 'nav-icon-dim'}`} 
+                    width={28} 
+                    height={28} 
+                  />
+                  {/* Red notification dot - positioned relative to nav-item for static icon */}
+                  {hasUnreadNotification && (
+                    <span className="nav-notification-dot" aria-label="Unread messages" />
+                  )}
+                </>
               )}
             </Link>
-            {/* Red notification dot - positioned relative to nav-item */}
-            {hasUnreadNotification && (
-              <span className="nav-notification-dot" aria-label="Unread messages" />
-            )}
           </div>
           {/* Search icon - far right (icon only, no label) */}
           <div className="nav-item">

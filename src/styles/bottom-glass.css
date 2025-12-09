@@ -66,12 +66,20 @@
 /* Bottom nav profile avatar container */
 .nav-avatar-container {
   position: relative;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  overflow: hidden;
+  overflow: visible; /* Allow notification dot to be visible outside */
   border: 1px solid rgba(255, 255, 255, 0.25);
   flex-shrink: 0;
+}
+
+.nav-avatar-image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
 }
 
 .nav-avatar-image {
@@ -93,11 +101,25 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #000000;
   z-index: 1;
   pointer-events: none;
   line-height: 1;
+}
+
+/* Notification dot positioned on avatar container */
+.nav-avatar-container .nav-notification-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background-color: #FF3B30;
+  border: 2px solid white;
+  z-index: 20;
+  pointer-events: none;
 }
 
