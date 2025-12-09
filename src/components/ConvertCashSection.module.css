@@ -298,7 +298,15 @@
 }
 
 /* Stream section spacing - matches spacing between card and map sections */
+/* 
+ * Spacing calculation:
+ * - mapContainer bottom margin: 24px
+ * - BranchManagerFooter top margin: 8px
+ * - Total before HomeStreamSection: 32px
+ * - Desired total gap (matching Section 1->2): 4px
+ * - So HomeStreamSection needs: 4px - 32px = -28px to compensate
+ */
 .streamSectionSpacing {
-  margin-top: 4px !important; /* Override mapSectionShell margin to match Section (1) -> (2) spacing */
+  margin-top: -28px !important; /* Compensate for mapContainer (24px) + BranchManagerFooter (8px) to achieve 4px total gap */
 }
 
