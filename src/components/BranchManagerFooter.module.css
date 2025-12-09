@@ -2,7 +2,7 @@
   width: 100%;
   padding: 8px 16px 0;
   margin-top: 8px;
-  margin-bottom: 0; /* Spacing handled by HomeStreamSection top margin */
+  margin-bottom: 0; /* Gap after footer is handled by HomeStreamSection margin-top */
   display: flex;
   flex-direction: row;
   align-items: center;
