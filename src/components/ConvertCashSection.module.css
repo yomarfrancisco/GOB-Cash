@@ -297,3 +297,8 @@
   line-height: 1.4;
 }
 
+/* Stream section spacing - matches spacing between card and map sections */
+.streamSectionSpacing {
+  margin-top: 4px !important; /* Override mapSectionShell margin to match Section (1) -> (2) spacing */
+}
+
