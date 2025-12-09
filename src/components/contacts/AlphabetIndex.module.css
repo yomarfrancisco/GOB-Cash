@@ -6,7 +6,7 @@
   flex-direction: column;
   justify-content: space-between; /* Distribute letters evenly */
   align-items: center;
-  font-size: 9px; /* Reduced from 10px for 15-20% more compact */
+  font-size: 8px; /* Reduced from 9px (15% more compact) */
   font-weight: 500;
   color: rgba(0, 0, 0, 0.4);
   user-select: none;
@@ -16,15 +16,15 @@
 }
 
 .alphabetIndexLetter {
-  padding: 0.8px 0; /* Reduced from 1px (20% reduction) */
-  min-height: 15px; /* Reduced from 18px for more compact look */
+  padding: 0.7px 0; /* Reduced from 0.8px (15% reduction) */
+  min-height: 13px; /* Reduced from 15px (15% reduction) */
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: color 0.15s ease, font-weight 0.15s ease;
   width: 100%;
-  line-height: 1.0; /* Reduced from 1.1 to 1.0 for tighter spacing */
+  line-height: 0.85; /* Reduced from 1.0 (15% reduction) */
 }
 
 .alphabetIndexLetter:hover {
@@ -34,7 +34,7 @@
 .alphabetIndexLetterActive {
   color: rgba(0, 0, 0, 0.9);
   font-weight: 700;
-  font-size: 10px; /* Reduced from 12px to match compact scale */
+  font-size: 9px; /* Reduced from 10px (15% more compact) */
 }
 
 .alphabetIndexLetterUnavailable {
