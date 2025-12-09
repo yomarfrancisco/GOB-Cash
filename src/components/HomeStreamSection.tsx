@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { CirclePlus } from 'lucide-react'
+import { CirclePlus, Tag, Clock3, Percent } from 'lucide-react'
 import styles from './HomeStreamSection.module.css'
 import sharedStyles from './ConvertCashSection.module.css'
 
@@ -18,6 +18,9 @@ type StreamItemData = {
   footerCount: number
   footerLabel: string
   footerIconSrc?: string
+  industryTag: string
+  showUpTag: string
+  commissionTag: string
 }
 
 const STREAM_ITEMS: StreamItemData[] = [
@@ -38,6 +41,9 @@ const STREAM_ITEMS: StreamItemData[] = [
     footerCount: 4,
     footerLabel: 'agents nearby',
     footerIconSrc: '/assets/Social=WhatsApp,Style=Original.svg',
+    industryTag: 'coffee',
+    showUpTag: 'R70/hr show-up',
+    commissionTag: '12% commission',
   },
   {
     id: 'edgars',
@@ -55,6 +61,9 @@ const STREAM_ITEMS: StreamItemData[] = [
     footerCount: 3,
     footerLabel: 'agents nearby',
     footerIconSrc: '/assets/Social=WhatsApp,Style=Original.svg',
+    industryTag: 'beauty',
+    showUpTag: 'R85/hr show-up',
+    commissionTag: '15% commission',
   },
   {
     id: 'sportscene',
@@ -73,6 +82,9 @@ const STREAM_ITEMS: StreamItemData[] = [
     footerCount: 5,
     footerLabel: 'agents nearby',
     footerIconSrc: '/assets/Social=WhatsApp,Style=Original.svg',
+    industryTag: 'fashion',
+    showUpTag: 'R90/hr show-up',
+    commissionTag: '18% commission',
   },
   {
     id: 'opera',
@@ -90,6 +102,9 @@ const STREAM_ITEMS: StreamItemData[] = [
     footerCount: 2,
     footerLabel: 'agents nearby',
     footerIconSrc: '/assets/Social=WhatsApp,Style=Original.svg',
+    industryTag: 'delivery',
+    showUpTag: 'R75/hr show-up',
+    commissionTag: '10% commission',
   },
 ]
 
@@ -120,6 +135,21 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
       {/* 2) Content card - beige box matching map card dimensions */}
       <div className={styles.streamCardContainer}>
         <div className={styles.streamCard}>
+          {/* Tag row overlay - positioned at top-left */}
+          <div className={styles.tagRowOverlay}>
+            <div className={`${styles.tagPill} ${styles.industryTag}`}>
+              <Tag className={styles.tagIcon} />
+              <span className={styles.tagLabel}>{item.industryTag}</span>
+            </div>
+            <div className={`${styles.tagPill} ${styles.showUpTag}`}>
+              <Clock3 className={styles.tagIcon} />
+              <span className={styles.tagLabel}>{item.showUpTag}</span>
+            </div>
+            <div className={`${styles.tagPill} ${styles.commissionTag}`}>
+              <Percent className={styles.tagIcon} />
+              <span className={styles.tagLabel}>{item.commissionTag}</span>
+            </div>
+          </div>
           {/* Poster image - fills card with rounded corners */}
           <Image
             src={item.posterSrc}

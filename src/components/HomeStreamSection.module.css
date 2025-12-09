@@ -227,3 +227,71 @@
   flex-shrink: 0;
 }
 
+/* Tag row overlay - positioned at top-left of poster */
+.tagRowOverlay {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  display: inline-flex;
+  padding: 16px 16px 0 0;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none; /* ensures the poster is still fully tappable */
+  z-index: 10; /* Above poster image */
+}
+
+/* Base pill styling – Figma pill */
+.tagPill {
+  display: flex;
+  height: 24px;
+  padding: 8px 12px;
+  align-items: center;
+  gap: 2px;
+  border-radius: 50px;
+  color: #fff;
+  font-family: "Acumin VF", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: normal;
+  white-space: nowrap;
+}
+
+/* Icon inside pill */
+.tagIcon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* Label text */
+.tagLabel {
+  font-family: "Acumin VF", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+/* Industry tag – neutral gray pill */
+.industryTag {
+  background: rgba(61, 61, 61, 0.75);
+}
+
+/* Show-up tag – gray gradient blend (per Figma) */
+.showUpTag {
+  border-radius: 50px;
+  background:
+    linear-gradient(0deg, #3D3D3D 0%, #3D3D3D 100%),
+    rgba(127, 127, 127, 0.5);
+  background-blend-mode: overlay, luminosity;
+}
+
+/* Commission tag – greenish gradient blend (per Figma) */
+.commissionTag {
+  border-radius: 47px;
+  background:
+    linear-gradient(0deg, #3D3D3D 0%, #3D3D3D 100%),
+    rgba(52, 199, 89, 0.5);
+  background-blend-mode: overlay, normal;
+}
+
