@@ -129,7 +129,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
     const pmThread = state.threads.find((t) => t.id === PORTFOLIO_MANAGER_THREAD_ID)
     if (!pmThread) {
       set((state) => {
-        const newThreads = [
+        const newThreads: Thread[] = [
           {
             id: PORTFOLIO_MANAGER_THREAD_ID,
             title: 'Ama — Stokvel Treasurer',
@@ -137,7 +137,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
             avatarUrl: '/assets/Brics-girl-blue.png',
             unreadCount: 0,
             lastMessageAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-            kind: 'portfolio_manager',
+            kind: 'portfolio_manager' as const,
           },
           ...state.threads,
         ]
