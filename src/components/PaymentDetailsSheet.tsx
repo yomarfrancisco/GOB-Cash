@@ -55,6 +55,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
   const recipientRef = useRef<HTMLInputElement>(null)
   const contactListRef = useRef<ContactListHandle | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [alphabetLetters, setAlphabetLetters] = useState<string[]>([])
   const [availableLetters, setAvailableLetters] = useState<Set<string>>(new Set())
   
@@ -149,6 +150,14 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     if (recipientRef.current) {
       recipientRef.current.blur()
     }
+    
+    // Scroll to top to show the input field and selected handle
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      })
+    }
   }
 
   // Button is enabled when recipient is valid
@@ -191,7 +200,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
         </div>
         <div className={styles.sheetContainer}>
           {/* Scrollable main area - footer is now inside this container */}
-          <div className={styles.scrollableContent}>
+          <div ref={scrollContainerRef} className={styles.scrollableContent}>
             <div className={styles.inputSection}>
               <label className="send-details-row">
                 <span className="send-details-label">{labelText}</span>
@@ -251,6 +260,14 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
                         setRecipient(contact.handle)
                         setSelectedContactId(contact.id)
                         setRecipientError('')
+                        
+                        // Scroll to top to show the input field and selected handle
+                        if (scrollContainerRef.current) {
+                          scrollContainerRef.current.scrollTo({
+                            top: 0,
+                            behavior: 'smooth',
+                          })
+                        }
                       }}
                     >
                       <div className={styles.contactRowLeft}>
