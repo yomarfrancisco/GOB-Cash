@@ -2,7 +2,7 @@
 
 /* Stream feed wrapper - reduces gap between section subtitle and first item */
 .streamFeedWrapper {
-  margin-top: -4px; /* Tighten spacing above feed by ~5px */
+  margin-top: -2px; /* Tighten spacing above feed by ~2px */
 }
 
 /* Stream item wrapper - spacing between items */
