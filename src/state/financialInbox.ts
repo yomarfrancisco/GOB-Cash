@@ -91,18 +91,26 @@ const initialPMMessages: ChatMessage[] = [
   },
 ]
 
+// Helper: Compute hasUnreadNotification from thread state
+const recomputeHasUnread = (threads: Thread[]): boolean => {
+  return threads.some((t) => (t.unreadCount ?? 0) > 0)
+}
+
+// Initial threads
+const initialThreads: Thread[] = [
+  {
+    id: PORTFOLIO_MANAGER_THREAD_ID,
+    title: 'Ama — Stokvel Treasurer',
+    subtitle: 'Welcome! I can help you join or start a Stokvel.',
+    avatarUrl: '/assets/Brics-girl-blue.png',
+    unreadCount: 1, // Mark as unread with blue dot
+    lastMessageAt: '16:09',
+    kind: 'portfolio_manager',
+  },
+]
+
 export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => ({
-  threads: [
-    {
-      id: PORTFOLIO_MANAGER_THREAD_ID,
-      title: 'Ama — Stokvel Treasurer',
-      subtitle: 'Welcome! I can help you join or start a Stokvel.',
-      avatarUrl: '/assets/Brics-girl-blue.png',
-      unreadCount: 1, // Mark as unread with blue dot
-      lastMessageAt: '16:09',
-      kind: 'portfolio_manager',
-    },
-  ],
+  threads: initialThreads,
   messagesByThreadId: {
     [PORTFOLIO_MANAGER_THREAD_ID]: initialPMMessages,
   },
@@ -110,7 +118,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   isInboxOpen: false,
   inboxViewMode: 'inbox',
   isDemoIntro: false,
-  hasUnreadNotification: false,
+  hasUnreadNotification: recomputeHasUnread(initialThreads), // Compute from initial threads
   cashDepositScenario: null,
   cashWithdrawalScenario: null,
   scenarioType: null,
@@ -120,8 +128,8 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
     const state = get()
     const pmThread = state.threads.find((t) => t.id === PORTFOLIO_MANAGER_THREAD_ID)
     if (!pmThread) {
-      set((state) => ({
-        threads: [
+      set((state) => {
+        const newThreads = [
           {
             id: PORTFOLIO_MANAGER_THREAD_ID,
             title: 'Ama — Stokvel Treasurer',
@@ -132,8 +140,14 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
             kind: 'portfolio_manager',
           },
           ...state.threads,
-        ],
-      }))
+        ]
+        const hasUnread = recomputeHasUnread(newThreads)
+        console.log('[Inbox] hasUnreadNotification', hasUnread, 'threads with unread:', newThreads.filter((t) => (t.unreadCount ?? 0) > 0).length)
+        return {
+          threads: newThreads,
+          hasUnreadNotification: hasUnread,
+        }
+      })
     }
     if (!state.messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID]) {
       set((state) => ({
@@ -146,13 +160,23 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   },
 
   openInbox: () => {
-    set((state) => ({
-      ...state,
-      isInboxOpen: true,
-      inboxViewMode: 'inbox', // Always start with inbox view
-      hasUnreadNotification: false, // Clear notification when inbox is opened
-      // Preserve isDemoIntro - it will be controlled explicitly by callers
-    }))
+    set((state) => {
+      // When inbox is opened, mark all threads as read (set unreadCount to 0)
+      const updatedThreads = state.threads.map((t) => ({
+        ...t,
+        unreadCount: 0,
+      }))
+      const hasUnread = recomputeHasUnread(updatedThreads)
+      console.log('[Inbox] hasUnreadNotification', hasUnread, 'threads with unread:', updatedThreads.filter((t) => (t.unreadCount ?? 0) > 0).length)
+      return {
+        ...state,
+        isInboxOpen: true,
+        inboxViewMode: 'inbox', // Always start with inbox view
+        threads: updatedThreads,
+        hasUnreadNotification: hasUnread, // Recompute from updated threads
+        // Preserve isDemoIntro - it will be controlled explicitly by callers
+      }
+    })
   },
 
   closeInbox: () => {
@@ -165,9 +189,19 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   },
 
   openChatSheet: (threadId: ThreadId) => {
-    set({
-      activeThreadId: threadId,
-      inboxViewMode: 'chat', // Switch to chat view, keep sheet open
+    set((state) => {
+      // Mark the opened thread as read (set unreadCount to 0)
+      const updatedThreads = state.threads.map((t) =>
+        t.id === threadId ? { ...t, unreadCount: 0 } : t
+      )
+      const hasUnread = recomputeHasUnread(updatedThreads)
+      console.log('[Inbox] hasUnreadNotification', hasUnread, 'threads with unread:', updatedThreads.filter((t) => (t.unreadCount ?? 0) > 0).length)
+      return {
+        activeThreadId: threadId,
+        inboxViewMode: 'chat', // Switch to chat view, keep sheet open
+        threads: updatedThreads,
+        hasUnreadNotification: hasUnread,
+      }
     })
   },
 
@@ -275,7 +309,9 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
             }
           : t
       )
-      set({ threads: updatedThreads })
+      const hasUnread = recomputeHasUnread(updatedThreads)
+      console.log('[Inbox] hasUnreadNotification', hasUnread, 'threads with unread:', updatedThreads.filter((t) => (t.unreadCount ?? 0) > 0).length)
+      set({ threads: updatedThreads, hasUnreadNotification: hasUnread })
     }
   },
 }))

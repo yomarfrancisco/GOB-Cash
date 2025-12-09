@@ -114,11 +114,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                     // After auth, user can click again to navigate
                   })
                 } else {
-                  // Clear notification when profile/inbox is opened
-                  const store = useFinancialInboxStore.getState()
-                  if (hasUnreadNotification) {
-                    store.setHasUnreadNotification(false)
-                  }
+                  // Note: hasUnreadNotification is now automatically computed from thread unreadCount
+                  // Threads are marked as read when inbox/chat is opened, not when profile link is clicked
                 }
               }}
             >
