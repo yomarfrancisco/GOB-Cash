@@ -77,11 +77,11 @@ export default function HomeStreamSection() {
       <div className={styles.mapHeader}>
         <div className={styles.headerRow}>
           <h2 id="stream-title" className={styles.mapHeaderTitle}>
-            Cash agents & deals near you
+            Become an agent
           </h2>
         </div>
         <p className={styles.mapHeaderSub}>
-          Discover active agent hubs and community streams
+          Show up and earn
         </p>
       </div>
 
