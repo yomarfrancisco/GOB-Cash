@@ -145,5 +145,13 @@
   );
   margin: 0 -24px 0 -40px; /* Match scrollableContent padding: -24px left, -40px right (for A-Z index) */
   margin-top: auto; /* Push to bottom */
+  pointer-events: none; /* Allow clicks through gradient to button */
+}
+
+/* Button container - fully opaque and clickable */
+.bottomFooter > button {
+  pointer-events: auto; /* Re-enable clicks on button */
+  position: relative;
+  z-index: 1; /* Ensure button is above gradient */
 }
 
