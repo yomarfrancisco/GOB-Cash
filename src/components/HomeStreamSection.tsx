@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { CirclePlus } from 'lucide-react'
 import styles from './HomeStreamSection.module.css'
 import sharedStyles from './ConvertCashSection.module.css'
 
@@ -25,7 +26,7 @@ const STREAM_ITEMS: StreamItemData[] = [
     avatarSrc: '/assets/Starbucks.png',
     avatarAlt: 'Starbucks',
     title: 'Starbucks',
-    subtitle: 'SADC corridor • South Africa • GMT+2',
+    subtitle: 'Johannesburg, South Africa',
     bodyTitle: 'R10k – R100k deposits',
     bodySubtitle: 'Swap cash for USDT with verified agents in your area.',
     posterSrc: '/assets/starbucks_poster.png',
@@ -43,7 +44,7 @@ const STREAM_ITEMS: StreamItemData[] = [
     avatarSrc: '/assets/Edgars.png',
     avatarAlt: 'Edgars',
     title: 'Edgars',
-    subtitle: 'SADC corridor • South Africa • GMT+2',
+    subtitle: 'Johannesburg, South Africa',
     bodyTitle: 'Cross-border cash-in / cash-out',
     bodySubtitle: 'Serve friends in UK / EU / USA with fast settlement.',
     posterSrc: '/assets/Edgars_poster.png',
@@ -60,7 +61,7 @@ const STREAM_ITEMS: StreamItemData[] = [
     avatarSrc: '/assets/Sportscene.png',
     avatarAlt: 'Sportscene',
     title: 'Sportscene',
-    subtitle: 'SADC corridor • South Africa • GMT+2',
+    subtitle: 'Johannesburg, South Africa',
     bodyTitle: 'Cash pickup & delivery',
     bodySubtitle: 'Trusted couriers for deposits and withdrawals.',
     posterSrc: '/assets/Sportscene_poster.png',
@@ -78,7 +79,7 @@ const STREAM_ITEMS: StreamItemData[] = [
     avatarSrc: '/assets/Opera.png',
     avatarAlt: 'Opera',
     title: 'Opera',
-    subtitle: 'Local corridor • Botswana • GMT+2',
+    subtitle: 'Johannesburg, South Africa',
     bodyTitle: 'Community float circle',
     bodySubtitle: 'Join a local float to serve nearby customers.',
     posterSrc: '/assets/Opera_poster.png',
@@ -147,21 +148,12 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
             ))}
           </div>
           <div className={styles.streamFooterText}>
-            <span className={styles.streamFooterCount}>{item.footerCount}</span>
-            <span className={styles.streamFooterLabel}>{item.footerLabel}</span>
+            <span className={styles.streamFooterLabel}>Become an agent</span>
           </div>
         </div>
-        {item.footerIconSrc && (
-          <div className={styles.streamFooterRight}>
-            <Image
-              src={item.footerIconSrc}
-              alt=""
-              width={27}
-              height={27}
-              className={styles.streamFooterIcon}
-            />
-          </div>
-        )}
+        <div className={styles.streamFooterRight}>
+          <CirclePlus size={27} className={styles.streamFooterIcon} />
+        </div>
       </div>
     </div>
   )
