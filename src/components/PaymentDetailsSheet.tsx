@@ -187,7 +187,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
           {/* Header structure kept for layout, but close button removed - using ActionSheet's .as-close-only */}
         </div>
         <div className={styles.sheetContainer}>
-          {/* Scrollable main area */}
+          {/* Scrollable main area - footer is now inside this container */}
           <div className={styles.scrollableContent}>
             <div className={styles.inputSection}>
               <label className="send-details-row">
@@ -268,35 +268,35 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
                 })}
               </div>
             )}
-          </div>
 
-          {/* Fixed bottom footer with button */}
-          <div className={styles.bottomFooter}>
-          <button
-            className="send-details-pay"
-            disabled={!canSubmit}
-            onClick={handleSubmit}
-            type="button"
-            style={{
-              width: '100%',
-              maxWidth: '382px',
-              height: '56px',
-              borderRadius: '56px',
-              background: canSubmit ? '#FF2D55' : '#E9E9EB',
-              color: canSubmit ? '#fff' : '#999',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '0 24px',
-              fontSize: '16px',
-              fontWeight: 500,
-              letterSpacing: '-0.32px',
-              cursor: canSubmit ? 'pointer' : 'not-allowed',
-            }}
-          >
-            {buttonText}
-          </button>
+            {/* Fixed bottom footer with button - now inside scrollableContent */}
+            <div className={styles.bottomFooter}>
+              <button
+                className="send-details-pay"
+                disabled={!canSubmit}
+                onClick={handleSubmit}
+                type="button"
+                style={{
+                  width: '100%',
+                  maxWidth: '382px',
+                  height: '56px',
+                  borderRadius: '56px',
+                  background: canSubmit ? '#FF2D55' : '#E9E9EB',
+                  color: canSubmit ? '#fff' : '#999',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '0 24px',
+                  fontSize: '16px',
+                  fontWeight: 500,
+                  letterSpacing: '-0.32px',
+                  cursor: canSubmit ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {buttonText}
+              </button>
+            </div>
           </div>
         </div>
       </div>
