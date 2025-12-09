@@ -9,7 +9,8 @@ import { normalizeRecipientInput, validateRecipientInput } from '@/lib/recipient
 import { useContactsStore } from '@/store/contacts'
 import { getRankedContacts, type RankedContact } from '@/lib/contacts/rankContacts'
 import { groupByFirstLetter } from '@/lib/contacts/contactGrouping'
-import { ContactListWithIndex } from './contacts/ContactListWithIndex'
+import { ContactListWithIndex, type ContactListHandle } from './contacts/ContactListWithIndex'
+import { AlphabetIndex } from './contacts/AlphabetIndex'
 import '@/styles/send-details-sheet.css'
 import styles from './PaymentDetailsSheet.module.css'
 
@@ -53,6 +54,9 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   const [recipientError, setRecipientError] = useState('')
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
   const recipientRef = useRef<HTMLInputElement>(null)
+  const contactListRef = useRef<ContactListHandle | null>(null)
+  const [alphabetLetters, setAlphabetLetters] = useState<string[]>([])
+  const [availableLetters, setAvailableLetters] = useState<Set<string>>(new Set())
   
   // Get contacts from store and compute ranked list
   const contacts = useContactsStore((state) => state.contacts)
@@ -135,16 +139,15 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   }
 
   const handleContactClick = (contact: RankedContact) => {
-    const handle = contact.handle
-    setRecipient(handle)
+    // Priority order: $handle, phone, email
+    const identifier = contact.handle || contact.phone || contact.email || ''
+    setRecipient(identifier)
     setSelectedContactId(contact.id)
     setRecipientError('')
     
-    // Move caret to end of input
+    // Dismiss keyboard by blurring the input
     if (recipientRef.current) {
-      recipientRef.current.focus()
-      const length = handle.length
-      recipientRef.current.setSelectionRange(length, length)
+      recipientRef.current.blur()
     }
   }
 
@@ -220,13 +223,19 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
               </label>
             </div>
 
-            {/* Contacts list with A-Z index */}
+            {/* Contacts list (A-Z index rendered separately as fixed overlay) */}
             {rankedContacts.length > 0 ? (
               <ContactListWithIndex
+                ref={contactListRef}
                 suggested={suggested}
                 sections={sections}
                 selectedContactId={selectedContactId}
                 onSelectContact={handleContactClick}
+                onHandleReady={(handle) => {
+                  contactListRef.current = handle
+                  setAlphabetLetters(handle.allLetters)
+                  setAvailableLetters(handle.availableLetters)
+                }}
               />
             ) : (
               /* Fallback to hardcoded contacts if no Google contacts */
@@ -298,6 +307,19 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
               </button>
             </div>
           </div>
+
+          {/* Fixed A-Z index overlay - always visible, positioned relative to sheetContainer */}
+          {rankedContacts.length > 0 && alphabetLetters.length > 0 && (
+            <div className={styles.alphabetIndexOverlay}>
+              <AlphabetIndex
+                letters={alphabetLetters}
+                onSelectLetter={(letter) => {
+                  contactListRef.current?.jumpToLetter(letter)
+                }}
+                availableLetters={availableLetters}
+              />
+            </div>
+          )}
         </div>
       </div>
     </ActionSheet>

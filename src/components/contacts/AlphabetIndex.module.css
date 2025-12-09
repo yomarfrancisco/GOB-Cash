@@ -1,9 +1,6 @@
 /* A–Z index strip */
 .alphabetIndex {
-  position: absolute;
-  top: 0;
-  right: 8px;
-  bottom: 0;
+  position: relative; /* Changed from absolute - parent handles positioning */
   width: 20px;
   display: flex;
   flex-direction: column;
@@ -14,8 +11,7 @@
   color: rgba(0, 0, 0, 0.4);
   user-select: none;
   touch-action: none; /* required for pointer events on mobile */
-  z-index: 10;
-  pointer-events: auto;
+  pointer-events: auto; /* Letters receive taps */
   padding: 12px 0;
 }
 

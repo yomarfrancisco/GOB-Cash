@@ -7,6 +7,7 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
+  position: relative; /* For absolute positioning of A-Z index overlay */
 }
 
 .scrollableContent {
@@ -152,6 +153,20 @@
 .bottomFooter > button {
   pointer-events: auto; /* Re-enable clicks on button */
   position: relative;
-  z-index: 1; /* Ensure button is above gradient */
+  z-index: 15; /* Ensure button is above gradient and A-Z index */
+}
+
+/* Fixed A-Z index overlay - always visible, positioned relative to sheetContainer */
+.alphabetIndexOverlay {
+  position: absolute;
+  right: 8px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* Container ignores events */
+  z-index: 12; /* Above list (z:1), below button (z:15) and close button */
+  padding-bottom: 120px; /* Stop above footer to avoid blocking button */
 }
 

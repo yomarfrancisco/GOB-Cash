@@ -1,7 +1,7 @@
 /**
  * Recipient Validation
  * Validates and normalizes recipient input for payment flows
- * Accepts either @username or WhatsApp phone number
+ * Accepts $handle, @username, email, or WhatsApp phone number
  */
 
 export function normalizeRecipientInput(raw: string): string {
@@ -9,7 +9,17 @@ export function normalizeRecipientInput(raw: string): string {
   return raw.trim()
 }
 
-function isValidHandle(value: string): boolean {
+function isValidDollarHandle(value: string): boolean {
+  if (!value.startsWith('$')) return false
+  
+  const body = value.slice(1)
+  if (!body || body.length < 2) return false
+  
+  // Allow letters, numbers, dots, underscores, hyphens
+  return /^[A-Za-z0-9._-]{2,}$/.test(body)
+}
+
+function isValidAtHandle(value: string): boolean {
   if (!value.startsWith('@')) return false
   
   const body = value.slice(1)
@@ -17,6 +27,11 @@ function isValidHandle(value: string): boolean {
   
   // Same rules as old validateHandle: letters, numbers, underscores only
   return /^[A-Za-z0-9_]+$/.test(body)
+}
+
+function isValidEmail(value: string): boolean {
+  // Simple email validation: non-whitespace chars, @, non-whitespace chars, ., non-whitespace chars
+  return /^\S+@\S+\.\S+$/.test(value)
 }
 
 function isValidPhone(value: string): boolean {
@@ -42,6 +57,6 @@ export function validateRecipientInput(value: string): boolean {
   const v = normalizeRecipientInput(value)
   if (!v) return false
   
-  return isValidHandle(v) || isValidPhone(v)
+  return isValidDollarHandle(v) || isValidAtHandle(v) || isValidEmail(v) || isValidPhone(v)
 }
 

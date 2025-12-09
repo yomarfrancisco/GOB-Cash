@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useLayoutEffect, useCallback, useMemo } from 'react'
+import { useRef, useState, useLayoutEffect, useCallback, useMemo, useEffect, useImperativeHandle, forwardRef } from 'react'
 import Image from 'next/image'
 import { Check } from 'lucide-react'
 import type { RankedContact } from '@/lib/contacts/rankContacts'
@@ -9,11 +9,18 @@ import { AlphabetIndex } from './AlphabetIndex'
 import styles from './ContactListWithIndex.module.css'
 import contactRowStyles from '../PaymentDetailsSheet.module.css'
 
+export type ContactListHandle = {
+  jumpToLetter: (letter: string) => void
+  availableLetters: Set<string>
+  allLetters: string[]
+}
+
 type ContactListWithIndexProps = {
   suggested: RankedContact[]
   sections: ContactSection[]
   onSelectContact: (c: RankedContact) => void
   selectedContactId?: string | null
+  onHandleReady?: (handle: ContactListHandle) => void // Callback to expose handle to parent
 }
 
 // Reusable contact row component
@@ -60,12 +67,13 @@ function ContactRow({
   )
 }
 
-export function ContactListWithIndex({
+export const ContactListWithIndex = forwardRef<ContactListHandle, ContactListWithIndexProps>(({
   suggested,
   sections,
   onSelectContact,
   selectedContactId,
-}: ContactListWithIndexProps) {
+  onHandleReady,
+}, ref) => {
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [sectionOffsets, setSectionOffsets] = useState<Record<string, number>>({})
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -148,6 +156,23 @@ export function ContactListWithIndex({
     return letters
   }, [])
 
+  // Expose handle to parent via ref and callback
+  useImperativeHandle(ref, () => ({
+    jumpToLetter: handleJumpToLetter,
+    availableLetters,
+    allLetters,
+  }), [handleJumpToLetter, availableLetters, allLetters])
+
+  useEffect(() => {
+    if (onHandleReady) {
+      onHandleReady({
+        jumpToLetter: handleJumpToLetter,
+        availableLetters,
+        allLetters,
+      })
+    }
+  }, [onHandleReady, handleJumpToLetter, availableLetters, allLetters])
+
   return (
     <div className={styles.contactsListWrapper}>
       {/* Content (scrolls within parent scrollableContent) */}
@@ -194,13 +219,9 @@ export function ContactListWithIndex({
         )}
       </div>
 
-      {/* A–Z index on the right - show all letters A-Z + # */}
-      <AlphabetIndex
-        letters={allLetters}
-        onSelectLetter={handleJumpToLetter}
-        availableLetters={availableLetters}
-      />
     </div>
   )
-}
+})
+
+ContactListWithIndex.displayName = 'ContactListWithIndex'
 
