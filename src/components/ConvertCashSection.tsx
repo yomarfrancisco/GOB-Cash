@@ -34,7 +34,7 @@ const SADC_ZOOM = 4.2
 
 type ConvertCashSectionProps = {
   onHelpClick?: () => void
-  onMapClick?: (e: React.MouseEvent<HTMLDivElement>) => void
+  onMapClick?: (e: React.MouseEvent<HTMLElement>) => void
 }
 
 export default function ConvertCashSection({ onHelpClick, onMapClick }: ConvertCashSectionProps) {

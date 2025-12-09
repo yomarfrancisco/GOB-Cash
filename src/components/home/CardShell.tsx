@@ -12,7 +12,7 @@ type CardShellProps = {
   children: React.ReactNode
   footerAvatars?: { src: string; alt: string }[]
   footerCtaLabel?: string
-  onFooterCtaClick?: () => void
+  onFooterCtaClick?: (e: React.MouseEvent<HTMLElement>) => void
 }
 
 const DEFAULT_AVATARS: { src: string; alt: string }[] = [

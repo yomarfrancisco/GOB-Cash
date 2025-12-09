@@ -512,7 +512,7 @@ function HomeContent() {
 
   // Homepage map tap handler - ignores GeolocateControl clicks
   const handleHomeMapClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLElement>) => {
       // If click originated from the Mapbox geolocate control, do nothing.
       const target = e.target as HTMLElement | null
       if (target && target.closest('.mapboxgl-ctrl-geolocate')) {
