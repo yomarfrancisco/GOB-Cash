@@ -2,7 +2,7 @@
 
 /* Stream feed wrapper - spacing between section subtitle and first item */
 .streamFeedWrapper {
-  margin-top: 8px; /* Add spacing above feed */
+  margin-top: 13px; /* Add spacing above feed */
 }
 
 /* Stream item wrapper - spacing between items */
