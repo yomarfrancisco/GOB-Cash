@@ -228,6 +228,19 @@ export default function SearchSheet() {
   // Render contact row (for ranked contacts)
   const renderContactRow = (contact: RankedContact) => {
     const avatarUrl = contact.photoUrl || '/assets/avatar-profile.png'
+    
+    // Get tags and generate description for this contact
+    const tags = getContactTags({
+      handle: contact.handle,
+      name: contact.name,
+      phoneNumber: contact.phone, // Map phone to phoneNumber
+      email: contact.email,
+      // Map source to sourceType - 'connections'/'otherContacts' are Google contacts
+      sourceType: contact.source === 'connections' || contact.source === 'otherContacts' ? 'google_contact' : contact.source || null,
+    })
+    
+    const subtitle = getContactDescription(tags, { isAuthenticated: isAuthed })
+    
     return (
       <button
         key={contact.id}
@@ -248,9 +261,7 @@ export default function SearchSheet() {
           </div>
           <div className={paymentStyles.contactTextBlock}>
             <div className={paymentStyles.contactHandle}>{contact.handle || contact.name || contact.email || ''}</div>
-            {contact.subtitle && (
-              <div className={paymentStyles.contactSubtitle}>{contact.subtitle}</div>
-            )}
+            <div className={paymentStyles.contactSubtitle}>{subtitle}</div>
           </div>
         </div>
       </button>
@@ -301,7 +312,7 @@ export default function SearchSheet() {
                 {/* Top ranked contacts */}
                 {suggested.length > 0 && (
                   <>
-                    {suggested.map((contact, index) => renderContactRow(contact, index))}
+                    {suggested.map(renderContactRow)}
                   </>
                 )}
 
@@ -318,7 +329,7 @@ export default function SearchSheet() {
                         }}
                       >
                         <div className={contactListStyles.contactsLetterHeader}>{section.letter}</div>
-                        {section.contacts.map((contact, index) => renderContactRow(contact, suggested.length + index))}
+                        {section.contacts.map(renderContactRow)}
                       </div>
                     ))}
                   </>
@@ -335,11 +346,11 @@ export default function SearchSheet() {
               /* Search results: flat filtered list */
               <>
                 {filteredResults.length > 0 ? (
-                  filteredResults.map((item, index) => {
+                  filteredResults.map((item) => {
                     if (item.type === 'agent') {
                       return renderAgentRow(item)
                     } else {
-                      return renderContactRow(item.contact, index)
+                      return renderContactRow(item.contact)
                     }
                   })
                 ) : (
