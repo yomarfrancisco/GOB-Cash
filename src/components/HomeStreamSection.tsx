@@ -12,6 +12,7 @@ type StreamItemData = {
   subtitle: string
   bodyTitle: string
   bodySubtitle: string
+  posterSrc: string
   footerAvatars: { src: string; alt: string }[]
   footerCount: number
   footerLabel: string
@@ -20,13 +21,14 @@ type StreamItemData = {
 
 const STREAM_ITEMS: StreamItemData[] = [
   {
-    id: 'jhb-cbd',
-    avatarSrc: '/assets/Brics-girl-blue.png',
-    avatarAlt: 'Johannesburg CBD hub',
-    title: 'Johannesburg CBD cash hub',
+    id: 'starbucks',
+    avatarSrc: '/assets/Starbucks.png',
+    avatarAlt: 'Starbucks',
+    title: 'Starbucks',
     subtitle: 'SADC corridor • South Africa • GMT+2',
     bodyTitle: 'R10k – R100k deposits',
     bodySubtitle: 'Swap cash for USDT with verified agents in your area.',
+    posterSrc: '/assets/starbucks_poster.png',
     footerAvatars: [
       { src: '/assets/avatar_agent5.png', alt: 'Agent 1' },
       { src: '/assets/avatar_agent6.png', alt: 'Agent 2' },
@@ -37,13 +39,14 @@ const STREAM_ITEMS: StreamItemData[] = [
     footerIconSrc: '/assets/Social=WhatsApp,Style=Original.svg',
   },
   {
-    id: 'cpt-hub',
-    avatarSrc: '/assets/avatar-ariel.png',
-    avatarAlt: 'Cape Town hub',
-    title: 'Cape Town international hub',
-    subtitle: 'International corridor • South Africa • GMT+2',
+    id: 'edgars',
+    avatarSrc: '/assets/Edgars.png',
+    avatarAlt: 'Edgars',
+    title: 'Edgars',
+    subtitle: 'SADC corridor • South Africa • GMT+2',
     bodyTitle: 'Cross-border cash-in / cash-out',
     bodySubtitle: 'Serve friends in UK / EU / USA with fast settlement.',
+    posterSrc: '/assets/Edgars_poster.png',
     footerAvatars: [
       { src: '/assets/avatar_agent6.png', alt: 'Agent 1' },
       { src: '/assets/avatar_agent7.png', alt: 'Agent 2' },
@@ -53,13 +56,14 @@ const STREAM_ITEMS: StreamItemData[] = [
     footerIconSrc: '/assets/Social=WhatsApp,Style=Original.svg',
   },
   {
-    id: 'dbn-hub',
-    avatarSrc: '/assets/avatar_agent5.png',
-    avatarAlt: 'Durban hub',
-    title: 'Durban cash corridor',
+    id: 'sportscene',
+    avatarSrc: '/assets/Sportscene.png',
+    avatarAlt: 'Sportscene',
+    title: 'Sportscene',
     subtitle: 'SADC corridor • South Africa • GMT+2',
     bodyTitle: 'Cash pickup & delivery',
     bodySubtitle: 'Trusted couriers for deposits and withdrawals.',
+    posterSrc: '/assets/Sportscene_poster.png',
     footerAvatars: [
       { src: '/assets/avatar_agent8.png', alt: 'Agent 1' },
       { src: '/assets/avatar_agent5.png', alt: 'Agent 2' },
@@ -70,13 +74,14 @@ const STREAM_ITEMS: StreamItemData[] = [
     footerIconSrc: '/assets/Social=WhatsApp,Style=Original.svg',
   },
   {
-    id: 'gab-hub',
-    avatarSrc: '/assets/avatar_agent8.png',
-    avatarAlt: 'Gaborone hub',
-    title: 'Gaborone community float',
+    id: 'opera',
+    avatarSrc: '/assets/Opera.png',
+    avatarAlt: 'Opera',
+    title: 'Opera',
     subtitle: 'Local corridor • Botswana • GMT+2',
     bodyTitle: 'Community float circle',
     bodySubtitle: 'Join a local float to serve nearby customers.',
+    posterSrc: '/assets/Opera_poster.png',
     footerAvatars: [
       { src: '/assets/avatar_agent7.png', alt: 'Agent 1' },
       { src: '/assets/avatar_agent8.png', alt: 'Agent 2' },
@@ -114,6 +119,15 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
       {/* 2) Content card - beige box matching map card dimensions */}
       <div className={styles.streamCardContainer}>
         <div className={styles.streamCard}>
+          {/* Poster image - fills card with rounded corners */}
+          <Image
+            src={item.posterSrc}
+            alt={item.avatarAlt}
+            fill
+            className={styles.streamCardPoster}
+            priority
+          />
+          {/* Content overlay - text on top of poster */}
           <div className={styles.streamCardContent}>
             <div className={styles.streamCardTitle}>{item.bodyTitle}</div>
             <div className={styles.streamCardSubtitle}>{item.bodySubtitle}</div>
