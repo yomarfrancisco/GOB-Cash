@@ -174,7 +174,7 @@ export default function HomeStreamSection() {
           </h2>
         </div>
         <p className={sharedStyles.mapHeaderSub}>
-          Show up and earn
+          Show up. Convert cash to crypto. Earn
         </p>
       </div>
 
