@@ -652,7 +652,6 @@ function HomeContent() {
                 onHelpClick={() => setIsMapHelperOpen(true)} 
                 onMapClick={handleHomeMapClick}
               />
-              <HomeStreamSection />
               <BranchManagerFooter 
                 onHelicopterClick={handleHelicopterConvertClick}
                 onWhatsAppClick={() => {
@@ -661,6 +660,7 @@ function HomeContent() {
                   })
                 }} 
               />
+              <HomeStreamSection />
 
             </div>
           </div>
