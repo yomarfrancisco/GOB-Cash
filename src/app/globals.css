@@ -178,6 +178,7 @@ body {
   height: 100%;
   min-height: 100%;
   overflow-y: auto;
+  overflow-x: hidden; /* Prevent horizontal scroll on narrow viewports */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   /* Reserve space for scrollbar to prevent content shift */
@@ -926,6 +927,7 @@ body {
 .profile-stats-card {
   margin: 41px auto 0; /* Increased from 16px to 41px (16px + 25px) to push content down */
   width: 382px;
+  max-width: calc(100% - 32px); /* Prevent horizontal overflow on narrow viewports */
   border-radius: 32px;
   background: rgba(127, 127, 127, 0.1);
   backdrop-filter: blur(50px);
@@ -1025,6 +1027,7 @@ body {
 
 .profile-actions {
   width: 382px;
+  max-width: calc(100% - 32px); /* Prevent horizontal overflow on narrow viewports */
   margin: 12px auto 0;
   display: flex;
   gap: 8px;
@@ -1457,6 +1460,7 @@ body {
 /* Invite friends section */
 .profile-social-task {
   width: 382px;
+  max-width: calc(100% - 32px); /* Prevent horizontal overflow on narrow viewports */
   margin: 18px auto 0;
 }
 
@@ -1519,6 +1523,7 @@ body {
 .profile-settings {
   margin: 32px auto 0;
   width: 382px;
+  max-width: calc(100% - 32px); /* Prevent horizontal overflow on narrow viewports */
 }
 
 .profile-settings-heading {
