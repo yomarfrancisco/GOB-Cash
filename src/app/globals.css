@@ -180,6 +180,8 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  /* Reserve space for scrollbar to prevent content shift */
+  scrollbar-gutter: stable;
   /* White background now on scroll container to fill full height */
   background: #ffffff;
   /* Space so content doesn't sit under the glass bars */
