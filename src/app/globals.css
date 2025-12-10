@@ -62,6 +62,12 @@ body {
   position: relative;
 }
 
+/* Public profile: allow vertical overflow for glass shard, keep horizontal clamped */
+.profile-public-page .mobile-frame {
+  overflow-x: hidden; /* Keep horizontal clamp */
+  overflow-y: visible; /* Allow glass shard to extend above viewport */
+}
+
 /* Dashboard Container */
 .dashboard-container {
   position: relative;
@@ -741,11 +747,22 @@ body {
 /* Public profile view: allow vertical overflow for glass shard, keep horizontal clamped */
 /* This fixes the top glass being cut off on mobile for third-party profile pages */
 .profile-public-page .overlay-glass {
+  /* Override inset: 0 to allow container to extend above viewport */
+  /* Inline style top: 92px will still apply, but we remove bottom constraint */
+  right: 0;
+  left: 0;
+  bottom: auto !important; /* Don't constrain bottom - allow container to extend above */
+  /* Set min-height to ensure container is tall enough for shard extension above the 92px offset */
+  /* Shard extends 355px above, so we need: 92px (offset) + 355px (shard) = 447px above viewport */
+  min-height: calc(100vh + 447px); /* 100vh + offset (92px) + shard extension (355px) */
   overflow-x: hidden; /* Keep horizontal clamp to prevent scroll */
   overflow-y: visible; /* Allow glass shard to extend above viewport */
 }
 
 .profile-public-page .overlay-glass-inner {
+  /* Adjust height to match parent's extended height */
+  height: 100%;
+  min-height: 100%;
   overflow-x: hidden; /* Keep horizontal clamp */
   overflow-y: visible; /* Allow vertical extension for glass shard */
 }
