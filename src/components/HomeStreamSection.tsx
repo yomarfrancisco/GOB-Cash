@@ -111,10 +111,9 @@ const STREAM_ITEMS: StreamItemData[] = [
 
 type StreamItemProps = {
   item: StreamItemData
-  onItemClick?: (itemId: string) => void
 }
 
-function StreamItem({ item, onItemClick }: StreamItemProps) {
+function StreamItem({ item }: StreamItemProps) {
   const { openAuthEntrySignup } = useAuthStore()
 
   const handleCommercialClick = (itemId: string) => {
@@ -219,11 +218,6 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
 }
 
 export default function HomeStreamSection() {
-  const handleItemClick = (itemId: string) => {
-    // Placeholder - will wire real navigation later
-    console.log('[HomeStreamSection] Item clicked:', itemId)
-  }
-
   return (
     <section className={`sectionShell ${sharedStyles.mapSectionShell} ${sharedStyles.streamSectionSpacing}`} aria-labelledby="stream-title">
       <div className={sharedStyles.streamSectionSpacer} />
@@ -244,7 +238,6 @@ export default function HomeStreamSection() {
           <StreamItem
             key={item.id}
             item={item}
-            onItemClick={handleItemClick}
           />
         ))}
       </div>
