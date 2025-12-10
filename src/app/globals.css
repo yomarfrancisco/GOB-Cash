@@ -72,16 +72,18 @@ body {
 }
 
 /* Overlay: Glass bars fixed on top */
+/* Base: mobile-safe (no horizontal scroll on phones) */
 .overlay-glass {
   position: fixed; /* Changed from absolute to pin glass bars to viewport */
   inset: 0;
   pointer-events: none;
   z-index: 50;
-  /* Clip any extra width so it cannot cause horizontal scroll */
+  /* Clip any extra width so it cannot cause horizontal scroll on mobile */
   overflow-x: hidden;
 }
 
 /* Inner wrapper to constrain glass bars to mobile frame width (430px) */
+/* Base: mobile-safe */
 .overlay-glass-inner {
   position: absolute;
   left: 50%;
@@ -90,7 +92,7 @@ body {
   max-width: 430px;
   height: 100%;
   pointer-events: none;
-  /* Ensure extra glass doesn't push beyond the inner frame */
+  /* Ensure extra glass doesn't push beyond the inner frame on mobile */
   overflow-x: hidden;
 }
 
@@ -126,7 +128,7 @@ body {
   transform: rotate(-0.54deg);
   z-index: 1;
   pointer-events: none;
-  /* Make sure it cannot push layout width on its own */
+  /* Mobile-safe: make sure it cannot push layout width on its own */
   max-width: 200%;
 }
 
@@ -717,7 +719,7 @@ body {
   z-index: 0;
   pointer-events: none;
   background: transparent !important;
-  /* Do not let it create horizontal overflow inside overlay-glass-inner */
+  /* Mobile-safe: do not let it create horizontal overflow inside overlay-glass-inner */
   overflow-x: hidden;
 }
 
@@ -740,6 +742,29 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Desktop / wide viewports: restore wide glass bleed effect */
+/* Breakpoint: 1024px ensures tablets behave like phones (safe), desktop gets dramatic glass */
+@media (min-width: 1024px) {
+  /* Allow glass overlay to bleed beyond frame on desktop */
+  .overlay-glass {
+    overflow-x: visible; /* Restore wide glass bleed on desktop */
+  }
+
+  .overlay-glass-inner {
+    overflow-x: visible; /* Allow inner glass elements to extend on desktop */
+  }
+
+  /* Remove mobile-safe constraint on glass shard for desktop */
+  .glass-shard-small {
+    max-width: none; /* Remove mobile-safe max-width, allow full 729px width to bleed */
+  }
+
+  /* Allow bottom glass to extend beyond frame on desktop */
+  .bottom-glass-wrapper {
+    overflow-x: visible; /* Restore wide bottom glass bleed on desktop */
+  }
   gap: 40px;
   z-index: 1;
   pointer-events: auto;
