@@ -393,9 +393,12 @@ export default function CardStackCard({
   const DOUBLE_TAP_DELAY = 300 // ms
   const lastPillTapRef = useRef<number>(0)
 
-  // Handler for APY/timer pill double-tap - does NOT stop propagation to allow card flips
+  // Handler for APY/timer pill double-tap
   const handlePillDoubleTap = (e: React.MouseEvent | React.TouchEvent) => {
-    // DO NOT stop propagation - we want card tap behavior to still work
+    // Prevent card's onClick (which opens signup) from firing on pill taps
+    e.stopPropagation()
+    e.preventDefault()
+
     if (!onApyPillClick) return
 
     const now = Date.now()
@@ -579,7 +582,6 @@ export default function CardStackCard({
       <div 
         className={pillClassName}
         onClick={handlePillDoubleTap}
-        onTouchEnd={handlePillDoubleTap}
         style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
       >
         <span className="card-allocation-pill__text">
