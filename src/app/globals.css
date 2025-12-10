@@ -1486,6 +1486,12 @@ body {
 /* Public profile hero spacing tweaks - mobile only */
 /* Lower avatar + handle + glass block by ~30px, raise stats + buttons by ~30px */
 @media (max-width: 480px) {
+  /* Move glass container (page-title-gobankless) down by ~30px */
+  /* This moves the glass shard because it's positioned relative to page-title-gobankless */
+  .other-profile-page .page-title-gobankless {
+    top: 30px; /* Move from 0 to 30px to shift glass down */
+  }
+  
   /* Move avatar + handle + verification badge down by ~30px */
   /* Extend existing transform: translateX(-50%) to include translateY(30px) */
   .other-profile-page .profile-other-avatar-container {
