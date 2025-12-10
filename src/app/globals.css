@@ -770,7 +770,7 @@ body {
 /* Public profile mobile: reduce content-fade-top height to prevent cutting glass shard */
 @media (max-width: 768px) {
   .profile-public-page .content-fade-top {
-    height: 72px; /* Reduced from 110px to prevent cutting glass shard */
+    height: 72px !important; /* Reduced from 110px to prevent cutting glass shard */
     pointer-events: none; /* Ensure it doesn't block interactions */
     /* z-index: 25 is already below .overlay-glass (z:50) and above content (z:1) */
   }
