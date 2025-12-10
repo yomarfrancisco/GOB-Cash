@@ -70,7 +70,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               })}
               aria-label="Open Agents"
               onClick={handleCenterButtonClick}
-              onTouchStart={handleCenterButtonClick}
               type="button"
             >
               {/* Always show layered structure: dollar sign base + avatar overlay */}

@@ -78,7 +78,7 @@ function HomeContent() {
   const cardStackRef = useRef<CardStackHandle>(null)
   const scrollContentRef = useRef<HTMLDivElement | null>(null)
   const { setOnSelect, open } = useTransactSheet()
-  const { guardAuthed, isAuthed } = useRequireAuth()
+  const { guardAuthed, isAuthed, requireAuth } = useRequireAuth()
   const { profile } = useUserProfileStore()
   const { startCashDepositScenario, startCashWithdrawalScenario } = useFinancialInboxStore()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
@@ -560,14 +560,24 @@ function HomeContent() {
               <BottomGlassBar 
                 currentPath="/" 
                 onDollarClick={() => {
-                  // 🔊 Play sound immediately on tap
-                  playDollarSound()
                   // NOTE: $ button opens cash-to-crypto keypad with dual "Request" / "Pay someone" buttons
-                  guardAuthed(() => {
+                  const openAmountSheet = () => {
                     setAmountMode('convert')
                     setAmountEntryPoint('cashButton')
+                    playDollarSound()
                     setTimeout(() => setOpenAmount(true), 220)
-                  })
+                  }
+
+                  // If not authed, go through requireAuth and ONLY open the sheet after success
+                  if (!isAuthed) {
+                    requireAuth(() => {
+                      openAmountSheet()
+                    })
+                    return
+                  }
+
+                  // If already authed, just open the sheet immediately
+                  openAmountSheet()
                 }}
               />
             </div>
