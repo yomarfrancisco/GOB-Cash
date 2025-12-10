@@ -136,7 +136,7 @@ const STREAM_ITEMS: StreamItemData[] = [
     subtitle: 'Johannesburg, South Africa',
     bodyTitle: 'Cross-border cash-in / cash-out',
     bodySubtitle: 'Serve friends in UK / EU / USA with fast settlement.',
-    posterSrc: '/assets/commercial_Mall-of-Africa_2.jpg',
+    posterSrc: '/assets/commercial_mallofAfrica.jpg',
     footerAvatars: [
       { src: '/assets/avatar_agent6.png', alt: 'Agent 1' },
       { src: '/assets/avatar_agent7.png', alt: 'Agent 2' },
