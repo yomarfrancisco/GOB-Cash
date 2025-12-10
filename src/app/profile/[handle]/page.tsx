@@ -91,7 +91,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
               {/* NO BottomGlassBar for public profiles */}
               
               {/* Avatar + handle in top glass - positioned near bottom of glass */}
-              <div className="profile-other-avatar-container">
+              <div className="profile-other-avatar-container other-profile-hero-header">
                 <Avatar
                   name={profile.fullName}
                   email={profile.email}
@@ -202,7 +202,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
 
           {/* Scrollable content */}
           <div className="scroll-content profile-scroll profile-other-scroll">
-            <div className="content profile-content">
+            <div className="content profile-content other-profile-hero-main">
               {/* Stats + network pill */}
               <div className="profile-stats-card">
                 <div className="stats-row">

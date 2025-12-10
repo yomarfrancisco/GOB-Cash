@@ -1483,6 +1483,21 @@ body {
   margin-top: 242px; /* 150px (original) + 92px (glass offset removed) = 242px */
 }
 
+/* Public profile hero spacing tweaks - mobile only */
+/* Lower avatar + handle + glass block by ~30px, raise stats + buttons by ~30px */
+@media (max-width: 480px) {
+  /* Move avatar + handle + verification badge down by ~30px */
+  /* Combine with existing translateX(-50%) transform */
+  .other-profile-hero-header {
+    transform: translateX(-50%) translateY(30px);
+  }
+  
+  /* Move stats card + social icons + buttons up by ~30px */
+  .other-profile-hero-main {
+    transform: translateY(-30px);
+  }
+}
+
 /* Invite friends section */
 .profile-social-task {
   width: 382px;
