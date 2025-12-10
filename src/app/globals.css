@@ -759,6 +759,21 @@ body {
   .bottom-glass-wrapper {
     overflow-x: visible; /* Restore wide bottom glass bleed on desktop */
   }
+
+  /* Desktop-only tweaks for third-party profiles */
+  /* Apply same relative shifts as mobile: glass down 90px, avatar down 60px, content up 40px */
+  .other-profile-page .page-title-gobankless {
+    top: 90px; /* Move glass container down 90px from original (was 0) */
+  }
+
+  .other-profile-page .profile-other-avatar-container {
+    top: 43px; /* Same as mobile: 13px + 30px = 43px */
+    transform: translateX(-50%) translateY(60px); /* Move avatar/handle down 60px */
+  }
+
+  .other-profile-page .profile-other-scroll {
+    transform: translateY(-40px); /* Move content block up 40px (less than mobile's 50px) */
+  }
 }
 
 .nav-item {
@@ -1478,8 +1493,54 @@ body {
 }
 
 /* Adjust scrollable content position for third-party profiles */
+/* Increased by 92px to account for glass container now at top: 0 instead of top: 92px */
 .profile-other-scroll {
-  margin-top: 150px; /* Position stats card with breathing room below glass identity block (135px + 15px) */
+  margin-top: 242px; /* 150px (original) + 92px (glass offset removed) = 242px */
+}
+
+/* Public profile hero spacing tweaks - mobile only */
+/* Lower avatar + handle + glass block, raise stats + buttons by ~30px */
+@media (max-width: 480px) {
+  /* Move glass container (page-title-gobankless) down by 90px total */
+  /* This moves the glass shard because it's positioned relative to page-title-gobankless */
+  .other-profile-page .page-title-gobankless {
+    top: 90px; /* 30px + 60px more = 90px total from original */
+  }
+  
+  /* Move avatar + handle + verification badge down by 60px total */
+  /* Extend existing transform: translateX(-50%) to include translateY(60px) */
+  .other-profile-page .profile-other-avatar-container {
+    top: calc(13px + 30px); /* 13px (existing) + 30px = 43px - keep as is */
+    transform: translateX(-50%) translateY(60px); /* 30px + 30px more = 60px total */
+  }
+  
+  /* Move stats card + social icons + buttons up by ~30px via margin, plus 50px more via transform */
+  /* Adjust margin-top on the scroll container */
+  .other-profile-page .profile-other-scroll {
+    margin-top: calc(242px - 30px); /* 242px (existing) - 30px = 212px */
+    transform: translateY(-50px); /* Move content up by 50px */
+  }
+}
+
+/* Fix Message/Fund button overlap on very narrow screens (e.g. Galaxy Z Fold 5) */
+/* Only applies to third-party profiles, not own profile */
+@media (max-width: 400px) {
+  .other-profile-page .messageButtonLockedParent {
+    gap: 10px; /* Increase from 4px to prevent overlap */
+  }
+
+  /* Ensure both Message and Fund pills are equal flex children */
+  .other-profile-page .messageButtonLocked,
+  .other-profile-page .lButton4 {
+    flex: 1 1 0;
+    min-width: 0; /* Allow proper flex shrinking */
+  }
+
+  /* Reduce padding on narrow screens to prevent overflow */
+  .other-profile-page .messageButtonLocked .button,
+  .other-profile-page .lButton4 {
+    padding: 12px 14px; /* Reduced from 20px 40px for narrow widths */
+  }
 }
 
 /* Invite friends section */
