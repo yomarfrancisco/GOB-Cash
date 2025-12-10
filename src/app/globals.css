@@ -109,6 +109,18 @@ body {
   height: 72px !important; /* Reduced from 110px to minimize visual interference */
 }
 
+/* Third-party profile mobile: make glass highest z-index, above logo and icons */
+@media (max-width: 1023px) {
+  .profile-public-page .overlay-glass.overlay-glass-public {
+    z-index: 70 !important; /* Higher than profile-other-icons (z:60) */
+  }
+  
+  /* Lower the icons below the glass on mobile */
+  .profile-public-page .profile-other-icons {
+    z-index: 40 !important; /* Below glass (z:70) but above content (z:1) */
+  }
+}
+
 /* Inner wrapper to constrain glass bars to mobile frame width (430px) */
 /* Base: mobile-safe */
 .overlay-glass-inner {
