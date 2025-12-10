@@ -82,48 +82,15 @@ body {
   overflow-x: hidden;
 }
 
-/* Third-party profile: allow glass container to extend above viewport for full shard visibility */
-/* This fixes the glass shard being cut off when overlay-glass has top: 92px offset */
-.profile-public-page .overlay-glass.overlay-glass-public {
-  bottom: auto !important; /* Remove bottom constraint to allow extension above viewport */
-  min-height: calc(100vh + 447px); /* 100vh + 92px offset + 355px shard extension */
-  overflow-y: visible; /* Explicitly allow vertical overflow for glass shard */
-}
-
-/* Third-party profile: allow mobile-frame to not clip fixed positioned glass */
-/* mobile-frame has overflow: hidden which can clip fixed children in some cases */
-.profile-public-page .mobile-frame {
-  overflow-x: hidden; /* Keep horizontal clamp */
-  overflow-y: visible; /* Allow glass shard to extend above viewport */
-}
-
-/* Third-party profile: allow app-shell to not clip fixed positioned glass */
-.profile-public-page .app-shell {
-  overflow-x: hidden; /* Keep horizontal clamp */
-  overflow-y: visible; /* Allow glass shard to extend above viewport */
-}
-
-/* Third-party profile: reduce content-fade-top height to prevent visual cut line */
-/* The fade overlay might be creating a visible "cut" line on the glass shard */
-.profile-public-page .content-fade-top {
-  height: 72px !important; /* Reduced from 110px to minimize visual interference */
-}
-
 /* Third-party profile mobile: make glass highest z-index, above logo and icons */
 @media (max-width: 1023px) {
-  .profile-public-page .overlay-glass.overlay-glass-public {
+  .profile-public-page .overlay-glass {
     z-index: 70 !important; /* Higher than profile-other-icons (z:60) */
   }
   
   /* Lower the icons below the glass on mobile */
   .profile-public-page .profile-other-icons {
     z-index: 40 !important; /* Below glass (z:70) but above content (z:1) */
-  }
-  
-  /* Remove mobile viewport width constraint - allow glass to extend beyond mobile frame */
-  .profile-public-page .overlay-glass-inner {
-    max-width: none !important; /* Remove 430px constraint */
-    width: 100vw !important; /* Allow full viewport width */
   }
 }
 
@@ -1523,8 +1490,9 @@ body {
 }
 
 /* Adjust scrollable content position for third-party profiles */
+/* Increased by 92px to account for glass container now at top: 0 instead of top: 92px */
 .profile-other-scroll {
-  margin-top: 150px; /* Position stats card with breathing room below glass identity block (135px + 15px) */
+  margin-top: 242px; /* 150px (original) + 92px (glass offset removed) = 242px */
 }
 
 /* Invite friends section */
