@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { SmartphoneNfc, Tag, Clock3, BadgeDollarSign } from 'lucide-react'
+import { SmartphoneNfc, Tag, Clock3, BadgeDollarSign, Info } from 'lucide-react'
 import styles from './HomeStreamSection.module.css'
 import sharedStyles from './ConvertCashSection.module.css'
 
@@ -114,11 +114,6 @@ type StreamItemProps = {
 }
 
 function StreamItem({ item, onItemClick }: StreamItemProps) {
-  const handleCommercialHelpClick = (id: string) => {
-    console.log('Commercial help clicked:', id)
-    // TODO: later open a sheet or tooltip for that merchant
-  }
-
   return (
     <div className={styles.streamItem}>
       {/* 1) Content header - avatar + title + subtitle (outside card) */}
@@ -137,14 +132,6 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
             <div className={styles.streamHeaderSubtitle}>{item.subtitle}</div>
           </div>
         </div>
-        <button
-          type="button"
-          className={sharedStyles.helpBtn}
-          onClick={() => handleCommercialHelpClick(item.id)}
-          aria-label={`Learn more about ${item.title} opportunities`}
-        >
-          ?
-        </button>
       </div>
 
       {/* 2) Content card - beige box matching map card dimensions */}
@@ -197,6 +184,7 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
           </div>
         </div>
         <div className={styles.streamFooterRight}>
+          <Info size={27} className={styles.streamFooterIcon} />
           <SmartphoneNfc size={27} className={styles.streamFooterIcon} />
         </div>
       </div>
