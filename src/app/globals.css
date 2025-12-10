@@ -767,6 +767,15 @@ body {
   overflow-y: visible; /* Allow vertical extension for glass shard */
 }
 
+/* Public profile mobile: reduce content-fade-top height to prevent cutting glass shard */
+@media (max-width: 768px) {
+  .profile-public-page .content-fade-top {
+    height: 72px; /* Reduced from 110px to prevent cutting glass shard */
+    pointer-events: none; /* Ensure it doesn't block interactions */
+    /* z-index: 25 is already below .overlay-glass (z:50) and above content (z:1) */
+  }
+}
+
 /* Desktop / wide viewports: restore wide glass bleed effect */
 /* Breakpoint: 1024px ensures tablets behave like phones (safe), desktop gets dramatic glass */
 @media (min-width: 1024px) {
