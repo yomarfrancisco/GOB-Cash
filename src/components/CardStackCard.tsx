@@ -464,28 +464,18 @@ export default function CardStackCard({
       }}
       style={style}
     >
-      {card.type === 'yield' || card.type === 'yieldSurprise' ? (
-        <div className="card-canvas card-yield-rounded">
-          <Image
-            src={card.image}
-            alt={card.type === 'yield' ? 'GoB yield card' : 'GoB yield surprise card'}
-            fill
-            sizes="(max-width: 768px) 88vw, 420px"
-            priority
-            style={{ objectFit: 'cover', borderRadius: 'inherit' }}
-          />
-        </div>
-      ) : (
-        <Image 
-          src={card.image} 
-          alt={card.alt} 
-          width={card.width} 
-          height={card.height} 
-          className="card-bg"
-          aria-hidden="true"
-          unoptimized 
+      {/* Unified card image rendering: all cards use .card-canvas with aspect-ratio: 86/54 */}
+      <div className={card.type === 'yield' || card.type === 'yieldSurprise' ? 'card-canvas card-yield-rounded' : 'card-canvas'}>
+        <Image
+          src={card.image}
+          alt={card.type === 'yield' ? 'GoB yield card' : card.type === 'yieldSurprise' ? 'GoB yield surprise card' : card.alt}
+          fill
+          sizes="(max-width: 768px) 88vw, 420px"
+          priority={isTop}
+          style={{ objectFit: 'cover', borderRadius: 'inherit' }}
+          unoptimized
         />
-      )}
+      </div>
 
       {/* Currency/Coin badge at top-left - flags for ZAR/MZN, coins for ETH/PEPE */}
       {(() => {

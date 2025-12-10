@@ -480,14 +480,7 @@ body {
 /* Card Stack - Animation styles moved to src/styles/card-flip.css */
 @import '../styles/card-flip.css';
 
-/* Only target the card's background image (not flags or other images) */
-.card > img.card-bg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
+/* Unified card canvas: all cards use this container with aspect-ratio: 86/54 */
 .card-canvas {
   position: relative;
   aspect-ratio: 86 / 54;
