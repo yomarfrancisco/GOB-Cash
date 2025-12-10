@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { CirclePlus, Tag, Clock3, BadgeDollarSign } from 'lucide-react'
+import { SmartphoneNfc, Tag, Clock3, BadgeDollarSign } from 'lucide-react'
 import styles from './HomeStreamSection.module.css'
 import sharedStyles from './ConvertCashSection.module.css'
 
@@ -182,7 +182,7 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
           </div>
         </div>
         <div className={styles.streamFooterRight}>
-          <CirclePlus size={27} className={styles.streamFooterIcon} />
+          <SmartphoneNfc size={27} className={styles.streamFooterIcon} />
         </div>
       </div>
     </div>
