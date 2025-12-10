@@ -1522,6 +1522,27 @@ body {
   }
 }
 
+/* Fix Message/Fund button overlap on very narrow screens (e.g. Galaxy Z Fold 5) */
+/* Only applies to third-party profiles, not own profile */
+@media (max-width: 400px) {
+  .other-profile-page .messageButtonLockedParent {
+    gap: 10px; /* Increase from 4px to prevent overlap */
+  }
+
+  /* Ensure both Message and Fund pills are equal flex children */
+  .other-profile-page .messageButtonLocked,
+  .other-profile-page .lButton4 {
+    flex: 1 1 0;
+    min-width: 0; /* Allow proper flex shrinking */
+  }
+
+  /* Reduce padding on narrow screens to prevent overflow */
+  .other-profile-page .messageButtonLocked .button,
+  .other-profile-page .lButton4 {
+    padding: 12px 14px; /* Reduced from 20px 40px for narrow widths */
+  }
+}
+
 /* Invite friends section */
 .profile-social-task {
   width: 382px;
