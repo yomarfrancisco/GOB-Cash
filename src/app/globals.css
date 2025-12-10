@@ -738,6 +738,18 @@ body {
   gap: 40px; /* Restore proper spacing between nav buttons */
 }
 
+/* Public profile view: allow vertical overflow for glass shard, keep horizontal clamped */
+/* This fixes the top glass being cut off on mobile for third-party profile pages */
+.profile-public-page .overlay-glass {
+  overflow-x: hidden; /* Keep horizontal clamp to prevent scroll */
+  overflow-y: visible; /* Allow glass shard to extend above viewport */
+}
+
+.profile-public-page .overlay-glass-inner {
+  overflow-x: hidden; /* Keep horizontal clamp */
+  overflow-y: visible; /* Allow vertical extension for glass shard */
+}
+
 /* Desktop / wide viewports: restore wide glass bleed effect */
 /* Breakpoint: 1024px ensures tablets behave like phones (safe), desktop gets dramatic glass */
 @media (min-width: 1024px) {
