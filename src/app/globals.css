@@ -765,9 +765,6 @@ body {
   .bottom-glass-wrapper {
     overflow-x: visible; /* Restore wide bottom glass bleed on desktop */
   }
-  gap: 40px;
-  z-index: 1;
-  pointer-events: auto;
 }
 
 .nav-item {
