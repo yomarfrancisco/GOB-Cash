@@ -84,8 +84,8 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
     <div className="app-shell profile-page">
       <div className="mobile-frame">
         <div className="dashboard-container" style={{ position: 'relative' }}>
-          {/* Overlay: Top glass bar only (NO bottom nav, NO logo) - shifted down 92px */}
-          <div className="overlay-glass" style={{ top: '92px' }}>
+          {/* Overlay: Top glass bar only (NO bottom nav, NO logo) - same as own profile */}
+          <div className="overlay-glass">
             <div className="overlay-glass-inner">
               <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" hideIcons={true} />
               {/* NO BottomGlassBar for public profiles */}

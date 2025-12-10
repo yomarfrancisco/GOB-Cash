@@ -1478,8 +1478,9 @@ body {
 }
 
 /* Adjust scrollable content position for third-party profiles */
+/* Increased by 92px to account for glass container now at top: 0 instead of top: 92px */
 .profile-other-scroll {
-  margin-top: 150px; /* Position stats card with breathing room below glass identity block (135px + 15px) */
+  margin-top: 242px; /* 150px (original) + 92px (glass offset removed) = 242px */
 }
 
 /* Invite friends section */
