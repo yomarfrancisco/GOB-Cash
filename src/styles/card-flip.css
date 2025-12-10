@@ -29,8 +29,11 @@
   overflow: hidden;
   box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1), 0px 8px 28px rgba(0, 0, 0, 0.08);
   cursor: pointer;
-  transition: transform 1200ms ease, opacity 1200ms ease, box-shadow 1200ms ease, width 1200ms ease, height 1200ms ease, left 1200ms ease, top 1200ms ease;
-  will-change: transform, left, top, width, height;
+  /* height removed from transition: card height is now determined by .card-canvas aspect-ratio (86/54) */
+  transition: transform 1200ms ease, opacity 1200ms ease, box-shadow 1200ms ease, width 1200ms ease, left 1200ms ease, top 1200ms ease;
+  will-change: transform, left, top, width;
+  /* height: auto ensures card height matches .card-canvas height */
+  height: auto;
 }
 
 .card.no-hover {
@@ -42,13 +45,15 @@
 }
 
 /* Position Classes */
+/* Note: These classes are defined but not actively used - CardStack uses inline styles instead */
+/* Height removed: card height is now determined by .card-canvas aspect-ratio (86/54) */
 .pos-top {
   z-index: 3;
   left: 0;
   top: 0;
   width: 100%;
   max-width: 398px;
-  height: 238px;
+  /* height removed: determined by .card-canvas aspect-ratio */
 }
 
 .pos-mid {
@@ -57,7 +62,7 @@
   top: 50px;
   width: calc(100% - 32px);
   max-width: 366px;
-  height: 213px;
+  /* height removed: determined by .card-canvas aspect-ratio */
 }
 
 .pos-back {
@@ -66,7 +71,7 @@
   top: 100px;
   width: calc(100% - 64px);
   max-width: 334px;
-  height: 193px;
+  /* height removed: determined by .card-canvas aspect-ratio */
 }
 
 /* Cycling Animation (Exit) */

@@ -456,7 +456,9 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
 
   // Note: cardsData.length === 6, but only VISIBLE_COUNT (5) cards are rendered
   const total = cardsData.length
-  const BASE_HEIGHT_PX = 238 // top card height
+  // BASE_HEIGHT_PX: estimated top card height for stack container sizing (cards now use aspect-ratio: 86/54)
+  // This is approximate - actual card height varies by width, but we use it for container min-height calculation
+  const BASE_HEIGHT_PX = 238 // approximate top card height for container sizing
   const Y_STEP_PX = 44 // vertical offset per depth (from getStackStyle)
 
   // Debug: log computed styles on first render
@@ -528,13 +530,13 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
               position: 'absolute',
               width: effectiveStyle.width,
               maxWidth: `${effectiveStyle.maxWidth}px`,
-              height: `${effectiveStyle.height}px`,
+              // height removed: card height is now determined by .card-canvas aspect-ratio (86/54)
               top: `${finalTop}px`, // Use finalTop to ensure depth 0 never moves up
               left: `${effectiveStyle.left}px`,
               zIndex: effectiveStyle.zIndex,
               pointerEvents: isTop ? 'auto' : 'none',
               boxSizing: 'border-box',
-              transition: 'width 300ms ease, height 300ms ease, top 300ms ease, left 300ms ease, box-shadow 300ms ease, opacity 300ms ease, transform 300ms ease',
+              transition: 'width 300ms ease, top 300ms ease, left 300ms ease, box-shadow 300ms ease, opacity 300ms ease, transform 300ms ease',
             }}
             flashDirection={flashDirection[card.type]}
             onFlashEnd={() => {

@@ -14,7 +14,7 @@
 export type StackStyle = {
   width: string;      // calc(100% - (depth * 32px))
   maxWidth: number;   // 398 - depth * 32
-  height: number;     // 238 - depth * 25
+  // height removed: card height is now determined by .card-canvas aspect-ratio (86/54)
   top: number;        // depth * 50
   left: number;       // depth * 16
   zIndex: number;     // total - depth
@@ -22,8 +22,8 @@ export type StackStyle = {
 
 const BASE_WIDTH_PX = 398;
 const WIDTH_STEP_PX = 32;
-const BASE_HEIGHT_PX = 238;
-const HEIGHT_STEP_PX = 25;
+// BASE_HEIGHT_PX removed: card height is now determined by .card-canvas aspect-ratio (86/54)
+// HEIGHT_STEP_PX removed: no longer needed since height is content-driven
 const Y_STEP_PX = 44; // Reduced from 50 to 44 to accommodate 5 cards within viewport
 const X_STEP_PX = 16;
 
@@ -34,7 +34,7 @@ export function getStackStyle(depth: number, total: number): StackStyle {
   return {
     width: `calc(100% - ${safeDepth * WIDTH_STEP_PX}px)`,
     maxWidth: BASE_WIDTH_PX - WIDTH_STEP_PX * safeDepth,
-    height: BASE_HEIGHT_PX - HEIGHT_STEP_PX * safeDepth,
+    // height removed: card height is now determined by .card-canvas aspect-ratio (86/54)
     top: Y_STEP_PX * safeDepth, // Clamped to never be negative
     left: X_STEP_PX * safeDepth,
     zIndex: total - safeDepth,
