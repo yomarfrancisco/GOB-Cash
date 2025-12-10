@@ -759,6 +759,21 @@ body {
   .bottom-glass-wrapper {
     overflow-x: visible; /* Restore wide bottom glass bleed on desktop */
   }
+
+  /* Desktop-only tweaks for third-party profiles */
+  /* Apply same relative shifts as mobile: glass down 90px, avatar down 60px, content up 40px */
+  .other-profile-page .page-title-gobankless {
+    top: 90px; /* Move glass container down 90px from original (was 0) */
+  }
+
+  .other-profile-page .profile-other-avatar-container {
+    top: 43px; /* Same as mobile: 13px + 30px = 43px */
+    transform: translateX(-50%) translateY(60px); /* Move avatar/handle down 60px */
+  }
+
+  .other-profile-page .profile-other-scroll {
+    transform: translateY(-40px); /* Move content block up 40px (less than mobile's 50px) */
+  }
 }
 
 .nav-item {
