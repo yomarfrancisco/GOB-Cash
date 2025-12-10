@@ -24,7 +24,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 0 16px;
+  padding: 0 24px; /* Match map section's horizontal padding for consistent X-position */
   box-sizing: border-box;
 }
 
