@@ -95,7 +95,7 @@ const STREAM_ITEMS: StreamItemData[] = [
     subtitle: 'Johannesburg, South Africa',
     bodyTitle: 'Community float circle',
     bodySubtitle: 'Join a local float to serve nearby customers.',
-    posterSrc: '/assets/commercial-taxi.jpg',
+    posterSrc: '/assets/commercial_taxi.jpg',
     footerAvatars: [
       { src: '/assets/avatar_agent7.png', alt: 'Agent 1' },
       { src: '/assets/avatar_agent8.png', alt: 'Agent 2' },
