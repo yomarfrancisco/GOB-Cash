@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { SmartphoneNfc, Tag, Clock3, BadgeDollarSign, Info } from 'lucide-react'
 import styles from './HomeStreamSection.module.css'
 import sharedStyles from './ConvertCashSection.module.css'
+import { useAuthStore } from '@/store/auth'
 
 type StreamItemData = {
   id: string
@@ -114,6 +115,13 @@ type StreamItemProps = {
 }
 
 function StreamItem({ item, onItemClick }: StreamItemProps) {
+  const { openAuthEntrySignup } = useAuthStore()
+
+  const handleCommercialClick = (itemId: string) => {
+    // Open sign-up popup for all Section 3 interactions
+    openAuthEntrySignup()
+  }
+
   return (
     <div className={styles.streamItem}>
       {/* 1) Content header - avatar + title + subtitle (outside card) */}
@@ -136,7 +144,11 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
 
       {/* 2) Content card - beige box matching map card dimensions */}
       <div className={styles.streamCardContainer}>
-        <div className={styles.streamCard}>
+        <div 
+          className={styles.streamCard}
+          onClick={() => handleCommercialClick(item.id)}
+          style={{ cursor: 'pointer' }}
+        >
           {/* Tag row overlay - positioned at top-left */}
           <div className={styles.tagRowOverlay}>
             <div className={`${styles.tagPill} ${styles.industryTag}`}>
@@ -164,7 +176,7 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
       </div>
 
       {/* 3) Content footer - avatars + label + icon (outside card) */}
-      <div className={styles.streamFooter} onClick={() => onItemClick?.(item.id)}>
+      <div className={styles.streamFooter}>
         <div className={styles.streamFooterLeft}>
           <div className={styles.streamFooterAvatars}>
             {item.footerAvatars.map((avatar, idx) => (
@@ -179,13 +191,27 @@ function StreamItem({ item, onItemClick }: StreamItemProps) {
               </div>
             ))}
           </div>
-          <div className={styles.streamFooterText}>
+          <button
+            type="button"
+            className={styles.streamFooterText}
+            onClick={() => handleCommercialClick(item.id)}
+          >
             <span className={styles.streamFooterLabel}>Clock-in for work</span>
-          </div>
+          </button>
         </div>
         <div className={styles.streamFooterRight}>
-          <Info size={27} className={styles.streamFooterIcon} />
-          <SmartphoneNfc size={27} className={styles.streamFooterIcon} />
+          <Info 
+            size={27} 
+            className={styles.streamFooterIcon}
+            onClick={() => handleCommercialClick(item.id)}
+            style={{ cursor: 'pointer' }}
+          />
+          <SmartphoneNfc 
+            size={27} 
+            className={styles.streamFooterIcon}
+            onClick={() => handleCommercialClick(item.id)}
+            style={{ cursor: 'pointer' }}
+          />
         </div>
       </div>
     </div>

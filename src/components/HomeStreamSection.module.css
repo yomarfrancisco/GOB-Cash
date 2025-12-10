@@ -211,6 +211,11 @@
   padding: 4px 0px;
   border-radius: 4px;
   background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
 }
 
 .streamFooterLabel {
@@ -224,7 +229,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 15px; /* increased from 12px */
   flex-shrink: 0;
   pointer-events: auto;
 }
