@@ -119,6 +119,12 @@ body {
   .profile-public-page .profile-other-icons {
     z-index: 40 !important; /* Below glass (z:70) but above content (z:1) */
   }
+  
+  /* Remove mobile viewport width constraint - allow glass to extend beyond mobile frame */
+  .profile-public-page .overlay-glass-inner {
+    max-width: none !important; /* Remove 430px constraint */
+    width: 100vw !important; /* Allow full viewport width */
+  }
 }
 
 /* Inner wrapper to constrain glass bars to mobile frame width (430px) */
