@@ -22,9 +22,18 @@
   margin: 0 auto 8px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 0 16px;
   box-sizing: border-box;
+}
+
+.streamHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 .streamHeaderAvatar {

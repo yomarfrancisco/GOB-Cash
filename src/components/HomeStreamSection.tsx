@@ -114,22 +114,37 @@ type StreamItemProps = {
 }
 
 function StreamItem({ item, onItemClick }: StreamItemProps) {
+  const handleCommercialHelpClick = (id: string) => {
+    console.log('Commercial help clicked:', id)
+    // TODO: later open a sheet or tooltip for that merchant
+  }
+
   return (
     <div className={styles.streamItem}>
       {/* 1) Content header - avatar + title + subtitle (outside card) */}
       <div className={styles.streamHeader}>
-        <div className={styles.streamHeaderAvatar}>
-          <Image
-            src={item.avatarSrc}
-            alt={item.avatarAlt}
-            fill
-            className={styles.streamHeaderAvatarImg}
-          />
+        <div className={styles.streamHeaderLeft}>
+          <div className={styles.streamHeaderAvatar}>
+            <Image
+              src={item.avatarSrc}
+              alt={item.avatarAlt}
+              fill
+              className={styles.streamHeaderAvatarImg}
+            />
+          </div>
+          <div className={styles.streamHeaderText}>
+            <div className={styles.streamHeaderTitle}>{item.title}</div>
+            <div className={styles.streamHeaderSubtitle}>{item.subtitle}</div>
+          </div>
         </div>
-        <div className={styles.streamHeaderText}>
-          <div className={styles.streamHeaderTitle}>{item.title}</div>
-          <div className={styles.streamHeaderSubtitle}>{item.subtitle}</div>
-        </div>
+        <button
+          type="button"
+          className={sharedStyles.helpBtn}
+          onClick={() => handleCommercialHelpClick(item.id)}
+          aria-label={`Learn more about ${item.title} opportunities`}
+        >
+          ?
+        </button>
       </div>
 
       {/* 2) Content card - beige box matching map card dimensions */}
