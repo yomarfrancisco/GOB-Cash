@@ -389,11 +389,25 @@ export default function CardStackCard({
     return `${hours}h${minutes.toString().padStart(2, '0')}`
   }, [countdown, card.type])
 
-  // Handler for APY/timer pill clicks - does NOT stop propagation to allow card flips
-  const handlePillClick = (e: React.MouseEvent | React.TouchEvent) => {
+  // Double-tap detection for APY/timer pill clicks
+  const DOUBLE_TAP_DELAY = 300 // ms
+  const lastPillTapRef = useRef<number>(0)
+
+  // Handler for APY/timer pill double-tap - does NOT stop propagation to allow card flips
+  const handlePillDoubleTap = (e: React.MouseEvent | React.TouchEvent) => {
     // DO NOT stop propagation - we want card tap behavior to still work
-    if (onApyPillClick) {
+    if (!onApyPillClick) return
+
+    const now = Date.now()
+    const timeSinceLastTap = now - lastPillTapRef.current
+
+    if (timeSinceLastTap < DOUBLE_TAP_DELAY) {
+      // Second tap within delay window → open helper sheet
       onApyPillClick(card.type)
+      lastPillTapRef.current = 0 // Reset to prevent triple-tap
+    } else {
+      // First tap or tap after delay → just record timestamp
+      lastPillTapRef.current = now
     }
   }
 
@@ -564,8 +578,8 @@ export default function CardStackCard({
       {/* Bottom-left annual yield pill or countdown timer */}
       <div 
         className={pillClassName}
-        onClick={handlePillClick}
-        onTouchEnd={handlePillClick}
+        onClick={handlePillDoubleTap}
+        onTouchEnd={handlePillDoubleTap}
         style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
       >
         <span className="card-allocation-pill__text">
