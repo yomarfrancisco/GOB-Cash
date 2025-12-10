@@ -321,8 +321,33 @@
 
 /* Responsive: adjust shift and truncate text on narrow screens */
 @media (max-width: 360px) {
+  /* Move the amount block up to prevent overlap with APY/Risk on narrow cards */
+  .card-amounts {
+    top: 40px; /* was 48px - reduces top offset for narrower card heights */
+  }
+
   .card-amounts--shifted {
-    transform: translateY(22px);
+    transform: translateY(10px); /* was 18px (or 22px in previous MQ) - reduces shift for narrow cards */
+  }
+
+  /* Scale fonts down proportionally for narrow card heights (aspect-ratio: 86/54 makes cards shorter) */
+  .card-amounts .amt-int,
+  .card-amounts .amt-dot,
+  .card-amounts__whole,
+  .card-amounts__dot {
+    font-size: 40px; /* was 52px - reduces main amount size */
+    line-height: 1;
+  }
+
+  .card-amounts .amt-cents,
+  .card-amounts__cents {
+    font-size: 28px; /* was 36px - reduces cents size */
+    line-height: 1;
+  }
+
+  .card-amounts__usdt {
+    font-size: 16px; /* was 20px - reduces USDT line size */
+    margin-top: 4px;
   }
 
   .card-zar-label {
