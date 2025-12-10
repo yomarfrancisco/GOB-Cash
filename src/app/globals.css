@@ -1499,10 +1499,11 @@ body {
     transform: translateX(-50%) translateY(60px); /* 30px + 30px more = 60px total */
   }
   
-  /* Move stats card + social icons + buttons up by ~30px */
+  /* Move stats card + social icons + buttons up by ~30px via margin, plus 50px more via transform */
   /* Adjust margin-top on the scroll container */
   .other-profile-page .profile-other-scroll {
     margin-top: calc(242px - 30px); /* 242px (existing) - 30px = 212px */
+    transform: translateY(-50px); /* Move content up by 50px */
   }
 }
 
