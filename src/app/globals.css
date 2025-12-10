@@ -742,6 +742,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 40px; /* Restore proper spacing between nav buttons */
 }
 
 /* Desktop / wide viewports: restore wide glass bleed effect */
