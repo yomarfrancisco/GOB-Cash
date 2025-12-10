@@ -81,7 +81,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
   }
 
   return (
-    <div className="app-shell profile-page">
+    <div className="app-shell profile-page other-profile-page">
       <div className="mobile-frame">
         <div className="dashboard-container" style={{ position: 'relative' }}>
           {/* Overlay: Top glass bar only (NO bottom nav, NO logo) - same as own profile */}
@@ -91,7 +91,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
               {/* NO BottomGlassBar for public profiles */}
               
               {/* Avatar + handle in top glass - positioned near bottom of glass */}
-              <div className="profile-other-avatar-container other-profile-hero-header">
+              <div className="profile-other-avatar-container">
                 <Avatar
                   name={profile.fullName}
                   email={profile.email}
@@ -202,7 +202,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
 
           {/* Scrollable content */}
           <div className="scroll-content profile-scroll profile-other-scroll">
-            <div className="content profile-content other-profile-hero-main">
+            <div className="content profile-content">
               {/* Stats + network pill */}
               <div className="profile-stats-card">
                 <div className="stats-row">

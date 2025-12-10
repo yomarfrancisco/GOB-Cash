@@ -1487,14 +1487,16 @@ body {
 /* Lower avatar + handle + glass block by ~30px, raise stats + buttons by ~30px */
 @media (max-width: 480px) {
   /* Move avatar + handle + verification badge down by ~30px */
-  /* Combine with existing translateX(-50%) transform */
-  .other-profile-hero-header {
-    transform: translateX(-50%) translateY(30px);
+  /* Extend existing transform: translateX(-50%) to include translateY(30px) */
+  .other-profile-page .profile-other-avatar-container {
+    top: calc(13px + 30px); /* 13px (existing) + 30px = 43px */
+    transform: translateX(-50%) translateY(30px); /* Extend existing translateX(-50%) */
   }
   
   /* Move stats card + social icons + buttons up by ~30px */
-  .other-profile-hero-main {
-    transform: translateY(-30px);
+  /* Adjust margin-top on the scroll container */
+  .other-profile-page .profile-other-scroll {
+    margin-top: calc(242px - 30px); /* 242px (existing) - 30px = 212px */
   }
 }
 
