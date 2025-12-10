@@ -115,7 +115,7 @@ const STREAM_ITEMS: StreamItemData[] = [
     subtitle: 'Johannesburg, South Africa',
     bodyTitle: 'R10k – R100k deposits',
     bodySubtitle: 'Swap cash for USDT with verified agents in your area.',
-    posterSrc: '/assets/commercial-textbook.png',
+    posterSrc: '/assets/commercial-wits2.jpg',
     footerAvatars: [
       { src: '/assets/avatar_agent5.png', alt: 'Agent 1' },
       { src: '/assets/avatar_agent6.png', alt: 'Agent 2' },
