@@ -356,7 +356,7 @@ function HomeContent() {
     
     hasShownAmaIntroRef.current = true
     
-    const OPEN_DELAY_MS = 50000 // 50 seconds
+    const OPEN_DELAY_MS = 100000 // 100 seconds (doubled from 50 seconds)
     const AUTO_CLOSE_DELAY_MS = 14000 // 14 seconds
     
     let openTimer: ReturnType<typeof setTimeout> | undefined
@@ -385,7 +385,7 @@ function HomeContent() {
       }
     )
     
-    // ⏲️ Schedule Ama intro after 50s, with final guards
+    // ⏲️ Schedule Ama intro after 100s, with final guards
     openTimer = setTimeout(() => {
       const currentAuthState = useAuthStore.getState()
       const currentIsAuthed = currentAuthState.isAuthed
