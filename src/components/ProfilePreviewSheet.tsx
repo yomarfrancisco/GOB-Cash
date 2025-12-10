@@ -72,7 +72,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
         size="tall"
         className={`${listStyles.financialInboxSheet} inboxTallSheet`}
       >
-        <div className="profile-preview-sheet-container" style={{ 
+        <div className="profile-preview-sheet-container other-profile-sheet" style={{ 
           position: 'relative',
           width: '100%',
           height: '100%',
@@ -92,7 +92,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
           <div className="profile-preview-gradient" />
 
           {/* Glass overlay with avatar and handle - matches profile page structure */}
-          <div className="overlay-glass" style={{ top: '92px' }}>
+          <div className="overlay-glass">
             <div className="overlay-glass-inner">
               <TopGlassBar hideLogo={true} glassShardSrc="/assets/masked glass shard.png" hideIcons={true} />
               

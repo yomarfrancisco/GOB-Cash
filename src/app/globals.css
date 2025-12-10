@@ -1522,6 +1522,40 @@ body {
   }
 }
 
+/* Fix glass clipping in ProfilePreviewSheet (authenticated search profile sheet) */
+/* Allow glass to extend above the sheet container without being clipped */
+.other-profile-sheet.profile-preview-sheet-container {
+  overflow-y: visible; /* Allow glass to extend above */
+  overflow-x: hidden; /* Keep horizontal clipping */
+}
+
+/* Ensure overlay-glass in sheet uses same positioning as full-page version */
+.other-profile-sheet .overlay-glass {
+  top: 0; /* Match full-page: no top offset */
+  overflow-y: visible; /* Allow glass shard to extend above */
+  overflow-x: hidden; /* Keep horizontal clipping */
+}
+
+/* Apply same mobile spacing adjustments to sheet as full-page */
+@media (max-width: 480px) {
+  /* Move glass container (page-title-gobankless) down by 90px total - same as full-page */
+  .other-profile-sheet .page-title-gobankless {
+    top: 90px; /* Match full-page positioning */
+  }
+  
+  /* Move avatar + handle + verification badge down by 60px total - same as full-page */
+  .other-profile-sheet .profile-other-avatar-container {
+    top: 43px; /* Match full-page: 13px + 30px = 43px */
+    transform: translateX(-50%) translateY(60px); /* Match full-page positioning */
+  }
+  
+  /* Move stats card + social icons + buttons up - adjust for sheet context */
+  .other-profile-sheet .profile-other-scroll.profile-preview-no-scroll {
+    margin-top: 212px; /* Match full-page margin-top */
+    transform: translateY(-50px); /* Match full-page transform */
+  }
+}
+
 /* Fix Message/Fund button overlap on very narrow screens (e.g. Galaxy Z Fold 5) */
 /* Only applies to third-party profiles, not own profile */
 @media (max-width: 400px) {
