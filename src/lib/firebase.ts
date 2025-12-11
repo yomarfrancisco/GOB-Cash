@@ -8,7 +8,7 @@
  */
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
-import { getAuth, type Auth } from 'firebase/auth'
+import { getAuth, type Auth, GoogleAuthProvider } from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
 
 // Firebase configuration from environment variables
@@ -95,5 +95,21 @@ export function getFirebaseAuth(): Auth {
 export function getFirestoreDb(): Firestore {
   const app = getFirebaseApp()
   return getFirestore(app)
+}
+
+// Singleton Google Auth Provider instance
+let _googleProvider: GoogleAuthProvider | null = null
+
+/**
+ * Get Google Auth Provider instance for Firebase Auth.
+ * 
+ * @returns Google Auth Provider instance
+ */
+export function getGoogleAuthProvider(): GoogleAuthProvider {
+  if (!_googleProvider) {
+    _googleProvider = new GoogleAuthProvider()
+    _googleProvider.setCustomParameters({ prompt: 'select_account' })
+  }
+  return _googleProvider
 }
 

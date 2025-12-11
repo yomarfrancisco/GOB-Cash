@@ -32,6 +32,7 @@ import PhoneSignupSheet from '@/components/PhoneSignupSheet'
 import PaymentDetailsSheetWrapper from '@/components/PaymentDetailsSheetWrapper'
 import SearchSheet from '@/components/SearchSheet'
 import ProfilePreviewSheetWrapper from '@/components/ProfilePreviewSheetWrapper'
+import FirebaseAuthListener from '@/components/FirebaseAuthListener'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -78,6 +79,7 @@ export default function RootLayout({
         />
         <IosKeyboardShim />
         <GoogleOAuthProviderClient>
+          <FirebaseAuthListener />
           <SplashOnceProvider>
             <WalletModeProvider>
               <WalletAllocProvider>
