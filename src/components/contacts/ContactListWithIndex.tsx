@@ -1,13 +1,13 @@
 'use client'
 
 import { useRef, useState, useLayoutEffect, useCallback, useMemo, useEffect, useImperativeHandle, forwardRef } from 'react'
-import Image from 'next/image'
 import { Check } from 'lucide-react'
 import type { RankedContact } from '@/lib/contacts/rankContacts'
 import type { ContactSection } from '@/lib/contacts/contactGrouping'
 import { getContactTags } from '@/lib/contacts/contactTags'
 import { buildContactSubtitle, tagsToMeta } from '@/lib/contacts/contactDescription'
 import { AlphabetIndex } from './AlphabetIndex'
+import DirectoryAvatar from './DirectoryAvatar'
 import styles from './ContactListWithIndex.module.css'
 import contactRowStyles from '../PaymentDetailsSheet.module.css'
 
@@ -38,9 +38,6 @@ function ContactRow({
   onClick: () => void
   isAuthenticated?: boolean
 }) {
-  const avatarUrl =
-    contact.photoUrl || '/assets/avatar-profile.png'
-
   // Compute short subtitle using tag-based helper
   const tags = getContactTags({
     handle: contact.handle,
@@ -59,16 +56,12 @@ function ContactRow({
       onClick={onClick}
     >
       <div className={contactRowStyles.contactRowLeft}>
-        <div className={contactRowStyles.avatarWrapper}>
-          <Image
-            src={avatarUrl}
-            alt={contact.handle}
-            width={48}
-            height={48}
-            className={contactRowStyles.avatar}
-            unoptimized
-          />
-        </div>
+        <DirectoryAvatar
+          photoUrl={contact.photoUrl}
+          handle={contact.handle}
+          name={contact.name}
+          size={48}
+        />
         <div className={contactRowStyles.contactTextBlock}>
           <div className={contactRowStyles.contactHandle}>{contact.handle}</div>
           <div className={contactRowStyles.contactSubtitle}>{subtitle}</div>

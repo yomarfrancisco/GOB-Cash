@@ -20,6 +20,7 @@ import styles from './SearchSheet.module.css'
 import { useSyncContacts } from '@/hooks/useSyncContacts'
 import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
 import { usePublicDirectoryContactsForUI } from '@/hooks/usePublicDirectoryContacts'
+import DirectoryAvatar from './contacts/DirectoryAvatar'
 
 type SearchAgent = {
   type: 'agent'
@@ -242,8 +243,6 @@ export default function SearchSheet() {
 
   // Render contact row (for ranked contacts)
   const renderContactRow = (contact: RankedContact) => {
-    const avatarUrl = contact.photoUrl || '/assets/avatar-profile.png'
-    
     // Get tags and generate short subtitle for this contact
     const tags = getContactTags({
       handle: contact.handle,
@@ -265,16 +264,12 @@ export default function SearchSheet() {
         onClick={() => handleContactClick(contact)}
       >
         <div className={paymentStyles.contactRowLeft}>
-          <div className={paymentStyles.avatarWrapper}>
-            <Image
-              src={avatarUrl}
-              alt={contact.handle || contact.name || ''}
-              width={48}
-              height={48}
-              className={paymentStyles.avatar}
-              unoptimized
-            />
-          </div>
+          <DirectoryAvatar
+            photoUrl={contact.photoUrl}
+            handle={contact.handle}
+            name={contact.name}
+            size={48}
+          />
           <div className={paymentStyles.contactTextBlock}>
             <div className={paymentStyles.contactHandle}>{contact.handle || contact.name || contact.email || ''}</div>
             <div className={paymentStyles.contactSubtitle}>{subtitle}</div>
