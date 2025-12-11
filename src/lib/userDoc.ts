@@ -88,8 +88,24 @@ export async function ensureUserDocument(user: User): Promise<void> {
     const userSnap = await getDoc(userRef)
 
     if (userSnap.exists()) {
-      // Document already exists - do nothing for now
+      // Document already exists - sync profile store from Firestore
       console.log(`[UserDoc] User document already exists for ${user.uid}`)
+      
+      const userData = userSnap.data() as UserDocument
+      
+      // Sync profile store from Firestore data
+      if (typeof window !== 'undefined') {
+        const { useUserProfileStore } = await import('@/store/userProfile')
+        const profileStore = useUserProfileStore.getState()
+        
+        profileStore.setProfile({
+          fullName: userData.fullName || user.displayName || profileStore.profile.fullName,
+          email: userData.email || user.email || profileStore.profile.email,
+          avatarUrl: userData.avatarUrl || user.photoURL || profileStore.profile.avatarUrl,
+          userHandle: userData.handle || profileStore.profile.userHandle,
+        })
+      }
+      
       console.log('[Firebase] user doc ensured', user.uid)
       return
     }
@@ -127,6 +143,20 @@ export async function ensureUserDocument(user: User): Promise<void> {
     await setDoc(userRef, userDoc)
 
     console.log(`[UserDoc] Created user document for ${user.uid} with handle ${handle}`)
+    
+    // Sync profile store from newly created document
+    if (typeof window !== 'undefined') {
+      const { useUserProfileStore } = await import('@/store/userProfile')
+      const profileStore = useUserProfileStore.getState()
+      
+      profileStore.setProfile({
+        fullName: userDoc.fullName || profileStore.profile.fullName,
+        email: userDoc.email || profileStore.profile.email,
+        avatarUrl: userDoc.avatarUrl || profileStore.profile.avatarUrl,
+        userHandle: userDoc.handle || profileStore.profile.userHandle,
+      })
+    }
+    
     console.log('[Firebase] user doc ensured', user.uid)
   } catch (err) {
     console.error('[Firebase] Failed to ensure user doc', err)

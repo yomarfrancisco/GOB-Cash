@@ -25,7 +25,8 @@ interface AuthState {
   closePhoneSignup: () => void
   setAuthIdentifier: (identifier: string) => void
   setAuthView: (view: AuthView) => void
-  completeAuth: () => void
+  setAuthState: (isAuthed: boolean) => void // New: Set auth state from Firebase Auth
+  completeAuth: () => void // Legacy: Kept for backward compatibility, but Firebase Auth now drives isAuthed
   requireAuth: (onAuthed: () => void) => void
 }
 
@@ -50,16 +51,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   closePhoneSignup: () => set({ phoneSignupOpen: false }),
   setAuthIdentifier: (identifier) => set({ authIdentifier: identifier }),
   setAuthView: (view) => set({ authView: view }),
+  setAuthState: (isAuthed) => {
+    if (isAuthed) {
+      // Stop all demo animations and notifications when authenticating
+      stopDemoNotificationEngine()
+      
+      // Clear notification queue
+      const { clearNotifications } = useNotificationStore.getState()
+      clearNotifications()
+      
+      // Close all auth sheets
+      set({ 
+        isAuthed: true, 
+        authOpen: false, 
+        authEntryOpen: false, 
+        authPasswordOpen: false, 
+        phoneSignupOpen: false 
+      })
+    } else {
+      // User signed out
+      set({ isAuthed: false })
+    }
+  },
   completeAuth: () => {
-    // Stop all demo animations and notifications
+    // Legacy method - kept for backward compatibility
+    // Firebase Auth now drives isAuthed via setAuthState, but this can still be called
+    // to trigger the same side effects (stop demo, clear notifications, close sheets)
     stopDemoNotificationEngine()
     
-    // Clear notification queue
     const { clearNotifications } = useNotificationStore.getState()
     clearNotifications()
     
-    // Set authenticated state
-    set({ isAuthed: true, authOpen: false, authEntryOpen: false, authPasswordOpen: false, phoneSignupOpen: false })
+    set({ authOpen: false, authEntryOpen: false, authPasswordOpen: false, phoneSignupOpen: false })
+    // Note: isAuthed is now set by FirebaseAuthListener via setAuthState
   },
   requireAuth: (onAuthed) => {
     const { isAuthed, openAuthEntry } = get()

@@ -12,7 +12,7 @@ import Image from 'next/image'
 import clsx from 'clsx'
 import { ArrowUp } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
-import { useGoogleAuth } from '@/hooks/useGoogleAuth'
+import { useFirebaseAuth } from '@/hooks/useFirebaseAuth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
@@ -20,7 +20,7 @@ type AuthMode = 'loginEntry' | 'signup'
 
 export default function AuthEntrySheet() {
   const { authEntryOpen, closeAuthEntry, openAuthPassword, openPhoneSignup, setAuthIdentifier } = useAuthStore()
-  const { login } = useGoogleAuth()
+  const { signInWithGoogle } = useFirebaseAuth()
   const [identifier, setIdentifier] = useState('')
   const [authMode, setAuthMode] = useState<AuthMode>('signup')
   const [isPhoneSignupEditing, setIsPhoneSignupEditing] = useState(false)
@@ -54,7 +54,7 @@ export default function AuthEntrySheet() {
   }
 
   const handleGoogleClick = () => {
-    login()
+    signInWithGoogle()
   }
 
   const handlePhoneSignUpClick = () => {
