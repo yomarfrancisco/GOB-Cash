@@ -52,10 +52,13 @@ const AGENTS: SearchAgent[] = [
 
 const MAX_SEARCH_CONTACTS = 600 // Increased from 300
 const MAX_SUGGESTED_CONTACTS = 10 // Top N contacts to show in Suggested section
+const INITIAL_SEARCH_CONTACTS = 40 // Initial visible contacts
+const LOAD_MORE_INCREMENT = 40 // Contacts to load per "More contacts" click
 
 export default function SearchSheet() {
   const { isOpen, close } = useSearchSheet()
   const [searchQuery, setSearchQuery] = useState('')
+  const [visibleCount, setVisibleCount] = useState(INITIAL_SEARCH_CONTACTS)
   const router = useRouter()
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const { openSheet } = useProfilePreviewSheet()
@@ -78,9 +81,10 @@ export default function SearchSheet() {
   const displayContacts = isAuthed ? userContacts : publicDirectoryContacts
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
-  const { suggested, sections, allLetters, availableLettersSet } = useMemo(() => {
+  // Only show visibleCount contacts initially
+  const { suggested, sections, allLetters, availableLettersSet, allSearchContacts } = useMemo(() => {
     if (displayContacts.length === 0) {
-      return { suggested: [], sections: [], allLetters: [], availableLettersSet: new Set<string>() }
+      return { suggested: [], sections: [], allLetters: [], availableLettersSet: new Set<string>(), allSearchContacts: [] }
     }
 
     // 1) Suggested slice (top N)
@@ -98,8 +102,10 @@ export default function SearchSheet() {
         return aName.localeCompare(bName)
       })
 
-    // 3) Group into sections by first letter
-    const sections = groupByFirstLetter(allAlphabetical)
+    // 3) Group into sections by first letter (only show up to visibleCount)
+    const remainingVisible = Math.max(0, visibleCount - suggested.length)
+    const visibleAlphabetical = allAlphabetical.slice(0, remainingVisible)
+    const sections = groupByFirstLetter(visibleAlphabetical)
 
     // 4) Generate all letters A-Z + # for the index
     const allLetters: string[] = []
@@ -111,13 +117,14 @@ export default function SearchSheet() {
     // 5) Get available letters (letters that have contacts)
     const availableLettersSet = new Set(sections.map((s) => s.letter))
 
-    return { suggested, sections, allLetters, availableLettersSet }
-  }, [displayContacts])
+    return { suggested, sections, allLetters, availableLettersSet, allSearchContacts: displayContacts }
+  }, [displayContacts, visibleCount])
 
-  // Clear search query when modal opens
+  // Clear search query and reset visible count when modal opens
   useEffect(() => {
     if (isOpen) {
       setSearchQuery('')
+      setVisibleCount(INITIAL_SEARCH_CONTACTS)
     }
   }, [isOpen])
 
@@ -373,6 +380,57 @@ export default function SearchSheet() {
               </>
             )}
           </div>
+
+          {/* More contacts footer - shows when there are more contacts to load (only in default layout, not search results) */}
+          {filteredResults === null && allSearchContacts.length > visibleCount && (
+            <div className={paymentStyles.bottomFooter}>
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleCount((prev) =>
+                    Math.min(
+                      prev + LOAD_MORE_INCREMENT,
+                      Math.min(allSearchContacts.length, MAX_SEARCH_CONTACTS),
+                    ),
+                  )
+                }
+                style={{
+                  width: '100%',
+                  maxWidth: '382px',
+                  height: '56px',
+                  borderRadius: '56px',
+                  background: '#E9E9EB',
+                  color: '#000',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '0 24px',
+                  fontSize: '16px',
+                  fontWeight: 500,
+                  letterSpacing: '-0.32px',
+                  cursor: 'pointer',
+                  border: 'none',
+                  transition: 'background 150ms ease',
+                  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#D1D1D6'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#E9E9EB'
+                }}
+                onMouseDown={(e) => {
+                  e.currentTarget.style.background = '#C7C7CC'
+                }}
+                onMouseUp={(e) => {
+                  e.currentTarget.style.background = '#D1D1D6'
+                }}
+              >
+                More contacts
+              </button>
+            </div>
+          )}
 
           {/* A-Z index overlay - only show when not searching and we have contacts */}
           {filteredResults === null && displayContacts.length > 0 && allLetters.length > 0 && (
