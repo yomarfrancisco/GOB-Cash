@@ -2,8 +2,9 @@
 
 import { useEffect } from 'react'
 import { syncContactsForUser } from '@/lib/contacts'
-import { getFirebaseAuth } from '@/lib/firebase'
 import { getFirestoreDb } from '@/lib/firebase'
+import { getFirebaseAuth } from '@/lib/firebase'
+import { useAuthStore } from '@/store/auth'
 
 type LocalContact = {
   id?: string
@@ -19,7 +20,7 @@ type LocalContact = {
 let hasLoggedProjectId = false
 
 export const useSyncContacts = (localContacts: LocalContact[]) => {
-  const auth = getFirebaseAuth()
+  const { isAuthed } = useAuthStore()
 
   // Log hook mount and project ID (once)
   useEffect(() => {
@@ -40,11 +41,21 @@ export const useSyncContacts = (localContacts: LocalContact[]) => {
   }, [])
 
   useEffect(() => {
-    const user = auth.currentUser
+    const contactsLength = localContacts?.length ?? 0
+
+    // Get user from Firebase Auth when isAuthed is true
+    const auth = getFirebaseAuth()
+    const user = isAuthed ? auth.currentUser : null
     const uid = user?.uid
 
+    console.log('[ContactsSync] Effect run', {
+      uid,
+      contactsLength,
+      isAuthed,
+    })
+
     if (!uid) {
-      console.log('[ContactsSync] Skipping sync: not authed')
+      console.log('[ContactsSync] Skipping sync: not authed (uid missing)')
       return
     }
 
@@ -53,7 +64,7 @@ export const useSyncContacts = (localContacts: LocalContact[]) => {
       return
     }
 
-    // For debugging: always sync on mount when authed & we have contacts
+    // For debugging: always sync when authed & we have contacts
     const doSync = async () => {
       try {
         console.log('[ContactsSync] Syncing contacts', {
@@ -63,11 +74,11 @@ export const useSyncContacts = (localContacts: LocalContact[]) => {
         await syncContactsForUser(uid, localContacts)
         console.log('[ContactsSync] Completed sync for uid', uid)
       } catch (err) {
-        console.error('[ContactsSync] Sync error', err)
+        console.error('[ContactsSync] Sync error', { uid, err })
       }
     }
 
     void doSync()
-  }, [auth, localContacts])
+  }, [isAuthed, localContacts])
 }
 

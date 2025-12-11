@@ -137,6 +137,7 @@ export const syncContactsForUser = async (
         console.log(`[ContactsSync] Wrote directory entry for handle: ${handle}`)
       } catch (err) {
         console.error('[ContactsSync] Failed writing directory entry', {
+          uid: userId,
           handle,
           error: err,
         })
