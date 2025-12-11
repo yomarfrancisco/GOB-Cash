@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
@@ -82,9 +82,9 @@ export default function SearchSheet() {
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
   // Only show visibleCount contacts initially
-  const { suggested, sections, allLetters, availableLettersSet, allSearchContacts } = useMemo(() => {
+  const { suggested, sections, allLetters, availableLettersSet, allSearchContacts, allAlphabetical } = useMemo(() => {
     if (displayContacts.length === 0) {
-      return { suggested: [], sections: [], allLetters: [], availableLettersSet: new Set<string>(), allSearchContacts: [] }
+      return { suggested: [], sections: [], allLetters: [], availableLettersSet: new Set<string>(), allSearchContacts: [], allAlphabetical: [] }
     }
 
     // 1) Suggested slice (top N)
@@ -117,7 +117,7 @@ export default function SearchSheet() {
     // 5) Get available letters (letters that have contacts)
     const availableLettersSet = new Set(sections.map((s) => s.letter))
 
-    return { suggested, sections, allLetters, availableLettersSet, allSearchContacts: displayContacts }
+    return { suggested, sections, allLetters, availableLettersSet, allSearchContacts: displayContacts, allAlphabetical }
   }, [displayContacts, visibleCount])
 
   // Clear search query and reset visible count when modal opens
@@ -381,72 +381,58 @@ export default function SearchSheet() {
             )}
           </div>
 
-          {/* More contacts footer - shows when there are more contacts to load (only in default layout, not search results) */}
-          {filteredResults === null && allSearchContacts.length > visibleCount && (
-            <div className={paymentStyles.bottomFooter}>
-              <button
-                type="button"
-                onClick={() =>
-                  setVisibleCount((prev) =>
-                    Math.min(
-                      prev + LOAD_MORE_INCREMENT,
-                      Math.min(allSearchContacts.length, MAX_SEARCH_CONTACTS),
-                    ),
-                  )
-                }
-                style={{
-                  width: '100%',
-                  maxWidth: '382px',
-                  height: '56px',
-                  borderRadius: '56px',
-                  background: '#E9E9EB',
-                  color: '#000',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '0 24px',
-                  fontSize: '16px',
-                  fontWeight: 500,
-                  letterSpacing: '-0.32px',
-                  cursor: 'pointer',
-                  border: 'none',
-                  transition: 'background 150ms ease',
-                  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#D1D1D6'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#E9E9EB'
-                }}
-                onMouseDown={(e) => {
-                  e.currentTarget.style.background = '#C7C7CC'
-                }}
-                onMouseUp={(e) => {
-                  e.currentTarget.style.background = '#D1D1D6'
-                }}
-              >
-                More contacts
-              </button>
-            </div>
-          )}
-
           {/* A-Z index overlay - only show when not searching and we have contacts */}
           {filteredResults === null && displayContacts.length > 0 && allLetters.length > 0 && (
             <div className={styles.alphabetIndexOverlay}>
               <AlphabetIndex
                 letters={allLetters}
                 onSelectLetter={(letter) => {
-                  // Find the section with this letter and scroll to it
-                  const targetSection = sectionRefs.current[letter]
-                  if (targetSection && scrollContainerRef.current) {
-                    const containerRect = scrollContainerRef.current.getBoundingClientRect()
-                    const targetRect = targetSection.getBoundingClientRect()
-                    const scrollTop = scrollContainerRef.current.scrollTop
-                    const offset = targetRect.top - containerRect.top + scrollTop - 8
-                    scrollContainerRef.current.scrollTo({ top: Math.max(0, offset), behavior: 'auto' })
+                  // Compute target index for this letter in allAlphabetical
+                  const getFirstLetter = (contact: RankedContact): string => {
+                    const name = (contact.name || contact.handle || contact.email || '').toLowerCase()
+                    if (!name) return '#'
+                    const firstChar = name[0]
+                    if (firstChar >= 'a' && firstChar <= 'z') return firstChar.toUpperCase()
+                    if (firstChar >= '0' && firstChar <= '9') return '#'
+                    return '#'
                   }
+
+                  // Find the first contact that starts with this letter (or nearest following letter)
+                  let targetIndex = -1
+                  for (let i = 0; i < allAlphabetical.length; i++) {
+                    const contactLetter = getFirstLetter(allAlphabetical[i])
+                    if (contactLetter === letter || (letter === '#' && contactLetter === '#')) {
+                      targetIndex = i
+                      break
+                    }
+                    // If we've passed the letter, use the next contact as target
+                    if (letter !== '#' && contactLetter > letter) {
+                      targetIndex = i
+                      break
+                    }
+                  }
+
+                  // If target is beyond visibleCount, expand it
+                  if (targetIndex >= 0 && targetIndex >= visibleCount - suggested.length) {
+                    const minRequired = targetIndex + LOAD_MORE_INCREMENT + suggested.length
+                    const nextVisible = Math.min(
+                      MAX_SEARCH_CONTACTS,
+                      Math.min(allSearchContacts.length, Math.max(visibleCount, minRequired)),
+                    )
+                    setVisibleCount(nextVisible)
+                  }
+
+                  // Scroll to the section (after state update, use setTimeout to ensure DOM is updated)
+                  setTimeout(() => {
+                    const targetSection = sectionRefs.current[letter]
+                    if (targetSection && scrollContainerRef.current) {
+                      const containerRect = scrollContainerRef.current.getBoundingClientRect()
+                      const targetRect = targetSection.getBoundingClientRect()
+                      const scrollTop = scrollContainerRef.current.scrollTop
+                      const offset = targetRect.top - containerRect.top + scrollTop - 8
+                      scrollContainerRef.current.scrollTo({ top: Math.max(0, offset), behavior: 'auto' })
+                    }
+                  }, 0)
                 }}
                 availableLetters={availableLettersSet}
               />
