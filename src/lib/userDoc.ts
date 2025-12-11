@@ -11,6 +11,7 @@ import { type User, signInWithCredential, GoogleAuthProvider, onAuthStateChanged
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, type DocumentData, Unsubscribe } from 'firebase/firestore'
 import { getFirestoreDb, getFirebaseAuth } from './firebase'
 import { generateHandleFromEmail } from './profile/generateHandle'
+import { type WalletBalances, DEFAULT_BALANCES } from './walletBalances'
 
 /**
  * User document schema (MVP)
@@ -28,12 +29,7 @@ export interface UserDocument {
   verificationStatus: 'unverified' | 'email-verified' | 'phone-verified' | 'full-verified'
   trustLevel: number // 0-100
   isAgent: boolean
-  balances: {
-    ZAR: number
-    MZN: number
-    ZWD: number
-    USDT: number
-  }
+  balances: WalletBalances
 }
 
 /**
@@ -133,12 +129,7 @@ export async function ensureUserDocument(user: User): Promise<void> {
       verificationStatus,
       trustLevel: 0,
       isAgent: false,
-      balances: {
-        ZAR: 0,
-        MZN: 0,
-        ZWD: 0,
-        USDT: 0,
-      },
+      balances: DEFAULT_BALANCES,
     }
 
     await setDoc(userRef, userDoc)

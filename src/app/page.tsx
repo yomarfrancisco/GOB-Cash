@@ -253,13 +253,25 @@ function HomeContent() {
   }, [amountMode, flowType, transferToWalletId])
 
   // Get wallet allocation for funds available display (demo fallback)
-  const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd } = useWalletAlloc()
+  const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd, syncFromFirestore } = useWalletAlloc()
   const profileState = useUserProfileStore((state) => state.profile)
   const firestoreBalances = profileState.balances
 
+  // Sync WalletAlloc from Firestore balances when they change (only if user is authenticated)
+  useEffect(() => {
+    if (isAuthed && firestoreBalances) {
+      syncFromFirestore(firestoreBalances)
+    }
+  }, [isAuthed, firestoreBalances, syncFromFirestore])
+
   const fundsAvailableZAR = firestoreBalances?.ZAR ?? alloc.totalCents / 100
   const formattedFunds = formatZAR(fundsAvailableZAR)
-  console.log('[Wallet] Using balances:', firestoreBalances || { totalCents: alloc.totalCents })
+  // Log source of balances (Firestore for authenticated users, demo for unauthenticated)
+  if (isAuthed && firestoreBalances) {
+    console.log('[Wallet] Using Firestore balances:', firestoreBalances)
+  } else {
+    console.log('[Wallet] Using demo balances (totalCents):', alloc.totalCents)
+  }
 
   // Initialize portfolio store from wallet allocation
   useEffect(() => {

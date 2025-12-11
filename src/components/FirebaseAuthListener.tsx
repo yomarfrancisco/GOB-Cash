@@ -7,6 +7,7 @@ import { ensureUserDocument, subscribeToCurrentUserDoc } from '@/lib/userDoc'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
 import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
+import type { WalletBalances } from '@/lib/walletBalances'
 
 /**
  * Client component that sets up Firebase Auth state listener
@@ -92,13 +93,16 @@ export default function FirebaseAuthListener() {
           const { data } = payload
           const { setProfile, profile } = useUserProfileStore.getState()
 
+          const balances = data.balances as WalletBalances | undefined
+
           setProfile({
             fullName: data.fullName || profile.fullName,
             email: data.email || profile.email,
             avatarUrl: data.avatarUrl || profile.avatarUrl,
             userHandle: data.handle || profile.userHandle,
-            balances: data.balances || profile.balances,
+            balances: balances || profile.balances,
           })
+
         })
       } else {
         // User signed out - reset profile to default (optional, or keep last profile)

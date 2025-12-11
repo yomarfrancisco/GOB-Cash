@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { WalletBalances } from '@/lib/walletBalances'
 
 export type CardBrand = 'visa' | 'mastercard' | 'amex'
 
@@ -41,12 +42,7 @@ export interface UserProfile {
   avatarUrl: string | null
   backdropUrl: string | null
   email?: string
-  balances?: {
-    ZAR?: number
-    MZN?: number
-    ZWD?: number
-    USDT?: number
-  }
+  balances?: WalletBalances
   instagramUrl?: string
   linkedinUrl?: string
   whatsappUrl?: string
@@ -110,6 +106,10 @@ export const useUserProfileStore = create<UserProfileState>()(
                 ? updates.userHandle
                 : `@${updates.userHandle}`
               : state.profile.userHandle,
+            // Merge balances if provided
+            balances: updates.balances
+              ? { ...(state.profile.balances || {}), ...updates.balances }
+              : state.profile.balances,
           },
         })),
       reset: () => set({ profile: defaultProfile }),
