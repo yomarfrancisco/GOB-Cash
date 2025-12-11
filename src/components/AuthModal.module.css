@@ -661,6 +661,12 @@
   line-height: 1.4;
 }
 
+.legal strong {
+  font-weight: 700;
+  opacity: 1;
+  color: #000;
+}
+
 /* Auth Entry Sheet Styles */
 .authEntryForm {
   width: 344px;
