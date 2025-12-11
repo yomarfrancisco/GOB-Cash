@@ -7,7 +7,6 @@ import { ensureUserDocument, subscribeToCurrentUserDoc } from '@/lib/userDoc'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
 import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
-import type { WalletBalances } from '@/lib/walletBalances'
 import { ensureDefaultWallets, subscribeToWallets } from '@/lib/wallets'
 import { useWalletStore } from '@/store/wallets'
 
@@ -100,14 +99,11 @@ export default function FirebaseAuthListener() {
           const { data } = payload
           const { setProfile, profile } = useUserProfileStore.getState()
 
-          const balances = data.balances as WalletBalances | undefined
-
           setProfile({
             fullName: data.fullName || profile.fullName,
             email: data.email || profile.email,
             avatarUrl: data.avatarUrl || profile.avatarUrl,
             userHandle: data.handle || profile.userHandle,
-            balances: balances || profile.balances,
           })
 
         })

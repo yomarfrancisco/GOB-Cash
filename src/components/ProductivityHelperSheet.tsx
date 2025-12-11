@@ -63,7 +63,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
               />
             </div>
             <h3 className={styles.tileTitle}>2. Moving Volume</h3>
-            <p className={styles.tileLine1}>How much <strong>cash-to-crypto</strong> or <strong>crypto-to-cash</strong> activity you complete while you're active.</p>
+            <p className={styles.tileLine1}>How much <strong>cash-to-crypto</strong> or <strong>crypto-to-cash</strong> activity you complete while you&apos;re active.</p>
           </div>
 
           {/* Tile 3: Working Clean */}
@@ -117,7 +117,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
               />
             </div>
             <h3 className={styles.tileTitle}>2. Your cash multiple</h3>
-            <p className={styles.tileLine1}>A higher score increases the "Cash x…" available on your Agent Earnings card.</p>
+            <p className={styles.tileLine1}>A higher score increases the &quot;Cash x…&quot; available on your Agent Earnings card.</p>
           </div>
 
           {/* Tile 3: Your priority */}

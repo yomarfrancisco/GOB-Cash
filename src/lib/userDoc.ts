@@ -11,7 +11,6 @@ import { type User, signInWithCredential, GoogleAuthProvider, onAuthStateChanged
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, type DocumentData, Unsubscribe } from 'firebase/firestore'
 import { getFirestoreDb, getFirebaseAuth } from './firebase'
 import { generateHandleFromEmail } from './profile/generateHandle'
-import { type WalletBalances, DEFAULT_BALANCES } from './walletBalances'
 import { ensureDefaultWallets } from './wallets'
 
 /**
@@ -30,7 +29,6 @@ export interface UserDocument {
   verificationStatus: 'unverified' | 'email-verified' | 'phone-verified' | 'full-verified'
   trustLevel: number // 0-100
   isAgent: boolean
-  balances: WalletBalances
 }
 
 /**
@@ -100,13 +98,12 @@ export async function ensureUserDocument(user: User): Promise<void> {
           email: userData.email || user.email || profileStore.profile.email,
           avatarUrl: userData.avatarUrl || user.photoURL || profileStore.profile.avatarUrl,
           userHandle: userData.handle || profileStore.profile.userHandle,
-          balances: userData.balances || profileStore.profile.balances,
         })
       }
       
       // Ensure wallets subcollection is seeded (idempotent)
       try {
-        await ensureDefaultWallets(user, userData.balances)
+        await ensureDefaultWallets(user)
       } catch (walletErr) {
         console.error('[Firebase] Failed to ensure wallets', walletErr)
       }
@@ -137,7 +134,6 @@ export async function ensureUserDocument(user: User): Promise<void> {
       verificationStatus,
       trustLevel: 0,
       isAgent: false,
-      balances: DEFAULT_BALANCES,
     }
 
     await setDoc(userRef, userDoc)
@@ -145,7 +141,7 @@ export async function ensureUserDocument(user: User): Promise<void> {
     console.log(`[UserDoc] Created user document for ${user.uid} with handle ${handle}`)
     // Seed wallets for new user
     try {
-      await ensureDefaultWallets(user, userDoc.balances)
+      await ensureDefaultWallets(user)
     } catch (walletErr) {
       console.error('[Firebase] Failed to seed wallets for new user', walletErr)
     }
@@ -160,7 +156,6 @@ export async function ensureUserDocument(user: User): Promise<void> {
         email: userDoc.email || profileStore.profile.email,
         avatarUrl: userDoc.avatarUrl || profileStore.profile.avatarUrl,
         userHandle: userDoc.handle || profileStore.profile.userHandle,
-        balances: userDoc.balances || profileStore.profile.balances,
       })
     }
     
@@ -246,7 +241,6 @@ export function subscribeToCurrentUserDoc(
         uid: user.uid,
         displayName: data.fullName,
         handle: data.handle,
-        balances: data.balances,
       })
       callback({ uid: user.uid, data })
     })

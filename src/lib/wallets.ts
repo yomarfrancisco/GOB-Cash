@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore'
 import { type User } from 'firebase/auth'
 import { getFirestoreDb } from './firebase'
-import { type WalletDoc, type WalletId, type WalletMap, type WalletKind } from '@/types/wallet'
+import { type WalletDoc, type WalletId, type WalletMap } from '@/types/wallet'
 
 /**
  * Collection reference helper
@@ -78,9 +78,9 @@ const DEFAULT_WALLETS: WalletDoc[] = [
 
 /**
  * Ensure default wallets exist for a user.
- * If the wallets subcollection is empty, seed it. Supports migration from legacy balances map.
+ * If the wallets subcollection is empty, seed it.
  */
-export async function ensureDefaultWallets(user: User, legacyBalances?: Record<string, number>): Promise<void> {
+export async function ensureDefaultWallets(user: User): Promise<void> {
   const db = getFirestoreDb()
   const walletsRef = getUserWalletsRef(user.uid)
 
@@ -93,28 +93,6 @@ export async function ensureDefaultWallets(user: User, legacyBalances?: Record<s
   }
 
   const seeds = DEFAULT_WALLETS.map((w) => ({ ...w }))
-
-  // Migration: if legacy balances exist and wallets are empty, hydrate cash wallets
-  if (legacyBalances) {
-    const { ZAR, MZN, ZWD, USDT } = legacyBalances
-    const apply = (walletId: WalletId, value?: number) => {
-      const wallet = seeds.find((w) => w.walletId === walletId)
-      if (wallet && typeof value === 'number') {
-        wallet.fiatBalance = value
-      }
-    }
-    apply('cashZAR', ZAR)
-    apply('cashMZN', MZN)
-    apply('cashZWD', ZWD)
-    // Map USDT into crypto wallets (split evenly between btc/eth for now as safe default)
-    if (typeof USDT === 'number' && USDT > 0) {
-      const half = USDT / 2
-      const eth = seeds.find((w) => w.walletId === 'eth')
-      const btc = seeds.find((w) => w.walletId === 'btc')
-      if (eth) eth.usdtBalance = half
-      if (btc) btc.usdtBalance = USDT - half
-    }
-  }
 
   const now = serverTimestamp()
   await Promise.all(
