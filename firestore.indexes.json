@@ -1,0 +1,48 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "graphEdges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "toHandle",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fromUserId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "graphEdges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "toUserId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fromUserId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "graphEdges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "toHandle",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "edgeType",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
+
