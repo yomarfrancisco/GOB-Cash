@@ -18,6 +18,7 @@ import { useRandomCardFlips } from '@/lib/animations/useRandomCardFlips'
 import { initPortfolioFromAlloc } from '@/lib/portfolio/initPortfolio'
 import ConvertCashSection from '@/components/ConvertCashSection'
 import BranchManagerFooter from '@/components/BranchManagerFooter'
+import { useUserProfileStore } from '@/store/userProfile'
 import AgentListSheet from '@/components/AgentListSheet'
 import { useWalletMode } from '@/state/walletMode'
 import { ScanOverlay } from '@/components/ScanOverlay'
@@ -40,7 +41,6 @@ import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { openAmaIntro, closeInboxSheet } from '@/lib/demo/autoAmaIntro'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
-import { useUserProfileStore } from '@/store/userProfile'
 import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
@@ -252,10 +252,14 @@ function HomeContent() {
     }
   }, [amountMode, flowType, transferToWalletId])
 
-  // Get wallet allocation for funds available display
+  // Get wallet allocation for funds available display (demo fallback)
   const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd } = useWalletAlloc()
-  const fundsAvailableZAR = alloc.totalCents / 100
+  const profileState = useUserProfileStore((state) => state.profile)
+  const firestoreBalances = profileState.balances
+
+  const fundsAvailableZAR = firestoreBalances?.ZAR ?? alloc.totalCents / 100
   const formattedFunds = formatZAR(fundsAvailableZAR)
+  console.log('[Wallet] Using balances:', firestoreBalances || { totalCents: alloc.totalCents })
 
   // Initialize portfolio store from wallet allocation
   useEffect(() => {
@@ -532,7 +536,7 @@ function HomeContent() {
   const title = isAuthed ? `Cash wallet` : `Cash wallet`
   
   // Subtitle text - conditional based on auth status
-  const totalBalanceZAR = isAuthed ? (alloc.totalCents / 100) : 0
+  const totalBalanceZAR = isAuthed ? (firestoreBalances?.ZAR ?? alloc.totalCents / 100) : 0
   const formattedBalance = formatZAR(totalBalanceZAR || 0)
   const subtitleText = isAuthed 
     ? `${formattedBalance} available`

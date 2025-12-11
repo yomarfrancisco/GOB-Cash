@@ -41,6 +41,12 @@ export interface UserProfile {
   avatarUrl: string | null
   backdropUrl: string | null
   email?: string
+  balances?: {
+    ZAR?: number
+    MZN?: number
+    ZWD?: number
+    USDT?: number
+  }
   instagramUrl?: string
   linkedinUrl?: string
   whatsappUrl?: string
@@ -80,6 +86,7 @@ const defaultProfile: UserProfile = {
   avatarUrl: null,
   backdropUrl: null,
   email: 'samakoyo@example.com',
+  balances: undefined,
   instagramUrl: undefined,
   linkedinUrl: undefined,
   description: undefined,

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { getRedirectResult, onAuthStateChanged } from 'firebase/auth'
 import { getFirebaseAuth } from '@/lib/firebase'
-import { ensureUserDocument } from '@/lib/userDoc'
+import { ensureUserDocument, subscribeToCurrentUserDoc } from '@/lib/userDoc'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
 import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
@@ -20,6 +20,7 @@ import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
  */
 export default function FirebaseAuthListener() {
   const checkedRedirectRef = useRef(false)
+  const unsubscribeDocRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -45,11 +46,16 @@ export default function FirebaseAuthListener() {
     }
 
     // Set up auth state listener - this is the single source of truth for isAuthed
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       console.log('[Firebase] Auth state changed:', user ? `user ${user.uid}` : 'no user')
       
       // Update app's isAuthed state based on Firebase Auth
       setAuthState(!!user)
+      // Clean up previous doc subscription
+      if (unsubscribeDocRef.current) {
+        unsubscribeDocRef.current()
+        unsubscribeDocRef.current = null
+      }
       
       // Sync profile store from Firebase user data
       if (user) {
@@ -79,6 +85,21 @@ export default function FirebaseAuthListener() {
         } catch (error) {
           console.error('[Firebase] Failed to ensure user document on auth state change:', error)
         }
+
+        // Subscribe to Firestore user doc snapshots
+        unsubscribeDocRef.current = subscribeToCurrentUserDoc((payload) => {
+          if (!payload || !payload.data) return
+          const { data } = payload
+          const { setProfile, profile } = useUserProfileStore.getState()
+
+          setProfile({
+            fullName: data.fullName || profile.fullName,
+            email: data.email || profile.email,
+            avatarUrl: data.avatarUrl || profile.avatarUrl,
+            userHandle: data.handle || profile.userHandle,
+            balances: data.balances || profile.balances,
+          })
+        })
       } else {
         // User signed out - reset profile to default (optional, or keep last profile)
         // For now, we'll keep the profile data even after sign-out
@@ -87,7 +108,11 @@ export default function FirebaseAuthListener() {
 
     // Cleanup on unmount
     return () => {
-      unsubscribe()
+      if (unsubscribeDocRef.current) {
+        unsubscribeDocRef.current()
+        unsubscribeDocRef.current = null
+      }
+      unsubscribeAuth()
     }
   }, [])
 

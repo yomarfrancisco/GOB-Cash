@@ -8,7 +8,7 @@
 'use client'
 
 import { type User, signInWithCredential, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc, setDoc, serverTimestamp, type DocumentData } from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, type DocumentData, Unsubscribe } from 'firebase/firestore'
 import { getFirestoreDb, getFirebaseAuth } from './firebase'
 import { generateHandleFromEmail } from './profile/generateHandle'
 
@@ -97,12 +97,13 @@ export async function ensureUserDocument(user: User): Promise<void> {
       if (typeof window !== 'undefined') {
         const { useUserProfileStore } = await import('@/store/userProfile')
         const profileStore = useUserProfileStore.getState()
-        
+
         profileStore.setProfile({
           fullName: userData.fullName || user.displayName || profileStore.profile.fullName,
           email: userData.email || user.email || profileStore.profile.email,
           avatarUrl: userData.avatarUrl || user.photoURL || profileStore.profile.avatarUrl,
           userHandle: userData.handle || profileStore.profile.userHandle,
+          balances: userData.balances || profileStore.profile.balances,
         })
       }
       
@@ -148,12 +149,13 @@ export async function ensureUserDocument(user: User): Promise<void> {
     if (typeof window !== 'undefined') {
       const { useUserProfileStore } = await import('@/store/userProfile')
       const profileStore = useUserProfileStore.getState()
-      
+
       profileStore.setProfile({
         fullName: userDoc.fullName || profileStore.profile.fullName,
         email: userDoc.email || profileStore.profile.email,
         avatarUrl: userDoc.avatarUrl || profileStore.profile.avatarUrl,
         userHandle: userDoc.handle || profileStore.profile.userHandle,
+        balances: userDoc.balances || profileStore.profile.balances,
       })
     }
     
@@ -196,33 +198,58 @@ export async function signInWithGoogleIdTokenAndEnsureUser(idToken: string): Pro
 }
 
 /**
- * Set up an auth state listener that automatically ensures user document
- * exists whenever a user signs in with Firebase Auth.
+ * Subscribe to the current user's Firestore document.
+ * - If signed out: callback(null) and no snapshot.
+ * - If signed in: listens to /users/{uid} and calls callback with data.
  * 
- * Call this once in your app (e.g., in a provider or layout component)
- * to automatically create user documents on sign-in.
- * 
- * @returns Unsubscribe function to stop listening
+ * Returns an unsubscribe function.
  */
-export function setupAuthStateListener(): () => void {
-  // Guard: only run in browser
+export function subscribeToCurrentUserDoc(
+  callback: (payload: { uid: string; data: any } | null) => void
+): () => void {
   if (typeof window === 'undefined') {
-    console.warn('[UserDoc] setupAuthStateListener called server-side, skipping')
+    console.warn('[UserDoc] subscribeToCurrentUserDoc called server-side, skipping')
     return () => {}
   }
 
   const auth = getFirebaseAuth()
+  let docUnsub: Unsubscribe | null = null
 
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      try {
-        await ensureUserDocument(user)
-      } catch (error) {
-        console.error('[UserDoc] Failed to ensure user document on auth state change:', error)
-      }
+  const authUnsub = onAuthStateChanged(auth, (user) => {
+    // Clean up previous doc listener
+    if (docUnsub) {
+      docUnsub()
+      docUnsub = null
     }
+
+    if (!user) {
+      callback(null)
+      return
+    }
+
+    const db = getFirestoreDb()
+    const userRef = doc(db, 'users', user.uid)
+
+    console.log('[UserDoc] Subscribing to user doc for uid=', user.uid)
+    docUnsub = onSnapshot(userRef, (snap) => {
+      if (!snap.exists()) {
+        callback({ uid: user.uid, data: null })
+        return
+      }
+      const data = snap.data()
+      console.log('[UserDoc] Snapshot:', {
+        uid: user.uid,
+        displayName: data.fullName,
+        handle: data.handle,
+        balances: data.balances,
+      })
+      callback({ uid: user.uid, data })
+    })
   })
 
-  return unsubscribe
+  return () => {
+    if (docUnsub) docUnsub()
+    authUnsub()
+  }
 }
 
