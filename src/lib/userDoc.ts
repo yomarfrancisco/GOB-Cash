@@ -12,6 +12,7 @@ import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, type DocumentData, Un
 import { getFirestoreDb, getFirebaseAuth } from './firebase'
 import { generateHandleFromEmail } from './profile/generateHandle'
 import { type WalletBalances, DEFAULT_BALANCES } from './walletBalances'
+import { ensureDefaultWallets } from './wallets'
 
 /**
  * User document schema (MVP)
@@ -103,6 +104,13 @@ export async function ensureUserDocument(user: User): Promise<void> {
         })
       }
       
+      // Ensure wallets subcollection is seeded (idempotent)
+      try {
+        await ensureDefaultWallets(user, userData.balances)
+      } catch (walletErr) {
+        console.error('[Firebase] Failed to ensure wallets', walletErr)
+      }
+
       console.log('[Firebase] user doc ensured', user.uid)
       return
     }
@@ -135,6 +143,12 @@ export async function ensureUserDocument(user: User): Promise<void> {
     await setDoc(userRef, userDoc)
 
     console.log(`[UserDoc] Created user document for ${user.uid} with handle ${handle}`)
+    // Seed wallets for new user
+    try {
+      await ensureDefaultWallets(user, userDoc.balances)
+    } catch (walletErr) {
+      console.error('[Firebase] Failed to seed wallets for new user', walletErr)
+    }
     
     // Sync profile store from newly created document
     if (typeof window !== 'undefined') {

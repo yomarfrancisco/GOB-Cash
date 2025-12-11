@@ -8,6 +8,8 @@ import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
 import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
 import type { WalletBalances } from '@/lib/walletBalances'
+import { ensureDefaultWallets, subscribeToWallets } from '@/lib/wallets'
+import { useWalletStore } from '@/store/wallets'
 
 /**
  * Client component that sets up Firebase Auth state listener
@@ -22,6 +24,7 @@ import type { WalletBalances } from '@/lib/walletBalances'
 export default function FirebaseAuthListener() {
   const checkedRedirectRef = useRef(false)
   const unsubscribeDocRef = useRef<(() => void) | null>(null)
+  const unsubscribeWalletsRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -56,6 +59,10 @@ export default function FirebaseAuthListener() {
       if (unsubscribeDocRef.current) {
         unsubscribeDocRef.current()
         unsubscribeDocRef.current = null
+      }
+      if (unsubscribeWalletsRef.current) {
+        unsubscribeWalletsRef.current()
+        unsubscribeWalletsRef.current = null
       }
       
       // Sync profile store from Firebase user data
@@ -104,9 +111,24 @@ export default function FirebaseAuthListener() {
           })
 
         })
+
+        // Ensure wallets and subscribe to wallet snapshots
+        try {
+          await ensureDefaultWallets(user)
+          const walletStore = useWalletStore.getState()
+          unsubscribeWalletsRef.current = subscribeToWallets(user.uid, (wallets) => {
+            walletStore.setWallets(wallets)
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('[Wallets] Loaded wallets for user', user.uid, Object.keys(wallets))
+            }
+          })
+        } catch (walletErr) {
+          console.error('[Firebase] Failed to ensure/subscribe wallets', walletErr)
+        }
       } else {
         // User signed out - reset profile to default (optional, or keep last profile)
         // For now, we'll keep the profile data even after sign-out
+        useWalletStore.getState().clear()
       }
     })
 
@@ -115,6 +137,10 @@ export default function FirebaseAuthListener() {
       if (unsubscribeDocRef.current) {
         unsubscribeDocRef.current()
         unsubscribeDocRef.current = null
+      }
+      if (unsubscribeWalletsRef.current) {
+        unsubscribeWalletsRef.current()
+        unsubscribeWalletsRef.current = null
       }
       unsubscribeAuth()
     }

@@ -1,8 +1,9 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react'
-import { updateFirestoreBalances } from '@/lib/walletBalances'
-import type { WalletBalances } from '@/lib/walletBalances'
+import { getFirebaseAuth } from '@/lib/firebase'
+import { updateWalletBalances } from '@/lib/wallets'
+import type { WalletMap } from '@/types/wallet'
 
 export type WalletAlloc = {
   totalCents: number // total funds in cents; funds-available display derives from this
@@ -35,8 +36,8 @@ interface WalletAllocContextType {
   setEth: (value: number) => void
   setZwd: (value: number) => void
   setEarnings: (value: number) => void
-  // Sync from Firestore balances
-  syncFromFirestore: (balances: WalletBalances) => void
+  // Sync from wallet docs
+  syncFromWallets: (wallets: WalletMap) => void
 }
 
 const WalletAllocContext = createContext<WalletAllocContextType | undefined>(undefined)
@@ -56,6 +57,7 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
   const [isRebalancing, setRebalancing] = useState(false)
   // Track if we're syncing from Firestore to prevent loops
   const isSyncingFromFirestoreRef = useRef(false)
+  const auth = typeof window !== 'undefined' ? getFirebaseAuth() : null
 
   const applyAiAction = useCallback(
     (action: { from: 'cash' | 'eth' | 'zwd'; to: 'cash' | 'eth' | 'zwd'; cents: number }) => {
@@ -78,30 +80,44 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
           // totalCents stays constant
         }
 
-        // Persist to Firestore (non-blocking)
-        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current) {
-          const balances: Partial<WalletBalances> = {}
+        // Persist to wallets (non-blocking)
+        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current && auth?.currentUser) {
+          const userId = auth.currentUser.uid
+          const fxRate = 18.1 // ZAR per USDT
+
+          const updates: Array<Promise<void>> = []
           if (action.from === 'cash' || action.to === 'cash') {
-            balances.ZAR = newAlloc.cashCents / 100
+            updates.push(
+              updateWalletBalances(userId, 'cashZAR', { fiatBalance: newAlloc.cashCents / 100 }).catch((err) =>
+                console.error('[Wallet] Failed to persist cash wallet', err)
+              )
+            )
           }
           if (action.from === 'eth' || action.to === 'eth') {
-            // ETH is stored as USDT in Firestore (convert from ZAR)
-            const fxRate = 18.1 // ZAR per USDT
-            balances.USDT = newAlloc.ethCents / 100 / fxRate
+            const fiat = newAlloc.ethCents / 100
+            updates.push(
+              updateWalletBalances(userId, 'eth', {
+                fiatBalance: fiat,
+                usdtBalance: fiat / fxRate,
+              }).catch((err) => console.error('[Wallet] Failed to persist eth wallet', err))
+            )
           }
           if (action.from === 'zwd' || action.to === 'zwd') {
-            balances.ZWD = newAlloc.zwdCents / 100
+            updates.push(
+              updateWalletBalances(userId, 'cashZWD', { fiatBalance: newAlloc.zwdCents / 100 }).catch((err) =>
+                console.error('[Wallet] Failed to persist zwd wallet', err)
+              )
+            )
           }
-          
-          updateFirestoreBalances(balances).catch((err) => {
-            console.error('[Wallet] Failed to persist AI action to Firestore:', err)
+          Promise.all(updates).catch(() => {
+            // logged individually
           })
         }
 
         return newAlloc
       })
     },
-    []
+    [auth]
   )
 
   const allocPct = useCallback(
@@ -122,9 +138,9 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         const newCashCents = Math.round(value * 100)
         const newAlloc = { ...prev, cashCents: newCashCents }
         
-        // Persist to Firestore (non-blocking)
-        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current) {
-          updateFirestoreBalances({ ZAR: value }).catch((err) => {
+        // Persist to wallet doc (non-blocking)
+        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current && auth?.currentUser) {
+          updateWalletBalances(auth.currentUser.uid, 'cashZAR', { fiatBalance: value }).catch((err) => {
             console.error('[Wallet] Failed to persist ZAR balance to Firestore:', err)
           })
         }
@@ -132,7 +148,7 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         return newAlloc
       })
     },
-    []
+    [auth]
   )
 
   const setEth = useCallback(
@@ -141,12 +157,14 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         const newEthCents = Math.round(value * 100)
         const newAlloc = { ...prev, ethCents: newEthCents }
         
-        // Persist to Firestore (non-blocking)
-        // ETH is stored as USDT in Firestore (convert from ZAR)
-        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current) {
+        // Persist to wallet doc (non-blocking)
+        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current && auth?.currentUser) {
           const fxRate = 18.1 // ZAR per USDT
           const usdtValue = value / fxRate
-          updateFirestoreBalances({ USDT: usdtValue }).catch((err) => {
+          updateWalletBalances(auth.currentUser.uid, 'eth', {
+            fiatBalance: value,
+            usdtBalance: usdtValue,
+          }).catch((err) => {
             console.error('[Wallet] Failed to persist ETH/USDT balance to Firestore:', err)
           })
         }
@@ -154,7 +172,7 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         return newAlloc
       })
     },
-    []
+    [auth]
   )
 
   const setZwd = useCallback(
@@ -163,9 +181,9 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         const newZwdCents = Math.round(value * 100)
         const newAlloc = { ...prev, zwdCents: newZwdCents }
         
-        // Persist to Firestore (non-blocking)
-        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current) {
-          updateFirestoreBalances({ ZWD: value }).catch((err) => {
+        // Persist to wallet doc (non-blocking)
+        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current && auth?.currentUser) {
+          updateWalletBalances(auth.currentUser.uid, 'cashZWD', { fiatBalance: value }).catch((err) => {
             console.error('[Wallet] Failed to persist ZWD balance to Firestore:', err)
           })
         }
@@ -173,7 +191,7 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         return newAlloc
       })
     },
-    []
+    [auth]
   )
 
   const setEarnings = useCallback(
@@ -186,31 +204,37 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
     []
   )
 
-  // Sync WalletAlloc from Firestore balances
-  const syncFromFirestore = useCallback((balances: WalletBalances) => {
+  // Sync WalletAlloc from wallet docs (source of truth)
+  const syncFromWallets = useCallback((wallets: WalletMap) => {
     isSyncingFromFirestoreRef.current = true
     try {
-      setAlloc((prev) => {
-        const fxRate = 18.1 // ZAR per USDT
-        const newAlloc: WalletAlloc = {
-          ...prev,
-          cashCents: Math.round(balances.ZAR * 100),
-          zwdCents: Math.round(balances.ZWD * 100),
-          ethCents: Math.round(balances.USDT * fxRate * 100), // Convert USDT to ZAR cents
-          mznCents: Math.round(balances.MZN * 100),
-          // Recalculate total from balances
-          totalCents: Math.round(
-            balances.ZAR * 100 +
-            balances.ZWD * 100 +
-            balances.USDT * fxRate * 100 +
-            balances.MZN * 100
-          ),
-        }
-        console.log('[Wallet] Loaded balances from Firestore:', balances)
-        return newAlloc
-      })
+      const fxRate = 18.1 // ZAR per USDT
+      const getFiat = (id: string) => (wallets as any)[id]?.fiatBalance ?? 0
+      const getUsdt = (id: string) => (wallets as any)[id]?.usdtBalance ?? 0
+
+      const cashZAR = getFiat('cashZAR')
+      const cashZWD = getFiat('cashZWD')
+      const cashMZN = getFiat('cashMZN')
+      const ethFiat = getFiat('eth')
+      const btcFiat = getFiat('btc')
+      const earningsFiat = getFiat('earnings')
+
+      const newAlloc: WalletAlloc = {
+        cashCents: Math.round(cashZAR * 100),
+        zwdCents: Math.round(cashZWD * 100),
+        mznCents: Math.round(cashMZN * 100),
+        ethCents: Math.round(ethFiat * 100),
+        btcCents: Math.round(btcFiat * 100),
+        earningsCents: Math.round(earningsFiat * 100),
+        totalCents: Math.round(
+          (cashZAR + cashZWD + cashMZN + ethFiat + btcFiat + earningsFiat) * 100
+        ),
+      }
+      setAlloc(newAlloc)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Wallet] Synced WalletAlloc from wallets:', wallets)
+      }
     } finally {
-      // Reset flag after a short delay to allow state update to complete
       setTimeout(() => {
         isSyncingFromFirestoreRef.current = false
       }, 100)
@@ -233,7 +257,7 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         setEth,
         setZwd,
         setEarnings,
-        syncFromFirestore,
+        syncFromWallets,
       }}
     >
       {children}

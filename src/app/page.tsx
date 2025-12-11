@@ -13,6 +13,7 @@ import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
 import { formatUSDT, formatZAR } from '@/lib/money'
 import { useWalletAlloc } from '@/state/walletAlloc'
+import { useWalletStore } from '@/store/wallets'
 import { useAiActionCycle } from '@/lib/animations/useAiActionCycle'
 import { useRandomCardFlips } from '@/lib/animations/useRandomCardFlips'
 import { initPortfolioFromAlloc } from '@/lib/portfolio/initPortfolio'
@@ -253,24 +254,23 @@ function HomeContent() {
   }, [amountMode, flowType, transferToWalletId])
 
   // Get wallet allocation for funds available display (demo fallback)
-  const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd, syncFromFirestore } = useWalletAlloc()
-  const profileState = useUserProfileStore((state) => state.profile)
-  const firestoreBalances = profileState.balances
+  const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd, syncFromWallets } = useWalletAlloc()
+  const { wallets, demoMode } = useWalletStore()
 
-  // Sync WalletAlloc from Firestore balances when they change (only if user is authenticated)
+  // Sync WalletAlloc from wallet docs when they change (only if user is authenticated)
   useEffect(() => {
-    if (isAuthed && firestoreBalances) {
-      syncFromFirestore(firestoreBalances)
+    if (isAuthed && wallets) {
+      syncFromWallets(wallets as any)
     }
-  }, [isAuthed, firestoreBalances, syncFromFirestore])
+  }, [isAuthed, wallets, syncFromWallets])
 
-  const fundsAvailableZAR = firestoreBalances?.ZAR ?? alloc.totalCents / 100
+  const fundsAvailableZAR = (wallets as any)?.cashZAR?.fiatBalance ?? alloc.totalCents / 100
   const formattedFunds = formatZAR(fundsAvailableZAR)
   // Log source of balances (Firestore for authenticated users, demo for unauthenticated)
-  if (isAuthed && firestoreBalances) {
-    console.log('[Wallet] Using Firestore balances:', firestoreBalances)
+  if (isAuthed && wallets && !demoMode) {
+    console.log('[Wallet] Using Firestore wallets:', wallets)
   } else {
-    console.log('[Wallet] Using demo balances (totalCents):', alloc.totalCents)
+    console.log('[Wallet] Using demo wallets (totalCents):', alloc.totalCents)
   }
 
   // Initialize portfolio store from wallet allocation
@@ -548,7 +548,7 @@ function HomeContent() {
   const title = isAuthed ? `Cash wallet` : `Cash wallet`
   
   // Subtitle text - conditional based on auth status
-  const totalBalanceZAR = isAuthed ? (firestoreBalances?.ZAR ?? alloc.totalCents / 100) : 0
+  const totalBalanceZAR = isAuthed ? ((wallets as any)?.cashZAR?.fiatBalance ?? alloc.totalCents / 100) : 0
   const formattedBalance = formatZAR(totalBalanceZAR || 0)
   const subtitleText = isAuthed 
     ? `${formattedBalance} available`
