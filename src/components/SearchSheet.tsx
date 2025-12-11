@@ -18,6 +18,7 @@ import paymentStyles from './PaymentDetailsSheet.module.css'
 import contactListStyles from './contacts/ContactListWithIndex.module.css'
 import styles from './SearchSheet.module.css'
 import { useSyncContacts } from '@/hooks/useSyncContacts'
+import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
 
 type SearchAgent = {
   type: 'agent'
@@ -60,28 +61,31 @@ export default function SearchSheet() {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
-  // Get contacts from store and compute ranked list
+  // Get contacts from store and compute ranked list (for sync)
   const contacts = useContactsStore((state) => state.contacts)
   const rankedContacts = useMemo(
     () => getRankedContacts(contacts || [], MAX_SEARCH_CONTACTS),
     [contacts]
   )
   useSyncContacts(rankedContacts)
+  
+  // Get contacts for UI display (prefers Firestore, falls back to rankedContacts)
+  const displayContacts = useUserContactsForUI(rankedContacts)
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
   const { suggested, sections, allLetters, availableLettersSet } = useMemo(() => {
-    if (rankedContacts.length === 0) {
+    if (displayContacts.length === 0) {
       return { suggested: [], sections: [], allLetters: [], availableLettersSet: new Set<string>() }
     }
 
     // 1) Suggested slice (top N)
-    const suggested = rankedContacts.slice(0, MAX_SUGGESTED_CONTACTS)
+    const suggested = displayContacts.slice(0, MAX_SUGGESTED_CONTACTS)
 
     // 2) All contacts for the alphabetical list
     //    - Remove suggested (no duplication)
     //    - Sort alphabetically by displayName / handle
     const suggestedIds = new Set(suggested.map((c) => c.id))
-    const allAlphabetical = rankedContacts
+    const allAlphabetical = displayContacts
       .filter((c) => !suggestedIds.has(c.id))
       .sort((a, b) => {
         const aName = (a.name || a.handle || a.email || '').toLowerCase()
@@ -103,7 +107,7 @@ export default function SearchSheet() {
     const availableLettersSet = new Set(sections.map((s) => s.letter))
 
     return { suggested, sections, allLetters, availableLettersSet }
-  }, [rankedContacts])
+  }, [displayContacts])
 
   // Clear search query when modal opens
   useEffect(() => {
@@ -152,14 +156,14 @@ export default function SearchSheet() {
     })
 
     // Add matching contacts
-    rankedContacts.forEach((contact) => {
+    displayContacts.forEach((contact) => {
       if (matchesQuery(query, { type: 'contact', contact })) {
         results.push({ type: 'contact', contact })
       }
     })
 
     return results
-  }, [searchQuery, rankedContacts])
+  }, [searchQuery, displayContacts])
 
   const handleAgentClick = (agent: SearchAgent) => {
     // Extract handle without $ prefix
@@ -339,7 +343,7 @@ export default function SearchSheet() {
                 )}
 
                 {/* Show fallback if no contacts */}
-                {rankedContacts.length === 0 && sections.length === 0 && (
+                {displayContacts.length === 0 && sections.length === 0 && (
                   <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(0, 0, 0, 0.4)' }}>
                     No contacts available
                   </div>
@@ -366,7 +370,7 @@ export default function SearchSheet() {
           </div>
 
           {/* A-Z index overlay - only show when not searching and we have contacts */}
-          {filteredResults === null && rankedContacts.length > 0 && allLetters.length > 0 && (
+          {filteredResults === null && displayContacts.length > 0 && allLetters.length > 0 && (
             <div className={styles.alphabetIndexOverlay}>
               <AlphabetIndex
                 letters={allLetters}

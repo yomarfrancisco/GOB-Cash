@@ -15,6 +15,7 @@ import { AlphabetIndex } from './contacts/AlphabetIndex'
 import '@/styles/send-details-sheet.css'
 import styles from './PaymentDetailsSheet.module.css'
 import { useSyncContacts } from '@/hooks/useSyncContacts'
+import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
 
 const RECIPIENT_PLACEHOLDER = 'Username or WhatsApp number'
 const MAX_PAYMENT_SUGGESTIONS = 300
@@ -62,29 +63,32 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   const [availableLetters, setAvailableLetters] = useState<Set<string>>(new Set())
   const isAuthed = useAuthStore((s) => s.isAuthed)
   
-  // Get contacts from store and compute ranked list
+  // Get contacts from store and compute ranked list (for sync)
   const contacts = useContactsStore((state) => state.contacts)
   const rankedContacts = useMemo(
     () => getRankedContacts(contacts || [], MAX_PAYMENT_SUGGESTIONS),
     [contacts]
   )
   useSyncContacts(rankedContacts)
+  
+  // Get contacts for UI display (prefers Firestore, falls back to rankedContacts)
+  const displayContacts = useUserContactsForUI(rankedContacts)
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
   const { suggested, sections } = useMemo(() => {
-    if (rankedContacts.length === 0) {
+    if (displayContacts.length === 0) {
       return { suggested: [], sections: [] }
     }
 
     // 1) Suggested slice (keep current order)
-    const suggested = rankedContacts.slice(0, MAX_SUGGESTED)
+    const suggested = displayContacts.slice(0, MAX_SUGGESTED)
 
     // 2) All contacts for the alphabetical list
-    //    - Start from ranked
+    //    - Start from displayContacts
     //    - Remove suggested (no duplication)
     //    - Sort alphabetically by displayName / handle
     const suggestedIds = new Set(suggested.map((c) => c.id))
-    const allAlphabetical = rankedContacts
+    const allAlphabetical = displayContacts
       .filter((c) => !suggestedIds.has(c.id))
       .sort((a, b) => {
         const aName = (a.name || a.handle || a.email || '').toLowerCase()
@@ -96,7 +100,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     const sections = groupByFirstLetter(allAlphabetical)
 
     return { suggested, sections }
-  }, [rankedContacts])
+  }, [displayContacts])
   
   // Debug logging for ranked contacts
   useEffect(() => {
@@ -237,7 +241,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
             </div>
 
             {/* Contacts list (A-Z index rendered separately as fixed overlay) */}
-            {rankedContacts.length > 0 ? (
+            {displayContacts.length > 0 ? (
               <ContactListWithIndex
                 ref={contactListRef}
                 suggested={suggested}
@@ -331,7 +335,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
           </div>
 
           {/* Fixed A-Z index overlay - always visible, positioned relative to sheetContainer */}
-          {rankedContacts.length > 0 && alphabetLetters.length > 0 && (
+          {displayContacts.length > 0 && alphabetLetters.length > 0 && (
             <div className={styles.alphabetIndexOverlay}>
               <AlphabetIndex
                 letters={alphabetLetters}
