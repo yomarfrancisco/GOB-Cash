@@ -112,9 +112,6 @@ export default function FirebaseAuthListener() {
         try {
           await ensureDefaultWallets(user)
           const walletStore = useWalletStore.getState()
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('[Contacts] Example contact snapshot path:', `users/${user.uid}/contacts`)
-          }
           unsubscribeWalletsRef.current = subscribeToWallets(user.uid, (wallets) => {
             walletStore.setWallets(wallets)
             if (process.env.NODE_ENV !== 'production') {

@@ -14,6 +14,7 @@ import { ContactListWithIndex, type ContactListHandle } from './contacts/Contact
 import { AlphabetIndex } from './contacts/AlphabetIndex'
 import '@/styles/send-details-sheet.css'
 import styles from './PaymentDetailsSheet.module.css'
+import { useSyncContacts } from '@/hooks/useSyncContacts'
 
 const RECIPIENT_PLACEHOLDER = 'Username or WhatsApp number'
 const MAX_PAYMENT_SUGGESTIONS = 300
@@ -67,6 +68,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     () => getRankedContacts(contacts || [], MAX_PAYMENT_SUGGESTIONS),
     [contacts]
   )
+  useSyncContacts(rankedContacts)
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
   const { suggested, sections } = useMemo(() => {

@@ -29,6 +29,7 @@ export interface UserDocument {
   verificationStatus: 'unverified' | 'email-verified' | 'phone-verified' | 'full-verified'
   trustLevel: number // 0-100
   isAgent: boolean
+  socialGraphShareContacts?: boolean
 }
 
 /**
@@ -98,6 +99,8 @@ export async function ensureUserDocument(user: User): Promise<void> {
           email: userData.email || user.email || profileStore.profile.email,
           avatarUrl: userData.avatarUrl || user.photoURL || profileStore.profile.avatarUrl,
           userHandle: userData.handle || profileStore.profile.userHandle,
+          socialGraphShareContacts:
+            userData.socialGraphShareContacts ?? profileStore.profile.socialGraphShareContacts ?? true,
         })
       }
       
@@ -134,6 +137,7 @@ export async function ensureUserDocument(user: User): Promise<void> {
       verificationStatus,
       trustLevel: 0,
       isAgent: false,
+      socialGraphShareContacts: true,
     }
 
     await setDoc(userRef, userDoc)
@@ -156,6 +160,7 @@ export async function ensureUserDocument(user: User): Promise<void> {
         email: userDoc.email || profileStore.profile.email,
         avatarUrl: userDoc.avatarUrl || profileStore.profile.avatarUrl,
         userHandle: userDoc.handle || profileStore.profile.userHandle,
+        socialGraphShareContacts: userDoc.socialGraphShareContacts ?? true,
       })
     }
     

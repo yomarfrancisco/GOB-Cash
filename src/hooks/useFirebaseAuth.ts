@@ -1,10 +1,9 @@
 'use client'
 
-import { signInWithPopup, signInWithRedirect, signOut as firebaseSignOut, GoogleAuthProvider } from 'firebase/auth'
+import { signInWithPopup, signInWithRedirect, signOut as firebaseSignOut } from 'firebase/auth'
 import { getFirebaseAuth, getGoogleAuthProvider } from '@/lib/firebase'
 import { useAuthStore } from '@/store/auth'
 import { useNotificationStore } from '@/store/notifications'
-import { importGoogleContactsForUser } from '@/lib/googleContacts'
 
 /**
  * Hook for Firebase Auth with Google provider
@@ -30,23 +29,8 @@ export function useFirebaseAuth() {
 
       try {
         // Try popup first (preferred UX)
-        const result = await signInWithPopup(auth, googleProvider)
+        await signInWithPopup(auth, googleProvider)
         console.log('[FirebaseAuth] Google sign-in success (popup)')
-
-        const user = result.user
-        const credential = GoogleAuthProvider.credentialFromResult(result)
-        const accessToken = (credential as any)?.accessToken as string | undefined
-
-        if (user && accessToken) {
-          try {
-            const importedCount = await importGoogleContactsForUser({ user, accessToken })
-            console.log('[Contacts] Imported from sign-in:', importedCount)
-          } catch (err) {
-            console.warn('[Contacts] Failed to import contacts', err)
-          }
-        } else {
-          console.warn('[Contacts] Missing user or accessToken; skipping import')
-        }
 
         // Close auth sheets - FirebaseAuthListener will update isAuthed
         closeAllAuth()

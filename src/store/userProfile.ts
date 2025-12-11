@@ -45,6 +45,7 @@ export interface UserProfile {
   linkedinUrl?: string
   whatsappUrl?: string
   description?: string
+  socialGraphShareContacts?: boolean
   // TODO: wire real addresses
   usdtSaAddress?: string // USDT SA (ZAR wallet) address
   usdtMznAddress?: string // USDT MZN (Moz wallet) address
@@ -80,6 +81,7 @@ const defaultProfile: UserProfile = {
   avatarUrl: null,
   backdropUrl: null,
   email: 'samakoyo@example.com',
+  socialGraphShareContacts: true,
   instagramUrl: undefined,
   linkedinUrl: undefined,
   description: undefined,

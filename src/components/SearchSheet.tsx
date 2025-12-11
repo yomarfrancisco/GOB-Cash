@@ -17,6 +17,7 @@ import listStyles from './Inbox/FinancialInboxListSheet.module.css'
 import paymentStyles from './PaymentDetailsSheet.module.css'
 import contactListStyles from './contacts/ContactListWithIndex.module.css'
 import styles from './SearchSheet.module.css'
+import { useSyncContacts } from '@/hooks/useSyncContacts'
 
 type SearchAgent = {
   type: 'agent'
@@ -65,6 +66,7 @@ export default function SearchSheet() {
     () => getRankedContacts(contacts || [], MAX_SEARCH_CONTACTS),
     [contacts]
   )
+  useSyncContacts(rankedContacts)
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
   const { suggested, sections, allLetters, availableLettersSet } = useMemo(() => {

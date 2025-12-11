@@ -24,6 +24,8 @@ import { useUserProfileStore } from '@/store/userProfile'
 import { useSupportSheet } from '@/store/useSupportSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
+import { doc, updateDoc } from 'firebase/firestore'
+import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import Avatar from '@/components/Avatar'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet, getDepositCryptoWallets } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
@@ -42,13 +44,12 @@ import { openAmaChatWithCardDepositScenario, openAmaChatWithAgentInduction } fro
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
 import { ChevronRight } from 'lucide-react'
 import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
-
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { isAuthed } = useAuthStore()
+  const { isAuthed, openAuthEntry } = useAuthStore()
   const { hasCompletedAgentOnboarding } = useAgentOnboardingStore()
   
   // Redirect unauthenticated users to home
@@ -60,7 +61,7 @@ export default function ProfilePage() {
   const activityCount = useActivityStore((s) => s.items.length)
   const { open: openProfileEdit } = useProfileEditSheet()
   const { setOnSelect, open } = useTransactSheet()
-  const { profile } = useUserProfileStore()
+  const { profile, setProfile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
   const { open: openLinkedAccounts } = useLinkedAccountsSheet()
   const { openInbox, closeInbox, isInboxOpen } = useFinancialInboxStore()
@@ -92,6 +93,7 @@ export default function ProfilePage() {
   const [selectedCryptoDepositWallet, setSelectedCryptoDepositWallet] = useState<DepositCryptoWallet | null>(null)
   const [showCryptoAddressSheet, setShowCryptoAddressSheet] = useState(false)
   const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
+  const shareContacts = profile.socialGraphShareContacts ?? true
 
   const openPaymentsSheet = useCallback(() => setOpenPayments(true), [])
   const closePaymentsSheet = useCallback(() => setOpenPayments(false), [])
@@ -119,6 +121,25 @@ export default function ProfilePage() {
   const closeDepositCryptoWallet = useCallback(() => {
     setOpenDepositCryptoWallet(false)
   }, [])
+  const toggleShareContacts = useCallback(async () => {
+    if (!isAuthed) {
+      openAuthEntry()
+      return
+    }
+    const auth = getFirebaseAuth()
+    const user = auth.currentUser
+    if (!user) return
+    const next = !shareContacts
+    setProfile({ socialGraphShareContacts: next })
+    try {
+      await updateDoc(doc(getFirestoreDb(), 'users', user.uid), {
+        socialGraphShareContacts: next,
+      })
+      console.log('[ContactsSync] shareContacts:', next)
+    } catch (err) {
+      console.error('[ContactsSync] Failed to update shareContacts', err)
+    }
+  }, [isAuthed, openAuthEntry, setProfile, shareContacts])
   const handleSelectCryptoDepositWallet = useCallback((wallet: DepositCryptoWallet) => {
     setSelectedCryptoDepositWallet(wallet)
     setOpenDepositCryptoWallet(false)
@@ -445,6 +466,22 @@ export default function ProfilePage() {
                       <span className="profile-settings-label">Linked accounts</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                  </button>
+                  <button
+                    className="profile-settings-row"
+                    onClick={toggleShareContacts}
+                    type="button"
+                  >
+                    <div className="profile-settings-left">
+                      <div className="profile-settings-icon">
+                        <Inbox size={22} strokeWidth={2} style={{ color: '#111' }} />
+                      </div>
+                      <span className="profile-settings-label">Share my contacts</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '14px', color: '#444' }}>{shareContacts ? 'On' : 'Off'}</span>
+                      <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                    </div>
                   </button>
                   {/* Help and support row - hidden for minimal UI */}
                   {false && (
