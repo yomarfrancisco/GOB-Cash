@@ -280,13 +280,6 @@ function StreamItem({ item }: StreamItemProps) {
               </div>
             ))}
           </div>
-          <button
-            type="button"
-            className={styles.streamFooterText}
-            onClick={() => handleCommercialClick(item.id)}
-          >
-            <span className={styles.streamFooterLabel}>Clock-in for work</span>
-          </button>
         </div>
         <div className={styles.streamFooterRight}>
           <Info 
