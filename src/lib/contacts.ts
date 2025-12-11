@@ -14,6 +14,15 @@ import { upsertGraphEdge } from '@/lib/socialGraph'
 import { incrementDirectoryInboundCount, updateGhostQuality } from '@/lib/ghostQuality'
 import { computeContactCompleteness } from '@/lib/socialMetrics'
 import { recomputeSocialMetrics } from '@/lib/socialMetrics'
+import {
+  CONTACT_SYNC_LIMIT_PER_USER,
+  CONTACT_SYNC_BATCH_SIZE,
+} from '@/config/contactSync'
+import {
+  loadContactSyncState,
+  saveContactSyncState,
+  type ContactSyncState,
+} from '@/lib/contactSyncState'
 
 export const getUserContactsCollectionRef = (userId: string) =>
   collection(getFirestoreDb(), 'users', userId, 'contacts')
@@ -47,98 +56,56 @@ export const buildContactId = (c: {
   return `local:${Math.random().toString(36).slice(2)}`
 }
 
-/**
- * Sync a batch of local contacts to Firestore.
- * - Upserts `/users/{uid}/contacts/{contactId}`
- * - Upserts `/directory/{handle}` for contacts with handles (best-effort, non-blocking)
- */
-export const syncContactsForUser = async (
-  userId: string,
-  localContacts: Array<{
-    id?: string
-    name: string
-    handle?: string
-    phone?: string
-    email?: string
-    avatarUrl?: string
-    tags?: string[]
-  }>
-) => {
-  if (!userId || !localContacts?.length) {
-    console.log('[ContactsSync] syncContactsForUser: skipping, no userId or contacts')
-    return
-  }
+type LocalContact = {
+  id?: string
+  name: string
+  handle?: string
+  phone?: string
+  email?: string
+  avatarUrl?: string
+  tags?: string[]
+}
 
+type NormalizedContact = {
+  contactId: string
+  raw: LocalContact
+}
+
+/**
+ * Upsert a single contact for a user (used in batched upload)
+ */
+async function upsertContactForUser(
+  userId: string,
+  contact: NormalizedContact
+): Promise<void> {
   const db = getFirestoreDb()
   const now = serverTimestamp()
-  const seenDirectoryHandles = new Set<string>()
+  const raw = contact.raw
+  const handle = normalizeHandle(raw.handle)
+  const contactId = contact.contactId
 
-  // Write user contacts (required)
-  const userContactsBatch = writeBatch(db)
-  let userContactCount = 0
-
-  for (const raw of localContacts) {
-    const handle = normalizeHandle(raw.handle)
-    const contactId = buildContactId({
-      handle,
-      email: raw.email,
-      phone: raw.phone,
-      id: raw.id,
-    })
-
-    const contactDoc: ContactDoc = {
-      contactId,
-      displayName: raw.name || null,
-      handle: handle || null,
-      primaryEmail: raw.email || null,
-      primaryPhone: raw.phone || null,
-      source: 'device',
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    try {
-      const contactRef = doc(getUserContactsCollectionRef(userId), contactId)
-      userContactsBatch.set(contactRef, contactDoc, { merge: true })
-      userContactCount++
-    } catch (err) {
-      console.error('[ContactsSync] Firestore error writing contact', {
-        uid: userId,
-        contactId,
-        error: err,
-      })
-    }
+  const contactDoc: ContactDoc = {
+    contactId,
+    displayName: raw.name || null,
+    handle: handle || null,
+    primaryEmail: raw.email || null,
+    primaryPhone: raw.phone || null,
+    source: 'device',
+    createdAt: now,
+    updatedAt: now,
   }
 
-  // Commit user contacts batch
   try {
-    if (userContactCount > 0) {
-      await userContactsBatch.commit()
-      console.log(`[ContactsSync] Wrote ${userContactCount} user contacts to /users/${userId}/contacts`)
-    }
-  } catch (err) {
-    console.error('[ContactsSync] Failed to commit user contacts batch', {
-      uid: userId,
-      error: err,
-    })
-    throw err // Re-throw so caller knows user contacts failed
-  }
+    const contactRef = doc(getUserContactsCollectionRef(userId), contactId)
+    await setDoc(contactRef, contactDoc, { merge: true })
 
-  // Write directory entries and create graph edges (best-effort, non-blocking)
-  const graphEdgePromises: Promise<void>[] = []
-  const directoryUpdatePromises: Promise<void>[] = []
-  
-  for (const raw of localContacts) {
-    const handle = normalizeHandle(raw.handle)
-    if (handle && !seenDirectoryHandles.has(handle)) {
-      seenDirectoryHandles.add(handle)
-      
-      // Write directory entry
+    // Write directory entry and create graph edge (best-effort, non-blocking)
+    if (handle) {
       try {
         const dirRef = getDirectoryDocRef(handle)
         const dirDoc = await getDoc(dirRef)
         const existingDirData = dirDoc.data()
-        
+
         const directoryDoc: DirectoryDoc = {
           handle,
           ownerUserId: existingDirData?.ownerUserId || null,
@@ -147,80 +114,165 @@ export const syncContactsForUser = async (
           updatedAt: now,
         }
         await setDoc(dirRef, directoryDoc, { merge: true })
-        console.log(`[ContactsSync] Wrote directory entry for handle: ${handle}`)
-        
+
         // Increment inbound edge count
-        directoryUpdatePromises.push(incrementDirectoryInboundCount(handle))
-        
+        incrementDirectoryInboundCount(handle).catch(() => {})
+
         // Compute contact completeness and update ghost quality
         const completeness = computeContactCompleteness({
           displayName: raw.name,
           primaryEmail: raw.email,
           primaryPhone: raw.phone,
         })
-        directoryUpdatePromises.push(
-          updateGhostQuality(handle, completeness).then(() => {}) // Convert Promise<number> to Promise<void>
-        )
-      } catch (err) {
-        console.error('[ContactsSync] Failed writing directory entry', {
-          uid: userId,
-          handle,
-          error: err,
-        })
-        // Continue - directory write failure should not block user contacts
-      }
-    }
-    
-    // Create graph edge for this contact (if handle exists)
-    if (handle) {
-      try {
-        // Get directory entry to find ownerUserId if claimed
-        const dirRef = getDirectoryDocRef(handle)
-        const dirDoc = await getDoc(dirRef)
+        updateGhostQuality(handle, completeness).catch(() => {})
+
+        // Create graph edge
         const dirData = dirDoc.data()
         const toUserId = dirData?.ownerUserId || null
-        
-        // Create graph edge asynchronously (non-blocking)
-        graphEdgePromises.push(
-          upsertGraphEdge({
-            fromUserId: userId,
-            toHandle: handle,
-            toUserId,
-            edgeType: 'contact',
-            source: 'deviceContacts',
-            weight: 1,
-          }).catch(err => {
-            console.error('[ContactsSync] Failed to create graph edge', {
-              uid: userId,
-              handle,
-              error: err,
-            })
-          })
-        )
+        upsertGraphEdge({
+          fromUserId: userId,
+          toHandle: handle,
+          toUserId,
+          edgeType: 'contact',
+          source: 'deviceContacts',
+          weight: 1,
+        }).catch(() => {})
       } catch (err) {
-        console.error('[ContactsSync] Failed to prepare graph edge', {
-          uid: userId,
-          handle,
-          error: err,
-        })
+        // Directory/graph updates are best-effort
+        console.error('[ContactsSync] Failed directory/graph update', { handle, error: err })
       }
     }
+  } catch (err) {
+    console.error('[ContactsSync] Firestore error writing contact', {
+      uid: userId,
+      contactId,
+      error: err,
+    })
+    throw err
   }
-  
-  // Wait for all graph edges and directory updates (non-blocking, best-effort)
-  Promise.all([...graphEdgePromises, ...directoryUpdatePromises]).catch(err => {
-    console.error('[ContactsSync] Some graph/directory updates failed', { uid: userId, err })
+}
+
+/**
+ * Upload contacts in batches to keep UI responsive
+ */
+async function uploadContactsInBatches(
+  uid: string,
+  contacts: NormalizedContact[],
+  upsertContactForUserFn: (uid: string, contact: NormalizedContact) => Promise<void>,
+): Promise<{
+  newContactsUploaded: number
+  totalSynced: number
+  hasMoreToSync: boolean
+}> {
+  const state: ContactSyncState = loadContactSyncState(uid)
+  const existing = new Set(state.syncedContactIds)
+  const unsynced = contacts.filter((c) => !existing.has(c.contactId))
+  const remainingCapacity = CONTACT_SYNC_LIMIT_PER_USER - state.syncedContactIds.length
+
+  if (remainingCapacity <= 0 || unsynced.length === 0) {
+    return {
+      newContactsUploaded: 0,
+      totalSynced: state.syncedContactIds.length,
+      hasMoreToSync: false,
+    }
+  }
+
+  const toUpload = unsynced.slice(0, remainingCapacity)
+  let uploadIndex = 0
+  let newCount = 0
+
+  while (
+    uploadIndex < toUpload.length &&
+    state.syncedContactIds.length < CONTACT_SYNC_LIMIT_PER_USER
+  ) {
+    const batch = toUpload.slice(
+      uploadIndex,
+      uploadIndex + CONTACT_SYNC_BATCH_SIZE,
+    )
+
+    await Promise.allSettled(
+      batch.map((contact) => upsertContactForUserFn(uid, contact)),
+    )
+
+    for (const contact of batch) {
+      if (!existing.has(contact.contactId)) {
+        existing.add(contact.contactId)
+        state.syncedContactIds.push(contact.contactId)
+        newCount += 1
+      }
+    }
+
+    uploadIndex += CONTACT_SYNC_BATCH_SIZE
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  state.lastSyncAt = new Date().toISOString()
+  saveContactSyncState(uid, state)
+
+  const hasMoreToSync =
+    uploadIndex < unsynced.length &&
+    state.syncedContactIds.length < CONTACT_SYNC_LIMIT_PER_USER
+
+  if (typeof window !== 'undefined') {
+    console.log('[ContactsSync] summary', {
+      uid,
+      newContactsUploaded: newCount,
+      totalSynced: state.syncedContactIds.length,
+      hasMoreToSync,
+    })
+  }
+
+  return {
+    newContactsUploaded: newCount,
+    totalSynced: state.syncedContactIds.length,
+    hasMoreToSync,
+  }
+}
+
+/**
+ * Sync a batch of local contacts to Firestore (batched, incremental).
+ * - Upserts `/users/{uid}/contacts/{contactId}`
+ * - Upserts `/directory/{handle}` for contacts with handles (best-effort, non-blocking)
+ * - Tracks synced contacts in localStorage to avoid re-uploading
+ * - Processes in batches to keep UI responsive
+ */
+export const syncContactsForUser = async (
+  userId: string,
+  localContacts: LocalContact[]
+): Promise<{
+  newContactsUploaded: number
+  totalSynced: number
+  hasMoreToSync: boolean
+} | undefined> => {
+  if (!userId || !localContacts?.length) {
+    console.log('[ContactsSync] syncContactsForUser: skipping, no userId or contacts')
+    return undefined
+  }
+
+  // Normalize contacts and build contact IDs
+  const normalizedContacts: NormalizedContact[] = localContacts.map((raw) => {
+    const handle = normalizeHandle(raw.handle)
+    const contactId = buildContactId({
+      handle,
+      email: raw.email,
+      phone: raw.phone,
+      id: raw.id,
+    })
+    return { contactId, raw }
   })
-  
+
+  // Upload in batches
+  const result = await uploadContactsInBatches(userId, normalizedContacts, upsertContactForUser)
+
   // Trigger social metrics recomputation (async, non-blocking)
   recomputeSocialMetrics(userId).catch(err => {
     console.error('[ContactsSync] Failed to recompute social metrics', { uid: userId, err })
   })
-  
+
   // Also recompute metrics for any claimed handles we connected to
   const claimedUserIds = new Set<string>()
-  for (const raw of localContacts) {
-    const handle = normalizeHandle(raw.handle)
+  for (const normalized of normalizedContacts) {
+    const handle = normalizeHandle(normalized.raw.handle)
     if (handle) {
       try {
         const dirRef = getDirectoryDocRef(handle)
@@ -234,7 +286,7 @@ export const syncContactsForUser = async (
       }
     }
   }
-  
+
   // Recompute metrics for claimed users (async, non-blocking)
   const claimedUserIdsArray = Array.from(claimedUserIds)
   for (const claimedUserId of claimedUserIdsArray) {
@@ -247,5 +299,7 @@ export const syncContactsForUser = async (
       })
     }
   }
+
+  return result
 }
 

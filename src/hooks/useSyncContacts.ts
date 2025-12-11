@@ -64,15 +64,22 @@ export const useSyncContacts = (localContacts: LocalContact[]) => {
       return
     }
 
-    // For debugging: always sync when authed & we have contacts
+    // Sync contacts (batched, incremental)
     const doSync = async () => {
       try {
         console.log('[ContactsSync] Syncing contacts', {
           uid,
           count: localContacts.length,
         })
-        await syncContactsForUser(uid, localContacts)
-        console.log('[ContactsSync] Completed sync for uid', uid)
+        const result = await syncContactsForUser(uid, localContacts)
+        if (result) {
+          console.log('[ContactsSync] Completed sync for uid', {
+            uid,
+            newContacts: result.newContactsUploaded,
+            totalSynced: result.totalSynced,
+            hasMore: result.hasMoreToSync,
+          })
+        }
       } catch (err) {
         console.error('[ContactsSync] Sync error', { uid, err })
       }

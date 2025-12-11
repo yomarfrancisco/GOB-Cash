@@ -12,20 +12,29 @@ const db = admin.firestore()
 const BATCH_SIZE = 300 // Process 300 docs per run to avoid timeouts
 
 /**
- * Computes ghost quality score for a directory entry
- * Formula: (normalizedInboundEdgeCount * 0.6) + (avgContactCompleteness * 0.4)
- * Normalizes inboundEdgeCount to 0-1 range (assuming max of 100 for minimal version)
+ * Computes ghost quality score for a directory entry (Phase 2)
+ * Formula: (normalizedInbound * 0.5) + (completeness * 0.3) + (normalizedMutuals * 0.2)
+ * Includes mutual connections for richer quality scoring
  */
 function computeGhostQuality(
   inboundEdgeCount: number = 0,
+  inboundMutualCount: number = 0,
   avgContactCompleteness: number = 0
 ): number {
-  // Normalize inboundEdgeCount to 0-1 range (max 100 referrers)
-  const normalizedInbound = Math.min(1, inboundEdgeCount / 100)
-  
-  // Compute ghost quality
-  const ghostQuality = normalizedInbound * 0.6 + avgContactCompleteness * 0.4
-  
+  const inbound = inboundEdgeCount || 0
+  const mutuals = inboundMutualCount || 0
+  const completeness = avgContactCompleteness || 0
+
+  // Normalize components to 0-1 range
+  const normalizedInbound = Math.min(1, inbound / 100) // Max 100 referrers
+  const normalizedMutuals = Math.min(1, mutuals / 20) // Max 20 mutual connections
+
+  // Compute ghost quality with new weights
+  const ghostQuality =
+    normalizedInbound * 0.5 +
+    completeness * 0.3 +
+    normalizedMutuals * 0.2
+
   return Math.min(1, Math.max(0, ghostQuality))
 }
 
@@ -63,16 +72,22 @@ export const recomputeGhostQuality = functions.pubsub
         snapshot.docs.forEach((doc) => {
           const data = doc.data()
           const inboundEdgeCount = data.inboundEdgeCount || 0
+          const inboundMutualCount = data.inboundMutualCount || 0
           const avgContactCompleteness = data.avgContactCompleteness || 0
 
-          // Compute new ghost quality
-          const newGhostQuality = computeGhostQuality(inboundEdgeCount, avgContactCompleteness)
+          // Compute new ghost quality with Phase 2 formula
+          const newGhostQuality = computeGhostQuality(
+            inboundEdgeCount,
+            inboundMutualCount,
+            avgContactCompleteness
+          )
 
           // Only update if ghostQuality changed (or doesn't exist)
           const currentGhostQuality = data.ghostQuality
           if (currentGhostQuality !== newGhostQuality) {
             batch.update(doc.ref, {
               ghostQuality: newGhostQuality,
+              ghostQualityVersion: 2, // Mark as Phase 2 formula
               updatedAt: admin.firestore.Timestamp.now(),
             })
             batchCount++

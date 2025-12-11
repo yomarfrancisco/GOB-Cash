@@ -13,6 +13,7 @@ import * as admin from 'firebase-admin'
 import { deriveHandleFromContact } from './utils/handleNormalization'
 import { generateEdgeId } from './utils/edgeId'
 import { computeContactCompleteness } from './utils/contactCompleteness'
+import { ensureMutualEdgeAndCounts } from './utils/mutualEdges'
 
 const db = admin.firestore()
 
@@ -124,17 +125,23 @@ export const onContactWrite = functions.firestore
 
       if (!directoryDoc.exists) {
         // Create new directory entry
+        const inboundSourceCounts: Record<string, number> = {}
+        inboundSourceCounts[edgeSource] = 1
+
         await directoryRef.set({
           handle: toHandle,
           displayName: after.displayName,
           ownerUserId: null,
           inboundEdgeCount: 1,
+          inboundMutualCount: 0,
+          inboundSourceCounts,
           avgContactCompleteness: completeness,
           ghostQuality: 0, // Will be computed by scheduled function
+          lastInboundAt: now,
           createdAt: now,
           updatedAt: now,
         })
-        console.log('[onContactWrite] Created directory entry', { toHandle })
+        console.log('[onContactWrite] Created directory entry', { toHandle, edgeSource })
       } else {
         // Update existing directory entry
         const existingData = directoryDoc.data()
@@ -164,14 +171,32 @@ export const onContactWrite = functions.firestore
 
         if (isNewEdge) {
           updateData.inboundEdgeCount = admin.firestore.FieldValue.increment(1)
+          updateData.lastInboundAt = now
+
+          // Update inboundSourceCounts
+          const existingSourceCounts = existingData?.inboundSourceCounts || {}
+          const newSourceCounts = { ...existingSourceCounts }
+          newSourceCounts[edgeSource] = (newSourceCounts[edgeSource] || 0) + 1
+          updateData.inboundSourceCounts = newSourceCounts
+
+          // Initialize inboundMutualCount if missing
+          if (existingData?.inboundMutualCount === undefined) {
+            updateData.inboundMutualCount = 0
+          }
         }
 
         await directoryRef.update(updateData)
         console.log('[onContactWrite] Updated directory entry', {
           toHandle,
           isNewEdge,
+          edgeSource,
           inboundCount: isNewEdge ? currentInboundCount + 1 : currentInboundCount,
         })
+      }
+
+      // Check for mutual edges (only for new edges to avoid unnecessary work)
+      if (isNewEdge) {
+        await ensureMutualEdgeAndCounts(userId, toHandle, edgeSource)
       }
 
       return null
