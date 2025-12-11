@@ -18,9 +18,19 @@ const COMMERCIAL_AGENT_AVATARS = [
 ]
 
 // Helper to get avatars for a commercial card deterministically based on card index
+// Enforces a hard cap of 4 avatars max for commercial content footers
+const MAX_FOOTER_AVATARS = 4
 const getFooterAvatars = (cardIndex: number, count: number): { src: string; alt: string }[] => {
+  // Cap count at 4 avatars max
+  const cappedCount = Math.min(count, MAX_FOOTER_AVATARS)
+  
+  // Log truncation in dev mode
+  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production' && count > MAX_FOOTER_AVATARS) {
+    console.debug('[AvatarStack] Truncating avatars', { original: count, shown: MAX_FOOTER_AVATARS })
+  }
+  
   const avatars: { src: string; alt: string }[] = []
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < cappedCount; i++) {
     const avatarIndex = (cardIndex * 2 + i) % COMMERCIAL_AGENT_AVATARS.length
     avatars.push({
       src: COMMERCIAL_AGENT_AVATARS[avatarIndex],
@@ -86,8 +96,8 @@ const generateStreamItems = (): StreamItemData[] => {
     {
       id: 'or-tambo',
       avatarSrc: '/assets/acsa-logo.png',
-      avatarAlt: 'O. R. Tambo International',
-      title: 'O. R. Tambo International',
+      avatarAlt: 'O. R. Tambo Int',
+      title: 'O. R. Tambo Int',
       subtitle: 'Johannesburg, South Africa',
       bodyTitle: 'Cash pickup & delivery',
       bodySubtitle: 'Trusted couriers for deposits and withdrawals.',
@@ -258,7 +268,7 @@ function StreamItem({ item }: StreamItemProps) {
       <div className={styles.streamFooter}>
         <div className={styles.streamFooterLeft}>
           <div className={styles.streamFooterAvatars}>
-            {item.footerAvatars.map((avatar, idx) => (
+            {item.footerAvatars.slice(0, MAX_FOOTER_AVATARS).map((avatar, idx) => (
               <div key={idx} className={styles.streamFooterAvatarContainer}>
                 <Image
                   src={avatar.src}

@@ -88,7 +88,7 @@ export function useUserContactsForUI(rankedContacts: RankedContact[]): RankedCon
             return aName.localeCompare(bName)
           })
         
-        console.debug('[useUserContactsForUI] Loaded Firestore contacts', {
+        console.log('[useUserContactsForUI] Loaded Firestore contacts', {
           uid,
           count: contacts.length,
         })

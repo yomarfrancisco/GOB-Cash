@@ -199,8 +199,16 @@ export function getRankedContacts(
   contacts: BasicContact[],
   max = 25
 ): RankedContact[] {
+  // PHASE 1: Log input contacts
+  console.log('[RankContacts] input contacts =', contacts.length, {
+    max,
+  })
+
   // Map BasicContact (from store) to RankedContactInput
   // The store now includes extended fields if available
+  let filteredCount = 0
+  let bulkFilteredCount = 0
+  
   const rankedInputs: RankedContactInput[] = contacts
     .map((c): RankedContactInput | null => {
       // Use extended fields if available, otherwise compute from basic fields
@@ -209,11 +217,13 @@ export function getRankedContacts(
 
       // Filter out contacts with no email and no phone
       if (emailCount === 0 && phoneCount === 0) {
+        filteredCount++
         return null
       }
 
       // Filter out bulk contacts
       if (isBulkContact(c.email, c.name)) {
+        bulkFilteredCount++
         return null
       }
 
@@ -244,6 +254,12 @@ export function getRankedContacts(
     })
     .filter((c): c is RankedContactInput => c !== null)
 
+  // PHASE 1: Log after filtering
+  console.log('[RankContacts] after filtering unusable =', rankedInputs.length, {
+    noEmailPhone: filteredCount,
+    bulkContacts: bulkFilteredCount,
+  })
+
   // Score each contact
   const scored = rankedInputs.map((c) => ({
     ...c,
@@ -269,6 +285,11 @@ export function getRankedContacts(
     return aName.localeCompare(bName)
   })
 
+  // PHASE 1: Log before trim to limit
+  console.log('[RankContacts] before trim to limit, size =', sorted.length, {
+    limit: max,
+  })
+
   // Map to RankedContact format
   // Find original contact to preserve photoUrl
   const contactMap = new Map(contacts.map((c) => [c.id, c]))
@@ -288,7 +309,14 @@ export function getRankedContacts(
     }
   })
 
-  // Debug logging with counts
+  // PHASE 1: Log final ranked length
+  console.log('[RankContacts] final ranked length =', rankedContacts.length, {
+    sorted: sorted.length,
+    max,
+    trimmed: sorted.length - rankedContacts.length,
+  })
+
+  // Debug logging with counts (keep existing log for compatibility)
   console.log(
     '[RankContacts] ranked:',
     sorted.length,

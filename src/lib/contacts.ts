@@ -177,6 +177,13 @@ async function uploadContactsInBatches(
     }
   }
 
+  // PHASE 2: Log before trimming to limit
+  console.log('[ContactSync] before trim to limit, size =', unsynced.length, {
+    limit: CONTACT_SYNC_LIMIT_PER_USER,
+    alreadySynced: state.syncedContactIds.length,
+    remainingCapacity,
+  })
+
   const toUpload = unsynced.slice(0, remainingCapacity)
   let uploadIndex = 0
   let newCount = 0
@@ -212,6 +219,19 @@ async function uploadContactsInBatches(
   const hasMoreToSync =
     uploadIndex < unsynced.length &&
     state.syncedContactIds.length < CONTACT_SYNC_LIMIT_PER_USER
+
+  // PHASE 2: Log why we stopped
+  if (state.syncedContactIds.length >= CONTACT_SYNC_LIMIT_PER_USER) {
+    console.log('[ContactSync] stopped: hit limit', {
+      totalSynced: state.syncedContactIds.length,
+      limit: CONTACT_SYNC_LIMIT_PER_USER,
+    })
+  } else if (uploadIndex >= unsynced.length) {
+    console.log('[ContactSync] stopped: no more contacts from device', {
+      totalSynced: state.syncedContactIds.length,
+      uploadedThisRun: newCount,
+    })
+  }
 
   if (typeof window !== 'undefined') {
     console.log('[ContactsSync] summary', {
@@ -249,8 +269,21 @@ export const syncContactsForUser = async (
     return undefined
   }
 
+  // PHASE 1: Log raw device contacts
+  console.log('[ContactSync] raw device contacts =', localContacts.length)
+
+  // Filter out unusable contacts (no email and no phone)
+  const usableContacts = localContacts.filter((c) => c.email || c.phone)
+  console.log('[ContactSync] after filtering unusable =', usableContacts.length, {
+    filtered: localContacts.length - usableContacts.length,
+  })
+
   // Normalize contacts and build contact IDs
-  const normalizedContacts: NormalizedContact[] = localContacts.map((raw) => {
+  // Deduplicate by contactId (handle -> email -> phone -> id)
+  const contactIdMap = new Map<string, LocalContact>()
+  const normalizedContacts: NormalizedContact[] = []
+  
+  for (const raw of usableContacts) {
     const handle = normalizeHandle(raw.handle)
     const contactId = buildContactId({
       handle,
@@ -258,7 +291,21 @@ export const syncContactsForUser = async (
       phone: raw.phone,
       id: raw.id,
     })
-    return { contactId, raw }
+    
+    // Deduplicate by contactId
+    if (!contactIdMap.has(contactId)) {
+      contactIdMap.set(contactId, raw)
+      normalizedContacts.push({ contactId, raw })
+    }
+  }
+  
+  console.log('[ContactSync] after normalization + dedupe =', normalizedContacts.length, {
+    deduped: usableContacts.length - normalizedContacts.length,
+  })
+
+  // PHASE 1: Log final count before upload
+  console.log('[ContactSync] final normalized length =', normalizedContacts.length, {
+    limit: CONTACT_SYNC_LIMIT_PER_USER,
   })
 
   // Upload in batches
