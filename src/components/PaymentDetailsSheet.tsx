@@ -18,8 +18,10 @@ import { useSyncContacts } from '@/hooks/useSyncContacts'
 import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
 
 const RECIPIENT_PLACEHOLDER = 'Username or WhatsApp number'
-const MAX_PAYMENT_SUGGESTIONS = 300
+const MAX_PAYMENT_SUGGESTIONS = 600 // Increased from 300
 const MAX_SUGGESTED = 25
+const INITIAL_SUGGESTED_CONTACTS = 40 // Initial visible contacts
+const LOAD_MORE_INCREMENT = 40 // Contacts to load per "More contacts" click
 
 type PaymentContact = {
   id: string
@@ -61,6 +63,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [alphabetLetters, setAlphabetLetters] = useState<string[]>([])
   const [availableLetters, setAvailableLetters] = useState<Set<string>>(new Set())
+  const [visibleCount, setVisibleCount] = useState(INITIAL_SUGGESTED_CONTACTS)
   const isAuthed = useAuthStore((s) => s.isAuthed)
   
   // Get contacts from store and compute ranked list (for sync)
@@ -75,19 +78,21 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   const displayContacts = useUserContactsForUI(rankedContacts)
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
-  const { suggested, sections } = useMemo(() => {
+  // Only show visibleCount contacts initially
+  const { suggested, sections, allSuggestedContacts } = useMemo(() => {
     if (displayContacts.length === 0) {
-      return { suggested: [], sections: [] }
+      return { suggested: [], sections: [], allSuggestedContacts: [] }
     }
 
-    // 1) Suggested slice (keep current order)
-    const suggested = displayContacts.slice(0, MAX_SUGGESTED)
+    // 1) Suggested slice (keep current order, up to MAX_SUGGESTED)
+    const allSuggested = displayContacts.slice(0, MAX_SUGGESTED)
+    const suggested = allSuggested.slice(0, Math.min(visibleCount, MAX_SUGGESTED))
 
     // 2) All contacts for the alphabetical list
     //    - Start from displayContacts
     //    - Remove suggested (no duplication)
     //    - Sort alphabetically by displayName / handle
-    const suggestedIds = new Set(suggested.map((c) => c.id))
+    const suggestedIds = new Set(allSuggested.map((c) => c.id))
     const allAlphabetical = displayContacts
       .filter((c) => !suggestedIds.has(c.id))
       .sort((a, b) => {
@@ -96,11 +101,13 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
         return aName.localeCompare(bName)
       })
 
-    // 3) Group into sections by first letter
-    const sections = groupByFirstLetter(allAlphabetical)
+    // 3) Group into sections by first letter (only show up to visibleCount)
+    const remainingVisible = Math.max(0, visibleCount - suggested.length)
+    const visibleAlphabetical = allAlphabetical.slice(0, remainingVisible)
+    const sections = groupByFirstLetter(visibleAlphabetical)
 
-    return { suggested, sections }
-  }, [displayContacts])
+    return { suggested, sections, allSuggestedContacts: displayContacts }
+  }, [displayContacts, visibleCount])
   
   // Debug logging for ranked contacts
   useEffect(() => {
@@ -123,6 +130,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     setRecipient('')
     setRecipientError('')
     setSelectedContactId(null)
+    setVisibleCount(INITIAL_SUGGESTED_CONTACTS) // Reset visible count when sheet opens
     
     // Removed auto-focus to prevent iOS Safari layout gap on first render
     // Keyboard will open only when user taps an input field
@@ -301,6 +309,26 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
                     </button>
                   )
                 })}
+              </div>
+            )}
+
+            {/* More contacts footer - shows when there are more contacts to load */}
+            {allSuggestedContacts.length > visibleCount && (
+              <div className={styles.moreContactsFooter}>
+                <button
+                  type="button"
+                  className={styles.moreContactsButton}
+                  onClick={() =>
+                    setVisibleCount((prev) =>
+                      Math.min(
+                        prev + LOAD_MORE_INCREMENT,
+                        Math.min(allSuggestedContacts.length, MAX_PAYMENT_SUGGESTIONS),
+                      ),
+                    )
+                  }
+                >
+                  More contacts
+                </button>
               </div>
             )}
 

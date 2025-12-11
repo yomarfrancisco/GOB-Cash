@@ -6,7 +6,7 @@ import { getFirestoreDb } from '@/lib/firebase'
 import type { RankedContact } from '@/lib/contacts/rankContacts'
 import type { DirectoryDoc } from '@/types/contacts'
 
-const MAX_DIRECTORY_CONTACTS = 300
+const MAX_DIRECTORY_CONTACTS = 600 // Increased from 300
 
 /**
  * Hook that reads contacts from the public Firestore `/directory` collection.

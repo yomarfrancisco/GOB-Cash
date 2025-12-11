@@ -50,7 +50,7 @@ const AGENTS: SearchAgent[] = [
   },
 ]
 
-const MAX_SEARCH_CONTACTS = 300
+const MAX_SEARCH_CONTACTS = 600 // Increased from 300
 const MAX_SUGGESTED_CONTACTS = 10 // Top N contacts to show in Suggested section
 
 export default function SearchSheet() {
