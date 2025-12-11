@@ -1,7 +1,7 @@
 'use client'
 
 import { useGoogleLogin } from '@react-oauth/google'
-import { signInWithPopup } from 'firebase/auth'
+import { signInWithPopup, signInWithRedirect } from 'firebase/auth'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useContactsStore } from '@/store/contacts'
@@ -9,6 +9,7 @@ import { fetchGoogleContacts } from '@/lib/google/contacts'
 import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
 import { useNotificationStore } from '@/store/notifications'
 import { getFirebaseAuth, getGoogleAuthProvider } from '@/lib/firebase'
+import { ensureUserDocument } from '@/lib/userDoc'
 
 /**
  * Hook for Google OAuth authentication
@@ -96,26 +97,39 @@ export function useGoogleAuth() {
       if (typeof window !== 'undefined') {
         try {
           const auth = getFirebaseAuth()
-          const provider = getGoogleAuthProvider()
+          const googleProvider = getGoogleAuthProvider()
           
-          console.log('[GoogleAuth] Starting Firebase Auth sign-in...')
+          console.log('[GoogleAuth] Starting Firebase Auth sign-in (popup)...')
           
           // Sign in with Firebase Auth using popup (invisible to user since they already authorized)
           // This uses the same Google account they just signed in with
-          const result = await signInWithPopup(auth, provider)
+          const result = await signInWithPopup(auth, googleProvider)
+          const user = result.user
           
-          console.log('[GoogleAuth] Firebase Auth sign-in success:', {
-            uid: result.user.uid,
-            email: result.user.email,
-          })
+          console.log('[GoogleAuth] Firebase Auth sign-in success:', user.uid)
           
           // Ensure Firestore user document RIGHT HERE
-          const { ensureUserDocument } = await import('@/lib/userDoc')
-          await ensureUserDocument(result.user)
+          await ensureUserDocument(user)
           
-          console.log('[GoogleAuth] ensureUserDocument completed for', result.user.uid)
-        } catch (err) {
-          console.error('[GoogleAuth] Firebase Auth sign-in or ensureUserDocument FAILED', err)
+          console.log('[GoogleAuth] ensureUserDocument completed for', user.uid)
+        } catch (err: any) {
+          const code = err?.code
+          
+          if (code === 'auth/popup-blocked') {
+            console.warn('[GoogleAuth] Popup blocked, falling back to signInWithRedirect')
+            
+            try {
+              const auth = getFirebaseAuth()
+              const googleProvider = getGoogleAuthProvider()
+              await signInWithRedirect(auth, googleProvider)
+              // Note: After redirect, getRedirectResult will handle ensureUserDocument
+              // in FirebaseAuthListener component
+            } catch (redirectErr) {
+              console.warn('[GoogleAuth] signInWithRedirect also failed', redirectErr)
+            }
+          } else {
+            console.warn('[GoogleAuth] Firebase Auth sign-in or ensureUserDocument FAILED', err)
+          }
         }
       } else {
         console.log('[GoogleAuth] Skipped Firebase Auth sign-in (server environment)')
