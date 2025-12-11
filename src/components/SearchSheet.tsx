@@ -19,6 +19,7 @@ import contactListStyles from './contacts/ContactListWithIndex.module.css'
 import styles from './SearchSheet.module.css'
 import { useSyncContacts } from '@/hooks/useSyncContacts'
 import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
+import { usePublicDirectoryContactsForUI } from '@/hooks/usePublicDirectoryContacts'
 
 type SearchAgent = {
   type: 'agent'
@@ -69,8 +70,12 @@ export default function SearchSheet() {
   )
   useSyncContacts(rankedContacts)
   
-  // Get contacts for UI display (prefers Firestore, falls back to rankedContacts)
-  const displayContacts = useUserContactsForUI(rankedContacts)
+  // Get contacts for UI display:
+  // - If authed: use user's personal contacts from Firestore (with fallback to local)
+  // - If not authed: use public directory contacts
+  const userContacts = useUserContactsForUI(rankedContacts)
+  const publicDirectoryContacts = usePublicDirectoryContactsForUI()
+  const displayContacts = isAuthed ? userContacts : publicDirectoryContacts
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
   const { suggested, sections, allLetters, availableLettersSet } = useMemo(() => {
