@@ -56,6 +56,9 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
             // Use handle as the id (stable identifier)
             const id = `directory:${handle}`
             
+            // Get trust score: trustGlobal (if claimed) or ghostQuality (if unclaimed)
+            const trustScore = data.trustGlobal ?? data.ghostQuality ?? 0
+            
             return {
               id,
               name,
@@ -63,14 +66,18 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
               phone: undefined,
               photoUrl: undefined,
               source: 'gobankless-contact', // Tag as GoBankless contact
-              qualityScore: 0, // No ranking score for directory entries
+              qualityScore: trustScore, // Use trust score for ranking
               handle,
               subtitle,
             }
           })
           .filter((c) => c.handle) // Filter out entries without handles
           .sort((a, b) => {
-            // Sort by displayName (case-insensitive) or handle if displayName is empty
+            // Primary sort: by trust score (descending)
+            if (b.qualityScore !== a.qualityScore) {
+              return b.qualityScore - a.qualityScore
+            }
+            // Secondary sort: by displayName (case-insensitive) or handle if displayName is empty
             const aName = (a.name || a.handle || '').toLowerCase()
             const bName = (b.name || b.handle || '').toLowerCase()
             return aName.localeCompare(bName)

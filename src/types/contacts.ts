@@ -24,5 +24,13 @@ export interface DirectoryDoc {
   displayName: string | null
   createdAt: any // Firestore Timestamp
   updatedAt: any // Firestore Timestamp
+  // Ghost metrics (pre-claim) - optional for backward compatibility
+  inboundEdgeCount?: number // how many users have this handle
+  avgContactCompleteness?: number // 0..1
+  ghostQuality?: number // 0..1
+  // Claimed metrics - optional for backward compatibility
+  trustGlobal?: number | null // mirror of owner's trustGlobal when claimed
+  isAgent?: boolean // existing or new flag
+  claimedAt?: any | null // Firebase Timestamp
 }
 
