@@ -10,7 +10,10 @@
     "generate:avatars": "node scripts/generate-avatars.js",
     "generate:initial-avatars": "node scripts/generate-initial-avatars.js",
     "add-ring-to-initials": "node scripts/add-ring-to-initial-avatars.js",
-    "cleanup:balances": "ts-node scripts/cleanupLegacyBalances.ts"
+    "cleanup:balances": "ts-node scripts/cleanupLegacyBalances.ts",
+    "functions:build": "cd functions && npm run build",
+    "functions:serve": "cd functions && npm run serve",
+    "functions:deploy": "firebase deploy --only functions"
   },
   "dependencies": {
     "clsx": "^2.1.1",
