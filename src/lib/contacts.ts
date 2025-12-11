@@ -45,7 +45,7 @@ export const buildContactId = (c: {
 /**
  * Sync a batch of local contacts to Firestore.
  * - Upserts `/users/{uid}/contacts/{contactId}`
- * - Upserts `/directory/{handle}` for contacts with handles
+ * - Upserts `/directory/{handle}` for contacts with handles (best-effort, non-blocking)
  */
 export const syncContactsForUser = async (
   userId: string,
@@ -59,12 +59,18 @@ export const syncContactsForUser = async (
     tags?: string[]
   }>
 ) => {
-  if (!userId || !localContacts?.length) return
+  if (!userId || !localContacts?.length) {
+    console.log('[ContactsSync] syncContactsForUser: skipping, no userId or contacts')
+    return
+  }
 
   const db = getFirestoreDb()
-  const batch = writeBatch(db)
   const now = serverTimestamp()
   const seenDirectoryHandles = new Set<string>()
+
+  // Write user contacts (required)
+  const userContactsBatch = writeBatch(db)
+  let userContactCount = 0
 
   for (const raw of localContacts) {
     const handle = normalizeHandle(raw.handle)
@@ -86,23 +92,57 @@ export const syncContactsForUser = async (
       updatedAt: now,
     }
 
-    const contactRef = doc(getUserContactsCollectionRef(userId), contactId)
-    batch.set(contactRef, contactDoc, { merge: true })
-
-    if (handle && !seenDirectoryHandles.has(handle)) {
-      seenDirectoryHandles.add(handle)
-      const directoryDoc: DirectoryDoc = {
-        handle,
-        ownerUserId: null, // We don't know the owner yet
-        displayName: raw.name || null,
-        createdAt: now,
-        updatedAt: now,
-      }
-      const dirRef = getDirectoryDocRef(handle)
-      batch.set(dirRef, directoryDoc, { merge: true })
+    try {
+      const contactRef = doc(getUserContactsCollectionRef(userId), contactId)
+      userContactsBatch.set(contactRef, contactDoc, { merge: true })
+      userContactCount++
+    } catch (err) {
+      console.error('[ContactsSync] Firestore error writing contact', {
+        uid: userId,
+        contactId,
+        error: err,
+      })
     }
   }
 
-  await batch.commit()
+  // Commit user contacts batch
+  try {
+    if (userContactCount > 0) {
+      await userContactsBatch.commit()
+      console.log(`[ContactsSync] Wrote ${userContactCount} user contacts to /users/${userId}/contacts`)
+    }
+  } catch (err) {
+    console.error('[ContactsSync] Failed to commit user contacts batch', {
+      uid: userId,
+      error: err,
+    })
+    throw err // Re-throw so caller knows user contacts failed
+  }
+
+  // Write directory entries (best-effort, non-blocking)
+  for (const raw of localContacts) {
+    const handle = normalizeHandle(raw.handle)
+    if (handle && !seenDirectoryHandles.has(handle)) {
+      seenDirectoryHandles.add(handle)
+      try {
+        const directoryDoc: DirectoryDoc = {
+          handle,
+          ownerUserId: null, // We don't know the owner yet
+          displayName: raw.name || null,
+          createdAt: now,
+          updatedAt: now,
+        }
+        const dirRef = getDirectoryDocRef(handle)
+        await setDoc(dirRef, directoryDoc, { merge: true })
+        console.log(`[ContactsSync] Wrote directory entry for handle: ${handle}`)
+      } catch (err) {
+        console.error('[ContactsSync] Failed writing directory entry', {
+          handle,
+          error: err,
+        })
+        // Continue - directory write failure should not block user contacts
+      }
+    }
+  }
 }
 

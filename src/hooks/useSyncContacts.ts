@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { syncContactsForUser } from '@/lib/contacts'
 import { getFirebaseAuth } from '@/lib/firebase'
+import { getFirestoreDb } from '@/lib/firebase'
 
 type LocalContact = {
   id?: string
@@ -14,42 +15,59 @@ type LocalContact = {
   tags?: string[]
 }
 
-const MIN_CONTACTS = 5
-const SYNC_COOLDOWN_MS = 30 * 60 * 1000 // 30 minutes
+// Log Firestore project ID once per session
+let hasLoggedProjectId = false
 
 export const useSyncContacts = (localContacts: LocalContact[]) => {
   const auth = getFirebaseAuth()
-  const lastSyncRef = useRef<number>(0)
+
+  // Log hook mount and project ID (once)
+  useEffect(() => {
+    console.log('[ContactsSync] Hook mounted', {
+      contactsLength: localContacts?.length ?? 0,
+    })
+
+    if (!hasLoggedProjectId) {
+      try {
+        const db = getFirestoreDb()
+        const projectId = (db.app.options as any).projectId
+        console.log('[ContactsSync] Using Firestore project', projectId)
+        hasLoggedProjectId = true
+      } catch (err) {
+        console.error('[ContactsSync] Failed to get Firestore project ID', err)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const user = auth.currentUser
-    if (!user?.uid) {
-      console.log('[ContactsSync] Skipping sync: reason=not-authed')
-      return
-    }
-    if (!localContacts || localContacts.length < MIN_CONTACTS) {
-      console.log(`[ContactsSync] Skipping sync: reason=too-few-contacts (${localContacts?.length || 0} < ${MIN_CONTACTS})`)
+    const uid = user?.uid
+
+    if (!uid) {
+      console.log('[ContactsSync] Skipping sync: not authed')
       return
     }
 
-    const now = Date.now()
-    if (now - lastSyncRef.current < SYNC_COOLDOWN_MS) {
-      console.log('[ContactsSync] Skipping sync: reason=cooldown')
+    if (!localContacts || localContacts.length === 0) {
+      console.log('[ContactsSync] Skipping sync: no contacts')
       return
     }
 
-    const run = async () => {
+    // For debugging: always sync on mount when authed & we have contacts
+    const doSync = async () => {
       try {
-        console.log(`[ContactsSync] Syncing ${localContacts.length} contacts for uid=${user.uid}`)
-        await syncContactsForUser(user.uid, localContacts)
-        lastSyncRef.current = Date.now()
-        console.log('[ContactsSync] Completed')
+        console.log('[ContactsSync] Syncing contacts', {
+          uid,
+          count: localContacts.length,
+        })
+        await syncContactsForUser(uid, localContacts)
+        console.log('[ContactsSync] Completed sync for uid', uid)
       } catch (err) {
-        console.error('[ContactsSync] Error:', err)
+        console.error('[ContactsSync] Sync error', err)
       }
     }
 
-    void run()
+    void doSync()
   }, [auth, localContacts])
 }
 
