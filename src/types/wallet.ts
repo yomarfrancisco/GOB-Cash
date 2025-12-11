@@ -26,3 +26,4 @@ export interface WalletDoc {
 
 export type WalletMap = Record<WalletId, WalletDoc>
 
+

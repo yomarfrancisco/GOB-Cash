@@ -36,11 +36,42 @@ import FirebaseAuthListener from '@/components/FirebaseAuthListener'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'GoBankless',
-  description: 'GoBankless cash-card UI',
+  title: 'GoBankless — Global Money Movement in Cash & Stablecoins',
+  description:
+    'GoBankless helps people and businesses move money globally — in cash or stablecoins via our agent network. Fast, low-cost, compliant.',
+  metadataBase: new URL('https://www.gobankless.app'),
+  keywords: [
+    'GoBankless',
+    'money transfer',
+    'cash agents',
+    'stablecoins',
+    'USDT',
+    'cross-border payments',
+    'remittances',
+    'Africa',
+    'global payments',
+    'fintech',
+  ],
   icons: {
     icon: '/assets/gobankless-webclip.png',
     apple: '/assets/gobankless-webclip.png',
+  },
+  openGraph: {
+    title: 'GoBankless — Global Money Movement',
+    description:
+      'Move money globally in cash or stablecoins via our agent network. Fast, low-cost, compliant.',
+    url: 'https://www.gobankless.app',
+    type: 'website',
+    images: ['/assets/core/gobankless-logo.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'GoBankless — Global Money Movement',
+    description: 'Move money globally in cash or stablecoins via local cash agents.',
+    images: ['/assets/core/gobankless-logo.png'],
+  },
+  alternates: {
+    canonical: 'https://www.gobankless.app',
   },
 }
 
@@ -61,6 +92,21 @@ export default function RootLayout({
       <head>
         {/* Disable iOS Safari phone number auto-detection to avoid blue/underlined flashes */}
         <meta name="format-detection" content="telephone=no" />
+        {/* Structured data (JSON-LD) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'FinancialService',
+              name: 'GoBankless',
+              description:
+                'Move money globally in cash or stablecoins through our agent network.',
+              url: 'https://www.gobankless.app',
+              logo: 'https://www.gobankless.app/assets/core/gobankless-logo.png',
+            }),
+          }}
+        />
       </head>
       <body className={inter.className}>
         <script

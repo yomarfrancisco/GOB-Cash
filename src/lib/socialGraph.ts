@@ -8,6 +8,7 @@
 import { collection, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 import type { GraphEdgeDocument, GraphEdgeType, GraphEdgeSource } from '@/types/socialGraph'
+import { GRAPH_EDGES_ENABLED } from '@/config/featureFlags'
 
 /**
  * Generate stable edgeId from fromUserId + toHandle + edgeType
@@ -46,6 +47,14 @@ export async function checkMutualEdge(
   toHandle: string,
   toUserId: string | null
 ): Promise<boolean> {
+  if (!GRAPH_EDGES_ENABLED) {
+    console.debug('[GraphEdges] Skipping mutual edge check (feature flag disabled)', {
+      fromUserId,
+      toHandle,
+    })
+    return false
+  }
+  
   try {
     const db = getFirestoreDb()
     const edgesRef = collection(db, 'graphEdges')
@@ -93,6 +102,14 @@ export async function upsertGraphEdge(params: {
   source: GraphEdgeSource
   weight?: number
 }): Promise<void> {
+  if (!GRAPH_EDGES_ENABLED) {
+    console.debug('[GraphEdges] Skipping edge upsert (feature flag disabled)', {
+      fromUserId: params.fromUserId,
+      toHandle: params.toHandle,
+    })
+    return
+  }
+  
   const { fromUserId, toHandle, toUserId, edgeType, source, weight = 1 } = params
   
   try {

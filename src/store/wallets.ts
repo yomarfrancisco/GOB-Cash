@@ -84,3 +84,4 @@ export const useWalletStore = create<WalletState>((set) => ({
   clear: () => set({ wallets: demoWallets, demoMode: true }),
 }))
 
+

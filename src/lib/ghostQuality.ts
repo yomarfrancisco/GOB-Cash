@@ -8,6 +8,7 @@
 import { collection, doc, getDocs, query, where, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 import { computeContactCompleteness } from './socialMetrics'
+import { GHOST_QUALITY_ENABLED } from '@/config/featureFlags'
 
 const MAX_REFERRERS_FOR_MUTUALS = 20
 
@@ -90,6 +91,11 @@ export async function updateGhostQuality(
   handle: string,
   contactCompleteness: number
 ): Promise<number> {
+  if (!GHOST_QUALITY_ENABLED) {
+    console.debug('[GhostQuality] Skipping ghost quality update (feature flag disabled)', { handle })
+    return 0
+  }
+  
   try {
     const db = getFirestoreDb()
     const directoryRef = doc(db, 'directory', handle.toLowerCase())
@@ -153,6 +159,11 @@ export async function updateGhostQuality(
  * Increment inbound edge count for a directory entry
  */
 export async function incrementDirectoryInboundCount(handle: string): Promise<void> {
+  if (!GHOST_QUALITY_ENABLED) {
+    console.debug('[GhostQuality] Skipping inbound count increment (feature flag disabled)', { handle })
+    return
+  }
+  
   try {
     const db = getFirestoreDb()
     const directoryRef = doc(db, 'directory', handle.toLowerCase())
