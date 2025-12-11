@@ -1,12 +1,14 @@
 'use client'
 
 import { useGoogleLogin } from '@react-oauth/google'
+import { signInWithPopup } from 'firebase/auth'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useContactsStore } from '@/store/contacts'
 import { fetchGoogleContacts } from '@/lib/google/contacts'
 import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
 import { useNotificationStore } from '@/store/notifications'
+import { getFirebaseAuth, getGoogleAuthProvider } from '@/lib/firebase'
 
 /**
  * Hook for Google OAuth authentication
@@ -41,7 +43,7 @@ export function useGoogleAuth() {
         picture: userInfo?.picture,
       })
 
-      // 2. Fetch Google Contacts (non-blocking)
+      // 3. Fetch Google Contacts (non-blocking)
       let contacts: any[] = []
       try {
         contacts = await fetchGoogleContacts(tokenResponse.access_token)
@@ -63,12 +65,12 @@ export function useGoogleAuth() {
         // Continue without contacts
       }
 
-      // 3. Generate handle from email if needed
+      // 4. Generate handle from email if needed
       const generatedHandle = userInfo.email
         ? generateHandleFromEmail(userInfo.email)
         : profile.userHandle || '@user'
 
-      // 4. Update user profile store
+      // 5. Update user profile store
       setProfile({
         fullName: userInfo.name || profile.fullName,
         email: userInfo.email || profile.email,
@@ -80,16 +82,46 @@ export function useGoogleAuth() {
             : profile.userHandle,
       })
 
-      // 5. Store contacts
+      // 6. Store contacts
       if (contacts.length > 0) {
         setContacts(contacts)
       }
 
-      // 6. Complete authentication
+      // 7. Complete authentication (existing flow)
       completeAuth()
       closeAllAuth()
 
-      // 7. Show success notification
+      // 8. Also sign in with Firebase Auth (additive, non-breaking)
+      // This enables Firestore rules and triggers FirebaseAuthListener to ensure user document
+      if (typeof window !== 'undefined') {
+        try {
+          const auth = getFirebaseAuth()
+          const provider = getGoogleAuthProvider()
+          
+          console.log('[GoogleAuth] Starting Firebase Auth sign-in...')
+          
+          // Sign in with Firebase Auth using popup (invisible to user since they already authorized)
+          // This uses the same Google account they just signed in with
+          const result = await signInWithPopup(auth, provider)
+          
+          console.log('[GoogleAuth] Firebase Auth sign-in success:', {
+            uid: result.user.uid,
+            email: result.user.email,
+          })
+          
+          // Ensure Firestore user document RIGHT HERE
+          const { ensureUserDocument } = await import('@/lib/userDoc')
+          await ensureUserDocument(result.user)
+          
+          console.log('[GoogleAuth] ensureUserDocument completed for', result.user.uid)
+        } catch (err) {
+          console.error('[GoogleAuth] Firebase Auth sign-in or ensureUserDocument FAILED', err)
+        }
+      } else {
+        console.log('[GoogleAuth] Skipped Firebase Auth sign-in (server environment)')
+      }
+
+      // 9. Show success notification
       pushNotification({
         kind: 'payment_received', // Using existing kind for system messages
         title: 'Signed in with Google',
