@@ -8,25 +8,21 @@ export type ContactTag =
   | 'other'
 
 export interface ContactDoc {
-  contactId: string
-  displayName: string
-  handle?: string
-  phone?: string
-  email?: string
-  avatarUrl?: string
-  tags: ContactTag[]
-  isGoBanklessUser?: boolean
-  isCashAgent?: boolean
-  lastSeenAt?: number | null
-  lastUpdatedAt: number
+  contactId: string // stable, derived from email/phone/handle
+  displayName: string | null
+  handle: string | null // if we can infer a handle; otherwise null
+  primaryEmail: string | null
+  primaryPhone: string | null
+  source: 'device' // or 'device-ranked', etc.
+  createdAt: any // Firestore Timestamp
+  updatedAt: any // Firestore Timestamp
 }
 
 export interface DirectoryDoc {
-  handle: string // `$handle`, lowercased
-  displayName: string
-  avatarUrl?: string
-  summaryTags?: ContactTag[]
-  userId?: string
-  lastActiveAt?: number | null
+  handle: string
+  ownerUserId: string | null // if we know which user owns it
+  displayName: string | null
+  createdAt: any // Firestore Timestamp
+  updatedAt: any // Firestore Timestamp
 }
 

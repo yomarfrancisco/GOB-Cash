@@ -5,6 +5,7 @@ import {
   doc,
   setDoc,
   writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 import type { ContactDoc, DirectoryDoc } from '@/types/contacts'
@@ -62,7 +63,7 @@ export const syncContactsForUser = async (
 
   const db = getFirestoreDb()
   const batch = writeBatch(db)
-  const now = Date.now()
+  const now = serverTimestamp()
   const seenDirectoryHandles = new Set<string>()
 
   for (const raw of localContacts) {
@@ -76,16 +77,13 @@ export const syncContactsForUser = async (
 
     const contactDoc: ContactDoc = {
       contactId,
-      displayName: raw.name,
-      handle,
-      phone: raw.phone,
-      email: raw.email,
-      avatarUrl: raw.avatarUrl,
-      tags: (raw.tags as any) ?? ['gobankless-contact'],
-      isGoBanklessUser: undefined,
-      isCashAgent: raw.tags?.includes('cash-agent') ?? false,
-      lastSeenAt: now,
-      lastUpdatedAt: now,
+      displayName: raw.name || null,
+      handle: handle || null,
+      primaryEmail: raw.email || null,
+      primaryPhone: raw.phone || null,
+      source: 'device',
+      createdAt: now,
+      updatedAt: now,
     }
 
     const contactRef = doc(getUserContactsCollectionRef(userId), contactId)
@@ -95,9 +93,10 @@ export const syncContactsForUser = async (
       seenDirectoryHandles.add(handle)
       const directoryDoc: DirectoryDoc = {
         handle,
-        displayName: raw.name,
-        avatarUrl: raw.avatarUrl,
-        summaryTags: (raw.tags as any) ?? ['gobankless-contact'],
+        ownerUserId: null, // We don't know the owner yet
+        displayName: raw.name || null,
+        createdAt: now,
+        updatedAt: now,
       }
       const dirRef = getDirectoryDocRef(handle)
       batch.set(dirRef, directoryDoc, { merge: true })
