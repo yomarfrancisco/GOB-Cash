@@ -51,7 +51,7 @@ const incomingTemplates: NotificationTemplate[] = [
     actor: {
       type: 'member',
       name: 'Cross-border sender',
-      avatar: '/assets/avatar_agent1.png'
+      avatar: '/assets/avatar_agent13.png'
     },
     map: {
       lat: CITY_COORDINATES['harare'].lat,
@@ -78,7 +78,7 @@ const incomingTemplates: NotificationTemplate[] = [
     actor: {
       type: 'member',
       name: 'Cross-border sender',
-      avatar: '/assets/avatar_agent2.png'
+      avatar: '/assets/avatar_agent14.png'
     },
     map: {
       lat: CITY_COORDINATES['beira'].lat,
@@ -105,7 +105,7 @@ const incomingTemplates: NotificationTemplate[] = [
     actor: {
       type: 'member',
       name: 'Cross-border sender',
-      avatar: '/assets/avatar_agent1.png'
+      avatar: '/assets/avatar_agent13.png'
     },
     map: {
       lat: CITY_COORDINATES['harare'].lat,
@@ -159,7 +159,7 @@ const incomingTemplates: NotificationTemplate[] = [
     actor: {
       type: 'member',
       name: 'Cross-border sender',
-      avatar: '/assets/avatar_agent3.png'
+      avatar: '/assets/avatar_agent15.png'
     },
     map: {
       lat: CITY_COORDINATES['bulawayo'].lat,
@@ -186,7 +186,7 @@ const incomingTemplates: NotificationTemplate[] = [
     actor: {
       type: 'member',
       name: 'Cross-border sender',
-      avatar: '/assets/avatar_agent1.png'
+      avatar: '/assets/avatar_agent13.png'
     },
     map: {
       lat: CITY_COORDINATES['mutare'].lat,
@@ -383,7 +383,7 @@ const multiHopTemplates: NotificationTemplate[] = [
     actor: {
       type: 'member',
       name: 'Cross-border sender',
-      avatar: '/assets/avatar_agent1.png'
+      avatar: '/assets/avatar_agent13.png'
     },
     map: {
       lat: CITY_COORDINATES['johannesburg'].lat,
@@ -410,7 +410,7 @@ const multiHopTemplates: NotificationTemplate[] = [
     actor: {
       type: 'member',
       name: 'Cross-border sender',
-      avatar: '/assets/avatar_agent2.png'
+      avatar: '/assets/avatar_agent14.png'
     },
     map: {
       lat: CITY_COORDINATES['cape-town'].lat,
@@ -437,7 +437,7 @@ const multiHopTemplates: NotificationTemplate[] = [
     actor: {
       type: 'member',
       name: 'Cross-border sender',
-      avatar: '/assets/avatar_agent1.png'
+      avatar: '/assets/avatar_agent13.png'
     },
     map: {
       lat: CITY_COORDINATES['maputo'].lat,
@@ -522,7 +522,7 @@ const celebratoryTemplates: NotificationTemplate[] = [
     actor: {
       type: 'member',
       name: 'Cross-border sender',
-      avatar: '/assets/avatar_agent1.png'
+      avatar: '/assets/avatar_agent13.png'
     },
     map: {
       lat: CITY_COORDINATES['harare'].lat,

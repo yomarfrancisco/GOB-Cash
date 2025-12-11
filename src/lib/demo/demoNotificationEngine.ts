@@ -111,7 +111,7 @@ const demoEvents: NotificationInput[] = [
       id: 'demo-member-2',
       name: 'Member',
       handle: '@member2',
-      avatar: '/assets/avatar_agent6.png',
+      avatar: '/assets/avatar_agent13.png',
     },
   },
   {

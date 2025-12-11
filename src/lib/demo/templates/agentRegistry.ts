@@ -184,6 +184,42 @@ export const AGENT_REGISTRY: AgentProfile[] = [
     lng: 39.2083,
     productivity: 85,
     specialties: ['east-africa', 'reliable']
+  },
+  {
+    id: 'david',
+    name: '@david',
+    handle: '@david',
+    city: 'Kampala',
+    country: 'Uganda',
+    avatar: '/assets/avatar_agent13.png',
+    lat: 0.3476,
+    lng: 32.5825,
+    productivity: 86,
+    specialties: ['east-africa', 'cross-border']
+  },
+  {
+    id: 'mary',
+    name: '@mary',
+    handle: '@mary',
+    city: 'Kigali',
+    country: 'Rwanda',
+    avatar: '/assets/avatar_agent14.png',
+    lat: -1.9441,
+    lng: 30.0619,
+    productivity: 91,
+    specialties: ['east-africa', 'high-volume']
+  },
+  {
+    id: 'peter',
+    name: '@peter',
+    handle: '@peter',
+    city: 'Addis Ababa',
+    country: 'Ethiopia',
+    avatar: '/assets/avatar_agent15.png',
+    lat: 9.1450,
+    lng: 38.7617,
+    productivity: 84,
+    specialties: ['east-africa', 'reliable']
   }
 ]
 
