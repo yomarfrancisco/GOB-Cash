@@ -203,6 +203,11 @@ type StreamItemProps = {
   item: StreamItemData
 }
 
+// Helper function to abbreviate "South Africa" to "SA" in location strings
+function abbreviateLocation(location: string): string {
+  return location.replace(/, South Africa$/i, ', SA')
+}
+
 function StreamItem({ item }: StreamItemProps) {
   const { openAuthEntrySignup } = useAuthStore()
 
@@ -210,6 +215,9 @@ function StreamItem({ item }: StreamItemProps) {
     // Open sign-up popup for all Section 3 interactions
     openAuthEntrySignup()
   }
+  
+  // Transform subtitle for display (South Africa → SA)
+  const displaySubtitle = abbreviateLocation(item.subtitle)
 
   return (
     <div className={styles.streamItem}>
@@ -226,7 +234,7 @@ function StreamItem({ item }: StreamItemProps) {
           </div>
           <div className={styles.streamHeaderText}>
             <div className={styles.streamHeaderTitle}>{item.title}</div>
-            <div className={styles.streamHeaderSubtitle}>{item.subtitle}</div>
+            <div className={styles.streamHeaderSubtitle}>{displaySubtitle}</div>
           </div>
         </div>
       </div>
