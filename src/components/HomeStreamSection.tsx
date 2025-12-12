@@ -201,6 +201,7 @@ const STREAM_ITEMS: StreamItemData[] = generateStreamItems()
 
 type StreamItemProps = {
   item: StreamItemData
+  index: number
 }
 
 // Helper function to abbreviate "South Africa" to "SA" in location strings
@@ -208,7 +209,7 @@ function abbreviateLocation(location: string): string {
   return location.replace(/, South Africa$/i, ', SA')
 }
 
-function StreamItem({ item }: StreamItemProps) {
+function StreamItem({ item, index }: StreamItemProps) {
   const { openAuthEntrySignup } = useAuthStore()
 
   const handleCommercialClick = (itemId: string) => {
@@ -218,6 +219,9 @@ function StreamItem({ item }: StreamItemProps) {
   
   // Transform subtitle for display (South Africa → SA)
   const displaySubtitle = abbreviateLocation(item.subtitle)
+
+  // Only prioritize first 1-2 cards if they're potentially above the fold
+  const isPriority = index < 2
 
   return (
     <div className={styles.streamItem}>
@@ -230,6 +234,8 @@ function StreamItem({ item }: StreamItemProps) {
               alt={item.avatarAlt}
               fill
               className={styles.streamHeaderAvatarImg}
+              sizes="40px"
+              quality={92}
             />
           </div>
           <div className={styles.streamHeaderText}>
@@ -267,7 +273,10 @@ function StreamItem({ item }: StreamItemProps) {
             alt={item.avatarAlt}
             fill
             className={styles.streamCardPoster}
-            priority
+            sizes="(max-width: 768px) 100vw, 398px"
+            quality={92}
+            placeholder="empty"
+            priority={isPriority}
           />
         </div>
       </div>
@@ -284,6 +293,8 @@ function StreamItem({ item }: StreamItemProps) {
                   width={31}
                   height={31}
                   className={styles.streamFooterAvatar}
+                  sizes="31px"
+                  quality={92}
                 />
               </div>
             ))}
@@ -325,10 +336,11 @@ export default function HomeStreamSection() {
 
       {/* Stream items feed */}
       <div className={styles.streamFeedWrapper}>
-        {STREAM_ITEMS.map((item) => (
+        {STREAM_ITEMS.map((item, index) => (
           <StreamItem
             key={item.id}
             item={item}
+            index={index}
           />
         ))}
       </div>
