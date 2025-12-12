@@ -183,6 +183,8 @@ export async function ensureUserDocument(user: User): Promise<void> {
           console.error(`[HANDLE_REPAIR] Cloud Function failed, falling back to client-side:`, {
             errorCode: cloudFunctionError?.code,
             errorMessage: cloudFunctionError?.message,
+            errorDetails: cloudFunctionError?.details,
+            stack: process.env.NODE_ENV !== 'production' ? cloudFunctionError?.stack : undefined,
           })
           
           const phoneNumber = user.phoneNumber || userData.phoneNumber || null
