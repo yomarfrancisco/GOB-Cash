@@ -50,7 +50,28 @@ export default function FirebaseAuthListener() {
 
     // Set up auth state listener - this is the single source of truth for isAuthed
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      console.log('[Firebase] Auth state changed:', user ? `user ${user.uid}` : 'no user')
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Firebase] Auth state changed:', user ? `user ${user.uid}` : 'no user')
+        
+        if (user) {
+          // Log user details (dev-only)
+          try {
+            const tokenResult = await user.getIdTokenResult()
+            console.log('[Firebase] User details:', {
+              uid: user.uid,
+              phoneNumber: user.phoneNumber || null,
+              email: user.email || null,
+              signInProvider: tokenResult.signInProvider || null,
+              claims: {
+                email_verified: tokenResult.claims.email_verified || false,
+                phone_number: tokenResult.claims.phone_number || null,
+              },
+            })
+          } catch (tokenErr) {
+            console.warn('[Firebase] Failed to get token result:', tokenErr)
+          }
+        }
+      }
       
       // Update app's isAuthed state based on Firebase Auth
       setAuthState(!!user)

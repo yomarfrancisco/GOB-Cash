@@ -26,24 +26,24 @@ export async function logout(): Promise<void> {
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log('[AUTH] logout clicked')
+    console.log('[LOGOUT] clicked')
   }
 
   try {
     // Step 1: Sign out from Firebase
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[AUTH] calling signOut')
+      console.log('[LOGOUT] calling signOut')
     }
 
     const auth = getFirebaseAuth()
     await firebaseSignOut(auth)
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[AUTH] signOut success')
+      console.log('[LOGOUT] signOut ok')
     }
   } catch (error: any) {
     // Log error but continue with cleanup (defensive: works even if signOut fails)
-    console.error('[AUTH] signOut error:', {
+    console.error('[LOGOUT] signOut error:', {
       code: error?.code,
       message: error?.message,
     })
@@ -81,10 +81,10 @@ export async function logout(): Promise<void> {
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[AUTH] stores cleared')
+      console.log('[LOGOUT] stores cleared')
     }
   } catch (storeErr) {
-    console.error('[AUTH] Error clearing stores:', storeErr)
+    console.error('[LOGOUT] Error clearing stores:', storeErr)
     // Continue anyway
   }
 
@@ -139,7 +139,7 @@ export async function logout(): Promise<void> {
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log('[AUTH] stores cleared, redirecting')
+    console.log('[LOGOUT] redirecting')
   }
 
   // Step 4: Redirect to home
@@ -147,9 +147,12 @@ export async function logout(): Promise<void> {
   // This works even if router is in a bad state
   try {
     window.location.href = '/'
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[LOGOUT] redirect')
+    }
   } catch (redirectErr) {
     // Fallback if window.location fails
-    console.error('[AUTH] Redirect failed:', redirectErr)
+    console.error('[LOGOUT] Redirect failed:', redirectErr)
     // Last resort: try to reload
     try {
       window.location.reload()

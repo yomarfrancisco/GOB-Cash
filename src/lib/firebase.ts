@@ -48,6 +48,7 @@ const getFirebaseConfig = () => {
 
 // Singleton Firebase app instance
 let firebaseApp: FirebaseApp | null = null
+let hasLoggedConfig = false
 
 /**
  * Get or initialize the Firebase app instance.
@@ -66,12 +67,36 @@ export function getFirebaseApp(): FirebaseApp {
   const existingApps = getApps()
   if (existingApps.length > 0) {
     firebaseApp = existingApps[0]
+    
+    // Log config on first access (dev-only, one-time)
+    if (!hasLoggedConfig && typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      hasLoggedConfig = true
+      console.log('[Firebase] App config:', {
+        projectId: firebaseApp.options.projectId,
+        authDomain: firebaseApp.options.authDomain,
+        host: window.location.host,
+        protocol: window.location.protocol,
+      })
+    }
+    
     return firebaseApp
   }
 
   // Initialize new app
   const config = getFirebaseConfig()
   firebaseApp = initializeApp(config)
+  
+  // Log config on first access (dev-only, one-time)
+  if (!hasLoggedConfig && typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+    hasLoggedConfig = true
+    console.log('[Firebase] App initialized:', {
+      projectId: firebaseApp.options.projectId,
+      authDomain: firebaseApp.options.authDomain,
+      host: window.location.host,
+      protocol: window.location.protocol,
+    })
+  }
+  
   return firebaseApp
 }
 

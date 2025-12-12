@@ -14,4 +14,5 @@ admin.initializeApp()
 // Export functions
 export { onContactWrite } from './onContactWrite'
 export { recomputeGhostQuality } from './recomputeGhostQuality'
+export { repairMyHandle } from './repairMyHandle'
 

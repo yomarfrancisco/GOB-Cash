@@ -9,7 +9,8 @@
 
 import { type User, signInWithCredential, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, onSnapshot, type DocumentData, Unsubscribe, collection, query, where, getDocs } from 'firebase/firestore'
-import { getFirestoreDb, getFirebaseAuth } from './firebase'
+import { getFunctions, httpsCallable } from 'firebase/functions'
+import { getFirestoreDb, getFirebaseAuth, getFirebaseApp } from './firebase'
 import { generateHandleFromEmail } from './profile/generateHandle'
 import { ensureDefaultWallets } from './wallets'
 
@@ -140,24 +141,62 @@ export async function ensureUserDocument(user: User): Promise<void> {
       let needsRepair = false
       const updates: Partial<UserDocument> = {}
       
-      // Repair invalid handle - THIS MUST RUN ON EVERY LOGIN
+      // Repair invalid handle - USE CLOUD FUNCTION (bypasses client rules)
       if (!userData.handle || userData.handle === '@' || userData.handle.length < 2) {
         if (process.env.NODE_ENV !== 'production') {
           console.log(`[HANDLE_REPAIR] detected invalid handle "${userData.handle || 'null'}" for ${user.uid}`)
         }
         
-        const phoneNumber = user.phoneNumber || userData.phoneNumber || null
-        const newHandle = await generateUniqueHandle(
-          db,
-          userData.fullName || user.displayName,
-          userData.email || user.email || '',
-          phoneNumber
-        )
-        updates.handle = newHandle
-        needsRepair = true
-        
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`[HANDLE_REPAIR] generated ${newHandle} for ${user.uid}`)
+        try {
+          // Call Cloud Function to repair handle (uses Admin SDK, bypasses rules)
+          const functions = getFunctions(getFirebaseApp())
+          const repairHandle = httpsCallable(functions, 'repairMyHandle')
+          
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[HANDLE_REPAIR] calling Cloud Function repairMyHandle for ${user.uid}`)
+          }
+          
+          const result = await repairHandle({})
+          const { handle: newHandle, displayName: repairedDisplayName } = result.data as { handle: string; displayName: string | null }
+          
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[HANDLE_REPAIR] Cloud Function returned handle ${newHandle} for ${user.uid}`)
+          }
+          
+          // Update local userData with repaired values
+          userData.handle = newHandle
+          if (repairedDisplayName) {
+            userData.displayName = repairedDisplayName
+          }
+          
+          // Mark as repaired (no need to call updateDoc, Cloud Function already did it)
+          needsRepair = false // Cloud Function already wrote to Firestore
+          
+          // Re-fetch to get latest data
+          const updatedSnap = await getDoc(userRef)
+          if (updatedSnap.exists()) {
+            Object.assign(userData, updatedSnap.data() as UserDocument)
+          }
+        } catch (cloudFunctionError: any) {
+          // If Cloud Function fails, fall back to client-side repair (may fail due to rules)
+          console.error(`[HANDLE_REPAIR] Cloud Function failed, falling back to client-side:`, {
+            errorCode: cloudFunctionError?.code,
+            errorMessage: cloudFunctionError?.message,
+          })
+          
+          const phoneNumber = user.phoneNumber || userData.phoneNumber || null
+          const newHandle = await generateUniqueHandle(
+            db,
+            userData.fullName || user.displayName,
+            userData.email || user.email || '',
+            phoneNumber
+          )
+          updates.handle = newHandle
+          needsRepair = true
+          
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[HANDLE_REPAIR] fallback: generated ${newHandle} for ${user.uid}`)
+          }
         }
       }
       
@@ -191,6 +230,16 @@ export async function ensureUserDocument(user: User): Promise<void> {
           console.log(`[HANDLE_REPAIR] attempting updateDoc for ${user.uid} at path: users/${user.uid}`, updates)
         }
         
+        // Log exact path and payload before attempting update
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[HANDLE_REPAIR] attempting updateDoc:`, {
+            path: `users/${user.uid}`,
+            updates: Object.keys(updates),
+            updatePayload: updates,
+            authUid: user.uid,
+          })
+        }
+        
         try {
           await updateDoc(userRef, updates)
           if (process.env.NODE_ENV !== 'production') {
@@ -204,15 +253,17 @@ export async function ensureUserDocument(user: User): Promise<void> {
           }
         } catch (updateError: any) {
           // Log detailed error information
-          if (process.env.NODE_ENV !== 'production') {
-            console.error(`[HANDLE_REPAIR] FAILED to update Firestore for ${user.uid}:`, {
-              errorCode: updateError?.code,
-              errorMessage: updateError?.message,
-              path: `users/${user.uid}`,
-              updates,
-              authUid: user.uid,
-            })
-          }
+          console.error(`[HANDLE_REPAIR] FAILED to update Firestore:`, {
+            errorCode: updateError?.code,
+            errorMessage: updateError?.message,
+            errorStack: process.env.NODE_ENV !== 'production' ? updateError?.stack : undefined,
+            path: `users/${user.uid}`,
+            docPath: userRef.path,
+            updates: Object.keys(updates),
+            updatePayload: updates,
+            authUid: user.uid,
+            projectId: db.app.options.projectId,
+          })
           
           // Re-throw to be caught by outer try/catch
           throw updateError
