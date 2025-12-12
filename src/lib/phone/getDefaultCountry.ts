@@ -17,7 +17,8 @@ export interface DefaultCountryInputs {
  */
 export function getDefaultCountry(inputs: DefaultCountryInputs): CountryISO2 | null {
   // Priority 1: Phone country if confidence is high
-  if (inputs.phoneCountry && inputs.phoneCountryConfidence !== null && inputs.phoneCountryConfidence >= 0.75) {
+  const conf = inputs.phoneCountryConfidence ?? 0
+  if (inputs.phoneCountry && conf >= 0.75) {
     return inputs.phoneCountry as CountryISO2
   }
 
