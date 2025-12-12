@@ -821,7 +821,8 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                 width={38}
                 height={38}
                 className={chatStyles.avatarImage}
-                unoptimized
+                sizes="38px"
+                quality={92}
               />
             </div>
             <div className={chatStyles.name}>Ama — Investment Manager</div>
@@ -845,7 +846,8 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                         width={31}
                         height={31}
                         className={chatStyles.messageAvatarImage}
-                        unoptimized
+                        sizes="31px"
+                        quality={92}
                       />
                     </div>
                   )}
@@ -1143,7 +1145,8 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                     width={31}
                     height={31}
                     className={chatStyles.messageAvatarImage}
-                    unoptimized
+                    sizes="31px"
+                    quality={92}
                   />
                 </div>
                 <div className={chatStyles.bubbleContainer}>

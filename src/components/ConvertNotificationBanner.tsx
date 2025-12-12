@@ -58,7 +58,8 @@ export default function ConvertNotificationBanner({ notification, onDismiss }: C
             width={38}
             height={38}
             className="notification-avatar-img"
-            unoptimized
+            sizes="38px"
+            quality={92}
           />
         </div>
         <div className="notification-content">

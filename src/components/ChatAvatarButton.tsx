@@ -31,6 +31,8 @@ export function ChatAvatarButton() {
             width={56}
             height={56}
             className={styles.avatarImage}
+            sizes="56px"
+            quality={92}
           />
         </div>
       </button>
