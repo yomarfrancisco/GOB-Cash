@@ -8,7 +8,7 @@
 'use client'
 
 import { type User, signInWithCredential, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, type DocumentData, Unsubscribe } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, onSnapshot, type DocumentData, Unsubscribe, collection, query, where, getDocs } from 'firebase/firestore'
 import { getFirestoreDb, getFirebaseAuth } from './firebase'
 import { generateHandleFromEmail } from './profile/generateHandle'
 import { ensureDefaultWallets } from './wallets'
@@ -35,14 +35,46 @@ export interface UserDocument {
 }
 
 /**
- * Generate a unique handle from user's name, email, or phone number
- * Format: @firstname-lastname-XXXX (name), @email-based (email), or @user-XXXX-YYYY (phone)
+ * Generate a unique handle in @goblin#### format
+ * Collision-safe: checks Firestore for existing handles and retries if needed
  */
-function generateUniqueHandle(
+async function generateGoblinHandle(db: ReturnType<typeof getFirestoreDb>, maxAttempts = 10): Promise<string> {
+  const usersRef = collection(db, 'users')
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const rand4 = Math.floor(1000 + Math.random() * 9000)
+    const candidate = `@goblin${rand4}`
+    
+    // Check if handle already exists
+    const handleQuery = query(usersRef, where('handle', '==', candidate))
+    const snapshot = await getDocs(handleQuery)
+    
+    if (snapshot.empty) {
+      return candidate
+    }
+  }
+  
+  // If all attempts exhausted, use 6 digits instead
+  const rand6 = Math.floor(100000 + Math.random() * 900000)
+  return `@goblin${rand6}`
+}
+
+/**
+ * Generate a unique handle from user's name, email, or phone number
+ * For phone users: always use @goblin#### format
+ * For Google users: use email-based or name-based handle
+ */
+async function generateUniqueHandle(
+  db: ReturnType<typeof getFirestoreDb>,
   fullName: string | null, 
   email: string,
   phoneNumber?: string | null
-): string {
+): Promise<string> {
+  // For phone users, always use @goblin#### format
+  if (phoneNumber) {
+    return generateGoblinHandle(db)
+  }
+  
   // Priority 1: Use name if available
   if (fullName) {
     const parts = fullName.trim().split(/\s+/)
@@ -59,16 +91,8 @@ function generateUniqueHandle(
     return generateHandleFromEmail(email)
   }
   
-  // Priority 3: Use phone number (last 4 digits + random 4 digits)
-  if (phoneNumber) {
-    const digits = phoneNumber.replace(/\D/g, '')
-    const last4 = digits.slice(-4) || '0000'
-    const rand4 = Math.floor(1000 + Math.random() * 9000)
-    return `@user-${last4}-${rand4}`
-  }
-  
-  // Fallback: random handle
-  return `@user-${Math.floor(10000 + Math.random() * 90000)}`
+  // Fallback: use goblin format
+  return generateGoblinHandle(db)
 }
 
 /**
@@ -103,25 +127,86 @@ export async function ensureUserDocument(user: User): Promise<void> {
     const userSnap = await getDoc(userRef)
 
     if (userSnap.exists()) {
-      // Document already exists - sync profile store from Firestore
+      // Document already exists - check for repairs needed
       if (process.env.NODE_ENV !== 'production') {
         console.log(`[UserDoc] User document already exists for ${user.uid}`)
       }
       
       const userData = userSnap.data() as UserDocument
+      let needsRepair = false
+      const updates: Partial<UserDocument> = {}
+      
+      // Repair invalid handle
+      if (!userData.handle || userData.handle === '@' || userData.handle.length < 2) {
+        const phoneNumber = user.phoneNumber || userData.phoneNumber || null
+        const newHandle = await generateUniqueHandle(
+          db,
+          userData.fullName || user.displayName,
+          userData.email || user.email || '',
+          phoneNumber
+        )
+        updates.handle = newHandle
+        needsRepair = true
+        
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[UserDoc] Repairing invalid handle for ${user.uid}: ${userData.handle} -> ${newHandle}`)
+        }
+      }
+      
+      // Repair phone user defaults if missing
+      const phoneNumber = user.phoneNumber || userData.phoneNumber || null
+      const phoneVerified = !!phoneNumber
+      
+      if (phoneNumber && (!userData.phoneNumber || !userData.phoneVerified)) {
+        updates.phoneNumber = phoneNumber
+        updates.phoneVerified = phoneVerified
+        needsRepair = true
+      }
+      
+      // Repair verification status for phone users
+      if (phoneVerified && userData.verificationStatus !== 'phone-verified') {
+        updates.verificationStatus = 'phone-verified'
+        needsRepair = true
+      }
+      
+      // Repair displayName for phone users if missing
+      if (phoneNumber && !userData.displayName) {
+        const digits = phoneNumber.replace(/\D/g, '')
+        const last4 = digits.slice(-4) || '0000'
+        updates.displayName = `User ${last4}`
+        needsRepair = true
+      }
+      
+      // Apply repairs if needed
+      if (needsRepair) {
+        await updateDoc(userRef, updates)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[UserDoc] Repaired user document for ${user.uid}`)
+        }
+      }
+      
+      // Get updated data after repair
+      const finalData = needsRepair ? { ...userData, ...updates } : userData
       
       // Sync profile store from Firestore data
       if (typeof window !== 'undefined') {
         const { useUserProfileStore } = await import('@/store/userProfile')
         const profileStore = useUserProfileStore.getState()
 
+        // Ensure handle is always valid (never "@" or empty)
+        const validHandle = (finalData.handle && finalData.handle !== '@' && finalData.handle.length > 1)
+          ? finalData.handle
+          : (profileStore.profile.userHandle && profileStore.profile.userHandle !== '@' && profileStore.profile.userHandle.length > 1)
+          ? profileStore.profile.userHandle
+          : null // Will be repaired on next check
+
         profileStore.setProfile({
-          fullName: userData.fullName || user.displayName || profileStore.profile.fullName,
-          email: userData.email || user.email || profileStore.profile.email,
-          avatarUrl: userData.avatarUrl || user.photoURL || profileStore.profile.avatarUrl,
-          userHandle: userData.handle || profileStore.profile.userHandle,
+          fullName: finalData.fullName || user.displayName || profileStore.profile.fullName,
+          email: finalData.email || user.email || profileStore.profile.email,
+          avatarUrl: finalData.avatarUrl || user.photoURL || profileStore.profile.avatarUrl,
+          userHandle: validHandle || profileStore.profile.userHandle,
           socialGraphShareContacts:
-            userData.socialGraphShareContacts ?? profileStore.profile.socialGraphShareContacts ?? true,
+            finalData.socialGraphShareContacts ?? profileStore.profile.socialGraphShareContacts ?? true,
         })
       }
       
@@ -165,7 +250,8 @@ export async function ensureUserDocument(user: User): Promise<void> {
     }
     
     // Generate handle (pass phoneNumber to function)
-    const handle = generateUniqueHandle(
+    const handle = await generateUniqueHandle(
+      db,
       fullName,
       user.email || '',
       phoneNumber
@@ -212,11 +298,16 @@ export async function ensureUserDocument(user: User): Promise<void> {
       const { useUserProfileStore } = await import('@/store/userProfile')
       const profileStore = useUserProfileStore.getState()
 
+      // Ensure handle is always valid (never "@" or empty)
+      const validHandle = (userDoc.handle && userDoc.handle !== '@' && userDoc.handle.length > 1)
+        ? userDoc.handle
+        : profileStore.profile.userHandle
+
       profileStore.setProfile({
         fullName: userDoc.fullName || profileStore.profile.fullName,
         email: userDoc.email || profileStore.profile.email,
         avatarUrl: userDoc.avatarUrl || profileStore.profile.avatarUrl,
-        userHandle: userDoc.handle || profileStore.profile.userHandle,
+        userHandle: validHandle || profileStore.profile.userHandle,
         socialGraphShareContacts: userDoc.socialGraphShareContacts ?? true,
       })
     }

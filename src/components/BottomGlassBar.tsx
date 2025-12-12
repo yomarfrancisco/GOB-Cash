@@ -153,11 +153,23 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                   className="nav-avatar-image nav-avatar-fallback-image"
                   sizes="28px"
                 />
-                {profile.fullName && (
-                  <span className="nav-avatar-initial">
-                    {profile.fullName.charAt(0).toUpperCase()}
-                  </span>
-                )}
+                <span className="nav-avatar-initial">
+                  {(() => {
+                    // Derive initial from handle, displayName, or fallback
+                    if (profile.userHandle && profile.userHandle.startsWith('@')) {
+                      const handleClean = profile.userHandle.substring(1)
+                      if (handleClean.toLowerCase().startsWith('goblin')) {
+                        return 'G'
+                      } else if (handleClean.length > 0) {
+                        return handleClean.charAt(0).toUpperCase()
+                      }
+                    }
+                    if (profile.fullName) {
+                      return profile.fullName.charAt(0).toUpperCase()
+                    }
+                    return '?'
+                  })()}
+                </span>
               </div>
               {hasUnreadNotification && (
                 <span className="nav-notification-dot" aria-label="Unread messages" />

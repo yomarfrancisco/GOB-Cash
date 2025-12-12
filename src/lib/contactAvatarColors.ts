@@ -41,17 +41,29 @@ export function getAvatarColorForHandle(handle: string | undefined, name?: strin
 /**
  * Get the first initial letter from a contact's name or handle
  */
-export function getContactInitial(handle?: string, name?: string): string {
-  // Try name first
+export function getContactInitial(handle?: string, name?: string, phoneNumber?: string | null): string {
+  // Priority 1: Try name first
   const fromName = (name || '').trim()
   if (fromName) {
     return fromName[0]!.toUpperCase()
   }
   
-  // Try handle (remove $ prefix if present)
-  const handleClean = (handle || '').replace(/^\$/, '').trim()
+  // Priority 2: Try handle (remove @ or $ prefix if present)
+  const handleClean = (handle || '').replace(/^[@$]/, '').trim()
   if (handleClean) {
+    // For @goblin#### format, use 'G'
+    if (handleClean.toLowerCase().startsWith('goblin')) {
+      return 'G'
+    }
     return handleClean[0]!.toUpperCase()
+  }
+  
+  // Priority 3: Use phone number last digit
+  if (phoneNumber) {
+    const digits = phoneNumber.replace(/\D/g, '')
+    if (digits.length > 0) {
+      return digits.slice(-1)
+    }
   }
   
   // Fallback

@@ -141,11 +141,6 @@ export default function PhoneSignupSheet() {
         </button>
         <div className={clsx(styles.content, styles.passwordContent)}>
           <form className={clsx(styles.form, styles.passwordForm)} onSubmit={handleSubmit}>
-            {/* Helper text */}
-            <p className={styles.otpHelperText}>
-              We sent a code to {phoneSignupPhone || '+27...'}
-            </p>
-            
             <label className={styles.field}>
               <div className={clsx(styles.inputShellPill, styles.passwordInputShellPill)}>
                 <input

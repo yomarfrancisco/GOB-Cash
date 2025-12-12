@@ -7,24 +7,37 @@ import clsx from 'clsx'
 type Props = {
   name?: string
   email?: string
+  handle?: string
   avatarUrl?: string | null
   size?: number
   rounded?: number
   className?: string
 }
 
-function getInitial(name?: string, email?: string): string {
+function getInitial(name?: string, email?: string, handle?: string): string {
+  // Priority 1: Use name
   const fromName = (name ?? '').trim()
   if (fromName) return fromName[0]!.toUpperCase()
 
+  // Priority 2: Use handle (remove @ prefix)
+  if (handle && handle.startsWith('@')) {
+    const handleClean = handle.substring(1)
+    if (handleClean.toLowerCase().startsWith('goblin')) {
+      return 'G'
+    }
+    return handleClean.charAt(0).toUpperCase()
+  }
+
+  // Priority 3: Use email local part
   const local = (email ?? '').split('@')[0] ?? ''
   if (local) return local[0]!.toUpperCase()
 
-  return 'S' // fallback
+  // Fallback
+  return '?'
 }
 
-const Avatar = ({ name, email, avatarUrl, size = 96, rounded = 24, className }: Props) => {
-  const initial = useMemo(() => getInitial(name, email), [name, email])
+const Avatar = ({ name, email, handle, avatarUrl, size = 96, rounded = 24, className }: Props) => {
+  const initial = useMemo(() => getInitial(name, email, handle), [name, email, handle])
   const fontSize = Math.round(size * 0.48) // 0.48 of size for proportional scaling
   const showDefault = !avatarUrl
 
