@@ -13,14 +13,26 @@ import clsx from 'clsx'
 import { ArrowUp } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth'
+import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth'
+import { useNotificationStore } from '@/store/notifications'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
 type AuthMode = 'loginEntry' | 'signup'
 
 export default function AuthEntrySheet() {
-  const { authEntryOpen, closeAuthEntry, openAuthPassword, openPhoneSignup, setAuthIdentifier } = useAuthStore()
+  const { 
+    authEntryOpen, 
+    closeAuthEntry, 
+    openAuthPassword, 
+    openPhoneSignup, 
+    setAuthIdentifier,
+    setPhoneSignupPhone,
+    setPhoneConfirmationResult
+  } = useAuthStore()
   const { signInWithGoogle } = useFirebaseAuth()
+  const { sendVerificationCode, normalizePhoneNumber } = useFirebasePhoneAuth()
+  const { pushNotification } = useNotificationStore()
   const [identifier, setIdentifier] = useState('')
   const [authMode, setAuthMode] = useState<AuthMode>('signup')
   const [isPhoneSignupEditing, setIsPhoneSignupEditing] = useState(false)
@@ -76,11 +88,36 @@ export default function AuthEntrySheet() {
     }
   }
 
-  const handlePhoneSubmit = (e: React.FormEvent) => {
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (phoneNumber.trim().length === 0) return
-    // Use the existing phone signup handler
-    handlePhoneSignUpClick()
+
+    try {
+      const normalizedPhone = normalizePhoneNumber(phoneNumber.trim())
+      
+      // Store phone number
+      setPhoneSignupPhone(normalizedPhone)
+      
+      // Send SMS code
+      const confirmationResult = await sendVerificationCode(normalizedPhone)
+      
+      // Store confirmation result
+      setPhoneConfirmationResult(confirmationResult)
+      
+      // Open OTP sheet
+      closeAuthEntry()
+      setTimeout(() => {
+        openPhoneSignup()
+      }, 220)
+    } catch (error: any) {
+      // Show error notification
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Failed to send code',
+        body: error.message || 'Please try again',
+        actor: { type: 'system' },
+      })
+    }
   }
 
   if (!authEntryOpen) return null

@@ -181,6 +181,8 @@ export default function RootLayout({
             </WalletAllocProvider>
           </WalletModeProvider>
         </SplashOnceProvider>
+        {/* Invisible reCAPTCHA container for Firebase Phone Auth */}
+        <div id="recaptcha-container" style={{ display: 'none' }} />
       </body>
     </html>
   )

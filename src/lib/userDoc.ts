@@ -24,6 +24,8 @@ export interface UserDocument {
   handle: string
   displayName: string | null
   avatarUrl: string | null
+  phoneNumber: string | null
+  phoneVerified: boolean
   createdAt: any // serverTimestamp()
   accountStatus: 'active' | 'suspended' | 'deleted'
   verificationStatus: 'unverified' | 'email-verified' | 'phone-verified' | 'full-verified'
@@ -33,26 +35,40 @@ export interface UserDocument {
 }
 
 /**
- * Generate a unique handle from user's name and email
- * Format: @firstname-lastname-XXXX (where XXXX is random suffix)
+ * Generate a unique handle from user's name, email, or phone number
+ * Format: @firstname-lastname-XXXX (name), @email-based (email), or @user-XXXX-YYYY (phone)
  */
-function generateUniqueHandle(fullName: string | null, email: string): string {
+function generateUniqueHandle(
+  fullName: string | null, 
+  email: string,
+  phoneNumber?: string | null
+): string {
+  // Priority 1: Use name if available
   if (fullName) {
-    // Extract first and last name
     const parts = fullName.trim().split(/\s+/)
     const firstName = parts[0]?.toLowerCase() || ''
     const lastName = parts[parts.length - 1]?.toLowerCase() || ''
     
-    // Combine and clean
     const base = `${firstName}${lastName ? `-${lastName}` : ''}`.replace(/[^a-z0-9-]/g, '').slice(0, 20)
-    
-    // Add random 4-digit suffix
     const suffix = Math.floor(1000 + Math.random() * 9000)
     return `@${base}-${suffix}`
   }
   
-  // Fallback to email-based handle
-  return generateHandleFromEmail(email)
+  // Priority 2: Use email if available and not a placeholder
+  if (email && !email.includes('@phone.gobankless.local')) {
+    return generateHandleFromEmail(email)
+  }
+  
+  // Priority 3: Use phone number (last 4 digits + random 4 digits)
+  if (phoneNumber) {
+    const digits = phoneNumber.replace(/\D/g, '')
+    const last4 = digits.slice(-4) || '0000'
+    const rand4 = Math.floor(1000 + Math.random() * 9000)
+    return `@user-${last4}-${rand4}`
+  }
+  
+  // Fallback: random handle
+  return `@user-${Math.floor(10000 + Math.random() * 90000)}`
 }
 
 /**
@@ -71,10 +87,13 @@ export async function ensureUserDocument(user: User): Promise<void> {
     throw new Error('ensureUserDocument must be called client-side only')
   }
 
-  console.log('[Firebase] ensureUserDocument called with user', {
-    uid: user.uid,
-    email: user.email,
-  })
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[Firebase] ensureUserDocument called with user', {
+      uid: user.uid,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+    })
+  }
 
   const db = getFirestoreDb()
   const userRef = doc(db, 'users', user.uid)
@@ -85,7 +104,9 @@ export async function ensureUserDocument(user: User): Promise<void> {
 
     if (userSnap.exists()) {
       // Document already exists - sync profile store from Firestore
-      console.log(`[UserDoc] User document already exists for ${user.uid}`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[UserDoc] User document already exists for ${user.uid}`)
+      }
       
       const userData = userSnap.data() as UserDocument
       
@@ -111,27 +132,61 @@ export async function ensureUserDocument(user: User): Promise<void> {
         console.error('[Firebase] Failed to ensure wallets', walletErr)
       }
 
-      console.log('[Firebase] user doc ensured', user.uid)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Firebase] user doc ensured', user.uid)
+      }
       return
     }
 
-    // Generate handle from name + random suffix, or fallback to email
-    const handle = generateUniqueHandle(user.displayName, user.email || '')
+    // NEW USER - Create document
+    
+    // Extract phone number from Firebase user
+    const phoneNumber = user.phoneNumber || null
+    const phoneVerified = !!phoneNumber
+    
+    // Determine verification status
+    let verificationStatus: UserDocument['verificationStatus'] = 'unverified'
+    if (phoneVerified) {
+      verificationStatus = 'phone-verified'
+    } else if (user.emailVerified) {
+      verificationStatus = 'email-verified'
+    }
+    
+    // Generate display name for phone users if missing
+    let displayName = user.displayName || null
+    let fullName = user.displayName || null
+    
+    if (!displayName && phoneNumber) {
+      // Extract last 4 digits for display name
+      const digits = phoneNumber.replace(/\D/g, '')
+      const last4 = digits.slice(-4) || '0000'
+      displayName = `User ${last4}`
+      fullName = null // Phone users don't have full name initially
+    }
+    
+    // Generate handle (pass phoneNumber to function)
+    const handle = generateUniqueHandle(
+      fullName,
+      user.email || '',
+      phoneNumber
+    )
 
-    // Determine verification status based on emailVerified
-    const verificationStatus: UserDocument['verificationStatus'] = user.emailVerified
-      ? 'email-verified'
-      : 'unverified'
+    // Create email (use placeholder for phone-only users)
+    const email = user.email || (phoneNumber 
+      ? `${phoneNumber.replace(/\D/g, '')}@phone.gobankless.local` 
+      : '')
 
     // Create new user document with MVP schema
     const userDoc: Omit<UserDocument, 'createdAt'> & { createdAt: any } = {
       userId: user.uid,
-      email: user.email || '',
+      email,
       emailVerified: user.emailVerified || false,
-      fullName: user.displayName || null,
+      fullName,
+      displayName,
       handle,
-      displayName: user.displayName || null,
       avatarUrl: user.photoURL || null,
+      phoneNumber,
+      phoneVerified,
       createdAt: serverTimestamp(),
       accountStatus: 'active',
       verificationStatus,
@@ -142,7 +197,9 @@ export async function ensureUserDocument(user: User): Promise<void> {
 
     await setDoc(userRef, userDoc)
 
-    console.log(`[UserDoc] Created user document for ${user.uid} with handle ${handle}`)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[UserDoc] Created user document for ${user.uid} with handle ${handle}`)
+    }
     // Seed wallets for new user
     try {
       await ensureDefaultWallets(user)

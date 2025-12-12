@@ -1,8 +1,8 @@
 /**
- * PhoneSignupSheet - Phone sign-up sheet with phone background image
+ * PhoneSignupSheet - Phone sign-up sheet with OTP verification
  * 
  * Form sheet for phone sign-up flow. Uses sign_up - phone.png background.
- * Contains username, phone number, and password inputs with "Create a new account" button.
+ * Contains OTP code input for SMS verification.
  */
 
 'use client'
@@ -13,31 +13,41 @@ import clsx from 'clsx'
 import { ArrowUp } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { useNotificationStore } from '@/store/notifications'
+import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
 export default function PhoneSignupSheet() {
-  const { phoneSignupOpen, closePhoneSignup, closeAllAuth, openAuthEntrySignup } = useAuthStore()
+  const { 
+    phoneSignupOpen, 
+    closePhoneSignup, 
+    closeAllAuth, 
+    openAuthEntrySignup,
+    phoneSignupPhone,
+    phoneConfirmationResult,
+    clearPhoneAuth
+  } = useAuthStore()
   const { pushNotification } = useNotificationStore()
-  const [password, setPassword] = useState('')
+  const { verifyCode } = useFirebasePhoneAuth()
+  const [otpCode, setOtpCode] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const passwordInputRef = useRef<HTMLInputElement>(null)
+  const otpInputRef = useRef<HTMLInputElement>(null)
 
-  const canSubmit = password.trim().length > 0 && !isSubmitting
+  const canSubmit = otpCode.trim().length === 6 && !isSubmitting && phoneConfirmationResult !== null
   const isDisabled = !canSubmit
 
   // Detect autofill - check periodically if input has value but state doesn't
   useEffect(() => {
-    if (!phoneSignupOpen || !passwordInputRef.current) return
+    if (!phoneSignupOpen || !otpInputRef.current) return
 
     const checkAutofill = () => {
-      const input = passwordInputRef.current
-      if (input && input.value && !password) {
-        setPassword(input.value)
+      const input = otpInputRef.current
+      if (input && input.value && !otpCode) {
+        const numericValue = input.value.replace(/\D/g, '').slice(0, 6)
+        setOtpCode(numericValue)
       }
     }
 
-    // Check immediately and after a short delay (autofill happens asynchronously)
     checkAutofill()
     const timeoutId = setTimeout(checkAutofill, 100)
     const intervalId = setInterval(checkAutofill, 300)
@@ -46,47 +56,42 @@ export default function PhoneSignupSheet() {
       clearTimeout(timeoutId)
       clearInterval(intervalId)
     }
-  }, [phoneSignupOpen, password])
+  }, [phoneSignupOpen, otpCode])
 
   const handleBackToSignupOptions = () => {
     closePhoneSignup()
-    // Small delay to allow phone sheet to close before opening signup options
+    clearPhoneAuth()
     setTimeout(() => {
-      openAuthEntrySignup() // Open entry sheet in signup mode
+      openAuthEntrySignup()
     }, 220)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (isDisabled) return
+    if (isDisabled || !phoneConfirmationResult) return
 
     setIsSubmitting(true)
-    // TODO: wire real sign-up later
-    // Note: username and phone are no longer collected here
-    // Phone was captured in the previous step, username can be set later
-    console.log('Sign up with phone:', { password })
-    
-    // Show success notification
-    pushNotification({
-      kind: 'payment_sent',
-      title: '$ama: You\'re in. Your wallet is ready. Let\'s make your money work.',
-      actor: {
-        type: 'ai_manager',
-        name: '$ama',
-        avatar: '/assets/Brics-girl-blue.png',
-      },
-    })
 
-    // Close all auth sheets and return to home
-    setTimeout(() => {
+    try {
+      await verifyCode(phoneConfirmationResult, otpCode.trim())
+      clearPhoneAuth()
       closeAllAuth()
       setIsSubmitting(false)
-    }, 500)
+    } catch (error: any) {
+      setIsSubmitting(false)
+      
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Verification failed',
+        body: error.message || 'Please try again',
+        actor: { type: 'system' },
+      })
+    }
   }
 
   const handleGoToLogin = () => {
     closePhoneSignup()
-    // Small delay to allow phone sheet to close before opening login entry
+    clearPhoneAuth()
     setTimeout(() => {
       const { openAuthEntryLogin } = useAuthStore.getState()
       openAuthEntryLogin()
@@ -94,6 +99,7 @@ export default function PhoneSignupSheet() {
   }
 
   const handleCloseAll = () => {
+    clearPhoneAuth()
     closeAllAuth()
   }
 
@@ -118,7 +124,6 @@ export default function PhoneSignupSheet() {
             style={{ objectFit: 'cover', objectPosition: 'center' }}
           />
         </div>
-        {/* Back chevron in top-left */}
         <button
           type="button"
           className={styles.passwordBackButton}
@@ -136,19 +141,30 @@ export default function PhoneSignupSheet() {
         </button>
         <div className={clsx(styles.content, styles.passwordContent)}>
           <form className={clsx(styles.form, styles.passwordForm)} onSubmit={handleSubmit}>
+            {/* Helper text */}
+            <p className={styles.otpHelperText}>
+              We sent a code to {phoneSignupPhone || '+27...'}
+            </p>
+            
             <label className={styles.field}>
               <div className={clsx(styles.inputShellPill, styles.passwordInputShellPill)}>
                 <input
-                  ref={passwordInputRef}
-                  type="password"
+                  ref={otpInputRef}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
                   className={styles.inputPill}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={otpCode}
+                  onChange={(e) => {
+                    // Only allow digits, max 6
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 6)
+                    setOtpCode(value)
+                  }}
                   onInput={(e) => {
-                    // Handle autofill by checking input value
                     const input = e.currentTarget
-                    if (input.value !== password) {
-                      setPassword(input.value)
+                    const numericValue = input.value.replace(/\D/g, '').slice(0, 6)
+                    if (numericValue !== otpCode) {
+                      setOtpCode(numericValue)
                     }
                   }}
                   onKeyDown={(e) => {
@@ -157,9 +173,8 @@ export default function PhoneSignupSheet() {
                       handleSubmit(e)
                     }
                   }}
-                  placeholder="Create a password"
+                  placeholder="Enter 6-digit code"
                 />
-                {/* Submit button - always visible, disabled until password is entered */}
                 <button
                   type="button"
                   className={clsx(styles.submitButton, {
@@ -189,7 +204,6 @@ export default function PhoneSignupSheet() {
               </a>
               ).
             </p>
-            {/* Already have an account link - positioned below legal text */}
             <p className={styles.switchAuthText}>
               Already have an account?{' '}
               <button
@@ -206,4 +220,3 @@ export default function PhoneSignupSheet() {
     </ActionSheet>
   )
 }
-

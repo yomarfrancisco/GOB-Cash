@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { useNotificationStore } from './notifications'
 import { stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
+import { type ConfirmationResult } from 'firebase/auth'
 
 type AuthView = 'provider-list' | 'whatsapp-signin' | 'whatsapp-signup'
 
@@ -13,6 +14,8 @@ interface AuthState {
   phoneSignupOpen: boolean // Phone sign-up sheet
   authView: AuthView
   authIdentifier: string | null // Username or phone number from entry sheet
+  phoneSignupPhone: string | null // Phone number for sign-up (E.164 format)
+  phoneConfirmationResult: ConfirmationResult | null // Firebase confirmation result for OTP
   openAuth: () => void // Opens entry sheet
   closeAuth: () => void // Closes entry sheet
   closeAllAuth: () => void // Closes all auth sheets and returns to home
@@ -29,6 +32,9 @@ interface AuthState {
   setAuthState: (isAuthed: boolean) => void // New: Set auth state from Firebase Auth
   completeAuth: () => void // Legacy: Kept for backward compatibility, but Firebase Auth now drives isAuthed
   requireAuth: (onAuthed: () => void) => void
+  setPhoneSignupPhone: (phone: string) => void
+  setPhoneConfirmationResult: (result: ConfirmationResult | null) => void
+  clearPhoneAuth: () => void
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -39,6 +45,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   phoneSignupOpen: false,
   authView: 'provider-list',
   authIdentifier: null,
+  phoneSignupPhone: null,
+  phoneConfirmationResult: null,
   openAuth: () => {
     prefetchAuthImages() // Prefetch auth backgrounds before opening
     set({ authOpen: true, authEntryOpen: true, authView: 'provider-list' })
@@ -107,5 +115,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       onAuthed()
     }
   },
+  setPhoneSignupPhone: (phone) => set({ phoneSignupPhone: phone }),
+  setPhoneConfirmationResult: (result) => set({ phoneConfirmationResult: result }),
+  clearPhoneAuth: () => set({ 
+    phoneSignupPhone: null, 
+    phoneConfirmationResult: null 
+  }),
 }))
 
