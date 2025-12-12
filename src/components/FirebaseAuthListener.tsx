@@ -66,29 +66,13 @@ export default function FirebaseAuthListener() {
       
       // Sync profile store from Firebase user data
       if (user) {
-        const { setProfile, profile } = useUserProfileStore.getState()
-        
-        // Generate handle from email if needed
-        const generatedHandle = user.email
-          ? generateHandleFromEmail(user.email)
-          : profile.userHandle || '@user'
-        
-        // Update profile store with Firebase user data
-        setProfile({
-          fullName: user.displayName || profile.fullName,
-          email: user.email || profile.email,
-          avatarUrl: user.photoURL || profile.avatarUrl,
-          // Only update handle if it's the default or doesn't exist
-          userHandle:
-            !profile.userHandle || profile.userHandle === '@samakoyo'
-              ? generatedHandle
-              : profile.userHandle,
-        })
-        
-        // Ensure user document exists
+        // CRITICAL: Call ensureUserDocument FIRST - it will repair handles and sync profile store
+        // Do NOT update profile store here - let ensureUserDocument handle it after repair
         try {
           await ensureUserDocument(user)
-          console.log('[Firebase] ensured user doc', user.uid)
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[Firebase] ensured user doc', user.uid)
+          }
         } catch (error) {
           console.error('[Firebase] Failed to ensure user document on auth state change:', error)
         }

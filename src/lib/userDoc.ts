@@ -136,8 +136,12 @@ export async function ensureUserDocument(user: User): Promise<void> {
       let needsRepair = false
       const updates: Partial<UserDocument> = {}
       
-      // Repair invalid handle
+      // Repair invalid handle - THIS MUST RUN ON EVERY LOGIN
       if (!userData.handle || userData.handle === '@' || userData.handle.length < 2) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[HANDLE_REPAIR] detected invalid handle "${userData.handle || 'null'}" for ${user.uid}`)
+        }
+        
         const phoneNumber = user.phoneNumber || userData.phoneNumber || null
         const newHandle = await generateUniqueHandle(
           db,
@@ -149,7 +153,7 @@ export async function ensureUserDocument(user: User): Promise<void> {
         needsRepair = true
         
         if (process.env.NODE_ENV !== 'production') {
-          console.log(`[UserDoc] Repairing invalid handle for ${user.uid}: ${userData.handle} -> ${newHandle}`)
+          console.log(`[HANDLE_REPAIR] generated ${newHandle} for ${user.uid}`)
         }
       }
       
@@ -177,34 +181,49 @@ export async function ensureUserDocument(user: User): Promise<void> {
         needsRepair = true
       }
       
-      // Apply repairs if needed
+      // Apply repairs if needed - MUST COMPLETE BEFORE PROFILE SYNC
       if (needsRepair) {
         await updateDoc(userRef, updates)
         if (process.env.NODE_ENV !== 'production') {
-          console.log(`[UserDoc] Repaired user document for ${user.uid}`)
+          console.log(`[HANDLE_REPAIR] persisted to Firestore for ${user.uid}`, updates)
+        }
+        
+        // Re-fetch to ensure we have the latest data
+        const updatedSnap = await getDoc(userRef)
+        if (updatedSnap.exists()) {
+          Object.assign(userData, updatedSnap.data() as UserDocument)
         }
       }
       
-      // Get updated data after repair
-      const finalData = needsRepair ? { ...userData, ...updates } : userData
+      // Get final data (after repair and re-fetch)
+      const finalData = userData
       
       // Sync profile store from Firestore data
       if (typeof window !== 'undefined') {
         const { useUserProfileStore } = await import('@/store/userProfile')
         const profileStore = useUserProfileStore.getState()
 
-        // Ensure handle is always valid (never "@" or empty)
+        // CRITICAL: Use repaired handle from Firestore, never fall back to invalid handle
         const validHandle = (finalData.handle && finalData.handle !== '@' && finalData.handle.length > 1)
           ? finalData.handle
-          : (profileStore.profile.userHandle && profileStore.profile.userHandle !== '@' && profileStore.profile.userHandle.length > 1)
-          ? profileStore.profile.userHandle
-          : null // Will be repaired on next check
+          : null
+
+        if (!validHandle) {
+          // This should never happen if repair worked, but log if it does
+          if (process.env.NODE_ENV !== 'production') {
+            console.error(`[HANDLE_REPAIR] WARNING: No valid handle after repair for ${user.uid}`, finalData)
+          }
+        } else {
+          if (process.env.NODE_ENV !== 'production' && needsRepair) {
+            console.log(`[HANDLE_REPAIR] profile store updated with ${validHandle} for ${user.uid}`)
+          }
+        }
 
         profileStore.setProfile({
           fullName: finalData.fullName || user.displayName || profileStore.profile.fullName,
           email: finalData.email || user.email || profileStore.profile.email,
           avatarUrl: finalData.avatarUrl || user.photoURL || profileStore.profile.avatarUrl,
-          userHandle: validHandle || profileStore.profile.userHandle,
+          userHandle: validHandle || profileStore.profile.userHandle, // Fallback only if repair failed
           socialGraphShareContacts:
             finalData.socialGraphShareContacts ?? profileStore.profile.socialGraphShareContacts ?? true,
         })
