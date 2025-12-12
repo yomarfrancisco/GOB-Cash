@@ -42,6 +42,7 @@ import { openAmaChatWithCardDepositScenario, openAmaChatWithAgentInduction } fro
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
 import { ChevronRight } from 'lucide-react'
 import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
+import { logout } from '@/lib/logout'
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
@@ -471,20 +472,12 @@ export default function ProfilePage() {
                   )}
                   <button
                     className="profile-settings-row"
-                    onClick={() => {
-                      // Clear session/splash flag so intro shows again
-                      try {
-                        sessionStorage.removeItem('gob_splash_shown')
-                      } catch {
-                        // Ignore sessionStorage errors
-                      }
-
-                      // Clear profile state (optional - depends on requirements)
-                      // For now, we'll keep profile data but could reset if needed
-                      // useUserProfileStore.getState().reset()
-
-                      // Navigate to home
-                      router.push('/')
+                    onClick={async (e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      
+                      // Call comprehensive logout function
+                      await logout()
                     }}
                     type="button"
                   >
