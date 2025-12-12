@@ -237,7 +237,11 @@ export default function ProfilePage() {
                   rounded={24}
                   className="profile-avatar"
                 />
-                <h1 className="profile-name">{profile.userHandle}</h1>
+                <h1 className="profile-name">
+                  {profile.userHandle && profile.userHandle !== '@' && profile.userHandle.length > 1
+                    ? profile.userHandle
+                    : 'Loading...'}
+                </h1>
               </div>
 
               {/* Stats + network pill */}

@@ -124,6 +124,10 @@ export async function ensureUserDocument(user: User): Promise<void> {
 
   try {
     // Check if document exists
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[HANDLE_REPAIR] Checking user doc for ${user.uid} at path: users/${user.uid}`)
+    }
+    
     const userSnap = await getDoc(userRef)
 
     if (userSnap.exists()) {
@@ -183,15 +187,35 @@ export async function ensureUserDocument(user: User): Promise<void> {
       
       // Apply repairs if needed - MUST COMPLETE BEFORE PROFILE SYNC
       if (needsRepair) {
-        await updateDoc(userRef, updates)
         if (process.env.NODE_ENV !== 'production') {
-          console.log(`[HANDLE_REPAIR] persisted to Firestore for ${user.uid}`, updates)
+          console.log(`[HANDLE_REPAIR] attempting updateDoc for ${user.uid} at path: users/${user.uid}`, updates)
         }
         
-        // Re-fetch to ensure we have the latest data
-        const updatedSnap = await getDoc(userRef)
-        if (updatedSnap.exists()) {
-          Object.assign(userData, updatedSnap.data() as UserDocument)
+        try {
+          await updateDoc(userRef, updates)
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[HANDLE_REPAIR] persisted to Firestore for ${user.uid}`, updates)
+          }
+          
+          // Re-fetch to ensure we have the latest data
+          const updatedSnap = await getDoc(userRef)
+          if (updatedSnap.exists()) {
+            Object.assign(userData, updatedSnap.data() as UserDocument)
+          }
+        } catch (updateError: any) {
+          // Log detailed error information
+          if (process.env.NODE_ENV !== 'production') {
+            console.error(`[HANDLE_REPAIR] FAILED to update Firestore for ${user.uid}:`, {
+              errorCode: updateError?.code,
+              errorMessage: updateError?.message,
+              path: `users/${user.uid}`,
+              updates,
+              authUid: user.uid,
+            })
+          }
+          
+          // Re-throw to be caught by outer try/catch
+          throw updateError
         }
       }
       

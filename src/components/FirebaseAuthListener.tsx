@@ -73,8 +73,16 @@ export default function FirebaseAuthListener() {
           if (process.env.NODE_ENV !== 'production') {
             console.log('[Firebase] ensured user doc', user.uid)
           }
-        } catch (error) {
-          console.error('[Firebase] Failed to ensure user document on auth state change:', error)
+        } catch (error: any) {
+          // Log detailed error but don't crash the app
+          console.error('[Firebase] Failed to ensure user document on auth state change:', {
+            uid: user.uid,
+            errorCode: error?.code,
+            errorMessage: error?.message,
+            path: `users/${user.uid}`,
+          })
+          // Continue gracefully - user can still use the app even if repair failed
+          // The subscription below will still sync profile data from Firestore
         }
 
         // Subscribe to Firestore user doc snapshots
