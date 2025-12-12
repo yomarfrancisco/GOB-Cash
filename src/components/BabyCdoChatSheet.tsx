@@ -113,7 +113,8 @@ export function BabyCdoChatSheet() {
                 width={32}
                 height={32}
                 className={styles.avatarImage}
-                unoptimized
+                sizes="32px"
+                quality={92}
               />
             </div>
             <div className={styles.headerText}>
