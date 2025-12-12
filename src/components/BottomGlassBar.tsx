@@ -9,6 +9,7 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useSearchSheet } from '@/store/useSearchSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { CHARACTERS } from '@/lib/demo/templates/characters'
+import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import '@/styles/bottom-glass.css'
 
 interface BottomGlassBarProps {
@@ -59,6 +60,18 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           })}
           aria-label="Open Agents"
           onClick={handleCenterButtonClick}
+          onMouseEnter={() => {
+            // Prefetch auth images on hover (if not authed, button may trigger auth)
+            if (!isAuthed) {
+              prefetchAuthImages()
+            }
+          }}
+          onTouchStart={() => {
+            // Prefetch auth images on touch (mobile)
+            if (!isAuthed) {
+              prefetchAuthImages()
+            }
+          }}
           type="button"
         >
           <div className="fab-content-base">
@@ -94,6 +107,18 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
         <Link 
           href="/profile" 
           aria-label="Profile"
+          onMouseEnter={() => {
+            // Prefetch auth images on hover (if not authed, link will trigger auth)
+            if (!isAuthed) {
+              prefetchAuthImages()
+            }
+          }}
+          onTouchStart={() => {
+            // Prefetch auth images on touch (mobile)
+            if (!isAuthed) {
+              prefetchAuthImages()
+            }
+          }}
           onClick={(e) => {
             if (!isAuthed) {
               e.preventDefault()

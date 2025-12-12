@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { useNotificationStore } from './notifications'
 import { stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
+import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 
 type AuthView = 'provider-list' | 'whatsapp-signin' | 'whatsapp-signup'
 
@@ -38,12 +39,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   phoneSignupOpen: false,
   authView: 'provider-list',
   authIdentifier: null,
-  openAuth: () => set({ authOpen: true, authEntryOpen: true, authView: 'provider-list' }),
+  openAuth: () => {
+    prefetchAuthImages() // Prefetch auth backgrounds before opening
+    set({ authOpen: true, authEntryOpen: true, authView: 'provider-list' })
+  },
   closeAuth: () => set({ authOpen: false, authEntryOpen: false }),
   closeAllAuth: () => set({ authOpen: false, authEntryOpen: false, authPasswordOpen: false, phoneSignupOpen: false }),
-  openAuthEntry: () => set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signup' }), // Default to signup
-  openAuthEntryLogin: () => set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signin' }), // Explicitly open in login mode
-  openAuthEntrySignup: () => set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signup' }),
+  openAuthEntry: () => {
+    prefetchAuthImages() // Prefetch auth backgrounds before opening
+    set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signup' }) // Default to signup
+  },
+  openAuthEntryLogin: () => {
+    prefetchAuthImages() // Prefetch auth backgrounds before opening
+    set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signin' }) // Explicitly open in login mode
+  },
+  openAuthEntrySignup: () => {
+    prefetchAuthImages() // Prefetch auth backgrounds before opening
+    set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signup' })
+  },
   closeAuthEntry: () => set({ authEntryOpen: false, authOpen: false }),
   openAuthPassword: () => set({ authPasswordOpen: true }),
   closeAuthPassword: () => set({ authPasswordOpen: false, authIdentifier: null }),
@@ -88,6 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   requireAuth: (onAuthed) => {
     const { isAuthed, openAuthEntry } = get()
     if (!isAuthed) {
+      prefetchAuthImages() // Prefetch auth backgrounds before opening
       openAuthEntry()
     } else {
       onAuthed()
