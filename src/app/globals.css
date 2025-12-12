@@ -797,6 +797,13 @@ body {
       overflow: visible !important; /* Allow glass to extend beyond frame */
       min-height: 170px; /* Increase height to accommodate upward offset */
     }
+    
+    /* Mobile-only experiment: make glass invisible */
+    .bottom-glass-wrapper-mobile .bottom-glass-texture,
+    .bottom-glass-offset .bottom-glass-texture {
+      opacity: 0;
+      pointer-events: none;
+    }
   }
   
   /* Mobile glass texture - same positioning as desktop */
