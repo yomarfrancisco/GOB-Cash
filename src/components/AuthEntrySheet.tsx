@@ -127,7 +127,8 @@ export default function AuthEntrySheet() {
                   alt="Google"
                   width={20}
                   height={20}
-                  unoptimized
+                  sizes="20px"
+                  quality={92}
                   className={styles.authEntrySocialIcon}
                 />
                 <span className={styles.authEntrySocialText}>
