@@ -773,6 +773,20 @@ body {
     overflow-x: hidden;
   }
   
+  /* Mobile glass offset - inner wrapper for additional mobile-only positioning */
+  .bottom-glass-offset {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  
+  /* Mobile-only: move glass left 40px and up 20px */
+  @media (max-width: 768px) {
+    .bottom-glass-offset {
+      transform: translate(-40px, -20px);
+    }
+  }
+  
   /* Mobile glass texture - same positioning as desktop */
   .bottom-glass-wrapper-mobile .bottom-glass-texture {
     position: relative;

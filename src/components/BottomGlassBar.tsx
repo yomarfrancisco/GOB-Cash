@@ -181,14 +181,16 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
       {/* Mobile: unified wrapper for consistent positioning */}
       <div className="bottomBarFrame">
         <div className="bottom-glass-wrapper bottom-glass-wrapper-mobile">
-          <Image
-            src="/assets/core/glass-bottom-2.png"
-            alt=""
-            className="bottom-glass-texture"
-            width={700}
-            height={600}
-            unoptimized
-          />
+          <div className="bottom-glass-offset">
+            <Image
+              src="/assets/core/glass-bottom-2.png"
+              alt=""
+              className="bottom-glass-texture"
+              width={700}
+              height={600}
+              unoptimized
+            />
+          </div>
         </div>
         <div className="nav-container nav-container-mobile">
           {navItems}
