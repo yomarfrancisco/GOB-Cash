@@ -37,6 +37,20 @@
 - `src/components/Inbox/FinancialInboxSheet.tsx` (38px, 31px, quality 92)
 - `src/components/BabyCdoChatSheet.tsx` (32px, 24px, quality 92)
 
+### Step 2b: Commercial Cards Optimization
+**Commit**: `ec0df5f` - `perf: next/image for commercial cards (quality 92, no shimmer)`
+
+**What Changed**:
+- Added `quality={92}` to all commercial card poster images
+- Added proper `sizes` attribute: `(max-width: 768px) 100vw, 398px`
+- Added `placeholder="empty"` (no shimmer effect yet)
+- Limited `priority` to first 1-2 cards only (index < 2) - lazy loading for rest
+- Optimized header avatars (40px) and footer avatars (31px) with quality 92
+- **Impact**: Faster image delivery, reduced initial load (only first 2 cards prioritized)
+
+**Files Modified**:
+- `src/components/HomeStreamSection.tsx` (poster images, header avatars, footer avatars)
+
 ---
 
 ## iOS Verification Checklist
@@ -50,6 +64,7 @@
 
 2. **Visual Quality**
    - [ ] AMR avatars appear sharp (not pixelated)
+   - [ ] Commercial card images appear sharp and clear
    - [ ] No quality degradation compared to before
    - [ ] Cards and other images maintain visual quality
 
@@ -69,10 +84,12 @@
 ## Confirmation Status
 
 ### ✅ Expected Improvements:
-- **Console overhead removed**: Faster JS execution in production
-- **AMR avatar optimized**: Faster image delivery (WebP, responsive sizes)
-- **No quality loss**: Quality 92 maintains visual fidelity
+- **Console overhead removed**: Faster JS execution in production (no console spam)
+- **AMR avatar optimized**: Faster image delivery (WebP, responsive sizes) - 5 components
+- **Commercial cards optimized**: Faster poster image delivery, lazy loading for cards 3+
+- **No quality loss**: Quality 92 maintains visual fidelity across all optimized images
 - **No layout shifts**: Dimensions preserved, proper `sizes` attributes
+- **Reduced initial load**: Only first 2 commercial cards prioritized, rest lazy-loaded
 
 ### ⚠️ Remaining Slow-Loading Assets (Not Yet Optimized):
 
@@ -93,8 +110,9 @@
    - **Impact**: Top card is above-the-fold
 
 4. **Commercial Cards** (`src/components/HomeStreamSection.tsx`):
-   - Poster images (Starbucks, MediCross, etc.) - No `quality` or `sizes` specified
-   - **Impact**: Visible in stream section
+   - ✅ **OPTIMIZED** - Poster images now have `quality={92}`, `sizes`, `placeholder="empty"`
+   - ✅ **OPTIMIZED** - Header and footer avatars optimized
+   - ✅ **OPTIMIZED** - Priority limited to first 1-2 cards only
 
 #### Low Priority (Below-the-fold or Conditional):
 5. **Map fallback image** (`src/components/MapboxMap.tsx`):
