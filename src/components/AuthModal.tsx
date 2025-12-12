@@ -100,7 +100,8 @@ export default function AuthModal() {
             alt="Back"
             width={24}
             height={24}
-            unoptimized
+            sizes="24px"
+            quality={92}
           />
         </button>
         <div className={clsx(styles.content, styles.passwordContent)}>

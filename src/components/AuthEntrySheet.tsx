@@ -98,7 +98,8 @@ export default function AuthEntrySheet() {
               className={styles.authEntryLogo}
               width={120}
               height={120}
-              unoptimized
+              sizes="120px"
+              quality={92}
             />
           ) : (
             <Image
@@ -107,7 +108,8 @@ export default function AuthEntrySheet() {
               className={styles.authEntryLogo}
               width={120}
               height={120}
-              unoptimized
+              sizes="120px"
+              quality={92}
             />
           )}
         </div>
@@ -211,7 +213,8 @@ export default function AuthEntrySheet() {
                   alt="Google"
                   width={20}
                   height={20}
-                  unoptimized
+                  sizes="20px"
+                  quality={92}
                   className={styles.authEntrySocialIcon}
                 />
                 <span className={styles.authEntrySocialText}>Sign up with Google</span>
@@ -229,7 +232,8 @@ export default function AuthEntrySheet() {
                     alt="Phone"
                     width={23}
                     height={23}
-                    unoptimized
+                    sizes="23px"
+                    quality={92}
                     className={styles.phoneIcon}
                   />
                   <span>Sign up with phone number</span>
