@@ -88,7 +88,16 @@ export default function AuthEntrySheet() {
   return (
     <ActionSheet open={authEntryOpen} onClose={closeAuthEntry} title="" size="tall" className="handAuthSheet">
       <div className={styles.handAuthWrapper}>
-        <div className={styles.handAuthRoot} />
+        <div className={styles.handAuthRoot}>
+          <Image
+            src="/assets/sign up - first contact.png"
+            alt=""
+            fill
+            quality={92}
+            sizes="100vw"
+            style={{ objectFit: 'cover', objectPosition: 'center 15%' }}
+          />
+        </div>
         {/* Logo in top-left - conditionally render based on mode */}
         <div className={styles.authEntryHeader}>
           {authMode === 'signup' ? (

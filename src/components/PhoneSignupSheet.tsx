@@ -108,7 +108,16 @@ export default function PhoneSignupSheet() {
       className="handAuthSheet phoneSignupSheet"
     >
       <div className={styles.handAuthWrapper}>
-        <div className={styles.handAuthRoot} />
+        <div className={styles.handAuthRootPhone}>
+          <Image
+            src="/assets/sign_up - phone2.png"
+            alt=""
+            fill
+            quality={92}
+            sizes="100vw"
+            style={{ objectFit: 'cover', objectPosition: 'center' }}
+          />
+        </div>
         {/* Back chevron in top-left */}
         <button
           type="button"
@@ -121,7 +130,8 @@ export default function PhoneSignupSheet() {
             alt="Back"
             width={24}
             height={24}
-            unoptimized
+            sizes="24px"
+            quality={92}
           />
         </button>
         <div className={clsx(styles.content, styles.passwordContent)}>

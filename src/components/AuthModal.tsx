@@ -87,7 +87,16 @@ export default function AuthModal() {
   return (
     <ActionSheet open={authPasswordOpen} onClose={handleCloseAll} title="" size="tall" className="handAuthSheet">
       <div className={styles.handAuthWrapper}>
-        <div className={styles.handAuthRoot} />
+        <div className={styles.handAuthRoot}>
+          <Image
+            src="/assets/sign up - first contact.png"
+            alt=""
+            fill
+            quality={92}
+            sizes="100vw"
+            style={{ objectFit: 'cover', objectPosition: 'center 15%' }}
+          />
+        </div>
         {/* Back chevron in top-left */}
         <button
           type="button"
