@@ -37,9 +37,10 @@ async function generateGoblinHandle(maxAttempts = 10): Promise<string> {
   return `@goblin${rand6}`
 }
 
-export const repairMyHandle = functions.https.onCall(async (data, context) => {
+export const repairMyHandle = functions.region('us-central1').https.onCall(async (data, context) => {
   // Require authentication
   if (!context.auth) {
+    console.error('[repairMyHandle] Unauthenticated request')
     throw new functions.https.HttpsError(
       'unauthenticated',
       'User must be authenticated to repair handle'
@@ -47,6 +48,7 @@ export const repairMyHandle = functions.https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid
+  console.log(`[repairMyHandle] Called for uid: ${uid}`)
   const userRef = db.collection('users').doc(uid)
 
   try {
@@ -66,6 +68,7 @@ export const repairMyHandle = functions.https.onCall(async (data, context) => {
     // Check if handle needs repair
     if (currentHandle && currentHandle !== '@' && currentHandle.length >= 2) {
       // Handle is valid, return current values
+      console.log(`[repairMyHandle] Handle already valid: ${currentHandle}`)
       return {
         handle: currentHandle,
         displayName: userData.displayName || null,
@@ -73,8 +76,10 @@ export const repairMyHandle = functions.https.onCall(async (data, context) => {
     }
 
     // Generate new handle
+    console.log(`[repairMyHandle] Repairing invalid handle: "${currentHandle || 'null'}"`)
     const phoneNumber = userData.phoneNumber || null
     const newHandle = await generateGoblinHandle()
+    console.log(`[repairMyHandle] Generated new handle: ${newHandle}`)
     
     // Prepare updates
     const updates: any = {
@@ -102,7 +107,9 @@ export const repairMyHandle = functions.https.onCall(async (data, context) => {
     }
 
     // Write using Admin SDK (bypasses client rules)
+    console.log(`[repairMyHandle] Updating user doc with:`, Object.keys(updates))
     await userRef.update(updates)
+    console.log(`[repairMyHandle] Successfully updated user doc for ${uid}`)
 
     return {
       handle: newHandle,

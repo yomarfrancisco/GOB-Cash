@@ -149,7 +149,8 @@ export async function ensureUserDocument(user: User): Promise<void> {
         
         try {
           // Call Cloud Function to repair handle (uses Admin SDK, bypasses rules)
-          const functions = getFunctions(getFirebaseApp())
+          // Specify region to match deployment (us-central1)
+          const functions = getFunctions(getFirebaseApp(), 'us-central1')
           const repairHandle = httpsCallable(functions, 'repairMyHandle')
           
           if (process.env.NODE_ENV !== 'production') {
