@@ -473,7 +473,7 @@ export default function CardStackCard({
           sizes="(max-width: 768px) 88vw, 420px"
           priority={isTop}
           style={{ objectFit: 'cover', borderRadius: 'inherit' }}
-          unoptimized
+          quality={92}
         />
       </div>
 

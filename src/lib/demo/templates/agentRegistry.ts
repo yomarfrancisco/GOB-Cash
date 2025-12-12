@@ -220,6 +220,18 @@ export const AGENT_REGISTRY: AgentProfile[] = [
     lng: 38.7617,
     productivity: 84,
     specialties: ['east-africa', 'reliable']
+  },
+  {
+    id: 'ariel',
+    name: '@ariel',
+    handle: '@ariel',
+    city: 'Johannesburg',
+    country: 'South Africa',
+    avatar: '/assets/avatar-ariel.png',
+    lat: -26.2041,
+    lng: 28.0473,
+    productivity: 93,
+    specialties: ['high-performer', 'reliable']
   }
 ]
 

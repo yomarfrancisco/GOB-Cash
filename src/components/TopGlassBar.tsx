@@ -32,7 +32,8 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
         width={729}
         height={713}
         priority
-        unoptimized
+        sizes="729px"
+        quality={92}
       />
       <Image
         src="/assets/core/spraypaint-2.png"
@@ -41,7 +42,8 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
         width={300}
         height={120}
         priority
-        unoptimized
+        sizes="300px"
+        quality={92}
       />
       {!hideLogo && (
         isActivityPage ? (
@@ -52,7 +54,8 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
             width={220}
             height={65}
             priority
-            unoptimized
+            sizes="220px"
+            quality={92}
             style={{ transform: 'scale(0.7)', transformOrigin: 'left center' }}
           />
         ) : (
@@ -63,7 +66,8 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
             width={198}
             height={59}
             priority
-            unoptimized
+            sizes="198px"
+            quality={92}
           />
         )
       )}

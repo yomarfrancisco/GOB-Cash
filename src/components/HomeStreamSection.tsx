@@ -6,7 +6,7 @@ import styles from './HomeStreamSection.module.css'
 import sharedStyles from './ConvertCashSection.module.css'
 import { useAuthStore } from '@/store/auth'
 
-// Commercial agent avatar pool - includes original 5-8 plus new 13-15
+// Commercial agent avatar pool - includes original 5-8 plus new 13-15 and Ariel
 const COMMERCIAL_AGENT_AVATARS = [
   '/assets/avatar_agent5.png',
   '/assets/avatar_agent6.png',
@@ -15,6 +15,7 @@ const COMMERCIAL_AGENT_AVATARS = [
   '/assets/avatar_agent13.png',
   '/assets/avatar_agent14.png',
   '/assets/avatar_agent15.png',
+  '/assets/avatar-ariel.png',
 ]
 
 // Helper to get avatars for a commercial card deterministically based on card index

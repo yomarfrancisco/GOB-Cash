@@ -68,7 +68,9 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               width={60} 
               height={60} 
               className="fab-dollar-icon"
-              unoptimized 
+              sizes="60px"
+              quality={92}
+              priority
             />
           </div>
           <div className={clsx('fab-content-overlay', {
