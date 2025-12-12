@@ -9,6 +9,7 @@ import { collection, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp
 import { getFirestoreDb } from '@/lib/firebase'
 import type { GraphEdgeDocument, GraphEdgeType, GraphEdgeSource } from '@/types/socialGraph'
 import { GRAPH_EDGES_ENABLED } from '@/config/featureFlags'
+import { devLog, devDebug } from '@/lib/logger'
 
 /**
  * Generate stable edgeId from fromUserId + toHandle + edgeType
@@ -48,7 +49,7 @@ export async function checkMutualEdge(
   toUserId: string | null
 ): Promise<boolean> {
   if (!GRAPH_EDGES_ENABLED) {
-    console.debug('[GraphEdges] Skipping mutual edge check (feature flag disabled)', {
+    devDebug('[GraphEdges] Skipping mutual edge check (feature flag disabled)', {
       fromUserId,
       toHandle,
     })
@@ -158,7 +159,7 @@ export async function upsertGraphEdge(params: {
     }
     
     await setDoc(edgeRef, edgeDoc, { merge: true })
-    console.log('[GraphEdges] Upserted edge', { edgeId, fromUserId, toHandle, isMutual })
+    devLog('[GraphEdges] Upserted edge', { edgeId, fromUserId, toHandle, isMutual })
   } catch (err) {
     console.error('[GraphEdges] Failed to upsert edge', { fromUserId, toHandle, err })
     throw err
@@ -178,7 +179,7 @@ export async function createNegativeEdge(params: {
 }): Promise<void> {
   // TODO: Implement negative edge creation
   // For now, just log
-  console.log('[GraphEdges] Negative edge creation (stub)', params)
+  devLog('[GraphEdges] Negative edge creation (stub)', params)
   await upsertGraphEdge({
     ...params,
     edgeType: params.edgeType,

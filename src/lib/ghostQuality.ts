@@ -9,6 +9,7 @@ import { collection, doc, getDocs, query, where, getDoc, setDoc, serverTimestamp
 import { getFirestoreDb } from '@/lib/firebase'
 import { computeContactCompleteness } from './socialMetrics'
 import { GHOST_QUALITY_ENABLED } from '@/config/featureFlags'
+import { devLog, devDebug, devWarn } from '@/lib/logger'
 
 const MAX_REFERRERS_FOR_MUTUALS = 20
 
@@ -92,7 +93,7 @@ export async function updateGhostQuality(
   contactCompleteness: number
 ): Promise<number> {
   if (!GHOST_QUALITY_ENABLED) {
-    console.debug('[GhostQuality] Skipping ghost quality update (feature flag disabled)', { handle })
+    devDebug('[GhostQuality] Skipping ghost quality update (feature flag disabled)', { handle })
     return 0
   }
   
@@ -102,7 +103,7 @@ export async function updateGhostQuality(
     const directoryDoc = await getDoc(directoryRef)
     
     if (!directoryDoc.exists()) {
-      console.warn('[GhostQuality] Directory entry not found', { handle })
+      devWarn('[GhostQuality] Directory entry not found', { handle })
       return 0
     }
     
@@ -140,7 +141,7 @@ export async function updateGhostQuality(
       { merge: true }
     )
     
-    console.log('[GhostQuality] Updated ghost quality', {
+    devLog('[GhostQuality] Updated ghost quality', {
       handle,
       inboundEdgeCount,
       avgContactCompleteness: normalizedCompleteness,
@@ -160,7 +161,7 @@ export async function updateGhostQuality(
  */
 export async function incrementDirectoryInboundCount(handle: string): Promise<void> {
   if (!GHOST_QUALITY_ENABLED) {
-    console.debug('[GhostQuality] Skipping inbound count increment (feature flag disabled)', { handle })
+    devDebug('[GhostQuality] Skipping inbound count increment (feature flag disabled)', { handle })
     return
   }
   

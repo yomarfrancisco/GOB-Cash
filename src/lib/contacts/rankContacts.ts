@@ -1,4 +1,5 @@
 import { getContactTags, type RankedContactMinimal } from './contactTags'
+import { devLog, devWarn } from '@/lib/logger'
 
 export type BasicContact = {
   id: string
@@ -200,7 +201,7 @@ export function getRankedContacts(
   max = 25
 ): RankedContact[] {
   // PHASE 1: Log input contacts
-  console.log('[RankContacts] input contacts =', contacts.length, {
+  devLog('[RankContacts] input contacts =', contacts.length, {
     max,
   })
 
@@ -255,7 +256,7 @@ export function getRankedContacts(
     .filter((c): c is RankedContactInput => c !== null)
 
   // PHASE 1: Log after filtering
-  console.log('[RankContacts] after filtering unusable =', rankedInputs.length, {
+  devLog('[RankContacts] after filtering unusable =', rankedInputs.length, {
     noEmailPhone: filteredCount,
     bulkContacts: bulkFilteredCount,
   })
@@ -286,7 +287,7 @@ export function getRankedContacts(
   })
 
   // PHASE 1: Log before trim to limit
-  console.log('[RankContacts] before trim to limit, size =', sorted.length, {
+  devLog('[RankContacts] before trim to limit, size =', sorted.length, {
     limit: max,
   })
 
@@ -310,14 +311,14 @@ export function getRankedContacts(
   })
 
   // PHASE 1: Log final ranked length
-  console.log('[RankContacts] final ranked length =', rankedContacts.length, {
+  devLog('[RankContacts] final ranked length =', rankedContacts.length, {
     sorted: sorted.length,
     max,
     trimmed: sorted.length - rankedContacts.length,
   })
 
-  // Debug logging with counts (keep existing log for compatibility)
-  console.log(
+  // Debug logging with counts (dev only)
+  devLog(
     '[RankContacts] ranked:',
     sorted.length,
     'returned:',
@@ -346,16 +347,14 @@ export function getRankedContacts(
       }
     })
 
-    // Single structured log to avoid spamming
-    // eslint-disable-next-line no-console
-    console.log('[ContactTags] sample', {
+    // Single structured log to avoid spamming (dev only)
+    devLog('[ContactTags] sample', {
       count: rankedContacts.length,
       sampleSize: taggedSample.length,
       contacts: taggedSample,
     })
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn('[ContactTags] tagging error', err)
+    devWarn('[ContactTags] tagging error', err)
   }
 
   return rankedContacts

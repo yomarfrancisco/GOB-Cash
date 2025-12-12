@@ -77,7 +77,7 @@
 /* Real avatar (with profile photo) - solid white background */
 .nav-avatar--real {
   background: #fff;
-  /* Keep overflow: visible to allow notification dot to show outside container */
+  /* Keep overflow: visible (inherited from .nav-avatar-container) to allow notification dot to show */
   /* Image clipping is handled by .nav-avatar-image-wrapper which has overflow: hidden */
 }
 

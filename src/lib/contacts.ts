@@ -23,6 +23,7 @@ import {
   saveContactSyncState,
   type ContactSyncState,
 } from '@/lib/contactSyncState'
+import { devLog } from '@/lib/logger'
 
 export const getUserContactsCollectionRef = (userId: string) =>
   collection(getFirestoreDb(), 'users', userId, 'contacts')
@@ -178,7 +179,7 @@ async function uploadContactsInBatches(
   }
 
   // PHASE 2: Log before trimming to limit
-  console.log('[ContactSync] before trim to limit, size =', unsynced.length, {
+  devLog('[ContactSync] before trim to limit, size =', unsynced.length, {
     limit: CONTACT_SYNC_LIMIT_PER_USER,
     alreadySynced: state.syncedContactIds.length,
     remainingCapacity,
@@ -222,19 +223,19 @@ async function uploadContactsInBatches(
 
   // PHASE 2: Log why we stopped
   if (state.syncedContactIds.length >= CONTACT_SYNC_LIMIT_PER_USER) {
-    console.log('[ContactSync] stopped: hit limit', {
+    devLog('[ContactSync] stopped: hit limit', {
       totalSynced: state.syncedContactIds.length,
       limit: CONTACT_SYNC_LIMIT_PER_USER,
     })
   } else if (uploadIndex >= unsynced.length) {
-    console.log('[ContactSync] stopped: no more contacts from device', {
+    devLog('[ContactSync] stopped: no more contacts from device', {
       totalSynced: state.syncedContactIds.length,
       uploadedThisRun: newCount,
     })
   }
 
   if (typeof window !== 'undefined') {
-    console.log('[ContactsSync] summary', {
+    devLog('[ContactsSync] summary', {
       uid,
       newContactsUploaded: newCount,
       totalSynced: state.syncedContactIds.length,
@@ -265,16 +266,16 @@ export const syncContactsForUser = async (
   hasMoreToSync: boolean
 } | undefined> => {
   if (!userId || !localContacts?.length) {
-    console.log('[ContactsSync] syncContactsForUser: skipping, no userId or contacts')
+    devLog('[ContactsSync] syncContactsForUser: skipping, no userId or contacts')
     return undefined
   }
 
   // PHASE 1: Log raw device contacts
-  console.log('[ContactSync] raw device contacts =', localContacts.length)
+  devLog('[ContactSync] raw device contacts =', localContacts.length)
 
   // Filter out unusable contacts (no email and no phone)
   const usableContacts = localContacts.filter((c) => c.email || c.phone)
-  console.log('[ContactSync] after filtering unusable =', usableContacts.length, {
+  devLog('[ContactSync] after filtering unusable =', usableContacts.length, {
     filtered: localContacts.length - usableContacts.length,
   })
 
@@ -299,12 +300,12 @@ export const syncContactsForUser = async (
     }
   }
   
-  console.log('[ContactSync] after normalization + dedupe =', normalizedContacts.length, {
+  devLog('[ContactSync] after normalization + dedupe =', normalizedContacts.length, {
     deduped: usableContacts.length - normalizedContacts.length,
   })
 
   // PHASE 1: Log final count before upload
-  console.log('[ContactSync] final normalized length =', normalizedContacts.length, {
+  devLog('[ContactSync] final normalized length =', normalizedContacts.length, {
     limit: CONTACT_SYNC_LIMIT_PER_USER,
   })
 

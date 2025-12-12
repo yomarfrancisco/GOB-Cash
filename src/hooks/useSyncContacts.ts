@@ -5,6 +5,7 @@ import { syncContactsForUser } from '@/lib/contacts'
 import { getFirestoreDb } from '@/lib/firebase'
 import { getFirebaseAuth } from '@/lib/firebase'
 import { useAuthStore } from '@/store/auth'
+import { devLog } from '@/lib/logger'
 
 type LocalContact = {
   id?: string
@@ -24,7 +25,7 @@ export const useSyncContacts = (localContacts: LocalContact[]) => {
 
   // Log hook mount and project ID (once)
   useEffect(() => {
-    console.log('[ContactsSync] Hook mounted', {
+    devLog('[ContactsSync] Hook mounted', {
       contactsLength: localContacts?.length ?? 0,
     })
 
@@ -32,7 +33,7 @@ export const useSyncContacts = (localContacts: LocalContact[]) => {
       try {
         const db = getFirestoreDb()
         const projectId = (db.app.options as any).projectId
-        console.log('[ContactsSync] Using Firestore project', projectId)
+        devLog('[ContactsSync] Using Firestore project', projectId)
         hasLoggedProjectId = true
       } catch (err) {
         console.error('[ContactsSync] Failed to get Firestore project ID', err)
@@ -48,32 +49,32 @@ export const useSyncContacts = (localContacts: LocalContact[]) => {
     const user = isAuthed ? auth.currentUser : null
     const uid = user?.uid
 
-    console.log('[ContactsSync] Effect run', {
+    devLog('[ContactsSync] Effect run', {
       uid,
       contactsLength,
       isAuthed,
     })
 
     if (!uid) {
-      console.log('[ContactsSync] Skipping sync: not authed (uid missing)')
+      devLog('[ContactsSync] Skipping sync: not authed (uid missing)')
       return
     }
 
     if (!localContacts || localContacts.length === 0) {
-      console.log('[ContactsSync] Skipping sync: no contacts')
+      devLog('[ContactsSync] Skipping sync: no contacts')
       return
     }
 
     // Sync contacts (batched, incremental)
     const doSync = async () => {
       try {
-        console.log('[ContactsSync] Syncing contacts', {
+        devLog('[ContactsSync] Syncing contacts', {
           uid,
           count: localContacts.length,
         })
         const result = await syncContactsForUser(uid, localContacts)
         if (result) {
-          console.log('[ContactsSync] Completed sync for uid', {
+          devLog('[ContactsSync] Completed sync for uid', {
             uid,
             newContacts: result.newContactsUploaded,
             totalSynced: result.totalSynced,

@@ -1,4 +1,5 @@
 import type { GoogleContact } from '@/store/contacts'
+import { devLog } from '@/lib/logger'
 
 /**
  * Fetches Google Contacts from People API
@@ -43,7 +44,7 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
     const connections = (connectionsData.connections ?? []) as any[]
     
     // PHASE 1: Log raw device contacts from Google API
-    console.log('[ContactSync] raw device contacts (connections) =', connections.length)
+    devLog('[ContactSync] raw device contacts (connections) =', connections.length)
 
     const mappedConnections: (GoogleContact & { source: 'contacts' })[] = connections
       .filter((person: any) => person.names?.[0]) // Only include contacts with names
@@ -89,7 +90,7 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
     }
     
     // PHASE 1: Log raw device contacts from Google API (other contacts)
-    console.log('[ContactSync] raw device contacts (otherContacts) =', otherContacts.length)
+    devLog('[ContactSync] raw device contacts (otherContacts) =', otherContacts.length)
 
     const mappedOther: (GoogleContact & { source: 'otherContacts' })[] = otherContacts
       .filter((person: any) => person.names?.[0]) // Only include contacts with names
@@ -124,26 +125,28 @@ export async function fetchGoogleContacts(accessToken: string): Promise<GoogleCo
     const merged = Array.from(byKey.values())
     
     // PHASE 1: Log after deduplication
-    console.log('[ContactSync] after deduplication (by email/id) =', merged.length, {
+    devLog('[ContactSync] after deduplication (by email/id) =', merged.length, {
       connections: mappedConnections.length,
       otherContacts: mappedOther.length,
       deduped: combined.length - merged.length,
     })
 
-    // --- 4) Console logging for eyeballing ---
-    console.group('[GoogleAuth] Contacts from Google People API')
-    console.log('[Contacts] Raw connections (My Contacts)', connections.length, connections)
-    console.log('[Contacts] Raw otherContacts (Other contacts)', otherContacts.length, otherContacts)
-    console.log('[Contacts] Mapped connections', mappedConnections.length, mappedConnections)
-    console.log('[Contacts] Mapped otherContacts', mappedOther.length, mappedOther)
-    console.log('[Contacts] Merged & deduped contacts', merged.length, merged)
-    console.groupEnd()
+    // --- 4) Console logging for eyeballing (dev only) ---
+    if (process.env.NODE_ENV !== 'production') {
+      console.group('[GoogleAuth] Contacts from Google People API')
+      console.log('[Contacts] Raw connections (My Contacts)', connections.length, connections)
+      console.log('[Contacts] Raw otherContacts (Other contacts)', otherContacts.length, otherContacts)
+      console.log('[Contacts] Mapped connections', mappedConnections.length, mappedConnections)
+      console.log('[Contacts] Mapped otherContacts', mappedOther.length, mappedOther)
+      console.log('[Contacts] Merged & deduped contacts', merged.length, merged)
+      console.groupEnd()
+    }
 
     // Strip the internal `source` before returning (store expects plain GoogleContact)
     const result: GoogleContact[] = merged.map(({ source, ...rest }) => rest)
     
     // PHASE 1: Log final result from fetchGoogleContacts
-    console.log('[ContactSync] fetchGoogleContacts returning =', result.length)
+    devLog('[ContactSync] fetchGoogleContacts returning =', result.length)
 
     return result
   } catch (error) {

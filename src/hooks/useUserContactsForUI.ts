@@ -7,6 +7,7 @@ import { getUserContactsCollectionRef } from '@/lib/contacts'
 import { useAuthStore } from '@/store/auth'
 import type { RankedContact } from '@/lib/contacts/rankContacts'
 import type { ContactDoc } from '@/types/contacts'
+import { devLog, devDebug } from '@/lib/logger'
 
 /**
  * Hook that provides contacts for UI display, preferring Firestore over local cache.
@@ -88,7 +89,7 @@ export function useUserContactsForUI(rankedContacts: RankedContact[]): RankedCon
             return aName.localeCompare(bName)
           })
         
-        console.log('[useUserContactsForUI] Loaded Firestore contacts', {
+        devLog('[useUserContactsForUI] Loaded Firestore contacts', {
           uid,
           count: contacts.length,
         })
@@ -125,7 +126,7 @@ export function useUserContactsForUI(rankedContacts: RankedContact[]): RankedCon
 
   // Firestore is empty - fall back to rankedContacts
   if (rankedContacts.length > 0) {
-    console.debug('[useUserContactsForUI] Firestore empty, falling back to local contacts', {
+    devDebug('[useUserContactsForUI] Firestore empty, falling back to local contacts', {
       localCount: rankedContacts.length,
     })
   }
