@@ -780,10 +780,10 @@ body {
     height: 100%;
   }
   
-  /* Mobile-only: move glass left 70px and up 20px */
+  /* Mobile-only: move glass left 90px and up 20px */
   @media (max-width: 768px) {
     .bottom-glass-offset {
-      transform: translate(-70px, -20px);
+      transform: translate(-90px, -20px);
     }
     
     /* Fix vertical clipping: allow glass to extend upward */
