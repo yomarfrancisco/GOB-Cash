@@ -780,10 +780,10 @@ body {
     height: 100%;
   }
   
-  /* Mobile-only: move glass left 40px and up 20px */
+  /* Mobile-only: move glass left 70px and up 20px */
   @media (max-width: 768px) {
     .bottom-glass-offset {
-      transform: translate(-40px, -20px);
+      transform: translate(-70px, -20px);
     }
   }
   
