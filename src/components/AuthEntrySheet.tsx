@@ -15,6 +15,8 @@ import { useAuthStore } from '@/store/auth'
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth'
 import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth'
 import { useNotificationStore } from '@/store/notifications'
+import { usePhoneSignals } from '@/hooks/usePhoneSignals'
+import { resolveSadcPhone } from '@/lib/phone/resolveSadcPhone'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
@@ -28,16 +30,23 @@ export default function AuthEntrySheet() {
     openPhoneSignup, 
     setAuthIdentifier,
     setPhoneSignupPhone,
-    setPhoneConfirmationResult
+    setPhoneConfirmationResult,
+    setPhoneResolutionMetadata
   } = useAuthStore()
   const { signInWithGoogle } = useFirebaseAuth()
   const { sendVerificationCode, normalizePhoneNumber } = useFirebasePhoneAuth()
   const { pushNotification } = useNotificationStore()
+  const phoneSignals = usePhoneSignals()
   const [identifier, setIdentifier] = useState('')
   const [authMode, setAuthMode] = useState<AuthMode>('signup')
   const [isPhoneSignupEditing, setIsPhoneSignupEditing] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [isResolving, setIsResolving] = useState(false)
+  const [resolveStatus, setResolveStatus] = useState<string | null>(null)
   const phoneInputRef = useRef<HTMLInputElement>(null)
+  
+  // Throttle: max 3 OTP attempts per 60 seconds
+  const [otpAttempts, setOtpAttempts] = useState<number[]>([])
 
   // Reset mode when sheet opens - default to signup, unless explicitly set to login
   useEffect(() => {
@@ -48,6 +57,8 @@ export default function AuthEntrySheet() {
       setIdentifier('')
       setIsPhoneSignupEditing(false)
       setPhoneNumber('')
+      setIsResolving(false)
+      setResolveStatus(null)
     }
   }, [authEntryOpen])
 
@@ -92,29 +103,147 @@ export default function AuthEntrySheet() {
     e.preventDefault()
     if (phoneNumber.trim().length === 0) return
 
-    try {
-      const normalizedPhone = normalizePhoneNumber(phoneNumber.trim())
-      
-      // Store phone number
-      setPhoneSignupPhone(normalizedPhone)
-      
-      // Send SMS code
-      const confirmationResult = await sendVerificationCode(normalizedPhone)
-      
-      // Store confirmation result
-      setPhoneConfirmationResult(confirmationResult)
-      
-      // Open OTP sheet
-      closeAuthEntry()
-      setTimeout(() => {
-        openPhoneSignup()
-      }, 220)
-    } catch (error: any) {
-      // Show error notification
+    // Check throttle: max 3 attempts per 60 seconds
+    const now = Date.now()
+    const recentAttempts = otpAttempts.filter(timestamp => now - timestamp < 60000)
+    if (recentAttempts.length >= 3) {
       pushNotification({
         kind: 'payment_failed',
-        title: 'Failed to send code',
-        body: error.message || 'Please try again',
+        title: 'Too many attempts',
+        body: 'Please try again in a minute',
+        actor: { type: 'system' },
+      })
+      return
+    }
+
+    setIsResolving(true)
+    setResolveStatus('Trying to verify your number…')
+
+    try {
+      // Resolve phone number with signals
+      if (!phoneSignals) {
+        // Fallback to old normalization if signals not ready
+        const normalizedPhone = normalizePhoneNumber(phoneNumber.trim())
+        setPhoneSignupPhone(normalizedPhone)
+        const confirmationResult = await sendVerificationCode(normalizedPhone)
+        setPhoneConfirmationResult(confirmationResult)
+        setOtpAttempts([...recentAttempts, now])
+        setIsResolving(false)
+        setResolveStatus(null)
+        closeAuthEntry()
+        setTimeout(() => {
+          openPhoneSignup()
+        }, 220)
+        return
+      }
+
+      const resolverResult = resolveSadcPhone({
+        ...phoneSignals,
+        rawInput: phoneNumber.trim(),
+        digitsOnly: phoneNumber.trim().replace(/\D/g, ''),
+      })
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[PHONE_RESOLVE]', {
+          raw: phoneNumber.trim(),
+          best: resolverResult.best ? `${resolverResult.best.iso2} ${resolverResult.best.countryCode}` : null,
+          conf: resolverResult.confidence,
+          reasons: resolverResult.best?.reasons || [],
+          candidates: resolverResult.candidates.map(c => `${c.iso2}(${c.score.toFixed(2)})`),
+        })
+      }
+
+      // Determine candidates to try
+      const candidatesToTry: typeof resolverResult.candidates = []
+      
+      if (resolverResult.confidence >= 0.75 && resolverResult.best) {
+        // High confidence - try best candidate first
+        candidatesToTry.push(resolverResult.best)
+      } else {
+        // Low confidence or ambiguous - try top N (default 3)
+        const topN = Math.min(3, resolverResult.candidates.length)
+        candidatesToTry.push(...resolverResult.candidates.slice(0, topN))
+      }
+
+      if (candidatesToTry.length === 0) {
+        throw new Error('No valid country candidates found')
+      }
+
+      // Try candidates sequentially
+      let lastError: any = null
+      let successCandidate: typeof resolverResult.candidates[0] | null = null
+
+      for (const candidate of candidatesToTry) {
+        try {
+          // Store phone number
+          setPhoneSignupPhone(candidate.e164)
+          
+          // Send SMS code
+          const confirmationResult = await sendVerificationCode(candidate.e164)
+          
+          // Success! Store confirmation result and metadata
+          setPhoneConfirmationResult(confirmationResult)
+          successCandidate = candidate
+          
+          // Store resolution metadata in auth store for later persistence
+          setPhoneResolutionMetadata({
+            phoneRaw: phoneNumber.trim(),
+            phoneE164: candidate.e164,
+            phoneCountry: candidate.iso2,
+            phoneCountryConfidence: resolverResult.confidence,
+            phoneCountryCandidates: resolverResult.candidates.slice(0, 3).map(c => ({
+              iso2: c.iso2,
+              score: c.score,
+              reasons: c.reasons.slice(0, 3), // Cap reason length
+            })),
+            signupTimezone: phoneSignals.timezone || null,
+            signupLocale: phoneSignals.locale || null,
+            geoAtSignup: phoneSignals.geo || null,
+          })
+          
+          setOtpAttempts([...recentAttempts, now])
+          setIsResolving(false)
+          setResolveStatus(null)
+          
+          // Open OTP sheet
+          closeAuthEntry()
+          setTimeout(() => {
+            openPhoneSignup()
+          }, 220)
+          return
+        } catch (error: any) {
+          lastError = error
+          
+          // If error clearly indicates invalid number, continue to next candidate
+          if (
+            error?.code === 'auth/invalid-phone-number' ||
+            error?.message?.toLowerCase().includes('invalid') ||
+            error?.message?.toLowerCase().includes('country')
+          ) {
+            // Try next candidate
+            continue
+          } else {
+            // Other errors (quota, network, etc.) - don't retry
+            throw error
+          }
+        }
+      }
+
+      // All candidates failed
+      if (lastError) {
+        throw new Error('We couldn\'t verify that number. Please include your country code (e.g. +27…)')
+      }
+    } catch (error: any) {
+      setIsResolving(false)
+      setResolveStatus(null)
+      
+      // Update throttle
+      setOtpAttempts([...recentAttempts, now])
+      
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Failed to verify number',
+        body: error.message || 'Please include your country code (e.g. +27…)',
         actor: { type: 'system' },
       })
     }

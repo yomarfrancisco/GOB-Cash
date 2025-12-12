@@ -27,10 +27,21 @@ export interface UserDocument {
   avatarUrl: string | null
   phoneNumber: string | null
   phoneVerified: boolean
+  // Phone resolution metadata
+  phoneRaw?: string | null
+  phoneE164?: string | null
+  phoneCountry?: string | null // ISO2
+  phoneCountryConfidence?: number | null
+  phoneCountryCandidates?: Array<{ iso2: string; score: number; reasons: string[] }> | null
+  signupTimezone?: string | null
+  signupLocale?: string | null
+  geoAtSignup?: { lat: number; lng: number; accuracyM?: number } | null
+  // Trust scoring
+  trustLevel: number // 0-100
+  trustFlags?: string[] | null
   createdAt: any // serverTimestamp()
   accountStatus: 'active' | 'suspended' | 'deleted'
   verificationStatus: 'unverified' | 'email-verified' | 'phone-verified' | 'full-verified'
-  trustLevel: number // 0-100
   isAgent: boolean
   socialGraphShareContacts?: boolean
 }
@@ -118,6 +129,23 @@ export async function ensureUserDocument(user: User): Promise<void> {
       email: user.email,
       phoneNumber: user.phoneNumber,
     })
+  }
+
+  // Get phone resolution metadata from auth store (if available)
+  let phoneMetadata: {
+    phoneRaw: string
+    phoneE164: string
+    phoneCountry: string
+    phoneCountryConfidence: number
+    phoneCountryCandidates: Array<{ iso2: string; score: number; reasons: string[] }>
+    signupTimezone: string | null
+    signupLocale: string | null
+    geoAtSignup: { lat: number; lng: number; accuracyM?: number } | null
+  } | null = null
+
+  if (typeof window !== 'undefined') {
+    const { useAuthStore } = await import('@/store/auth')
+    phoneMetadata = useAuthStore.getState().phoneResolutionMetadata
   }
 
   const db = getFirestoreDb()
@@ -359,6 +387,35 @@ export async function ensureUserDocument(user: User): Promise<void> {
       ? `${phoneNumber.replace(/\D/g, '')}@phone.gobankless.local` 
       : '')
 
+    // Compute trust score if phone metadata available
+    let trustLevel = 0
+    let trustFlags: string[] = []
+    
+    if (phoneMetadata) {
+      const { computeTrust, checkGeoCountryMatch } = await import('@/lib/trust/computeTrust')
+      
+      // Check geo country match
+      let geoCountryMatch: boolean | null = null
+      if (phoneMetadata.geoAtSignup && phoneMetadata.phoneCountry) {
+        geoCountryMatch = checkGeoCountryMatch(phoneMetadata.geoAtSignup, phoneMetadata.phoneCountry)
+      }
+      
+      // Count OTP retries (number of candidates tried before success)
+      const otpRetryCount = phoneMetadata.phoneCountryCandidates?.findIndex(
+        c => c.iso2 === phoneMetadata.phoneCountry
+      ) ?? 0
+      
+      const trustResult = computeTrust({
+        countryConfidence: phoneMetadata.phoneCountryConfidence,
+        geoPresent: !!phoneMetadata.geoAtSignup,
+        geoCountryMatch,
+        otpRetryCount,
+        ipCountryMatch: null, // TODO: add IP country matching
+      })
+      trustLevel = trustResult.trustLevel
+      trustFlags = trustResult.flags
+    }
+
     // Create new user document with MVP schema
     const userDoc: Omit<UserDocument, 'createdAt'> & { createdAt: any } = {
       userId: user.uid,
@@ -368,12 +425,23 @@ export async function ensureUserDocument(user: User): Promise<void> {
       displayName,
       handle,
       avatarUrl: user.photoURL || null,
-      phoneNumber,
+      phoneNumber: phoneMetadata?.phoneE164 || phoneNumber,
       phoneVerified,
+      // Phone resolution metadata
+      phoneRaw: phoneMetadata?.phoneRaw || null,
+      phoneE164: phoneMetadata?.phoneE164 || phoneNumber,
+      phoneCountry: phoneMetadata?.phoneCountry || null,
+      phoneCountryConfidence: phoneMetadata?.phoneCountryConfidence || null,
+      phoneCountryCandidates: phoneMetadata?.phoneCountryCandidates || null,
+      signupTimezone: phoneMetadata?.signupTimezone || null,
+      signupLocale: phoneMetadata?.signupLocale || null,
+      geoAtSignup: phoneMetadata?.geoAtSignup || null,
+      // Trust scoring
+      trustLevel,
+      trustFlags: trustFlags.length > 0 ? trustFlags : null,
       createdAt: serverTimestamp(),
       accountStatus: 'active',
       verificationStatus,
-      trustLevel: 0,
       isAgent: false,
       socialGraphShareContacts: true,
     }

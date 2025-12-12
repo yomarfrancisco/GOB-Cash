@@ -16,6 +16,16 @@ interface AuthState {
   authIdentifier: string | null // Username or phone number from entry sheet
   phoneSignupPhone: string | null // Phone number for sign-up (E.164 format)
   phoneConfirmationResult: ConfirmationResult | null // Firebase confirmation result for OTP
+  phoneResolutionMetadata: {
+    phoneRaw: string
+    phoneE164: string
+    phoneCountry: string // ISO2
+    phoneCountryConfidence: number
+    phoneCountryCandidates: Array<{ iso2: string; score: number; reasons: string[] }>
+    signupTimezone: string | null
+    signupLocale: string | null
+    geoAtSignup: { lat: number; lng: number; accuracyM?: number } | null
+  } | null
   openAuth: () => void // Opens entry sheet
   closeAuth: () => void // Closes entry sheet
   closeAllAuth: () => void // Closes all auth sheets and returns to home
@@ -34,6 +44,7 @@ interface AuthState {
   requireAuth: (onAuthed: () => void) => void
   setPhoneSignupPhone: (phone: string) => void
   setPhoneConfirmationResult: (result: ConfirmationResult | null) => void
+  setPhoneResolutionMetadata: (metadata: AuthState['phoneResolutionMetadata']) => void
   clearPhoneAuth: () => void
 }
 
@@ -47,6 +58,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   authIdentifier: null,
   phoneSignupPhone: null,
   phoneConfirmationResult: null,
+  phoneResolutionMetadata: null,
   openAuth: () => {
     prefetchAuthImages() // Prefetch auth backgrounds before opening
     set({ authOpen: true, authEntryOpen: true, authView: 'provider-list' })
@@ -117,9 +129,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   setPhoneSignupPhone: (phone) => set({ phoneSignupPhone: phone }),
   setPhoneConfirmationResult: (result) => set({ phoneConfirmationResult: result }),
+  setPhoneResolutionMetadata: (metadata) => set({ phoneResolutionMetadata: metadata }),
   clearPhoneAuth: () => set({ 
     phoneSignupPhone: null, 
-    phoneConfirmationResult: null 
+    phoneConfirmationResult: null,
+    phoneResolutionMetadata: null,
   }),
 }))
 
