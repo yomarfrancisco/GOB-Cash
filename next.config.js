@@ -4,6 +4,10 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
+    // Enable automatic image optimization (default: true)
+    // Next.js automatically converts images to WebP/AVIF when supported
+    formats: ['image/avif', 'image/webp'],
+    // Remote patterns for external images (Google profile photos)
     remotePatterns: [
       {
         protocol: 'https',
