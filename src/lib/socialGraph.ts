@@ -104,7 +104,7 @@ export async function upsertGraphEdge(params: {
   weight?: number
 }): Promise<void> {
   if (!GRAPH_EDGES_ENABLED) {
-    console.debug('[GraphEdges] Skipping edge upsert (feature flag disabled)', {
+    devDebug('[GraphEdges] Skipping edge upsert (feature flag disabled)', {
       fromUserId: params.fromUserId,
       toHandle: params.toHandle,
     })
