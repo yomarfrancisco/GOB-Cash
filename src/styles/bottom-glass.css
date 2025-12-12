@@ -74,6 +74,13 @@
   flex-shrink: 0;
 }
 
+/* Real avatar (with profile photo) - solid white background */
+.nav-avatar--real {
+  background: #fff;
+  /* Keep overflow: visible to allow notification dot to show outside container */
+  /* Image clipping is handled by .nav-avatar-image-wrapper which has overflow: hidden */
+}
+
 .nav-avatar-image-wrapper {
   position: relative;
   width: 100%;

@@ -102,7 +102,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           }}
         >
           {isAuthed && profile.avatarUrl ? (
-            <div className="nav-avatar-container">
+            <div className="nav-avatar-container nav-avatar--real">
               <div className="nav-avatar-image-wrapper">
                 <Image 
                   src={profile.avatarUrl}
