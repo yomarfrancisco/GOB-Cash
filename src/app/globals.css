@@ -785,6 +785,18 @@ body {
     .bottom-glass-offset {
       transform: translate(-70px, -20px);
     }
+    
+    /* Fix vertical clipping: allow glass to extend upward */
+    .bottom-glass-wrapper-mobile {
+      overflow: visible !important; /* Allow glass to extend beyond wrapper */
+      min-height: 200px; /* Ensure enough vertical space for offset glass */
+    }
+    
+    /* Ensure frame doesn't clip the glass */
+    .bottomBarFrame {
+      overflow: visible !important; /* Allow glass to extend beyond frame */
+      min-height: 170px; /* Increase height to accommodate upward offset */
+    }
   }
   
   /* Mobile glass texture - same positioning as desktop */
