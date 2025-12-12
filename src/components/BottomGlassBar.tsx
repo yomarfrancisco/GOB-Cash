@@ -36,10 +36,151 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
     }
   }
 
+  // Render nav items once (shared between mobile and desktop)
+  const navItems = (
+    <>
+      <div className="nav-item">
+        <Link href="/" aria-label="Home">
+          <Image 
+            src={isHome ? "/assets/nav/home.svg" : "/assets/nav/home_outlined.svg"}
+            alt="Home" 
+            className={`nav-icon ${isHome ? 'nav-icon-active' : 'nav-icon-dim'}`} 
+            width={28} 
+            height={28} 
+          />
+        </Link>
+      </div>
+      <div className="dollar-sign-container">
+        <button
+          className={clsx('dollar-sign-contained', 'fab-dollar', {
+            'is-manual': isAuthed,
+            'is-autonomous': !isAuthed,
+            'fab-highlighted': isHighlighted,
+          })}
+          aria-label="Open Agents"
+          onClick={handleCenterButtonClick}
+          type="button"
+        >
+          <div className="fab-content-base">
+            <Image 
+              src="/assets/core/dollar-sign2.png" 
+              alt="Direct Payment" 
+              width={60} 
+              height={60} 
+              className="fab-dollar-icon"
+              unoptimized 
+            />
+          </div>
+          <div className={clsx('fab-content-overlay', {
+            'fab-content-overlay--visible': isHighlighted,
+          })}>
+            <div className="fab-avatar-container">
+              <Image 
+                src={lastAvatar || CHARACTERS.ama.avatar} 
+                alt="FAB avatar" 
+                width={72} 
+                height={72} 
+                className="fab-avatar-image"
+                unoptimized 
+              />
+            </div>
+          </div>
+        </button>
+        <div className="nav-label">Pay</div>
+      </div>
+      <div className="nav-item" style={{ position: 'relative' }}>
+        <Link 
+          href="/profile" 
+          aria-label="Profile"
+          onClick={(e) => {
+            if (!isAuthed) {
+              e.preventDefault()
+              requireAuth(() => {
+                // After auth, user can click again to navigate
+              })
+            }
+          }}
+        >
+          {isAuthed && profile.avatarUrl ? (
+            <div className="nav-avatar-container">
+              <div className="nav-avatar-image-wrapper">
+                <Image 
+                  src={profile.avatarUrl}
+                  alt="User avatar"
+                  fill
+                  className="nav-avatar-image"
+                  sizes="28px"
+                />
+              </div>
+              {hasUnreadNotification && (
+                <span className="nav-notification-dot" aria-label="Unread messages" />
+              )}
+            </div>
+          ) : isAuthed && !profile.avatarUrl ? (
+            <div className="nav-avatar-container nav-avatar-fallback">
+              <div className="nav-avatar-image-wrapper">
+                <Image 
+                  src="/assets/avatar-profile.png"
+                  alt="Default avatar"
+                  fill
+                  className="nav-avatar-image nav-avatar-fallback-image"
+                  sizes="28px"
+                />
+                {profile.fullName && (
+                  <span className="nav-avatar-initial">
+                    {profile.fullName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              {hasUnreadNotification && (
+                <span className="nav-notification-dot" aria-label="Unread messages" />
+              )}
+            </div>
+          ) : (
+            <>
+              <Image 
+                src={isProfile ? "/assets/nav/user_filled.svg" : "/assets/nav/user-outlined.svg"}
+                alt="Profile" 
+                className={`nav-icon ${isProfile ? 'nav-icon-active' : 'nav-icon-dim'}`} 
+                width={28} 
+                height={28} 
+              />
+              {hasUnreadNotification && (
+                <span className="nav-notification-dot" aria-label="Unread messages" />
+              )}
+            </>
+          )}
+        </Link>
+      </div>
+      <div className="nav-item">
+        <button
+          onClick={openSearch}
+          aria-label="Search"
+          type="button"
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+          }}
+        >
+          <Image 
+            src="/assets/nav/search.svg" 
+            alt="Search" 
+            className={`nav-icon ${isSearchOpen ? 'nav-icon-search-active' : 'nav-icon-dim'}`} 
+            width={28} 
+            height={28} 
+          />
+        </button>
+      </div>
+    </>
+  )
+
   return (
     <div className="bottom-menu">
-      <div className="bottom-menu-container">
-        <div className="bottom-glass-wrapper">
+      {/* Mobile: unified wrapper for consistent positioning */}
+      <div className="bottomBarFrame">
+        <div className="bottom-glass-wrapper bottom-glass-wrapper-mobile">
           <Image
             src="/assets/core/glass-bottom-2.png"
             alt=""
@@ -49,155 +190,26 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             unoptimized
           />
         </div>
-        <div className="nav-container">
-          <div className="nav-item">
-            <Link href="/" aria-label="Home">
-              <Image 
-                src={isHome ? "/assets/nav/home.svg" : "/assets/nav/home_outlined.svg"}
-                alt="Home" 
-                className={`nav-icon ${isHome ? 'nav-icon-active' : 'nav-icon-dim'}`} 
-                width={28} 
-                height={28} 
-              />
-            </Link>
-          </div>
-          <div className="dollar-sign-container">
-            <button
-              className={clsx('dollar-sign-contained', 'fab-dollar', {
-                'is-manual': isAuthed,
-                'is-autonomous': !isAuthed,
-                'fab-highlighted': isHighlighted,
-              })}
-              aria-label="Open Agents"
-              onClick={handleCenterButtonClick}
-              type="button"
-            >
-              {/* Always show layered structure: dollar sign base + avatar overlay */}
-              {/* Rest state is always $ icon; avatar only appears during highlights (slides up) */}
-              <div className="fab-content-base">
-                <Image 
-                  src="/assets/core/dollar-sign2.png" 
-                  alt="Direct Payment" 
-                  width={60} 
-                  height={60} 
-                  className="fab-dollar-icon"
-                  unoptimized 
-                />
-              </div>
-              <div className={clsx('fab-content-overlay', {
-                'fab-content-overlay--visible': isHighlighted,
-              })}>
-                <div className="fab-avatar-container">
-                  <Image 
-                    src={lastAvatar || CHARACTERS.ama.avatar} 
-                    alt="FAB avatar" 
-                    width={72} 
-                    height={72} 
-                    className="fab-avatar-image"
-                    unoptimized 
-                  />
-                </div>
-              </div>
-            </button>
-            <div className="nav-label">Pay</div>
-          </div>
-          {/* NOTE: FinancialInboxSheet is now only rendered from Profile → Settings → Inbox */}
-          <div className="nav-item" style={{ position: 'relative' }}>
-            <Link 
-              href="/profile" 
-              aria-label="Profile"
-              onClick={(e) => {
-                if (!isAuthed) {
-                  e.preventDefault()
-                  requireAuth(() => {
-                    // After auth, user can click again to navigate
-                  })
-                } else {
-                  // Note: hasUnreadNotification is now automatically computed from thread unreadCount
-                  // Threads are marked as read when inbox/chat is opened, not when profile link is clicked
-                }
-              }}
-            >
-              {/* Dynamic avatar: Google avatar or fallback with initial */}
-              {isAuthed && profile.avatarUrl ? (
-                <div className="nav-avatar-container">
-                  <div className="nav-avatar-image-wrapper">
-                    <Image 
-                      src={profile.avatarUrl}
-                      alt="User avatar"
-                      fill
-                      className="nav-avatar-image"
-                      sizes="28px"
-                    />
-                  </div>
-                  {/* Red notification dot - positioned relative to avatar container */}
-                  {hasUnreadNotification && (
-                    <span className="nav-notification-dot" aria-label="Unread messages" />
-                  )}
-                </div>
-              ) : isAuthed && !profile.avatarUrl ? (
-                <div className="nav-avatar-container nav-avatar-fallback">
-                  <div className="nav-avatar-image-wrapper">
-                    <Image 
-                      src="/assets/avatar-profile.png"
-                      alt="Default avatar"
-                      fill
-                      className="nav-avatar-image nav-avatar-fallback-image"
-                      sizes="28px"
-                    />
-                    {profile.fullName && (
-                      <span className="nav-avatar-initial">
-                        {profile.fullName.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  {/* Red notification dot - positioned relative to avatar container */}
-                  {hasUnreadNotification && (
-                    <span className="nav-notification-dot" aria-label="Unread messages" />
-                  )}
-                </div>
-              ) : (
-                <>
-                  <Image 
-                    src={isProfile ? "/assets/nav/user_filled.svg" : "/assets/nav/user-outlined.svg"}
-                    alt="Profile" 
-                    className={`nav-icon ${isProfile ? 'nav-icon-active' : 'nav-icon-dim'}`} 
-                    width={28} 
-                    height={28} 
-                  />
-                  {/* Red notification dot - positioned relative to nav-item for static icon */}
-                  {hasUnreadNotification && (
-                    <span className="nav-notification-dot" aria-label="Unread messages" />
-                  )}
-                </>
-              )}
-            </Link>
-          </div>
-          {/* Search icon - far right (icon only, no label) */}
-          <div className="nav-item">
-            <button
-              onClick={openSearch}
-              aria-label="Search"
-              type="button"
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-              }}
-            >
-              <Image 
-                src="/assets/nav/search.svg" 
-                alt="Search" 
-                className={`nav-icon ${isSearchOpen ? 'nav-icon-search-active' : 'nav-icon-dim'}`} 
-                width={28} 
-                height={28} 
-              />
-            </button>
-          </div>
+        <div className="nav-container nav-container-mobile">
+          {navItems}
+        </div>
+      </div>
+      {/* Desktop: keep existing structure unchanged */}
+      <div className="bottom-menu-container bottom-menu-container-desktop">
+        <div className="bottom-glass-wrapper bottom-glass-wrapper-desktop">
+          <Image
+            src="/assets/core/glass-bottom-2.png"
+            alt=""
+            className="bottom-glass-texture"
+            width={700}
+            height={600}
+            unoptimized
+          />
+        </div>
+        <div className="nav-container nav-container-desktop">
+          {navItems}
         </div>
       </div>
     </div>
   )
 }
-

@@ -738,6 +738,76 @@ body {
   gap: 40px; /* Restore proper spacing between nav buttons */
 }
 
+/* Mobile: Unified wrapper for consistent positioning */
+.bottomBarFrame {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(700px, calc(100vw - 24px));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0px);
+  z-index: 5;
+  pointer-events: none;
+  background: transparent !important;
+  box-sizing: border-box;
+  display: block;
+  height: 150px; /* Match original bottom-menu height */
+}
+
+/* Hide desktop version on mobile */
+@media (max-width: 1023px) {
+  .bottom-menu-container-desktop {
+    display: none !important;
+  }
+  
+  /* Mobile glass wrapper - positioned relative to frame */
+  .bottom-glass-wrapper-mobile {
+    position: absolute;
+    left: 0;
+    transform: translateX(60px); /* Shift effect instead of left positioning */
+    width: 140%;
+    max-width: 700px;
+    bottom: -15px;
+    z-index: 0;
+    pointer-events: none;
+    background: transparent !important;
+    overflow-x: hidden;
+  }
+  
+  /* Mobile glass texture - same positioning as desktop */
+  .bottom-glass-wrapper-mobile .bottom-glass-texture {
+    position: relative;
+    bottom: -445px;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    z-index: 0;
+  }
+  
+  /* Mobile nav container - positioned relative to frame */
+  .nav-container-mobile {
+    position: absolute;
+    bottom: 23px;
+    left: 0;
+    transform: none; /* No transform needed, frame handles centering */
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+  }
+}
+
+/* Desktop: Hide mobile version, show desktop version */
+@media (min-width: 1024px) {
+  .bottomBarFrame {
+    display: none !important;
+  }
+  
+  .bottom-menu-container-desktop {
+    display: flex;
+  }
+}
+
 /* Desktop / wide viewports: restore wide glass bleed effect */
 /* Breakpoint: 1024px ensures tablets behave like phones (safe), desktop gets dramatic glass */
 @media (min-width: 1024px) {
