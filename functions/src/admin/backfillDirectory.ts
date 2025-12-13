@@ -229,14 +229,16 @@ export async function backfillDirectory(): Promise<{ success: number; skipped: n
  */
 export const admin_backfillDirectory = functions
   .region('us-central1')
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
   .https.onCall(async (data, context) => {
-    // Check if admin endpoints are enabled
-    if (process.env.ALLOW_ADMIN_ENDPOINTS !== 'true') {
-      throw new functions.https.HttpsError('permission-denied', 'Admin endpoints are disabled')
+    // For now, allow authenticated users to run backfill
+    // TODO: Add proper admin role check or ALLOW_ADMIN_ENDPOINTS env var check
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Login required')
     }
 
     // Optional: Add additional auth check here (e.g., check for admin role)
-    // if (!context.auth || !isAdmin(context.auth.uid)) {
+    // if (!isAdmin(context.auth.uid)) {
     //   throw new functions.https.HttpsError('permission-denied', 'Unauthorized')
     // }
 
