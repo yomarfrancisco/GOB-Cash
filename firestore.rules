@@ -99,6 +99,27 @@ service cloud.firestore {
       allow write: if false;
     }
     
+    // Directory collection: directory/{handle}
+    // Public read-only collection for contact discovery (works pre-auth)
+    match /directory/{handle} {
+      // Allow anyone to read directory entries (public contact discovery)
+      allow read: if true;
+      
+      // Client cannot write directory directly (Cloud Functions only)
+      allow write: if false;
+    }
+    
+    // Graph edges collection: graphEdges/{edgeId}
+    // Allow authenticated users to read edges where they are the source
+    match /graphEdges/{edgeId} {
+      allow read: if request.auth != null && (
+        resource.data.fromUserId == request.auth.uid
+      );
+      
+      // Client cannot write graph edges directly (Cloud Functions only)
+      allow write: if false;
+    }
+    
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
