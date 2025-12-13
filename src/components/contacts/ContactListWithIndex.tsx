@@ -52,6 +52,14 @@ function ContactRow({
   const isAgent = (contact.metadata as any)?.isAgent || false
   const subtitle = buildContactSubtitle(meta, { isAuthenticated, isAgent })
 
+  // For signed-in users, show email and phone if available (directory contacts only)
+  const showContactDetails = isAuthenticated && contact.source === 'gobankless-contact' && (contact.email || contact.phone)
+  const contactDetails: string[] = []
+  if (showContactDetails) {
+    if (contact.phone) contactDetails.push(contact.phone)
+    if (contact.email) contactDetails.push(contact.email)
+  }
+
   return (
     <button
       type="button"
@@ -68,6 +76,11 @@ function ContactRow({
         <div className={contactRowStyles.contactTextBlock}>
           <div className={contactRowStyles.contactHandle}>{contact.handle}</div>
           <div className={contactRowStyles.contactSubtitle}>{subtitle}</div>
+          {showContactDetails && contactDetails.length > 0 && (
+            <div className={contactRowStyles.contactSubtitle} style={{ marginTop: '4px', fontSize: '0.875rem', opacity: 0.7 }}>
+              {contactDetails.join(' • ')}
+            </div>
+          )}
         </div>
       </div>
       {selected && (

@@ -85,17 +85,18 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
             return {
               id,
               name,
-              email: undefined,
-              phone: inferredPhone, // Pass inferred phone for region detection
+              email: undefined, // Will be enriched from user doc if ownerUserId exists and user is signed in
+              phone: inferredPhone, // Pass inferred phone for region detection (will be enriched if ownerUserId exists)
               photoUrl: undefined,
               source: 'gobankless-contact', // Tag as GoBankless contact
               qualityScore: trustScore, // Use trust score for ranking
               handle,
               subtitle: '', // Will be computed by buildContactSubtitle
-              // Store isAgent and phoneCountry in metadata for subtitle generation
+              // Store isAgent, phoneCountry, and ownerUserId in metadata
               metadata: {
                 isAgent: data.isAgent || false,
                 phoneCountry: data.phoneCountry || null,
+                ownerUserId: data.ownerUserId || null, // For fetching email/phone when signed in
               },
             }
           })

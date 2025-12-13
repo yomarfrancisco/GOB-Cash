@@ -20,6 +20,7 @@ import styles from './SearchSheet.module.css'
 import { useSyncContacts } from '@/hooks/useSyncContacts'
 import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
 import { usePublicDirectoryContactsForUI } from '@/hooks/usePublicDirectoryContacts'
+import { useEnrichedDirectoryContacts } from '@/hooks/useEnrichedDirectoryContacts'
 import DirectoryAvatar from './contacts/DirectoryAvatar'
 
 type SearchAgent = {
@@ -72,11 +73,12 @@ export default function SearchSheet() {
   useSyncContacts(rankedContacts)
   
   // Get contacts for UI display:
-  // - If authed: use user's personal contacts from Firestore (with fallback to local)
-  // - If not authed: use public directory contacts
+  // - If authed: use enriched directory contacts (with email/phone from user docs)
+  // - If not authed: use public directory contacts (descriptive subtitles only)
   const userContacts = useUserContactsForUI(rankedContacts)
   const publicDirectoryContacts = usePublicDirectoryContactsForUI()
-  const displayContacts = isAuthed ? userContacts : publicDirectoryContacts
+  const enrichedDirectoryContacts = useEnrichedDirectoryContacts(publicDirectoryContacts)
+  const displayContacts = isAuthed ? enrichedDirectoryContacts : publicDirectoryContacts
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
   // Show full list up to MAX_SEARCH_CONTACTS
@@ -273,6 +275,14 @@ export default function SearchSheet() {
     
     const subtitle = buildContactSubtitle(meta, { isAuthenticated: isAuthed, isAgent })
     
+    // For signed-in users, show email and phone if available (directory contacts only)
+    const showContactDetails = isAuthed && contact.source === 'gobankless-contact' && (contact.email || contact.phone)
+    const contactDetails: string[] = []
+    if (showContactDetails) {
+      if (contact.phone) contactDetails.push(contact.phone)
+      if (contact.email) contactDetails.push(contact.email)
+    }
+    
     return (
       <button
         key={contact.id}
@@ -290,6 +300,11 @@ export default function SearchSheet() {
           <div className={paymentStyles.contactTextBlock}>
             <div className={paymentStyles.contactHandle}>{contact.handle || contact.name || contact.email || ''}</div>
             <div className={paymentStyles.contactSubtitle}>{subtitle}</div>
+            {showContactDetails && contactDetails.length > 0 && (
+              <div className={paymentStyles.contactSubtitle} style={{ marginTop: '4px', fontSize: '0.875rem', opacity: 0.7 }}>
+                {contactDetails.join(' • ')}
+              </div>
+            )}
           </div>
         </div>
       </button>
