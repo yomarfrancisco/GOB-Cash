@@ -46,6 +46,35 @@ export interface RankedContactMinimal {
   phoneNumber?: string | null
   email?: string | null
   sourceType?: string | null // e.g. 'phone', 'whatsapp', 'google', etc.
+  phoneCountry?: string | null // ISO2 country code (e.g., 'ZA', 'MZ')
+}
+
+/**
+ * Infer region from ISO2 country code (e.g., 'ZA', 'MZ', 'ZW')
+ */
+const getRegionFromCountryCode = (countryCode?: string | null): ContactRegionTag => {
+  if (!countryCode) return 'unknown'
+
+  const code = countryCode.toUpperCase()
+
+  // Mozambique
+  if (code === 'MZ') return 'mozambique'
+  
+  // South Africa
+  if (code === 'ZA') return 'south_africa'
+  
+  // SADC countries
+  if (['ZW', 'ZM', 'BW', 'NA', 'LS', 'SZ'].includes(code)) {
+    return 'sadc'
+  }
+
+  // UK
+  if (code === 'UK' || code === 'GB') return 'uk'
+  
+  // USA
+  if (code === 'US' || code === 'USA') return 'usa'
+
+  return 'intl'
 }
 
 const getRegionFromPhone = (phoneNumber?: string | null): ContactRegionTag => {
@@ -109,7 +138,11 @@ const getTimezoneFromRegion = (region: ContactRegionTag): ContactTimeZoneTag => 
 }
 
 export const getContactTags = (contact: RankedContactMinimal): ContactTags => {
-  const region = getRegionFromPhone(contact.phoneNumber)
+  // Prefer phoneCountry (ISO2) over phoneNumber for region inference
+  // phoneCountry is more direct and reliable when available
+  const region = contact.phoneCountry 
+    ? getRegionFromCountryCode(contact.phoneCountry)
+    : getRegionFromPhone(contact.phoneNumber)
   const source = getSourceFromMetadata(contact.sourceType)
   const corridor = getCorridorFromRegion(region)
   const timezone = getTimezoneFromRegion(region)

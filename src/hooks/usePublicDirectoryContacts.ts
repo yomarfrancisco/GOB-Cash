@@ -5,6 +5,8 @@ import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 import type { RankedContact } from '@/lib/contacts/rankContacts'
 import type { DirectoryDoc } from '@/types/contacts'
+import { getContactTags } from '@/lib/contacts/contactTags'
+import { tagsToMeta, buildContactSubtitle } from '@/lib/contacts/contactDescription'
 
 const MAX_DIRECTORY_CONTACTS = 600 // Increased from 300
 
@@ -134,6 +136,30 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
             phone: c.phone,
           })),
         })
+        
+        // Compute and log subtitles for first 3 contacts (pre-auth)
+        const firstThree = mappedContacts.slice(0, 3)
+        const subtitleExamples = firstThree.map(contact => {
+          const tags = getContactTags({
+            handle: contact.handle,
+            name: contact.name,
+            phoneNumber: contact.phone,
+            email: contact.email,
+            sourceType: contact.source || null,
+            phoneCountry: (contact.metadata as any)?.phoneCountry || null,
+          })
+          const meta = tagsToMeta(tags)
+          const isAgent = (contact.metadata as any)?.isAgent || false
+          const subtitle = buildContactSubtitle(meta, { isAuthenticated: false, isAgent })
+          return {
+            handle: contact.handle,
+            phoneCountry: (contact.metadata as any)?.phoneCountry,
+            tags,
+            meta,
+            subtitle,
+          }
+        })
+        console.log('[usePublicDirectoryContacts] Pre-auth subtitle examples (first 3):', subtitleExamples)
         
         setContacts(mappedContacts)
       } catch (err) {

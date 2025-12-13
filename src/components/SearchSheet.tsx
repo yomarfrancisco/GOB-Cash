@@ -251,6 +251,8 @@ export default function SearchSheet() {
       email: contact.email,
       // Map source to sourceType - 'connections'/'otherContacts' are Google contacts
       sourceType: contact.source === 'connections' || contact.source === 'otherContacts' ? 'google_contact' : contact.source || null,
+      // Pass phoneCountry from metadata for better region inference (pre-auth directory contacts)
+      phoneCountry: (contact.metadata as any)?.phoneCountry || null,
     })
     
     const meta = tagsToMeta(tags)
