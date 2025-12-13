@@ -12,7 +12,15 @@ import { useUserProfileStore } from '@/store/userProfile'
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
 import { handleAgentInductionAction } from '@/lib/cashDeposit/chatOrchestration'
 import { getFirebaseAuth } from '@/lib/firebase'
-import { tx_appendUserMessage } from '@/lib/transactions/clientFunctions'
+import {
+  tx_appendUserMessage,
+  tx_userMarkDepositSent,
+  tx_receiverConfirmDeposit,
+  tx_setWithdrawalAddress,
+  tx_userConfirmWithdrawal,
+  tx_sendUsdtTron,
+} from '@/lib/transactions/clientFunctions'
+import type { TxStatus } from '@/lib/transactions/types'
 import ChatInputBar from './ChatInputBar'
 import ChatMapEmbed from './ChatMapEmbed'
 import listStyles from './FinancialInboxListSheet.module.css'
@@ -259,6 +267,25 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Get first name from fullName
   const firstName = profile.fullName.split(' ')[0] || 'there'
 
+  // Get current user ID for transaction role checks
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!isAuthed) {
+      setCurrentUserId(null)
+      return
+    }
+    const auth = getFirebaseAuth()
+    const user = auth.currentUser
+    setCurrentUserId(user?.uid || null)
+  }, [isAuthed])
+
+  // Determine if viewer is user or receiver for active transaction thread
+  const activeThread = threads.find((t) => t.id === activeThreadId)
+  const isTransactionThread = activeThread?.kind === 'transaction'
+  const txStatus = activeThread?.metadata?.txStatus as TxStatus | undefined
+  const isViewerUser = currentUserId && activeThread?.metadata?.userId === currentUserId
+  const isViewerReceiver = currentUserId && activeThread?.metadata?.receiverId === currentUserId
+
   // Start transaction thread sync when authenticated
   useEffect(() => {
     if (!isAuthed) return
@@ -362,6 +389,20 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     const activeThread = threads.find((t) => t.id === activeThreadId)
     if (activeThread?.kind === 'transaction') {
       // For transaction threads: write via Cloud Function (Firestore is source of truth)
+      // Check if user is confirming withdrawal (must type exact "CONFIRM")
+      if (txStatus === 'WITHDRAWAL_REQUESTED' && inputText.trim().toUpperCase() === 'CONFIRM') {
+        try {
+          await tx_userConfirmWithdrawal(activeThreadId!, inputText.trim())
+          setInputText('')
+          return
+        } catch (error) {
+          console.error('[Transaction] Failed to confirm withdrawal:', error)
+          alert('Failed to confirm withdrawal. Please try again.')
+          return
+        }
+      }
+      
+      // Regular message
       try {
         await tx_appendUserMessage(activeThreadId!, inputText.trim())
         setInputText('')
@@ -428,7 +469,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
         "Got it – I'll help you with that. This will later come from the BabyCDO backend."
       )
     }, 800)
-  }, [inputText, sendMessage, agentInductionStep, agentFloatToday, activeThreadId, threads])
+  }, [inputText, sendMessage, agentInductionStep, agentFloatToday, activeThreadId, threads, txStatus])
 
   // Manage intro stages for demo intro - only in chat view
   useEffect(() => {
@@ -1113,6 +1154,107 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                                       </button>
                                     </div>
                                   </>
+                                )}
+                              </>
+                            )}
+                            {/* Transaction thread CTAs - status-driven */}
+                            {isTransactionThread && txStatus && message.from === 'ai' && index === activeMessages.length - 1 && (
+                              <>
+                                {/* AWAITING_DEPOSIT: User can mark deposit sent */}
+                                {txStatus === 'AWAITING_DEPOSIT' && isViewerUser && (
+                                  <div style={{ marginTop: '14px' }}>
+                                    <button
+                                      className={chatStyles.chatCtaButton}
+                                      onClick={async () => {
+                                        if (!activeThreadId) return
+                                        try {
+                                          await tx_userMarkDepositSent(activeThreadId)
+                                        } catch (error) {
+                                          console.error('[Transaction] Failed to mark deposit sent:', error)
+                                        }
+                                      }}
+                                      type="button"
+                                    >
+                                      I&apos;ve deposited
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* DEPOSIT_SENT: Receiver can confirm */}
+                                {txStatus === 'DEPOSIT_SENT' && isViewerReceiver && (
+                                  <div style={{ marginTop: '14px' }}>
+                                    <button
+                                      className={chatStyles.chatCtaButton}
+                                      onClick={async () => {
+                                        if (!activeThreadId) return
+                                        try {
+                                          await tx_receiverConfirmDeposit(activeThreadId)
+                                        } catch (error) {
+                                          console.error('[Transaction] Failed to confirm deposit:', error)
+                                        }
+                                      }}
+                                      type="button"
+                                    >
+                                      Confirm received
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* READY_FOR_WITHDRAWAL: User can set withdrawal address */}
+                                {txStatus === 'READY_FOR_WITHDRAWAL' && isViewerUser && (
+                                  <div style={{ marginTop: '14px' }}>
+                                    <button
+                                      className={chatStyles.chatCtaButton}
+                                      onClick={async () => {
+                                        if (!activeThreadId) return
+                                        // TODO: Open address input sheet (Phase 4)
+                                        // For now, prompt user to type address in chat
+                                        const address = prompt('Enter your TRON address (starts with T):')
+                                        if (address && address.trim()) {
+                                          try {
+                                            await tx_setWithdrawalAddress(activeThreadId, address.trim())
+                                          } catch (error) {
+                                            console.error('[Transaction] Failed to set withdrawal address:', error)
+                                            alert('Failed to set withdrawal address. Please try again.')
+                                          }
+                                        }
+                                      }}
+                                      type="button"
+                                    >
+                                      Set withdrawal address
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* WITHDRAWAL_REQUESTED: User must type CONFIRM */}
+                                {txStatus === 'WITHDRAWAL_REQUESTED' && isViewerUser && (
+                                  <div style={{ marginTop: '14px', padding: '12px', background: '#f5f5f5', borderRadius: '8px', fontSize: '14px', color: '#666' }}>
+                                    Type <strong>CONFIRM</strong> in the message box to proceed with withdrawal.
+                                  </div>
+                                )}
+
+                                {/* WITHDRAWAL_CONFIRMED: Receiver can send USDT */}
+                                {txStatus === 'WITHDRAWAL_CONFIRMED' && isViewerReceiver && (
+                                  <div style={{ marginTop: '14px' }}>
+                                    <button
+                                      className={chatStyles.chatCtaButton}
+                                      onClick={async () => {
+                                        if (!activeThreadId) return
+                                        if (!confirm('Send USDT (TRON) to the user? This action cannot be undone.')) {
+                                          return
+                                        }
+                                        try {
+                                          await tx_sendUsdtTron(activeThreadId)
+                                        } catch (error) {
+                                          console.error('[Transaction] Failed to send USDT:', error)
+                                          alert('Failed to send USDT. Please try again.')
+                                        }
+                                      }}
+                                      type="button"
+                                    >
+                                      Send USDT (TRON)
+                                    </button>
+                                  </div>
                                 )}
                               </>
                             )}
