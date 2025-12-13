@@ -16,6 +16,8 @@ import '@/styles/send-details-sheet.css'
 import styles from './PaymentDetailsSheet.module.css'
 import { useSyncContacts } from '@/hooks/useSyncContacts'
 import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
+import { usePublicDirectoryContactsForUI } from '@/hooks/usePublicDirectoryContacts'
+import { useDirectoryPrivateContacts } from '@/hooks/useDirectoryPrivateContacts'
 
 const RECIPIENT_PLACEHOLDER = 'Username or WhatsApp number'
 const MAX_PAYMENT_SUGGESTIONS = 600 // Increased from 300
@@ -71,8 +73,36 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   )
   useSyncContacts(rankedContacts)
   
-  // Get contacts for UI display (prefers Firestore, falls back to rankedContacts)
-  const displayContacts = useUserContactsForUI(rankedContacts)
+  // Get contacts for UI display:
+  // - User's personal contacts from /users/{uid}/contacts
+  // - Plus directory contacts (public + private enrichment when signed in)
+  const userContacts = useUserContactsForUI(rankedContacts)
+  const publicDirectoryContacts = usePublicDirectoryContactsForUI()
+  const enrichedDirectoryContacts = useDirectoryPrivateContacts(publicDirectoryContacts)
+  
+  // Merge user contacts with directory contacts (deduplicate by handle)
+  const displayContacts = useMemo(() => {
+    const contactMap = new Map<string, RankedContact>()
+    
+    // Add user contacts first (they take priority)
+    userContacts.forEach(contact => {
+      const key = contact.handle || contact.id
+      if (key) {
+        contactMap.set(key, contact)
+      }
+    })
+    
+    // Add directory contacts (only if not already in user contacts)
+    const directoryContacts = isAuthed ? enrichedDirectoryContacts : publicDirectoryContacts
+    directoryContacts.forEach(contact => {
+      const key = contact.handle || contact.id
+      if (key && !contactMap.has(key)) {
+        contactMap.set(key, contact)
+      }
+    })
+    
+    return Array.from(contactMap.values())
+  }, [userContacts, publicDirectoryContacts, enrichedDirectoryContacts, isAuthed])
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
   const { suggested, sections } = useMemo(() => {

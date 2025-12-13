@@ -15,6 +15,7 @@ admin.initializeApp()
 export { onContactWrite } from './onContactWrite'
 export { recomputeGhostQuality } from './recomputeGhostQuality'
 export { repairMyHandle } from './repairMyHandle'
+export { onUserWrite, directory_syncMyRecord } from './syncDirectoryForUser'
 
 // Export transaction functions
 export { tx_createBankDepositRequest } from './tx/createBankDepositRequest'
@@ -29,4 +30,5 @@ export { tx_sendUsdtTron } from './tx/sendUsdtTron'
 export { tx_timeoutSweep } from './tx/timeoutSweep'
 export { tx_raiseDispute } from './tx/raiseDispute'
 export { resetMyBalances } from './resetMyBalances'
+export { admin_backfillDirectory } from './admin/backfillDirectory'
 

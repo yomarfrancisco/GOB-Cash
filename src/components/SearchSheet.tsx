@@ -20,7 +20,7 @@ import styles from './SearchSheet.module.css'
 import { useSyncContacts } from '@/hooks/useSyncContacts'
 import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
 import { usePublicDirectoryContactsForUI } from '@/hooks/usePublicDirectoryContacts'
-import { useEnrichedDirectoryContacts } from '@/hooks/useEnrichedDirectoryContacts'
+import { useDirectoryPrivateContacts } from '@/hooks/useDirectoryPrivateContacts'
 import DirectoryAvatar from './contacts/DirectoryAvatar'
 
 type SearchAgent = {
@@ -73,11 +73,10 @@ export default function SearchSheet() {
   useSyncContacts(rankedContacts)
   
   // Get contacts for UI display:
-  // - If authed: use enriched directory contacts (with email/phone from user docs)
-  // - If not authed: use public directory contacts (descriptive subtitles only)
-  const userContacts = useUserContactsForUI(rankedContacts)
+  // - Pre-auth: use public directory contacts only (no email/phone)
+  // - Post-auth: use public directory + enrich with private data (email/phone from directoryPrivate)
   const publicDirectoryContacts = usePublicDirectoryContactsForUI()
-  const enrichedDirectoryContacts = useEnrichedDirectoryContacts(publicDirectoryContacts)
+  const enrichedDirectoryContacts = useDirectoryPrivateContacts(publicDirectoryContacts)
   const displayContacts = isAuthed ? enrichedDirectoryContacts : publicDirectoryContacts
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)

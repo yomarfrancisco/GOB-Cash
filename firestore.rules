@@ -99,8 +99,30 @@ service cloud.firestore {
       allow write: if false;
     }
     
-    // Directory collection: directory/{handle}
+    // Public directory collection: publicDirectory/{handle}
     // Public read-only collection for contact discovery (works pre-auth)
+    // Contains only non-sensitive fields: handle, displayName, avatarUrl, phoneCountry, isAgent, etc.
+    match /publicDirectory/{handle} {
+      // Allow anyone to read public directory entries (pre-auth included)
+      allow read: if true;
+      
+      // Client cannot write publicDirectory directly (Cloud Functions only via Admin SDK)
+      allow write: if false;
+    }
+    
+    // Private directory collection: directoryPrivate/{handle}
+    // Contains sensitive fields: email, phoneE164
+    // Readable only when authenticated
+    match /directoryPrivate/{handle} {
+      // Allow authenticated users to read private directory entries
+      allow read: if request.auth != null;
+      
+      // Client cannot write directoryPrivate directly (Cloud Functions only via Admin SDK)
+      allow write: if false;
+    }
+    
+    // Legacy directory collection: directory/{handle}
+    // Deprecated - kept for backward compatibility during migration
     match /directory/{handle} {
       // Allow anyone to read directory entries (public contact discovery)
       allow read: if true;

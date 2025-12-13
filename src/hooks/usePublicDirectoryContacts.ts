@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react'
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 import type { RankedContact } from '@/lib/contacts/rankContacts'
-import type { DirectoryDoc } from '@/types/contacts'
+import type { PublicDirectoryDoc } from '@/types/contacts'
 import { getContactTags } from '@/lib/contacts/contactTags'
 import { tagsToMeta, buildContactSubtitle } from '@/lib/contacts/contactDescription'
 
-const MAX_DIRECTORY_CONTACTS = 600 // Increased from 300
+const MAX_DIRECTORY_CONTACTS = 600
 
 /**
- * Hook that reads contacts from the public Firestore `/directory` collection.
+ * Hook that reads contacts from the public Firestore `/publicDirectory` collection.
  * This is read-only and works pre-auth (public read allowed by Firestore rules).
  * 
  * @returns Array of contacts in RankedContact format, ready for UI display
@@ -29,10 +29,9 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
     const loadDirectoryContacts = async () => {
       try {
         const db = getFirestoreDb()
-        const directoryRef = collection(db, 'directory')
+        const directoryRef = collection(db, 'publicDirectory')
         
-        // Query: order by handle (always present), limit to 300
-        // We'll sort by displayName in memory after mapping
+        // Query: order by handle (always present), limit to MAX_DIRECTORY_CONTACTS
         const q = query(
           directoryRef,
           orderBy('handle', 'asc'),
@@ -43,9 +42,9 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
         
         const mappedContacts: RankedContact[] = snapshot.docs
           .map((doc) => {
-            const data = doc.data() as DirectoryDoc
+            const data = doc.data() as PublicDirectoryDoc
             
-            // Map DirectoryDoc to RankedContact format
+            // Map PublicDirectoryDoc to RankedContact format
             const handle = data.handle || ''
             const displayName = data.displayName || ''
             
@@ -85,9 +84,9 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
             return {
               id,
               name,
-              email: undefined, // Will be enriched from user doc if ownerUserId exists and user is signed in
-              phone: inferredPhone, // Pass inferred phone for region detection (will be enriched if ownerUserId exists)
-              photoUrl: undefined,
+              email: undefined, // Public directory never has email (privacy)
+              phone: inferredPhone, // Pass inferred phone for region detection
+              photoUrl: data.avatarUrl || undefined,
               source: 'gobankless-contact', // Tag as GoBankless contact
               qualityScore: trustScore, // Use trust score for ranking
               handle,
@@ -96,7 +95,7 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
               metadata: {
                 isAgent: data.isAgent || false,
                 phoneCountry: data.phoneCountry || null,
-                ownerUserId: data.ownerUserId || null, // For fetching email/phone when signed in
+                ownerUserId: data.ownerUserId || null, // For fetching private data when signed in
               },
             }
           })
@@ -112,55 +111,11 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
             return aName.localeCompare(bName)
           })
         
-        // Debug: log sample of directory data to see what fields are present
-        const sampleWithPhoneCountry = mappedContacts
-          .filter(c => (c.metadata as any)?.phoneCountry)
-          .slice(0, 5)
-        const sampleWithoutPhoneCountry = mappedContacts
-          .filter(c => !(c.metadata as any)?.phoneCountry)
-          .slice(0, 5)
-        
-        console.debug('[usePublicDirectoryContacts] Loaded directory contacts', {
+        console.debug('[usePublicDirectoryContacts] Loaded public directory contacts', {
           source: 'publicDirectory',
           count: mappedContacts.length,
           isAuthed: false,
-          withPhoneCountry: sampleWithPhoneCountry.length,
-          withoutPhoneCountry: sampleWithoutPhoneCountry.length,
-          sampleWithPhone: sampleWithPhoneCountry.map(c => ({
-            handle: c.handle,
-            phoneCountry: (c.metadata as any)?.phoneCountry,
-            phone: c.phone,
-          })),
-          sampleWithoutPhone: sampleWithoutPhoneCountry.map(c => ({
-            handle: c.handle,
-            phoneCountry: (c.metadata as any)?.phoneCountry,
-            phone: c.phone,
-          })),
         })
-        
-        // Compute and log subtitles for first 3 contacts (pre-auth)
-        const firstThree = mappedContacts.slice(0, 3)
-        const subtitleExamples = firstThree.map(contact => {
-          const tags = getContactTags({
-            handle: contact.handle,
-            name: contact.name,
-            phoneNumber: contact.phone,
-            email: contact.email,
-            sourceType: contact.source || null,
-            phoneCountry: (contact.metadata as any)?.phoneCountry || null,
-          })
-          const meta = tagsToMeta(tags)
-          const isAgent = (contact.metadata as any)?.isAgent || false
-          const subtitle = buildContactSubtitle(meta, { isAuthenticated: false, isAgent })
-          return {
-            handle: contact.handle,
-            phoneCountry: (contact.metadata as any)?.phoneCountry,
-            tags,
-            meta,
-            subtitle,
-          }
-        })
-        console.log('[usePublicDirectoryContacts] Pre-auth subtitle examples (first 3):', subtitleExamples)
         
         setContacts(mappedContacts)
       } catch (err) {
@@ -183,4 +138,3 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
 
   return contacts
 }
-
