@@ -54,6 +54,11 @@ export const tx_userConfirmWithdrawal = functions
     assertTransition(tx.status, 'WITHDRAWAL_CONFIRMED')
 
     const now = admin.firestore.Timestamp.now()
+    
+    // Set expiration time (2 hours for WITHDRAWAL_CONFIRMED - should be processed quickly)
+    const expiresAt = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() + 2 * 60 * 60 * 1000 // 2 hours
+    )
 
     // Create SYSTEM message
     const msgRef = txRef.collection('messages').doc()
@@ -73,6 +78,7 @@ export const tx_userConfirmWithdrawal = functions
       t.update(txRef, {
         status: 'WITHDRAWAL_CONFIRMED',
         statusUpdatedAt: now,
+        expiresAt, // Timeout for WITHDRAWAL_CONFIRMED state
         'withdrawal.confirmedByUser': true,
         'withdrawal.confirmedAt': now,
       })

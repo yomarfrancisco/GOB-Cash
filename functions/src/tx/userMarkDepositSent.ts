@@ -43,6 +43,11 @@ export const tx_userMarkDepositSent = functions
     assertTransition(tx.status, 'DEPOSIT_SENT')
 
     const now = admin.firestore.Timestamp.now()
+    
+    // Set expiration time (4 hours for DEPOSIT_SENT)
+    const expiresAt = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() + 4 * 60 * 60 * 1000 // 4 hours
+    )
 
     // Create SYSTEM message
     const msgRef = txRef.collection('messages').doc()
@@ -65,6 +70,7 @@ export const tx_userMarkDepositSent = functions
       t.update(txRef, {
         status: 'DEPOSIT_SENT',
         statusUpdatedAt: now,
+        expiresAt, // Timeout for DEPOSIT_SENT state
       })
       t.set(msgRef, message)
     })

@@ -31,6 +31,11 @@ export const tx_createBankDepositRequest = functions
 
     const now = admin.firestore.Timestamp.now()
     const participants = [userId, receiverId]
+    
+    // Set expiration time (4 hours for AWAITING_DEPOSIT)
+    const expiresAt = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() + 4 * 60 * 60 * 1000 // 4 hours
+    )
 
     // Create transaction document
     const txRef = db.collection('transactions').doc()
@@ -45,6 +50,7 @@ export const tx_createBankDepositRequest = functions
       status: 'AWAITING_DEPOSIT' as TxStatus,
       createdAt: now,
       statusUpdatedAt: now,
+      expiresAt, // Timeout for AWAITING_DEPOSIT state
       amountZar,
       unlockAt: null,
       withdrawal: {},

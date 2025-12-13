@@ -26,4 +26,6 @@ export { tx_appendUserMessage } from './tx/appendUserMessage'
 export { tx_setWithdrawalAddress } from './tx/setWithdrawalAddress'
 export { tx_userConfirmWithdrawal } from './tx/userConfirmWithdrawal'
 export { tx_sendUsdtTron } from './tx/sendUsdtTron'
+export { tx_timeoutSweep } from './tx/timeoutSweep'
+export { tx_raiseDispute } from './tx/raiseDispute'
 

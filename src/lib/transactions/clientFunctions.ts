@@ -151,3 +151,26 @@ export async function tx_sendUsdtTron(txId: string): Promise<void> {
   }
 }
 
+/**
+ * Raise a dispute on a transaction
+ * Transitions transaction to DISPUTED state
+ */
+export async function tx_raiseDispute(txId: string, reason: string): Promise<void> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'tx_raiseDispute')
+  
+  try {
+    await fn({ txId, reason })
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Transaction] Dispute raised for transaction:', txId)
+    }
+  } catch (error: any) {
+    console.error('[Transaction] Failed to raise dispute:', {
+      txId,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+    })
+    throw error
+  }
+}
+

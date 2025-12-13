@@ -80,6 +80,11 @@ export const tx_setWithdrawalAddress = functions
     
     // For v1: 1:1 ZAR to USDT conversion (can be made configurable later)
     const amountUsdt = amountZar
+    
+    // Set expiration time (24 hours for WITHDRAWAL_REQUESTED)
+    const expiresAt = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() + 24 * 60 * 60 * 1000 // 24 hours
+    )
 
     // Create SYSTEM message
     const msgRef = txRef.collection('messages').doc()
@@ -101,6 +106,7 @@ export const tx_setWithdrawalAddress = functions
       t.update(txRef, {
         status: 'WITHDRAWAL_REQUESTED',
         statusUpdatedAt: now,
+        expiresAt, // Timeout for WITHDRAWAL_REQUESTED state
         withdrawal: {
           network: 'TRON',
           tronAddress: tronAddress.trim(),
