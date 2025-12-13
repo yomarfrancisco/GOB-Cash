@@ -106,9 +106,14 @@ export interface ContactMeta {
 
 export function buildContactSubtitle(
   meta: ContactMeta,
-  opts: { isAuthenticated: boolean }
+  opts: { isAuthenticated: boolean; isAgent?: boolean }
 ): string {
   const parts: string[] = []
+
+  // 0) Agent label takes priority
+  if (opts.isAgent) {
+    parts.push('Cash agent')
+  }
 
   // 1) Corridor label – no "GoBankless contact", no "In your …"
   if (meta.corridor === 'sadc') {

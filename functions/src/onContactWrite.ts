@@ -14,6 +14,7 @@ import { deriveHandleFromContact } from './utils/handleNormalization'
 import { generateEdgeId } from './utils/edgeId'
 import { computeContactCompleteness } from './utils/contactCompleteness'
 import { ensureMutualEdgeAndCounts } from './utils/mutualEdges'
+import { extractPhoneCountry } from './utils/phoneCountry'
 
 const db = admin.firestore()
 
@@ -128,6 +129,9 @@ export const onContactWrite = functions.firestore
         const inboundSourceCounts: Record<string, number> = {}
         inboundSourceCounts[edgeSource] = 1
 
+        // Extract phone country from primaryPhone if available
+        const phoneCountry = extractPhoneCountry(after.primaryPhone)
+
         await directoryRef.set({
           handle: toHandle,
           displayName: after.displayName,
@@ -138,10 +142,11 @@ export const onContactWrite = functions.firestore
           avgContactCompleteness: completeness,
           ghostQuality: 0, // Will be computed by scheduled function
           lastInboundAt: now,
+          phoneCountry: phoneCountry || null, // Store inferred country
           createdAt: now,
           updatedAt: now,
         })
-        console.log('[onContactWrite] Created directory entry', { toHandle, edgeSource })
+        console.log('[onContactWrite] Created directory entry', { toHandle, edgeSource, phoneCountry })
       } else {
         // Update existing directory entry
         const existingData = directoryDoc.data()
@@ -163,10 +168,23 @@ export const onContactWrite = functions.firestore
           newAvg = currentAvg * 0.9 + completeness * 0.1 // Slight decay + new value
         }
 
+        // Extract phone country from primaryPhone if available
+        // Only update if we have a phone and don't already have a country, or if this is a new edge
+        const phoneCountry = extractPhoneCountry(after.primaryPhone)
+        const shouldUpdatePhoneCountry = phoneCountry && (
+          !existingData?.phoneCountry || // No existing country
+          isNewEdge // New edge might have better data
+        )
+
         const updateData: any = {
           displayName: after.displayName || existingData?.displayName || null,
           avgContactCompleteness: Math.max(0, Math.min(1, newAvg)),
           updatedAt: now,
+        }
+
+        // Update phone country if we have new data
+        if (shouldUpdatePhoneCountry) {
+          updateData.phoneCountry = phoneCountry
         }
 
         if (isNewEdge) {

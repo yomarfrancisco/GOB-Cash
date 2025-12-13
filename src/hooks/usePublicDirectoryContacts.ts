@@ -50,25 +50,51 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
             // Use displayName if available, otherwise use handle without $ prefix
             const name = displayName || handle.replace(/^\$/, '') || 'Unknown'
             
-            // Compute subtitle (empty for directory entries since we don't have email/phone)
-            const subtitle = ''
-            
             // Use handle as the id (stable identifier)
             const id = `directory:${handle}`
             
             // Get trust score: trustGlobal (if claimed) or ghostQuality (if unclaimed)
             const trustScore = data.trustGlobal ?? data.ghostQuality ?? 0
             
+            // For phone inference: if we have phoneCountry, construct a placeholder phone
+            // This allows getContactTags to infer region/corridor
+            // Format: +[country_code]000000000 (we only need the prefix for inference)
+            let inferredPhone: string | undefined = undefined
+            if (data.phoneCountry) {
+              // Map ISO2 to country code prefix
+              const countryCodeMap: Record<string, string> = {
+                'ZA': '+27',
+                'MZ': '+258',
+                'ZW': '+263',
+                'ZM': '+260',
+                'BW': '+267',
+                'NA': '+264',
+                'LS': '+266',
+                'SZ': '+268',
+                'UK': '+44',
+                'GB': '+44',
+                'US': '+1',
+                'USA': '+1',
+              }
+              const prefix = countryCodeMap[data.phoneCountry] || `+${data.phoneCountry}`
+              inferredPhone = prefix // Just the prefix is enough for getRegionFromPhone
+            }
+            
             return {
               id,
               name,
               email: undefined,
-              phone: undefined,
+              phone: inferredPhone, // Pass inferred phone for region detection
               photoUrl: undefined,
               source: 'gobankless-contact', // Tag as GoBankless contact
               qualityScore: trustScore, // Use trust score for ranking
               handle,
-              subtitle,
+              subtitle: '', // Will be computed by buildContactSubtitle
+              // Store isAgent and phoneCountry in metadata for subtitle generation
+              metadata: {
+                isAgent: data.isAgent || false,
+                phoneCountry: data.phoneCountry || null,
+              },
             }
           })
           .filter((c) => c.handle) // Filter out entries without handles

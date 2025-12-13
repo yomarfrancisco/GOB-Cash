@@ -32,5 +32,7 @@ export interface DirectoryDoc {
   trustGlobal?: number | null // mirror of owner's trustGlobal when claimed
   isAgent?: boolean // existing or new flag
   claimedAt?: any | null // Firebase Timestamp
+  // Location metadata - inferred from contact phone numbers
+  phoneCountry?: string | null // ISO2 country code (e.g., 'ZA', 'MZ', 'ZW')
 }
 

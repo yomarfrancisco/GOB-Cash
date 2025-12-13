@@ -47,7 +47,8 @@ function ContactRow({
     sourceType: contact.source === 'connections' || contact.source === 'otherContacts' ? 'google_contact' : contact.source || null,
   })
   const meta = tagsToMeta(tags)
-  const subtitle = buildContactSubtitle(meta, { isAuthenticated })
+  const isAgent = (contact.metadata as any)?.isAgent || false
+  const subtitle = buildContactSubtitle(meta, { isAuthenticated, isAgent })
 
   return (
     <button

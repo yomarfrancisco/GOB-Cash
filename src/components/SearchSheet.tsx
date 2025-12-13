@@ -254,7 +254,9 @@ export default function SearchSheet() {
     })
     
     const meta = tagsToMeta(tags)
-    const subtitle = buildContactSubtitle(meta, { isAuthenticated: isAuthed })
+    // Check if this is an agent from directory metadata
+    const isAgent = (contact.metadata as any)?.isAgent || false
+    const subtitle = buildContactSubtitle(meta, { isAuthenticated: isAuthed, isAgent })
     
     return (
       <button

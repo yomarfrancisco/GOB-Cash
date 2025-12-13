@@ -38,6 +38,7 @@ export type RankedContact = {
   handle: string
   subtitle: string
   score?: number // Keep for debug logging
+  metadata?: Record<string, any> // Optional metadata (e.g., isAgent, phoneCountry)
 }
 
 // Simple bulk contact detection
