@@ -10,6 +10,7 @@
  */
 
 import * as admin from 'firebase-admin'
+import * as functions from 'firebase-functions'
 
 const db = admin.firestore()
 
@@ -226,23 +227,28 @@ export async function backfillDirectory(): Promise<{ success: number; skipped: n
  * HTTPS callable function for admin use
  * Protected behind ALLOW_ADMIN_ENDPOINTS environment variable check
  */
-export const admin_backfillDirectory = async (data: any, context: any) => {
-  // Check if admin endpoints are enabled
-  if (process.env.ALLOW_ADMIN_ENDPOINTS !== 'true') {
-    throw new Error('Admin endpoints are disabled')
-  }
+export const admin_backfillDirectory = functions
+  .region('us-central1')
+  .https.onCall(async (data, context) => {
+    // Check if admin endpoints are enabled
+    if (process.env.ALLOW_ADMIN_ENDPOINTS !== 'true') {
+      throw new functions.https.HttpsError('permission-denied', 'Admin endpoints are disabled')
+    }
 
-  // Optional: Add additional auth check here (e.g., check for admin role)
-  // if (!context.auth || !isAdmin(context.auth.uid)) {
-  //   throw new Error('Unauthorized')
-  // }
+    // Optional: Add additional auth check here (e.g., check for admin role)
+    // if (!context.auth || !isAdmin(context.auth.uid)) {
+    //   throw new functions.https.HttpsError('permission-denied', 'Unauthorized')
+    // }
 
-  try {
-    const result = await backfillDirectory()
-    return result
-  } catch (error) {
-    console.error('[admin_backfillDirectory] Error', error)
-    throw error
-  }
-}
+    try {
+      const result = await backfillDirectory()
+      return result
+    } catch (error) {
+      console.error('[admin_backfillDirectory] Error', error)
+      throw new functions.https.HttpsError(
+        'internal',
+        error instanceof Error ? error.message : 'Failed to backfill directory'
+      )
+    }
+  })
 
