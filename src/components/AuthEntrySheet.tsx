@@ -396,65 +396,6 @@ export default function AuthEntrySheet() {
                 <span className={styles.authEntrySocialText}>Sign up with Google</span>
               </button>
 
-              {/* Sign up with phone number - transforms from button to pill input */}
-              {!isPhoneSignupEditing ? (
-                <button
-                  type="button"
-                  className={styles.primaryPhoneButton}
-                  onClick={handlePhoneButtonClick}
-                >
-                  <Image
-                    src="/assets/Phone-icon.svg"
-                    alt="Phone"
-                    width={23}
-                    height={23}
-                    sizes="23px"
-                    quality={92}
-                    className={styles.phoneIcon}
-                  />
-                  <span>Sign up with phone number</span>
-                </button>
-              ) : (
-                <form onSubmit={handlePhoneSubmit} className={styles.phoneSignupForm}>
-                  <div className={clsx(styles.inputShellPill, styles.phoneSignupInputShell)}>
-                    <input
-                      ref={phoneInputRef}
-                      type="tel"
-                      className={clsx(styles.inputPill, styles.phoneSignupInputPill)}
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      onBlur={handlePhoneInputBlur}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && phoneNumber.trim().length > 0) {
-                          e.preventDefault()
-                          handlePhoneSubmit(e)
-                        }
-                        if (e.key === 'Escape') {
-                          setPhoneNumber('')
-                          setIsPhoneSignupEditing(false)
-                        }
-                      }}
-                      placeholder="WhatsApp phone number"
-                      autoFocus
-                    />
-                    {/* Submit button - appears when there's text */}
-                    {phoneNumber.trim().length > 0 && (
-                      <button
-                        type="button"
-                        className={styles.submitButton}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          handlePhoneSubmit(e)
-                        }}
-                        aria-label="Submit"
-                      >
-                        <ArrowUp className={styles.submitButtonIcon} />
-                      </button>
-                    )}
-                  </div>
-                </form>
-              )}
-
               {/* Log in link */}
               <p className={styles.switchAuthText}>
                 Already have an account?{' '}
