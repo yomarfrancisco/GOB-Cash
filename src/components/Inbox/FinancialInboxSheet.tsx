@@ -12,6 +12,7 @@ import { useUserProfileStore } from '@/store/userProfile'
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
 import { handleAgentInductionAction } from '@/lib/cashDeposit/chatOrchestration'
 import { getFirebaseAuth } from '@/lib/firebase'
+import { tx_appendUserMessage } from '@/lib/transactions/clientFunctions'
 import ChatInputBar from './ChatInputBar'
 import ChatMapEmbed from './ChatMapEmbed'
 import listStyles from './FinancialInboxListSheet.module.css'
@@ -354,9 +355,26 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   }, [activeMessages.length, isDemoIntro, inboxViewMode, scrollToBottomIfOverflow])
   
   // Send message handler
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     if (!inputText.trim()) return
     
+    // Check if active thread is a transaction thread
+    const activeThread = threads.find((t) => t.id === activeThreadId)
+    if (activeThread?.kind === 'transaction') {
+      // For transaction threads: write via Cloud Function (Firestore is source of truth)
+      try {
+        await tx_appendUserMessage(activeThreadId!, inputText.trim())
+        setInputText('')
+        // Message will appear via Firestore listener (no local optimistic write)
+      } catch (error) {
+        console.error('[Transaction] Failed to send message:', error)
+        // Keep input text so user can retry
+        // TODO: Show error notification to user
+      }
+      return
+    }
+    
+    // Portfolio-manager thread: keep existing local behavior
     // Check if we're in agent induction float custom input mode
     if (agentInductionStep === 'float' && agentFloatToday === null) {
       // Try to parse as number
@@ -398,7 +416,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       }
     }
     
-    // Send user message
+    // Send user message (portfolio-manager thread - local only)
     sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'user', inputText.trim())
     setInputText('')
     
@@ -410,7 +428,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
         "Got it – I'll help you with that. This will later come from the BabyCDO backend."
       )
     }, 800)
-  }, [inputText, sendMessage, agentInductionStep, agentFloatToday])
+  }, [inputText, sendMessage, agentInductionStep, agentFloatToday, activeThreadId, threads])
 
   // Manage intro stages for demo intro - only in chat view
   useEffect(() => {
