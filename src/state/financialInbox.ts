@@ -15,7 +15,13 @@ export type Thread = {
   avatarUrl: string
   unreadCount: number
   lastMessageAt: string // ISO or "14:09"
-  kind: 'portfolio_manager' | 'peer'
+  kind: 'portfolio_manager' | 'peer' | 'transaction'
+  metadata?: {
+    txStatus?: string
+    txType?: string
+    userId?: string
+    receiverId?: string
+  }
 }
 
 export type ChatMessage = {
@@ -24,6 +30,8 @@ export type ChatMessage = {
   from: 'user' | 'ai'
   text: string
   createdAt: string
+  metadata?: Record<string, any>
+  status?: string
 }
 
 export type InboxViewMode = 'inbox' | 'chat'
