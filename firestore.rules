@@ -48,6 +48,57 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
     
+    // Transactions collection: transactions/{txId}
+    match /transactions/{txId} {
+      // Allow read if user is a participant (userId or receiverId or in participants array)
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.receiverId == request.auth.uid ||
+        request.auth.uid in resource.data.get('participants', [])
+      );
+      
+      // Client cannot write transactions directly (Cloud Functions only via Admin SDK)
+      allow write: if false;
+      
+      // Messages subcollection: transactions/{txId}/messages/{msgId}
+      match /messages/{msgId} {
+        // Allow read if user is a participant in parent transaction
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/transactions/$(txId)).data.userId == request.auth.uid ||
+          get(/databases/$(database)/documents/transactions/$(txId)).data.receiverId == request.auth.uid ||
+          request.auth.uid in get(/databases/$(database)/documents/transactions/$(txId)).data.get('participants', [])
+        );
+        
+        // Client cannot write messages directly (Cloud Functions only)
+        allow write: if false;
+      }
+      
+      // Proofs subcollection: transactions/{txId}/proofs/{proofId}
+      match /proofs/{proofId} {
+        // Allow read if user is a participant in parent transaction
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/transactions/$(txId)).data.userId == request.auth.uid ||
+          get(/databases/$(database)/documents/transactions/$(txId)).data.receiverId == request.auth.uid ||
+          request.auth.uid in get(/databases/$(database)/documents/transactions/$(txId)).data.get('participants', [])
+        );
+        
+        // Client cannot write proofs directly (Cloud Functions only)
+        allow write: if false;
+      }
+    }
+    
+    // Withdrawals collection: withdrawals/{withdrawalId}
+    match /withdrawals/{withdrawalId} {
+      // Allow read if user is the userId or receiverId from the linked transaction
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.receiverId == request.auth.uid
+      );
+      
+      // Client cannot write withdrawals directly (Cloud Functions only)
+      allow write: if false;
+    }
+    
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
