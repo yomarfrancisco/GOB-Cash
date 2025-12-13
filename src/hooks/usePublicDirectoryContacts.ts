@@ -109,10 +109,30 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
             return aName.localeCompare(bName)
           })
         
+        // Debug: log sample of directory data to see what fields are present
+        const sampleWithPhoneCountry = mappedContacts
+          .filter(c => (c.metadata as any)?.phoneCountry)
+          .slice(0, 5)
+        const sampleWithoutPhoneCountry = mappedContacts
+          .filter(c => !(c.metadata as any)?.phoneCountry)
+          .slice(0, 5)
+        
         console.debug('[usePublicDirectoryContacts] Loaded directory contacts', {
           source: 'publicDirectory',
           count: mappedContacts.length,
           isAuthed: false,
+          withPhoneCountry: sampleWithPhoneCountry.length,
+          withoutPhoneCountry: sampleWithoutPhoneCountry.length,
+          sampleWithPhone: sampleWithPhoneCountry.map(c => ({
+            handle: c.handle,
+            phoneCountry: (c.metadata as any)?.phoneCountry,
+            phone: c.phone,
+          })),
+          sampleWithoutPhone: sampleWithoutPhoneCountry.map(c => ({
+            handle: c.handle,
+            phoneCountry: (c.metadata as any)?.phoneCountry,
+            phone: c.phone,
+          })),
         })
         
         setContacts(mappedContacts)

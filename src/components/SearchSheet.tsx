@@ -256,6 +256,19 @@ export default function SearchSheet() {
     const meta = tagsToMeta(tags)
     // Check if this is an agent from directory metadata
     const isAgent = (contact.metadata as any)?.isAgent || false
+    
+    // Debug logging for pre-auth directory contacts
+    if (!isAuthed && contact.source === 'gobankless-contact') {
+      console.debug('[SearchSheet] Directory contact subtitle', {
+        handle: contact.handle,
+        phone: contact.phone,
+        phoneCountry: (contact.metadata as any)?.phoneCountry,
+        isAgent,
+        tags,
+        meta,
+      })
+    }
+    
     const subtitle = buildContactSubtitle(meta, { isAuthenticated: isAuthed, isAgent })
     
     return (
