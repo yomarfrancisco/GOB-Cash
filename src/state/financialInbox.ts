@@ -5,6 +5,7 @@
 
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
+import { subscribeTransactionThreads, subscribeTransactionMessages } from '@/lib/transactions/firestoreHelpers'
 
 export type ThreadId = string
 
@@ -69,6 +70,9 @@ type FinancialInboxState = {
   cashDepositScenario: CashDepositScenario | null // Active cash deposit scenario
   cashWithdrawalScenario: CashWithdrawalScenario | null // Active cash withdrawal scenario
   lastPaymentFlow: PaymentFlowSummary | null // Latest payment flow summary
+  // Transaction thread sync
+  transactionThreadUnsubscribe: (() => void) | null
+  transactionMessageUnsubscribes: Record<ThreadId, () => void>
   openInbox: () => void
   closeInbox: () => void
   openChatSheet: (threadId: ThreadId) => void // Open chat sheet for a specific thread
@@ -84,6 +88,10 @@ type FinancialInboxState = {
   endCashWithdrawalScenario: () => void
   scenarioType: ScenarioType
   setLastPaymentFlow: (summary: PaymentFlowSummary) => void
+  // Transaction thread methods
+  startTransactionThreadSync: (uid: string) => () => void
+  subscribeToTransactionThread: (txId: string) => () => void
+  getActiveMessages: () => ChatMessage[]
 }
 
 export const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
@@ -131,6 +139,8 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
   cashWithdrawalScenario: null,
   scenarioType: null,
   lastPaymentFlow: null,
+  transactionThreadUnsubscribe: null,
+  transactionMessageUnsubscribes: {},
 
   ensurePortfolioManagerThread: () => {
     const state = get()
@@ -283,6 +293,106 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
 
   setLastPaymentFlow: (summary: PaymentFlowSummary) => {
     set({ lastPaymentFlow: summary })
+  },
+
+  // Transaction thread sync methods
+  startTransactionThreadSync: (uid: string) => {
+    const state = get()
+    
+    // Clean up existing subscription if any
+    if (state.transactionThreadUnsubscribe) {
+      state.transactionThreadUnsubscribe()
+    }
+
+    // Subscribe to transaction threads
+    const unsubscribe = subscribeTransactionThreads(uid, (transactionThreads) => {
+      const currentState = get()
+      
+      // Keep portfolio-manager thread (always first)
+      const pmThread = currentState.threads.find((t) => t.id === PORTFOLIO_MANAGER_THREAD_ID)
+      
+      // Merge: portfolio-manager + transaction threads
+      const mergedThreads: Thread[] = []
+      if (pmThread) {
+        mergedThreads.push(pmThread)
+      }
+      mergedThreads.push(...transactionThreads)
+      
+      const hasUnread = recomputeHasUnread(mergedThreads)
+      
+      set({
+        threads: mergedThreads,
+        hasUnreadNotification: hasUnread,
+        transactionThreadUnsubscribe: unsubscribe,
+      })
+      
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Transaction] Synced transaction threads:', transactionThreads.length)
+      }
+    })
+
+    return unsubscribe
+  },
+
+  subscribeToTransactionThread: (txId: string) => {
+    const state = get()
+    
+    // Clean up existing subscription for this thread if any
+    if (state.transactionMessageUnsubscribes[txId]) {
+      state.transactionMessageUnsubscribes[txId]()
+    }
+
+    // Subscribe to messages for this transaction
+    const unsubscribe = subscribeTransactionMessages(txId, (messages) => {
+      const currentState = get()
+      
+      // Update messages for this thread
+      set({
+        messagesByThreadId: {
+          ...currentState.messagesByThreadId,
+          [txId]: messages,
+        },
+      })
+      
+      // Update thread subtitle and timestamp from latest message
+      const thread = currentState.threads.find((t) => t.id === txId)
+      if (thread && messages.length > 0) {
+        const latestMessage = messages[messages.length - 1]
+        const updatedThreads = currentState.threads.map((t) =>
+          t.id === txId
+            ? {
+                ...t,
+                subtitle: latestMessage.text.length > 60 
+                  ? latestMessage.text.substring(0, 60) + '...' 
+                  : latestMessage.text,
+                lastMessageAt: latestMessage.createdAt,
+                // Count unread (messages from 'ai' that are newer than last read)
+                unreadCount: messages.filter((m) => m.from === 'ai').length,
+              }
+            : t
+        )
+        const hasUnread = recomputeHasUnread(updatedThreads)
+        set({ threads: updatedThreads, hasUnreadNotification: hasUnread })
+      }
+    })
+
+    // Store unsubscribe function
+    set((state) => ({
+      transactionMessageUnsubscribes: {
+        ...state.transactionMessageUnsubscribes,
+        [txId]: unsubscribe,
+      },
+    }))
+
+    return unsubscribe
+  },
+
+  getActiveMessages: () => {
+    const state = get()
+    if (!state.activeThreadId) {
+      return []
+    }
+    return state.messagesByThreadId[state.activeThreadId] || []
   },
 
   sendMessage: (threadId: ThreadId, from: 'user' | 'ai', text: string) => {

@@ -11,6 +11,7 @@ import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
 import { handleAgentInductionAction } from '@/lib/cashDeposit/chatOrchestration'
+import { getFirebaseAuth } from '@/lib/firebase'
 import ChatInputBar from './ChatInputBar'
 import ChatMapEmbed from './ChatMapEmbed'
 import listStyles from './FinancialInboxListSheet.module.css'
@@ -183,11 +184,16 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     isDemoIntro: storeIsDemoIntro,
     sendMessage,
     messagesByThreadId,
+    activeThreadId,
+    threads,
     cashDepositScenario,
     endCashDepositScenario,
     cashWithdrawalScenario,
     endCashWithdrawalScenario,
     scenarioType,
+    startTransactionThreadSync,
+    subscribeToTransactionThread,
+    getActiveMessages,
   } = useFinancialInboxStore()
   
   // Get auth state for pre-auth gating
@@ -242,11 +248,44 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   // Store pre-keyboard scrollHeight to determine if conversation is short
   const preKeyboardScrollHeightRef = useRef<number | null>(null)
   
-  // Get messages for the portfolio manager thread
-  const pmMessages = messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID] || []
+  // Get messages for active thread (portfolio-manager or transaction)
+  const activeMessages = getActiveMessages()
+  // Keep pmMessages for backward compatibility with existing logic
+  const pmMessages = activeThreadId === PORTFOLIO_MANAGER_THREAD_ID 
+    ? activeMessages 
+    : messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID] || []
   
   // Get first name from fullName
   const firstName = profile.fullName.split(' ')[0] || 'there'
+
+  // Start transaction thread sync when authenticated
+  useEffect(() => {
+    if (!isAuthed) return
+
+    const { profile: authProfile } = useUserProfileStore.getState()
+    // We need the user ID - get it from auth store or profile
+    const auth = getFirebaseAuth()
+    const user = auth.currentUser
+    if (!user) return
+
+    // Start syncing transaction threads
+    const unsubscribe = startTransactionThreadSync(user.uid)
+
+    return () => {
+      unsubscribe()
+    }
+  }, [isAuthed, startTransactionThreadSync])
+
+  // Subscribe to transaction thread messages when opening a transaction thread
+  useEffect(() => {
+    if (!activeThreadId || !isAuthed) return
+
+    const activeThread = threads.find((t) => t.id === activeThreadId)
+    if (activeThread?.kind === 'transaction') {
+      // Subscribe to messages for this transaction thread
+      subscribeToTransactionThread(activeThreadId)
+    }
+  }, [activeThreadId, threads, isAuthed, subscribeToTransactionThread])
   
   // Measure conversation height on mount/when chat view opens (before keyboard)
   useEffect(() => {
@@ -312,7 +351,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     if (!isDemoIntro && inboxViewMode === 'chat') {
       scrollToBottomIfOverflow()
     }
-  }, [pmMessages.length, isDemoIntro, inboxViewMode, scrollToBottomIfOverflow])
+  }, [activeMessages.length, isDemoIntro, inboxViewMode, scrollToBottomIfOverflow])
   
   // Send message handler
   const handleSend = useCallback(() => {
@@ -747,20 +786,27 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
               />
             </div>
 
-            {/* Agent list - scrollable */}
+            {/* Thread list - scrollable (includes portfolio-manager + transaction threads) */}
             <div className={listStyles.conversationList}>
-              {agents.map((agent) => (
+              {threads.map((thread) => (
                 <button
-                  key={agent.id}
+                  key={thread.id}
                   className={listStyles.inboxRow}
-                  onClick={() => handleRowClick(agent.id)}
+                  onClick={() => {
+                    if (thread.kind === 'portfolio_manager') {
+                      handleRowClick('ama')
+                    } else {
+                      // Transaction thread - open directly
+                      openChatSheet(thread.id)
+                    }
+                  }}
                   type="button"
                 >
                   <div className={listStyles.inboxRowLeft}>
                     <div className={listStyles.avatarWrapper}>
                       <Image
-                        src={agent.avatar}
-                        alt={agent.name}
+                        src={thread.avatarUrl}
+                        alt={thread.title}
                         width={64}
                         height={64}
                         className={listStyles.avatar}
@@ -769,16 +815,16 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
                     </div>
                     <div className={listStyles.inboxTextBlock}>
                       <div className={listStyles.inboxHeader}>
-                        <div className={listStyles.inboxTitle}>{agent.name}</div>
+                        <div className={listStyles.inboxTitle}>{thread.title}</div>
                         <div className={listStyles.inboxTimeRow}>
-                          <div className={listStyles.inboxTime}>{agent.time}</div>
-                          {agent.unread && (
+                          <div className={listStyles.inboxTime}>{thread.lastMessageAt}</div>
+                          {thread.unreadCount > 0 && (
                             <div className={listStyles.unreadDot} />
                           )}
                         </div>
                       </div>
                       <div className={listStyles.inboxPreview}>
-                        {agent.preview}
+                        {thread.subtitle}
                       </div>
                     </div>
                   </div>
@@ -834,7 +880,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
           {/* Message area */}
           <div ref={messageAreaRef} className={chatStyles.messageArea}>
             {/* Render messages from store */}
-            {pmMessages.map((message, index) => {
+            {activeMessages.map((message, index) => {
               const showDateChip = index === 0
               return (
                 <div key={message.id} className={chatStyles.messageWrapper}>
