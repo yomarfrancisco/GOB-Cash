@@ -67,10 +67,10 @@ export default function SearchSheet() {
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const { profile } = useUserProfileStore()
   
-  // Normalize current user's handle for comparison
+  // Normalize current user's handle for comparison (always returns string, empty string if not available)
   const myHandleNormalized = useMemo(() => {
-    if (!isAuthed || !profile.userHandle) return null
-    return normalizeHandle(profile.userHandle) || null
+    if (!isAuthed || !profile.userHandle) return ''
+    return normalizeHandle(profile.userHandle) ?? ''
   }, [isAuthed, profile.userHandle])
 
   // Get contacts from store and compute ranked list (for sync)
@@ -281,8 +281,8 @@ export default function SearchSheet() {
       })
     }
     
-    // Check if this is "me"
-    const isMe = myHandleNormalized && contact.handle === myHandleNormalized
+    // Check if this is "me" (force to boolean)
+    const isMe = !!(myHandleNormalized && contact.handle === myHandleNormalized)
     
     // Post-auth directory contacts: subtitle = phone + email ONLY (no corridor text)
     // Pre-auth directory contacts: subtitle = corridor text only

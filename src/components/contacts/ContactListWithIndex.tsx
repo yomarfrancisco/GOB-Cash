@@ -44,13 +44,13 @@ function ContactRow({
   const { profile } = useUserProfileStore()
   const { isAuthed } = useAuthStore()
   
-  // Normalize current user's handle for comparison
+  // Normalize current user's handle for comparison (always returns string, empty string if not available)
   const myHandleNormalized = isAuthed && profile.userHandle 
-    ? normalizeHandle(profile.userHandle) 
-    : null
+    ? (normalizeHandle(profile.userHandle) ?? '')
+    : ''
   
-  // Check if this is "me"
-  const isMe = myHandleNormalized && contact.handle === myHandleNormalized
+  // Check if this is "me" (force to boolean)
+  const isMe = !!(myHandleNormalized && contact.handle === myHandleNormalized)
   
   // Compute short subtitle using tag-based helper
   const tags = getContactTags({
