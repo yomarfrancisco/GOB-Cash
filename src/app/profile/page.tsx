@@ -86,6 +86,7 @@ export default function ProfilePage() {
   const [openDepositChat, setOpenDepositChat] = useState(false)
   const [depositChatTxId, setDepositChatTxId] = useState<string | null>(null)
   const [openAgentInbox, setOpenAgentInbox] = useState(false)
+  const [depositAmountZAR, setDepositAmountZAR] = useState(0) // Persist deposit amount through flow
   
   // Check if current user is agent
   const auth = getFirebaseAuth()
@@ -96,7 +97,7 @@ export default function ProfilePage() {
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
-  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | undefined>(undefined)
+  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | undefined>(undefined)
   const [depositMethod, setDepositMethod] = useState<'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null>(null)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
@@ -526,9 +527,11 @@ export default function ProfilePage() {
         onSelect={(mode) => {
           setOpenCashInOut(false)
           if (mode === 'deposit') {
-            // Existing "Top up" behavior
+            // Open deposit keypad with Withdraw/Deposit buttons
+            setAmountMode('deposit')
+            setAmountEntryPoint('depositKeypad')
             setTimeout(() => {
-              openDepositSheet()
+              setOpenAmount(true)
             }, 220)
           } else {
             // Existing "Cash out" behavior
@@ -619,6 +622,13 @@ export default function ProfilePage() {
             setTimeout(() => {
               setOpenDeposit(true)
             }, 220)
+          } else if (amountMode === 'deposit' && amountEntryPoint === 'depositKeypad') {
+            // Deposit keypad: return to CashInOutSheet
+            setOpenAmount(false)
+            setAmountEntryPoint(undefined)
+            setTimeout(() => {
+              setOpenCashInOut(true)
+            }, 220)
           } else {
             setOpenAmount(false)
             setAmountEntryPoint(undefined) // Reset entry point when closing
@@ -653,6 +663,13 @@ export default function ProfilePage() {
           setTimeout(() => {
             openPaymentDetails('request', amountZAR)
           }, 220)
+        } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountZAR }) => {
+          // Deposit keypad: "Withdraw" button - open withdraw sheet
+          setOpenAmount(false)
+          setAmountEntryPoint(undefined)
+          setTimeout(() => {
+            openWithdrawSheet()
+          }, 220)
         } : undefined}
         onCardSubmit={amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
           // Card payment flow ("Pay someone"): open PaymentDetailsSheet
@@ -660,6 +677,14 @@ export default function ProfilePage() {
           setAmountEntryPoint(undefined)
           setTimeout(() => {
             openPaymentDetails('pay', amountZAR)
+          }, 220)
+        } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountZAR }) => {
+          // Deposit keypad: "Deposit" button - store amount and proceed to DepositSheet
+          setDepositAmountZAR(amountZAR)
+          setOpenAmount(false)
+          setAmountEntryPoint(undefined)
+          setTimeout(() => {
+            openDepositSheet()
           }, 220)
         } : undefined}
         onSubmit={amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
@@ -809,6 +834,7 @@ export default function ProfilePage() {
           setOpenBankTransferDetails(false)
           // Reset bank selection when closing
           setSelectedBank(undefined)
+          setDepositAmountZAR(0) // Clear deposit amount when closing
         }}
         onBack={() => {
           setOpenBankTransferDetails(false)
@@ -824,8 +850,13 @@ export default function ProfilePage() {
               return
             }
 
+            if (depositAmountZAR <= 0) {
+              console.error('[Deposit] Invalid deposit amount')
+              return
+            }
+
             // Get bank config for reference
-            const { DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, SOUTH_AFRICA_BANK_ACCOUNTS } = await import('@/config/depositBankAccounts')
+            const { DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, SOUTH_AFRICA_BANK_ACCOUNTS, COUNTRY_SELECT_OPTIONS } = await import('@/config/depositBankAccounts')
             let config
             if (bankTransferCountry === 'MZ' && selectedBank && (selectedBank === 'BCI' || selectedBank === 'ABSA')) {
               config = MOZAMBIQUE_BANK_ACCOUNTS[selectedBank]
@@ -835,9 +866,8 @@ export default function ProfilePage() {
               config = DEPOSIT_BANK_ACCOUNTS[bankTransferCountry]
             }
 
-            // Create transaction with placeholder amount (1000 ZAR - can be updated later)
-            // TODO: Add amount entry step before bank details
-            const { txId } = await tx_createBankDepositRequest(AGENT_UID, 1000)
+            // Create transaction with persisted amount
+            const { txId } = await tx_createBankDepositRequest(AGENT_UID, depositAmountZAR)
 
             // Update transaction with bank details and chatStep
             const db = getFirestoreDb()
@@ -847,6 +877,7 @@ export default function ProfilePage() {
               bankId: selectedBank || (bankTransferCountry === 'MZ' ? 'BCI' : 'FNB'),
               depositCurrency: bankTransferCountry === 'MZ' ? 'MZN' : 'ZAR',
               depositReference: config.referencePrefix,
+              amountZar: depositAmountZAR,
               chatStep: 'INTRO_CONFIRM_INTENT',
               participants: [user.uid, AGENT_UID, 'samba'],
               updatedAt: serverTimestamp(),
@@ -869,6 +900,7 @@ export default function ProfilePage() {
           onClose={() => {
             setOpenDepositChat(false)
             setDepositChatTxId(null)
+            setDepositAmountZAR(0) // Clear deposit amount when chat closes
           }}
           txId={depositChatTxId}
         />

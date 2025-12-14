@@ -27,7 +27,7 @@ type AmountSheetProps = {
   showDualButtons?: boolean // if true, show "Cash" and "Card" buttons instead of single CTA
   onCashSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Cash button
   onCardSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Card button
-  entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' | 'sponsorButton' // distinguishes entry point for conditional button rendering
+  entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' | 'sponsorButton' | 'depositKeypad' // distinguishes entry point for conditional button rendering
   sponsorHandle?: string // profile handle for sponsor flow (e.g. '@ama')
   onWeeklySubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Weekly button (sponsor flow)
   onMonthlySubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Monthly button (sponsor flow)
@@ -281,7 +281,7 @@ export default function AmountSheet({
             customFeeText={customFeeText}
           />
         </div>
-        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {withdrawOnly ? (
             // Force single button for withdrawal flow
             <button 
@@ -372,6 +372,26 @@ export default function AmountSheet({
                 disabled={!isPositive}
               >
                 Pay
+              </button>
+            </>
+          ) : entryPoint === 'depositKeypad' ? (
+            // Dual buttons for deposit keypad: "Withdraw" and "Deposit"
+            <>
+              <button 
+                className="amount-keypad__cta amount-keypad__cta--cash" 
+                onClick={handleCashSubmit} 
+                type="button"
+                disabled={!isPositive}
+              >
+                Withdraw
+              </button>
+              <button 
+                className="amount-keypad__cta amount-keypad__cta--card" 
+                onClick={handleCardSubmit} 
+                type="button"
+                disabled={!isPositive}
+              >
+                Deposit
               </button>
             </>
           ) : showDualButtons ? (

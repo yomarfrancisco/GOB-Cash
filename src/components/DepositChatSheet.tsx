@@ -129,13 +129,25 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
   const sendSambaMessage = async (chatStep: ChatStep, tx: BankDepositTransaction) => {
     try {
       const db = getFirestoreDb()
+      const handleCustomer = profile.userHandle || profile.fullName?.split(' ')[0] || 'there'
       const firstName = profile.fullName?.split(' ')[0] || 'there'
+      const displayName = profile.fullName || 'there'
+      const amount = tx.amountZar ? `${tx.amountZar.toFixed(2)}` : '0'
+      const currency = tx.depositCurrency === 'MZN' ? 'MZN' : 'ZAR'
       const bankName = tx.bankId || ''
       const bankCountry = tx.bankCountry || ''
       const reference = tx.depositReference || ''
+      
+      // Get country name from bankCountry code
+      const countryName = bankCountry === 'MZ' ? 'Mozambique' : bankCountry === 'ZA' ? 'South Africa' : ''
 
       const sambaText = getSambaMessage(chatStep, {
+        handleCustomer,
         customerFirstName: firstName,
+        displayName,
+        amount,
+        currency,
+        country: countryName,
         bankName,
         bankCountry,
         depositReference: reference,
@@ -191,10 +203,10 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
           // Mark deposit as sent
           await tx_userMarkDepositSent(txId)
           
-          // Update chatStep to WAITING_FOR_WALLET_ADDRESS
+          // Update chatStep to WAITING_FOR_SENT_PROOF (Samba Message 2 will be sent)
           const txRef = doc(db, 'transactions', txId)
           await updateDoc(txRef, {
-            chatStep: 'WAITING_FOR_WALLET_ADDRESS',
+            chatStep: 'WAITING_FOR_SENT_PROOF',
             updatedAt: serverTimestamp(),
           })
         } else {
@@ -203,6 +215,35 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
           if (helperResponse) {
             await tx_appendUserMessage(txId, helperResponse)
             // Actually, we should send as SAMBA, not user
+            const msgRef = collection(db, 'transactions', txId, 'messages')
+            await addDoc(msgRef, {
+              txId,
+              senderType: 'SAMBA',
+              senderUid: 'samba',
+              text: helperResponse,
+              createdAt: serverTimestamp(),
+            })
+          }
+        }
+      } else if (currentStep === 'WAITING_FOR_SENT_PROOF') {
+        // After user says SENT, they should provide TRON address
+        // Validate TRON address
+        if (isValidTronAddress(userMessage)) {
+          // Store address and move to WAITING_FOR_WALLET_ADDRESS
+          const txRef = doc(db, 'transactions', txId)
+          await updateDoc(txRef, {
+            withdrawalAddressCandidate: userMessage.trim(),
+            chatStep: 'WAITING_FOR_WALLET_ADDRESS',
+            updatedAt: serverTimestamp(),
+          })
+          
+          // Send Samba confirmation message
+          const updatedTx = { ...transaction, chatStep: 'WAITING_FOR_WALLET_ADDRESS' as ChatStep, withdrawalAddressCandidate: userMessage.trim() }
+          await sendSambaMessage('WAITING_FOR_WALLET_ADDRESS', updatedTx)
+        } else {
+          // Invalid address - send helper response
+          const helperResponse = getSambaHelperResponse(userMessage, currentStep)
+          if (helperResponse) {
             const msgRef = collection(db, 'transactions', txId, 'messages')
             await addDoc(msgRef, {
               txId,
