@@ -95,7 +95,7 @@ export function useGlobalContactsPublicForUI(): RankedContact[] {
               name,
               email: undefined, // Not available in public collection
               phone: undefined, // Not available in public collection
-              photoUrl: null,
+              photoUrl: undefined, // Not available in public collection
               source: 'gobankless-contact',
               qualityScore,
               subtitle,
