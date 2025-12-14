@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 import type { RankedContact } from '@/lib/contacts/rankContacts'
+import { getContactTags } from '@/lib/contacts/contactTags'
+import { buildContactSubtitle, tagsToMeta } from '@/lib/contacts/contactDescription'
 
 const MAX_DIRECTORY_CONTACTS = 600
 
@@ -64,7 +66,28 @@ export function useGlobalContactsPublicForUI(): RankedContact[] {
             const displayName = data.displayName || ''
             
             // Use displayName if available, otherwise use handle without $ prefix
-            const name = displayName || handle.replace(/^\$/, '')
+            const name = displayName || handle.replace(/^\$/, '') || 'Unknown'
+            
+            // Compute tags for subtitle generation (pre-auth: corridor text only)
+            const tags = getContactTags({
+              handle: handle,
+              name: name,
+              phoneNumber: undefined, // Not available in public collection
+              email: undefined, // Not available in public collection
+              sourceType: 'gobankless-contact',
+              phoneCountry: null, // Could be added to public doc if needed
+            })
+            
+            const meta = tagsToMeta(tags)
+            
+            // Compute subtitle using buildContactSubtitle (pre-auth: corridor text only)
+            const subtitle = buildContactSubtitle(meta, { 
+              isAuthenticated: false, 
+              isAgent: false 
+            })
+            
+            // Compute qualityScore (default to 0, could be enhanced based on sources count)
+            const qualityScore = 0
             
             return {
               id: `gobankless-contact-${handle}`,
@@ -74,10 +97,12 @@ export function useGlobalContactsPublicForUI(): RankedContact[] {
               phone: undefined, // Not available in public collection
               photoUrl: null,
               source: 'gobankless-contact',
+              qualityScore,
+              subtitle,
               metadata: {
                 sources: data.sources || [],
               },
-            } as RankedContact
+            }
           })
           .filter((contact) => contact.handle && contact.handle.trim() !== '')
 
