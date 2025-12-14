@@ -21,7 +21,7 @@ type BankSelectSheetProps = {
 // Bank logo paths
 const BANK_LOGOS: Record<string, string> = {
   ABSA: '/assets/ABSA_logo.png',
-  BCI: '/assets/BCI logo.png',
+  BCI: '/assets/BCI_logo.png',
   FNB: '/assets/fnb_logo.png',
 }
 
