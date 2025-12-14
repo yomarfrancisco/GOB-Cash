@@ -188,14 +188,32 @@ export async function tx_createBankDepositRequest(
   // Get Firebase app instance (uses env vars, no hardcoded URLs)
   const app = getFirebaseApp()
   
+  // Verify app is initialized correctly
+  if (!app || !app.options.projectId) {
+    throw new Error('[Transaction] Firebase app not properly initialized')
+  }
+  
   // Get Functions instance with correct region
+  // IMPORTANT: Must use same region as deployed function (us-central1)
   const functions = getFunctions(app, 'us-central1')
   
-  // Create callable function reference (uses Firebase Remote Config endpoint, NOT cloudfunctions.net)
+  // Create callable function reference
+  // This uses Firebase's callable endpoint (firebaseremoteconfig.googleapis.com pattern)
+  // NOT the direct cloudfunctions.net URL
   const fn = httpsCallable(functions, 'tx_createBankDepositRequest')
   
   try {
+    // Log for debugging (will show in console)
+    if (typeof window !== 'undefined') {
+      console.log('[Transaction] Calling tx_createBankDepositRequest via httpsCallable', {
+        projectId: app.options.projectId,
+        region: 'us-central1',
+        functionName: 'tx_createBankDepositRequest',
+      })
+    }
+    
     // Call function via Firebase SDK (handles CORS, auth, etc.)
+    // This should NOT hit cloudfunctions.net directly
     const result = await fn({ receiverId, amountZar })
     const data = result.data as { txId: string; status: string }
     
@@ -210,6 +228,7 @@ export async function tx_createBankDepositRequest(
       amountZar,
       errorCode: error?.code,
       errorMessage: error?.message,
+      projectId: app.options.projectId,
       // Log that we're using httpsCallable, not fetch
       method: 'httpsCallable',
     })
