@@ -130,12 +130,22 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
     try {
       const db = getFirestoreDb()
       const firstName = profile.fullName?.split(' ')[0] || 'there'
+      const displayName = profile.fullName || 'there'
+      const amount = tx.amountZar ? `${tx.amountZar.toFixed(2)}` : '0'
+      const currency = tx.depositCurrency === 'MZN' ? 'MZN' : 'ZAR'
       const bankName = tx.bankId || ''
       const bankCountry = tx.bankCountry || ''
       const reference = tx.depositReference || ''
+      
+      // Get country name from bankCountry code
+      const countryName = bankCountry === 'MZ' ? 'Mozambique' : bankCountry === 'ZA' ? 'South Africa' : ''
 
       const sambaText = getSambaMessage(chatStep, {
         customerFirstName: firstName,
+        displayName,
+        amount,
+        currency,
+        country: countryName,
         bankName,
         bankCountry,
         depositReference: reference,
@@ -191,10 +201,10 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
           // Mark deposit as sent
           await tx_userMarkDepositSent(txId)
           
-          // Update chatStep to WAITING_FOR_WALLET_ADDRESS
+          // Update chatStep to WAITING_FOR_SENT_PROOF (Samba Message 2 will be sent)
           const txRef = doc(db, 'transactions', txId)
           await updateDoc(txRef, {
-            chatStep: 'WAITING_FOR_WALLET_ADDRESS',
+            chatStep: 'WAITING_FOR_SENT_PROOF',
             updatedAt: serverTimestamp(),
           })
         } else {
