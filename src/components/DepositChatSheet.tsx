@@ -132,14 +132,15 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
       const handleCustomer = profile.userHandle || profile.fullName?.split(' ')[0] || 'there'
       const firstName = profile.fullName?.split(' ')[0] || 'there'
       const displayName = profile.fullName || 'there'
-      const amount = tx.amountZar ? `${tx.amountZar.toFixed(2)}` : '0'
-      const currency = tx.depositCurrency === 'MZN' ? 'MZN' : 'ZAR'
-      const bankName = tx.bankId || ''
-      const bankCountry = tx.bankCountry || ''
-      const reference = tx.depositReference || ''
       
-      // Get country name from bankCountry code
-      const countryName = bankCountry === 'MZ' ? 'Mozambique' : bankCountry === 'ZA' ? 'South Africa' : ''
+      // Use depositDetails if available (from persisted amount), otherwise fall back to tx fields
+      const depositDetails = tx.depositDetails
+      const amount = depositDetails?.amount ? `${depositDetails.amount.toFixed(2)}` : (tx.amountZar ? `${tx.amountZar.toFixed(2)}` : '0')
+      const currency = depositDetails?.currency || (tx.depositCurrency === 'MZN' ? 'MZN' : 'ZAR')
+      const countryName = depositDetails?.country || (tx.bankCountry === 'MZ' ? 'Mozambique' : tx.bankCountry === 'ZA' ? 'South Africa' : '')
+      const bankName = depositDetails?.bankName || tx.bankId || ''
+      const bankCountry = tx.bankCountry || ''
+      const reference = depositDetails?.reference || tx.depositReference || ''
 
       const sambaText = getSambaMessage(chatStep, {
         handleCustomer,

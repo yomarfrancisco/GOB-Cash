@@ -61,6 +61,13 @@ export interface BankDepositTransaction {
   expiresAt?: any
   unlockAt?: any
   withdrawal: Record<string, any>
+  depositDetails?: { // Stored deposit details for Samba messages (from persisted amount)
+    amount: number
+    currency: 'USD' | 'ZAR' | 'MZN'
+    country: string
+    bankName: string
+    reference: string
+  }
 }
 
 // Hardcoded agent UID for v1

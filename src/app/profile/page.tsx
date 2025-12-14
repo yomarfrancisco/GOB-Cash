@@ -7,7 +7,7 @@ import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
-import CashInOutSheet from '@/components/CashInOutSheet'
+// CashInOutSheet removed - Cash-in/out button now opens AmountSheet directly
 import CountrySelectSheet from '@/components/CountrySelectSheet'
 import BankSelectSheet, { type SelectedBank } from '@/components/BankSelectSheet'
 import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
@@ -75,7 +75,7 @@ export default function ProfilePage() {
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
   const [openPayments, setOpenPayments] = useState(false)
-  const [openCashInOut, setOpenCashInOut] = useState(false)
+  // openCashInOut removed - Cash-in/out button now opens AmountSheet directly
   const [openDeposit, setOpenDeposit] = useState(false)
   const [openWithdraw, setOpenWithdraw] = useState(false)
   const [openCountrySelect, setOpenCountrySelect] = useState(false)
@@ -362,8 +362,13 @@ export default function ProfilePage() {
                   onClick={() => {
                     console.log('[UI] Cash-in/out clicked', { isAuthed })
                     guardAuthed(() => {
-                      console.log('[UI] guardAuthed passed -> opening CashInOutSheet')
-                      setOpenCashInOut(true)
+                      console.log('[UI] guardAuthed passed -> opening deposit keypad')
+                      // Open deposit keypad directly (no CashInOutSheet)
+                      setAmountMode('deposit')
+                      setAmountEntryPoint('depositKeypad')
+                      setTimeout(() => {
+                        setOpenAmount(true)
+                      }, 220)
                     })
                   }}
                 >
@@ -523,26 +528,7 @@ export default function ProfilePage() {
     </div>
 
       {/* Sheets */}
-      <CashInOutSheet
-        open={openCashInOut}
-        onClose={() => setOpenCashInOut(false)}
-        onSelect={(mode) => {
-          setOpenCashInOut(false)
-          if (mode === 'deposit') {
-            // Open deposit keypad with Withdraw/Deposit buttons
-            setAmountMode('deposit')
-            setAmountEntryPoint('depositKeypad')
-            setTimeout(() => {
-              setOpenAmount(true)
-            }, 220)
-          } else {
-            // Existing "Cash out" behavior
-            setTimeout(() => {
-              openWithdrawSheet()
-            }, 220)
-          }
-        }}
-      />
+      {/* CashInOutSheet removed - Cash-in/out button now opens AmountSheet directly */}
       <PaymentsSheet
         open={openPayments}
         onClose={closePaymentsSheet}
@@ -572,7 +558,12 @@ export default function ProfilePage() {
         variant="deposit"
         onBack={() => {
           setOpenDeposit(false)
-          setTimeout(() => setOpenCashInOut(true), 220)
+          setTimeout(() => {
+            // Go back to deposit keypad with persisted amount
+            setAmountMode('deposit')
+            setAmountEntryPoint('depositKeypad')
+            setOpenAmount(true)
+          }, 220)
         }}
         onSelect={(method) => {
           setOpenDeposit(false)
@@ -606,7 +597,7 @@ export default function ProfilePage() {
         onClose={closeWithdraw}
         onBack={() => {
           setOpenWithdraw(false)
-          setTimeout(() => setOpenCashInOut(true), 220)
+          // Withdraw flow: close sheet (no keypad to return to from Cash-in/out entry point)
         }}
         onSelect={(method) => {
           setOpenWithdraw(false)
@@ -625,12 +616,10 @@ export default function ProfilePage() {
               setOpenDeposit(true)
             }, 220)
           } else if (amountMode === 'deposit' && amountEntryPoint === 'depositKeypad') {
-            // Deposit keypad: return to CashInOutSheet
+            // Deposit keypad: close and clear amount
             setOpenAmount(false)
             setAmountEntryPoint(undefined)
-            setTimeout(() => {
-              setOpenCashInOut(true)
-            }, 220)
+            setDepositAmountZAR(0) // Clear amount on close
           } else {
             setOpenAmount(false)
             setAmountEntryPoint(undefined) // Reset entry point when closing
@@ -721,6 +710,7 @@ export default function ProfilePage() {
           }
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
+        initialAmount={amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountZAR > 0 ? depositAmountZAR : undefined}
       />
       <SendDetailsSheet
         open={openSendDetails}
@@ -848,12 +838,12 @@ export default function ProfilePage() {
             const auth = getFirebaseAuth()
             const user = auth.currentUser
             if (!user) {
-              console.error('[Deposit] No authenticated user')
+              alert('You must be signed in to create a deposit. Please sign in and try again.')
               return
             }
 
             if (depositAmountZAR <= 0) {
-              console.error('[Deposit] Invalid deposit amount')
+              alert('Please enter a valid deposit amount.')
               return
             }
 
@@ -867,6 +857,7 @@ export default function ProfilePage() {
             } else {
               config = DEPOSIT_BANK_ACCOUNTS[bankTransferCountry]
             }
+            const countryName = COUNTRY_SELECT_OPTIONS.find(c => c.code === bankTransferCountry)?.name || ''
 
             // Create transaction with persisted amount
             const { txId } = await tx_createBankDepositRequest(AGENT_UID, depositAmountZAR)
@@ -879,18 +870,34 @@ export default function ProfilePage() {
               bankId: selectedBank || (bankTransferCountry === 'MZ' ? 'BCI' : 'FNB'),
               depositCurrency: bankTransferCountry === 'MZ' ? 'MZN' : 'ZAR',
               depositReference: config.referencePrefix,
-              amountZar: depositAmountZAR,
+              amountZar: depositAmountZAR, // Store the persisted amount
               chatStep: 'INTRO_CONFIRM_INTENT',
               participants: [user.uid, AGENT_UID, 'samba'],
               updatedAt: serverTimestamp(),
+              // Store deposit details for Samba message
+              depositDetails: {
+                amount: depositAmountZAR,
+                currency: bankTransferCountry === 'MZ' ? 'MZN' : 'ZAR',
+                country: countryName,
+                bankName: config.bankName,
+                reference: config.referencePrefix,
+              }
             })
 
             // Close bank details sheet and open chat
             setOpenBankTransferDetails(false)
             setDepositChatTxId(txId)
             setTimeout(() => setOpenDepositChat(true), 220)
-          } catch (error) {
+          } catch (error: any) {
             console.error('[Deposit] Failed to create transaction:', error)
+            // Show user-friendly error message
+            const errorMessage = error?.message || 'Unknown error'
+            if (errorMessage.includes('CORS') || errorMessage.includes('network') || errorMessage.includes('fetch')) {
+              alert('We couldn\'t start the deposit chat. Please check your connection and try again.')
+            } else {
+              alert('We couldn\'t start the deposit chat. Please try again.')
+            }
+            // Do NOT close the sheet on error - user can retry
           }
         }}
         countryCode={bankTransferCountry}
