@@ -39,15 +39,6 @@ export default function FirebaseAuthListener() {
         .then(async (result) => {
           if (result && result.user) {
             console.log('[Firebase] Auth redirect result user:', result.user.uid)
-            
-            // Capture Google OAuth access token for contact sync (same as popup flow)
-            const { GoogleAuthProvider } = await import('firebase/auth')
-            const credential = GoogleAuthProvider.credentialFromResult(result)
-            if (credential?.accessToken) {
-              sessionStorage.setItem('google_access_token', credential.accessToken)
-              console.log('[Firebase] Stored Google access token from redirect for contact sync')
-            }
-            
             await ensureUserDocument(result.user)
             // setAuthState will be called by onAuthStateChanged below
           }
@@ -130,10 +121,16 @@ export default function FirebaseAuthListener() {
 
         })
 
+        // Clear demo wallets immediately on sign-in (before Firestore loads)
+        // This prevents cards from showing demo values during the race condition
+        const walletStore = useWalletStore.getState()
+        walletStore.setDemoMode(false) // Explicitly disable demo mode
+        // Clear wallets immediately - they'll be populated from Firestore below
+        walletStore.setWallets({} as any) // Empty wallets until Firestore loads
+
         // Ensure wallets and subscribe to wallet snapshots
         try {
           await ensureDefaultWallets(user)
-          const walletStore = useWalletStore.getState()
           unsubscribeWalletsRef.current = subscribeToWallets(user.uid, (wallets) => {
             walletStore.setWallets(wallets)
             if (process.env.NODE_ENV !== 'production') {

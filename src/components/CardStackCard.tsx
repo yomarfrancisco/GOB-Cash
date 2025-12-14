@@ -291,13 +291,19 @@ export default function CardStackCard({
   // For authed users: use Firestore wallets (source of truth), fallback to 0 if not loaded yet
   // For pre-auth: use alloc (demo values)
   let cents: number
-  if (isAuthed && wallets && !demoMode && walletId) {
-    // Read directly from Firestore wallets
-    const wallet = (wallets as any)[walletId]
-    const fiatBalance = wallet?.fiatBalance ?? 0
-    cents = Math.round(fiatBalance * 100)
+  if (isAuthed) {
+    // Authed user: never use demo values, even if wallets haven't loaded yet
+    if (wallets && !demoMode && walletId) {
+      // Read directly from Firestore wallets (source of truth)
+      const wallet = (wallets as any)[walletId]
+      const fiatBalance = wallet?.fiatBalance ?? 0
+      cents = Math.round(fiatBalance * 100)
+    } else {
+      // Wallets not loaded yet or still in demo mode: show 0 (don't use alloc which might have demo values)
+      cents = 0
+    }
   } else {
-    // Pre-auth: use alloc (demo values)
+    // Pre-auth: use alloc (demo values for marketing)
     cents = (alloc as any)[allocKey] || 0
   }
   
@@ -311,11 +317,20 @@ export default function CardStackCard({
   let ethZAR: number
   let zwdZAR: number
   
-  if (isAuthed && wallets && !demoMode) {
-    cashZAR = ((wallets as any)?.cashZAR?.fiatBalance ?? 0)
-    ethZAR = ((wallets as any)?.eth?.fiatBalance ?? 0)
-    zwdZAR = ((wallets as any)?.cashZWD?.fiatBalance ?? 0)
+  if (isAuthed) {
+    // Authed user: never use demo values, even if wallets haven't loaded yet
+    if (wallets && !demoMode) {
+      cashZAR = ((wallets as any)?.cashZAR?.fiatBalance ?? 0)
+      ethZAR = ((wallets as any)?.eth?.fiatBalance ?? 0)
+      zwdZAR = ((wallets as any)?.cashZWD?.fiatBalance ?? 0)
+    } else {
+      // Wallets not loaded yet: show 0 (don't use alloc which might have demo values)
+      cashZAR = 0
+      ethZAR = 0
+      zwdZAR = 0
+    }
   } else {
+    // Pre-auth: use alloc (demo values for marketing)
     cashZAR = alloc.cashCents / 100
     ethZAR = alloc.ethCents / 100
     zwdZAR = alloc.zwdCents / 100
