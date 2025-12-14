@@ -177,20 +177,32 @@ export async function tx_raiseDispute(txId: string, reason: string): Promise<voi
 /**
  * Create a bank deposit transaction request
  * Creates transaction with AWAITING_DEPOSIT status
+ * 
+ * IMPORTANT: Uses httpsCallable (Firebase SDK) - NOT fetch/axios
+ * This ensures proper CORS handling and authentication
  */
 export async function tx_createBankDepositRequest(
   receiverId: string,
   amountZar: number
 ): Promise<{ txId: string; status: string }> {
-  const functions = getFunctionsInstance()
+  // Get Firebase app instance (uses env vars, no hardcoded URLs)
+  const app = getFirebaseApp()
+  
+  // Get Functions instance with correct region
+  const functions = getFunctions(app, 'us-central1')
+  
+  // Create callable function reference (uses Firebase Remote Config endpoint, NOT cloudfunctions.net)
   const fn = httpsCallable(functions, 'tx_createBankDepositRequest')
   
   try {
+    // Call function via Firebase SDK (handles CORS, auth, etc.)
     const result = await fn({ receiverId, amountZar })
     const data = result.data as { txId: string; status: string }
+    
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[Transaction] Bank deposit request created:', data)
+      console.log('[Transaction] Bank deposit request created via httpsCallable:', data)
     }
+    
     return data
   } catch (error: any) {
     console.error('[Transaction] Failed to create bank deposit request:', {
@@ -198,6 +210,8 @@ export async function tx_createBankDepositRequest(
       amountZar,
       errorCode: error?.code,
       errorMessage: error?.message,
+      // Log that we're using httpsCallable, not fetch
+      method: 'httpsCallable',
     })
     throw error
   }
