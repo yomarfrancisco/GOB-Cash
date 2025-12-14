@@ -8,6 +8,7 @@ type AuthView = 'provider-list' | 'whatsapp-signin' | 'whatsapp-signup'
 
 interface AuthState {
   isAuthed: boolean
+  authReady: boolean // True after Firebase has checked auth state (prevents redirect race during hydration)
   authOpen: boolean // Legacy - now controls entry sheet
   authEntryOpen: boolean // New entry sheet (sign-in method selection)
   authPasswordOpen: boolean // Password sheet (existing password modal)
@@ -40,6 +41,7 @@ interface AuthState {
   setAuthIdentifier: (identifier: string) => void
   setAuthView: (view: AuthView) => void
   setAuthState: (isAuthed: boolean) => void // New: Set auth state from Firebase Auth
+  setAuthReady: () => void // Mark auth as ready (after Firebase has checked state)
   completeAuth: () => void // Legacy: Kept for backward compatibility, but Firebase Auth now drives isAuthed
   requireAuth: (onAuthed: () => void) => void
   setPhoneSignupPhone: (phone: string) => void
@@ -50,6 +52,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthed: false,
+  authReady: false, // Auth state not yet checked by Firebase
   authOpen: false, // Legacy - kept for backward compatibility, now maps to entry sheet
   authEntryOpen: false,
   authPasswordOpen: false,
@@ -95,7 +98,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       // Close all auth sheets
       set({ 
-        isAuthed: true, 
+        isAuthed: true,
+        authReady: true, // Mark auth as ready when state is set
         authOpen: false, 
         authEntryOpen: false, 
         authPasswordOpen: false, 
@@ -103,9 +107,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       })
     } else {
       // User signed out
-      set({ isAuthed: false })
+      set({ isAuthed: false, authReady: true }) // Mark auth as ready even on sign-out
     }
   },
+  setAuthReady: () => set({ authReady: true }),
   completeAuth: () => {
     // Legacy method - kept for backward compatibility
     // Firebase Auth now drives isAuthed via setAuthState, but this can still be called

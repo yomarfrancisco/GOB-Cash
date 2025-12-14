@@ -55,15 +55,15 @@ const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { isAuthed, openAuthEntry } = useAuthStore()
+  const { isAuthed, authReady, openAuthEntry } = useAuthStore()
   const { hasCompletedAgentOnboarding } = useAgentOnboardingStore()
   
-  // Redirect unauthenticated users to home
+  // Redirect unauthenticated users to home (only after auth is ready to prevent race during hydration)
   useEffect(() => {
-    if (!isAuthed) {
+    if (authReady && !isAuthed) {
       router.replace('/')
     }
-  }, [isAuthed, router])
+  }, [authReady, isAuthed, router])
   const activityCount = useActivityStore((s) => s.items.length)
   const { open: openProfileEdit } = useProfileEditSheet()
   const { setOnSelect, open } = useTransactSheet()
@@ -97,7 +97,7 @@ export default function ProfilePage() {
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
-  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | undefined>(undefined)
+  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | undefined>(undefined)
   const [depositMethod, setDepositMethod] = useState<'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null>(null)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
@@ -360,7 +360,9 @@ export default function ProfilePage() {
                 <button 
                   className="btn profile-edit" 
                   onClick={() => {
+                    console.log('[UI] Cash-in/out clicked', { isAuthed })
                     guardAuthed(() => {
+                      console.log('[UI] guardAuthed passed -> opening CashInOutSheet')
                       setOpenCashInOut(true)
                     })
                   }}

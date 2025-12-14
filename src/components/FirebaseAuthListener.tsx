@@ -49,7 +49,15 @@ export default function FirebaseAuthListener() {
     }
 
     // Set up auth state listener - this is the single source of truth for isAuthed
+    let hasCheckedAuth = false
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      // Mark auth as ready after first check
+      if (!hasCheckedAuth) {
+        hasCheckedAuth = true
+        const { setAuthReady } = useAuthStore.getState()
+        setAuthReady()
+      }
+      
       if (process.env.NODE_ENV !== 'production') {
         console.log('[Firebase] Auth state changed:', user ? `user ${user.uid}` : 'no user')
         

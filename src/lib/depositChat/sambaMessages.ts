@@ -13,6 +13,7 @@ export interface SambaMessageTemplate {
 export function getSambaMessage(
   chatStep: ChatStep,
   variables: {
+    handleCustomer?: string
     customerFirstName?: string
     displayName?: string
     amount?: string
@@ -23,20 +24,19 @@ export function getSambaMessage(
     depositReference?: string
   }
 ): string {
-  const firstName = variables.customerFirstName || variables.displayName || 'there'
+  const handleCustomer = variables.handleCustomer || variables.customerFirstName || variables.displayName || 'there'
   const amount = variables.amount || '0'
   const currency = variables.currency || 'ZAR'
   const country = variables.country || ''
   const bankName = variables.bankName || 'your bank'
-  const bankCountry = variables.bankCountry || ''
   const reference = variables.depositReference || ''
 
   switch (chatStep) {
     case 'INTRO_CONFIRM_INTENT':
-      return `Hi — I'm Samba from GoBankless.\n\n✅ Deposit request created:\n\n• Amount: ${amount} ${currency}\n• Method: Direct bank transfer\n• Country: ${country}\n• Bank: ${bankName}\n• Reference: ${reference}\n\nNext step:\n\n1) Make the bank transfer using the reference above.\n\n2) Reply here with **SENT** and your proof of payment (screenshot or bank reference).\n\nI'll notify our agent to confirm receipt as soon as you send proof.`
+      return `Hi ${handleCustomer} — I'm Samba from GoBankless.\n\nTo confirm:\n\n• Deposit amount: ${amount}\n• Deposit method: Direct bank transfer\n• Country: ${country}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, reply "SENT" and upload proof of payment (screenshot or reference).\n\nWhen you're ready, send "SENT" + proof.`
 
     case 'WAITING_FOR_SENT_PROOF':
-      return `Thanks — got it ✅\n\nWe're now verifying your deposit with our bank.\n\nPlease wait while our agent confirms receipt. I'll update you here as soon as it's confirmed.`
+      return `Thanks — proof received.\n\nWe're now verifying the deposit with our bank.\n\nIn the meantime, please confirm the USDT wallet address you want us to send to:\n\n• Network: TRON (TRC-20) only (address starts with "T")\n• Please double-check the address — crypto transfers are irreversible.\n\nReply with your TRC-20 address when ready.`
 
     case 'WAITING_FOR_WALLET_ADDRESS':
       return `Got it 👍\n\nI've saved your TRON (TRC-20) address.\n\nI'll notify you here as soon as the deposit is confirmed.`
@@ -45,7 +45,7 @@ export function getSambaMessage(
       return `Thanks — I've received that.\n\nWe're now verifying the deposit with our bank.\n\nThis usually takes 1–2 hours during business hours.\n\nI'll notify you here as soon as the deposit is confirmed.`
 
     case 'DEPOSIT_CONFIRMED_LOCKED_DONE':
-      return `Deposit confirmed ✅\n\nWe've received your deposit for ${amount} ${currency} (Reference: ${reference}).\n\nNext, we'll guide you through the withdrawal to USDT (TRC-20).`
+      return `Deposit confirmed ✓\n\nAmount received: ${amount} ${currency}\n\nThanks — we're ready for the next step.`
 
     default:
       return `I'm here to help with your deposit. Please follow the steps above.`
