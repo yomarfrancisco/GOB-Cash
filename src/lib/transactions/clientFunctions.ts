@@ -174,3 +174,57 @@ export async function tx_raiseDispute(txId: string, reason: string): Promise<voi
   }
 }
 
+/**
+ * Create a bank deposit transaction request
+ * Creates transaction with AWAITING_DEPOSIT status
+ */
+export async function tx_createBankDepositRequest(
+  receiverId: string,
+  amountZar: number
+): Promise<{ txId: string; status: string }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'tx_createBankDepositRequest')
+  
+  try {
+    const result = await fn({ receiverId, amountZar })
+    const data = result.data as { txId: string; status: string }
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Transaction] Bank deposit request created:', data)
+    }
+    return data
+  } catch (error: any) {
+    console.error('[Transaction] Failed to create bank deposit request:', {
+      receiverId,
+      amountZar,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+    })
+    throw error
+  }
+}
+
+/**
+ * Credit and lock funds for a transaction
+ * Transitions: DEPOSIT_RECEIVED -> LOCKED
+ */
+export async function tx_creditAndLock(txId: string): Promise<{ ok: boolean; status: string; unlockAt: number }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'tx_creditAndLock')
+  
+  try {
+    const result = await fn({ txId })
+    const data = result.data as { ok: boolean; status: string; unlockAt: number }
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Transaction] Funds credited and locked:', data)
+    }
+    return data
+  } catch (error: any) {
+    console.error('[Transaction] Failed to credit and lock:', {
+      txId,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+    })
+    throw error
+  }
+}
+

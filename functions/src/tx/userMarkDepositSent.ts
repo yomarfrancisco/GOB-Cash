@@ -57,8 +57,8 @@ export const tx_userMarkDepositSent = functions
       createdAt: now,
       senderType: 'SYSTEM' as const,
       text: reference
-        ? `User marked deposit as sent. Reference: ${reference}. Waiting for receiver confirmation.`
-        : `User marked deposit as sent. Waiting for receiver confirmation.`,
+        ? `Customer marked deposit as sent. Reference: ${reference}.`
+        : `Customer marked deposit as sent.`,
       metadata: {
         status: 'DEPOSIT_SENT',
         reference: reference || null,

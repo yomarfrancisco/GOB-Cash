@@ -14,6 +14,7 @@ type BankTransferDetailsSheetProps = {
   countryCode: CountryCode
   bank?: SelectedBank // Optional bank selection for Mozambique or South Africa
   onBack?: () => void // Callback for back button (to return to bank selection)
+  onNext?: (txId: string) => void // Callback for NEXT button (opens chat)
 }
 
 export default function BankTransferDetailsSheet({
@@ -22,6 +23,7 @@ export default function BankTransferDetailsSheet({
   countryCode,
   bank,
   onBack,
+  onNext,
 }: BankTransferDetailsSheetProps) {
   // Get bank-specific config if provided, otherwise use default for country
   let config: BankAccountDetails
@@ -116,8 +118,19 @@ export default function BankTransferDetailsSheet({
           </p>
 
           <div className="bank-transfer-close-bar">
-            <button className="bank-transfer-close-btn" onClick={onClose} type="button">
-              CLOSE
+            <button 
+              className="bank-transfer-close-btn" 
+              onClick={onNext ? () => {
+                // NEXT button creates transaction and opens chat
+                if (onNext) {
+                  // We'll handle transaction creation in parent component
+                  // For now, pass a placeholder - parent will create tx
+                  onNext('') // Parent will create tx and pass real txId
+                }
+              } : onClose} 
+              type="button"
+            >
+              {onNext ? 'NEXT' : 'CLOSE'}
             </button>
           </div>
         </div>

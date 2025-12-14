@@ -11,7 +11,12 @@ import CashInOutSheet from '@/components/CashInOutSheet'
 import CountrySelectSheet from '@/components/CountrySelectSheet'
 import BankSelectSheet, { type SelectedBank } from '@/components/BankSelectSheet'
 import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
+import DepositChatSheet from '@/components/DepositChatSheet'
+import AgentInboxSheet from '@/components/AgentInboxSheet'
 import { CountryCode } from '@/config/depositBankAccounts'
+import { tx_createBankDepositRequest } from '@/lib/transactions/clientFunctions'
+import { AGENT_UID, type BankDepositTransaction } from '@/types/transactions'
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
@@ -44,6 +49,7 @@ import { useAgentOnboardingStore } from '@/state/agentOnboarding'
 import { ChevronRight } from 'lucide-react'
 import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
 import { logout } from '@/lib/logout'
+import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
@@ -77,6 +83,13 @@ export default function ProfilePage() {
   const [openBankTransferDetails, setOpenBankTransferDetails] = useState(false)
   const [bankTransferCountry, setBankTransferCountry] = useState<CountryCode>('MZ')
   const [selectedBank, setSelectedBank] = useState<SelectedBank | undefined>(undefined)
+  const [openDepositChat, setOpenDepositChat] = useState(false)
+  const [depositChatTxId, setDepositChatTxId] = useState<string | null>(null)
+  const [openAgentInbox, setOpenAgentInbox] = useState(false)
+  
+  // Check if current user is agent
+  const auth = getFirebaseAuth()
+  const isAgent = auth.currentUser?.uid === AGENT_UID
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
@@ -801,8 +814,68 @@ export default function ProfilePage() {
           setOpenBankTransferDetails(false)
           setTimeout(() => setOpenBankSelect(true), 220)
         }}
+        onNext={async () => {
+          // Create transaction and open chat
+          try {
+            const auth = getFirebaseAuth()
+            const user = auth.currentUser
+            if (!user) {
+              console.error('[Deposit] No authenticated user')
+              return
+            }
+
+            // Get bank config for reference
+            const { DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, SOUTH_AFRICA_BANK_ACCOUNTS } = await import('@/config/depositBankAccounts')
+            let config
+            if (bankTransferCountry === 'MZ' && selectedBank && (selectedBank === 'BCI' || selectedBank === 'ABSA')) {
+              config = MOZAMBIQUE_BANK_ACCOUNTS[selectedBank]
+            } else if (bankTransferCountry === 'ZA' && selectedBank === 'FNB') {
+              config = SOUTH_AFRICA_BANK_ACCOUNTS[selectedBank]
+            } else {
+              config = DEPOSIT_BANK_ACCOUNTS[bankTransferCountry]
+            }
+
+            // Create transaction with placeholder amount (1000 ZAR - can be updated later)
+            // TODO: Add amount entry step before bank details
+            const { txId } = await tx_createBankDepositRequest(AGENT_UID, 1000)
+
+            // Update transaction with bank details and chatStep
+            const db = getFirestoreDb()
+            const txRef = doc(db, 'transactions', txId)
+            await updateDoc(txRef, {
+              bankCountry: bankTransferCountry,
+              bankId: selectedBank || (bankTransferCountry === 'MZ' ? 'BCI' : 'FNB'),
+              depositCurrency: bankTransferCountry === 'MZ' ? 'MZN' : 'ZAR',
+              depositReference: config.referencePrefix,
+              chatStep: 'INTRO_CONFIRM_INTENT',
+              participants: [user.uid, AGENT_UID, 'samba'],
+              updatedAt: serverTimestamp(),
+            })
+
+            // Close bank details sheet and open chat
+            setOpenBankTransferDetails(false)
+            setDepositChatTxId(txId)
+            setTimeout(() => setOpenDepositChat(true), 220)
+          } catch (error) {
+            console.error('[Deposit] Failed to create transaction:', error)
+          }
+        }}
         countryCode={bankTransferCountry}
         bank={selectedBank}
+      />
+      {depositChatTxId && (
+        <DepositChatSheet
+          open={openDepositChat}
+          onClose={() => {
+            setOpenDepositChat(false)
+            setDepositChatTxId(null)
+          }}
+          txId={depositChatTxId}
+        />
+      )}
+      <AgentInboxSheet
+        open={openAgentInbox}
+        onClose={() => setOpenAgentInbox(false)}
       />
       <ProductivityHelperSheet
         isOpen={isProductivityHelperOpen}

@@ -81,10 +81,13 @@ export const tx_creditAndLock = functions
       }, { merge: true })
 
       // Update transaction status to LOCKED (skipping CREDITED intermediate state for simplicity)
+      // Also update chatStep to DEPOSIT_CONFIRMED_LOCKED_DONE
       t.update(txRef, {
         status: 'LOCKED',
         statusUpdatedAt: now,
         unlockAt,
+        chatStep: 'DEPOSIT_CONFIRMED_LOCKED_DONE',
+        updatedAt: now,
         'audit.lastActorId': uid,
       })
 

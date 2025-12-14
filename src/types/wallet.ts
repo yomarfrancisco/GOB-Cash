@@ -16,6 +16,7 @@ export interface WalletDoc {
   kind: WalletKind
   displayCurrency: string // e.g., 'ZAR', 'MZN', 'ZWD', 'BTC', 'ETH'
   fiatBalance: number
+  lockedBalance?: number // Funds locked for settlement (24h)
   usdtBalance: number
   apy?: number
   riskScore?: number

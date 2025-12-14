@@ -297,7 +297,9 @@ export default function CardStackCard({
       // Read directly from Firestore wallets (source of truth)
       const wallet = (wallets as any)[walletId]
       const fiatBalance = wallet?.fiatBalance ?? 0
-      cents = Math.round(fiatBalance * 100)
+      // For cashZAR, include lockedBalance in the display (funds are locked but still part of user's balance)
+      const lockedBalance = walletId === 'cashZAR' ? (wallet?.lockedBalance ?? 0) : 0
+      cents = Math.round((fiatBalance + lockedBalance) * 100)
     } else {
       // Wallets not loaded yet or still in demo mode: show 0 (don't use alloc which might have demo values)
       cents = 0

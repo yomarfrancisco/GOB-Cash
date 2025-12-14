@@ -1,0 +1,77 @@
+.inboxList {
+  padding: 20px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.transactionDetail {
+  padding: 20px;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.backButton {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: #000;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.detailContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.label {
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.value {
+  font-weight: 600;
+  color: #000;
+}
+
+.confirmButton {
+  margin-top: 24px;
+  width: 100%;
+  height: 56px;
+  border-radius: 16px;
+  background: #000;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  border: 0;
+  cursor: pointer;
+  transition: background 300ms ease;
+}
+
+.confirmButton:hover:not(:disabled) {
+  background: #333;
+}
+
+.confirmButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

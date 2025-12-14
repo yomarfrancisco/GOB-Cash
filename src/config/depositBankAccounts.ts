@@ -47,7 +47,7 @@ export const MOZAMBIQUE_BANK_ACCOUNTS: Record<'BCI' | 'ABSA', BankAccountDetails
     accountNumber: '0038104000117',
     accountType: 'Current / Cheque',
     swift: 'ABMZMZMA',
-    referencePrefix: 'BRICSABSA7K2X9', // Pattern: BRICSABSA + 6 alphanum
+    referencePrefix: 'BRICSABSA7K2X9', // Pattern: BRICSABSA + 6 alphanum (e.g., BRICSABSA7K2X9)
   },
 }
 
