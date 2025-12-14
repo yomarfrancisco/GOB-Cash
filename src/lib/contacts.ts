@@ -35,7 +35,15 @@ export const normalizeHandle = (handle?: string | null): string | undefined => {
   if (!handle) return undefined
   let h = handle.trim()
   if (!h) return undefined
-  if (!h.startsWith('$')) h = `$${h}`
+  
+  // Remove all @ symbols (they're not part of the canonical format)
+  h = h.replace(/@/g, '')
+  
+  // Ensure $ prefix
+  if (!h.startsWith('$')) {
+    h = `$${h}`
+  }
+  
   return h.toLowerCase()
 }
 

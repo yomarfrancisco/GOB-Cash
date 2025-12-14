@@ -5,14 +5,26 @@
 
 /**
  * Normalizes a handle to the canonical format: $prefix + lowercase
- * @param handle - Raw handle string (may or may not have $ prefix)
+ * Removes @ symbols and ensures $ prefix only
+ * @param handle - Raw handle string (may have $, @, or neither)
  * @returns Normalized handle or undefined if invalid
+ * @example normalizeHandle('$@goblin1213') => '$goblin1213'
+ * @example normalizeHandle('@goblin1213') => '$goblin1213'
+ * @example normalizeHandle('goblin1213') => '$goblin1213'
  */
 export function normalizeHandle(handle: string | null | undefined): string | undefined {
   if (!handle) return undefined
   let h = handle.trim()
   if (!h) return undefined
-  if (!h.startsWith('$')) h = `$${h}`
+  
+  // Remove all @ symbols (they're not part of the canonical format)
+  h = h.replace(/@/g, '')
+  
+  // Ensure $ prefix
+  if (!h.startsWith('$')) {
+    h = `$${h}`
+  }
+  
   return h.toLowerCase()
 }
 

@@ -55,16 +55,6 @@
           "order": "DESCENDING"
         }
       ]
-    },
-    {
-      "collectionGroup": "publicDirectory",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "handle",
-          "order": "ASCENDING"
-        }
-      ]
     }
   ],
   "fieldOverrides": []

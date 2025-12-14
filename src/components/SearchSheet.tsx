@@ -19,8 +19,8 @@ import contactListStyles from './contacts/ContactListWithIndex.module.css'
 import styles from './SearchSheet.module.css'
 import { useSyncContacts } from '@/hooks/useSyncContacts'
 import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
-import { usePublicDirectoryContactsForUI } from '@/hooks/usePublicDirectoryContacts'
-import { useDirectoryPrivateContacts } from '@/hooks/useDirectoryPrivateContacts'
+import { useGlobalContactsPublicForUI } from '@/hooks/useGlobalContactsPublic'
+import { useGlobalContactsPrivate } from '@/hooks/useGlobalContactsPrivate'
 import DirectoryAvatar from './contacts/DirectoryAvatar'
 
 type SearchAgent = {
@@ -73,11 +73,11 @@ export default function SearchSheet() {
   useSyncContacts(rankedContacts)
   
   // Get contacts for UI display:
-  // - Pre-auth: use public directory contacts only (no email/phone)
-  // - Post-auth: use public directory + enrich with private data (email/phone from directoryPrivate)
-  const publicDirectoryContacts = usePublicDirectoryContactsForUI()
-  const enrichedDirectoryContacts = useDirectoryPrivateContacts(publicDirectoryContacts)
-  const displayContacts = isAuthed ? enrichedDirectoryContacts : publicDirectoryContacts
+  // - Pre-auth: use global contacts public only (no email/phone)
+  // - Post-auth: use global contacts public + enrich with private data (email/phone from globalContactsPrivate)
+  const globalContactsPublic = useGlobalContactsPublicForUI()
+  const enrichedGlobalContacts = useGlobalContactsPrivate(globalContactsPublic)
+  const displayContacts = isAuthed ? enrichedGlobalContacts : globalContactsPublic
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
   // Show full list up to MAX_SEARCH_CONTACTS

@@ -121,6 +121,41 @@ service cloud.firestore {
       allow write: if false;
     }
     
+    // Global network directory: globalDirectoryPrivate/{key}
+    // Deduped global directory of all contacts contributed by users
+    // Key = SHA256 hash of normalized email or phone
+    // Contains sensitive fields: email, phoneE164, displayName
+    // Readable only when authenticated
+    match /globalDirectoryPrivate/{key} {
+      // Allow authenticated users to read global directory entries (for search by email/phone)
+      allow read: if request.auth != null;
+      
+      // Client cannot write globalDirectoryPrivate directly (Cloud Functions only via Admin SDK)
+      allow write: if false;
+    }
+    
+    // Global contacts public collection: globalContactsPublic/{handle}
+    // Public read-only collection for contact discovery (works pre-auth)
+    // Contains non-sensitive fields: handle, displayName, sources
+    match /globalContactsPublic/{handle} {
+      // Allow anyone to read public global contacts (pre-auth included)
+      allow read: if true;
+      
+      // Client cannot write globalContactsPublic directly (Cloud Functions only via Admin SDK)
+      allow write: if false;
+    }
+    
+    // Global contacts private collection: globalContactsPrivate/{handle}
+    // Contains sensitive fields: primaryEmail, primaryPhone
+    // Readable only when authenticated
+    match /globalContactsPrivate/{handle} {
+      // Allow authenticated users to read private global contacts
+      allow read: if request.auth != null;
+      
+      // Client cannot write globalContactsPrivate directly (Cloud Functions only via Admin SDK)
+      allow write: if false;
+    }
+    
     // Legacy directory collection: directory/{handle}
     // Deprecated - kept for backward compatibility during migration
     match /directory/{handle} {

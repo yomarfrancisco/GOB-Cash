@@ -10,13 +10,122 @@
 
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-import { deriveHandleFromContact } from './utils/handleNormalization'
+import { deriveHandleFromContact, normalizeHandle } from './utils/handleNormalization'
 import { generateEdgeId } from './utils/edgeId'
 import { computeContactCompleteness } from './utils/contactCompleteness'
 import { ensureMutualEdgeAndCounts } from './utils/mutualEdges'
 import { extractPhoneCountry } from './utils/phoneCountry'
 
 const db = admin.firestore()
+
+/**
+ * Sync contact to globalContactsPublic and globalContactsPrivate
+ * Merges data intelligently when handle already exists
+ */
+async function syncToGlobalContacts(
+  userId: string,
+  contact: ContactDoc
+): Promise<void> {
+  // Skip if no handle
+  if (!contact.handle) {
+    return
+  }
+
+  // Normalize handle
+  const normalizedHandle = normalizeHandle(contact.handle)
+  if (!normalizedHandle) {
+    return
+  }
+
+  const now = admin.firestore.Timestamp.now()
+
+  // 1. Upsert globalContactsPublic
+  const publicRef = db.collection('globalContactsPublic').doc(normalizedHandle)
+  const publicDoc = await publicRef.get()
+
+  const publicData: any = {
+    handle: normalizedHandle,
+    updatedAt: now,
+  }
+
+  // Merge displayName: prefer most recently updated
+  if (publicDoc.exists) {
+    const existingData = publicDoc.data()
+    if (contact.displayName && (!existingData?.displayName || contact.updatedAt >= (existingData.updatedAt || now))) {
+      publicData.displayName = contact.displayName
+    } else if (existingData?.displayName) {
+      publicData.displayName = existingData.displayName
+    }
+
+    // Merge sources: union unique values
+    const existingSources = new Set(existingData?.sources || [])
+    if (contact.source) {
+      existingSources.add(contact.source)
+    }
+    publicData.sources = Array.from(existingSources)
+
+    if (existingData?.createdAt) {
+      publicData.createdAt = existingData.createdAt
+    } else {
+      publicData.createdAt = now
+    }
+
+    await publicRef.update(publicData)
+  } else {
+    // New entry
+    publicData.displayName = contact.displayName || null
+    publicData.sources = contact.source ? [contact.source] : []
+    publicData.createdAt = now
+    await publicRef.set(publicData)
+  }
+
+  // 2. Upsert globalContactsPrivate (only if we have email or phone)
+  if (contact.primaryEmail || contact.primaryPhone) {
+    const privateRef = db.collection('globalContactsPrivate').doc(normalizedHandle)
+    const privateDoc = await privateRef.get()
+
+    const privateData: any = {
+      handle: normalizedHandle,
+      updatedAt: now,
+    }
+
+    // Merge email: prefer most recently updated
+    if (privateDoc.exists) {
+      const existingData = privateDoc.data()
+      
+      if (contact.primaryEmail && (!existingData?.primaryEmail || contact.updatedAt >= (existingData.updatedAt || now))) {
+        privateData.primaryEmail = contact.primaryEmail
+      } else if (existingData?.primaryEmail) {
+        privateData.primaryEmail = existingData.primaryEmail
+      }
+
+      // Merge phone: prefer most recently updated
+      if (contact.primaryPhone && (!existingData?.primaryPhone || contact.updatedAt >= (existingData.updatedAt || now))) {
+        privateData.primaryPhone = contact.primaryPhone
+      } else if (existingData?.primaryPhone) {
+        privateData.primaryPhone = existingData.primaryPhone
+      }
+
+      if (existingData?.createdAt) {
+        privateData.createdAt = existingData.createdAt
+      } else {
+        privateData.createdAt = now
+      }
+
+      await privateRef.update(privateData)
+    } else {
+      // New entry
+      if (contact.primaryEmail) {
+        privateData.primaryEmail = contact.primaryEmail
+      }
+      if (contact.primaryPhone) {
+        privateData.primaryPhone = contact.primaryPhone
+      }
+      privateData.createdAt = now
+      await privateRef.set(privateData)
+    }
+  }
+}
 
 interface ContactDoc {
   contactId: string
@@ -216,6 +325,16 @@ export const onContactWrite = functions.firestore
       if (isNewEdge) {
         await ensureMutualEdgeAndCounts(userId, toHandle, edgeSource)
       }
+
+      // Sync to globalContactsPublic and globalContactsPrivate
+      await syncToGlobalContacts(userId, after).catch(err => {
+        console.error('[onContactWrite] Failed to sync to globalContacts', {
+          userId,
+          contactId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+        // Don't throw - this is best-effort
+      })
 
       return null
     } catch (error) {
