@@ -11,6 +11,8 @@ type CashInOutSheetProps = {
 }
 
 export default function CashInOutSheet({ open, onClose, onSelect }: CashInOutSheetProps) {
+  console.log('[UI] CashInOutSheet props', { open })
+  
   const handleSelect = (mode: 'deposit' | 'withdraw') => {
     if (onSelect) {
       onSelect(mode)
