@@ -38,6 +38,7 @@ export function useAiActionCycle(
   balanceUpdaters: BalanceUpdaters,
   enabled: boolean = true
 ) {
+  const { isAuthed } = useAuthStore()
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const isRunningRef = useRef(false)
   const isProcessingRef = useRef(false)
@@ -51,6 +52,8 @@ export function useAiActionCycle(
   const rnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
 
   const processAction = useCallback(async () => {
+    // Hard stop for signed-in users - no auto-cycle post-auth
+    if (isAuthed) return
     if (isProcessingRef.current || !cardStackRef.current || isPausedRef.current) return
     isProcessingRef.current = true
 
@@ -343,7 +346,7 @@ export function useAiActionCycle(
     } finally {
       isProcessingRef.current = false
     }
-  }, [cardStackRef, balanceUpdaters, pushNotification, setHoldingsBulk, triggerAiFabHighlight])
+  }, [cardStackRef, balanceUpdaters, pushNotification, setHoldingsBulk, triggerAiFabHighlight, isAuthed])
 
   const start = useCallback(() => {
     if (isRunningRef.current) return

@@ -1,9 +1,10 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react'
+import { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect } from 'react'
 import { getFirebaseAuth } from '@/lib/firebase'
 import { updateWalletBalances } from '@/lib/wallets'
 import type { WalletMap } from '@/types/wallet'
+import { useAuthStore } from '@/store/auth'
 
 export type WalletAlloc = {
   totalCents: number // total funds in cents; funds-available display derives from this
@@ -42,7 +43,19 @@ interface WalletAllocContextType {
 
 const WalletAllocContext = createContext<WalletAllocContextType | undefined>(undefined)
 
-const initial: WalletAlloc = {
+// Zero balances for authenticated users
+const ZERO: WalletAlloc = {
+  totalCents: 0,
+  cashCents: 0,
+  ethCents: 0,
+  zwdCents: 0,
+  earningsCents: 0,
+  mznCents: 0,
+  btcCents: 0,
+}
+
+// Demo balances for pre-auth (marketing)
+const DEMO: WalletAlloc = {
   totalCents: 610300, // R6,103.00 (~337 USDT @ 18.1 FX)
   cashCents: 488240, // 80% of total
   ethCents: 18309, // 3% of total
@@ -53,11 +66,28 @@ const initial: WalletAlloc = {
 }
 
 export function WalletAllocProvider({ children }: { children: ReactNode }) {
-  const [alloc, setAlloc] = useState<WalletAlloc>(initial)
+  const isAuthed = useAuthStore((state) => state.isAuthed)
+  // Initialize based on auth state: ZERO for authed, DEMO for pre-auth
+  const [alloc, setAlloc] = useState<WalletAlloc>(() => (isAuthed ? ZERO : DEMO))
   const [isRebalancing, setRebalancing] = useState(false)
   // Track if we're syncing from Firestore to prevent loops
   const isSyncingFromFirestoreRef = useRef(false)
+  // Track if we've hydrated from Firestore (prevents demo values from being written)
+  const hydratedRef = useRef(false)
   const auth = typeof window !== 'undefined' ? getFirebaseAuth() : null
+
+  // Reset to appropriate initial state when auth state changes
+  useEffect(() => {
+    if (isAuthed) {
+      // When signing in, reset to zero (will be hydrated from Firestore)
+      setAlloc(ZERO)
+      hydratedRef.current = false // Reset hydration flag on auth change
+    } else {
+      // When signing out, reset to demo
+      setAlloc(DEMO)
+      hydratedRef.current = false // Reset hydration flag
+    }
+  }, [isAuthed])
 
   const applyAiAction = useCallback(
     (action: { from: 'cash' | 'eth' | 'zwd'; to: 'cash' | 'eth' | 'zwd'; cents: number }) => {
@@ -80,8 +110,13 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
           // totalCents stays constant
         }
 
-        // Persist to wallets (non-blocking)
-        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current && auth?.currentUser) {
+        // Persist to wallets (non-blocking) - only if authenticated, hydrated, and not syncing
+        if (
+          typeof window !== 'undefined' &&
+          auth?.currentUser &&
+          hydratedRef.current &&
+          !isSyncingFromFirestoreRef.current
+        ) {
           const userId = auth.currentUser.uid
           const fxRate = 18.1 // ZAR per USDT
 
@@ -138,8 +173,13 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         const newCashCents = Math.round(value * 100)
         const newAlloc = { ...prev, cashCents: newCashCents }
         
-        // Persist to wallet doc (non-blocking)
-        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current && auth?.currentUser) {
+        // Persist to wallet doc (non-blocking) - only if authenticated, hydrated, and not syncing
+        if (
+          typeof window !== 'undefined' &&
+          auth?.currentUser &&
+          hydratedRef.current &&
+          !isSyncingFromFirestoreRef.current
+        ) {
           updateWalletBalances(auth.currentUser.uid, 'cashZAR', { fiatBalance: value }).catch((err) => {
             console.error('[Wallet] Failed to persist ZAR balance to Firestore:', err)
           })
@@ -157,8 +197,13 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         const newEthCents = Math.round(value * 100)
         const newAlloc = { ...prev, ethCents: newEthCents }
         
-        // Persist to wallet doc (non-blocking)
-        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current && auth?.currentUser) {
+        // Persist to wallet doc (non-blocking) - only if authenticated, hydrated, and not syncing
+        if (
+          typeof window !== 'undefined' &&
+          auth?.currentUser &&
+          hydratedRef.current &&
+          !isSyncingFromFirestoreRef.current
+        ) {
           const fxRate = 18.1 // ZAR per USDT
           const usdtValue = value / fxRate
           updateWalletBalances(auth.currentUser.uid, 'eth', {
@@ -181,8 +226,13 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         const newZwdCents = Math.round(value * 100)
         const newAlloc = { ...prev, zwdCents: newZwdCents }
         
-        // Persist to wallet doc (non-blocking)
-        if (typeof window !== 'undefined' && !isSyncingFromFirestoreRef.current && auth?.currentUser) {
+        // Persist to wallet doc (non-blocking) - only if authenticated, hydrated, and not syncing
+        if (
+          typeof window !== 'undefined' &&
+          auth?.currentUser &&
+          hydratedRef.current &&
+          !isSyncingFromFirestoreRef.current
+        ) {
           updateWalletBalances(auth.currentUser.uid, 'cashZWD', { fiatBalance: value }).catch((err) => {
             console.error('[Wallet] Failed to persist ZWD balance to Firestore:', err)
           })
@@ -205,6 +255,7 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
   )
 
   // Sync WalletAlloc from wallet docs (source of truth)
+  // This is the hydration gate: after first sync, hydratedRef becomes true and allows writes
   const syncFromWallets = useCallback((wallets: WalletMap) => {
     isSyncingFromFirestoreRef.current = true
     try {
@@ -231,15 +282,21 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
         ),
       }
       setAlloc(newAlloc)
+      
+      // Mark as hydrated after first successful sync (only for authenticated users)
+      if (auth?.currentUser) {
+        hydratedRef.current = true
+      }
+      
       if (process.env.NODE_ENV !== 'production') {
-        console.log('[Wallet] Synced WalletAlloc from wallets:', wallets)
+        console.log('[Wallet] Synced WalletAlloc from wallets:', wallets, 'hydrated:', hydratedRef.current)
       }
     } finally {
       setTimeout(() => {
         isSyncingFromFirestoreRef.current = false
       }, 100)
     }
-  }, [])
+  }, [auth])
 
   return (
     <WalletAllocContext.Provider
