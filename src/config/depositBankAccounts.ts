@@ -22,6 +22,10 @@ export type BankAccountDetails = {
 
 // For Mozambique, we support multiple banks
 export type MozambiqueBank = 'BCI' | 'ABSA'
+// For South Africa, we support multiple banks
+export type SouthAfricaBank = 'FNB'
+// Union type for all bank selections
+export type SelectedBank = MozambiqueBank | SouthAfricaBank
 
 // Mozambique bank accounts (multiple banks supported)
 export const MOZAMBIQUE_BANK_ACCOUNTS: Record<'BCI' | 'ABSA', BankAccountDetails> = {
@@ -43,22 +47,27 @@ export const MOZAMBIQUE_BANK_ACCOUNTS: Record<'BCI' | 'ABSA', BankAccountDetails
     accountNumber: '0038104000117',
     accountType: 'Current / Cheque',
     swift: 'ABMZMZMA',
-    referencePrefix: 'BRICS4ABSA7K2',
+    referencePrefix: 'BRICSABSA7K2X9', // Pattern: BRICSABSA + 6 alphanum
+  },
+}
+
+// South Africa bank accounts (multiple banks supported)
+export const SOUTH_AFRICA_BANK_ACCOUNTS: Record<'FNB', BankAccountDetails> = {
+  FNB: {
+    countryCode: 'ZA',
+    countryName: 'South Africa',
+    recipient: 'BRICS AI (PTY) LTD',
+    bankName: 'FNB',
+    accountNumber: '63183630649', // No spaces as per user requirement
+    accountType: 'GOLD BUSINESS ACCOUNT',
+    swift: 'FIRNZAJJ',
+    referencePrefix: 'BRICSFNB7X1Z', // Keep existing pattern
   },
 }
 
 export const DEPOSIT_BANK_ACCOUNTS: Record<CountryCode, BankAccountDetails> = {
   MZ: MOZAMBIQUE_BANK_ACCOUNTS.BCI, // Default to BCI for backward compatibility
-  ZA: {
-    countryCode: 'ZA',
-    countryName: 'South Africa',
-    recipient: 'BRICS AI (PTY) LTD',
-    bankName: 'First National Bank',
-    accountNumber: '6318  3630  649',
-    accountType: 'Gold business account',
-    swift: 'FIRNZAJJ',
-    referencePrefix: 'BRICSFNB7X1Z',
-  },
+  ZA: SOUTH_AFRICA_BANK_ACCOUNTS.FNB, // Default to FNB for backward compatibility
   ZM: {
     countryCode: 'ZM',
     countryName: 'Zambia',
@@ -148,7 +157,7 @@ export const COUNTRY_SELECT_OPTIONS: Array<{
     code: 'ZA',
     name: 'South Africa',
     flagPath: '/assets/south africa.png',
-    subtitle: 'Deposits to First National Bank',
+    subtitle: 'Deposits to FNB',
   },
   {
     code: 'ZM',

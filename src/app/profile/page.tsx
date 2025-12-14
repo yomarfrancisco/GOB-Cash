@@ -9,7 +9,7 @@ import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
 import CashInOutSheet from '@/components/CashInOutSheet'
 import CountrySelectSheet from '@/components/CountrySelectSheet'
-import BankSelectSheet, { type MozambiqueBank } from '@/components/BankSelectSheet'
+import BankSelectSheet, { type SelectedBank } from '@/components/BankSelectSheet'
 import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
 import { CountryCode } from '@/config/depositBankAccounts'
 import AmountSheet from '@/components/AmountSheet'
@@ -76,7 +76,7 @@ export default function ProfilePage() {
   const [openBankSelect, setOpenBankSelect] = useState(false)
   const [openBankTransferDetails, setOpenBankTransferDetails] = useState(false)
   const [bankTransferCountry, setBankTransferCountry] = useState<CountryCode>('MZ')
-  const [selectedBank, setSelectedBank] = useState<MozambiqueBank | undefined>(undefined)
+  const [selectedBank, setSelectedBank] = useState<SelectedBank | undefined>(undefined)
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
@@ -768,8 +768,8 @@ export default function ProfilePage() {
         onSelect={(countryCode) => {
           setBankTransferCountry(countryCode)
           setOpenCountrySelect(false)
-          // For Mozambique, show bank selection; for other countries, go directly to bank details
-          if (countryCode === 'MZ') {
+          // For Mozambique and South Africa, show bank selection; for other countries, go directly to bank details
+          if (countryCode === 'MZ' || countryCode === 'ZA') {
             setTimeout(() => setOpenBankSelect(true), 220)
           } else {
             setTimeout(() => setOpenBankTransferDetails(true), 220)
@@ -788,6 +788,7 @@ export default function ProfilePage() {
           setOpenBankSelect(false)
           setTimeout(() => setOpenBankTransferDetails(true), 220)
         }}
+        countryCode={bankTransferCountry}
       />
       <BankTransferDetailsSheet
         open={openBankTransferDetails}
@@ -795,6 +796,10 @@ export default function ProfilePage() {
           setOpenBankTransferDetails(false)
           // Reset bank selection when closing
           setSelectedBank(undefined)
+        }}
+        onBack={() => {
+          setOpenBankTransferDetails(false)
+          setTimeout(() => setOpenBankSelect(true), 220)
         }}
         countryCode={bankTransferCountry}
         bank={selectedBank}

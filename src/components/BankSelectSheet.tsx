@@ -3,31 +3,61 @@
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 import Image from 'next/image'
+import { CountryCode } from '@/config/depositBankAccounts'
 import '@/styles/send-details-sheet.css'
 
 export type MozambiqueBank = 'BCI' | 'ABSA'
+export type SouthAfricaBank = 'FNB'
+export type SelectedBank = MozambiqueBank | SouthAfricaBank
 
 type BankSelectSheetProps = {
   isOpen: boolean
   onClose: () => void
-  onSelect: (bank: MozambiqueBank) => void
+  onSelect: (bank: SelectedBank) => void
   onBack?: () => void // Callback for back button
+  countryCode: CountryCode // Which country's banks to show
 }
 
+// Bank logo paths
+const BANK_LOGOS: Record<string, string> = {
+  ABSA: '/assets/ABSA_logo.png',
+  BCI: '/assets/BCI logo.png',
+  FNB: '/assets/fnb_logo.png',
+}
+
+// Mozambique banks
 const MOZAMBIQUE_BANKS: Array<{
   code: MozambiqueBank
   name: string
   subtitle: string
+  logoPath: string
 }> = [
   {
     code: 'ABSA',
     name: 'ABSA',
     subtitle: 'Deposits to ABSA',
+    logoPath: BANK_LOGOS.ABSA,
   },
   {
     code: 'BCI',
     name: 'BCI',
     subtitle: 'Deposits to BCI',
+    logoPath: BANK_LOGOS.BCI,
+  },
+]
+
+// South Africa banks
+const SOUTH_AFRICA_BANKS: Array<{
+  code: SouthAfricaBank
+  name: string
+  subtitle: string
+  logoPath: string
+}> = [
+  {
+    code: 'FNB',
+    name: 'FNB',
+    subtitle: 'Deposits to FNB',
+    logoPath: BANK_LOGOS.FNB,
   },
 ]
 
@@ -36,14 +66,22 @@ export default function BankSelectSheet({
   onClose,
   onSelect,
   onBack,
+  countryCode,
 }: BankSelectSheetProps) {
-  const handleSelect = (bank: MozambiqueBank) => {
+  const handleSelect = (bank: SelectedBank) => {
     onSelect(bank)
     onClose()
   }
 
   // Show back button when onBack is provided
   const showBackButton = !!onBack
+
+  // Get banks for the selected country
+  const banks = countryCode === 'MZ' 
+    ? MOZAMBIQUE_BANKS 
+    : countryCode === 'ZA'
+    ? SOUTH_AFRICA_BANKS
+    : []
 
   return (
     <ActionSheet open={isOpen} onClose={onClose} title="" className={showBackButton ? 'country-select-sheet-with-back' : ''} size="tall">
@@ -68,9 +106,42 @@ export default function BankSelectSheet({
           }}>Choose bank</h3>
         </div>
       )}
-      {MOZAMBIQUE_BANKS.map((bank) => (
+      {banks.map((bank) => (
         <ActionSheetItem
           key={bank.code}
+          icon={
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                overflow: 'hidden',
+                backgroundColor: '#E9E9EB',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px', // Padding to constrain logo size
+              }}
+            >
+              <Image
+                src={bank.logoPath}
+                alt={bank.name}
+                width={28}
+                height={28}
+                style={{ 
+                  objectFit: 'contain',
+                  maxWidth: '28px',
+                  maxHeight: '28px',
+                }}
+                unoptimized
+                onError={(e) => {
+                  // Fallback to placeholder if logo fails to load
+                  const target = e.target as HTMLImageElement
+                  target.style.display = 'none'
+                }}
+              />
+            </div>
+          }
           title={bank.name}
           caption={bank.subtitle}
           onClick={() => handleSelect(bank.code)}

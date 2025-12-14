@@ -2,15 +2,18 @@
 
 import { useState } from 'react'
 import { Copy } from 'lucide-react'
+import Image from 'next/image'
 import ActionSheet from './ActionSheet'
-import { CountryCode, DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, type MozambiqueBank } from '@/config/depositBankAccounts'
+import { CountryCode, DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, SOUTH_AFRICA_BANK_ACCOUNTS, type SelectedBank, type BankAccountDetails } from '@/config/depositBankAccounts'
 import '@/styles/bank-transfer-details-sheet.css'
+import '@/styles/send-details-sheet.css'
 
 type BankTransferDetailsSheetProps = {
   open: boolean
   onClose: () => void
   countryCode: CountryCode
-  bank?: MozambiqueBank // Optional bank selection for Mozambique
+  bank?: SelectedBank // Optional bank selection for Mozambique or South Africa
+  onBack?: () => void // Callback for back button (to return to bank selection)
 }
 
 export default function BankTransferDetailsSheet({
@@ -18,11 +21,19 @@ export default function BankTransferDetailsSheet({
   onClose,
   countryCode,
   bank,
+  onBack,
 }: BankTransferDetailsSheetProps) {
-  // For Mozambique, use bank-specific config if provided, otherwise default to BCI
-  const config = countryCode === 'MZ' && bank
-    ? MOZAMBIQUE_BANK_ACCOUNTS[bank]
-    : DEPOSIT_BANK_ACCOUNTS[countryCode]
+  // Get bank-specific config if provided, otherwise use default for country
+  let config: BankAccountDetails
+  if (countryCode === 'MZ' && bank && (bank === 'BCI' || bank === 'ABSA')) {
+    config = MOZAMBIQUE_BANK_ACCOUNTS[bank]
+  } else if (countryCode === 'ZA' && bank === 'FNB') {
+    config = SOUTH_AFRICA_BANK_ACCOUNTS[bank]
+  } else {
+    config = DEPOSIT_BANK_ACCOUNTS[countryCode]
+  }
+  
+  const showBackButton = !!onBack
   
   const DETAILS = {
     recipient: config.recipient,
@@ -46,6 +57,16 @@ export default function BankTransferDetailsSheet({
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" className="bank-transfer-details" size="tall">
+      {showBackButton && (
+        <div className="send-details-header">
+          <button className="send-details-back" onClick={onBack} aria-label="Back">
+            <Image src="/assets/back_ui.svg" alt="" width={24} height={24} />
+          </button>
+          <h3 className="send-details-title" style={{ visibility: 'hidden' }}>Bank Details</h3>
+          {/* Spacer to push title to center */}
+          <div style={{ width: '32px', height: '32px' }} />
+        </div>
+      )}
       <div className="bank-transfer-details-sheet">
         <div className="bank-transfer-content">
           <div className="bank-transfer-reference-pill">
