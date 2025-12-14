@@ -116,7 +116,7 @@ export default function FirebaseAuthListener() {
         }
 
         // Subscribe to Firestore user doc snapshots
-        unsubscribeDocRef.current = subscribeToCurrentUserDoc(async (payload) => {
+        unsubscribeDocRef.current = subscribeToCurrentUserDoc((payload) => {
           if (!payload || !payload.data) return
           const { data } = payload
           const { setProfile, profile } = useUserProfileStore.getState()
@@ -128,19 +128,6 @@ export default function FirebaseAuthListener() {
             userHandle: data.handle || profile.userHandle,
           })
 
-          // Trigger automatic Google Contacts sync if enabled
-          // Run this after profile is synced to ensure we have user doc data
-          if (data.socialGraphShareContacts !== false) {
-            try {
-              const { syncGoogleContactsOnSignIn } = await import('@/lib/contacts/syncGoogleContactsOnSignIn')
-              // Run sync in background (non-blocking)
-              syncGoogleContactsOnSignIn(user, data).catch(err => {
-                console.error('[Firebase] Failed to sync Google contacts:', err)
-              })
-            } catch (importErr) {
-              console.error('[Firebase] Failed to import contact sync function:', importErr)
-            }
-          }
         })
 
         // Ensure wallets and subscribe to wallet snapshots

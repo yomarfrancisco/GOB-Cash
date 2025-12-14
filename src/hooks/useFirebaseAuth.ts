@@ -29,17 +29,8 @@ export function useFirebaseAuth() {
 
       try {
         // Try popup first (preferred UX)
-        const result = await signInWithPopup(auth, googleProvider)
+        await signInWithPopup(auth, googleProvider)
         console.log('[FirebaseAuth] Google sign-in success (popup)')
-
-        // Capture Google OAuth access token for contact sync
-        // The credential contains the access token we need for People API
-        const credential = GoogleAuthProvider.credentialFromResult(result)
-        if (credential?.accessToken) {
-          // Store access token in sessionStorage for contact sync
-          sessionStorage.setItem('google_access_token', credential.accessToken)
-          console.log('[FirebaseAuth] Stored Google access token for contact sync')
-        }
 
         // Close auth sheets - FirebaseAuthListener will update isAuthed
         closeAllAuth()

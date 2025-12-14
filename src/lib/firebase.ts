@@ -134,8 +134,7 @@ export function getGoogleAuthProvider(): GoogleAuthProvider {
   if (!_googleProvider) {
     _googleProvider = new GoogleAuthProvider()
     _googleProvider.setCustomParameters({ prompt: 'select_account' })
-    // Add contacts scope for People API access
-    _googleProvider.addScope('https://www.googleapis.com/auth/contacts.readonly')
+    // No additional scopes; contacts sync removed to avoid "unverified app" warning
   }
   return _googleProvider
 }

@@ -141,9 +141,9 @@ async function syncUserToGlobalContacts(uid, userData) {
       publicData.avatarUrl = existingData.avatarUrl
     }
 
-    // sources: union existing + "user"
+    // sources: union existing + "signup" (to distinguish from "device" contacts)
     const existingSources = new Set(existingData?.sources || [])
-    existingSources.add('user')
+    existingSources.add('signup')
     publicData.sources = Array.from(existingSources)
 
     if (existingData?.createdAt) {
@@ -158,7 +158,7 @@ async function syncUserToGlobalContacts(uid, userData) {
     // New entry
     publicData.displayName = userData.displayName || userData.fullName || null
     publicData.avatarUrl = userData.avatarUrl || null
-    publicData.sources = ['user']
+    publicData.sources = ['signup']
     publicData.createdAt = now
     await publicRef.set(publicData)
     console.log(`[backfill] ✅ Created globalContactsPublic/${normalizedHandle}`)

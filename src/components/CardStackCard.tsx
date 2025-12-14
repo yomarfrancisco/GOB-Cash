@@ -6,6 +6,8 @@ import { useRef, useEffect, useState, useMemo } from 'react'
 import SlotCounter from './SlotCounter'
 import { formatZAR, formatUSDT } from '@/lib/formatCurrency'
 import { useWalletAlloc } from '@/state/walletAlloc'
+import { useWalletStore } from '@/store/wallets'
+import { useAuthStore } from '@/store/auth'
 import { usePortfolioStore } from '@/store/portfolio'
 import { useTweenNumber } from '@/lib/animations/useTweenNumber'
 import { useTwoStageTween } from '@/lib/animations/useTwoStageTween'
@@ -13,7 +15,6 @@ import clsx from 'clsx'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import { BASE_USDT_ADDRESS } from '@/config/addresses'
 import { useNotificationStore } from '@/store/notifications'
-import { useAuthStore } from '@/store/auth'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -149,7 +150,6 @@ export default function CardStackCard({
   isSpecialCard = false,
   onApyPillClick,
 }: CardStackCardProps) {
-  const isAuthed = useAuthStore((state) => state.isAuthed)
   const { alloc, allocPct } = useWalletAlloc()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
 
@@ -270,16 +270,57 @@ export default function CardStackCard({
   }, [card.type])
 
   // Get allocation cents for this card
+  // For authed users: read directly from Firestore wallets to avoid demo values
+  // For pre-auth: use alloc (demo values are fine for marketing)
+  const isAuthed = useAuthStore((state) => state.isAuthed)
+  const { wallets, demoMode } = useWalletStore()
+  
   const allocKey = CARD_TO_ALLOC_KEY[card.type]
-  const cents = (alloc as any)[allocKey] || 0
+  
+  // Map alloc key to wallet ID
+  const walletIdMap: Record<string, string> = {
+    cashCents: 'cashZAR',
+    ethCents: 'eth',
+    zwdCents: 'cashZWD',
+    mznCents: 'cashMZN',
+    btcCents: 'btc',
+    earningsCents: 'earnings',
+  }
+  const walletId = walletIdMap[allocKey]
+  
+  // For authed users: use Firestore wallets (source of truth), fallback to 0 if not loaded yet
+  // For pre-auth: use alloc (demo values)
+  let cents: number
+  if (isAuthed && wallets && !demoMode && walletId) {
+    // Read directly from Firestore wallets
+    const wallet = (wallets as any)[walletId]
+    const fiatBalance = wallet?.fiatBalance ?? 0
+    cents = Math.round(fiatBalance * 100)
+  } else {
+    // Pre-auth: use alloc (demo values)
+    cents = (alloc as any)[allocKey] || 0
+  }
+  
   const zar = cents / 100
   const usdt = zar / FX_USD_ZAR_DEFAULT
   const pct = allocPct(cents)
 
   // Check if ANY card exceeds threshold - if so, apply compact sizing to ALL cards for consistency
-  const cashZAR = alloc.cashCents / 100
-  const ethZAR = alloc.ethCents / 100
-  const zwdZAR = alloc.zwdCents / 100
+  // Use same source as balance display (Firestore for authed, alloc for pre-auth)
+  let cashZAR: number
+  let ethZAR: number
+  let zwdZAR: number
+  
+  if (isAuthed && wallets && !demoMode) {
+    cashZAR = ((wallets as any)?.cashZAR?.fiatBalance ?? 0)
+    ethZAR = ((wallets as any)?.eth?.fiatBalance ?? 0)
+    zwdZAR = ((wallets as any)?.cashZWD?.fiatBalance ?? 0)
+  } else {
+    cashZAR = alloc.cashCents / 100
+    ethZAR = alloc.ethCents / 100
+    zwdZAR = alloc.zwdCents / 100
+  }
+  
   const shouldUseCompactSizing = cashZAR > 99999.99 || ethZAR > 99999.99 || zwdZAR > 99999.99
 
   // Get portfolio data for this card
