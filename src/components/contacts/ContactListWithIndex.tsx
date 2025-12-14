@@ -50,14 +50,19 @@ function ContactRow({
   })
   const meta = tagsToMeta(tags)
   const isAgent = (contact.metadata as any)?.isAgent || false
-  const subtitle = buildContactSubtitle(meta, { isAuthenticated, isAgent })
-
-  // For signed-in users, show email and phone if available (directory contacts only)
-  const showContactDetails = isAuthenticated && contact.source === 'gobankless-contact' && (contact.email || contact.phone)
-  const contactDetails: string[] = []
-  if (showContactDetails) {
-    if (contact.phone) contactDetails.push(contact.phone)
-    if (contact.email) contactDetails.push(contact.email)
+  
+  // Post-auth directory contacts: subtitle = phone + email ONLY (no corridor text)
+  // Pre-auth directory contacts: subtitle = corridor text only
+  let subtitle: string
+  if (isAuthenticated && contact.source === 'gobankless-contact' && (contact.email || contact.phone)) {
+    // Post-auth: phone + email only
+    const parts: string[] = []
+    if (contact.phone) parts.push(contact.phone)
+    if (contact.email) parts.push(contact.email)
+    subtitle = parts.join(' • ')
+  } else {
+    // Pre-auth: corridor text only
+    subtitle = buildContactSubtitle(meta, { isAuthenticated, isAgent })
   }
 
   return (
@@ -76,11 +81,6 @@ function ContactRow({
         <div className={contactRowStyles.contactTextBlock}>
           <div className={contactRowStyles.contactHandle}>{contact.handle}</div>
           <div className={contactRowStyles.contactSubtitle}>{subtitle}</div>
-          {showContactDetails && contactDetails.length > 0 && (
-            <div className={contactRowStyles.contactSubtitle} style={{ marginTop: '4px', fontSize: '0.875rem', opacity: 0.7 }}>
-              {contactDetails.join(' • ')}
-            </div>
-          )}
         </div>
       </div>
       {selected && (

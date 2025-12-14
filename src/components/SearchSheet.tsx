@@ -272,14 +272,18 @@ export default function SearchSheet() {
       })
     }
     
-    const subtitle = buildContactSubtitle(meta, { isAuthenticated: isAuthed, isAgent })
-    
-    // For signed-in users, show email and phone if available (directory contacts only)
-    const showContactDetails = isAuthed && contact.source === 'gobankless-contact' && (contact.email || contact.phone)
-    const contactDetails: string[] = []
-    if (showContactDetails) {
-      if (contact.phone) contactDetails.push(contact.phone)
-      if (contact.email) contactDetails.push(contact.email)
+    // Post-auth directory contacts: subtitle = phone + email ONLY (no corridor text)
+    // Pre-auth directory contacts: subtitle = corridor text only
+    let subtitle: string
+    if (isAuthed && contact.source === 'gobankless-contact' && (contact.email || contact.phone)) {
+      // Post-auth: phone + email only
+      const parts: string[] = []
+      if (contact.phone) parts.push(contact.phone)
+      if (contact.email) parts.push(contact.email)
+      subtitle = parts.join(' • ')
+    } else {
+      // Pre-auth: corridor text only
+      subtitle = buildContactSubtitle(meta, { isAuthenticated: isAuthed, isAgent })
     }
     
     return (
@@ -299,11 +303,6 @@ export default function SearchSheet() {
           <div className={paymentStyles.contactTextBlock}>
             <div className={paymentStyles.contactHandle}>{contact.handle || contact.name || contact.email || ''}</div>
             <div className={paymentStyles.contactSubtitle}>{subtitle}</div>
-            {showContactDetails && contactDetails.length > 0 && (
-              <div className={paymentStyles.contactSubtitle} style={{ marginTop: '4px', fontSize: '0.875rem', opacity: 0.7 }}>
-                {contactDetails.join(' • ')}
-              </div>
-            )}
           </div>
         </div>
       </button>
