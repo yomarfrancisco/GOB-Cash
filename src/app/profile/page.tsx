@@ -9,6 +9,7 @@ import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
 import CashInOutSheet from '@/components/CashInOutSheet'
 import CountrySelectSheet from '@/components/CountrySelectSheet'
+import BankSelectSheet, { type MozambiqueBank } from '@/components/BankSelectSheet'
 import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
 import { CountryCode } from '@/config/depositBankAccounts'
 import AmountSheet from '@/components/AmountSheet'
@@ -72,8 +73,10 @@ export default function ProfilePage() {
   const [openDeposit, setOpenDeposit] = useState(false)
   const [openWithdraw, setOpenWithdraw] = useState(false)
   const [openCountrySelect, setOpenCountrySelect] = useState(false)
+  const [openBankSelect, setOpenBankSelect] = useState(false)
   const [openBankTransferDetails, setOpenBankTransferDetails] = useState(false)
   const [bankTransferCountry, setBankTransferCountry] = useState<CountryCode>('MZ')
+  const [selectedBank, setSelectedBank] = useState<MozambiqueBank | undefined>(undefined)
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
@@ -765,13 +768,36 @@ export default function ProfilePage() {
         onSelect={(countryCode) => {
           setBankTransferCountry(countryCode)
           setOpenCountrySelect(false)
+          // For Mozambique, show bank selection; for other countries, go directly to bank details
+          if (countryCode === 'MZ') {
+            setTimeout(() => setOpenBankSelect(true), 220)
+          } else {
+            setTimeout(() => setOpenBankTransferDetails(true), 220)
+          }
+        }}
+      />
+      <BankSelectSheet
+        isOpen={openBankSelect}
+        onClose={() => setOpenBankSelect(false)}
+        onBack={() => {
+          setOpenBankSelect(false)
+          setTimeout(() => setOpenCountrySelect(true), 220)
+        }}
+        onSelect={(bank) => {
+          setSelectedBank(bank)
+          setOpenBankSelect(false)
           setTimeout(() => setOpenBankTransferDetails(true), 220)
         }}
       />
       <BankTransferDetailsSheet
         open={openBankTransferDetails}
-        onClose={() => setOpenBankTransferDetails(false)}
+        onClose={() => {
+          setOpenBankTransferDetails(false)
+          // Reset bank selection when closing
+          setSelectedBank(undefined)
+        }}
         countryCode={bankTransferCountry}
+        bank={selectedBank}
       />
       <ProductivityHelperSheet
         isOpen={isProductivityHelperOpen}

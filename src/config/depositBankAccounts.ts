@@ -20,8 +20,12 @@ export type BankAccountDetails = {
   referencePrefix: string // e.g. "BRICS4DC7RB"
 }
 
-export const DEPOSIT_BANK_ACCOUNTS: Record<CountryCode, BankAccountDetails> = {
-  MZ: {
+// For Mozambique, we support multiple banks
+export type MozambiqueBank = 'BCI' | 'ABSA'
+
+// Mozambique bank accounts (multiple banks supported)
+export const MOZAMBIQUE_BANK_ACCOUNTS: Record<'BCI' | 'ABSA', BankAccountDetails> = {
+  BCI: {
     countryCode: 'MZ',
     countryName: 'Mozambique',
     recipient: 'MULTI - INVESTIMENTOS',
@@ -31,6 +35,20 @@ export const DEPOSIT_BANK_ACCOUNTS: Record<CountryCode, BankAccountDetails> = {
     swift: 'CGDIMZMA',
     referencePrefix: 'BRICS4DC7RB',
   },
+  ABSA: {
+    countryCode: 'MZ',
+    countryName: 'Mozambique',
+    recipient: 'GINAV LDA',
+    bankName: 'ABSA',
+    accountNumber: '0038104000117',
+    accountType: 'Current / Cheque',
+    swift: 'ABMZMZMA',
+    referencePrefix: 'BRICS4ABSA7K2',
+  },
+}
+
+export const DEPOSIT_BANK_ACCOUNTS: Record<CountryCode, BankAccountDetails> = {
+  MZ: MOZAMBIQUE_BANK_ACCOUNTS.BCI, // Default to BCI for backward compatibility
   ZA: {
     countryCode: 'ZA',
     countryName: 'South Africa',
@@ -124,7 +142,7 @@ export const COUNTRY_SELECT_OPTIONS: Array<{
     code: 'MZ',
     name: 'Mozambique',
     flagPath: '/assets/mozambique.png',
-    subtitle: 'Deposits to BCI · Maputo',
+    subtitle: 'Deposits to BCI or ABSA · Maputo',
   },
   {
     code: 'ZA',

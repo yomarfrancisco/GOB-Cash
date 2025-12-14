@@ -3,21 +3,26 @@
 import { useState } from 'react'
 import { Copy } from 'lucide-react'
 import ActionSheet from './ActionSheet'
-import { CountryCode, DEPOSIT_BANK_ACCOUNTS } from '@/config/depositBankAccounts'
+import { CountryCode, DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, type MozambiqueBank } from '@/config/depositBankAccounts'
 import '@/styles/bank-transfer-details-sheet.css'
 
 type BankTransferDetailsSheetProps = {
   open: boolean
   onClose: () => void
   countryCode: CountryCode
+  bank?: MozambiqueBank // Optional bank selection for Mozambique
 }
 
 export default function BankTransferDetailsSheet({
   open,
   onClose,
   countryCode,
+  bank,
 }: BankTransferDetailsSheetProps) {
-  const config = DEPOSIT_BANK_ACCOUNTS[countryCode]
+  // For Mozambique, use bank-specific config if provided, otherwise default to BCI
+  const config = countryCode === 'MZ' && bank
+    ? MOZAMBIQUE_BANK_ACCOUNTS[bank]
+    : DEPOSIT_BANK_ACCOUNTS[countryCode]
   
   const DETAILS = {
     recipient: config.recipient,
