@@ -16,8 +16,8 @@ import '@/styles/send-details-sheet.css'
 import styles from './PaymentDetailsSheet.module.css'
 import { useSyncContacts } from '@/hooks/useSyncContacts'
 import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
-import { usePublicDirectoryContactsForUI } from '@/hooks/usePublicDirectoryContacts'
-import { useDirectoryPrivateContacts } from '@/hooks/useDirectoryPrivateContacts'
+import { useGlobalContactsPublicForUI } from '@/hooks/useGlobalContactsPublic'
+import { useGlobalContactsPrivate } from '@/hooks/useGlobalContactsPrivate'
 
 const RECIPIENT_PLACEHOLDER = 'Username or WhatsApp number'
 const MAX_PAYMENT_SUGGESTIONS = 600 // Increased from 300
@@ -75,10 +75,10 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   
   // Get contacts for UI display:
   // - User's personal contacts from /users/{uid}/contacts
-  // - Plus directory contacts (public + private enrichment when signed in)
+  // - Plus global contacts (public + private enrichment when signed in)
   const userContacts = useUserContactsForUI(rankedContacts)
-  const publicDirectoryContacts = usePublicDirectoryContactsForUI()
-  const enrichedDirectoryContacts = useDirectoryPrivateContacts(publicDirectoryContacts)
+  const globalContactsPublic = useGlobalContactsPublicForUI()
+  const enrichedGlobalContacts = useGlobalContactsPrivate(globalContactsPublic)
   
   // Merge user contacts with directory contacts (deduplicate by handle)
   const displayContacts = useMemo(() => {
@@ -93,7 +93,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     })
     
     // Add directory contacts (only if not already in user contacts)
-    const directoryContacts = isAuthed ? enrichedDirectoryContacts : publicDirectoryContacts
+    const directoryContacts = isAuthed ? enrichedGlobalContacts : globalContactsPublic
     directoryContacts.forEach(contact => {
       const key = contact.handle || contact.id
       if (key && !contactMap.has(key)) {
@@ -102,7 +102,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     })
     
     return Array.from(contactMap.values())
-  }, [userContacts, publicDirectoryContacts, enrichedDirectoryContacts, isAuthed])
+  }, [userContacts, globalContactsPublic, enrichedGlobalContacts, isAuthed])
 
   // Split into suggested (top N) and all contacts (rest, alphabetically sorted)
   const { suggested, sections } = useMemo(() => {

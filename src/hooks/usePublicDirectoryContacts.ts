@@ -155,24 +155,26 @@ export function usePublicDirectoryContactsForUI(): RankedContact[] {
           afterFilter: mappedContacts.length,
           filteredOut: snapshot.docs.length - mappedContacts.length,
         })
-          .sort((a, b) => {
-            // Primary sort: by trust score (descending)
-            if (b.qualityScore !== a.qualityScore) {
-              return b.qualityScore - a.qualityScore
-            }
-            // Secondary sort: by displayName (case-insensitive) or handle if displayName is empty
-            const aName = (a.name || a.handle || '').toLowerCase()
-            const bName = (b.name || b.handle || '').toLowerCase()
-            return aName.localeCompare(bName)
-          })
+        
+        // Sort the array before setting state
+        const sorted = mappedContacts.slice().sort((a, b) => {
+          // Primary sort: by trust score (descending)
+          if (b.qualityScore !== a.qualityScore) {
+            return b.qualityScore - a.qualityScore
+          }
+          // Secondary sort: by displayName (case-insensitive) or handle if displayName is empty
+          const aName = (a.name || a.handle || '').toLowerCase()
+          const bName = (b.name || b.handle || '').toLowerCase()
+          return aName.localeCompare(bName)
+        })
         
         console.debug('[usePublicDirectoryContacts] Loaded public directory contacts', {
           source: 'publicDirectory',
-          count: mappedContacts.length,
+          count: sorted.length,
           isAuthed: false,
         })
         
-        setContacts(mappedContacts)
+        setContacts(sorted)
       } catch (err: any) {
         console.error('[usePublicDirectoryContacts] Failed to load directory contacts', {
           error: err,
