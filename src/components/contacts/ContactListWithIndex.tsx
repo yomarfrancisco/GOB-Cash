@@ -6,6 +6,9 @@ import type { RankedContact } from '@/lib/contacts/rankContacts'
 import type { ContactSection } from '@/lib/contacts/contactGrouping'
 import { getContactTags } from '@/lib/contacts/contactTags'
 import { buildContactSubtitle, tagsToMeta } from '@/lib/contacts/contactDescription'
+import { normalizeHandle } from '@/lib/contacts'
+import { useUserProfileStore } from '@/store/userProfile'
+import { useAuthStore } from '@/store/auth'
 import { AlphabetIndex } from './AlphabetIndex'
 import DirectoryAvatar from './DirectoryAvatar'
 import styles from './ContactListWithIndex.module.css'
@@ -38,6 +41,17 @@ function ContactRow({
   onClick: () => void
   isAuthenticated?: boolean
 }) {
+  const { profile } = useUserProfileStore()
+  const { isAuthed } = useAuthStore()
+  
+  // Normalize current user's handle for comparison
+  const myHandleNormalized = isAuthed && profile.userHandle 
+    ? normalizeHandle(profile.userHandle) 
+    : null
+  
+  // Check if this is "me"
+  const isMe = myHandleNormalized && contact.handle === myHandleNormalized
+  
   // Compute short subtitle using tag-based helper
   const tags = getContactTags({
     handle: contact.handle,
@@ -53,8 +67,11 @@ function ContactRow({
   
   // Post-auth directory contacts: subtitle = phone + email ONLY (no corridor text)
   // Pre-auth directory contacts: subtitle = corridor text only
+  // "Me" always shows "You" as subtitle
   let subtitle: string
-  if (isAuthenticated && contact.source === 'gobankless-contact' && (contact.email || contact.phone)) {
+  if (isMe) {
+    subtitle = 'You'
+  } else if (isAuthenticated && contact.source === 'gobankless-contact' && (contact.email || contact.phone)) {
     // Post-auth: phone + email only
     const parts: string[] = []
     if (contact.phone) parts.push(contact.phone)
@@ -69,7 +86,8 @@ function ContactRow({
     <button
       type="button"
       className={`${contactRowStyles.contactRow} ${selected ? contactRowStyles.contactRowSelected : ''}`}
-      onClick={onClick}
+      onClick={isMe ? undefined : onClick}
+      disabled={isMe}
     >
       <div className={contactRowStyles.contactRowLeft}>
         <DirectoryAvatar

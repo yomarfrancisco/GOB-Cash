@@ -21,6 +21,8 @@ import { useSyncContacts } from '@/hooks/useSyncContacts'
 import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
 import { useGlobalContactsPublicForUI } from '@/hooks/useGlobalContactsPublic'
 import { useGlobalContactsPrivate } from '@/hooks/useGlobalContactsPrivate'
+import { useUserProfileStore } from '@/store/userProfile'
+import { normalizeHandle } from '@/lib/contacts'
 import DirectoryAvatar from './contacts/DirectoryAvatar'
 
 type SearchAgent = {
@@ -63,6 +65,13 @@ export default function SearchSheet() {
   const { openSheet } = useProfilePreviewSheet()
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const { profile } = useUserProfileStore()
+  
+  // Normalize current user's handle for comparison
+  const myHandleNormalized = useMemo(() => {
+    if (!isAuthed || !profile.userHandle) return null
+    return normalizeHandle(profile.userHandle) || null
+  }, [isAuthed, profile.userHandle])
 
   // Get contacts from store and compute ranked list (for sync)
   const contacts = useContactsStore((state) => state.contacts)
@@ -272,10 +281,16 @@ export default function SearchSheet() {
       })
     }
     
+    // Check if this is "me"
+    const isMe = myHandleNormalized && contact.handle === myHandleNormalized
+    
     // Post-auth directory contacts: subtitle = phone + email ONLY (no corridor text)
     // Pre-auth directory contacts: subtitle = corridor text only
+    // "Me" always shows "You" as subtitle
     let subtitle: string
-    if (isAuthed && contact.source === 'gobankless-contact' && (contact.email || contact.phone)) {
+    if (isMe) {
+      subtitle = 'You'
+    } else if (isAuthed && contact.source === 'gobankless-contact' && (contact.email || contact.phone)) {
       // Post-auth: phone + email only
       const parts: string[] = []
       if (contact.phone) parts.push(contact.phone)
@@ -291,7 +306,8 @@ export default function SearchSheet() {
         key={contact.id}
         type="button"
         className={paymentStyles.contactRow}
-        onClick={() => handleContactClick(contact)}
+        onClick={isMe ? undefined : () => handleContactClick(contact)}
+        disabled={isMe}
       >
         <div className={paymentStyles.contactRowLeft}>
           <DirectoryAvatar

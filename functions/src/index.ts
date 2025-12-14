@@ -16,6 +16,7 @@ export { onContactWrite } from './onContactWrite'
 export { recomputeGhostQuality } from './recomputeGhostQuality'
 export { repairMyHandle } from './repairMyHandle'
 export { onUserWrite, directory_syncMyRecord } from './syncDirectoryForUser'
+export { syncUserToGlobalContacts } from './syncUserToGlobalContacts'
 
 // Export transaction functions
 export { tx_createBankDepositRequest } from './tx/createBankDepositRequest'

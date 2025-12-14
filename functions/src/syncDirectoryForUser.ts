@@ -17,6 +17,8 @@
 
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
+import { normalizeHandle } from './utils/handleNormalization'
+import { syncUserToGlobalContacts } from './syncUserToGlobalContacts'
 
 const db = admin.firestore()
 
@@ -69,10 +71,12 @@ async function syncUserToDirectory(uid: string, userData: UserDocument): Promise
     return
   }
 
-  // Normalize handle (ensure $ prefix, lowercase)
-  const normalizedHandle = handle.startsWith('$') 
-    ? handle.toLowerCase() 
-    : `$${handle.toLowerCase()}`
+  // Normalize handle (remove @ symbols, ensure $ prefix, lowercase)
+  const normalizedHandle = normalizeHandle(handle)
+  if (!normalizedHandle) {
+    console.warn('[syncDirectoryForUser] Invalid handle after normalization', { uid, handle })
+    return
+  }
 
   const now = admin.firestore.Timestamp.now()
   
@@ -81,10 +85,7 @@ async function syncUserToDirectory(uid: string, userData: UserDocument): Promise
   
   // Get phone in E164 format (prefer phoneE164, fallback to phoneNumber)
   const phoneE164 = userData.phoneE164 || userData.phoneNumber || null
-  
-  if (!phoneE164) {
-    console.warn('[syncDirectoryForUser] User has no phone number, directoryPrivate will be incomplete', { uid, handle: normalizedHandle })
-  }
+  const email = userData.email || null
 
   // 1. Upsert publicDirectory/{handle}
   const publicDirRef = db.collection('publicDirectory').doc(normalizedHandle)
@@ -132,18 +133,26 @@ async function syncUserToDirectory(uid: string, userData: UserDocument): Promise
   await publicDirRef.set(publicDirData, { merge: true })
   console.log('[syncDirectoryForUser] Upserted publicDirectory', { handle: normalizedHandle, uid })
 
-  // 2. Upsert directoryPrivate/{handle} (only if we have email and phone)
-  if (userData.email && phoneE164) {
+  // 2. Upsert directoryPrivate/{handle} if we have email OR phone (not both required)
+  if (email || phoneE164) {
     const privateDirRef = db.collection('directoryPrivate').doc(normalizedHandle)
     const privateDirDoc = await privateDirRef.get()
     
     const privateDirData: any = {
       handle: normalizedHandle,
       ownerUserId: uid, // REQUIRED
-      email: userData.email,
-      phoneE164: phoneE164,
-      phoneCountry: phoneCountry || null,
       updatedAt: now,
+    }
+
+    // Only include fields that exist
+    if (email) {
+      privateDirData.email = email
+    }
+    if (phoneE164) {
+      privateDirData.phoneE164 = phoneE164
+    }
+    if (phoneCountry) {
+      privateDirData.phoneCountry = phoneCountry
     }
 
     if (privateDirDoc.exists) {
@@ -158,13 +167,18 @@ async function syncUserToDirectory(uid: string, userData: UserDocument): Promise
     }
 
     await privateDirRef.set(privateDirData, { merge: true })
-    console.log('[syncDirectoryForUser] Upserted directoryPrivate', { handle: normalizedHandle, uid })
+    const fields = []
+    if (email) fields.push('email')
+    if (phoneE164) fields.push('phone')
+    console.log('[syncDirectoryForUser] Upserted directoryPrivate', { 
+      handle: normalizedHandle, 
+      uid, 
+      fields: fields.join(' + ') 
+    })
   } else {
-    console.warn('[syncDirectoryForUser] Skipping directoryPrivate (missing email or phone)', {
+    console.warn('[syncDirectoryForUser] Skipping directoryPrivate (missing both email and phone)', {
       handle: normalizedHandle,
       uid,
-      hasEmail: !!userData.email,
-      hasPhone: !!phoneE164,
     })
   }
 }
@@ -182,13 +196,12 @@ async function handleHandleChange(
     return // No migration needed
   }
 
-  const oldNormalized = oldHandle.startsWith('$') 
-    ? oldHandle.toLowerCase() 
-    : `$${oldHandle.toLowerCase()}`
+  const oldNormalized = normalizeHandle(oldHandle)
+  const newNormalized = normalizeHandle(newHandle)
   
-  const newNormalized = newHandle.startsWith('$') 
-    ? newHandle.toLowerCase() 
-    : `$${newHandle.toLowerCase()}`
+  if (!oldNormalized || !newNormalized) {
+    return // Invalid handles, skip migration
+  }
 
   if (oldNormalized === newNormalized) {
     return // Same after normalization
@@ -263,6 +276,15 @@ export const onUserWrite = functions.firestore
       }
 
       console.log('[onUserWrite] Successfully synced user to directory', { uid, handle: newHandle })
+      
+      // Also sync to globalContacts
+      await syncUserToGlobalContacts(uid, after).catch(err => {
+        console.error('[onUserWrite] Failed to sync user to globalContacts', {
+          uid,
+          error: err instanceof Error ? err.message : String(err),
+        })
+        // Don't throw - allow user write to succeed even if globalContacts sync fails
+      })
     } catch (error) {
       console.error('[onUserWrite] Failed to sync user to directory', {
         uid,
@@ -310,4 +332,5 @@ export const directory_syncMyRecord = functions
       )
     }
   })
+
 

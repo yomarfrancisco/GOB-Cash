@@ -13,6 +13,7 @@
     "cleanup:balances": "ts-node scripts/cleanupLegacyBalances.ts",
     "backfill:directory": "node scripts/backfillDirectory.js",
     "backfill:globalContacts": "node scripts/backfillGlobalContacts.js",
+    "backfill:usersToGlobalContacts": "node scripts/backfillUsersToGlobalContacts.js",
     "functions:build": "cd functions && npm run build",
     "functions:serve": "cd functions && npm run serve",
     "functions:deploy": "firebase deploy --only functions"
