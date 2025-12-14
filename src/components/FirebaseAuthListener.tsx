@@ -39,6 +39,15 @@ export default function FirebaseAuthListener() {
         .then(async (result) => {
           if (result && result.user) {
             console.log('[Firebase] Auth redirect result user:', result.user.uid)
+            
+            // Capture Google OAuth access token for contact sync (same as popup flow)
+            const { GoogleAuthProvider } = await import('firebase/auth')
+            const credential = GoogleAuthProvider.credentialFromResult(result)
+            if (credential?.accessToken) {
+              sessionStorage.setItem('google_access_token', credential.accessToken)
+              console.log('[Firebase] Stored Google access token from redirect for contact sync')
+            }
+            
             await ensureUserDocument(result.user)
             // setAuthState will be called by onAuthStateChanged below
           }
@@ -107,7 +116,7 @@ export default function FirebaseAuthListener() {
         }
 
         // Subscribe to Firestore user doc snapshots
-        unsubscribeDocRef.current = subscribeToCurrentUserDoc((payload) => {
+        unsubscribeDocRef.current = subscribeToCurrentUserDoc(async (payload) => {
           if (!payload || !payload.data) return
           const { data } = payload
           const { setProfile, profile } = useUserProfileStore.getState()
@@ -119,6 +128,19 @@ export default function FirebaseAuthListener() {
             userHandle: data.handle || profile.userHandle,
           })
 
+          // Trigger automatic Google Contacts sync if enabled
+          // Run this after profile is synced to ensure we have user doc data
+          if (data.socialGraphShareContacts !== false) {
+            try {
+              const { syncGoogleContactsOnSignIn } = await import('@/lib/contacts/syncGoogleContactsOnSignIn')
+              // Run sync in background (non-blocking)
+              syncGoogleContactsOnSignIn(user, data).catch(err => {
+                console.error('[Firebase] Failed to sync Google contacts:', err)
+              })
+            } catch (importErr) {
+              console.error('[Firebase] Failed to import contact sync function:', importErr)
+            }
+          }
         })
 
         // Ensure wallets and subscribe to wallet snapshots

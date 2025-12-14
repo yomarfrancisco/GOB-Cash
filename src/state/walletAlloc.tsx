@@ -248,6 +248,8 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
     (value: number) => {
       setAlloc((prev) => {
         const newEarningsCents = Math.round(value * 100)
+        // Earnings never writes to Firestore (no updateWalletBalances call)
+        // This is intentional - earnings should only be set by real transaction logic
         return { ...prev, earningsCents: newEarningsCents }
       })
     },

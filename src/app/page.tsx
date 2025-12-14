@@ -274,9 +274,20 @@ function HomeContent() {
   }
 
   // Initialize portfolio store from wallet allocation
+  // Only initialize if authed and we have real data (not demo values)
+  // Wait for hydration from Firestore before initializing portfolio
   useEffect(() => {
-    initPortfolioFromAlloc(alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents)
-  }, [alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents])
+    // Don't initialize portfolio with demo values for authed users
+    // Portfolio should only be initialized from Firestore data after hydration
+    if (isAuthed && wallets && !demoMode) {
+      // Only initialize if we have wallets from Firestore (hydrated)
+      initPortfolioFromAlloc(alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents)
+    } else if (!isAuthed) {
+      // Pre-auth: use demo values for portfolio
+      initPortfolioFromAlloc(alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents)
+    }
+    // If authed but not hydrated yet, don't initialize (will initialize after syncFromWallets)
+  }, [alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents, isAuthed, wallets, demoMode])
 
   // Initialize AI action cycle - only run when NOT signed in (autonomous demo behavior)
   // When user signs in, isAuthed becomes true and animations stop

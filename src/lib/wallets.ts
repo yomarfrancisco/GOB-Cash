@@ -145,12 +145,43 @@ export function subscribeToWallets(
 
 /**
  * Update a wallet doc with new balances (absolute values).
+ * 
+ * AUDIT LOGGING: All balance writes are logged for debugging.
  */
 export async function updateWalletBalances(
   userId: string,
   walletId: WalletId,
   payload: Partial<Pick<WalletDoc, 'fiatBalance' | 'usdtBalance' | 'apy' | 'riskScore' | 'timeLeftDays'>>
 ): Promise<void> {
+  // Audit logging: capture stack trace and caller info
+  const stack = new Error().stack
+  const caller = stack?.split('\n')[2]?.trim() || 'unknown'
+  
+  // Check if this is a non-zero write for authed user (potential leak)
+  const hasNonZeroBalance = (payload.fiatBalance !== undefined && payload.fiatBalance > 0) ||
+                            (payload.usdtBalance !== undefined && payload.usdtBalance > 0)
+  
+  // Log all writes (especially non-zero for authed users)
+  console.log('[Wallets] AUDIT: updateWalletBalances called', {
+    userId,
+    walletId,
+    payload,
+    caller,
+    hasNonZeroBalance,
+    timestamp: new Date().toISOString(),
+  })
+  
+  // If writing non-zero balance, log warning
+  if (hasNonZeroBalance) {
+    console.warn('[Wallets] AUDIT WARNING: Writing non-zero balance for authed user', {
+      userId,
+      walletId,
+      payload,
+      caller,
+      stack: stack?.split('\n').slice(0, 5).join('\n'),
+    })
+  }
+  
   const db = getFirestoreDb()
   const ref = doc(db, 'users', userId, 'wallets', walletId)
   await setDoc(

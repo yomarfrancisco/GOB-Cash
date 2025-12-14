@@ -134,7 +134,8 @@ export function getGoogleAuthProvider(): GoogleAuthProvider {
   if (!_googleProvider) {
     _googleProvider = new GoogleAuthProvider()
     _googleProvider.setCustomParameters({ prompt: 'select_account' })
-    // No additional scopes; contacts are synced from client-side data
+    // Add contacts scope for People API access
+    _googleProvider.addScope('https://www.googleapis.com/auth/contacts.readonly')
   }
   return _googleProvider
 }
