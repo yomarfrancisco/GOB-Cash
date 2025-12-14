@@ -8,9 +8,21 @@ import { getFirebaseApp } from '@/lib/firebase'
 
 /**
  * Helper to get functions instance with correct region
+ * IMPORTANT: Must use the same app instance to ensure proper callable endpoint resolution
  */
 function getFunctionsInstance() {
-  return getFunctions(getFirebaseApp(), 'us-central1')
+  const app = getFirebaseApp()
+  
+  // Verify app is properly initialized
+  if (!app || !app.options.projectId) {
+    throw new Error('[Functions] Firebase app not properly initialized - missing projectId')
+  }
+  
+  // Get Functions instance - this must use the same app instance
+  // Using a new Functions instance each time ensures proper endpoint resolution
+  const functions = getFunctions(app, 'us-central1')
+  
+  return functions
 }
 
 /**
@@ -193,9 +205,14 @@ export async function tx_createBankDepositRequest(
     throw new Error('[Transaction] Firebase app not properly initialized')
   }
   
-  // Get Functions instance with correct region
-  // IMPORTANT: Must use same region as deployed function (us-central1)
-  const functions = getFunctions(app, 'us-central1')
+  // CRITICAL: Get Functions instance using the helper to ensure proper initialization
+  // This ensures the Functions instance is properly configured for callable endpoints
+  const functions = getFunctionsInstance()
+  
+  // Verify Functions instance is valid
+  if (!functions) {
+    throw new Error('[Transaction] Firebase Functions instance not properly initialized')
+  }
   
   // Create callable function reference
   // This uses Firebase's callable endpoint (firebaseremoteconfig.googleapis.com pattern)
@@ -209,11 +226,14 @@ export async function tx_createBankDepositRequest(
         projectId: app.options.projectId,
         region: 'us-central1',
         functionName: 'tx_createBankDepositRequest',
+        appName: app.name,
       })
     }
     
     // Call function via Firebase SDK (handles CORS, auth, etc.)
     // This should NOT hit cloudfunctions.net directly
+    // The SDK will use: https://us-central1-gobankless-dev.cloudfunctions.net/callable/tx_createBankDepositRequest
+    // OR the Firebase Remote Config endpoint pattern
     const result = await fn({ receiverId, amountZar })
     const data = result.data as { txId: string; status: string }
     
@@ -231,6 +251,8 @@ export async function tx_createBankDepositRequest(
       projectId: app.options.projectId,
       // Log that we're using httpsCallable, not fetch
       method: 'httpsCallable',
+      // Log the actual error details
+      errorDetails: error?.details || error,
     })
     throw error
   }
