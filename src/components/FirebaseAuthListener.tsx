@@ -129,17 +129,27 @@ export default function FirebaseAuthListener() {
 
         })
 
-        // Clear demo wallets immediately on sign-in (before Firestore loads)
+        // Clear demo wallets and set loading state immediately on sign-in
         // This prevents cards from showing demo values during the race condition
         const walletStore = useWalletStore.getState()
         walletStore.setDemoMode(false) // Explicitly disable demo mode
-        // Clear wallets immediately - they'll be populated from Firestore below
-        walletStore.setWallets({} as any) // Empty wallets until Firestore loads
-
-        // Ensure wallets and subscribe to wallet snapshots
+        walletStore.setWalletsStatus('loading') // Mark as loading until Firestore returns data
+        // Clear wallets - they'll be populated from Firestore below
+        // Don't set empty wallets - let cards show 0 while loading, but status tracks that we're loading
+        
+        // CRITICAL: Ensure wallets exist in Firestore FIRST (server truth)
+        // This guarantees all 6 wallets (cashZAR, cashMZN, cashZWD, eth, btc, earnings) exist with $0 balances
+        // Must await completion before subscribing to ensure deterministic initialization
         try {
           await ensureDefaultWallets(user)
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[Wallets] Ensured default wallets for user', user.uid)
+          }
+          
+          // Now subscribe to wallet snapshots - Firestore is source of truth
+          // The subscription will fire immediately with the wallets we just created
           unsubscribeWalletsRef.current = subscribeToWallets(user.uid, (wallets) => {
+            // Firestore wallets are now the source of truth
             walletStore.setWallets(wallets)
             if (process.env.NODE_ENV !== 'production') {
               console.log('[Wallets] Loaded wallets for user', user.uid, Object.keys(wallets))
@@ -147,6 +157,8 @@ export default function FirebaseAuthListener() {
           })
         } catch (walletErr) {
           console.error('[Firebase] Failed to ensure/subscribe wallets', walletErr)
+          // On error, still mark as ready (even if empty) to prevent infinite loading
+          walletStore.setWalletsStatus('ready')
         }
       } else {
         // User signed out - reset profile to default (optional, or keep last profile)

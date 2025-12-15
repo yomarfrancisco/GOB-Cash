@@ -3,14 +3,18 @@
 import { create } from 'zustand'
 import type { WalletDoc, WalletId, WalletMap } from '@/types/wallet'
 
+type WalletsStatus = 'loading' | 'ready'
+
 type WalletState = {
   wallets: Partial<WalletMap>
   loading: boolean
   demoMode: boolean
+  walletsStatus: WalletsStatus // Track if wallets are loading or ready from Firestore
   setWallets: (wallets: WalletMap) => void
   upsertWallet: (wallet: WalletDoc) => void
   setLoading: (loading: boolean) => void
   setDemoMode: (demo: boolean) => void
+  setWalletsStatus: (status: WalletsStatus) => void
   clear: () => void
 }
 
@@ -70,7 +74,8 @@ export const useWalletStore = create<WalletState>((set) => ({
   wallets: demoWallets,
   loading: false,
   demoMode: true,
-  setWallets: (wallets) => set({ wallets, demoMode: false }),
+  walletsStatus: 'loading', // Start in loading state
+  setWallets: (wallets) => set({ wallets, demoMode: false, walletsStatus: 'ready' }),
   upsertWallet: (wallet) =>
     set((state) => ({
       wallets: {
@@ -78,10 +83,12 @@ export const useWalletStore = create<WalletState>((set) => ({
         [wallet.walletId]: wallet,
       },
       demoMode: false,
+      walletsStatus: 'ready', // Mark as ready when we receive wallet updates
     })),
   setLoading: (loading) => set({ loading }),
   setDemoMode: (demo) => set({ demoMode: demo }),
-  clear: () => set({ wallets: demoWallets, demoMode: true }),
+  setWalletsStatus: (status) => set({ walletsStatus: status }),
+  clear: () => set({ wallets: demoWallets, demoMode: true, walletsStatus: 'loading' }),
 }))
 
 

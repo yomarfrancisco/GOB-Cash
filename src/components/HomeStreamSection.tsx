@@ -327,11 +327,11 @@ export default function HomeStreamSection() {
       <div className={sharedStyles.mapHeader}>
         <div className={sharedStyles.headerRow}>
           <h2 id="stream-title" className={sharedStyles.mapHeaderTitle}>
-            Become a cash agent
+            Find a cash agent
           </h2>
         </div>
         <p className={sharedStyles.mapHeaderSub}>
-          Explore opportunities. Show up. Earn
+          Private. Safe. Vetted agents
         </p>
       </div>
 
