@@ -1,23 +1,58 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import ReactDOM from 'react-dom'
-import Image from 'next/image'
 import { getFirestoreDb } from '@/lib/firebase'
 import { collection, query, orderBy, onSnapshot, doc } from 'firebase/firestore'
 import { getFirebaseAuth } from '@/lib/firebase'
-import type { TransactionMessage, ChatStep, BankDepositTransaction } from '@/types/transactions'
+import type { TransactionMessage, ChatStep, BankDepositTransaction, SenderType } from '@/types/transactions'
 import { getSambaMessage, getSambaHelperResponse, isValidTronAddress } from '@/lib/depositChat/sambaMessages'
 import { tx_userMarkDepositSent, tx_appendUserMessage, tx_appendSambaMessage, tx_setWithdrawalAddressCandidate } from '@/lib/transactions/clientFunctions'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useNotificationStore } from '@/store/notifications'
+import ActionSheet from './ActionSheet'
+import ChatHeader from './Inbox/ChatHeader'
+import ChatMessageBubble from './Inbox/ChatMessageBubble'
 import ChatInputBar from './Inbox/ChatInputBar'
-import styles from './DepositChatSheet.module.css'
+import chatStyles from './Inbox/FinancialInboxChatSheet.module.css'
 
 type DepositChatSheetProps = {
   open: boolean
   onClose: () => void
   txId: string
+}
+
+/**
+ * Normalized message format for chat renderer
+ */
+interface NormalizedChatMessage {
+  id: string
+  from: 'ai' | 'user'
+  text: string
+  createdAt: any
+}
+
+/**
+ * Normalize transaction message to Ama chat format
+ * Client-side transformation only - Firestore schema unchanged
+ */
+function normalizeTransactionMessage(txMessage: TransactionMessage): NormalizedChatMessage {
+  // Map senderType to from field
+  let from: 'ai' | 'user'
+  if (txMessage.senderType === 'SAMBA' || txMessage.senderType === 'SYSTEM') {
+    from = 'ai' // Display Samba/System messages as Ama
+  } else if (txMessage.senderType === 'USER' || txMessage.senderType === 'CUSTOMER') {
+    from = 'user'
+  } else {
+    // AGENT or unknown - default to ai
+    from = 'ai'
+  }
+
+  return {
+    id: txMessage.id,
+    from,
+    text: txMessage.text,
+    createdAt: txMessage.createdAt,
+  }
 }
 
 export default function DepositChatSheet({ open, onClose, txId }: DepositChatSheetProps) {
@@ -26,6 +61,7 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
   const [inputText, setInputText] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messageAreaRef = useRef<HTMLDivElement>(null)
   const { profile } = useUserProfileStore()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   const auth = getFirebaseAuth()
@@ -99,7 +135,7 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
     })
 
     return () => unsubscribe()
-  }, [open, txId])
+  }, [open, txId, transaction?.chatStep])
 
   // Send initial Samba message on open
   useEffect(() => {
@@ -121,7 +157,8 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
-    if (messagesEndRef.current) {
+    if (messageAreaRef.current && messagesEndRef.current) {
+      // Use scrollIntoView on the messagesEndRef within the scrollable container
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages])
@@ -244,54 +281,38 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
     }
   }
 
-  if (!open) return null
+  // Normalize messages for rendering
+  const normalizedMessages = messages.map(normalizeTransactionMessage)
 
-  return ReactDOM.createPortal(
-    <div className={styles.backdrop} aria-modal="true" role="dialog">
-      <div className={styles.popup}>
-        <div className={styles.popupHeader}>
-          <h3 className={styles.popupTitle}>Deposit Chat</h3>
-          <button className={styles.closeButton} onClick={onClose} aria-label="Close">
-            <Image src="/assets/clear.svg" alt="" width={18} height={18} />
-          </button>
+  return (
+    <ActionSheet open={open} onClose={onClose} title="">
+      <div className={chatStyles.container}>
+        <ChatHeader
+          avatarSrc="/assets/Brics-girl-blue.png"
+          avatarSize={38}
+          name="Ama — Investment Manager"
+          showBackButton={false}
+        />
+        <div ref={messageAreaRef} className={chatStyles.messageArea}>
+          {normalizedMessages.map((message) => (
+            <ChatMessageBubble
+              key={message.id}
+              message={message}
+              avatarSrc="/assets/Brics-girl-blue.png"
+              avatarSize={31}
+              theme="ama"
+            />
+          ))}
+          <div ref={messagesEndRef} />
         </div>
-        <div className={styles.popupBody}>
-          <div className={styles.messagesContainer}>
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`${styles.message} ${styles[`message--${message.senderType.toLowerCase()}`]}`}
-              >
-                {message.senderType === 'SAMBA' && (
-                  <div className={styles.messageAvatar}>
-                    <Image
-                      src="/assets/samba.png"
-                      alt="Samba"
-                      width={24}
-                      height={24}
-                      className={styles.messageAvatarImage}
-                      unoptimized
-                    />
-                  </div>
-                )}
-                <div className={styles.messageBubble}>
-                  <div className={styles.messageText}>{message.text}</div>
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-          <ChatInputBar
-            value={inputText}
-            onChange={setInputText}
-            onSend={handleSend}
-            placeholder="Type a message..."
-            disabled={isProcessing}
-          />
-        </div>
+        <ChatInputBar
+          value={inputText}
+          onChange={setInputText}
+          onSend={handleSend}
+          placeholder="Type a message..."
+          disabled={isProcessing}
+        />
       </div>
-    </div>,
-    document.body
+    </ActionSheet>
   )
 }
-
