@@ -530,10 +530,9 @@ function HomeContent() {
   // Extract helicopter convert handler for reuse
   const handleHelicopterConvertClick = useCallback(() => {
     guardAuthed(() => {
-      // Helicopter button opens convert keypad with single "Convert" button
-      setAmountMode('convert')
-      setAmountEntryPoint('helicopter')
-      setTimeout(() => setOpenAmount(true), 220)
+      // Map footer deposit button: directly open Ama chat (gold standard flow)
+      // This restores the original behavior where tapping Deposit opens Emma/Ama chat immediately
+      openAmaChatWithScenario('cash_deposit')
     })
   }, [guardAuthed])
 
