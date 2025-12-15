@@ -199,7 +199,7 @@ export default function AmountSheet({
   const isCardDeposit = mode === 'deposit' && entryPoint === 'cardDeposit' && depositMethod === 'card'
   
   // Minimum amount for cash transactions (helicopter flow only)
-  const MIN_CASH_ZAR = 5000
+  const MIN_CASH_ZAR = 10
   const meetsMinCash = isHelicopterConvert ? amountZAR >= MIN_CASH_ZAR : true
   
   const modeLabel = isCardDeposit

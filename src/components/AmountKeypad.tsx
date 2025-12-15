@@ -90,7 +90,7 @@ export default function AmountKeypad({
             {customFeeText ? (
               customFeeText
             ) : isHelicopterConvert ? (
-              amountZAR > 0 ? '$5k min cash deposit / withdrawal' : 'Cash ↔ USDT with verified agents.'
+              amountZAR > 0 ? '3% fee to deposit / withdraw' : 'Cash ↔ USDT with verified agents.'
             ) : isConvertMode ? (
               '0% transaction fee'
             ) : (
