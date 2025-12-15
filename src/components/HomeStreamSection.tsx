@@ -190,6 +190,22 @@ const generateStreamItems = (): StreamItemData[] => {
       showUpTag: 'R80/hr show-up',
       commissionTag: '8% commission',
     },
+    {
+      id: 'hotel-avenida',
+      avatarSrc: '/assets/avenida_logo.png',
+      avatarAlt: 'Hotel Avenida',
+      title: 'Hotel Avenida',
+      subtitle: 'Maputo, Moz',
+      bodyTitle: 'R10k – R100k deposits',
+      bodySubtitle: 'Swap cash for USDT with verified agents in your area.',
+      posterSrc: '/assets/commercial_avenida1.jpg',
+      footerCount: 3,
+      footerLabel: 'agents nearby',
+      footerIconSrc: '/assets/Social=WhatsApp,Style=Original.svg',
+      industryTag: 'hospitality',
+      showUpTag: 'R80/hr show-up',
+      commissionTag: '10% commission',
+    },
   ]
 
   return baseItems.map((item, index) => ({
