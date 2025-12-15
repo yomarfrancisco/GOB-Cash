@@ -211,11 +211,14 @@ function abbreviateLocation(location: string): string {
 }
 
 function StreamItem({ item, index }: StreamItemProps) {
-  const { openAuthEntrySignup } = useAuthStore()
+  const { openAuthEntrySignup, isAuthed } = useAuthStore()
 
   const handleCommercialClick = (itemId: string) => {
-    // Open sign-up popup for all Section 3 interactions
-    openAuthEntrySignup()
+    // Only open sign-up popup if user is NOT authenticated
+    // For authenticated users, this is a no-op
+    if (!isAuthed) {
+      openAuthEntrySignup()
+    }
   }
   
   // Transform subtitle for display (South Africa → SA)
@@ -250,8 +253,12 @@ function StreamItem({ item, index }: StreamItemProps) {
       <div className={styles.streamCardContainer}>
         <div 
           className={styles.streamCard}
-          onClick={() => handleCommercialClick(item.id)}
-          style={{ cursor: 'pointer' }}
+          onClick={!isAuthed ? () => handleCommercialClick(item.id) : undefined}
+          style={{ 
+            cursor: !isAuthed ? 'pointer' : 'default',
+            userSelect: isAuthed ? 'none' : 'auto',
+            WebkitUserSelect: isAuthed ? 'none' : 'auto',
+          }}
         >
           {/* Tag row overlay - positioned at top-left */}
           <div className={styles.tagRowOverlay}>
@@ -305,14 +312,14 @@ function StreamItem({ item, index }: StreamItemProps) {
           <Info 
             size={27} 
             className={styles.streamFooterIcon}
-            onClick={() => handleCommercialClick(item.id)}
-            style={{ cursor: 'pointer' }}
+            onClick={!isAuthed ? () => handleCommercialClick(item.id) : undefined}
+            style={{ cursor: !isAuthed ? 'pointer' : 'default' }}
           />
           <SmartphoneNfc 
             size={27} 
             className={styles.streamFooterIcon}
-            onClick={() => handleCommercialClick(item.id)}
-            style={{ cursor: 'pointer' }}
+            onClick={!isAuthed ? () => handleCommercialClick(item.id) : undefined}
+            style={{ cursor: !isAuthed ? 'pointer' : 'default' }}
           />
         </div>
       </div>
