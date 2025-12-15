@@ -8,7 +8,7 @@ import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTi
 import { getFirebaseAuth } from '@/lib/firebase'
 import type { TransactionMessage, ChatStep, BankDepositTransaction } from '@/types/transactions'
 import { getSambaMessage, getSambaHelperResponse, isValidTronAddress } from '@/lib/depositChat/sambaMessages'
-import { tx_userMarkDepositSent, tx_appendUserMessage } from '@/lib/transactions/clientFunctions'
+import { tx_userMarkDepositSent, tx_appendUserMessage, tx_appendSambaMessage } from '@/lib/transactions/clientFunctions'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useNotificationStore } from '@/store/notifications'
 import ChatInputBar from './Inbox/ChatInputBar'
@@ -128,7 +128,6 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
 
   const sendSambaMessage = async (chatStep: ChatStep, tx: BankDepositTransaction) => {
     try {
-      const db = getFirestoreDb()
       const handleCustomer = profile.userHandle || profile.fullName?.split(' ')[0] || 'there'
       const firstName = profile.fullName?.split(' ')[0] || 'there'
       const displayName = profile.fullName || 'there'
@@ -154,14 +153,8 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
         depositReference: reference,
       })
 
-      const msgRef = collection(db, 'transactions', txId, 'messages')
-      await addDoc(msgRef, {
-        txId,
-        senderType: 'SAMBA',
-        senderUid: 'samba',
-        text: sambaText,
-        createdAt: serverTimestamp(),
-      })
+      // Use callable to append Samba message (no direct Firestore writes from client)
+      await tx_appendSambaMessage(txId, sambaText)
     } catch (error) {
       console.error('[DepositChat] Failed to send Samba message:', error)
     }
@@ -212,19 +205,11 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
           })
         } else {
           // Check for helper response
-          const helperResponse = getSambaHelperResponse(userMessage, currentStep)
-          if (helperResponse) {
-            await tx_appendUserMessage(txId, helperResponse)
-            // Actually, we should send as SAMBA, not user
-            const msgRef = collection(db, 'transactions', txId, 'messages')
-            await addDoc(msgRef, {
-              txId,
-              senderType: 'SAMBA',
-              senderUid: 'samba',
-              text: helperResponse,
-              createdAt: serverTimestamp(),
-            })
-          }
+            const helperResponse = getSambaHelperResponse(userMessage, currentStep)
+            if (helperResponse) {
+              // Send as Samba via callable
+              await tx_appendSambaMessage(txId, helperResponse)
+            }
         }
       } else if (currentStep === 'WAITING_FOR_SENT_PROOF') {
         // After user says SENT, they should provide TRON address
@@ -245,14 +230,7 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
           // Invalid address - send helper response
           const helperResponse = getSambaHelperResponse(userMessage, currentStep)
           if (helperResponse) {
-            const msgRef = collection(db, 'transactions', txId, 'messages')
-            await addDoc(msgRef, {
-              txId,
-              senderType: 'SAMBA',
-              senderUid: 'samba',
-              text: helperResponse,
-              createdAt: serverTimestamp(),
-            })
+            await tx_appendSambaMessage(txId, helperResponse)
           }
         }
       } else if (currentStep === 'WAITING_FOR_WALLET_ADDRESS') {
@@ -273,14 +251,7 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
           // Invalid address - send helper response
           const helperResponse = getSambaHelperResponse(userMessage, currentStep)
           if (helperResponse) {
-            const msgRef = collection(db, 'transactions', txId, 'messages')
-            await addDoc(msgRef, {
-              txId,
-              senderType: 'SAMBA',
-              senderUid: 'samba',
-              text: helperResponse,
-              createdAt: serverTimestamp(),
-            })
+            await tx_appendSambaMessage(txId, helperResponse)
           }
         }
       }
