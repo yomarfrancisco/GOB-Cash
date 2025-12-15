@@ -34,9 +34,19 @@ export const tx_createBankDepositRequest = functions
     }
 
     const userId = context.auth.uid
-    const { receiverId, amountZar } = data
 
-    // Validate inputs with detailed logging
+    // Extract and validate inputs
+    const {
+      receiverId,
+      amountZar,
+      bankCountry,
+      bankId,
+      depositCurrency,
+      depositReference,
+      depositDetails,
+      chatStep,
+    } = data || {}
+
     if (!receiverId || typeof receiverId !== 'string') {
       console.error('[tx_createBankDepositRequest] Invalid receiverId', { receiverId, type: typeof receiverId })
       throw new functions.https.HttpsError('invalid-argument', 'receiverId is required')
@@ -45,9 +55,24 @@ export const tx_createBankDepositRequest = functions
       console.error('[tx_createBankDepositRequest] Invalid amountZar', { amountZar, type: typeof amountZar })
       throw new functions.https.HttpsError('invalid-argument', 'amountZar must be a positive number')
     }
+    if (bankCountry && typeof bankCountry !== 'string') {
+      throw new functions.https.HttpsError('invalid-argument', 'bankCountry must be a string')
+    }
+    if (bankId && typeof bankId !== 'string') {
+      throw new functions.https.HttpsError('invalid-argument', 'bankId must be a string')
+    }
+    if (depositCurrency && typeof depositCurrency !== 'string') {
+      throw new functions.https.HttpsError('invalid-argument', 'depositCurrency must be a string')
+    }
+    if (depositReference && typeof depositReference !== 'string') {
+      throw new functions.https.HttpsError('invalid-argument', 'depositReference must be a string')
+    }
+    if (depositDetails && typeof depositDetails !== 'object') {
+      throw new functions.https.HttpsError('invalid-argument', 'depositDetails must be an object')
+    }
 
     const now = admin.firestore.Timestamp.now()
-    const participants = [userId, receiverId]
+    const participants = [userId, receiverId, 'samba'] // lock participants server-side
     
     // Set expiration time (4 hours for AWAITING_DEPOSIT)
     const expiresAt = admin.firestore.Timestamp.fromMillis(
@@ -67,10 +92,18 @@ export const tx_createBankDepositRequest = functions
       status: 'AWAITING_DEPOSIT' as TxStatus,
       createdAt: now,
       statusUpdatedAt: now,
+      updatedAt: now,
       expiresAt, // Timeout for AWAITING_DEPOSIT state
       amountZar,
       unlockAt: null,
       withdrawal: {},
+      // Enrichment fields (optional, provided by client)
+      bankCountry: bankCountry || null,
+      bankId: bankId || null,
+      depositCurrency: depositCurrency || null,
+      depositReference: depositReference || null,
+      depositDetails: depositDetails || null,
+      chatStep: chatStep || 'INTRO_CONFIRM_INTENT',
     }
 
     // Create initial SYSTEM message

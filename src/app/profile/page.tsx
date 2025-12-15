@@ -859,29 +859,22 @@ export default function ProfilePage() {
             }
             const countryName = COUNTRY_SELECT_OPTIONS.find(c => c.code === bankTransferCountry)?.name || ''
 
-            // Create transaction with persisted amount
-            const { txId } = await tx_createBankDepositRequest(AGENT_UID, depositAmountZAR)
-
-            // Update transaction with bank details and chatStep
-            const db = getFirestoreDb()
-            const txRef = doc(db, 'transactions', txId)
-            await updateDoc(txRef, {
+            // Create transaction with persisted amount and all enrichment server-side
+            const { txId } = await tx_createBankDepositRequest({
+              receiverId: AGENT_UID,
+              amountZar: depositAmountZAR,
               bankCountry: bankTransferCountry,
               bankId: selectedBank || (bankTransferCountry === 'MZ' ? 'BCI' : 'FNB'),
               depositCurrency: bankTransferCountry === 'MZ' ? 'MZN' : 'ZAR',
               depositReference: config.referencePrefix,
-              amountZar: depositAmountZAR, // Store the persisted amount
               chatStep: 'INTRO_CONFIRM_INTENT',
-              participants: [user.uid, AGENT_UID, 'samba'],
-              updatedAt: serverTimestamp(),
-              // Store deposit details for Samba message
               depositDetails: {
                 amount: depositAmountZAR,
                 currency: bankTransferCountry === 'MZ' ? 'MZN' : 'ZAR',
                 country: countryName,
                 bankName: config.bankName,
                 reference: config.referencePrefix,
-              }
+              },
             })
 
             // Close bank details sheet and open chat

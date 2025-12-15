@@ -193,9 +193,20 @@ export async function tx_raiseDispute(txId: string, reason: string): Promise<voi
  * IMPORTANT: Uses httpsCallable (Firebase SDK) - NOT fetch/axios
  * This ensures proper CORS handling and authentication
  */
-export async function tx_createBankDepositRequest(
-  receiverId: string,
+type CreateBankDepositRequestParams = {
+  receiverId: string
   amountZar: number
+  bankCountry?: string
+  bankId?: string
+  depositCurrency?: string
+  depositReference?: string
+  depositDetails?: any
+  chatStep?: string
+  participants?: string[]
+}
+
+export async function tx_createBankDepositRequest(
+  params: CreateBankDepositRequestParams
 ): Promise<{ txId: string; status: string }> {
   // Get Firebase app instance (uses env vars, no hardcoded URLs)
   const app = getFirebaseApp()
@@ -234,7 +245,7 @@ export async function tx_createBankDepositRequest(
     // This should NOT hit cloudfunctions.net directly
     // The SDK will use: https://us-central1-gobankless-dev.cloudfunctions.net/callable/tx_createBankDepositRequest
     // OR the Firebase Remote Config endpoint pattern
-    const result = await fn({ receiverId, amountZar })
+    const result = await fn(params)
     const data = result.data as { txId: string; status: string }
     
     if (process.env.NODE_ENV !== 'production') {
@@ -244,8 +255,8 @@ export async function tx_createBankDepositRequest(
     return data
   } catch (error: any) {
     console.error('[Transaction] Failed to create bank deposit request:', {
-      receiverId,
-      amountZar,
+      receiverId: params.receiverId,
+      amountZar: params.amountZar,
       errorCode: error?.code,
       errorMessage: error?.message,
       projectId: app.options.projectId,
