@@ -744,13 +744,29 @@ body {
   left: 50%;
   transform: translateX(-50%);
   width: min(700px, calc(100vw - 24px));
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 0px);
+  bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   z-index: 5;
   pointer-events: none;
   background: transparent !important;
   box-sizing: border-box;
   display: block;
   height: 150px; /* Match original bottom-menu height */
+  /* Ensure it stays anchored on Android */
+  will-change: auto;
+  /* Force anchoring on Android browsers */
+  -webkit-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+
+/* Android-specific fix: ensure bottom navigation stays anchored */
+@supports (-webkit-appearance: none) {
+  .bottomBarFrame {
+    bottom: 0 !important;
+    /* Use constant() fallback for Android browsers that don't support env() */
+    padding-bottom: constant(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
 
 /* Hide desktop version on mobile */
@@ -819,7 +835,7 @@ body {
   /* Mobile nav container - positioned relative to frame */
   .nav-container-mobile {
     position: absolute;
-    bottom: 23px;
+    bottom: calc(23px + env(safe-area-inset-bottom, 0px));
     left: 0;
     transform: none; /* No transform needed, frame handles centering */
     width: 100%;
@@ -827,6 +843,8 @@ body {
     align-items: center;
     justify-content: center;
     gap: 40px;
+    /* Ensure it stays anchored on Android */
+    will-change: auto;
   }
 }
 
