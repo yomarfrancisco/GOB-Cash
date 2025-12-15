@@ -25,7 +25,7 @@ export type ChatStep =
   | 'WAITING_FOR_AGENT_CONFIRMATION'
   | 'DEPOSIT_CONFIRMED_LOCKED_DONE'
 
-export type SenderType = 'CUSTOMER' | 'SAMBA' | 'AGENT' | 'SYSTEM'
+export type SenderType = 'USER' | 'SAMBA' | 'SYSTEM' | 'CUSTOMER' | 'AGENT'
 
 export interface TransactionMessage {
   id: string

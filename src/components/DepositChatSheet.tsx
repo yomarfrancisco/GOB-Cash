@@ -37,13 +37,18 @@ interface NormalizedChatMessage {
  */
 function normalizeTransactionMessage(txMessage: TransactionMessage): NormalizedChatMessage {
   // Map senderType to from field
+  // Actual values written by callables:
+  // - tx_appendUserMessage writes 'USER'
+  // - tx_appendSambaMessage writes 'SAMBA'
+  // - System messages write 'SYSTEM'
+  // Legacy values: 'CUSTOMER', 'AGENT' (for backward compatibility)
   let from: 'ai' | 'user'
-  if (txMessage.senderType === 'SAMBA' || txMessage.senderType === 'SYSTEM') {
-    from = 'ai' // Display Samba/System messages as Ama
+  if (txMessage.senderType === 'SAMBA' || txMessage.senderType === 'SYSTEM' || txMessage.senderType === 'AGENT') {
+    from = 'ai' // Display Samba/System/Agent messages as Ama
   } else if (txMessage.senderType === 'USER' || txMessage.senderType === 'CUSTOMER') {
     from = 'user'
   } else {
-    // AGENT or unknown - default to ai
+    // Unknown - default to ai (shouldn't happen with proper types)
     from = 'ai'
   }
 
