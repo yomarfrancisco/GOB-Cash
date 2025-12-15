@@ -4,11 +4,11 @@ import React, { useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import Image from 'next/image'
 import { getFirestoreDb } from '@/lib/firebase'
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, doc } from 'firebase/firestore'
 import { getFirebaseAuth } from '@/lib/firebase'
 import type { TransactionMessage, ChatStep, BankDepositTransaction } from '@/types/transactions'
 import { getSambaMessage, getSambaHelperResponse, isValidTronAddress } from '@/lib/depositChat/sambaMessages'
-import { tx_userMarkDepositSent, tx_appendUserMessage, tx_appendSambaMessage } from '@/lib/transactions/clientFunctions'
+import { tx_userMarkDepositSent, tx_appendUserMessage, tx_appendSambaMessage, tx_setWithdrawalAddressCandidate } from '@/lib/transactions/clientFunctions'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useNotificationStore } from '@/store/notifications'
 import ChatInputBar from './Inbox/ChatInputBar'
@@ -176,7 +176,6 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
     setIsProcessing(true)
 
     try {
-      const db = getFirestoreDb()
       const auth = getFirebaseAuth()
       const user = auth.currentUser
       if (!user) {
@@ -194,15 +193,8 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
       if (currentStep === 'INTRO_CONFIRM_INTENT') {
         // Check if user said "SENT" (case-insensitive)
         if (userMessage.toLowerCase().includes('sent')) {
-          // Mark deposit as sent
+          // Mark deposit as sent and update chatStep server-side (no client Firestore writes)
           await tx_userMarkDepositSent(txId)
-          
-          // Update chatStep to WAITING_FOR_SENT_PROOF (Samba Message 2 will be sent)
-          const txRef = doc(db, 'transactions', txId)
-          await updateDoc(txRef, {
-            chatStep: 'WAITING_FOR_SENT_PROOF',
-            updatedAt: serverTimestamp(),
-          })
         } else {
           // Check for helper response
             const helperResponse = getSambaHelperResponse(userMessage, currentStep)
@@ -215,13 +207,8 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
         // After user says SENT, they should provide TRON address
         // Validate TRON address
         if (isValidTronAddress(userMessage)) {
-          // Store address and move to WAITING_FOR_WALLET_ADDRESS
-          const txRef = doc(db, 'transactions', txId)
-          await updateDoc(txRef, {
-            withdrawalAddressCandidate: userMessage.trim(),
-            chatStep: 'WAITING_FOR_WALLET_ADDRESS',
-            updatedAt: serverTimestamp(),
-          })
+          // Store address and move to WAITING_FOR_WALLET_ADDRESS server-side (no client Firestore writes)
+          await tx_setWithdrawalAddressCandidate(txId, userMessage.trim(), 'WAITING_FOR_WALLET_ADDRESS')
           
           // Send Samba confirmation message
           const updatedTx = { ...transaction, chatStep: 'WAITING_FOR_WALLET_ADDRESS' as ChatStep, withdrawalAddressCandidate: userMessage.trim() }
@@ -236,13 +223,8 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
       } else if (currentStep === 'WAITING_FOR_WALLET_ADDRESS') {
         // Validate TRON address
         if (isValidTronAddress(userMessage)) {
-          // Store address and move to WAITING_FOR_AGENT_CONFIRMATION
-          const txRef = doc(db, 'transactions', txId)
-          await updateDoc(txRef, {
-            withdrawalAddressCandidate: userMessage.trim(),
-            chatStep: 'WAITING_FOR_AGENT_CONFIRMATION',
-            updatedAt: serverTimestamp(),
-          })
+          // Store address and move to WAITING_FOR_AGENT_CONFIRMATION server-side (no client Firestore writes)
+          await tx_setWithdrawalAddressCandidate(txId, userMessage.trim(), 'WAITING_FOR_AGENT_CONFIRMATION')
           
           // Send Samba confirmation message
           const updatedTx = { ...transaction, chatStep: 'WAITING_FOR_AGENT_CONFIRMATION' as ChatStep, withdrawalAddressCandidate: userMessage.trim() }

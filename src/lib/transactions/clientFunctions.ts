@@ -141,6 +141,37 @@ export async function tx_setWithdrawalAddress(txId: string, tronAddress: string)
 }
 
 /**
+ * User sets withdrawal address candidate during deposit chat flow
+ * Updates withdrawalAddressCandidate and chatStep server-side
+ * Used for WAITING_FOR_WALLET_ADDRESS and WAITING_FOR_AGENT_CONFIRMATION transitions
+ */
+export async function tx_setWithdrawalAddressCandidate(
+  txId: string,
+  tronAddress: string,
+  chatStep: 'WAITING_FOR_WALLET_ADDRESS' | 'WAITING_FOR_AGENT_CONFIRMATION'
+): Promise<{ ok: boolean; chatStep: string; withdrawalAddressCandidate: string }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'tx_setWithdrawalAddressCandidate')
+  
+  try {
+    const result = await fn({ txId, tronAddress, chatStep })
+    const data = result.data as { ok: boolean; chatStep: string; withdrawalAddressCandidate: string }
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Transaction] User set withdrawal address candidate:', { txId, chatStep })
+    }
+    return data
+  } catch (error: any) {
+    console.error('[Transaction] Failed to set withdrawal address candidate:', {
+      txId,
+      chatStep,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+    })
+    throw error
+  }
+}
+
+/**
  * User confirms withdrawal (must type "CONFIRM")
  * Transitions: WITHDRAWAL_REQUESTED -> WITHDRAWAL_CONFIRMED
  */

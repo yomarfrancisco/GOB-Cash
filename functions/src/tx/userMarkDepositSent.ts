@@ -71,12 +71,14 @@ export const tx_userMarkDepositSent = functions
         status: 'DEPOSIT_SENT',
         statusUpdatedAt: now,
         expiresAt, // Timeout for DEPOSIT_SENT state
+        chatStep: 'WAITING_FOR_SENT_PROOF', // Update chatStep for deposit flow
+        updatedAt: now, // Update timestamp
       })
       t.set(msgRef, message)
     })
 
-    console.log(`[tx_userMarkDepositSent] Transaction ${txId} marked as sent by user ${userId}`)
+    console.log(`[tx_userMarkDepositSent] Transaction ${txId} marked as sent by user ${userId}, updated chatStep to WAITING_FOR_SENT_PROOF`)
 
-    return { ok: true, status: 'DEPOSIT_SENT' }
+    return { ok: true, status: 'DEPOSIT_SENT', chatStep: 'WAITING_FOR_SENT_PROOF' }
   })
 
