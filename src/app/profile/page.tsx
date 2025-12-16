@@ -273,18 +273,18 @@ export default function ProfilePage() {
                     
                     return (
                       <>
-                        {ratingCount > 0 ? (
-                          <>
-                            <div className="stat">
-                              <div className="stat-top">
-                                <span className="stat-value">{rating.toFixed(1)}</span>
-                                <Image src="/assets/profile/star.svg" alt="" width={12} height={12} />
-                              </div>
-                              <div className="stat-sub">({ratingCount.toLocaleString()})</div>
-                            </div>
-                            <div className="stat-divider" />
-                          </>
-                        ) : null}
+                        <div className="stat">
+                          <div className="stat-top">
+                            <span className="stat-value">
+                              {ratingCount > 0 ? rating.toFixed(1) : "—"}
+                            </span>
+                            <Image src="/assets/profile/star.svg" alt="" width={12} height={12} />
+                          </div>
+                          {ratingCount > 0 && (
+                            <div className="stat-sub">({ratingCount.toLocaleString()})</div>
+                          )}
+                        </div>
+                        <div className="stat-divider" />
                         <div className="stat">
                           <div className="stat-value">{sponsors.toLocaleString()}</div>
                           <div className="stat-sub">Backers</div>
