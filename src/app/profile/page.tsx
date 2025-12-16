@@ -276,12 +276,12 @@ export default function ProfilePage() {
                         <div className="stat">
                           <div className="stat-top">
                             <span className="stat-value">
-                              {ratingCount > 0 ? rating.toFixed(1) : "—"}
+                              {ratingCount > 0 ? rating.toFixed(1) : "0.0"}
                             </span>
                             <Image src="/assets/profile/star.svg" alt="" width={12} height={12} />
                           </div>
                           <div className="stat-sub">
-                            {ratingCount > 0 ? `(${ratingCount.toLocaleString()})` : "(no transactions yet)"}
+                            ({ratingCount > 0 ? ratingCount.toLocaleString() : "0"})
                           </div>
                         </div>
                         <div className="stat-divider" />
