@@ -68,12 +68,12 @@
 
 /* Financial inbox sheet - unified height for both inbox and chat views */
 .as-sheet.financialInboxSheet {
-  height: 85dvh; /* Use dynamic viewport height for mobile */
-  max-height: 85dvh;
-  min-height: 85dvh;
   height: 85vh; /* Fallback for browsers without dvh support */
   max-height: 85vh;
   min-height: 85vh;
+  height: 85dvh; /* Use dynamic viewport height for mobile */
+  max-height: 85dvh;
+  min-height: 85dvh;
   overflow: hidden; /* Prevent square background from showing */
   background: #fff;
 }
