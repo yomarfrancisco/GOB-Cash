@@ -6,7 +6,7 @@ import { collection, query, orderBy, onSnapshot, doc } from 'firebase/firestore'
 import { getFirebaseAuth } from '@/lib/firebase'
 import type { TransactionMessage, ChatStep, BankDepositTransaction, SenderType } from '@/types/transactions'
 import { getSambaMessage, getSambaHelperResponse, isValidTronAddress } from '@/lib/depositChat/sambaMessages'
-import { tx_userMarkDepositSent, tx_appendUserMessage, tx_appendSambaMessage, tx_appendEmaMessage, tx_setWithdrawalAddressCandidate } from '@/lib/transactions/clientFunctions'
+import { tx_userMarkDepositSent, tx_appendSambaMessage, tx_appendEmaMessage, tx_setWithdrawalAddressCandidate } from '@/lib/transactions/clientFunctions'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useNotificationStore } from '@/store/notifications'
 import ActionSheet from './ActionSheet'
@@ -322,12 +322,7 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
               
               setIsProcessing(true)
               try {
-                // Add user message "SENT"
-                console.log('[CTA] calling tx_appendUserMessage', { txId })
-                await tx_appendUserMessage(txId, 'SENT')
-                console.log('[CTA] tx_appendUserMessage succeeded', { txId })
-                
-                // Mark deposit as sent, update chatStep, add acknowledgement, and send email (all server-side)
+                // Single call: server will append "SENT" message + acknowledgement + email + update chatStep
                 console.log('[CTA] calling tx_userMarkDepositSent', { txId })
                 await tx_userMarkDepositSent(txId)
                 console.log('[CTA] tx_userMarkDepositSent succeeded', { txId })

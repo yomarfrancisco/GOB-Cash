@@ -15,55 +15,6 @@ const db = admin.firestore()
 
 // Email configuration
 const EMAIL_TO = 'info@brics.ninja'
-const EMAIL_FROM = functions.config().email?.from || 'noreply@gobankless.com'
-
-/**
- * Send email using Resend API
- */
-async function sendEmailViaResend(
-  to: string,
-  subject: string,
-  html: string
-): Promise<void> {
-  const apiKey = functions.config().resend?.api_key
-  if (!apiKey) {
-    console.error('[tx_userMarkDepositSent] RESEND_API_KEY not configured, skipping email')
-    return // Don't throw - allow function to succeed even if email fails
-  }
-
-  try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: EMAIL_FROM,
-        to: [to],
-        subject,
-        html,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[tx_userMarkDepositSent] Resend API error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText,
-      })
-      // Don't throw - allow function to succeed even if email fails
-      return
-    }
-
-    const result = await response.json()
-    console.log('[tx_userMarkDepositSent] Email sent successfully:', result.id)
-  } catch (error) {
-    console.error('[tx_userMarkDepositSent] Error sending email:', error)
-    // Don't throw - allow function to succeed even if email fails
-  }
-}
 
 /**
  * Generate email HTML content
@@ -194,6 +145,12 @@ export const tx_userMarkDepositSent = functions
       throw new functions.https.HttpsError('permission-denied', 'Not authorized for this transaction')
     }
 
+    // Idempotency check: if already marked as sent, return early
+    if (tx.status === 'DEPOSIT_SENT' && tx.chatStep === 'WAITING_FOR_SENT_PROOF') {
+      console.log(`[tx_userMarkDepositSent] Transaction ${txId} already marked as sent, returning early`)
+      return { ok: true, status: 'DEPOSIT_SENT', chatStep: 'WAITING_FOR_SENT_PROOF', alreadyProcessed: true }
+    }
+
     // Assert valid transition
     assertTransition(tx.status, 'DEPOSIT_SENT')
 
@@ -204,8 +161,14 @@ export const tx_userMarkDepositSent = functions
       now.toMillis() + 4 * 60 * 60 * 1000 // 4 hours
     )
 
-    // Check idempotency: only send email if not already sent
-    const shouldSendEmail = !tx.emailNotifiedSent
+    // Check idempotency: check if "SENT" message already exists
+    const existingSentMessages = await txRef.collection('messages')
+      .where('senderType', '==', 'USER')
+      .where('text', '==', 'SENT')
+      .limit(1)
+      .get()
+
+    const shouldAddSentMessage = existingSentMessages.empty
 
     // Check if acknowledgement message already exists (idempotency)
     const existingAckMessages = await txRef.collection('messages')
@@ -216,12 +179,30 @@ export const tx_userMarkDepositSent = functions
 
     const shouldAddAck = existingAckMessages.empty
 
+    // Check idempotency: only send email if not already sent
+    const shouldSendEmail = !tx.emailNotifiedSent
+
     // Load user document for email and acknowledgement
     const userRef = db.collection('users').doc(userId)
     const userSnap = await userRef.get()
     const userData = userSnap.data()
     const userHandle = userData?.userHandle || null
     const userEmail = userData?.email || null
+
+    // Create "SENT" user message (if needed, idempotent)
+    let sentMsgRef: admin.firestore.DocumentReference | null = null
+    let sentMessage: any = null
+    if (shouldAddSentMessage) {
+      sentMsgRef = txRef.collection('messages').doc()
+      sentMessage = {
+        id: sentMsgRef.id,
+        txId,
+        createdAt: now,
+        senderType: 'USER' as const,
+        senderId: userId,
+        text: 'SENT',
+      }
+    }
 
     // Create SYSTEM message (internal log)
     const systemMsgRef = txRef.collection('messages').doc()
@@ -239,7 +220,7 @@ export const tx_userMarkDepositSent = functions
       },
     }
 
-    // Create acknowledgement message from Ema (if needed)
+    // Create acknowledgement message from Ema (if needed, idempotent)
     let ackMsgRef: admin.firestore.DocumentReference | null = null
     let ackMessage: any = null
     if (shouldAddAck) {
@@ -273,38 +254,79 @@ export const tx_userMarkDepositSent = functions
       }
 
       t.update(txRef, updateData)
+      
+      // Add "SENT" user message if needed
+      if (sentMsgRef && sentMessage) {
+        t.set(sentMsgRef, sentMessage)
+      }
+      
       t.set(systemMsgRef, systemMessage)
       
+      // Add acknowledgement message if needed
       if (ackMsgRef && ackMessage) {
         t.set(ackMsgRef, ackMessage)
       }
     })
 
     // Send email notification (non-blocking, after transaction succeeds)
+    // Read config inside handler (not module-level) to avoid cold start issues
     if (shouldSendEmail) {
       try {
-        const amountZar = tx.amountZar || 0
-        const currency = tx.depositCurrency || 'ZAR'
-        const country = tx.bankCountry === 'MZ' ? 'Mozambique' : tx.bankCountry === 'ZA' ? 'South Africa' : null
-        const bankName = tx.bankId || null
-        const reference = tx.depositReference || null
+        // Get config inside function handler (v1 functions support this)
+        const apiKey = functions.config().resend?.api_key
+        const emailFrom = functions.config().email?.from || 'noreply@gobankless.com'
+        
+        if (apiKey) {
+          const amountZar = tx.amountZar || 0
+          const currency = tx.depositCurrency || 'ZAR'
+          const country = tx.bankCountry === 'MZ' ? 'Mozambique' : tx.bankCountry === 'ZA' ? 'South Africa' : null
+          const bankName = tx.bankId || null
+          const reference = tx.depositReference || null
 
-        const emailSubject = `Deposit Marked as SENT - ${currency} ${amountZar.toFixed(2)}${userHandle ? ` (@${userHandle})` : ''}`
-        const emailHtml = generateEmailContent(
-          txId,
-          userHandle,
-          userEmail,
-          userId,
-          amountZar,
-          currency,
-          country,
-          bankName,
-          reference,
-          now
-        )
+          const emailSubject = `Deposit Marked as SENT - ${currency} ${amountZar.toFixed(2)}${userHandle ? ` (@${userHandle})` : ''}`
+          const emailHtml = generateEmailContent(
+            txId,
+            userHandle,
+            userEmail,
+            userId,
+            amountZar,
+            currency,
+            country,
+            bankName,
+            reference,
+            now
+          )
 
-        await sendEmailViaResend(EMAIL_TO, emailSubject, emailHtml)
-        console.log(`[tx_userMarkDepositSent] Email notification sent for transaction ${txId}`)
+          // Send email using Resend API
+          const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: emailFrom,
+              to: [EMAIL_TO],
+              subject: emailSubject,
+              html: emailHtml,
+            }),
+          })
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error('[tx_userMarkDepositSent] Resend API error:', {
+              status: response.status,
+              statusText: response.statusText,
+              error: errorText,
+            })
+            // Don't throw - function already succeeded
+          } else {
+            const result = await response.json()
+            console.log(`[tx_userMarkDepositSent] Email notification sent for transaction ${txId}:`, result.id)
+          }
+        } else {
+          console.warn('[tx_userMarkDepositSent] RESEND_API_KEY not configured, skipping email')
+        }
       } catch (error) {
         console.error('[tx_userMarkDepositSent] Error sending email (non-blocking):', error)
         // Don't throw - function already succeeded
