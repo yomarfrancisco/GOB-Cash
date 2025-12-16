@@ -273,8 +273,23 @@ export const tx_userMarkDepositSent = functions
       try {
         // Get config inside function handler (v1 functions support this)
         const apiKey = functions.config().resend?.api_key
-        const emailFrom = functions.config().email?.from || 'noreply@gobankless.com'
-        
+        const emailFrom = functions.config().email?.from
+        const emailTo = functions.config().email?.to
+
+        // Explicit config validation and logging
+        if (!apiKey) {
+          console.warn('[EMAIL] Skipping send - resend.api_key not configured', { txId })
+          return
+        }
+        if (!emailFrom) {
+          console.warn('[EMAIL] Skipping send - email.from not configured', { txId })
+          return
+        }
+        if (!emailTo) {
+          console.warn('[EMAIL] Skipping send - email.to not configured', { txId })
+          return
+        }
+
         if (apiKey) {
           const amountZar = tx.amountZar || 0
           const currency = tx.depositCurrency || 'ZAR'
@@ -296,6 +311,14 @@ export const tx_userMarkDepositSent = functions
             now
           )
 
+          // Log email attempt with all config values
+          console.log('[EMAIL] attempt', {
+            txId,
+            from: emailFrom,
+            to: emailTo,
+            hasApiKey: !!apiKey,
+          })
+
           // Send email using Resend API
           const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -313,18 +336,24 @@ export const tx_userMarkDepositSent = functions
 
           if (!response.ok) {
             const errorText = await response.text()
-            console.error('[tx_userMarkDepositSent] Resend API error:', {
+            console.error('[EMAIL] Resend API error', {
+              txId,
               status: response.status,
               statusText: response.statusText,
               error: errorText,
+              from: emailFrom,
+              to: emailTo,
             })
             // Don't throw - function already succeeded
           } else {
             const result = await response.json()
-            console.log(`[tx_userMarkDepositSent] Email notification sent for transaction ${txId}:`, result.id)
+            console.log('[EMAIL] Email notification sent', {
+              txId,
+              emailId: result.id,
+              from: emailFrom,
+              to: emailTo,
+            })
           }
-        } else {
-          console.warn('[tx_userMarkDepositSent] RESEND_API_KEY not configured, skipping email')
         }
       } catch (error) {
         console.error('[tx_userMarkDepositSent] Error sending email (non-blocking):', error)
