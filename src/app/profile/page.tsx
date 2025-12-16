@@ -377,48 +377,50 @@ export default function ProfilePage() {
               {/* Buttons */}
               <div className="profile-actions">
                 {/* Cash-in/out button with lock overlay */}
-                <div style={{ position: 'relative', flex: 1 }}>
-                  <button 
-                    className="btn profile-edit" 
-                    disabled={isRestricted}
-                    onClick={() => {
-                      if (isRestricted) return
-                      console.log('[UI] Cash-in/out clicked', { isAuthed })
-                      guardAuthed(() => {
-                        console.log('[UI] guardAuthed passed -> opening deposit keypad')
-                        // Open deposit keypad directly (no CashInOutSheet)
-                        setAmountMode('deposit')
-                        setAmountEntryPoint('depositKeypad')
-                        setTimeout(() => {
-                          setOpenAmount(true)
-                        }, 220)
-                      })
-                    }}
-                    style={isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
-                    aria-disabled={isRestricted}
-                  >
-                    Cash-in / out
-                  </button>
+                <button 
+                  className="btn profile-edit" 
+                  disabled={isRestricted}
+                  onClick={() => {
+                    if (isRestricted) return
+                    console.log('[UI] Cash-in/out clicked', { isAuthed })
+                    guardAuthed(() => {
+                      console.log('[UI] guardAuthed passed -> opening deposit keypad')
+                      // Open deposit keypad directly (no CashInOutSheet)
+                      setAmountMode('deposit')
+                      setAmountEntryPoint('depositKeypad')
+                      setTimeout(() => {
+                        setOpenAmount(true)
+                      }, 220)
+                    })
+                  }}
+                  style={{ 
+                    position: 'relative',
+                    ...(isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {})
+                  }}
+                  aria-disabled={isRestricted}
+                >
+                  Cash-in / out
                   <LockOverlay show={isRestricted} />
-                </div>
+                </button>
                 {/* Inbox button with lock overlay */}
-                <div style={{ position: 'relative', flex: 1 }}>
-                  <button
-                    className="btn profile-inbox"
-                    disabled={isRestricted}
-                    onClick={() => {
-                      if (isRestricted) return
-                      guardAuthed(() => {
-                        openInbox()
-                      })
-                    }}
-                    style={isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
-                    aria-disabled={isRestricted}
-                  >
-                    Inbox
-                  </button>
+                <button
+                  className="btn profile-inbox"
+                  disabled={isRestricted}
+                  onClick={() => {
+                    if (isRestricted) return
+                    guardAuthed(() => {
+                      openInbox()
+                    })
+                  }}
+                  style={{ 
+                    position: 'relative',
+                    ...(isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {})
+                  }}
+                  aria-disabled={isRestricted}
+                >
+                  Inbox
                   <LockOverlay show={isRestricted} />
-                </div>
+                </button>
               </div>
 
               {/* Invite friends section */}
