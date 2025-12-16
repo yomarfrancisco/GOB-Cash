@@ -46,6 +46,12 @@ export interface UserProfile {
   whatsappUrl?: string
   description?: string
   socialGraphShareContacts?: boolean
+  // Profile metrics
+  rating?: number
+  ratingCount?: number
+  sponsors?: number // backers
+  sponsoring?: number // backing
+  socialCredit?: number
   // TODO: wire real addresses
   usdtSaAddress?: string // USDT SA (ZAR wallet) address
   usdtMznAddress?: string // USDT MZN (Moz wallet) address

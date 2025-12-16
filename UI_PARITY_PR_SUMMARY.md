@@ -130,3 +130,4 @@ This PR achieves visual and structural parity between transaction chat (bank dep
 - Move any remaining `updateDoc` calls (chatStep updates, etc.) into callables to eliminate permission errors
 - Consider merging transaction chat into FinancialInboxSheet for single chat surface (separate migration)
 
+

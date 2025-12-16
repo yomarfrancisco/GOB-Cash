@@ -18,7 +18,7 @@ interface ProfilePreviewProps {
   instagramUrl?: string
   linkedinUrl?: string
   rating?: number
-  ratingCount?: string
+  ratingCount?: number
   sponsors?: number
   sponsoring?: number
   socialCredit?: number
@@ -123,8 +123,8 @@ export default function ProfilePreview({
                       <span className={styles.statValue}>{rating.toFixed(1)}</span>
                       <Image src="/assets/profile/star.svg" alt="" width={12} height={12} />
                     </div>
-                    {ratingCount && (
-                      <div className={styles.statSub}>({ratingCount})</div>
+                    {ratingCount && ratingCount > 0 && (
+                      <div className={styles.statSub}>({ratingCount.toLocaleString()})</div>
                     )}
                   </div>
                   <div className={styles.statDivider} />

@@ -44,6 +44,12 @@ export interface UserDocument {
   verificationStatus: 'unverified' | 'email-verified' | 'phone-verified' | 'full-verified'
   isAgent: boolean
   socialGraphShareContacts?: boolean
+  // Profile metrics
+  rating?: number
+  ratingCount?: number
+  sponsors?: number // backers
+  sponsoring?: number // backing
+  socialCredit?: number
 }
 
 /**
@@ -332,6 +338,12 @@ export async function ensureUserDocument(user: User): Promise<void> {
           userHandle: validHandle || profileStore.profile.userHandle, // Fallback only if repair failed
           socialGraphShareContacts:
             finalData.socialGraphShareContacts ?? profileStore.profile.socialGraphShareContacts ?? true,
+          // Profile metrics - sync from Firestore or default to 0
+          rating: finalData.rating ?? 0,
+          ratingCount: finalData.ratingCount ?? 0,
+          sponsors: finalData.sponsors ?? 0,
+          sponsoring: finalData.sponsoring ?? 0,
+          socialCredit: finalData.socialCredit ?? 0,
         })
       }
       
@@ -444,6 +456,12 @@ export async function ensureUserDocument(user: User): Promise<void> {
       verificationStatus,
       isAgent: false,
       socialGraphShareContacts: true,
+      // Profile metrics - initialize to 0 for new users
+      rating: 0,
+      ratingCount: 0,
+      sponsors: 0,
+      sponsoring: 0,
+      socialCredit: 0,
     }
 
     await setDoc(userRef, userDoc)
@@ -474,6 +492,12 @@ export async function ensureUserDocument(user: User): Promise<void> {
         avatarUrl: userDoc.avatarUrl || profileStore.profile.avatarUrl,
         userHandle: validHandle || profileStore.profile.userHandle,
         socialGraphShareContacts: userDoc.socialGraphShareContacts ?? true,
+        // Profile metrics - sync from newly created document (all 0 for new users)
+        rating: userDoc.rating ?? 0,
+        ratingCount: userDoc.ratingCount ?? 0,
+        sponsors: userDoc.sponsors ?? 0,
+        sponsoring: userDoc.sponsoring ?? 0,
+        socialCredit: userDoc.socialCredit ?? 0,
       })
     }
     

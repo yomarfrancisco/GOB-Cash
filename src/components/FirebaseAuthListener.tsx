@@ -125,6 +125,12 @@ export default function FirebaseAuthListener() {
             email: data.email || profile.email,
             avatarUrl: data.avatarUrl || profile.avatarUrl,
             userHandle: data.handle || profile.userHandle,
+            // Profile metrics - sync from Firestore or default to 0
+            rating: data.rating ?? 0,
+            ratingCount: data.ratingCount ?? 0,
+            sponsors: data.sponsors ?? 0,
+            sponsoring: data.sponsoring ?? 0,
+            socialCredit: data.socialCredit ?? 0,
           })
 
         })

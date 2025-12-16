@@ -678,11 +678,11 @@ export default function ProfileEditSheet() {
                     backdropUrl={backdropUrl}
                     instagramUrl={profile.instagramUrl}
                     linkedinUrl={profile.linkedinUrl}
-                    rating={4.8}
-                    ratingCount="11.5K"
-                    sponsors={8122}
-                    sponsoring={556}
-                    socialCredit={22.4}
+                    rating={profile?.rating ?? 0}
+                    ratingCount={profile?.ratingCount ?? 0}
+                    sponsors={profile?.sponsors ?? 0}
+                    sponsoring={profile?.sponsoring ?? 0}
+                    socialCredit={profile?.socialCredit ?? 0}
                     verified={false}
                   />
                 </div>

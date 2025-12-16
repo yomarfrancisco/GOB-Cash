@@ -265,23 +265,38 @@ export default function ProfilePage() {
               {/* Stats + network pill */}
               <div className="profile-stats-card">
                 <div className="stats-row">
-                  <div className="stat">
-                    <div className="stat-top">
-                      <span className="stat-value">4.8</span>
-                      <Image src="/assets/profile/star.svg" alt="" width={12} height={12} />
-                    </div>
-                    <div className="stat-sub">(11.5K)</div>
-                  </div>
-                  <div className="stat-divider" />
-                  <div className="stat">
-                    <div className="stat-value">8,122</div>
-                    <div className="stat-sub">Backers</div>
-                  </div>
-                  <div className="stat-divider" />
-                  <div className="stat">
-                    <div className="stat-value">556</div>
-                    <div className="stat-sub">Backing</div>
-                  </div>
+                  {(() => {
+                    const rating = typeof profile?.rating === "number" ? profile.rating : 0;
+                    const ratingCount = typeof profile?.ratingCount === "number" ? profile.ratingCount : 0;
+                    const sponsors = typeof profile?.sponsors === "number" ? profile.sponsors : 0;
+                    const sponsoring = typeof profile?.sponsoring === "number" ? profile.sponsoring : 0;
+                    
+                    return (
+                      <>
+                        {ratingCount > 0 ? (
+                          <>
+                            <div className="stat">
+                              <div className="stat-top">
+                                <span className="stat-value">{rating.toFixed(1)}</span>
+                                <Image src="/assets/profile/star.svg" alt="" width={12} height={12} />
+                              </div>
+                              <div className="stat-sub">({ratingCount.toLocaleString()})</div>
+                            </div>
+                            <div className="stat-divider" />
+                          </>
+                        ) : null}
+                        <div className="stat">
+                          <div className="stat-value">{sponsors.toLocaleString()}</div>
+                          <div className="stat-sub">Backers</div>
+                        </div>
+                        <div className="stat-divider" />
+                        <div className="stat">
+                          <div className="stat-value">{sponsoring.toLocaleString()}</div>
+                          <div className="stat-sub">Backing</div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="network-pill">
                   <div className="network-track">
