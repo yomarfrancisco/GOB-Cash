@@ -28,6 +28,7 @@ export function useRandomCardFlips(
   ref: React.RefObject<CardStackHandle | null>,
   controllerRef?: React.MutableRefObject<FlipController | null>
 ) {
+  const isAuthed = useAuthStore((state) => state.isAuthed)
   const authState = useAuthStore((state) => state.getAuthState())
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
   
@@ -64,6 +65,13 @@ export function useRandomCardFlips(
   // The animation doesn't mutate balances, so it's safe to continue running post-auth
   
   useEffect(() => {
+    // Early return if authenticated (optional: can disable card flips post-auth if desired)
+    // Note: Card flips are visual-only, so they're safe to run post-auth
+    // But we can disable them if needed for a calmer experience
+    if (authState === 'authed') {
+      return
+    }
+    
     if (!shouldEnable || !ref?.current) {
       // Early return if not enabled
       return
@@ -154,6 +162,6 @@ export function useRandomCardFlips(
       paused = true
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [ref, controllerRef, shouldEnable])
+  }, [ref, controllerRef, shouldEnable, authState, isAuthed])
 }
 
