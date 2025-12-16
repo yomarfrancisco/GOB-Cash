@@ -55,6 +55,14 @@ export const onTxActionCreate = functions.firestore
     const action = snap.data()
     const { txId, actionId } = context.params
 
+    // Top-of-handler log to confirm trigger fired
+    console.log('[onTxActionCreate] fired', {
+      path: context.resource.name,
+      actionId,
+      txId,
+      actionType: action.type,
+    })
+
     console.log(`[onTxActionCreate] Processing action ${actionId} of type ${action.type} for tx ${txId}`)
 
     // Only process MARK_DEPOSIT_SENT actions

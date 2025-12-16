@@ -13,8 +13,7 @@ import { assertTransition } from './state'
 
 const db = admin.firestore()
 
-// Email configuration
-const EMAIL_TO = 'info@brics.ninja'
+// Email configuration - will be read from functions.config() at runtime
 
 /**
  * Generate email HTML content

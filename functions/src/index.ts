@@ -28,7 +28,7 @@ export { tx_unlockSweep } from './tx/unlockSweep'
 export { tx_appendUserMessage } from './tx/appendUserMessage'
 export { tx_appendSambaMessage } from './tx/appendSambaMessage'
 export { tx_appendEmaMessage } from './tx/appendEmaMessage'
-export { onDepositSentEmail } from './tx/onDepositSentEmail'
+// export { onDepositSentEmail } from './tx/onDepositSentEmail' // Disabled - email now sent from onTxActionCreate and tx_userMarkDepositSent
 export { tx_setWithdrawalAddress } from './tx/setWithdrawalAddress'
 export { tx_setWithdrawalAddressCandidate } from './tx/setWithdrawalAddressCandidate'
 export { tx_userConfirmWithdrawal } from './tx/userConfirmWithdrawal'
