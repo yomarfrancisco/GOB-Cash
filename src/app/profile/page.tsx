@@ -280,9 +280,9 @@ export default function ProfilePage() {
                             </span>
                             <Image src="/assets/profile/star.svg" alt="" width={12} height={12} />
                           </div>
-                          {ratingCount > 0 && (
-                            <div className="stat-sub">({ratingCount.toLocaleString()})</div>
-                          )}
+                          <div className="stat-sub">
+                            {ratingCount > 0 ? `(${ratingCount.toLocaleString()})` : "(no transactions yet)"}
+                          </div>
                         </div>
                         <div className="stat-divider" />
                         <div className="stat">
