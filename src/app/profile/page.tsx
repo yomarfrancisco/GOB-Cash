@@ -29,7 +29,7 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useSupportSheet } from '@/store/useSupportSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
-import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
+import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell, Lock } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet, getDepositCryptoWallets } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
@@ -50,6 +50,7 @@ import { ChevronRight } from 'lucide-react'
 import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
 import { logout } from '@/lib/logout'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
+import { isRestrictedUser } from '@/lib/restrictions'
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
@@ -91,6 +92,8 @@ export default function ProfilePage() {
   // Check if current user is agent
   const auth = getFirebaseAuth()
   const isAgent = auth.currentUser?.uid === AGENT_UID
+  const currentUserId = auth.currentUser?.uid
+  const isRestricted = isRestrictedUser(currentUserId)
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
@@ -372,33 +375,57 @@ export default function ProfilePage() {
 
               {/* Buttons */}
               <div className="profile-actions">
-                <button 
-                  className="btn profile-edit" 
-                  onClick={() => {
-                    console.log('[UI] Cash-in/out clicked', { isAuthed })
-                    guardAuthed(() => {
-                      console.log('[UI] guardAuthed passed -> opening deposit keypad')
-                      // Open deposit keypad directly (no CashInOutSheet)
-                      setAmountMode('deposit')
-                      setAmountEntryPoint('depositKeypad')
-                      setTimeout(() => {
-                        setOpenAmount(true)
-                      }, 220)
-                    })
-                  }}
-                >
-                  Cash-in / out
-                </button>
-                <button
-                  className="btn profile-inbox"
-                  onClick={() => {
-                    guardAuthed(() => {
-                      openInbox()
-                    })
-                  }}
-                >
-                  Inbox
-                </button>
+                {/* Cash-in/out button with lock overlay */}
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <button 
+                    className="btn profile-edit" 
+                    disabled={isRestricted}
+                    onClick={() => {
+                      if (isRestricted) return
+                      console.log('[UI] Cash-in/out clicked', { isAuthed })
+                      guardAuthed(() => {
+                        console.log('[UI] guardAuthed passed -> opening deposit keypad')
+                        // Open deposit keypad directly (no CashInOutSheet)
+                        setAmountMode('deposit')
+                        setAmountEntryPoint('depositKeypad')
+                        setTimeout(() => {
+                          setOpenAmount(true)
+                        }, 220)
+                      })
+                    }}
+                    style={isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+                    aria-disabled={isRestricted}
+                  >
+                    Cash-in / out
+                  </button>
+                  {isRestricted && (
+                    <div className="messageLockSuperscript">
+                      <Lock size={16} strokeWidth={2} />
+                    </div>
+                  )}
+                </div>
+                {/* Inbox button with lock overlay */}
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <button
+                    className="btn profile-inbox"
+                    disabled={isRestricted}
+                    onClick={() => {
+                      if (isRestricted) return
+                      guardAuthed(() => {
+                        openInbox()
+                      })
+                    }}
+                    style={isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+                    aria-disabled={isRestricted}
+                  >
+                    Inbox
+                  </button>
+                  {isRestricted && (
+                    <div className="messageLockSuperscript">
+                      <Lock size={16} strokeWidth={2} />
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Invite friends section */}
