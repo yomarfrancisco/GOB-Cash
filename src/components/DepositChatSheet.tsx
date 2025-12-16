@@ -6,7 +6,7 @@ import { collection, query, orderBy, onSnapshot, doc } from 'firebase/firestore'
 import { getFirebaseAuth } from '@/lib/firebase'
 import type { TransactionMessage, ChatStep, BankDepositTransaction, SenderType } from '@/types/transactions'
 import { getSambaMessage, getSambaHelperResponse, isValidTronAddress } from '@/lib/depositChat/sambaMessages'
-import { tx_userMarkDepositSent, tx_appendUserMessage, tx_appendSambaMessage, tx_setWithdrawalAddressCandidate } from '@/lib/transactions/clientFunctions'
+import { tx_userMarkDepositSent, tx_appendUserMessage, tx_appendSambaMessage, tx_appendEmaMessage, tx_setWithdrawalAddressCandidate } from '@/lib/transactions/clientFunctions'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useNotificationStore } from '@/store/notifications'
 import ActionSheet from './ActionSheet'
@@ -326,6 +326,8 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
                 await tx_appendUserMessage(txId, 'SENT')
                 // Mark deposit as sent and update chatStep server-side
                 await tx_userMarkDepositSent(txId)
+                // Add immediate acknowledgement from Ema
+                await tx_appendEmaMessage(txId, '✅ Got it — marked as SENT. Please upload proof of payment (screenshot or reference). I\'m notifying the team now.')
               } catch (error) {
                 console.error('[DepositChat] Error handling CTA click:', error)
               } finally {

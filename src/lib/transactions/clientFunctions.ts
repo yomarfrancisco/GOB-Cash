@@ -72,6 +72,30 @@ export async function tx_appendSambaMessage(txId: string, text: string): Promise
 }
 
 /**
+ * Append an Ema (AI assistant) message to a transaction thread
+ * Cloud Function writes the message to transactions/{txId}/messages
+ * Used for acknowledgements and confirmations
+ */
+export async function tx_appendEmaMessage(txId: string, text: string): Promise<void> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'tx_appendEmaMessage')
+  
+  try {
+    await fn({ txId, text })
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Transaction] Ema message appended to transaction thread:', txId)
+    }
+  } catch (error: any) {
+    console.error('[Transaction] Failed to append Ema message:', {
+      txId,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+    })
+    throw error
+  }
+}
+
+/**
  * User marks deposit as sent
  * Transitions: AWAITING_DEPOSIT -> DEPOSIT_SENT
  */
