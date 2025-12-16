@@ -21,6 +21,7 @@ export { syncUserToGlobalContacts } from './syncUserToGlobalContacts'
 // Export transaction functions
 export { tx_createBankDepositRequest } from './tx/createBankDepositRequest'
 export { tx_userMarkDepositSent } from './tx/userMarkDepositSent'
+export { onTxActionCreate } from './tx/onTxActionCreate'
 export { tx_receiverConfirmDeposit } from './tx/receiverConfirmDeposit'
 export { tx_creditAndLock } from './tx/creditAndLock'
 export { tx_unlockSweep } from './tx/unlockSweep'

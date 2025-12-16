@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { getFirestoreDb } from '@/lib/firebase'
-import { collection, query, orderBy, onSnapshot, doc } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, doc, addDoc, serverTimestamp } from 'firebase/firestore'
 import { getFirebaseAuth } from '@/lib/firebase'
 import type { TransactionMessage, ChatStep, BankDepositTransaction, SenderType } from '@/types/transactions'
 import { getSambaMessage, getSambaHelperResponse, isValidTronAddress } from '@/lib/depositChat/sambaMessages'
@@ -96,6 +96,11 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
         msgs.push(docSnap.data() as TransactionMessage)
       })
       setMessages(msgs)
+      
+      // Reset isProcessing when "SENT" message appears (action was processed)
+      if (msgs.some(m => m.senderType === 'USER' && m.text === 'SENT')) {
+        setIsProcessing(false)
+      }
     })
 
     return () => unsubscribe()
@@ -320,17 +325,35 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
             const handleCTAClick = async () => {
               if (!txId || isProcessing) return
               
+              const user = auth.currentUser
+              if (!user) {
+                console.error('[DepositChat] No authenticated user for CTA')
+                return
+              }
+              
               setIsProcessing(true)
               try {
-                // Single call: server will append "SENT" message + acknowledgement + email + update chatStep
-                console.log('[CTA] calling tx_userMarkDepositSent', { txId })
-                await tx_userMarkDepositSent(txId)
-                console.log('[CTA] tx_userMarkDepositSent succeeded', { txId })
+                // Write Firestore action instead of calling Cloud Function (bypasses CORS)
+                const db = getFirestoreDb()
+                const actionsRef = collection(db, 'transactions', txId, 'actions')
+                
+                console.log('[CTA] Creating MARK_DEPOSIT_SENT action', { txId })
+                await addDoc(actionsRef, {
+                  type: 'MARK_DEPOSIT_SENT',
+                  createdAt: serverTimestamp(),
+                  createdBy: user.uid,
+                  status: 'PENDING',
+                })
+                console.log('[CTA] Action created successfully', { txId })
+                // Server trigger will process this and append messages/update status
+                // UI will update via Firestore listeners when messages appear
               } catch (error) {
-                console.error('[DepositChat] Error handling CTA click:', error)
-              } finally {
+                console.error('[DepositChat] Error creating action:', error)
+                // Keep isProcessing false so user can retry
                 setIsProcessing(false)
               }
+              // Note: Don't set isProcessing(false) here - let it stay true until messages appear
+              // The UI will show "Processing..." until server messages arrive
             }
 
             return (

@@ -85,6 +85,27 @@ service cloud.firestore {
         // Client cannot write proofs directly (Cloud Functions only)
         allow write: if false;
       }
+      
+      // Actions subcollection: transactions/{txId}/actions/{actionId}
+      // Used for action queue pattern (bypasses CORS by using Firestore writes instead of callables)
+      match /actions/{actionId} {
+        // Allow read if user is the transaction owner
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/transactions/$(txId)).data.userId == request.auth.uid
+        );
+        
+        // Allow create if user is the transaction owner and action has required fields
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/transactions/$(txId)).data.userId == request.auth.uid &&
+          request.resource.data.type is string &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.status == 'PENDING'
+        );
+        
+        // Disallow updates/deletes by clients (server trigger will update status)
+        allow update: if false;
+        allow delete: if false;
+      }
     }
     
     // Withdrawals collection: withdrawals/{withdrawalId}

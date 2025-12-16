@@ -1,0 +1,307 @@
+import * as functions from 'firebase-functions'
+import * as admin from 'firebase-admin'
+import { assertTransition } from './state'
+
+const db = admin.firestore()
+
+// Email configuration
+const EMAIL_TO = 'info@brics.ninja'
+
+/**
+ * Generate email HTML content
+ */
+function generateEmailContent(
+  txId: string,
+  userHandle: string | null,
+  userEmail: string | null,
+  userId: string,
+  amountZar: number,
+  currency: string,
+  country: string | null,
+  bankName: string | null,
+  reference: string | null,
+  timestamp: admin.firestore.Timestamp
+): string {
+  const dateStr = timestamp.toDate().toISOString()
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Deposit Marked as SENT</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2>Deposit Marked as SENT</h2>
+        <p><strong>Transaction ID:</strong> ${txId}</p>
+        <p><strong>User ID:</strong> ${userId}</p>
+        ${userHandle ? `<p><strong>Handle:</strong> @${userHandle}</p>` : ''}
+        ${userEmail ? `<p><strong>Email:</strong> ${userEmail}</p>` : ''}
+        <p><strong>Amount:</strong> ${currency} ${amountZar.toFixed(2)}</p>
+        ${country ? `<p><strong>Country:</strong> ${country}</p>` : ''}
+        ${bankName ? `<p><strong>Bank:</strong> ${bankName}</p>` : ''}
+        ${reference ? `<p><strong>Reference:</strong> ${reference}</p>` : ''}
+        <p><strong>Timestamp:</strong> ${dateStr}</p>
+      </body>
+    </html>
+  `
+}
+
+/**
+ * Firestore trigger: Process transaction actions
+ * Handles MARK_DEPOSIT_SENT actions by appending messages, updating status, and sending email
+ */
+export const onTxActionCreate = functions.firestore
+  .document('transactions/{txId}/actions/{actionId}')
+  .onCreate(async (snap, context) => {
+    const action = snap.data()
+    const { txId, actionId } = context.params
+
+    console.log(`[onTxActionCreate] Processing action ${actionId} of type ${action.type} for tx ${txId}`)
+
+    // Only process MARK_DEPOSIT_SENT actions
+    if (action.type !== 'MARK_DEPOSIT_SENT') {
+      console.log(`[onTxActionCreate] Ignoring action type ${action.type}`)
+      await snap.ref.update({ status: 'DONE', processedAt: admin.firestore.Timestamp.now() })
+      return
+    }
+
+    const userId = action.createdBy
+    if (!userId) {
+      console.error(`[onTxActionCreate] Action ${actionId} missing createdBy`)
+      await snap.ref.update({
+        status: 'FAILED',
+        errorMessage: 'Missing createdBy field',
+        processedAt: admin.firestore.Timestamp.now(),
+      })
+      return
+    }
+
+    const now = admin.firestore.Timestamp.now()
+    const txRef = db.collection('transactions').doc(txId)
+
+    try {
+      // Load transaction
+      const txSnap = await txRef.get()
+      if (!txSnap.exists) {
+        throw new Error('Transaction not found')
+      }
+
+      const tx = txSnap.data()!
+
+      // Verify user is the transaction owner
+      if (tx.userId !== userId) {
+        throw new Error('Not authorized for this transaction')
+      }
+
+      // Idempotency check: if already marked as sent, mark action as DONE and return
+      if (tx.status === 'DEPOSIT_SENT' && tx.chatStep === 'WAITING_FOR_SENT_PROOF') {
+        console.log(`[onTxActionCreate] Transaction ${txId} already marked as sent, marking action as DONE`)
+        await snap.ref.update({
+          status: 'DONE',
+          processedAt: now,
+          metadata: { alreadyProcessed: true },
+        })
+        return
+      }
+
+      // Assert valid transition
+      assertTransition(tx.status, 'DEPOSIT_SENT')
+
+      // Set expiration time (4 hours for DEPOSIT_SENT)
+      const expiresAt = admin.firestore.Timestamp.fromMillis(
+        now.toMillis() + 4 * 60 * 60 * 1000 // 4 hours
+      )
+
+      // Check idempotency: check if "SENT" message already exists
+      const existingSentMessages = await txRef.collection('messages')
+        .where('senderType', '==', 'USER')
+        .where('text', '==', 'SENT')
+        .limit(1)
+        .get()
+
+      const shouldAddSentMessage = existingSentMessages.empty
+
+      // Check if acknowledgement message already exists (idempotency)
+      const existingAckMessages = await txRef.collection('messages')
+        .where('senderType', '==', 'SAMBA')
+        .where('metadata.chatStep', '==', 'WAITING_FOR_SENT_PROOF')
+        .limit(1)
+        .get()
+
+      const shouldAddAck = existingAckMessages.empty
+
+      // Check idempotency: only send email if not already sent
+      const shouldSendEmail = !tx.emailNotifiedSent
+
+      // Load user document for email and acknowledgement
+      const userRef = db.collection('users').doc(userId)
+      const userSnap = await userRef.get()
+      const userData = userSnap.data()
+      const userHandle = userData?.userHandle || null
+      const userEmail = userData?.email || null
+
+      // Create "SENT" user message (if needed, idempotent)
+      let sentMsgRef: admin.firestore.DocumentReference | null = null
+      let sentMessage: any = null
+      if (shouldAddSentMessage) {
+        sentMsgRef = txRef.collection('messages').doc()
+        sentMessage = {
+          id: sentMsgRef.id,
+          txId,
+          createdAt: now,
+          senderType: 'USER' as const,
+          senderId: userId,
+          text: 'SENT',
+        }
+      }
+
+      // Create SYSTEM message (internal log)
+      const systemMsgRef = txRef.collection('messages').doc()
+      const systemMessage = {
+        id: systemMsgRef.id,
+        txId,
+        createdAt: now,
+        senderType: 'SYSTEM' as const,
+        text: `Customer marked deposit as sent.`,
+        metadata: {
+          status: 'DEPOSIT_SENT',
+        },
+      }
+
+      // Create acknowledgement message from Ema (if needed, idempotent)
+      let ackMsgRef: admin.firestore.DocumentReference | null = null
+      let ackMessage: any = null
+      if (shouldAddAck) {
+        ackMsgRef = txRef.collection('messages').doc()
+        ackMessage = {
+          id: ackMsgRef.id,
+          txId,
+          createdAt: now,
+          senderType: 'SAMBA' as const,
+          senderUid: 'samba',
+          text: 'Got it ✅ I\'ve notified our team. Please upload proof of payment here when ready.',
+          metadata: {
+            chatStep: 'WAITING_FOR_SENT_PROOF',
+          },
+        }
+      }
+
+      // Update transaction and create messages atomically
+      await db.runTransaction(async (t) => {
+        const updateData: any = {
+          status: 'DEPOSIT_SENT',
+          statusUpdatedAt: now,
+          expiresAt, // Timeout for DEPOSIT_SENT state
+          chatStep: 'WAITING_FOR_SENT_PROOF', // Update chatStep for deposit flow
+          updatedAt: now, // Update timestamp
+        }
+
+        // Mark email as sent (idempotency)
+        if (shouldSendEmail) {
+          updateData.emailNotifiedSent = true
+        }
+
+        t.update(txRef, updateData)
+
+        // Add "SENT" user message if needed
+        if (sentMsgRef && sentMessage) {
+          t.set(sentMsgRef, sentMessage)
+        }
+
+        t.set(systemMsgRef, systemMessage)
+
+        // Add acknowledgement message if needed
+        if (ackMsgRef && ackMessage) {
+          t.set(ackMsgRef, ackMessage)
+        }
+      })
+
+      // Send email notification (non-blocking, after transaction succeeds)
+      // Read config inside handler (not module-level) to avoid cold start issues
+      if (shouldSendEmail) {
+        try {
+          // Get config inside function handler (v1 functions support this)
+          const apiKey = functions.config().resend?.api_key
+          const emailFrom = functions.config().email?.from || 'noreply@gobankless.com'
+
+          if (apiKey) {
+            const amountZar = tx.amountZar || 0
+            const currency = tx.depositCurrency || 'ZAR'
+            const country = tx.bankCountry === 'MZ' ? 'Mozambique' : tx.bankCountry === 'ZA' ? 'South Africa' : null
+            const bankName = tx.bankId || null
+            const reference = tx.depositReference || null
+
+            const emailSubject = `Deposit Marked as SENT - ${currency} ${amountZar.toFixed(2)}${userHandle ? ` (@${userHandle})` : ''}`
+            const emailHtml = generateEmailContent(
+              txId,
+              userHandle,
+              userEmail,
+              userId,
+              amountZar,
+              currency,
+              country,
+              bankName,
+              reference,
+              now
+            )
+
+            // Send email using Resend API
+            const response = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                from: emailFrom,
+                to: [EMAIL_TO],
+                subject: emailSubject,
+                html: emailHtml,
+              }),
+            })
+
+            if (!response.ok) {
+              const errorText = await response.text()
+              console.error('[onTxActionCreate] Resend API error:', {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorText,
+              })
+              // Don't throw - function already succeeded
+            } else {
+              const result = await response.json()
+              console.log(`[onTxActionCreate] Email notification sent for transaction ${txId}:`, result.id)
+            }
+          } else {
+            console.warn('[onTxActionCreate] RESEND_API_KEY not configured, skipping email')
+          }
+        } catch (error) {
+          console.error('[onTxActionCreate] Error sending email (non-blocking):', error)
+          // Don't throw - function already succeeded
+        }
+      }
+
+      // Mark action as DONE
+      await snap.ref.update({
+        status: 'DONE',
+        processedAt: now,
+        metadata: {
+          sentMessageAdded: shouldAddSentMessage,
+          ackMessageAdded: shouldAddAck,
+          emailSent: shouldSendEmail,
+        },
+      })
+
+      console.log(`[onTxActionCreate] Successfully processed MARK_DEPOSIT_SENT action ${actionId} for tx ${txId}`)
+    } catch (error: any) {
+      console.error(`[onTxActionCreate] Error processing action ${actionId}:`, error)
+      // Mark action as FAILED
+      await snap.ref.update({
+        status: 'FAILED',
+        errorMessage: error.message || 'Unknown error',
+        processedAt: admin.firestore.Timestamp.now(),
+      })
+      // Don't throw - we've handled the error by marking the action as failed
+    }
+  })
+
