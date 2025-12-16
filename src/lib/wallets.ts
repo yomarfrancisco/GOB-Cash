@@ -77,8 +77,58 @@ const DEFAULT_WALLETS: WalletDoc[] = [
 ]
 
 /**
+ * Reset all wallet balances to zero for a user.
+ * This ensures new wallets start with zero balances until real payments infrastructure is connected.
+ * Always resets balances to zero, even if they appear to be zero already, to ensure consistency.
+ */
+export async function resetWalletBalancesToZero(user: User): Promise<void> {
+  const db = getFirestoreDb()
+  const walletsRef = getUserWalletsRef(user.uid)
+
+  const snapshot = await getDocs(walletsRef)
+  if (snapshot.empty) {
+    return // No wallets to reset
+  }
+
+  const now = serverTimestamp()
+  let resetCount = 0
+  
+  const batch = snapshot.docs.map((docSnap) => {
+    const walletData = docSnap.data() as WalletDoc
+    const walletRef = doc(db, 'users', user.uid, 'wallets', walletData.walletId)
+    
+    // Check if balances need resetting (non-zero or undefined/null)
+    const needsReset = (walletData.fiatBalance !== undefined && walletData.fiatBalance !== 0) ||
+                       (walletData.usdtBalance !== undefined && walletData.usdtBalance !== 0) ||
+                       walletData.fiatBalance === undefined ||
+                       walletData.usdtBalance === undefined
+    
+    if (needsReset) {
+      resetCount++
+      return setDoc(
+        walletRef,
+        {
+          fiatBalance: 0,
+          usdtBalance: 0,
+          updatedAt: now,
+        },
+        { merge: true }
+      )
+    }
+    return Promise.resolve()
+  })
+
+  await Promise.all(batch)
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[Wallets] Reset wallet balances to zero for user', user.uid, `(${resetCount} wallet(s) reset)`)
+  }
+}
+
+/**
  * Ensure default wallets exist for a user.
  * If the wallets subcollection is empty, seed it.
+ * If wallets exist, reset their balances to zero to ensure new wallets start with zero.
  */
 export async function ensureDefaultWallets(user: User): Promise<void> {
   const db = getFirestoreDb()
@@ -86,8 +136,11 @@ export async function ensureDefaultWallets(user: User): Promise<void> {
 
   const snapshot = await getDocs(walletsRef)
   if (!snapshot.empty) {
+    // Wallets exist - reset balances to zero to ensure new wallets start with zero
+    // This prevents non-zero balances from persisting on refresh
+    await resetWalletBalancesToZero(user)
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[Wallets] Wallets already exist for user', user.uid)
+      console.log('[Wallets] Wallets already exist for user', user.uid, '- reset balances to zero')
     }
     return
   }

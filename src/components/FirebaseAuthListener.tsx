@@ -9,6 +9,7 @@ import { useUserProfileStore } from '@/store/userProfile'
 import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
 import { ensureDefaultWallets, subscribeToWallets } from '@/lib/wallets'
 import { useWalletStore } from '@/store/wallets'
+import type { WalletMap } from '@/types/wallet'
 
 /**
  * Client component that sets up Firebase Auth state listener
@@ -140,8 +141,9 @@ export default function FirebaseAuthListener() {
         const walletStore = useWalletStore.getState()
         walletStore.setDemoMode(false) // Explicitly disable demo mode
         walletStore.setWalletsStatus('loading') // Mark as loading until Firestore returns data
-        // Clear wallets - they'll be populated from Firestore below
-        // Don't set empty wallets - let cards show 0 while loading, but status tracks that we're loading
+        // CRITICAL: Clear wallets immediately to prevent demo values from showing
+        // Set to empty object so cards show $0 while loading
+        walletStore.setWallets({} as WalletMap)
         
         // CRITICAL: Ensure wallets exist in Firestore FIRST (server truth)
         // This guarantees all 6 wallets (cashZAR, cashMZN, cashZWD, eth, btc, earnings) exist with $0 balances
