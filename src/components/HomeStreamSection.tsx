@@ -198,7 +198,7 @@ const generateStreamItems = (): StreamItemData[] => {
       subtitle: 'Maputo, Moz',
       bodyTitle: 'R10k – R100k deposits',
       bodySubtitle: 'Swap cash for USDT with verified agents in your area.',
-      posterSrc: '/assets/commercial_avenida1.jpg',
+      posterSrc: '/assets/commercial_avenida5.jpg',
       footerCount: 3,
       footerLabel: 'agents nearby',
       footerIconSrc: '/assets/Social=WhatsApp,Style=Original.svg',
