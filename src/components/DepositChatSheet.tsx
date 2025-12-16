@@ -209,6 +209,9 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
   const handleSend = async () => {
     if (!inputText.trim() || isProcessing) return
 
+    // Guard: require txId before sending
+    if (!txId) return
+
     const userMessage = inputText.trim()
     setInputText('')
     setIsProcessing(true)
@@ -222,7 +225,7 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
       }
 
       // Process based on current chatStep
-      if (!transaction || !txId) return
+      if (!transaction) return
 
       // Add user message
       await tx_appendUserMessage(txId, userMessage)
@@ -282,8 +285,10 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
     }
   }
 
-  // Normalize messages for rendering
-  const normalizedMessages = messages.map(normalizeTransactionMessage)
+  // Normalize messages for rendering (filter out SYSTEM messages - internal only)
+  const normalizedMessages = messages
+    .filter(m => m.senderType !== 'SYSTEM')
+    .map(normalizeTransactionMessage)
 
   // Typing indicator logic (with mandatory fix)
   const hasAiMessage = messages.some(m => m.senderType === 'SAMBA' || m.senderType === 'SYSTEM')
@@ -296,24 +301,55 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
   const showError = txCreationError !== null
 
   return (
-    <ActionSheet open={open} onClose={onClose} title="" className="financialInboxSheet">
+    <ActionSheet open={open} onClose={onClose} title="" className="inboxTallSheet">
       <div className={chatStyles.container}>
         <ChatHeader
           avatarSrc="/assets/Brics-girl-blue.png"
           avatarSize={38}
-          name="Ama — Investment Manager"
+          name="Ema — Investment Manager"
           showBackButton={false}
         />
         <div ref={messageAreaRef} className={chatStyles.messageArea}>
-          {normalizedMessages.map((message) => (
-            <ChatMessageBubble
-              key={message.id}
-              message={message}
-              avatarSrc="/assets/Brics-girl-blue.png"
-              avatarSize={31}
-              theme="ama"
-            />
-          ))}
+          {normalizedMessages.map((message, index) => {
+            // Add CTA button to intro message when in INTRO_CONFIRM_INTENT step
+            const isIntroMessage = transaction?.chatStep === 'INTRO_CONFIRM_INTENT' && 
+                                   message.from === 'ai' && 
+                                   index === 0 &&
+                                   message.text.includes("I'm")
+            
+            const handleCTAClick = async () => {
+              if (!txId || isProcessing) return
+              
+              setIsProcessing(true)
+              try {
+                // Add user message "SENT"
+                await tx_appendUserMessage(txId, 'SENT')
+                // Mark deposit as sent and update chatStep server-side
+                await tx_userMarkDepositSent(txId)
+              } catch (error) {
+                console.error('[DepositChat] Error handling CTA click:', error)
+              } finally {
+                setIsProcessing(false)
+              }
+            }
+
+            return (
+              <ChatMessageBubble
+                key={message.id}
+                message={{
+                  ...message,
+                  buttons: isIntroMessage ? [{
+                    label: "I've deposited",
+                    onClick: handleCTAClick,
+                    variant: 'primary' as const
+                  }] : undefined
+                }}
+                avatarSrc="/assets/Brics-girl-blue.png"
+                avatarSize={31}
+                theme="ama"
+              />
+            )
+          })}
           
           {/* Typing indicator */}
           {showTypingIndicator && !showError && (
@@ -321,7 +357,7 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
               <div className={chatStyles.messageAvatar}>
                 <Image
                   src="/assets/Brics-girl-blue.png"
-                  alt="Ama"
+                  alt="Ema"
                   width={31}
                   height={31}
                   className={chatStyles.messageAvatarImage}
@@ -341,7 +377,7 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
               <div className={chatStyles.messageAvatar}>
                 <Image
                   src="/assets/Brics-girl-blue.png"
-                  alt="Ama"
+                  alt="Ema"
                   width={31}
                   height={31}
                   className={chatStyles.messageAvatarImage}
@@ -363,8 +399,8 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
           value={inputText}
           onChange={setInputText}
           onSend={handleSend}
-          placeholder="Type a message..."
-          disabled={isProcessing || !txId}
+          placeholder="Add a message"
+          disabled={isProcessing}
         />
       </div>
     </ActionSheet>

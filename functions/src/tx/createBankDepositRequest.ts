@@ -157,8 +157,8 @@ export const tx_createBankDepositRequest = functions
           const countryName = bankCountry === 'MZ' ? 'Mozambique' : bankCountry === 'ZA' ? 'South Africa' : ''
           const bankName = bankId || 'your bank'
 
-          // Generate Samba intro message (matching client-side template)
-          const introText = `Hi ${handleCustomer} — I'm Samba from GoBankless.\n\nTo confirm:\n\n• Deposit amount: ${amount}\n• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, reply "SENT" and upload proof of payment (screenshot or reference).\n\nWhen you're ready, send "SENT" + proof.`
+          // Generate Ema intro message (matching client-side template)
+          const introText = `Hi ${handleCustomer} — I'm Ema from GoBankless.\n\nTo confirm:\n\n• Deposit amount: ${amount}\n• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, reply "SENT" and upload proof of payment (screenshot or reference).\n\nWhen you're ready, send "SENT" + proof.`
 
           const introMsgRef = txRef.collection('messages').doc()
           const introMessage = {
