@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import { Bookmark, Lock, ChevronLeft, Share, ChevronRight } from 'lucide-react'
+import { Bookmark, ChevronLeft, Share, ChevronRight } from 'lucide-react'
+import LockOverlay from './LockOverlay'
 import ActionSheet from './ActionSheet'
 import Avatar from './Avatar'
 import TopGlassBar from './TopGlassBar'
@@ -317,6 +318,9 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                           })
                         }}
                         type="button"
+                        disabled
+                        style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                        aria-disabled={true}
                       >
                         <div className="lButton3">
                           <span className="text">
@@ -324,9 +328,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                           </span>
                         </div>
                       </button>
-                      <div className="messageLockSuperscript">
-                        <Lock size={16} strokeWidth={2} />
-                      </div>
+                      <LockOverlay show={true} />
                     </div>
 
                     {/* Invest pill */}

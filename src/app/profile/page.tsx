@@ -29,7 +29,8 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useSupportSheet } from '@/store/useSupportSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
-import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell, Lock } from 'lucide-react'
+import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
+import LockOverlay from '@/components/LockOverlay'
 import Avatar from '@/components/Avatar'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet, getDepositCryptoWallets } from '@/components/DepositCryptoWalletSheet'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
@@ -398,11 +399,7 @@ export default function ProfilePage() {
                   >
                     Cash-in / out
                   </button>
-                  {isRestricted && (
-                    <div className="messageLockSuperscript">
-                      <Lock size={16} strokeWidth={2} />
-                    </div>
-                  )}
+                  <LockOverlay show={isRestricted} />
                 </div>
                 {/* Inbox button with lock overlay */}
                 <div style={{ position: 'relative', flex: 1 }}>
@@ -420,11 +417,7 @@ export default function ProfilePage() {
                   >
                     Inbox
                   </button>
-                  {isRestricted && (
-                    <div className="messageLockSuperscript">
-                      <Lock size={16} strokeWidth={2} />
-                    </div>
-                  )}
+                  <LockOverlay show={isRestricted} />
                 </div>
               </div>
 

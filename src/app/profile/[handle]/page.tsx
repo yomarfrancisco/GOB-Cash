@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState, Suspense } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Bookmark, Lock, ChevronRight } from 'lucide-react'
+import { Bookmark, ChevronRight } from 'lucide-react'
+import LockOverlay from '@/components/LockOverlay'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useAuthStore } from '@/store/auth'
 import TopGlassBar from '@/components/TopGlassBar'
@@ -348,6 +349,9 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                           })
                         }}
                         type="button"
+                        disabled
+                        style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                        aria-disabled={true}
                       >
                         <div className="lButton3">
                           <span className="text">
@@ -355,10 +359,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                           </span>
                         </div>
                       </button>
-                      {/* Lock superscript icon */}
-                      <div className="messageLockSuperscript">
-                        <Lock size={16} strokeWidth={2} />
-                      </div>
+                      <LockOverlay show={true} />
                     </div>
 
                     {/* Sponsor pill (swapped from Pay/Request) */}
