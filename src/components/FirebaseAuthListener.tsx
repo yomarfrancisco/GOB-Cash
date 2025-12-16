@@ -136,7 +136,7 @@ export default function FirebaseAuthListener() {
 
         })
 
-        // Clear demo wallets and set loading state immediately on sign-in
+        // HARD RESET on auth transition: Clear demo wallets and set loading state immediately on sign-in
         // This prevents cards from showing demo values during the race condition
         const walletStore = useWalletStore.getState()
         walletStore.setDemoMode(false) // Explicitly disable demo mode
@@ -144,6 +144,11 @@ export default function FirebaseAuthListener() {
         // CRITICAL: Clear wallets immediately to prevent demo values from showing
         // Set to empty object so cards show $0 while loading
         walletStore.setWallets({} as WalletMap)
+        
+        console.log('[AUTH_TRANSITION] User authenticated - hard resetting wallet store', {
+          uid: user.uid,
+          timestamp: new Date().toISOString(),
+        })
         
         // CRITICAL: Ensure wallets exist in Firestore FIRST (server truth)
         // This guarantees all 6 wallets (cashZAR, cashMZN, cashZWD, eth, btc, earnings) exist with $0 balances

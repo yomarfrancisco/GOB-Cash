@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import type { WalletDoc, WalletId, WalletMap } from '@/types/wallet'
+import { useAuthStore } from '@/store/auth'
 
 type WalletsStatus = 'loading' | 'ready'
 
@@ -75,7 +76,75 @@ export const useWalletStore = create<WalletState>((set) => ({
   loading: false,
   demoMode: true,
   walletsStatus: 'loading', // Start in loading state
-  setWallets: (wallets) => set({ wallets, demoMode: false, walletsStatus: 'ready' }),
+  setWallets: (wallets) => {
+    // INSTRUMENTATION: Track wallet store mutations
+    const stack = new Error().stack
+    const caller = stack?.split('\n')[2]?.trim() || 'unknown'
+    
+    // Check auth state and balance mode
+    const authState = useAuthStore.getState().getAuthState()
+    const balanceMode = useAuthStore.getState().getBalanceMode()
+    const isAuthed = useAuthStore.getState().isAuthed
+    const authReady = useAuthStore.getState().authReady
+    
+    // Check if any wallet has non-zero balance
+    const hasNonZeroBalance = Object.values(wallets).some((w: any) => 
+      (w?.fiatBalance && w.fiatBalance > 0) || (w?.usdtBalance && w.usdtBalance > 0)
+    )
+    
+    console.log('[BALANCE_INSTRUMENTATION] setWallets called', {
+      walletIds: Object.keys(wallets),
+      hasNonZeroBalance,
+      caller,
+      authState,
+      balanceMode,
+      isAuthed,
+      authReady,
+      timestamp: new Date().toISOString(),
+      stack: stack?.split('\n').slice(0, 5).join('\n'),
+    })
+    
+    // GATE: If authState is 'authed' or 'loading', ensure all balances are zero
+    // This prevents demo balances from being set during auth resolution
+    if (authState !== 'unauthed') {
+      // Force all balances to zero for authenticated/loading users
+      const zeroedWallets: WalletMap = {} as WalletMap
+      Object.keys(wallets).forEach((key) => {
+        const wallet = (wallets as any)[key]
+        zeroedWallets[key as keyof WalletMap] = {
+          ...wallet,
+          fiatBalance: 0,
+          usdtBalance: 0,
+        }
+      })
+      
+      if (hasNonZeroBalance) {
+        console.warn('[BALANCE_INSTRUMENTATION] ⚠️ BLOCKED: setWallets with non-zero balances for authenticated/loading user - zeroing out', {
+          originalWallets: wallets,
+          zeroedWallets,
+          caller,
+          authState,
+          balanceMode,
+          stack: stack?.split('\n').slice(0, 8).join('\n'),
+        })
+      }
+      
+      set({ wallets: zeroedWallets, demoMode: false, walletsStatus: 'ready' })
+      return
+    }
+    
+    // WARNING: Non-zero balance mutation for authenticated/loading user (should not reach here due to gate above)
+    if (hasNonZeroBalance && (isAuthed || !authReady)) {
+      console.warn('[BALANCE_INSTRUMENTATION] ⚠️ LEAK DETECTED: setWallets with non-zero balances for authenticated/loading user', {
+        wallets,
+        caller,
+        authState,
+        stack: stack?.split('\n').slice(0, 8).join('\n'),
+      })
+    }
+    
+    set({ wallets, demoMode: false, walletsStatus: 'ready' })
+  },
   upsertWallet: (wallet) =>
     set((state) => ({
       wallets: {

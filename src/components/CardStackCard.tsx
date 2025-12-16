@@ -271,7 +271,9 @@ export default function CardStackCard({
 
   // Get allocation cents for this card
   // For authed users: read directly from Firestore wallets to avoid demo values
-  // For pre-auth: use alloc (demo values are fine for marketing)
+  // Get auth state and balance mode
+  const authState = useAuthStore((state) => state.getAuthState())
+  const balanceMode = useAuthStore((state) => state.getBalanceMode())
   const isAuthed = useAuthStore((state) => state.isAuthed)
   const { wallets, demoMode } = useWalletStore()
   
@@ -288,11 +290,17 @@ export default function CardStackCard({
   }
   const walletId = walletIdMap[allocKey]
   
-  // For authed users: use Firestore wallets (source of truth), fallback to 0 if not loaded yet
-  // For pre-auth: use alloc (demo values)
+  // BALANCE RENDERING GATE: One-way gate based on authState
   let cents: number
-  if (isAuthed) {
-    // Authed user: never use demo values, even if wallets haven't loaded yet
+  let showPlaceholder = false
+  
+  if (authState === 'loading') {
+    // Loading: show placeholder/skeleton, do not start demo balance animations
+    showPlaceholder = true
+    cents = 0
+  } else if (authState === 'authed') {
+    // Authed: force balanceMode="real" and force demo store reset
+    // Never use demo values, even if wallets haven't loaded yet
     if (wallets && !demoMode && walletId) {
       // Read directly from Firestore wallets (source of truth)
       const wallet = (wallets as any)[walletId]
@@ -305,7 +313,7 @@ export default function CardStackCard({
       cents = 0
     }
   } else {
-    // Pre-auth: use alloc (demo values for marketing)
+    // Unauthed: demo is allowed
     cents = (alloc as any)[allocKey] || 0
   }
   
@@ -590,37 +598,53 @@ export default function CardStackCard({
       {/* Amount display with SlotCounter (shifted down) - only show for top card */}
       {depth === 0 && (
         <div className={`card-amounts card-amounts--${card.type} card-amounts--shifted`} suppressHydrationWarning>
-          <div
-            className={clsx('card-amounts__zar amount-headline amount-topline', {
-              'flash-up': flashDirection === 'up',
-              'flash-down': flashDirection === 'down',
-              'amount-topline--compact': shouldUseCompactSizing,
-            })}
-            aria-label={`${zar.toFixed(2)} rand`}
-            onAnimationEnd={onFlashEnd}
-            suppressHydrationWarning
-          >
-            <SlotCounter
-              value={zar}
-              format={formatZAR}
-              durationMs={700}
-              className="card-amounts__zar-value"
-              onStart={() => {
-                // Flash direction is already computed and set
-              }}
-              renderMajor={(major) => <span className="amt-int card-amounts__whole" suppressHydrationWarning>{major}</span>}
-              renderCents={(cents) => (
-                <>
-                  <span className="amt-dot card-amounts__dot" suppressHydrationWarning>.</span>
-                  <span className="amt-cents card-amounts__cents" suppressHydrationWarning>{cents}</span>
-                </>
-              )}
-            />
-          </div>
-          <div className="card-amounts__usdt" aria-label={`${usdt.toFixed(2)} USDT`} suppressHydrationWarning>
-            <SlotCounter value={usdt} format={formatUSDT} durationMs={700} className="card-amounts__usdt-value" />
-            <span style={{ marginLeft: '4px' }}>USDT</span>
-          </div>
+          {showPlaceholder ? (
+            // Placeholder/skeleton while auth state is loading
+            <>
+              <div className="card-amounts__zar amount-headline" style={{ opacity: 0.5 }} suppressHydrationWarning>
+                <span className="amt-int card-amounts__whole">R 0</span>
+                <span className="amt-dot card-amounts__dot">.</span>
+                <span className="amt-cents card-amounts__cents">00</span>
+              </div>
+              <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
+                <span>0.00 USDT</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                className={clsx('card-amounts__zar amount-headline amount-topline', {
+                  'flash-up': flashDirection === 'up',
+                  'flash-down': flashDirection === 'down',
+                  'amount-topline--compact': shouldUseCompactSizing,
+                })}
+                aria-label={`${zar.toFixed(2)} rand`}
+                onAnimationEnd={onFlashEnd}
+                suppressHydrationWarning
+              >
+                <SlotCounter
+                  value={zar}
+                  format={formatZAR}
+                  durationMs={700}
+                  className="card-amounts__zar-value"
+                  onStart={() => {
+                    // Flash direction is already computed and set
+                  }}
+                  renderMajor={(major) => <span className="amt-int card-amounts__whole" suppressHydrationWarning>{major}</span>}
+                  renderCents={(cents) => (
+                    <>
+                      <span className="amt-dot card-amounts__dot" suppressHydrationWarning>.</span>
+                      <span className="amt-cents card-amounts__cents" suppressHydrationWarning>{cents}</span>
+                    </>
+                  )}
+                />
+              </div>
+              <div className="card-amounts__usdt" aria-label={`${usdt.toFixed(2)} USDT`} suppressHydrationWarning>
+                <SlotCounter value={usdt} format={formatUSDT} durationMs={700} className="card-amounts__usdt-value" />
+                <span style={{ marginLeft: '4px' }}>USDT</span>
+              </div>
+            </>
+          )}
         </div>
       )}
 

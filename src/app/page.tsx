@@ -293,6 +293,9 @@ function HomeContent() {
   // When user signs in, isAuthed becomes true and animations stop
   // Create controller ref to pause/resume during earnings surprise
   const aiCycleControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
+  const authState = useAuthStore((state) => state.getAuthState())
+  // CRITICAL: Only enable demo animations when authState === 'unauthed'
+  // This prevents animations from starting during loading or when authenticated
   const aiCycle = useAiActionCycle(
     cardStackRef,
     {
@@ -303,7 +306,7 @@ function HomeContent() {
       setEth,
       setZwd,
     },
-    !isAuthed // enable only when NOT authenticated
+    authState === 'unauthed' // enable only when explicitly unauthed (not loading, not authed)
   )
   // Store pause/resume in ref for CardStack to access
   aiCycleControllerRef.current = { pause: aiCycle.pause, resume: aiCycle.resume }

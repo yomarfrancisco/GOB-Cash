@@ -52,7 +52,14 @@ export function useAiActionCycle(
   const rnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
 
   const processAction = useCallback(async () => {
-    // Hard stop for signed-in users - no auto-cycle post-auth
+    // CRITICAL GATE: Check authState - only allow demo balance mutations when authState === 'unauthed'
+    const authState = useAuthStore.getState().getAuthState()
+    if (authState !== 'unauthed') {
+      // Block demo balance mutations during loading or when authenticated
+      return
+    }
+    
+    // Hard stop for signed-in users - no auto-cycle post-auth (redundant check, but kept for safety)
     if (isAuthed) return
     if (isProcessingRef.current || !cardStackRef.current || isPausedRef.current) return
     isProcessingRef.current = true
@@ -459,6 +466,31 @@ export function useAiActionCycle(
     }
   }, [cardStackRef, processAction])
 
+  // Track previous authState to detect transitions and clear queued timeouts
+  const prevAuthStateRef = useRef<string | null>(null)
+  
+  useEffect(() => {
+    // Detect auth state transition to 'authed' and clear all queued timeouts
+    const authState = useAuthStore.getState().getAuthState()
+    const prevAuthState = prevAuthStateRef.current
+    
+    if (authState === 'authed' && prevAuthState !== 'authed' && prevAuthState !== null) {
+      console.log('[AUTH_TRANSITION] Clearing queued animation timeouts on transition to authed', {
+        from: prevAuthState,
+        to: authState,
+        timestamp: new Date().toISOString(),
+      })
+      
+      // Clear any queued timeouts that may still fire
+      stop() // This clears intervalRef.current
+      isRunningRef.current = false
+      isProcessingRef.current = false
+      isPausedRef.current = false
+    }
+    
+    prevAuthStateRef.current = authState
+  }, [enabled, stop])
+  
   useEffect(() => {
     if (enabled) {
       // Wait for cardStackRef to be ready before starting

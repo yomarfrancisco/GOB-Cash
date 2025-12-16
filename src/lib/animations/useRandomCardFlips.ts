@@ -11,7 +11,7 @@
  * - Burst size: 1-3 flips (env: NEXT_PUBLIC_RANDOM_FLIP_MIN_COUNT / MAX_COUNT)
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type React from 'react'
 import type { CardStackHandle } from '@/components/CardStack'
 import { useAuthStore } from '@/store/auth'
@@ -28,11 +28,13 @@ export function useRandomCardFlips(
   ref: React.RefObject<CardStackHandle | null>,
   controllerRef?: React.MutableRefObject<FlipController | null>
 ) {
-  const isAuthed = useAuthStore((state) => state.isAuthed)
+  const authState = useAuthStore((state) => state.getAuthState())
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
   
-  // Only enabled when demo mode is on AND user is NOT authenticated
-  const shouldEnable = ENABLED && isDemoMode && !isAuthed
+  // DECOUPLED: Card flips are visual-only (no balance mutations), so allow them post-auth
+  // Only require demo mode to be on, but allow when authenticated (visual animation only)
+  // The animation itself doesn't mutate balances, so it's safe to run post-auth
+  const shouldEnable = ENABLED && isDemoMode
   
   // Get config based on auth state
   const intensity = getDemoConfig(isAuthed)
@@ -57,6 +59,9 @@ export function useRandomCardFlips(
   const BURST_STEP_MS = isAuthed && process.env.NEXT_PUBLIC_RANDOM_FLIP_BURST_STEP_MS
     ? Number(process.env.NEXT_PUBLIC_RANDOM_FLIP_BURST_STEP_MS)
     : config.BURST_STEP_MS
+  
+  // DECOUPLED: Card flips are visual-only, so no need to clear on auth transition
+  // The animation doesn't mutate balances, so it's safe to continue running post-auth
   
   useEffect(() => {
     if (!shouldEnable || !ref?.current) {
@@ -104,7 +109,11 @@ export function useRandomCardFlips(
       // initial quiet period
       await sleep(QUIET_MS)
 
-      while (ref.current) {
+      // DECOUPLED: This animation is visual-only (no balance mutations)
+      // No need to check authState - card flips are safe to run post-auth
+      // The animation only calls cycleNext() which is a visual effect
+
+      while (ref.current && !aborted) {
         // if hidden or paused, idle-loop until visible/resumed
         while (document.hidden || paused) {
           await sleep(250)

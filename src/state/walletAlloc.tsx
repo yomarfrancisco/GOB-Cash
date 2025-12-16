@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback, ReactNode, useRef, us
 import { getFirebaseAuth } from '@/lib/firebase'
 import { updateWalletBalances } from '@/lib/wallets'
 import type { WalletMap } from '@/types/wallet'
-import { useAuthStore } from '@/store/auth'
+import { useAuthStore, type AuthStateValue } from '@/store/auth'
 
 export type WalletAlloc = {
   totalCents: number // total funds in cents; funds-available display derives from this
@@ -76,17 +76,47 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
   const hydratedRef = useRef(false)
   const auth = typeof window !== 'undefined' ? getFirebaseAuth() : null
 
+  // Track previous authState to detect transitions
+  const prevAuthStateRef = useRef<AuthStateValue | null>(null)
+  
   // Reset to appropriate initial state when auth state changes
   useEffect(() => {
-    if (isAuthed) {
-      // When signing in, reset to zero (will be hydrated from Firestore)
+    const authState = useAuthStore.getState().getAuthState()
+    const prevAuthState = prevAuthStateRef.current
+    
+    // Detect transition to 'authed' (from 'loading' or 'unauthed')
+    if (authState === 'authed' && prevAuthState !== 'authed' && prevAuthState !== null) {
+      console.log('[AUTH_TRANSITION] Transitioning to authed - hard resetting demo state', {
+        from: prevAuthState,
+        to: authState,
+        timestamp: new Date().toISOString(),
+      })
+      
+      // HARD RESET: Reset all demo balances to 0
       setAlloc(ZERO)
-      hydratedRef.current = false // Reset hydration flag on auth change
+      hydratedRef.current = false
+      
+      // Ensure wallet store is reset (will be set by FirebaseAuthListener, but ensure it's zero)
+      // Import dynamically to avoid circular dependency
+      import('@/store/wallets').then(({ useWalletStore }) => {
+        const walletStore = useWalletStore.getState()
+        // Clear wallets to empty object (will be populated from Firestore)
+        walletStore.setWallets({} as WalletMap)
+        walletStore.setDemoMode(false)
+        walletStore.setWalletsStatus('loading')
+      })
+    } else if (isAuthed) {
+      // When signing in (but not a transition we just handled), reset to zero
+      setAlloc(ZERO)
+      hydratedRef.current = false
     } else {
       // When signing out, reset to demo
       setAlloc(DEMO)
-      hydratedRef.current = false // Reset hydration flag
+      hydratedRef.current = false
     }
+    
+    // Update previous authState
+    prevAuthStateRef.current = authState
   }, [isAuthed])
 
   const applyAiAction = useCallback(
@@ -169,6 +199,49 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
 
   const setCash = useCallback(
     (value: number) => {
+      // INSTRUMENTATION: Track all balance mutations
+      const stack = new Error().stack
+      const caller = stack?.split('\n')[2]?.trim() || 'unknown'
+      const authState = useAuthStore.getState().getAuthState()
+      const balanceMode = useAuthStore.getState().getBalanceMode()
+      const isAuthed = useAuthStore.getState().isAuthed
+      const authReady = useAuthStore.getState().authReady
+      
+      console.log('[BALANCE_INSTRUMENTATION] setCash called', {
+        value,
+        caller,
+        authState,
+        balanceMode,
+        isAuthed,
+        authReady,
+        hydrated: hydratedRef.current,
+        syncing: isSyncingFromFirestoreRef.current,
+        timestamp: new Date().toISOString(),
+        stack: stack?.split('\n').slice(0, 5).join('\n'),
+      })
+      
+      // CRITICAL GATE: Demo balance mutations must early-return unless authState === 'unauthed'
+      if (authState !== 'unauthed') {
+        console.warn('[BALANCE_INSTRUMENTATION] ⚠️ BLOCKED: setCash called but authState !== "unauthed"', {
+          value,
+          caller,
+          authState,
+          balanceMode,
+          stack: stack?.split('\n').slice(0, 8).join('\n'),
+        })
+        return // Early return - do not mutate balance
+      }
+      
+      // WARNING: Non-zero balance mutation for authenticated/loading user (should not reach here due to gate above)
+      if (value > 0 && (isAuthed || !authReady)) {
+        console.warn('[BALANCE_INSTRUMENTATION] ⚠️ LEAK DETECTED: setCash with non-zero value for authenticated/loading user', {
+          value,
+          caller,
+          authState,
+          stack: stack?.split('\n').slice(0, 8).join('\n'),
+        })
+      }
+      
       setAlloc((prev) => {
         const newCashCents = Math.round(value * 100)
         const newAlloc = { ...prev, cashCents: newCashCents }
@@ -193,6 +266,49 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
 
   const setEth = useCallback(
     (value: number) => {
+      // INSTRUMENTATION: Track all balance mutations
+      const stack = new Error().stack
+      const caller = stack?.split('\n')[2]?.trim() || 'unknown'
+      const authState = useAuthStore.getState().getAuthState()
+      const balanceMode = useAuthStore.getState().getBalanceMode()
+      const isAuthed = useAuthStore.getState().isAuthed
+      const authReady = useAuthStore.getState().authReady
+      
+      console.log('[BALANCE_INSTRUMENTATION] setEth called', {
+        value,
+        caller,
+        authState,
+        balanceMode,
+        isAuthed,
+        authReady,
+        hydrated: hydratedRef.current,
+        syncing: isSyncingFromFirestoreRef.current,
+        timestamp: new Date().toISOString(),
+        stack: stack?.split('\n').slice(0, 5).join('\n'),
+      })
+      
+      // CRITICAL GATE: Demo balance mutations must early-return unless authState === 'unauthed'
+      if (authState !== 'unauthed') {
+        console.warn('[BALANCE_INSTRUMENTATION] ⚠️ BLOCKED: setEth called but authState !== "unauthed"', {
+          value,
+          caller,
+          authState,
+          balanceMode,
+          stack: stack?.split('\n').slice(0, 8).join('\n'),
+        })
+        return // Early return - do not mutate balance
+      }
+      
+      // WARNING: Non-zero balance mutation for authenticated/loading user (should not reach here due to gate above)
+      if (value > 0 && (isAuthed || !authReady)) {
+        console.warn('[BALANCE_INSTRUMENTATION] ⚠️ LEAK DETECTED: setEth with non-zero value for authenticated/loading user', {
+          value,
+          caller,
+          authState,
+          stack: stack?.split('\n').slice(0, 8).join('\n'),
+        })
+      }
+      
       setAlloc((prev) => {
         const newEthCents = Math.round(value * 100)
         const newAlloc = { ...prev, ethCents: newEthCents }
@@ -222,6 +338,49 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
 
   const setZwd = useCallback(
     (value: number) => {
+      // INSTRUMENTATION: Track all balance mutations
+      const stack = new Error().stack
+      const caller = stack?.split('\n')[2]?.trim() || 'unknown'
+      const authState = useAuthStore.getState().getAuthState()
+      const balanceMode = useAuthStore.getState().getBalanceMode()
+      const isAuthed = useAuthStore.getState().isAuthed
+      const authReady = useAuthStore.getState().authReady
+      
+      console.log('[BALANCE_INSTRUMENTATION] setZwd called', {
+        value,
+        caller,
+        authState,
+        balanceMode,
+        isAuthed,
+        authReady,
+        hydrated: hydratedRef.current,
+        syncing: isSyncingFromFirestoreRef.current,
+        timestamp: new Date().toISOString(),
+        stack: stack?.split('\n').slice(0, 5).join('\n'),
+      })
+      
+      // CRITICAL GATE: Demo balance mutations must early-return unless authState === 'unauthed'
+      if (authState !== 'unauthed') {
+        console.warn('[BALANCE_INSTRUMENTATION] ⚠️ BLOCKED: setZwd called but authState !== "unauthed"', {
+          value,
+          caller,
+          authState,
+          balanceMode,
+          stack: stack?.split('\n').slice(0, 8).join('\n'),
+        })
+        return // Early return - do not mutate balance
+      }
+      
+      // WARNING: Non-zero balance mutation for authenticated/loading user (should not reach here due to gate above)
+      if (value > 0 && (isAuthed || !authReady)) {
+        console.warn('[BALANCE_INSTRUMENTATION] ⚠️ LEAK DETECTED: setZwd with non-zero value for authenticated/loading user', {
+          value,
+          caller,
+          authState,
+          stack: stack?.split('\n').slice(0, 8).join('\n'),
+        })
+      }
+      
       setAlloc((prev) => {
         const newZwdCents = Math.round(value * 100)
         const newAlloc = { ...prev, zwdCents: newZwdCents }

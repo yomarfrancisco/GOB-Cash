@@ -5,10 +5,16 @@ import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import { type ConfirmationResult } from 'firebase/auth'
 
 type AuthView = 'provider-list' | 'whatsapp-signin' | 'whatsapp-signup'
+export type AuthStateValue = 'loading' | 'authed' | 'unauthed'
+export type BalanceMode = 'demo' | 'real'
 
 interface AuthState {
   isAuthed: boolean
   authReady: boolean // True after Firebase has checked auth state (prevents redirect race during hydration)
+  // Computed: authState derived from isAuthed and authReady
+  getAuthState: () => AuthStateValue
+  // Computed: balanceMode - 'demo' for unauthed, 'real' for authed, 'demo' for loading (safe default)
+  getBalanceMode: () => BalanceMode
   authOpen: boolean // Legacy - now controls entry sheet
   authEntryOpen: boolean // New entry sheet (sign-in method selection)
   authPasswordOpen: boolean // Password sheet (existing password modal)
@@ -53,6 +59,18 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthed: false,
   authReady: false, // Auth state not yet checked by Firebase
+  getAuthState: () => {
+    const state = get()
+    if (!state.authReady) return 'loading'
+    return state.isAuthed ? 'authed' : 'unauthed'
+  },
+  getBalanceMode: () => {
+    const state = get()
+    // During loading or when authed, use 'real' mode (no demo balances)
+    // Only use 'demo' when explicitly unauthed
+    if (!state.authReady) return 'real' // Safe default: no demo during loading
+    return state.isAuthed ? 'real' : 'demo'
+  },
   authOpen: false, // Legacy - kept for backward compatibility, now maps to entry sheet
   authEntryOpen: false,
   authPasswordOpen: false,
