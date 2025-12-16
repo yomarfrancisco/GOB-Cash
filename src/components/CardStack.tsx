@@ -10,6 +10,7 @@ import { FLIP_MS } from '@/lib/animations/useAiActionCycle'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { getStackStyle } from '@/lib/stack/getStackStyle'
 import CardStackCard from './CardStackCard'
+import { useAuthStore } from '@/store/auth'
 
 // Temporary FX rate (will be wired to real API later)
 const FX_USD_ZAR_DEFAULT = 18.1
@@ -152,6 +153,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   // Flash state: track direction for each card type
   // Note: alloc values are now read in CardStackCard component
   const { alloc } = useWalletAlloc()
+  const isAuthed = useAuthStore((state) => state.isAuthed)
   const [flashDirection, setFlashDirection] = useState<Record<CardType, 'up' | 'down' | null>>({
     savings: null,
     zwd: null,
@@ -161,14 +163,47 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     yieldSurprise: null,
   })
   // Track previous values to compute direction
+  // CRITICAL: For authenticated users, initialize to zero to prevent flash animation
+  // when alloc changes from DEMO (initial render) to ZERO (after auth state determined)
   const prevValuesRef = useRef<Record<CardType, number>>({
-    savings: alloc.cashCents / 100,
-    zwd: alloc.zwdCents / 100,
-    yield: alloc.ethCents / 100,
-    mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
-    btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
-    yieldSurprise: alloc.earningsCents / 100, // Earnings card has its own balance
+    savings: isAuthed ? 0 : alloc.cashCents / 100,
+    zwd: isAuthed ? 0 : alloc.zwdCents / 100,
+    yield: isAuthed ? 0 : alloc.ethCents / 100,
+    mzn: isAuthed ? 0 : ((alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0),
+    btc: isAuthed ? 0 : ((alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0),
+    yieldSurprise: isAuthed ? 0 : alloc.earningsCents / 100, // Earnings card has its own balance
   })
+  
+  // Track if this is the first hydration for authenticated users (skip flash on first sync)
+  const isFirstHydrationRef = useRef(true)
+
+  // Reset prevValuesRef when auth state changes to prevent false flash animations
+  useEffect(() => {
+    if (isAuthed) {
+      // When user becomes authenticated, reset prevValuesRef to zero
+      // This prevents flash animation when alloc changes from DEMO to ZERO
+      prevValuesRef.current = {
+        savings: 0,
+        zwd: 0,
+        yield: 0,
+        mzn: 0,
+        btc: 0,
+        yieldSurprise: 0,
+      }
+      isFirstHydrationRef.current = true
+    } else {
+      // When user signs out, reset to current alloc values (demo)
+      prevValuesRef.current = {
+        savings: alloc.cashCents / 100,
+        zwd: alloc.zwdCents / 100,
+        yield: alloc.ethCents / 100,
+        mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
+        btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
+        yieldSurprise: alloc.earningsCents / 100,
+      }
+      isFirstHydrationRef.current = false
+    }
+  }, [isAuthed, alloc.cashCents, alloc.zwdCents, alloc.ethCents, alloc.earningsCents])
 
   // Compute flash direction when values change
   useEffect(() => {
@@ -188,6 +223,21 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       mzn: null,
       btc: null,
       yieldSurprise: null,
+    }
+
+    // Skip flash animation on first hydration for authenticated users
+    // This prevents false flash when wallets sync from Firestore (zero balances)
+    if (isAuthed && isFirstHydrationRef.current) {
+      // Check if this is the first sync (all values are zero or very close to zero)
+      const allZero = Object.values(currentValues).every(v => Math.abs(v) < 0.005)
+      if (allZero) {
+        // First hydration with zero balances - skip flash, just update prevValuesRef
+        prevValuesRef.current = currentValues
+        isFirstHydrationRef.current = false
+        return
+      }
+      // If not all zero, this might be a real change, so allow flash
+      isFirstHydrationRef.current = false
     }
 
     // Compute direction for each card
@@ -213,7 +263,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     // Update flash direction state (this triggers re-render with flash classes)
     setFlashDirection(newFlashDirection)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alloc.cashCents, alloc.zwdCents, alloc.ethCents, alloc.earningsCents, (alloc as any).mznCents, (alloc as any).btcCents])
+  }, [alloc.cashCents, alloc.zwdCents, alloc.ethCents, alloc.earningsCents, (alloc as any).mznCents, (alloc as any).btcCents, isAuthed])
 
   // Notify parent of top card change
   useEffect(() => {
