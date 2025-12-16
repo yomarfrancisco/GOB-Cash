@@ -3,46 +3,42 @@
  * 
  * Appends a user message to a transaction thread.
  * Writes message to transactions/{txId}/messages
- * 
- * Migrated to Functions v2 with explicit CORS support to fix browser CORS errors.
  */
 
-import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 
 const db = admin.firestore()
 
-export const tx_appendUserMessage = onCall(
-  { region: 'us-central1', cors: true },
-  async (request) => {
-    const { auth, data } = request
-
-    if (!auth) {
-      throw new HttpsError('unauthenticated', 'Login required')
+export const tx_appendUserMessage = functions
+  .region('us-central1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Login required')
     }
 
-    const userId = auth.uid
+    const userId = context.auth.uid
     const { txId, text } = data
 
     if (!txId || typeof txId !== 'string') {
-      throw new HttpsError('invalid-argument', 'txId is required')
+      throw new functions.https.HttpsError('invalid-argument', 'txId is required')
     }
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
-      throw new HttpsError('invalid-argument', 'text is required')
+      throw new functions.https.HttpsError('invalid-argument', 'text is required')
     }
 
     const txRef = db.collection('transactions').doc(txId)
     const txSnap = await txRef.get()
 
     if (!txSnap.exists) {
-      throw new HttpsError('not-found', 'Transaction not found')
+      throw new functions.https.HttpsError('not-found', 'Transaction not found')
     }
 
     const tx = txSnap.data()!
 
     // Verify user is a participant
     if (!tx.participants || !tx.participants.includes(userId)) {
-      throw new HttpsError('permission-denied', 'Not a participant in this transaction')
+      throw new functions.https.HttpsError('permission-denied', 'Not a participant in this transaction')
     }
 
     const now = admin.firestore.Timestamp.now()
@@ -63,6 +59,5 @@ export const tx_appendUserMessage = onCall(
     console.log(`[tx_appendUserMessage] User ${userId} sent message to transaction ${txId}`)
 
     return { ok: true, messageId: msgRef.id }
-  }
-)
+  })
 

@@ -4,11 +4,9 @@
  * User marks deposit as sent.
  * Transitions: AWAITING_DEPOSIT -> DEPOSIT_SENT
  * 
- * Migrated to Functions v2 with explicit CORS support to fix browser CORS errors.
  * Adds acknowledgement message and email notification.
  */
 
-import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { assertTransition } from './state'
@@ -159,7 +157,7 @@ function generateEmailContent(
           
           <div class="footer">
             <p>This is an automated notification from GoBankless.</p>
-            <p>Transaction: <a href="https://console.firebase.google.com/project/${functions.config().project?.id || 'gobankless-dev'}/firestore/data/transactions/${txId}">View in Firebase Console</a></p>
+            <p>Transaction: <a href="https://console.firebase.google.com/project/gobankless-dev/firestore/data/transactions/${txId}">View in Firebase Console</a></p>
           </div>
         </div>
       </div>
@@ -168,34 +166,32 @@ function generateEmailContent(
   `
 }
 
-export const tx_userMarkDepositSent = onCall(
-  { region: 'us-central1', cors: true },
-  async (request) => {
-    const { auth, data } = request
-
-    if (!auth) {
-      throw new HttpsError('unauthenticated', 'Login required')
+export const tx_userMarkDepositSent = functions
+  .region('us-central1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Login required')
     }
 
-    const userId = auth.uid
+    const userId = context.auth.uid
     const { txId, reference } = data
 
     if (!txId || typeof txId !== 'string') {
-      throw new HttpsError('invalid-argument', 'txId is required')
+      throw new functions.https.HttpsError('invalid-argument', 'txId is required')
     }
 
     const txRef = db.collection('transactions').doc(txId)
     const txSnap = await txRef.get()
 
     if (!txSnap.exists) {
-      throw new HttpsError('not-found', 'Transaction not found')
+      throw new functions.https.HttpsError('not-found', 'Transaction not found')
     }
 
     const tx = txSnap.data()!
 
     // Verify user is the transaction owner
     if (tx.userId !== userId) {
-      throw new HttpsError('permission-denied', 'Not authorized for this transaction')
+      throw new functions.https.HttpsError('permission-denied', 'Not authorized for this transaction')
     }
 
     // Assert valid transition
@@ -320,6 +316,5 @@ export const tx_userMarkDepositSent = onCall(
     console.log(`[tx_userMarkDepositSent] Transaction ${txId} marked as sent by user ${userId}, updated chatStep to WAITING_FOR_SENT_PROOF`)
 
     return { ok: true, status: 'DEPOSIT_SENT', chatStep: 'WAITING_FOR_SENT_PROOF' }
-  }
-)
+  })
 
