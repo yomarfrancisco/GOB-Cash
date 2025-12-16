@@ -4,8 +4,7 @@ import { assertTransition } from './state'
 
 const db = admin.firestore()
 
-// Email configuration
-const EMAIL_TO = 'info@brics.ninja'
+// Email configuration - will be read from functions.config() at runtime
 
 /**
  * Generate email HTML content
@@ -222,61 +221,93 @@ export const onTxActionCreate = functions.firestore
         try {
           // Get config inside function handler (v1 functions support this)
           const apiKey = functions.config().resend?.api_key
-          const emailFrom = functions.config().email?.from || 'noreply@gobankless.com'
+          const emailFrom = functions.config().email?.from
+          const emailTo = functions.config().email?.to
 
-          if (apiKey) {
-            const amountZar = tx.amountZar || 0
-            const currency = tx.depositCurrency || 'ZAR'
-            const country = tx.bankCountry === 'MZ' ? 'Mozambique' : tx.bankCountry === 'ZA' ? 'South Africa' : null
-            const bankName = tx.bankId || null
-            const reference = tx.depositReference || null
+          // Explicit config validation and logging
+          if (!apiKey) {
+            console.warn('[EMAIL] Skipping send - resend.api_key not configured', { txId })
+            return
+          }
+          if (!emailFrom) {
+            console.warn('[EMAIL] Skipping send - email.from not configured', { txId })
+            return
+          }
+          if (!emailTo) {
+            console.warn('[EMAIL] Skipping send - email.to not configured', { txId })
+            return
+          }
 
-            const emailSubject = `Deposit Marked as SENT - ${currency} ${amountZar.toFixed(2)}${userHandle ? ` (@${userHandle})` : ''}`
-            const emailHtml = generateEmailContent(
+          const amountZar = tx.amountZar || 0
+          const currency = tx.depositCurrency || 'ZAR'
+          const country = tx.bankCountry === 'MZ' ? 'Mozambique' : tx.bankCountry === 'ZA' ? 'South Africa' : null
+          const bankName = tx.bankId || null
+          const reference = tx.depositReference || null
+
+          const emailSubject = `Deposit Marked as SENT - ${currency} ${amountZar.toFixed(2)}${userHandle ? ` (@${userHandle})` : ''}`
+          const emailHtml = generateEmailContent(
+            txId,
+            userHandle,
+            userEmail,
+            userId,
+            amountZar,
+            currency,
+            country,
+            bankName,
+            reference,
+            now
+          )
+
+          // Log email attempt with all config values
+          console.log('[EMAIL] Attempting send', {
+            from: emailFrom,
+            to: emailTo,
+            hasApiKey: Boolean(apiKey),
+            txId,
+            subject: emailSubject,
+          })
+
+          // Send email using Resend API
+          const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: emailFrom,
+              to: [emailTo],
+              subject: emailSubject,
+              html: emailHtml,
+            }),
+          })
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error('[EMAIL] Resend API error', {
               txId,
-              userHandle,
-              userEmail,
-              userId,
-              amountZar,
-              currency,
-              country,
-              bankName,
-              reference,
-              now
-            )
-
-            // Send email using Resend API
-            const response = await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                from: emailFrom,
-                to: [EMAIL_TO],
-                subject: emailSubject,
-                html: emailHtml,
-              }),
+              status: response.status,
+              statusText: response.statusText,
+              error: errorText,
+              from: emailFrom,
+              to: emailTo,
             })
-
-            if (!response.ok) {
-              const errorText = await response.text()
-              console.error('[onTxActionCreate] Resend API error:', {
-                status: response.status,
-                statusText: response.statusText,
-                error: errorText,
-              })
-              // Don't throw - function already succeeded
-            } else {
-              const result = await response.json()
-              console.log(`[onTxActionCreate] Email notification sent for transaction ${txId}:`, result.id)
-            }
+            // Don't throw - function already succeeded
           } else {
-            console.warn('[onTxActionCreate] RESEND_API_KEY not configured, skipping email')
+            const result = await response.json()
+            console.log('[EMAIL] Email notification sent', {
+              txId,
+              emailId: result.id,
+              from: emailFrom,
+              to: emailTo,
+            })
           }
         } catch (error) {
-          console.error('[onTxActionCreate] Error sending email (non-blocking):', error)
+          console.error('[EMAIL] Error sending email (non-blocking)', {
+            txId,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          })
           // Don't throw - function already succeeded
         }
       }
