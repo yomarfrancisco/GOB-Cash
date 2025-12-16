@@ -305,7 +305,7 @@ export const tx_userMarkDepositSent = functions
             },
             body: JSON.stringify({
               from: emailFrom,
-              to: [EMAIL_TO],
+              to: [emailTo],
               subject: emailSubject,
               html: emailHtml,
             }),
