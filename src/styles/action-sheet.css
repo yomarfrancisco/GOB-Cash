@@ -68,14 +68,21 @@
 
 /* Financial inbox sheet - unified height for both inbox and chat views */
 .as-sheet.financialInboxSheet {
-  max-height: 85vh; /* Match the standard tall sheet height */
+  height: 85dvh; /* Use dynamic viewport height for mobile */
+  max-height: 85dvh;
+  min-height: 85dvh;
+  height: 85vh; /* Fallback for browsers without dvh support */
+  max-height: 85vh;
+  min-height: 85vh;
   overflow: hidden; /* Prevent square background from showing */
   background: #fff;
 }
 
 /* Override the tall class max-height when combined with financialInboxSheet */
 .as-sheet-tall.financialInboxSheet {
+  height: 85vh !important;
   max-height: 85vh !important;
+  min-height: 85vh !important;
 }
 
 /* Inbox tall sheet - matches auth sheet height (85vh) without background image styles */
