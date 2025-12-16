@@ -134,6 +134,54 @@ export const tx_createBankDepositRequest = functions
         status: 'AWAITING_DEPOSIT',
       })
 
+      // Create Samba intro message server-side with idempotency check
+      if (chatStep === 'INTRO_CONFIRM_INTENT') {
+        // Check if intro message already exists (prevents duplicates on refresh/double-tap)
+        const existingIntro = await txRef.collection('messages')
+          .where('senderType', '==', 'SAMBA')
+          .where('metadata.chatStep', '==', 'INTRO_CONFIRM_INTENT')
+          .limit(1)
+          .get()
+
+        if (existingIntro.empty) {
+          // Get user profile for personalized greeting
+          const userRef = db.collection('users').doc(userId)
+          const userSnap = await userRef.get()
+          const userData = userSnap.data()
+          
+          // Extract user name (handle, fullName, or fallback)
+          const handleCustomer = userData?.userHandle || 
+                                userData?.fullName?.split(' ')[0] || 
+                                'there'
+          const amount = `${amountZar.toFixed(2)}`
+          const countryName = bankCountry === 'MZ' ? 'Mozambique' : bankCountry === 'ZA' ? 'South Africa' : ''
+          const bankName = bankId || 'your bank'
+
+          // Generate Samba intro message (matching client-side template)
+          const introText = `Hi ${handleCustomer} — I'm Samba from GoBankless.\n\nTo confirm:\n\n• Deposit amount: ${amount}\n• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, reply "SENT" and upload proof of payment (screenshot or reference).\n\nWhen you're ready, send "SENT" + proof.`
+
+          const introMsgRef = txRef.collection('messages').doc()
+          const introMessage = {
+            id: introMsgRef.id,
+            txId,
+            createdAt: now,
+            senderType: 'SAMBA' as const,
+            senderUid: 'samba',
+            text: introText,
+            metadata: {
+              chatStep: 'INTRO_CONFIRM_INTENT',
+            },
+          }
+          
+          // Append intro message
+          await introMsgRef.set(introMessage)
+          
+          console.log(`[tx_createBankDepositRequest] Intro message created for tx ${txId}`)
+        } else {
+          console.log(`[tx_createBankDepositRequest] Intro message already exists for tx ${txId}, skipping`)
+        }
+      }
+
       // Return response - onCall functions automatically handle CORS
       return { txId, status: 'AWAITING_DEPOSIT' }
     } catch (error: any) {

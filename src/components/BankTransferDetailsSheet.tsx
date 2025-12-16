@@ -14,7 +14,8 @@ type BankTransferDetailsSheetProps = {
   countryCode: CountryCode
   bank?: SelectedBank // Optional bank selection for Mozambique or South Africa
   onBack?: () => void // Callback for back button (to return to bank selection)
-  onNext?: (txId: string) => void // Callback for NEXT button (opens chat)
+  onNext?: (txId: string) => void | Promise<void> // Callback for NEXT button (opens chat)
+  isSubmitting?: boolean // Prevent double-tap
 }
 
 export default function BankTransferDetailsSheet({
@@ -24,6 +25,7 @@ export default function BankTransferDetailsSheet({
   bank,
   onBack,
   onNext,
+  isSubmitting = false,
 }: BankTransferDetailsSheetProps) {
   // Get bank-specific config if provided, otherwise use default for country
   let config: BankAccountDetails
@@ -120,17 +122,14 @@ export default function BankTransferDetailsSheet({
           <div className="bank-transfer-close-bar">
             <button 
               className="bank-transfer-close-btn" 
-              onClick={onNext ? () => {
-                // NEXT button creates transaction and opens chat
-                if (onNext) {
-                  // We'll handle transaction creation in parent component
-                  // For now, pass a placeholder - parent will create tx
-                  onNext('') // Parent will create tx and pass real txId
-                }
+              onClick={onNext ? async () => {
+                if (isSubmitting) return // Prevent double-tap
+                await onNext('') // Parent handles tx creation
               } : onClose} 
+              disabled={isSubmitting}
               type="button"
             >
-              {onNext ? 'NEXT' : 'CLOSE'}
+              {isSubmitting ? 'Creating...' : (onNext ? 'NEXT' : 'CLOSE')}
             </button>
           </div>
         </div>

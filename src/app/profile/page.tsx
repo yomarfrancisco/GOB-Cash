@@ -87,6 +87,8 @@ export default function ProfilePage() {
   const [selectedBank, setSelectedBank] = useState<SelectedBank | undefined>(undefined)
   const [openDepositChat, setOpenDepositChat] = useState(false)
   const [depositChatTxId, setDepositChatTxId] = useState<string | null>(null)
+  const [isSubmittingDeposit, setIsSubmittingDeposit] = useState(false)
+  const [depositChatError, setDepositChatError] = useState<string | null>(null)
   const [openAgentInbox, setOpenAgentInbox] = useState(false)
   const [depositAmountZAR, setDepositAmountZAR] = useState(0) // Persist deposit amount through flow
   
@@ -870,19 +872,30 @@ export default function ProfilePage() {
           setTimeout(() => setOpenBankSelect(true), 220)
         }}
         onNext={async () => {
-          // Create transaction and open chat
+          setIsSubmittingDeposit(true)
+          setDepositChatError(null)
+          
           try {
             const auth = getFirebaseAuth()
             const user = auth.currentUser
             if (!user) {
+              setIsSubmittingDeposit(false)
               alert('You must be signed in to create a deposit. Please sign in and try again.')
               return
             }
 
             if (depositAmountZAR <= 0) {
+              setIsSubmittingDeposit(false)
               alert('Please enter a valid deposit amount.')
               return
             }
+
+            // Close bank details sheet immediately
+            setOpenBankTransferDetails(false)
+            
+            // Open chat sheet immediately with txId: null (shows typing indicator)
+            setDepositChatTxId(null)
+            setOpenDepositChat(true)
 
             // Get bank config for reference
             const { DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, SOUTH_AFRICA_BANK_ACCOUNTS, COUNTRY_SELECT_OPTIONS } = await import('@/config/depositBankAccounts')
@@ -896,7 +909,7 @@ export default function ProfilePage() {
             }
             const countryName = COUNTRY_SELECT_OPTIONS.find(c => c.code === bankTransferCountry)?.name || ''
 
-            // Create transaction with persisted amount and all enrichment server-side
+            // Create transaction async (don't block sheet opening)
             const { txId } = await tx_createBankDepositRequest({
               receiverId: AGENT_UID,
               amountZar: depositAmountZAR,
@@ -914,36 +927,43 @@ export default function ProfilePage() {
               },
             })
 
-            // Close bank details sheet and open chat
-            setOpenBankTransferDetails(false)
+            // Update txId when transaction is created
             setDepositChatTxId(txId)
-            setTimeout(() => setOpenDepositChat(true), 220)
           } catch (error: any) {
+            setIsSubmittingDeposit(false)
             console.error('[Deposit] Failed to create transaction:', error)
-            // Show user-friendly error message
+            
+            // Show error in chat sheet
             const errorMessage = error?.message || 'Unknown error'
+            setDepositChatError('Failed to create transaction. Please try again.')
+            
+            // Close chat sheet on error (user can retry from bank details)
+            setOpenDepositChat(false)
+            setDepositChatTxId(null)
+            
+            // Also show alert for immediate feedback
             if (errorMessage.includes('CORS') || errorMessage.includes('network') || errorMessage.includes('fetch')) {
               alert('We couldn\'t start the deposit chat. Please check your connection and try again.')
             } else {
               alert('We couldn\'t start the deposit chat. Please try again.')
             }
-            // Do NOT close the sheet on error - user can retry
           }
         }}
+        isSubmitting={isSubmittingDeposit}
         countryCode={bankTransferCountry}
         bank={selectedBank}
       />
-      {depositChatTxId && (
-        <DepositChatSheet
-          open={openDepositChat}
-          onClose={() => {
-            setOpenDepositChat(false)
-            setDepositChatTxId(null)
-            setDepositAmountZAR(0) // Clear deposit amount when chat closes
-          }}
-          txId={depositChatTxId}
-        />
-      )}
+      <DepositChatSheet
+        open={openDepositChat}
+        onClose={() => {
+          setOpenDepositChat(false)
+          setDepositChatTxId(null)
+          setDepositChatError(null)
+          setDepositAmountZAR(0) // Clear deposit amount when chat closes
+        }}
+        txId={depositChatTxId}
+        error={depositChatError}
+      />
       <AgentInboxSheet
         open={openAgentInbox}
         onClose={() => setOpenAgentInbox(false)}

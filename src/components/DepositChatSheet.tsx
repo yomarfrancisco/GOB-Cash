@@ -13,12 +13,15 @@ import ActionSheet from './ActionSheet'
 import ChatHeader from './Inbox/ChatHeader'
 import ChatMessageBubble from './Inbox/ChatMessageBubble'
 import ChatInputBar from './Inbox/ChatInputBar'
+import TypingBubble from './Inbox/TypingBubble'
+import Image from 'next/image'
 import chatStyles from './Inbox/FinancialInboxChatSheet.module.css'
 
 type DepositChatSheetProps = {
   open: boolean
   onClose: () => void
-  txId: string
+  txId: string | null
+  error?: string | null
 }
 
 /**
@@ -60,11 +63,12 @@ function normalizeTransactionMessage(txMessage: TransactionMessage): NormalizedC
   }
 }
 
-export default function DepositChatSheet({ open, onClose, txId }: DepositChatSheetProps) {
+export default function DepositChatSheet({ open, onClose, txId, error }: DepositChatSheetProps) {
   const [messages, setMessages] = useState<TransactionMessage[]>([])
   const [transaction, setTransaction] = useState<BankDepositTransaction | null>(null)
   const [inputText, setInputText] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [txCreationError, setTxCreationError] = useState<string | null>(error || null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messageAreaRef = useRef<HTMLDivElement>(null)
   const { profile } = useUserProfileStore()
@@ -72,6 +76,11 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
   const auth = getFirebaseAuth()
   const sambaMessageSentRef = useRef<Set<ChatStep>>(new Set())
   const depositConfirmedNotifiedRef = useRef(false)
+
+  // Update error state when prop changes
+  useEffect(() => {
+    setTxCreationError(error || null)
+  }, [error])
 
   // Subscribe to messages
   useEffect(() => {
@@ -142,23 +151,8 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
     return () => unsubscribe()
   }, [open, txId, transaction?.chatStep])
 
-  // Send initial Samba message on open
-  useEffect(() => {
-    if (!open || !transaction || !txId) return
-
-    // Check if we need to send intro message
-    if (transaction.chatStep === 'INTRO_CONFIRM_INTENT' && !sambaMessageSentRef.current.has('INTRO_CONFIRM_INTENT')) {
-      // Wait a bit for messages to load, then send intro
-      setTimeout(() => {
-        // Check if Samba already sent a message (from existing messages)
-        const hasSambaMessage = messages.some(m => m.senderType === 'SAMBA')
-        if (!hasSambaMessage) {
-          sendSambaMessage(transaction.chatStep, transaction)
-          sambaMessageSentRef.current.add('INTRO_CONFIRM_INTENT')
-        }
-      }, 1000)
-    }
-  }, [open, transaction, messages, txId])
+  // Note: Intro message is now sent server-side in createBankDepositRequest
+  // No client-side intro message logic needed
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -169,6 +163,8 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
   }, [messages])
 
   const sendSambaMessage = async (chatStep: ChatStep, tx: BankDepositTransaction) => {
+    if (!txId) return // Early return if txId is null
+    
     try {
       const handleCustomer = profile.userHandle || profile.fullName?.split(' ')[0] || 'there'
       const firstName = profile.fullName?.split(' ')[0] || 'there'
@@ -225,11 +221,11 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
         return
       }
 
+      // Process based on current chatStep
+      if (!transaction || !txId) return
+
       // Add user message
       await tx_appendUserMessage(txId, userMessage)
-
-      // Process based on current chatStep
-      if (!transaction) return
       const currentStep = transaction.chatStep
 
       if (currentStep === 'INTRO_CONFIRM_INTENT') {
@@ -289,8 +285,18 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
   // Normalize messages for rendering
   const normalizedMessages = messages.map(normalizeTransactionMessage)
 
+  // Typing indicator logic (with mandatory fix)
+  const hasAiMessage = messages.some(m => m.senderType === 'SAMBA' || m.senderType === 'SYSTEM')
+  const showTypingIndicator =
+    txId === null ||
+    (txId !== null && messages.length === 0) ||
+    (transaction?.chatStep === 'INTRO_CONFIRM_INTENT' && !hasAiMessage)
+
+  // Show error if transaction creation failed
+  const showError = txCreationError !== null
+
   return (
-    <ActionSheet open={open} onClose={onClose} title="">
+    <ActionSheet open={open} onClose={onClose} title="" className="financialInboxSheet">
       <div className={chatStyles.container}>
         <ChatHeader
           avatarSrc="/assets/Brics-girl-blue.png"
@@ -308,6 +314,49 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
               theme="ama"
             />
           ))}
+          
+          {/* Typing indicator */}
+          {showTypingIndicator && !showError && (
+            <div className={chatStyles.messageWrapper}>
+              <div className={chatStyles.messageAvatar}>
+                <Image
+                  src="/assets/Brics-girl-blue.png"
+                  alt="Ama"
+                  width={31}
+                  height={31}
+                  className={chatStyles.messageAvatarImage}
+                  sizes="31px"
+                  quality={92}
+                />
+              </div>
+              <div className={chatStyles.bubbleContainer}>
+                <TypingBubble />
+              </div>
+            </div>
+          )}
+          
+          {/* Error message */}
+          {showError && (
+            <div className={chatStyles.messageWrapper}>
+              <div className={chatStyles.messageAvatar}>
+                <Image
+                  src="/assets/Brics-girl-blue.png"
+                  alt="Ama"
+                  width={31}
+                  height={31}
+                  className={chatStyles.messageAvatarImage}
+                  sizes="31px"
+                  quality={92}
+                />
+              </div>
+              <div className={chatStyles.bubbleContainer}>
+                <div className={chatStyles.messageBubble}>
+                  Something went wrong. Try again.
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div ref={messagesEndRef} />
         </div>
         <ChatInputBar
@@ -315,7 +364,7 @@ export default function DepositChatSheet({ open, onClose, txId }: DepositChatShe
           onChange={setInputText}
           onSend={handleSend}
           placeholder="Type a message..."
-          disabled={isProcessing}
+          disabled={isProcessing || !txId}
         />
       </div>
     </ActionSheet>

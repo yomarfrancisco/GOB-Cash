@@ -23,6 +23,7 @@ import {
 import type { TxStatus } from '@/lib/transactions/types'
 import ChatInputBar from './ChatInputBar'
 import ChatMapEmbed from './ChatMapEmbed'
+import TypingBubble from './TypingBubble'
 import listStyles from './FinancialInboxListSheet.module.css'
 import chatStyles from './FinancialInboxChatSheet.module.css'
 import walletHelperStyles from '../WalletHelperSheet.module.css'
@@ -33,19 +34,6 @@ const AMA_INTRO_TEXT = "GoB helps you invest, pay, and move cash. What would you
 
 // Intro stage state machine
 type IntroStage = 'typingIndicator' | 'typingMessage' | 'cards' | 'done'
-
-// Typing indicator component (3 dots)
-function TypingBubble() {
-  return (
-    <div className={clsx(chatStyles.messageBubble, chatStyles.amaIntroTypingBubble)}>
-      <div className={chatStyles.typingDots}>
-        <span />
-        <span />
-        <span />
-      </div>
-    </div>
-  )
-}
 
 // Typed message bubble with fast typewriter effect and embedded card tile
 function TypedMessageBubble({ text, animate, showCard, introStage, isDemoIntro, onTypingComplete }: { text: string; animate: boolean; showCard?: boolean; introStage?: IntroStage; isDemoIntro?: boolean; onTypingComplete?: () => void }) {
