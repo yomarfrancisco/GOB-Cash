@@ -323,11 +323,14 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
               setIsProcessing(true)
               try {
                 // Add user message "SENT"
+                console.log('[CTA] calling tx_appendUserMessage', { txId })
                 await tx_appendUserMessage(txId, 'SENT')
-                // Mark deposit as sent and update chatStep server-side
+                console.log('[CTA] tx_appendUserMessage succeeded', { txId })
+                
+                // Mark deposit as sent, update chatStep, add acknowledgement, and send email (all server-side)
+                console.log('[CTA] calling tx_userMarkDepositSent', { txId })
                 await tx_userMarkDepositSent(txId)
-                // Add immediate acknowledgement from Ema
-                await tx_appendEmaMessage(txId, '✅ Got it — marked as SENT. Please upload proof of payment (screenshot or reference). I\'m notifying the team now.')
+                console.log('[CTA] tx_userMarkDepositSent succeeded', { txId })
               } catch (error) {
                 console.error('[DepositChat] Error handling CTA click:', error)
               } finally {
