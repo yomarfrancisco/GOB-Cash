@@ -19,6 +19,11 @@ type AppModeState = {
   // When true, all demo animations/simulations must stop
   isPostAuthSafeMode: () => boolean
   
+  // Computed: Is it safe to show balances?
+  // When true, balances can be rendered from Firestore
+  // When false, balances must show 0/skeleton
+  isBalanceReady: () => boolean
+  
   // Computed: Should post-auth animations be allowed?
   // Default false - establishes clean baseline first
   allowPostAuthAnimations: boolean
@@ -38,6 +43,15 @@ export const useAppModeStore = create<AppModeState>((set, get) => ({
     const isSafe = authState === 'authed' && walletsHydrated === true
     
     return isSafe
+  },
+  
+  isBalanceReady: () => {
+    const authState = useAuthStore.getState().getAuthState()
+    const walletsHydrated = useWalletStore.getState().walletsHydrated
+    
+    // Balance ready = authenticated AND wallets hydrated
+    // This is the single gate for showing balances
+    return authState === 'authed' && walletsHydrated === true
   },
   
   setAllowPostAuthAnimations: (allow) => set({ allowPostAuthAnimations: allow }),

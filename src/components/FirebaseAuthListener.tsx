@@ -10,6 +10,7 @@ import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
 import { ensureDefaultWallets, subscribeToWallets } from '@/lib/wallets'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
+import { useAuthStore } from '@/store/auth'
 import type { WalletMap } from '@/types/wallet'
 import { setCoreAgentBalance } from '@/lib/transactions/clientFunctions'
 import { AGENT_UID } from '@/types/transactions'
@@ -166,8 +167,12 @@ export default function FirebaseAuthListener() {
         walletStore.setWalletsHydrated(false)
         // Note: walletAlloc state will be reset to ZERO by its own useEffect when isAuthed changes
         
-        console.log('[HYDRATION] 🔄 Auth transition -> walletsHydrated=false (waiting for Firestore)', {
+        // Log balance readiness state
+        const authState = useAuthStore.getState().getAuthState()
+        console.log('[BALANCE_READY] authed, waiting for wallets snapshot', {
           uid: user.uid,
+          authState,
+          walletsHydrated: false,
           timestamp: new Date().toISOString(),
         })
         
@@ -200,6 +205,17 @@ export default function FirebaseAuthListener() {
               })
             }
             walletStore.setWallets(wallets)
+            
+            // Log when balance becomes ready
+            const { isBalanceReady } = useAppModeStore.getState()
+            if (isBalanceReady()) {
+              console.log('[BALANCE_READY] walletsHydrated=true; rendering balances', {
+                uid: user.uid,
+                walletIds: Object.keys(wallets),
+                cashZAR: (wallets as any).cashZAR?.fiatBalance ?? 0,
+                timestamp: new Date().toISOString(),
+              })
+            }
             
             // Log when post-auth safe mode becomes active
             const { isPostAuthSafeMode } = useAppModeStore.getState()

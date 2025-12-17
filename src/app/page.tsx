@@ -14,6 +14,7 @@ import SuccessSheet from '@/components/SuccessSheet'
 import { formatUSDT, formatZAR } from '@/lib/money'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
+import { useAppModeStore } from '@/store/appMode'
 import { useAiActionCycle } from '@/lib/animations/useAiActionCycle'
 import { useRandomCardFlips } from '@/lib/animations/useRandomCardFlips'
 import { initPortfolioFromAlloc } from '@/lib/portfolio/initPortfolio'
@@ -256,6 +257,7 @@ function HomeContent() {
   // Get wallet allocation for funds available display (demo fallback)
   const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd, syncFromWallets } = useWalletAlloc()
   const { wallets, demoMode, walletsHydrated } = useWalletStore()
+  const isBalanceReady = useAppModeStore((state) => state.isBalanceReady())
 
   // Sync WalletAlloc from wallet docs when they change (only if user is authenticated)
   useEffect(() => {
@@ -264,14 +266,21 @@ function HomeContent() {
     }
   }, [isAuthed, wallets, syncFromWallets])
 
-  // Freeze at 0 until Firestore wallets are hydrated (for authed users)
+  // Freeze at 0 until isBalanceReady (authState === 'authed' && walletsHydrated === true)
   // This prevents demo/animated balances from showing in the header
+  // Option A: fiatBalance only (lockedBalance shown separately if needed)
   let fundsAvailableZAR: number
-  if (isAuthed && !walletsHydrated) {
-    // Not hydrated yet: show 0 (freeze until Firestore arrives)
+  if (isAuthed && !isBalanceReady) {
+    // Not ready yet: show 0 (freeze until Firestore arrives)
     fundsAvailableZAR = 0
-  } else if (isAuthed && walletsHydrated) {
-    // Hydrated: use Firestore balance
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[BALANCE_READY] Header balance forced to 0 (waiting for hydration)', {
+        isBalanceReady,
+        walletsHydrated,
+      })
+    }
+  } else if (isAuthed && isBalanceReady) {
+    // Ready: use Firestore balance (fiatBalance only, no lockedBalance)
     fundsAvailableZAR = (wallets as any)?.cashZAR?.fiatBalance ?? 0
   } else {
     // Unauthed: allow demo values
@@ -286,20 +295,18 @@ function HomeContent() {
   }
 
   // Initialize portfolio store from wallet allocation
-  // Only initialize if authed and we have real data (not demo values)
-  // Wait for hydration from Firestore before initializing portfolio
+  // Only initialize if isBalanceReady (prevents demo values from being used post-auth)
+  // Portfolio demo initial values are only used when authState === 'unauthed'
   useEffect(() => {
-    // Don't initialize portfolio with demo values for authed users
-    // Portfolio should only be initialized from Firestore data after hydration
-    if (isAuthed && wallets && !demoMode) {
-      // Only initialize if we have wallets from Firestore (hydrated)
+    if (isBalanceReady && wallets && !demoMode) {
+      // Ready: initialize from Firestore data (alloc synced from wallets)
       initPortfolioFromAlloc(alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents)
     } else if (!isAuthed) {
-      // Pre-auth: use demo values for portfolio
+      // Pre-auth: use demo values for portfolio (authState === 'unauthed')
       initPortfolioFromAlloc(alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents)
     }
-    // If authed but not hydrated yet, don't initialize (will initialize after syncFromWallets)
-  }, [alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents, isAuthed, wallets, demoMode])
+    // If authed but not ready yet, don't initialize (will initialize after syncFromWallets)
+  }, [alloc.cashCents, alloc.ethCents, alloc.zwdCents, alloc.totalCents, isBalanceReady, isAuthed, wallets, demoMode])
 
   // Initialize AI action cycle - only run when NOT signed in (autonomous demo behavior)
   // When user signs in, isAuthed becomes true and animations stop

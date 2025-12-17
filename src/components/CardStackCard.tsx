@@ -8,6 +8,7 @@ import { formatZAR, formatUSDT } from '@/lib/formatCurrency'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAuthStore } from '@/store/auth'
+import { useAppModeStore } from '@/store/appMode'
 import { usePortfolioStore } from '@/store/portfolio'
 import { useTweenNumber } from '@/lib/animations/useTweenNumber'
 import { useTwoStageTween } from '@/lib/animations/useTwoStageTween'
@@ -276,6 +277,7 @@ export default function CardStackCard({
   const balanceMode = useAuthStore((state) => state.getBalanceMode())
   const isAuthed = useAuthStore((state) => state.isAuthed)
   const { wallets, demoMode, walletsHydrated } = useWalletStore()
+  const isBalanceReady = useAppModeStore((state) => state.isBalanceReady())
   
   const allocKey = CARD_TO_ALLOC_KEY[card.type]
   
@@ -290,7 +292,9 @@ export default function CardStackCard({
   }
   const walletId = walletIdMap[allocKey]
   
-  // BALANCE RENDERING GATE: One-way gate based on authState
+  // BALANCE RENDERING GATE: Single readiness gate
+  // Cards must show 0/skeleton until isBalanceReady === true
+  // This prevents any demo/animated balances from showing post-auth
   let cents: number
   let showPlaceholder = false
   
@@ -299,18 +303,26 @@ export default function CardStackCard({
     showPlaceholder = true
     cents = 0
   } else if (authState === 'authed') {
-    // Authed: Only show real balances if Firestore wallets are hydrated
-    // Freeze at 0 until hydration to prevent demo/animated balance leaks
-    if (walletsHydrated && wallets && !demoMode && walletId) {
+    // Authed: Only show real balances if isBalanceReady (authState === 'authed' && walletsHydrated === true)
+    // Force 0 until ready to prevent any demo/animated balance leaks
+    if (isBalanceReady && wallets && !demoMode && walletId) {
       // Read directly from Firestore wallets (source of truth)
+      // Option A: fiatBalance only (lockedBalance shown separately if needed)
       const wallet = (wallets as any)[walletId]
       const fiatBalance = wallet?.fiatBalance ?? 0
-      // For cashZAR, include lockedBalance in the display (funds are locked but still part of user's balance)
-      const lockedBalance = walletId === 'cashZAR' ? (wallet?.lockedBalance ?? 0) : 0
-      cents = Math.round((fiatBalance + lockedBalance) * 100)
+      cents = Math.round(fiatBalance * 100)
     } else {
-      // Not hydrated yet or wallets not loaded: show 0 (freeze until Firestore arrives)
+      // Not ready yet: show 0 (freeze until Firestore arrives)
+      // Assert: before hydration, rendered balance must be 0
       cents = 0
+      if (process.env.NODE_ENV !== 'production' && !isBalanceReady) {
+        console.log('[BALANCE_READY] Card balance forced to 0 (waiting for hydration)', {
+          cardType: card.type,
+          walletId,
+          isBalanceReady,
+          walletsHydrated,
+        })
+      }
     }
   } else {
     // Unauthed: demo is allowed
@@ -322,19 +334,20 @@ export default function CardStackCard({
   const pct = allocPct(cents)
 
   // Check if ANY card exceeds threshold - if so, apply compact sizing to ALL cards for consistency
-  // Use same source as balance display (Firestore for authed, alloc for pre-auth)
+  // Use same source as balance display (respect isBalanceReady gate)
   let cashZAR: number
   let ethZAR: number
   let zwdZAR: number
   
-  if (isAuthed) {
-    // Authed user: never use demo values, even if wallets haven't loaded yet
-    if (wallets && !demoMode) {
+  if (authState === 'authed') {
+    // Authed: only use real values if isBalanceReady
+    if (isBalanceReady && wallets && !demoMode) {
+      // Ready: use Firestore values (fiatBalance only, no lockedBalance)
       cashZAR = ((wallets as any)?.cashZAR?.fiatBalance ?? 0)
       ethZAR = ((wallets as any)?.eth?.fiatBalance ?? 0)
       zwdZAR = ((wallets as any)?.cashZWD?.fiatBalance ?? 0)
     } else {
-      // Wallets not loaded yet: show 0 (don't use alloc which might have demo values)
+      // Not ready yet: show 0 (don't use alloc which might have demo values)
       cashZAR = 0
       ethZAR = 0
       zwdZAR = 0
