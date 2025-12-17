@@ -50,9 +50,10 @@ service cloud.firestore {
     
     // Transactions collection: transactions/{txId}
     match /transactions/{txId} {
-      // Allow read if user is a participant (userId or receiverId or in participants array)
+      // Allow read if user is a participant (userId/senderId or receiverId or in participants array)
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
+        resource.data.senderId == request.auth.uid ||
         resource.data.receiverId == request.auth.uid ||
         request.auth.uid in resource.data.get('participants', [])
       );
@@ -65,6 +66,7 @@ service cloud.firestore {
         // Allow read if user is a participant in parent transaction
         allow read: if request.auth != null && (
           get(/databases/$(database)/documents/transactions/$(txId)).data.userId == request.auth.uid ||
+          get(/databases/$(database)/documents/transactions/$(txId)).data.senderId == request.auth.uid ||
           get(/databases/$(database)/documents/transactions/$(txId)).data.receiverId == request.auth.uid ||
           request.auth.uid in get(/databases/$(database)/documents/transactions/$(txId)).data.get('participants', [])
         );
@@ -78,6 +80,7 @@ service cloud.firestore {
         // Allow read if user is a participant in parent transaction
         allow read: if request.auth != null && (
           get(/databases/$(database)/documents/transactions/$(txId)).data.userId == request.auth.uid ||
+          get(/databases/$(database)/documents/transactions/$(txId)).data.senderId == request.auth.uid ||
           get(/databases/$(database)/documents/transactions/$(txId)).data.receiverId == request.auth.uid ||
           request.auth.uid in get(/databases/$(database)/documents/transactions/$(txId)).data.get('participants', [])
         );

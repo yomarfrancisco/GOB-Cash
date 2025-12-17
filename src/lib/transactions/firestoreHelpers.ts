@@ -36,6 +36,10 @@ function transactionToThread(tx: Transaction, txId: string): Thread {
     if (tx.type === 'BANK_DEPOSIT_TO_USDT_TRON') {
       return `Deposit Request — R${tx.amountZar?.toFixed(2) || '0.00'}`
     }
+    if (tx.type === 'PAYMENT_TO_USER') {
+      const handle = tx.receiverHandle || 'user'
+      return `Payment to @${handle} — R${tx.amountZar?.toFixed(2) || '0.00'}`
+    }
     return `Transaction ${txId.slice(0, 8)}`
   }
 
@@ -71,7 +75,7 @@ function transactionToThread(tx: Transaction, txId: string): Thread {
     metadata: {
       txStatus: tx.status,
       txType: tx.type,
-      userId: tx.userId,
+      userId: tx.userId || tx.senderId, // Support both deposit and payment
       receiverId: tx.receiverId,
     },
   }

@@ -347,6 +347,61 @@ export async function tx_createBankDepositRequest(
   }
 }
 
+export interface CreatePaymentAndSettleParams {
+  receiverHandle: string
+  amountZAR: number
+}
+
+export async function tx_createPaymentAndSettle(
+  params: CreatePaymentAndSettleParams
+): Promise<{ txId: string; receiverId: string; amountZAR: number; amountUSDT: number }> {
+  const app = getFirebaseApp()
+  
+  if (!app || !app.options.projectId) {
+    throw new Error('[Transaction] Firebase app not properly initialized')
+  }
+  
+  const functions = getFunctionsInstance()
+  
+  if (!functions) {
+    throw new Error('[Transaction] Firebase Functions instance not properly initialized')
+  }
+  
+  const fn = httpsCallable(functions, 'tx_createPaymentAndSettle')
+  
+  try {
+    if (typeof window !== 'undefined') {
+      console.log('[Transaction] Calling tx_createPaymentAndSettle via httpsCallable', {
+        projectId: app.options.projectId,
+        region: 'us-central1',
+        functionName: 'tx_createPaymentAndSettle',
+        receiverHandle: params.receiverHandle,
+        amountZAR: params.amountZAR,
+      })
+    }
+    
+    const result = await fn(params)
+    const data = result.data as { txId: string; receiverId: string; amountZAR: number; amountUSDT: number }
+    
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Transaction] Payment created via httpsCallable:', data)
+    }
+    
+    return data
+  } catch (error: any) {
+    console.error('[Transaction] Failed to create payment:', {
+      receiverHandle: params.receiverHandle,
+      amountZAR: params.amountZAR,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+      projectId: app.options.projectId,
+      method: 'httpsCallable',
+      errorDetails: error?.details || error,
+    })
+    throw error
+  }
+}
+
 /**
  * Credit and lock funds for a transaction
  * Transitions: DEPOSIT_RECEIVED -> LOCKED

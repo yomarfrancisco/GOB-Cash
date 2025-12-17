@@ -70,6 +70,22 @@ export interface BankDepositTransaction {
   }
 }
 
+export interface PaymentTransaction {
+  id: string
+  type: 'PAYMENT_TO_USER'
+  status: TxStatus // SENT | COMPLETED
+  senderId: string // Payer UID
+  receiverId: string // Payee UID
+  participants: string[] // [senderId, receiverId, 'samba']
+  amountZar: number
+  amountUSDT: number
+  fxRateZARperUSDT: number // Snapshot of rate used
+  receiverHandle: string // For display/search
+  createdAt: any
+  updatedAt: any
+  statusUpdatedAt: any
+}
+
 // Hardcoded agent UID for v1
 export const AGENT_UID = 'xHKmkizXhPOU25vwTIB6dxhMzSH2' // ygor.francisco@gmail.com
 export const SAMBA_UID = 'samba' // Virtual UID for Samba

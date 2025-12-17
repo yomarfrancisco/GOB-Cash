@@ -19,8 +19,9 @@ export type TxStatus =
 
 export type Transaction = {
   id: string
-  type: 'BANK_DEPOSIT_TO_USDT_TRON'
-  userId: string
+  type: 'BANK_DEPOSIT_TO_USDT_TRON' | 'PAYMENT_TO_USER'
+  userId?: string // For BANK_DEPOSIT_TO_USDT_TRON
+  senderId?: string // For PAYMENT_TO_USER
   receiverId: string
   participants: string[]
   status: TxStatus
@@ -28,6 +29,9 @@ export type Transaction = {
   statusUpdatedAt?: any
   unlockAt?: any
   amountZar?: number
+  amountUSDT?: number // For PAYMENT_TO_USER
+  fxRateZARperUSDT?: number // For PAYMENT_TO_USER
+  receiverHandle?: string // For PAYMENT_TO_USER
   withdrawal?: {
     network?: 'TRON'
     tronAddress?: string
