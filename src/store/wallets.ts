@@ -127,7 +127,6 @@ export const useWalletStore = create<WalletState>((set) => ({
       
       if (isFirstHydration) {
         console.log('[HYDRATION] ✅ First Firestore wallets snapshot received -> walletsHydrated=true', {
-          userId: useAuthStore.getState().currentUser?.uid,
           walletIds: Object.keys(wallets),
           timestamp: new Date().toISOString(),
         })
