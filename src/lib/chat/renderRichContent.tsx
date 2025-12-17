@@ -21,10 +21,11 @@ export function renderRichContent(
 ): React.ReactNode {
   const { onHandleClick, boldPatterns = [] } = options || {}
 
-  // Default bold patterns (ETA, Distance)
+  // Default bold patterns (ETA, Distance, and markdown **bold**)
   const defaultBoldPatterns = [
     { pattern: /(ETA: )(\d+ minutes?)/g, replacement: '$1<strong>$2</strong>' },
     { pattern: /(Distance: )([\d.]+ km)/g, replacement: '$1<strong>$2</strong>' },
+    { pattern: /\*\*(.+?)\*\*/g, replacement: '<strong>$1</strong>' }, // Markdown **bold**
   ]
 
   const allBoldPatterns = [...defaultBoldPatterns, ...boldPatterns]
