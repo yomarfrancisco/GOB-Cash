@@ -196,9 +196,10 @@ export function subscribeToWallets(
     timestamp: new Date().toISOString(),
   })
   
+  let isFirstSnapshot = true
   return onSnapshot(walletsRef, (snap) => {
     const map: Partial<WalletMap> = {}
-    const walletData: Array<{ id: string; fiatBalance: number; usdtBalance: number }> = []
+    const walletData: Array<{ id: string; fiatBalance: number; usdtBalance: number; updatedAt?: any }> = []
     
     snap.forEach((docSnap) => {
       const data = docSnap.data() as WalletDoc
@@ -207,15 +208,35 @@ export function subscribeToWallets(
         id: data.walletId || docSnap.id,
         fiatBalance: data.fiatBalance || 0,
         usdtBalance: data.usdtBalance || 0,
+        updatedAt: data.updatedAt ? (data.updatedAt as any).toDate?.()?.toISOString() : data.updatedAt,
       })
     })
     
-    console.log('[Wallets] subscribeToWallets: onSnapshot fired', {
-      userId,
-      docCount: snap.size,
-      walletData,
-      timestamp: new Date().toISOString(),
-    })
+    // Log first snapshot with full details to identify balance provenance
+    if (isFirstSnapshot) {
+      console.log('[BALANCE_PROVENANCE] 🔍 FIRST Firestore snapshot received', {
+        userId,
+        docCount: snap.size,
+        walletData,
+        cashZAR: map.cashZAR ? {
+          fiatBalance: (map.cashZAR as any).fiatBalance,
+          usdtBalance: (map.cashZAR as any).usdtBalance,
+          updatedAt: (map.cashZAR as any).updatedAt ? ((map.cashZAR as any).updatedAt.toDate?.()?.toISOString() || (map.cashZAR as any).updatedAt) : null,
+          walletId: (map.cashZAR as any).walletId,
+          kind: (map.cashZAR as any).kind,
+        } : 'MISSING',
+        timestamp: new Date().toISOString(),
+        isFirstSnapshot: true,
+      })
+      isFirstSnapshot = false
+    } else {
+      console.log('[Wallets] subscribeToWallets: onSnapshot fired (subsequent update)', {
+        userId,
+        docCount: snap.size,
+        walletData,
+        timestamp: new Date().toISOString(),
+      })
+    }
     
     callback(map as WalletMap)
   }, (error) => {

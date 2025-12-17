@@ -182,6 +182,20 @@ export default function FirebaseAuthListener() {
           // The subscription will fire immediately with the wallets we just created
           unsubscribeWalletsRef.current = subscribeToWallets(user.uid, (wallets) => {
             // Firestore wallets are now the source of truth
+            // Log balance provenance on first load
+            const cashZAR = wallets.cashZAR
+            if (cashZAR) {
+              console.log('[BALANCE_PROVENANCE] 📊 Wallet store received from Firestore', {
+                userId: user.uid,
+                cashZAR: {
+                  fiatBalance: cashZAR.fiatBalance,
+                  usdtBalance: cashZAR.usdtBalance,
+                  walletId: cashZAR.walletId,
+                  hasFirestoreStructure: !!(cashZAR.walletId && cashZAR.kind && cashZAR.displayCurrency),
+                },
+                timestamp: new Date().toISOString(),
+              })
+            }
             walletStore.setWallets(wallets)
             if (process.env.NODE_ENV !== 'production') {
               console.log('[Wallets] Loaded wallets for user', user.uid, Object.keys(wallets))
