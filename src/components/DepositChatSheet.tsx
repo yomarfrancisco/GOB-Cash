@@ -304,25 +304,41 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
 
   // Debug logging to identify duplicate intro messages
   if (transaction?.chatStep === 'INTRO_CONFIRM_INTENT' && normalizedMessages.length > 0) {
-    console.log('[DepositChat] Debug: All messages in INTRO_CONFIRM_INTENT step:', {
-      totalMessages: normalizedMessages.length,
-      messages: normalizedMessages.map((msg, idx) => ({
-        index: idx,
-        id: msg.id,
-        from: msg.from,
-        textPreview: msg.text.substring(0, 60),
-        isFirstAi: idx === 0 && msg.from === 'ai',
-        hasButtonCondition: transaction?.chatStep === 'INTRO_CONFIRM_INTENT' && 
+    const debugMessages = normalizedMessages.map((msg, idx) => {
+      const rawMsg = messages.find(m => m.id === msg.id)
+      const isIntroMessage = transaction?.chatStep === 'INTRO_CONFIRM_INTENT' && 
                             msg.from === 'ai' && 
                             idx === 0 &&
-                            msg.text.includes("I'm"),
-      })),
-      rawMessages: messages.map(m => ({
-        id: m.id,
-        senderType: m.senderType,
-        metadata: m.metadata,
-        textPreview: m.text?.substring(0, 60),
-      })),
+                            msg.text.includes("I'm")
+      
+      return {
+        index: idx,
+        messageId: msg.id,
+        role: msg.from, // 'ai' or 'user'
+        senderType: rawMsg?.senderType || 'UNKNOWN', // SYSTEM/ASSISTANT/USER/SAMBA/etc.
+        isIntroMessage,
+        hasButtons: isIntroMessage, // buttons prop will be attached if isIntroMessage is true
+        textPreview: msg.text.substring(0, 60),
+        fullTextLength: msg.text.length,
+        source: rawMsg?.metadata?.chatStep === 'INTRO_CONFIRM_INTENT' 
+          ? 'SERVER (createBankDepositRequest with metadata)' 
+          : rawMsg?.senderType === 'SAMBA' 
+            ? 'CLIENT (handleChatStepChange → sendSambaMessage)' 
+            : 'UNKNOWN',
+        metadata: rawMsg?.metadata || null,
+        createdAt: rawMsg?.createdAt?.toDate?.()?.toISOString() || rawMsg?.createdAt || 'N/A',
+      }
+    })
+    
+    console.log('[DepositChat] Debug: All messages in INTRO_CONFIRM_INTENT step:', {
+      totalMessages: normalizedMessages.length,
+      chatStep: transaction?.chatStep,
+      messages: debugMessages,
+      summary: {
+        messagesWithButton: debugMessages.filter(m => m.hasButtons).length,
+        serverMessages: debugMessages.filter(m => m.source.includes('SERVER')).length,
+        clientMessages: debugMessages.filter(m => m.source.includes('CLIENT')).length,
+      },
     })
   }
 
