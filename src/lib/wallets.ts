@@ -128,7 +128,10 @@ export async function resetWalletBalancesToZero(user: User): Promise<void> {
 /**
  * Ensure default wallets exist for a user.
  * If the wallets subcollection is empty, seed it.
- * If wallets exist, reset their balances to zero to ensure new wallets start with zero.
+ * If wallets exist, return without modifying them (preserves real balances).
+ * 
+ * NOTE: Balance reset is handled in client state only (FirebaseAuthListener.tsx),
+ * not in Firestore, to preserve legitimate balances while preventing demo leaks.
  */
 export async function ensureDefaultWallets(user: User): Promise<void> {
   const db = getFirestoreDb()
@@ -136,11 +139,11 @@ export async function ensureDefaultWallets(user: User): Promise<void> {
 
   const snapshot = await getDocs(walletsRef)
   if (!snapshot.empty) {
-    // Wallets exist - reset balances to zero to ensure new wallets start with zero
-    // This prevents non-zero balances from persisting on refresh
-    await resetWalletBalancesToZero(user)
+    // Wallets exist - return without modifying them
+    // This preserves real balances (payments, seeds, etc.) in Firestore
+    // Client state will be cleared to zero in FirebaseAuthListener to prevent demo leaks
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[Wallets] Wallets already exist for user', user.uid, '- reset balances to zero')
+      console.log('[Wallets] Wallets already exist for user', user.uid, '- preserving existing balances')
     }
     return
   }

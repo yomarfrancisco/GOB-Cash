@@ -147,20 +147,25 @@ export default function FirebaseAuthListener() {
 
         // HARD RESET on auth transition: Clear demo wallets and set loading state immediately on sign-in
         // This prevents cards from showing demo values during the race condition
+        // NOTE: This is CLIENT STATE ONLY - no Firestore writes occur here
+        // Firestore balances are preserved, only client state is cleared to prevent demo leaks
         const walletStore = useWalletStore.getState()
         walletStore.setDemoMode(false) // Explicitly disable demo mode
         walletStore.setWalletsStatus('loading') // Mark as loading until Firestore returns data
         // CRITICAL: Clear wallets immediately to prevent demo values from showing
         // Set to empty object so cards show $0 while loading
+        // This is client state only - Firestore balances are preserved
         walletStore.setWallets({} as WalletMap)
+        // Note: walletAlloc state will be reset to ZERO by its own useEffect when isAuthed changes
         
-        console.log('[AUTH_TRANSITION] User authenticated - hard resetting wallet store', {
+        console.log('[AUTH_TRANSITION] User authenticated - cleared client state to zero (Firestore preserved)', {
           uid: user.uid,
           timestamp: new Date().toISOString(),
         })
         
         // CRITICAL: Ensure wallets exist in Firestore FIRST (server truth)
-        // This guarantees all 6 wallets (cashZAR, cashMZN, cashZWD, eth, btc, earnings) exist with $0 balances
+        // If wallets don't exist, create them with $0 balances
+        // If wallets exist, preserve their balances (no reset - this preserves real balances)
         // Must await completion before subscribing to ensure deterministic initialization
         try {
           await ensureDefaultWallets(user)
