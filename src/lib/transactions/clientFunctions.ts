@@ -347,6 +347,56 @@ export async function tx_createBankDepositRequest(
   }
 }
 
+export interface SeedCoreAgentBalanceParams {
+  amountZAR: number
+}
+
+export async function seedCoreAgentBalance(
+  params: SeedCoreAgentBalanceParams
+): Promise<{ success: boolean; uid: string; walletId: string; amountZAR: number }> {
+  const app = getFirebaseApp()
+  
+  if (!app || !app.options.projectId) {
+    throw new Error('[Transaction] Firebase app not properly initialized')
+  }
+  
+  const functions = getFunctionsInstance()
+  
+  if (!functions) {
+    throw new Error('[Transaction] Firebase Functions instance not properly initialized')
+  }
+  
+  const fn = httpsCallable(functions, 'seedCoreAgentBalance')
+  
+  try {
+    console.log('[seedCoreAgentBalance] Calling function', {
+      projectId: app.options.projectId,
+      region: 'us-central1',
+      functionName: 'seedCoreAgentBalance',
+      amountZAR: params.amountZAR,
+      timestamp: new Date().toISOString(),
+    })
+    
+    const result = await fn(params)
+    const data = result.data as { success: boolean; uid: string; walletId: string; amountZAR: number }
+    
+    console.log('[seedCoreAgentBalance] Function returned:', data)
+    
+    return data
+  } catch (error: any) {
+    console.error('[seedCoreAgentBalance] Failed to seed balance:', {
+      amountZAR: params.amountZAR,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+      errorDetails: error?.details || error,
+      projectId: app.options.projectId,
+      method: 'httpsCallable',
+      stack: error?.stack,
+    })
+    throw error
+  }
+}
+
 export interface CreatePaymentAndSettleParams {
   receiverHandle: string
   amountZAR: number

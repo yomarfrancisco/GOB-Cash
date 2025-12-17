@@ -22,6 +22,9 @@ import type { WalletMap } from '@/types/wallet'
  * This component should be mounted once in the app (e.g., in layout).
  */
 export default function FirebaseAuthListener() {
+  // Build marker to verify deployment
+  console.log('[BUILD]', '8156e9c')
+  
   const checkedRedirectRef = useRef(false)
   const unsubscribeDocRef = useRef<(() => void) | null>(null)
   const unsubscribeWalletsRef = useRef<(() => void) | null>(null)
