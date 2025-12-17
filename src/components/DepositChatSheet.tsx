@@ -204,6 +204,13 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
   }
 
   const handleChatStepChange = async (newStep: ChatStep, tx: BankDepositTransaction) => {
+    // Skip INTRO_CONFIRM_INTENT - server already creates this message in createBankDepositRequest
+    // This prevents duplicate intro messages (one with button from server, one without from client)
+    if (newStep === 'INTRO_CONFIRM_INTENT') {
+      console.log('[DepositChat] Skipping client-side INTRO_CONFIRM_INTENT message - server already created it')
+      return
+    }
+    
     // Send appropriate Samba message for the new step (if not already sent)
     if (!sambaMessageSentRef.current.has(newStep)) {
       await sendSambaMessage(newStep, tx)
@@ -294,6 +301,30 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
   const normalizedMessages = messages
     .filter(m => m.senderType !== 'SYSTEM')
     .map(normalizeTransactionMessage)
+
+  // Debug logging to identify duplicate intro messages
+  if (transaction?.chatStep === 'INTRO_CONFIRM_INTENT' && normalizedMessages.length > 0) {
+    console.log('[DepositChat] Debug: All messages in INTRO_CONFIRM_INTENT step:', {
+      totalMessages: normalizedMessages.length,
+      messages: normalizedMessages.map((msg, idx) => ({
+        index: idx,
+        id: msg.id,
+        from: msg.from,
+        textPreview: msg.text.substring(0, 60),
+        isFirstAi: idx === 0 && msg.from === 'ai',
+        hasButtonCondition: transaction?.chatStep === 'INTRO_CONFIRM_INTENT' && 
+                            msg.from === 'ai' && 
+                            idx === 0 &&
+                            msg.text.includes("I'm"),
+      })),
+      rawMessages: messages.map(m => ({
+        id: m.id,
+        senderType: m.senderType,
+        metadata: m.metadata,
+        textPreview: m.text?.substring(0, 60),
+      })),
+    })
+  }
 
   // Typing indicator logic (with mandatory fix)
   const hasAiMessage = messages.some(m => m.senderType === 'SAMBA' || m.senderType === 'SYSTEM')
