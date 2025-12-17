@@ -30,7 +30,26 @@ export function renderRichContent(
 
   const allBoldPatterns = [...defaultBoldPatterns, ...boldPatterns]
 
-  // Split by newlines to preserve line breaks
+  // Check if message has @handles (requires line-by-line processing)
+  const hasHandles = /@\w+/.test(text)
+  
+  // If no handles, render as single block with white-space: pre-line for compact spacing
+  if (!hasHandles || !onHandleClick) {
+    // Apply bold patterns to entire text
+    let processed = text
+    allBoldPatterns.forEach(({ pattern, replacement }) => {
+      processed = processed.replace(pattern, replacement)
+    })
+    
+    return (
+      <span 
+        style={{ whiteSpace: 'pre-line' }}
+        dangerouslySetInnerHTML={{ __html: processed }}
+      />
+    )
+  }
+
+  // Split by newlines to preserve line breaks (only needed when processing @handles)
   const lines = text.split('\n')
 
   return (
