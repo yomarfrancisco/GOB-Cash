@@ -9,6 +9,7 @@ import { useUserProfileStore } from '@/store/userProfile'
 import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
 import { ensureDefaultWallets, subscribeToWallets } from '@/lib/wallets'
 import { useWalletStore } from '@/store/wallets'
+import { useAppModeStore } from '@/store/appMode'
 import type { WalletMap } from '@/types/wallet'
 import { setCoreAgentBalance } from '@/lib/transactions/clientFunctions'
 import { AGENT_UID } from '@/types/transactions'
@@ -199,6 +200,13 @@ export default function FirebaseAuthListener() {
               })
             }
             walletStore.setWallets(wallets)
+            
+            // Log when post-auth safe mode becomes active
+            const { isPostAuthSafeMode } = useAppModeStore.getState()
+            if (isPostAuthSafeMode()) {
+              console.log('[MODE] postAuthSafeMode=true walletsHydrated=true')
+            }
+            
             if (process.env.NODE_ENV !== 'production') {
               console.log('[Wallets] Loaded wallets for user', user.uid, Object.keys(wallets))
             }

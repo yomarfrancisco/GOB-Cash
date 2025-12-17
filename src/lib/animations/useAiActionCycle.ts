@@ -11,6 +11,7 @@ import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { useBabyCdoChatStore } from '@/state/babyCdoChat'
 import { formatBabyCdoIntroFromTradeContext, type TradeContext } from '@/lib/babycdo/formatIntroMessage'
 import { useAuthStore } from '@/store/auth'
+import { useAppModeStore } from '@/store/appMode'
 import { getDemoConfig, AI_ACTION_CONFIG } from '@/lib/demo/demoConfig'
 
 const FX_USD_ZAR_DEFAULT = 18.1
@@ -52,6 +53,13 @@ export function useAiActionCycle(
   const rnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
 
   const processAction = useCallback(async () => {
+    // HARD KILL SWITCH: Stop if post-auth safe mode is active
+    const { isPostAuthSafeMode } = useAppModeStore.getState()
+    if (isPostAuthSafeMode()) {
+      console.log('[SIM_DISABLED] AI action cycle blocked post-auth')
+      return
+    }
+    
     // CRITICAL GATE: Check authState - only allow demo balance mutations when authState === 'unauthed'
     const authState = useAuthStore.getState().getAuthState()
     if (authState !== 'unauthed') {
@@ -360,6 +368,18 @@ export function useAiActionCycle(
     isRunningRef.current = true
 
     const scheduleNext = () => {
+      // HARD KILL SWITCH: Stop if post-auth safe mode is active
+      const { isPostAuthSafeMode } = useAppModeStore.getState()
+      if (isPostAuthSafeMode()) {
+        console.log('[SIM_DISABLED] AI action cycle scheduling blocked post-auth')
+        isRunningRef.current = false
+        if (intervalRef.current) {
+          clearTimeout(intervalRef.current)
+          intervalRef.current = null
+        }
+        return
+      }
+      
       // Get current auth state and config
       const isAuthed = useAuthStore.getState().isAuthed
       const intensity = getDemoConfig(isAuthed)
@@ -371,6 +391,14 @@ export function useAiActionCycle(
         : config.INTERVAL_MIN_MS
       
       intervalRef.current = setTimeout(async () => {
+        // Re-check post-auth safe mode before executing
+        const { isPostAuthSafeMode } = useAppModeStore.getState()
+        if (isPostAuthSafeMode()) {
+          console.log('[SIM_DISABLED] AI action cycle execution blocked post-auth')
+          isRunningRef.current = false
+          return
+        }
+        
         if (isRunningRef.current && cardStackRef.current && !isPausedRef.current) {
           await processAction()
           scheduleNext()

@@ -16,6 +16,7 @@ import {
   getNextDemoNotification, 
   resetDemoState 
 } from './templates/notificationSelection'
+import { useAppModeStore } from '@/store/appMode'
 
 // Feature flag: v2 notifications enabled by default unless explicitly disabled
 const USE_V2_NOTIFICATIONS = process.env.NEXT_PUBLIC_V2_NOTIFICATIONS !== 'false'
@@ -303,9 +304,23 @@ export function startDemoNotificationEngine(
   }
   
   const scheduleNext = () => {
+    // HARD KILL SWITCH: Stop if post-auth safe mode is active
+    const isPostAuthSafeMode = useAppModeStore.getState().isPostAuthSafeMode()
+    if (isPostAuthSafeMode) {
+      console.log('[SIM_DISABLED] notifications generator blocked post-auth')
+      return // Don't schedule any more notifications
+    }
+    
     // Use config-based random interval
     const INTERVAL_MS = config.INTERVAL_MIN_MS + Math.random() * (config.INTERVAL_MAX_MS - config.INTERVAL_MIN_MS)
     demoInterval = setTimeout(() => {
+      // Re-check post-auth safe mode before sending notification
+      const isPostAuthSafeMode = useAppModeStore.getState().isPostAuthSafeMode()
+      if (isPostAuthSafeMode) {
+        console.log('[SIM_DISABLED] notifications generator blocked post-auth')
+        return // Don't send notification, don't schedule next
+      }
+      
       // Re-check intensity in case auth state changed
       const currentIntensity = getDemoConfig(currentIsAuthed)
       const currentConfig = DEMO_NOTIFICATION_CONFIG[currentIntensity]

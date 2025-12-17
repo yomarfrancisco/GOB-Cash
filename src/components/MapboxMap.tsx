@@ -29,6 +29,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import type { Feature, LineString } from 'geojson'
 import styles from './MapboxMap.module.css'
 import { useMapHighlightStore } from '@/state/mapHighlight'
+import { useAppModeStore } from '@/store/appMode'
 import { DEMO_AGENTS } from '@/lib/demo/demoAgents'
 import { KEY_CITY_AVATARS } from '@/lib/demo/keyCityAvatars'
 import YouAreHere from './YouAreHere'
@@ -667,10 +668,25 @@ export default function MapboxMap({
   // Enable landing animations after 10-second hold period (only for unauthenticated users)
   useEffect(() => {
     if (variant !== 'landing') return
+    
+    // HARD KILL SWITCH: Stop if post-auth safe mode is active
+    const { isPostAuthSafeMode } = useAppModeStore.getState()
+    if (isPostAuthSafeMode()) {
+      console.log('[SIM_DISABLED] landing animations blocked post-auth')
+      return
+    }
+    
     if (isAuthed) return // Don't enable animations for authenticated users
 
     const holdMs = 10000 // 10 seconds
     const timer = setTimeout(() => {
+      // Re-check post-auth safe mode before enabling
+      const { isPostAuthSafeMode } = useAppModeStore.getState()
+      if (isPostAuthSafeMode()) {
+        console.log('[SIM_DISABLED] landing animations blocked post-auth (delayed check)')
+        return
+      }
+      
       setLandingAnimationsEnabled(true)
       if (process.env.NODE_ENV !== 'production') {
         console.log('[MapboxMap] Landing animations enabled after 10s hold')
@@ -905,6 +921,13 @@ export default function MapboxMap({
 
     // Do not run highlight logic for popup maps - prevents jitter from homepage notifications
     if (variant === 'popup') return
+
+    // HARD KILL SWITCH: Stop if post-auth safe mode is active
+    const { isPostAuthSafeMode } = useAppModeStore.getState()
+    if (isPostAuthSafeMode()) {
+      console.log('[SIM_DISABLED] map pan loops blocked post-auth')
+      return
+    }
 
     // Don't run highlight animations during the initial SADC hold period or for authenticated users
     if (variant === 'landing' && (!landingAnimationsEnabled || isAuthed)) return

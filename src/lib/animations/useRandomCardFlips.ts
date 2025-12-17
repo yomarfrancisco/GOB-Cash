@@ -15,6 +15,7 @@ import { useEffect, useRef } from 'react'
 import type React from 'react'
 import type { CardStackHandle } from '@/components/CardStack'
 import { useAuthStore } from '@/store/auth'
+import { useAppModeStore } from '@/store/appMode'
 import { getDemoConfig, RANDOM_FLIP_CONFIG } from '@/lib/demo/demoConfig'
 
 const ENABLED = process.env.NEXT_PUBLIC_ENABLE_RANDOM_CARD_FLIPS === '1'
@@ -65,6 +66,13 @@ export function useRandomCardFlips(
   // The animation doesn't mutate balances, so it's safe to continue running post-auth
   
   useEffect(() => {
+    // HARD KILL SWITCH: Stop if post-auth safe mode is active
+    const { isPostAuthSafeMode } = useAppModeStore.getState()
+    if (isPostAuthSafeMode()) {
+      console.log('[SIM_DISABLED] random card flips blocked post-auth')
+      return
+    }
+    
     // Early return if authenticated (optional: can disable card flips post-auth if desired)
     // Note: Card flips are visual-only, so they're safe to run post-auth
     // But we can disable them if needed for a calmer experience
