@@ -153,12 +153,20 @@ export const tx_createBankDepositRequest = functions
           const handleCustomer = userData?.userHandle || 
                                 userData?.fullName?.split(' ')[0] || 
                                 'there'
-          const amount = `${amountZar.toFixed(2)}`
+          
+          // Format currency: MZN X,XXX.XX or ZAR X,XXX.XX
+          const currency = depositCurrency || (bankCountry === 'MZ' ? 'MZN' : 'ZAR')
+          const formattedAmount = amountZar.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+          const amountDisplay = `${currency} ${formattedAmount}`
+          
           const countryName = bankCountry === 'MZ' ? 'Mozambique' : bankCountry === 'ZA' ? 'South Africa' : ''
           const bankName = bankId || 'your bank'
 
-          // Generate Ema intro message (matching client-side template)
-          const introText = `Hi ${handleCustomer} — I'm Ema from GoBankless.\n\nTo confirm:\n\n• Deposit amount: ${amount}\n• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, reply "SENT" and upload proof of payment (screenshot or reference).\n\nWhen you're ready, send "SENT" + proof.`
+          // Generate Ama intro message with compact formatting and button reference
+          const introText = `Hi ${handleCustomer} — I'm Ama from GoBankless.\n\nTo confirm:\n• Deposit amount: **${amountDisplay}**\n• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, confirm by tapping the button below **"I've deposited"** and upload proof of payment (screenshot, PDF or reference).\n\nWhen you're ready, **tap the button below**.`
 
           const introMsgRef = txRef.collection('messages').doc()
           const introMessage = {

@@ -33,7 +33,15 @@ export function getSambaMessage(
 
   switch (chatStep) {
     case 'INTRO_CONFIRM_INTENT':
-      return `Hi ${handleCustomer} — I'm Ema from GoBankless.\n\nTo confirm:\n\n• Deposit amount: ${amount}\n• Deposit method: Direct bank transfer\n• Country: ${country}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, reply "SENT" and upload proof of payment (screenshot or reference).\n\nWhen you're ready, send "SENT" + proof.`
+      // Note: This template is kept for reference but should not be used for INTRO_CONFIRM_INTENT
+      // Server creates the intro message in createBankDepositRequest.ts
+      // Format: compact spacing, button reference, Ama name, formatted currency
+      const formattedAmount = parseFloat(amount || '0').toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+      const amountDisplay = `${currency} ${formattedAmount}`
+      return `Hi ${handleCustomer} — I'm Ama from GoBankless.\n\nTo confirm:\n• Deposit amount: **${amountDisplay}**\n• Deposit method: Direct bank transfer\n• Country: ${country}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, confirm by tapping the button below **"I've deposited"** and upload proof of payment (screenshot, PDF or reference).\n\nWhen you're ready, **tap the button below**.`
 
     case 'WAITING_FOR_SENT_PROOF':
       return `Thanks — proof received.\n\nWe're now verifying the deposit with our bank.\n\nIn the meantime, please confirm the USDT wallet address you want us to send to:\n\n• Network: TRON (TRC-20) only (address starts with "T")\n• Please double-check the address — crypto transfers are irreversible.\n\nReply with your TRC-20 address when ready.`

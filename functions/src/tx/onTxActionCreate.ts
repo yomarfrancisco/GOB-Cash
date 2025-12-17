@@ -119,10 +119,19 @@ export const onTxActionCreate = functions.firestore
         now.toMillis() + 4 * 60 * 60 * 1000 // 4 hours
       )
 
-      // Check idempotency: check if "SENT" message already exists
+      // Format currency for user message: MZN X,XXX.XX or ZAR X,XXX.XX
+      const currency = tx.depositCurrency || (tx.bankCountry === 'MZ' ? 'MZN' : 'ZAR')
+      const formattedAmount = tx.amountZar.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+      const depositMessageText = `I've deposited ${currency} ${formattedAmount}`
+
+      // Check idempotency: check if deposit confirmation message already exists
+      // Look for either old "SENT" format or new "I've deposited MZN X,XXX.XX" format
       const existingSentMessages = await txRef.collection('messages')
         .where('senderType', '==', 'USER')
-        .where('text', '==', 'SENT')
+        .where('text', 'in', ['SENT', depositMessageText])
         .limit(1)
         .get()
 
@@ -147,7 +156,7 @@ export const onTxActionCreate = functions.firestore
       const userHandle = userData?.userHandle || null
       const userEmail = userData?.email || null
 
-      // Create "SENT" user message (if needed, idempotent)
+      // Create "I've deposited MZN X,XXX.XX" user message (if needed, idempotent)
       let sentMsgRef: admin.firestore.DocumentReference | null = null
       let sentMessage: any = null
       if (shouldAddSentMessage) {
@@ -158,7 +167,7 @@ export const onTxActionCreate = functions.firestore
           createdAt: now,
           senderType: 'USER' as const,
           senderId: userId,
-          text: 'SENT',
+          text: depositMessageText, // "I've deposited MZN X,XXX.XX"
         }
       }
 
@@ -175,7 +184,7 @@ export const onTxActionCreate = functions.firestore
         },
       }
 
-      // Create acknowledgement message from Ema (if needed, idempotent)
+      // Create acknowledgement message from Ama (if needed, idempotent)
       let ackMsgRef: admin.firestore.DocumentReference | null = null
       let ackMessage: any = null
       if (shouldAddAck) {

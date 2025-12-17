@@ -358,7 +358,7 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
         <ChatHeader
           avatarSrc="/assets/Brics-girl-blue.png"
           avatarSize={38}
-          name="Ema — Investment Manager"
+          name="Ama — Investment Manager"
           showBackButton={false}
         />
         <div ref={messageAreaRef} className={chatStyles.messageArea}>
@@ -427,7 +427,7 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
               <div className={chatStyles.messageAvatar}>
                 <Image
                   src="/assets/Brics-girl-blue.png"
-                  alt="Ema"
+                  alt="Ama"
                   width={31}
                   height={31}
                   className={chatStyles.messageAvatarImage}
@@ -447,7 +447,7 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
               <div className={chatStyles.messageAvatar}>
                 <Image
                   src="/assets/Brics-girl-blue.png"
-                  alt="Ema"
+                  alt="Ama"
                   width={31}
                   height={31}
                   className={chatStyles.messageAvatarImage}
