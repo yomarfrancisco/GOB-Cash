@@ -17,6 +17,7 @@ import {
   resetDemoState 
 } from './templates/notificationSelection'
 import { useAppModeStore } from '@/store/appMode'
+import { useAuthStore } from '@/store/auth'
 
 // Feature flag: v2 notifications enabled by default unless explicitly disabled
 const USE_V2_NOTIFICATIONS = process.env.NEXT_PUBLIC_V2_NOTIFICATIONS !== 'false'
@@ -304,20 +305,42 @@ export function startDemoNotificationEngine(
   }
   
   const scheduleNext = () => {
-    // HARD KILL SWITCH: Stop if post-auth safe mode is active
+    // HARD GUARD: Block demo notifications if authState === 'authed'
+    const authState = useAuthStore.getState().getAuthState()
+    if (authState === 'authed') {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[SIM_DISABLED] Demo notifications blocked: authState === "authed"')
+      }
+      return // Don't schedule any more notifications
+    }
+    
+    // HARD KILL SWITCH: Stop if post-auth safe mode is active (redundant but kept for safety)
     const isPostAuthSafeMode = useAppModeStore.getState().isPostAuthSafeMode()
     if (isPostAuthSafeMode) {
-      console.log('[SIM_DISABLED] notifications generator blocked post-auth')
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[SIM_DISABLED] notifications generator blocked post-auth')
+      }
       return // Don't schedule any more notifications
     }
     
     // Use config-based random interval
     const INTERVAL_MS = config.INTERVAL_MIN_MS + Math.random() * (config.INTERVAL_MAX_MS - config.INTERVAL_MIN_MS)
     demoInterval = setTimeout(() => {
+      // HARD GUARD: Re-check authState before sending notification
+      const authState = useAuthStore.getState().getAuthState()
+      if (authState === 'authed') {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[SIM_DISABLED] Demo notifications blocked: authState === "authed"')
+        }
+        return // Don't send notification, don't schedule next
+      }
+      
       // Re-check post-auth safe mode before sending notification
       const isPostAuthSafeMode = useAppModeStore.getState().isPostAuthSafeMode()
       if (isPostAuthSafeMode) {
-        console.log('[SIM_DISABLED] notifications generator blocked post-auth')
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[SIM_DISABLED] notifications generator blocked post-auth')
+        }
         return // Don't send notification, don't schedule next
       }
       
