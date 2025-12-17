@@ -104,10 +104,19 @@ export const useWalletStore = create<WalletState>((set) => ({
       stack: stack?.split('\n').slice(0, 5).join('\n'),
     })
     
-    // GATE: If authState is 'authed' or 'loading', ensure all balances are zero
-    // This prevents demo balances from being set during auth resolution
-    if (authState !== 'unauthed') {
-      // Force all balances to zero for authenticated/loading users
+    // GATE: Only block demo balances, not Firestore balances
+    // Check if this is coming from Firestore subscription (legitimate) vs demo/initial state
+    // Firestore wallets come from subscribeToWallets callback, which is called from FirebaseAuthListener
+    // Demo wallets come from initial state or direct mutations
+    const isFromFirestore = caller.includes('subscribeToWallets') || 
+                            caller.includes('FirebaseAuthListener') ||
+                            caller.includes('onSnapshot')
+    
+    // Only zero out balances if:
+    // 1. User is authenticated AND
+    // 2. This is NOT from Firestore (i.e., it's demo/initial state)
+    if (authState !== 'unauthed' && !isFromFirestore && hasNonZeroBalance) {
+      // This is likely demo balance leaking - block it
       const zeroedWallets: WalletMap = {} as WalletMap
       Object.keys(wallets).forEach((key) => {
         const wallet = (wallets as any)[key]
@@ -118,19 +127,28 @@ export const useWalletStore = create<WalletState>((set) => ({
         }
       })
       
-      if (hasNonZeroBalance) {
-        console.warn('[BALANCE_INSTRUMENTATION] ⚠️ BLOCKED: setWallets with non-zero balances for authenticated/loading user - zeroing out', {
-          originalWallets: wallets,
-          zeroedWallets,
-          caller,
-          authState,
-          balanceMode,
-          stack: stack?.split('\n').slice(0, 8).join('\n'),
-        })
-      }
+      console.warn('[BALANCE_INSTRUMENTATION] ⚠️ BLOCKED: setWallets with non-zero balances from non-Firestore source - zeroing out', {
+        originalWallets: wallets,
+        zeroedWallets,
+        caller,
+        authState,
+        balanceMode,
+        isFromFirestore,
+        stack: stack?.split('\n').slice(0, 8).join('\n'),
+      })
       
       set({ wallets: zeroedWallets, demoMode: false, walletsStatus: 'ready' })
       return
+    }
+    
+    // Allow Firestore balances through (even if non-zero) - Firestore is source of truth
+    if (isFromFirestore && hasNonZeroBalance) {
+      console.log('[BALANCE_INSTRUMENTATION] ✅ ALLOWED: Non-zero balances from Firestore (source of truth)', {
+        walletIds: Object.keys(wallets),
+        caller,
+        authState,
+        isFromFirestore,
+      })
     }
     
     // WARNING: Non-zero balance mutation for authenticated/loading user (should not reach here due to gate above)

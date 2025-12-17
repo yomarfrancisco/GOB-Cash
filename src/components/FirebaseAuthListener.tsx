@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { getRedirectResult, onAuthStateChanged } from 'firebase/auth'
-import { getFirebaseAuth } from '@/lib/firebase'
+import { getFirebaseAuth, getFirebaseApp } from '@/lib/firebase'
 import { ensureUserDocument, subscribeToCurrentUserDoc } from '@/lib/userDoc'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
@@ -52,6 +52,15 @@ export default function FirebaseAuthListener() {
     // Set up auth state listener - this is the single source of truth for isAuthed
     let hasCheckedAuth = false
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      // Log Firebase config and user for diagnostics
+      if (user && typeof window !== 'undefined') {
+        const app = getFirebaseApp()
+        console.log('[FirebaseAuthListener] Auth state changed', {
+          projectId: app.options.projectId,
+          currentUserUid: user.uid,
+          timestamp: new Date().toISOString(),
+        })
+      }
       // Mark auth as ready after first check
       if (!hasCheckedAuth) {
         hasCheckedAuth = true

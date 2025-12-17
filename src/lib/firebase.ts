@@ -68,14 +68,15 @@ export function getFirebaseApp(): FirebaseApp {
   if (existingApps.length > 0) {
     firebaseApp = existingApps[0]
     
-    // Log config on first access (dev-only, one-time)
-    if (!hasLoggedConfig && typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+    // Log config on first access (always log projectId for diagnostics)
+    if (!hasLoggedConfig && typeof window !== 'undefined') {
       hasLoggedConfig = true
       console.log('[Firebase] App config:', {
         projectId: firebaseApp.options.projectId,
         authDomain: firebaseApp.options.authDomain,
         host: window.location.host,
         protocol: window.location.protocol,
+        environment: process.env.NODE_ENV,
       })
     }
     
@@ -86,16 +87,17 @@ export function getFirebaseApp(): FirebaseApp {
   const config = getFirebaseConfig()
   firebaseApp = initializeApp(config)
   
-  // Log config on first access (dev-only, one-time)
-  if (!hasLoggedConfig && typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-    hasLoggedConfig = true
-    console.log('[Firebase] App initialized:', {
-      projectId: firebaseApp.options.projectId,
-      authDomain: firebaseApp.options.authDomain,
-      host: window.location.host,
-      protocol: window.location.protocol,
-    })
-  }
+    // Log config on first access (always log projectId for diagnostics)
+    if (!hasLoggedConfig && typeof window !== 'undefined') {
+      hasLoggedConfig = true
+      console.log('[Firebase] App initialized:', {
+        projectId: firebaseApp.options.projectId,
+        authDomain: firebaseApp.options.authDomain,
+        host: window.location.host,
+        protocol: window.location.protocol,
+        environment: process.env.NODE_ENV,
+      })
+    }
   
   return firebaseApp
 }

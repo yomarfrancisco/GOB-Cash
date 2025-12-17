@@ -186,13 +186,42 @@ export function subscribeToWallets(
   callback: (wallets: WalletMap) => void
 ): Unsubscribe {
   const walletsRef = getUserWalletsRef(userId)
+  
+  console.log('[Wallets] subscribeToWallets: Attaching listener', {
+    userId,
+    path: `users/${userId}/wallets`,
+    timestamp: new Date().toISOString(),
+  })
+  
   return onSnapshot(walletsRef, (snap) => {
     const map: Partial<WalletMap> = {}
+    const walletData: Array<{ id: string; fiatBalance: number; usdtBalance: number }> = []
+    
     snap.forEach((docSnap) => {
       const data = docSnap.data() as WalletDoc
       map[data.walletId] = data
+      walletData.push({
+        id: data.walletId || docSnap.id,
+        fiatBalance: data.fiatBalance || 0,
+        usdtBalance: data.usdtBalance || 0,
+      })
     })
+    
+    console.log('[Wallets] subscribeToWallets: onSnapshot fired', {
+      userId,
+      docCount: snap.size,
+      walletData,
+      timestamp: new Date().toISOString(),
+    })
+    
     callback(map as WalletMap)
+  }, (error) => {
+    console.error('[Wallets] subscribeToWallets: Error in onSnapshot', {
+      userId,
+      error: error.message,
+      code: error.code,
+      timestamp: new Date().toISOString(),
+    })
   })
 }
 
