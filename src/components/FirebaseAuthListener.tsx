@@ -10,6 +10,8 @@ import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
 import { ensureDefaultWallets, subscribeToWallets } from '@/lib/wallets'
 import { useWalletStore } from '@/store/wallets'
 import type { WalletMap } from '@/types/wallet'
+import { setCoreAgentBalance } from '@/lib/transactions/clientFunctions'
+import { AGENT_UID } from '@/types/transactions'
 
 /**
  * Client component that sets up Firebase Auth state listener
@@ -185,12 +187,44 @@ export default function FirebaseAuthListener() {
               console.log('[Wallets] Loaded wallets for user', user.uid, Object.keys(wallets))
             }
           })
+          
+          // Expose admin helper for CoreAgent only (after wallets are set up)
+          if (user.uid === AGENT_UID && typeof window !== 'undefined') {
+            // Initialize gbkAdmin namespace if it doesn't exist
+            if (!(window as any).gbkAdmin) {
+              (window as any).gbkAdmin = {}
+            }
+            
+            // Expose setCoreAgentBalance helper
+            (window as any).gbkAdmin.setCoreAgentBalance = async (amountZAR: number) => {
+              try {
+                console.log('[gbkAdmin] Setting CoreAgent balance to', amountZAR)
+                const result = await setCoreAgentBalance({ amountZAR })
+                console.log('[gbkAdmin] ✅ Balance set successfully:', result)
+                // Force wallet subscription to refresh (balance will update via real-time subscription)
+                return result
+              } catch (error: any) {
+                console.error('[gbkAdmin] ❌ Failed to set balance:', error)
+                throw error
+              }
+            }
+            
+            console.log('[gbkAdmin] Admin helper available: await window.gbkAdmin.setCoreAgentBalance(amountZAR)')
+          } else if (typeof window !== 'undefined' && (window as any).gbkAdmin) {
+            // Remove admin helper if user is not CoreAgent
+            delete (window as any).gbkAdmin.setCoreAgentBalance
+          }
         } catch (walletErr) {
           console.error('[Firebase] Failed to ensure/subscribe wallets', walletErr)
           // On error, still mark as ready (even if empty) to prevent infinite loading
           walletStore.setWalletsStatus('ready')
         }
       } else {
+        // User signed out - clean up admin helper
+        if ((window as any).gbkAdmin) {
+          delete (window as any).gbkAdmin.setCoreAgentBalance
+        }
+        
         // User signed out - reset profile to default (optional, or keep last profile)
         // For now, we'll keep the profile data even after sign-out
         useWalletStore.getState().clear()
