@@ -337,6 +337,13 @@ export default function CardStackCard({
   const zar = cents / 100
   const usdt = zar / FX_USD_ZAR_DEFAULT
   const pct = allocPct(cents)
+  
+  // Generate a stable key for SlotCounter that changes when balance changes
+  // This forces remount when balance updates (e.g., after payment)
+  // Use rounded cents to avoid floating point precision issues
+  const balanceKey = authState === 'authed' && isBalanceReady && walletId
+    ? `${walletId}-${cents}`
+    : `${walletId}-not-ready`
 
   // Check if ANY card exceeds threshold - if so, apply compact sizing to ALL cards for consistency
   // Use same source as balance display (respect isBalanceReady gate)
@@ -641,7 +648,7 @@ export default function CardStackCard({
                 suppressHydrationWarning
               >
                 <SlotCounter
-                  key={isBalanceReady ? 'ready' : 'not-ready'}
+                  key={balanceKey}
                   value={zar}
                   format={formatZAR}
                   durationMs={isBalanceReady ? 700 : 0}
@@ -660,7 +667,7 @@ export default function CardStackCard({
               </div>
               <div className="card-amounts__usdt" aria-label={`${usdt.toFixed(2)} USDT`} suppressHydrationWarning>
                 <SlotCounter 
-                  key={isBalanceReady ? 'ready-usdt' : 'not-ready-usdt'}
+                  key={`${balanceKey}-usdt`}
                   value={usdt} 
                   format={formatUSDT} 
                   durationMs={isBalanceReady ? 700 : 0} 
