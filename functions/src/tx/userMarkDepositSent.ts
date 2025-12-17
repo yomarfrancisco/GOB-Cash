@@ -229,6 +229,7 @@ export const tx_userMarkDepositSent = functions
     }
 
     // Create acknowledgement message from Ama (if needed, idempotent)
+    // Terminal message - no further wallet address prompts
     let ackMsgRef: admin.firestore.DocumentReference | null = null
     let ackMessage: any = null
     if (shouldAddAck) {
@@ -239,7 +240,7 @@ export const tx_userMarkDepositSent = functions
         createdAt: now,
         senderType: 'SAMBA' as const,
         senderUid: 'samba',
-        text: 'Got it ✅ I\'ve notified our team. Please upload proof of payment here when ready.',
+        text: 'Thanks — deposit confirmation received ✅\n\nWe\'re verifying it with our bank now. Your GoBankless balance should update within a few minutes (often sooner).\n\nImportant: seeing your balance update doesn\'t mean withdrawals are enabled yet. Withdrawals are handled separately via the Withdraw flow once verification is complete.',
         metadata: {
           chatStep: 'WAITING_FOR_SENT_PROOF',
         },

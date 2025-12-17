@@ -211,6 +211,13 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
       return
     }
     
+    // Skip WAITING_FOR_SENT_PROOF - server already sends terminal acknowledgement message
+    // Deposit flow is complete at this step, no further automated messages
+    if (newStep === 'WAITING_FOR_SENT_PROOF') {
+      console.log('[DepositChat] Skipping client-side WAITING_FOR_SENT_PROOF message - server already sent terminal acknowledgement')
+      return
+    }
+    
     // Send appropriate Samba message for the new step (if not already sent)
     if (!sambaMessageSentRef.current.has(newStep)) {
       await sendSambaMessage(newStep, tx)
@@ -257,38 +264,16 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
             }
         }
       } else if (currentStep === 'WAITING_FOR_SENT_PROOF') {
-        // After user says SENT, they should provide TRON address
-        // Validate TRON address
-        if (isValidTronAddress(userMessage)) {
-          // Store address and move to WAITING_FOR_WALLET_ADDRESS server-side (no client Firestore writes)
-          await tx_setWithdrawalAddressCandidate(txId, userMessage.trim(), 'WAITING_FOR_WALLET_ADDRESS')
-          
-          // Send Samba confirmation message
-          const updatedTx = { ...transaction, chatStep: 'WAITING_FOR_WALLET_ADDRESS' as ChatStep, withdrawalAddressCandidate: userMessage.trim() }
-          await sendSambaMessage('WAITING_FOR_WALLET_ADDRESS', updatedTx)
-        } else {
-          // Invalid address - send helper response
-          const helperResponse = getSambaHelperResponse(userMessage, currentStep)
-          if (helperResponse) {
-            await tx_appendSambaMessage(txId, helperResponse)
-          }
-        }
+        // Terminal step - deposit flow complete, no wallet address collection
+        // User can still send messages but no automated responses
+        // Withdrawals handled separately via Withdraw flow
+        // No action needed - just acknowledge if needed
       } else if (currentStep === 'WAITING_FOR_WALLET_ADDRESS') {
-        // Validate TRON address
-        if (isValidTronAddress(userMessage)) {
-          // Store address and move to WAITING_FOR_AGENT_CONFIRMATION server-side (no client Firestore writes)
-          await tx_setWithdrawalAddressCandidate(txId, userMessage.trim(), 'WAITING_FOR_AGENT_CONFIRMATION')
-          
-          // Send Samba confirmation message
-          const updatedTx = { ...transaction, chatStep: 'WAITING_FOR_AGENT_CONFIRMATION' as ChatStep, withdrawalAddressCandidate: userMessage.trim() }
-          await sendSambaMessage('WAITING_FOR_AGENT_CONFIRMATION', updatedTx)
-        } else {
-          // Invalid address - send helper response
-          const helperResponse = getSambaHelperResponse(userMessage, currentStep)
-          if (helperResponse) {
-            await tx_appendSambaMessage(txId, helperResponse)
-          }
-        }
+        // This step should no longer be reached in deposit flow
+        // Kept for backward compatibility only
+      } else if (currentStep === 'WAITING_FOR_AGENT_CONFIRMATION') {
+        // This step should no longer be reached in deposit flow
+        // Kept for backward compatibility only
       }
     } catch (error) {
       console.error('[DepositChat] Error sending message:', error)
