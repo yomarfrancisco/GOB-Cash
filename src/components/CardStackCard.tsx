@@ -305,6 +305,8 @@ export default function CardStackCard({
   } else if (authState === 'authed') {
     // Authed: Only show real balances if isBalanceReady (authState === 'authed' && walletsHydrated === true)
     // Force 0 until ready to prevent any demo/animated balance leaks
+    // CRITICAL: Even if wallets exists, ignore it until walletsHydrated is true
+    // This prevents stale wallet data from previous session from showing
     if (isBalanceReady && wallets && !demoMode && walletId) {
       // Read directly from Firestore wallets (source of truth)
       // Option A: fiatBalance only (lockedBalance shown separately if needed)
@@ -313,7 +315,8 @@ export default function CardStackCard({
       cents = Math.round(fiatBalance * 100)
     } else {
       // Not ready yet: show 0 (freeze until Firestore arrives)
-      // Assert: before hydration, rendered balance must be 0
+      // CRITICAL: Ignore any wallet data until walletsHydrated is true
+      // This prevents stale data from previous session or demo values from showing
       cents = 0
       if (process.env.NODE_ENV !== 'production' && !isBalanceReady) {
         console.log('[BALANCE_READY] Card balance forced to 0 (waiting for hydration)', {
@@ -321,6 +324,8 @@ export default function CardStackCard({
           walletId,
           isBalanceReady,
           walletsHydrated,
+          hasWallets: !!wallets,
+          walletValue: wallets && walletId ? (wallets as any)[walletId]?.fiatBalance : null,
         })
       }
     }
@@ -636,9 +641,10 @@ export default function CardStackCard({
                 suppressHydrationWarning
               >
                 <SlotCounter
+                  key={isBalanceReady ? 'ready' : 'not-ready'}
                   value={zar}
                   format={formatZAR}
-                  durationMs={700}
+                  durationMs={isBalanceReady ? 700 : 0}
                   className="card-amounts__zar-value"
                   onStart={() => {
                     // Flash direction is already computed and set
@@ -653,7 +659,13 @@ export default function CardStackCard({
                 />
               </div>
               <div className="card-amounts__usdt" aria-label={`${usdt.toFixed(2)} USDT`} suppressHydrationWarning>
-                <SlotCounter value={usdt} format={formatUSDT} durationMs={700} className="card-amounts__usdt-value" />
+                <SlotCounter 
+                  key={isBalanceReady ? 'ready-usdt' : 'not-ready-usdt'}
+                  value={usdt} 
+                  format={formatUSDT} 
+                  durationMs={isBalanceReady ? 700 : 0} 
+                  className="card-amounts__usdt-value" 
+                />
                 <span style={{ marginLeft: '4px' }}>USDT</span>
               </div>
             </>
