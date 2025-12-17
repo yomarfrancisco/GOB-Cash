@@ -167,8 +167,8 @@ export const tx_createBankDepositRequest = functions
 
           // Generate Ama intro message with compact formatting and button reference
           // Use single \n only - will be rendered as single block with white-space: pre-line
-          // No \n\n between bullets or sections - all single line breaks
-          const introText = `Hi ${handleCustomer} — I'm Ama from GoBankless.\nTo confirm:\n• Deposit amount: **${amountDisplay}**\n• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, confirm by tapping the button below **"I've deposited"** and upload proof of payment (screenshot, PDF or reference).\nWhen you're ready, **tap the button below**.`
+          // Three compact paragraphs with line gaps between them
+          const introText = `Hi ${handleCustomer} — I'm Ama from GoBankless.\n\nTo confirm:\n• Deposit amount: **${amountDisplay}**\n• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, confirm by tapping the button below **"I've deposited"** and upload proof of payment (screenshot, PDF or reference).\n\nWhen you're ready, **tap the button below**.`
 
           const introMsgRef = txRef.collection('messages').doc()
           const introMessage = {
