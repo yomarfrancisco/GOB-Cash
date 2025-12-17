@@ -105,60 +105,46 @@ export const useWalletStore = create<WalletState>((set) => ({
     })
     
     // GATE: Only block demo balances, not Firestore balances
-    // Check if this is coming from Firestore subscription (legitimate) vs demo/initial state
-    // Firestore wallets come from subscribeToWallets callback, which is called from FirebaseAuthListener
-    // Demo wallets come from initial state or direct mutations
-    const isFromFirestore = caller.includes('subscribeToWallets') || 
-                            caller.includes('FirebaseAuthListener') ||
-                            caller.includes('onSnapshot')
+    // Firestore wallets have proper structure: walletId, kind, displayCurrency, etc.
+    // Demo wallets are just partial objects with balances
+    const hasFirestoreStructure = Object.values(wallets).some((w: any) => 
+      w?.walletId && w?.kind && w?.displayCurrency
+    )
     
-    // Only zero out balances if:
-    // 1. User is authenticated AND
-    // 2. This is NOT from Firestore (i.e., it's demo/initial state)
-    if (authState !== 'unauthed' && !isFromFirestore && hasNonZeroBalance) {
-      // This is likely demo balance leaking - block it
-      const zeroedWallets: WalletMap = {} as WalletMap
-      Object.keys(wallets).forEach((key) => {
-        const wallet = (wallets as any)[key]
-        zeroedWallets[key as keyof WalletMap] = {
-          ...wallet,
-          fiatBalance: 0,
-          usdtBalance: 0,
-        }
-      })
-      
-      console.warn('[BALANCE_INSTRUMENTATION] ⚠️ BLOCKED: setWallets with non-zero balances from non-Firestore source - zeroing out', {
-        originalWallets: wallets,
-        zeroedWallets,
-        caller,
-        authState,
-        balanceMode,
-        isFromFirestore,
-        stack: stack?.split('\n').slice(0, 8).join('\n'),
-      })
-      
-      set({ wallets: zeroedWallets, demoMode: false, walletsStatus: 'ready' })
+    // Rule A: If wallets have Firestore structure → DO NOT zero (Firestore is source of truth)
+    // Rule B: Only zero pre-auth demo state or unauthenticated mock wallets
+    if (authState === 'authed' && hasFirestoreStructure) {
+      // This is Firestore data - always allow through, even if non-zero
+      // Firestore is the authoritative source
+      set({ wallets, demoMode: false, walletsStatus: 'ready' })
       return
     }
     
-    // Allow Firestore balances through (even if non-zero) - Firestore is source of truth
-    if (isFromFirestore && hasNonZeroBalance) {
-      console.log('[BALANCE_INSTRUMENTATION] ✅ ALLOWED: Non-zero balances from Firestore (source of truth)', {
-        walletIds: Object.keys(wallets),
-        caller,
-        authState,
-        isFromFirestore,
-      })
-    }
-    
-    // WARNING: Non-zero balance mutation for authenticated/loading user (should not reach here due to gate above)
-    if (hasNonZeroBalance && (isAuthed || !authReady)) {
-      console.warn('[BALANCE_INSTRUMENTATION] ⚠️ LEAK DETECTED: setWallets with non-zero balances for authenticated/loading user', {
-        wallets,
-        caller,
-        authState,
-        stack: stack?.split('\n').slice(0, 8).join('\n'),
-      })
+    // Only zero out balances if:
+    // 1. User is NOT authenticated (pre-auth demo state) OR
+    // 2. Wallets don't have Firestore structure (demo/initial state)
+    if (authState !== 'authed' || !hasFirestoreStructure) {
+      if (hasNonZeroBalance) {
+        // This is demo balance - block it for authenticated users
+        const zeroedWallets: WalletMap = {} as WalletMap
+        Object.keys(wallets).forEach((key) => {
+          const wallet = (wallets as any)[key]
+          zeroedWallets[key as keyof WalletMap] = {
+            ...wallet,
+            fiatBalance: 0,
+            usdtBalance: 0,
+          }
+        })
+        
+        console.warn('[BALANCE_INSTRUMENTATION] ⚠️ BLOCKED: Demo balance leak - zeroing out', {
+          authState,
+          hasFirestoreStructure,
+          caller,
+        })
+        
+        set({ wallets: zeroedWallets, demoMode: false, walletsStatus: 'ready' })
+        return
+      }
     }
     
     set({ wallets, demoMode: false, walletsStatus: 'ready' })
