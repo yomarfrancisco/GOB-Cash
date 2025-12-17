@@ -11,11 +11,13 @@ type WalletState = {
   loading: boolean
   demoMode: boolean
   walletsStatus: WalletsStatus // Track if wallets are loading or ready from Firestore
+  walletsHydrated: boolean // Track if Firestore wallets have been hydrated for authed user
   setWallets: (wallets: WalletMap) => void
   upsertWallet: (wallet: WalletDoc) => void
   setLoading: (loading: boolean) => void
   setDemoMode: (demo: boolean) => void
   setWalletsStatus: (status: WalletsStatus) => void
+  setWalletsHydrated: (hydrated: boolean) => void
   clear: () => void
 }
 
@@ -76,6 +78,7 @@ export const useWalletStore = create<WalletState>((set) => ({
   loading: false,
   demoMode: true,
   walletsStatus: 'loading', // Start in loading state
+  walletsHydrated: false, // Start as not hydrated
   setWallets: (wallets) => {
     // INSTRUMENTATION: Track wallet store mutations
     const stack = new Error().stack
@@ -116,7 +119,19 @@ export const useWalletStore = create<WalletState>((set) => ({
     if (authState === 'authed' && hasFirestoreStructure) {
       // This is Firestore data - always allow through, even if non-zero
       // Firestore is the authoritative source
-      set({ wallets, demoMode: false, walletsStatus: 'ready' })
+      // Mark as hydrated on first successful snapshot for authed user
+      const currentState = useWalletStore.getState()
+      const isFirstHydration = !currentState.walletsHydrated && authState === 'authed'
+      
+      set({ wallets, demoMode: false, walletsStatus: 'ready', walletsHydrated: true })
+      
+      if (isFirstHydration) {
+        console.log('[HYDRATION] ✅ First Firestore wallets snapshot received -> walletsHydrated=true', {
+          userId: useAuthStore.getState().currentUser?.uid,
+          walletIds: Object.keys(wallets),
+          timestamp: new Date().toISOString(),
+        })
+      }
       return
     }
     
@@ -161,7 +176,8 @@ export const useWalletStore = create<WalletState>((set) => ({
   setLoading: (loading) => set({ loading }),
   setDemoMode: (demo) => set({ demoMode: demo }),
   setWalletsStatus: (status) => set({ walletsStatus: status }),
-  clear: () => set({ wallets: demoWallets, demoMode: true, walletsStatus: 'loading' }),
+  setWalletsHydrated: (hydrated) => set({ walletsHydrated: hydrated }),
+  clear: () => set({ wallets: demoWallets, demoMode: true, walletsStatus: 'loading', walletsHydrated: false }),
 }))
 
 

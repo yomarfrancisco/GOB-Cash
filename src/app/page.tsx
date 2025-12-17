@@ -255,7 +255,7 @@ function HomeContent() {
 
   // Get wallet allocation for funds available display (demo fallback)
   const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd, syncFromWallets } = useWalletAlloc()
-  const { wallets, demoMode } = useWalletStore()
+  const { wallets, demoMode, walletsHydrated } = useWalletStore()
 
   // Sync WalletAlloc from wallet docs when they change (only if user is authenticated)
   useEffect(() => {
@@ -264,7 +264,25 @@ function HomeContent() {
     }
   }, [isAuthed, wallets, syncFromWallets])
 
-  const fundsAvailableZAR = (wallets as any)?.cashZAR?.fiatBalance ?? alloc.totalCents / 100
+  // Freeze at 0 until Firestore wallets are hydrated (for authed users)
+  // This prevents demo/animated balances from showing in the header
+  let fundsAvailableZAR: number
+  if (isAuthed && !walletsHydrated) {
+    // Not hydrated yet: show 0 (freeze until Firestore arrives)
+    fundsAvailableZAR = 0
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[HYDRATION] 🔒 Header balance frozen at 0 (waiting for Firestore)', {
+        walletsHydrated,
+        timestamp: new Date().toISOString(),
+      })
+    }
+  } else if (isAuthed && walletsHydrated) {
+    // Hydrated: use Firestore balance
+    fundsAvailableZAR = (wallets as any)?.cashZAR?.fiatBalance ?? 0
+  } else {
+    // Unauthed: allow demo values
+    fundsAvailableZAR = (wallets as any)?.cashZAR?.fiatBalance ?? alloc.totalCents / 100
+  }
   const formattedFunds = formatZAR(fundsAvailableZAR)
   // Log source of balances (Firestore for authenticated users, demo for unauthenticated)
   if (isAuthed && wallets && !demoMode) {

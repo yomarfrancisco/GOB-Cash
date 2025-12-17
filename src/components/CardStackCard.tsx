@@ -275,7 +275,7 @@ export default function CardStackCard({
   const authState = useAuthStore((state) => state.getAuthState())
   const balanceMode = useAuthStore((state) => state.getBalanceMode())
   const isAuthed = useAuthStore((state) => state.isAuthed)
-  const { wallets, demoMode } = useWalletStore()
+  const { wallets, demoMode, walletsHydrated } = useWalletStore()
   
   const allocKey = CARD_TO_ALLOC_KEY[card.type]
   
@@ -299,9 +299,9 @@ export default function CardStackCard({
     showPlaceholder = true
     cents = 0
   } else if (authState === 'authed') {
-    // Authed: force balanceMode="real" and force demo store reset
-    // Never use demo values, even if wallets haven't loaded yet
-    if (wallets && !demoMode && walletId) {
+    // Authed: Only show real balances if Firestore wallets are hydrated
+    // Freeze at 0 until hydration to prevent demo/animated balance leaks
+    if (walletsHydrated && wallets && !demoMode && walletId) {
       // Read directly from Firestore wallets (source of truth)
       const wallet = (wallets as any)[walletId]
       const fiatBalance = wallet?.fiatBalance ?? 0
@@ -309,7 +309,7 @@ export default function CardStackCard({
       const lockedBalance = walletId === 'cashZAR' ? (wallet?.lockedBalance ?? 0) : 0
       cents = Math.round((fiatBalance + lockedBalance) * 100)
     } else {
-      // Wallets not loaded yet or still in demo mode: show 0 (don't use alloc which might have demo values)
+      // Not hydrated yet or wallets not loaded: show 0 (freeze until Firestore arrives)
       cents = 0
     }
   } else {

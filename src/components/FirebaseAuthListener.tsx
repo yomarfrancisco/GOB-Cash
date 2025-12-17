@@ -161,9 +161,11 @@ export default function FirebaseAuthListener() {
         // Set to empty object so cards show $0 while loading
         // This is client state only - Firestore balances are preserved
         walletStore.setWallets({} as WalletMap)
+        // Reset hydration state - will be set to true on first Firestore snapshot
+        walletStore.setWalletsHydrated(false)
         // Note: walletAlloc state will be reset to ZERO by its own useEffect when isAuthed changes
         
-        console.log('[AUTH_TRANSITION] User authenticated - cleared client state to zero (Firestore preserved)', {
+        console.log('[HYDRATION] 🔄 Auth transition -> walletsHydrated=false (waiting for Firestore)', {
           uid: user.uid,
           timestamp: new Date().toISOString(),
         })
@@ -241,7 +243,9 @@ export default function FirebaseAuthListener() {
         
         // User signed out - reset profile to default (optional, or keep last profile)
         // For now, we'll keep the profile data even after sign-out
-        useWalletStore.getState().clear()
+        const walletStore = useWalletStore.getState()
+        walletStore.clear() // This resets walletsHydrated to false
+        console.log('[HYDRATION] 🔄 User signed out -> walletsHydrated=false')
       }
     })
 
