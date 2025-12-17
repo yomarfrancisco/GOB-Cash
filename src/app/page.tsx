@@ -270,12 +270,6 @@ function HomeContent() {
   if (isAuthed && !walletsHydrated) {
     // Not hydrated yet: show 0 (freeze until Firestore arrives)
     fundsAvailableZAR = 0
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[HYDRATION] 🔒 Header balance frozen at 0 (waiting for Firestore)', {
-        walletsHydrated,
-        timestamp: new Date().toISOString(),
-      })
-    }
   } else if (isAuthed && walletsHydrated) {
     // Hydrated: use Firestore balance
     fundsAvailableZAR = (wallets as any)?.cashZAR?.fiatBalance ?? 0
