@@ -39,4 +39,5 @@ export { tx_raiseDispute } from './tx/raiseDispute'
 export { resetMyBalances } from './resetMyBalances'
 export { admin_backfillDirectory } from './admin/backfillDirectory'
 export { seedCoreAgentBalance } from './admin/seedCoreAgentBalance'
+export { setCoreAgentBalance } from './admin/setCoreAgentBalance'
 

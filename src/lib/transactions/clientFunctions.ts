@@ -347,6 +347,24 @@ export async function tx_createBankDepositRequest(
   }
 }
 
+export interface SetCoreAgentBalanceParams {
+  amountZAR: number
+}
+
+export async function setCoreAgentBalance(
+  params: SetCoreAgentBalanceParams
+): Promise<{ success: boolean; amountZAR: number; verifiedBalance: number }> {
+  const app = getFirebaseApp()
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'setCoreAgentBalance')
+  
+  console.log('[setCoreAgentBalance] Setting balance to', params.amountZAR)
+  const result = await fn(params)
+  const data = result.data as { success: boolean; amountZAR: number; verifiedBalance: number }
+  console.log('[setCoreAgentBalance] Success:', data)
+  return data
+}
+
 export interface SeedCoreAgentBalanceParams {
   amountZAR: number
 }
