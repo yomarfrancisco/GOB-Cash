@@ -774,10 +774,10 @@ function HomeContent() {
             pushNotification({
               kind: 'transfer',
               title: 'Withdrawal partially filled',
-              body: `Sent ${result.sendAmountUSDT.toFixed(6)} USDT. ${result.shortfallUSDT.toFixed(6)} USDT couldn't be sent due to treasury liquidity.`,
+              body: `Sent ${result.sentAmountUSDT.toFixed(6)} USDT. ${result.shortfallUSDT.toFixed(6)} USDT couldn't be sent due to treasury liquidity.`,
               amount: {
                 currency: 'USDT',
-                value: result.sendAmountUSDT,
+                value: result.sentAmountUSDT,
               },
               direction: 'down',
               actor: { type: 'system', name: 'GoBankless' },
@@ -787,10 +787,10 @@ function HomeContent() {
             pushNotification({
               kind: 'transfer',
               title: 'Withdrawal sent',
-              body: `${result.sendAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
+              body: `${result.sentAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
               amount: {
                 currency: 'USDT',
-                value: result.sendAmountUSDT,
+                value: result.sentAmountUSDT,
               },
               direction: 'down',
               actor: { type: 'system', name: 'GoBankless' },

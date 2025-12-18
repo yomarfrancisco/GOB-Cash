@@ -210,7 +210,7 @@ export const tx_withdrawTronUSDT = functions
           userId,
           toAddress: toAddress.trim(),
           requestedAmountUSDT: amountUSDT,
-          sendAmountUSDT: sendAmountUSDT,
+          sentAmountUSDT: sendAmountUSDT,
           feeUSDT: WITHDRAWAL_FEE_USDT,
           status,
           txId: null, // Will be updated after broadcast
@@ -280,7 +280,7 @@ export const tx_withdrawTronUSDT = functions
           userInfo.email,
           toAddress.trim(),
           amountUSDT, // requestedAmountUSDT
-          sendAmountUSDT, // sentAmountUSDT
+          sendAmountUSDT, // sentAmountUSDT (variable name is sendAmountUSDT, but field is sentAmountUSDT)
           treasuryUsdt, // treasuryBalanceUSDT
           shortfallUSDT,
           txId,
@@ -302,7 +302,7 @@ export const tx_withdrawTronUSDT = functions
       return {
         withdrawalId: withdrawalRef.id,
         requestedAmountUSDT: amountUSDT,
-        sendAmountUSDT: sendAmountUSDT,
+        sentAmountUSDT: sendAmountUSDT,
         feeUSDT: WITHDRAWAL_FEE_USDT,
         treasuryBalanceAtAttemptUSDT: treasuryUsdt,
         shortfallUSDT,
