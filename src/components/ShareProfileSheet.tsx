@@ -10,6 +10,7 @@ import { generateQRCode } from '@/lib/qr'
 import { useNotificationStore } from '@/store/notifications'
 import { wallet_ensureTronAddress } from '@/lib/transactions/clientFunctions'
 import Avatar from './Avatar'
+import ActionSheetIcon from './ActionSheetIcon'
 import styles from './ShareProfileSheet.module.css'
 
 export default function ShareProfileSheet() {
@@ -223,15 +224,13 @@ export default function ShareProfileSheet() {
             {isLoadingTronAddress ? (
               <ActionSheetItem
                 icon={
-                  <div className={styles.iconCircle}>
-                    <Image
-                      src="/assets/Tether.png"
-                      alt="USDT"
-                      width={24}
-                      height={24}
-                      style={{ objectFit: 'contain' }}
-                    />
-                  </div>
+                  <ActionSheetIcon
+                    src="/icons/usdt-icon.webp"
+                    alt="USDT"
+                    fallbackLetter="U"
+                    fallbackSrc="/assets/Tether.png"
+                    size={40}
+                  />
                 }
                 title="Loading USDT address..."
                 caption="Fetching your custodial TRON address"
@@ -241,15 +240,13 @@ export default function ShareProfileSheet() {
             ) : tronAddress ? (
               <ActionSheetItem
                 icon={
-                  <div className={styles.iconCircle}>
-                    <Image
-                      src="/assets/Tether.png"
-                      alt="USDT"
-                      width={24}
-                      height={24}
-                      style={{ objectFit: 'contain' }}
-                    />
-                  </div>
+                  <ActionSheetIcon
+                    src="/icons/usdt-icon.webp"
+                    alt="USDT"
+                    fallbackLetter="U"
+                    fallbackSrc="/assets/Tether.png"
+                    size={40}
+                  />
                 }
                 title="Share USDT address"
                 caption="My TRON network address"

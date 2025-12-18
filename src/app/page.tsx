@@ -48,6 +48,7 @@ import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { useSearchSheet } from '@/store/useSearchSheet'
+import { prefetchActionSheetIcons } from '@/lib/prefetchActionSheetIcons'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -88,6 +89,11 @@ function HomeContent() {
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
   const { play: playDollarSound } = useSoundEffect('/assets/Drum_3b.mp3')
   const { open: openSearch } = useSearchSheet()
+
+  // Prefetch ActionSheet icons on page load
+  useEffect(() => {
+    prefetchActionSheetIcons()
+  }, [])
 
   // Debug: verify card and map widths match - instrument parent chain
   useEffect(() => {

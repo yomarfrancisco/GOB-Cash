@@ -73,6 +73,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.gobankless.app',
   },
+  other: {
+    // Preload ActionSheet icons for immediate display
+    'preload-usdt-icon': '/icons/usdt-icon.webp',
+    'preload-tether-fallback': '/assets/Tether.png',
+  },
 }
 
 export const viewport: Viewport = {
@@ -92,6 +97,9 @@ export default function RootLayout({
       <head>
         {/* Disable iOS Safari phone number auto-detection to avoid blue/underlined flashes */}
         <meta name="format-detection" content="telephone=no" />
+        {/* Preload ActionSheet icons for immediate display */}
+        <link rel="preload" href="/icons/usdt-icon.webp" as="image" type="image/webp" />
+        <link rel="preload" href="/assets/Tether.png" as="image" type="image/png" />
         {/* Structured data (JSON-LD) */}
         <script
           type="application/ld+json"
