@@ -66,12 +66,6 @@ export default function DepositSheet({ open, onClose, onSelect, variant = 'depos
           caption: 'Link your card for instant deposits.',
           method: 'card' as const,
           icon: <CreditCard size={22} strokeWidth={2} />
-        },
-        {
-          title: 'Crypto wallet',
-          caption: 'Receive USDT directly from an external wallet.',
-          method: 'crypto' as const,
-          icon: <Wallet size={22} strokeWidth={2} />
         }
       ]
 

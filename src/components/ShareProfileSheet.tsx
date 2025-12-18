@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Share } from 'lucide-react'
+import { Share, Copy } from 'lucide-react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
@@ -130,8 +130,8 @@ export default function ShareProfileSheet() {
       await navigator.clipboard.writeText(tronAddress)
       pushNotification({
         kind: 'payment_sent',
-        title: 'Copied!',
-        body: 'USDT address copied to clipboard',
+        title: 'Copied',
+        body: 'Address copied',
       })
     } catch (error) {
       console.error('Failed to copy TRON address:', error)
@@ -143,22 +143,21 @@ export default function ShareProfileSheet() {
     }
   }
 
-  const handleShareTronAddress = async () => {
-    if (!tronAddress) return
-    if (typeof window !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title: 'My GoBankless USDT Address',
-          text: `My USDT (TRON/TRC-20) address: ${tronAddress}`,
-        })
-      } catch (error) {
-        // User cancelled or error occurred
-        console.log('Share cancelled or failed:', error)
-      }
-    } else {
-      // Fallback: copy to clipboard
-      handleCopyTronAddress()
+  // Format TRON address for display (truncated)
+  const formatTronAddress = (address: string): string => {
+    if (address.length <= 14) return address
+    return `${address.slice(0, 8)}...${address.slice(-6)}`
+  }
+
+  // Get subtitle for USDT address row
+  const getUsdtAddressSubtitle = (): string => {
+    if (isLoadingTronAddress) {
+      return 'My TRON network address'
     }
+    if (tronAddress) {
+      return formatTronAddress(tronAddress)
+    }
+    return 'My TRON network address'
   }
 
   // Determine wording based on mode
@@ -231,8 +230,8 @@ export default function ShareProfileSheet() {
                     size={40}
                   />
                 }
-                title="Loading USDT address..."
-                caption="Fetching your custodial TRON address"
+                title="Share USDT address"
+                caption="My TRON network address"
                 onClick={() => {}}
                 trailing={<div style={{ width: 18, height: 18 }} />}
               />
@@ -247,9 +246,9 @@ export default function ShareProfileSheet() {
                   />
                 }
                 title="Share USDT address"
-                caption="My TRON network address"
-                onClick={handleShareTronAddress}
-                trailing={<Share size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
+                caption={getUsdtAddressSubtitle()}
+                onClick={handleCopyTronAddress}
+                trailing={<Copy size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
               />
             ) : null}
           </>

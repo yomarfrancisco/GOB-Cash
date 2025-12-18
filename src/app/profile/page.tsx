@@ -34,8 +34,7 @@ import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
 import LockOverlay from '@/components/LockOverlay'
 import Avatar from '@/components/Avatar'
-import DepositCryptoWalletSheet, { type DepositCryptoWallet, getDepositCryptoWallets } from '@/components/DepositCryptoWalletSheet'
-import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
+// Crypto deposit removed - no longer needed
 import PaymentsSheet from '@/components/PaymentsSheet'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
@@ -116,9 +115,7 @@ export default function ProfilePage() {
   const [sendMethod, setSendMethod] = useState<'email' | 'wallet' | 'brics' | null>(null)
   const [flowType, setFlowType] = useState<'payment' | 'transfer'>('payment')
   const [isPaySomeoneFlow, setIsPaySomeoneFlow] = useState(false) // Track if coming from "Pay someone" button
-  const [openDepositCryptoWallet, setOpenDepositCryptoWallet] = useState(false)
-  const [selectedCryptoDepositWallet, setSelectedCryptoDepositWallet] = useState<DepositCryptoWallet | null>(null)
-  const [showCryptoAddressSheet, setShowCryptoAddressSheet] = useState(false)
+  // Crypto deposit removed - no longer needed
   const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
   const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
   const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
@@ -147,18 +144,8 @@ export default function ProfilePage() {
     setSendAmountZAR(0)
     setSendAmountUSDT(0)
   }, [])
-  const closeDepositCryptoWallet = useCallback(() => {
-    setOpenDepositCryptoWallet(false)
-  }, [])
-  const handleSelectCryptoDepositWallet = useCallback((wallet: DepositCryptoWallet) => {
-    setSelectedCryptoDepositWallet(wallet)
-    setOpenDepositCryptoWallet(false)
-    setTimeout(() => setShowCryptoAddressSheet(true), 220)
-  }, [])
-  const closeCryptoAddressSheet = useCallback(() => {
-    setShowCryptoAddressSheet(false)
-    setSelectedCryptoDepositWallet(null)
-  }, [])
+  // Crypto deposit removed - handlers no longer needed
+  // Crypto deposit removed - handlers no longer needed
 
   const handleDirectSelect = useCallback((method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics' | 'atm' | 'agent') => {
     if (method === 'email' || method === 'wallet' || method === 'brics') {
@@ -617,26 +604,13 @@ export default function ProfilePage() {
           if (method === 'bank') {
             setDepositMethod('bank')
             setTimeout(() => setOpenCountrySelect(true), 220)
-          } else if (method === 'crypto') {
-            setDepositMethod('crypto')
-            // Skip DepositCryptoWalletSheet and go directly to USDT SA wallet
-            const { profile } = useUserProfileStore.getState()
-            const wallets = getDepositCryptoWallets({
-              usdtSaAddress: profile.usdtSaAddress,
-              usdtMznAddress: profile.usdtMznAddress,
-              ethAddress: profile.ethAddress,
-              btcAddress: profile.btcAddress,
-            })
-            // Select USDT SA wallet (first wallet in the list)
-            const usdtSaWallet = wallets.find(w => w.key === 'usdt_sa') || wallets[0]
-            setSelectedCryptoDepositWallet(usdtSaWallet)
-            setTimeout(() => setShowCryptoAddressSheet(true), 220)
           } else if (method === 'card') {
             setDepositMethod('card')
             setAmountMode('deposit')
             setAmountEntryPoint('cardDeposit')
             setTimeout(() => setOpenAmount(true), 220)
           }
+          // Crypto wallet option removed - no longer handled
         }}
       />
       <WithdrawSheet
@@ -975,29 +949,7 @@ export default function ProfilePage() {
         recipient={sendRecipient}
         flowType={flowType}
       />
-      <DepositCryptoWalletSheet
-        open={openDepositCryptoWallet}
-        onClose={closeDepositCryptoWallet}
-        onSelectCryptoDepositWallet={handleSelectCryptoDepositWallet}
-      />
-      {selectedCryptoDepositWallet && (
-        <CryptoDepositAddressSheet
-          open={showCryptoAddressSheet}
-          onClose={() => {
-            setShowCryptoAddressSheet(false)
-            // If opened from deposit flow, return to Deposit method sheet
-            if (depositMethod === 'crypto') {
-              setTimeout(() => {
-                setOpenDeposit(true)
-              }, 220)
-            } else {
-              // For other flows, just close (existing behavior)
-              closeCryptoAddressSheet()
-            }
-          }}
-          wallet={selectedCryptoDepositWallet}
-        />
-      )}
+      {/* Crypto deposit sheets removed - crypto wallet option no longer available */}
       {/* NOTE: FinancialInboxSheet is now accessible from Settings → Inbox */}
       <FinancialInboxSheet />
       <NotificationsSheet />
