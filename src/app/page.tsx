@@ -846,21 +846,49 @@ function HomeContent() {
             setOpenWithdrawCryptoAddress(false)
             // Balance updates automatically via Firestore subscription
           } catch (error: any) {
-            // Error handling - re-throw to let component show error
-            if (error.code === 'functions/failed-precondition') {
-              if (error.message?.includes('Insufficient treasury') || error.message?.includes('treasury')) {
-                throw new Error(`Withdrawal failed: Treasury has insufficient balance. Requested ${withdrawCryptoAmountUSDT.toFixed(6)} USDT.`)
-              } else if (error.message?.includes('Insufficient user balance') || error.message?.includes('user balance')) {
-                throw new Error('Insufficient USDT balance. Please check your balance and try again.')
-              } else if (error.message?.includes('in progress')) {
-                throw new Error('Withdrawal already in progress. Please wait and try again.')
+            // Log full error for debugging
+            console.error('[WithdrawCryptoAddressSheet] Error details:', {
+              code: error?.code,
+              message: error?.message,
+              details: error?.details,
+              stack: error?.stack,
+            })
+
+            // Map Firebase error codes to user-friendly messages
+            // Show "Not allowed" for failed-precondition, "Server error" for internal
+            if (error?.code === 'functions/failed-precondition') {
+              if (error.message?.includes('Insufficient treasury') || error.message?.includes('treasury') || error.message?.includes('Treasury')) {
+                throw new Error(`Not allowed: Treasury has insufficient balance. Requested ${withdrawCryptoAmountUSDT.toFixed(6)} USDT.`)
+              } else if (error.message?.includes('Insufficient user balance') || error.message?.includes('user balance') || error.message?.includes('Insufficient balance')) {
+                throw new Error('Not allowed: Insufficient USDT balance. Please check your balance and try again.')
+              } else if (error.message?.includes('in progress') || error.message?.includes('already in progress')) {
+                throw new Error('Not allowed: Withdrawal already in progress. Please wait and try again.')
+              } else if (error.message?.includes('Invalid TRON address') || error.message?.includes('Invalid address')) {
+                throw new Error('Not allowed: Invalid TRON address format.')
+              } else {
+                // Generic failed-precondition
+                throw new Error(`Not allowed: ${error.message || 'Withdrawal cannot be processed at this time.'}`)
               }
-            } else if (error.code === 'functions/internal') {
-              if (error.message?.includes('broadcast')) {
-                throw new Error('Transaction failed to broadcast. Please try again or contact support.')
+            } else if (error?.code === 'functions/invalid-argument') {
+              throw new Error(`Not allowed: ${error.message || 'Invalid request parameters.'}`)
+            } else if (error?.code === 'functions/internal') {
+              if (error.message?.includes('broadcast') || error.message?.includes('Broadcast')) {
+                throw new Error('Server error: Transaction failed to broadcast. Please try again or contact support.')
+              } else {
+                throw new Error(`Server error: ${error.message || 'Withdrawal could not be processed. Please try again.'}`)
               }
+            } else if (error?.code === 'functions/unauthenticated') {
+              throw new Error('Not allowed: You must be logged in to withdraw.')
+            } else if (error?.code === 'functions/permission-denied') {
+              throw new Error('Not allowed: You do not have permission to perform this action.')
+            } else if (error?.message?.includes('CORS') || error?.message?.includes('cors')) {
+              // CORS error should not happen with httpsCallable, but handle it if it does
+              console.error('[WithdrawCryptoAddressSheet] CORS error detected - this should not happen with httpsCallable')
+              throw new Error('Network error: Please check your connection and try again.')
+            } else {
+              // Unknown error - show generic message but log full details
+              throw new Error(`Error: ${error?.message || 'Failed to process withdrawal. Please try again.'}`)
             }
-            throw error
           }
         }}
         amountUSDT={withdrawCryptoAmountUSDT}

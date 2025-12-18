@@ -543,7 +543,27 @@ export interface WithdrawTronUsdtResult {
 export async function tx_withdrawTronUSDT(
   params: WithdrawTronUsdtParams
 ): Promise<WithdrawTronUsdtResult> {
+  // Verify Firebase app is initialized
+  const app = getFirebaseApp()
+  if (!app || !app.options.projectId) {
+    const error = new Error('[Withdrawal] Firebase app not initialized')
+    console.error('[Withdrawal] Firebase app check failed:', {
+      hasApp: !!app,
+      projectId: app?.options?.projectId,
+    })
+    throw error
+  }
+
   const functions = getFunctionsInstance()
+  
+  // Verify Functions instance
+  if (!functions) {
+    const error = new Error('[Withdrawal] Firebase Functions instance not initialized')
+    console.error('[Withdrawal] Functions instance check failed')
+    throw error
+  }
+
+  // Use httpsCallable (NOT fetch) - this handles CORS automatically
   const fn = httpsCallable(functions, 'tx_withdrawTronUSDT')
   
   // Generate requestId if not provided (for idempotency)
@@ -551,10 +571,14 @@ export async function tx_withdrawTronUSDT(
   
   try {
     if (typeof window !== 'undefined') {
-      console.log('[Withdrawal] Calling tx_withdrawTronUSDT', {
+      console.log('[Withdrawal] Calling tx_withdrawTronUSDT via httpsCallable', {
+        projectId: app.options.projectId,
+        region: 'us-central1',
+        functionName: 'tx_withdrawTronUSDT',
         toAddress: params.toAddress,
         amountUSDT: params.amountUSDT,
         requestId,
+        method: 'httpsCallable', // Confirm we're using httpsCallable, not fetch
       })
     }
     
@@ -570,6 +594,7 @@ export async function tx_withdrawTronUSDT(
     
     return data
   } catch (error: any) {
+    // Log full error details for debugging
     console.error('[Withdrawal] Failed to withdraw USDT:', {
       toAddress: params.toAddress,
       amountUSDT: params.amountUSDT,
@@ -577,7 +602,14 @@ export async function tx_withdrawTronUSDT(
       errorCode: error?.code,
       errorMessage: error?.message,
       errorDetails: error?.details || error,
+      projectId: app.options.projectId,
+      method: 'httpsCallable', // Confirm we're using httpsCallable
+      // Check if it's a CORS error
+      isCorsError: error?.message?.includes('CORS') || error?.message?.includes('cors'),
+      stack: error?.stack,
     })
+    
+    // Re-throw with original error (preserves Firebase error codes)
     throw error
   }
 }
