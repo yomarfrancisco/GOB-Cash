@@ -248,7 +248,7 @@ export default function WithdrawTronUsdtSheet({
               placeholder="T..."
               value={toAddress}
               onChange={handleAddressChange}
-              disabled={isSubmitting || (useMyAddress && myAddress)}
+              disabled={isSubmitting || (useMyAddress && !!myAddress)}
             />
             <p style={{ 
               marginTop: '4px',
