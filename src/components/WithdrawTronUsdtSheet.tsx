@@ -7,6 +7,7 @@ import { formatUSDT } from '@/lib/money'
 import { tx_withdrawTronUSDT, wallet_ensureTronAddress, type WithdrawTronUsdtResult } from '@/lib/transactions/clientFunctions'
 import { useWalletStore } from '@/store/wallets'
 import { useAuthStore } from '@/store/auth'
+import { generateRequestId } from '@/lib/utils/requestId'
 import '@/styles/send-details-sheet.css'
 
 type WithdrawTronUsdtSheetProps = {
@@ -121,9 +122,13 @@ export default function WithdrawTronUsdtSheet({
     setError(null)
 
     try {
+      // Generate requestId for idempotency
+      const requestId = generateRequestId()
+      
       const result = await tx_withdrawTronUSDT({
         toAddress,
         amountUSDT: amount,
+        requestId,
       })
 
       if (onSuccess) {

@@ -806,9 +806,10 @@ function HomeContent() {
         onSubmit={async (address, network) => {
           const { pushNotification } = useNotificationStore.getState()
           const { tx_withdrawTronUSDT } = await import('@/lib/transactions/clientFunctions')
+          const { generateRequestId } = await import('@/lib/utils/requestId')
           
           // Generate requestId for idempotency
-          const requestId = crypto.randomUUID()
+          const requestId = generateRequestId()
           
           try {
             const result = await tx_withdrawTronUSDT({
