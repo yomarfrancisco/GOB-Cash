@@ -522,7 +522,7 @@ export async function wallet_ensureTronAddress(): Promise<{ address: string; ind
 export interface WithdrawTronUsdtParams {
   toAddress: string
   amountUSDT: number
-  requestId: string // UUID for idempotency
+  requestId?: string // Optional UUID for idempotency (generated client-side if not provided)
 }
 
 export interface WithdrawTronUsdtResult {
@@ -546,16 +546,22 @@ export async function tx_withdrawTronUSDT(
   const functions = getFunctionsInstance()
   const fn = httpsCallable(functions, 'tx_withdrawTronUSDT')
   
+  // Generate requestId if not provided (for idempotency)
+  const requestId = params.requestId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`)
+  
   try {
     if (typeof window !== 'undefined') {
       console.log('[Withdrawal] Calling tx_withdrawTronUSDT', {
         toAddress: params.toAddress,
         amountUSDT: params.amountUSDT,
-        requestId: params.requestId,
+        requestId,
       })
     }
     
-    const result = await fn(params)
+    const result = await fn({
+      ...params,
+      requestId,
+    })
     const data = result.data as WithdrawTronUsdtResult
     
     if (process.env.NODE_ENV !== 'production') {
