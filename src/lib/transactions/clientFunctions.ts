@@ -571,10 +571,17 @@ export async function tx_withdrawTronUSDT(
   
   try {
     if (typeof window !== 'undefined') {
-      console.log('[Withdrawal] Calling tx_withdrawTronUSDT via httpsCallable', {
+      // Log full Firebase config for diagnostics
+      console.log('[Withdrawal] Firebase config check:', {
         projectId: app.options.projectId,
+        authDomain: app.options.authDomain,
+        appId: app.options.appId,
         region: 'us-central1',
         functionName: 'tx_withdrawTronUSDT',
+        functionsInstance: functions ? 'initialized' : 'null',
+        // Log the actual URL pattern that httpsCallable will use
+        expectedCallablePattern: `https://us-central1-${app.options.projectId}.cloudfunctions.net/callable/tx_withdrawTronUSDT`,
+        directUrlPattern: `https://us-central1-${app.options.projectId}.cloudfunctions.net/tx_withdrawTronUSDT`,
         toAddress: params.toAddress,
         amountUSDT: params.amountUSDT,
         requestId,
