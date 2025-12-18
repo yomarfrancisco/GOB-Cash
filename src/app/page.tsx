@@ -759,10 +759,15 @@ function HomeContent() {
           setTimeout(() => setOpenAmount(true), 220)
         } : undefined}
         onSelect={(method) => {
+          console.log('[WithdrawSheet] onSelect called with method:', method)
           if (method === 'crypto') {
             // Open crypto address modal
+            console.log('[WithdrawSheet] Opening crypto address sheet, amountUSDT:', withdrawCryptoAmountUSDT)
             setOpenWithdraw(false)
-            setTimeout(() => setOpenWithdrawCryptoAddress(true), 220)
+            setTimeout(() => {
+              console.log('[WithdrawSheet] Setting openWithdrawCryptoAddress to true')
+              setOpenWithdrawCryptoAddress(true)
+            }, 220)
           } else {
             setOpenWithdraw(false)
             setAmountMode('withdraw')

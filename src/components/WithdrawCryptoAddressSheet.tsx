@@ -28,11 +28,18 @@ export default function WithdrawCryptoAddressSheet({
   onSubmit,
   amountUSDT,
 }: WithdrawCryptoAddressSheetProps) {
+  console.log('[WithdrawCryptoAddressSheet] Render - open:', open, 'amountUSDT:', amountUSDT)
+  
   const addressRef = useRef<HTMLInputElement>(null)
   const [address, setAddress] = useState('')
   const [network] = useState<'tron'>('tron') // Fixed to TRON
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Log when open prop changes
+  useEffect(() => {
+    console.log('[WithdrawCryptoAddressSheet] open prop changed to:', open)
+  }, [open])
 
   // Reset form when sheet opens/closes
   useEffect(() => {
