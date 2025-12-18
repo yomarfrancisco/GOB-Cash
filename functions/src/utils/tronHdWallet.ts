@@ -7,7 +7,7 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import * as bip39 from 'bip39'
-import * as bip32 from '@scure/bip32'
+import * as bip32 from 'bip32'
 import TronWeb from 'tronweb'
 
 const db = admin.firestore()
@@ -36,12 +36,12 @@ export async function deriveTronAddress(mnemonic: string, index: number): Promis
   // Convert mnemonic to seed using bip39
   const seed = await bip39.mnemonicToSeed(mnemonic)
   
-  // Create HD key from seed using @scure/bip32
-  const hdKey = bip32.HDKey.fromMasterSeed(Buffer.from(seed))
+  // Create HD key from seed using bip32
+  const hdKey = bip32.fromSeed(Buffer.from(seed))
   
   // Derive key at path
   const path = getDerivationPath(index)
-  const derivedKey = hdKey.derive(path)
+  const derivedKey = hdKey.derivePath(path)
   
   if (!derivedKey.privateKey) {
     throw new Error('Failed to derive private key')
@@ -49,7 +49,7 @@ export async function deriveTronAddress(mnemonic: string, index: number): Promis
   
   // Convert private key to TRON address
   // TRON uses secp256k1, same as Bitcoin
-  const privateKeyHex = Buffer.from(derivedKey.privateKey).toString('hex')
+  const privateKeyHex = derivedKey.privateKey.toString('hex')
   
   // Use TronWeb static utility to get address from private key
   // TronWeb.address is a static utility, not an instance method
