@@ -852,6 +852,7 @@ export default function ProfilePage() {
           }, 220)
         } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountZAR, amountUSDT }) => {
           // Deposit keypad: "Withdraw" button - store amount and open withdraw sheet
+          setWithdrawAmountZAR(amountZAR) // Store ZAR amount for bank withdrawals
           if (amountUSDT) {
             setWithdrawCryptoAmountUSDT(amountUSDT)
           }
