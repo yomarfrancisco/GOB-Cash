@@ -43,7 +43,18 @@ const WITHDRAWAL_FEE_USDT = 0
 const MIN_TRX_BALANCE = 10
 
 /**
- * Get user USDT balance from cashZAR wallet
+ * Temporary fixed exchange rate: ZAR per USDT
+ * TODO: Make this configurable or fetch from external source
+ */
+const FX_RATE_ZAR_PER_USDT = 18.1
+
+/**
+ * Get user available USDT balance derived from fiatBalance (ZAR)
+ * 
+ * Converts fiatBalance (ZAR) to USDT using fixed exchange rate.
+ * Only considers fiatBalance (available balance), not lockedBalance.
+ * 
+ * This matches the deposit flow which credits fiatBalance in ZAR.
  */
 async function getUserUsdtBalance(userId: string): Promise<number> {
   const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
@@ -54,7 +65,13 @@ async function getUserUsdtBalance(userId: string): Promise<number> {
   }
   
   const walletData = walletSnap.data()
-  return walletData?.usdtBalance || 0
+  const fiatBalance = walletData?.fiatBalance || 0
+  
+  // Convert ZAR to USDT using fixed exchange rate
+  // Only use fiatBalance (available), not lockedBalance (locked for settlement)
+  const availableUsdt = fiatBalance / FX_RATE_ZAR_PER_USDT
+  
+  return availableUsdt
 }
 
 
@@ -158,35 +175,46 @@ export const tx_withdrawTronUSDT = functions
       }
 
       // 2. Pre-checks: validate balances BEFORE any debit
+      // Read wallet to get fiatBalance for conversion and logging
+      const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
+      const walletSnap = await walletRef.get()
+      const walletData = walletSnap.exists ? walletSnap.data()! : {}
+      
+      const fiatBalance = walletData?.fiatBalance || 0
+      const lockedBalance = walletData?.lockedBalance || 0
+      
+      // Convert fiatBalance (ZAR) to available USDT
       const userAvailableUSDT = await getUserUsdtBalance(userId)
       
-      // DIAGNOSTIC: Log balance details before checks
-      const diagnosticWalletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
-      const diagnosticWalletSnap = await diagnosticWalletRef.get()
-      const diagnosticWalletData = diagnosticWalletSnap.exists ? diagnosticWalletSnap.data()! : {}
+      // Calculate required ZAR debit amount
+      const requiredUSDT = amountUSDT + WITHDRAWAL_FEE_USDT
+      const requiredZARDebit = requiredUSDT * FX_RATE_ZAR_PER_USDT
       
+      // DETERMINISTIC LOGGING: Log all balance details before checks
       console.log('[tx_withdrawTronUSDT] Balance diagnostics:', {
         userId,
-        requestedAmountUSDT: amountUSDT,
-        userAvailableUSDT, // from getUserUsdtBalance (reads usdtBalance field)
-        walletFiatBalance: diagnosticWalletData?.fiatBalance || 0,
-        walletLockedBalance: diagnosticWalletData?.lockedBalance || 0,
-        walletUsdtBalance: diagnosticWalletData?.usdtBalance || 0,
+        fiatBalance,
+        lockedBalance,
+        fxRate: FX_RATE_ZAR_PER_USDT,
+        computedAvailableUsdt: userAvailableUSDT,
+        requestedAmountUsdt: amountUSDT,
         withdrawalFeeUSDT: WITHDRAWAL_FEE_USDT,
-        requiredUSDT: amountUSDT + WITHDRAWAL_FEE_USDT,
+        requiredUsdt: requiredUSDT,
+        requiredZarDebit,
         walletPath: `users/${userId}/wallets/cashZAR`,
       })
       
-      // Check user balance
-      if (userAvailableUSDT < amountUSDT + WITHDRAWAL_FEE_USDT) {
+      // Check user balance (derived from fiatBalance)
+      if (userAvailableUSDT < requiredUSDT) {
         console.error('[tx_withdrawTronUSDT] Insufficient user balance:', {
           userId,
-          userAvailableUSDT,
-          requestedAmountUSDT: amountUSDT,
-          requiredUSDT: amountUSDT + WITHDRAWAL_FEE_USDT,
-          walletFiatBalance: diagnosticWalletData?.fiatBalance || 0,
-          walletLockedBalance: diagnosticWalletData?.lockedBalance || 0,
-          walletUsdtBalance: diagnosticWalletData?.usdtBalance || 0,
+          fiatBalance,
+          lockedBalance,
+          fxRate: FX_RATE_ZAR_PER_USDT,
+          computedAvailableUsdt: userAvailableUSDT,
+          requestedAmountUsdt: amountUSDT,
+          requiredUsdt: requiredUSDT,
+          requiredZarDebit,
         })
         throw new functions.https.HttpsError(
           'failed-precondition',
@@ -221,6 +249,9 @@ export const tx_withdrawTronUSDT = functions
           requestedAmountUSDT: amountUSDT,
           sentAmountUSDT: 0,
           feeUSDT: WITHDRAWAL_FEE_USDT,
+          amountZAR_debited: 0, // No debit on failure
+          fxRate: FX_RATE_ZAR_PER_USDT,
+          network: 'TRON',
           status: failureStatus,
           txId: null,
           treasuryBalanceAtAttemptUSDT: treasuryUsdt,
@@ -280,6 +311,9 @@ export const tx_withdrawTronUSDT = functions
           requestedAmountUSDT: amountUSDT,
           sentAmountUSDT: 0,
           feeUSDT: WITHDRAWAL_FEE_USDT,
+          amountZAR_debited: 0, // No debit on failure
+          fxRate: FX_RATE_ZAR_PER_USDT,
+          network: 'TRON',
           status: 'FAILED_TREASURY_NO_TRX' as WithdrawalStatus,
           txId: null,
           treasuryBalanceAtAttemptUSDT: treasuryUsdt,
@@ -363,6 +397,9 @@ export const tx_withdrawTronUSDT = functions
           requestedAmountUSDT: amountUSDT,
           sentAmountUSDT: 0,
           feeUSDT: WITHDRAWAL_FEE_USDT,
+          amountZAR_debited: 0, // No debit on failure
+          fxRate: FX_RATE_ZAR_PER_USDT,
+          network: 'TRON',
           status: 'FAILED_BROADCAST' as WithdrawalStatus,
           txId: null,
           treasuryBalanceAtAttemptUSDT: treasuryUsdt,
@@ -427,22 +464,27 @@ export const tx_withdrawTronUSDT = functions
             }
           }
 
-          // Read current wallet balance
+          // Read current wallet balance (fiatBalance in ZAR)
           const walletSnap = await t.get(walletRef)
-          const currentBalance = walletSnap.data()?.usdtBalance || 0
+          const walletData = walletSnap.exists ? walletSnap.data()! : {}
+          const currentFiatBalance = walletData?.fiatBalance || 0
+
+          // Calculate required ZAR debit
+          const requiredUSDT = amountUSDT + WITHDRAWAL_FEE_USDT
+          const requiredZARDebit = requiredUSDT * FX_RATE_ZAR_PER_USDT
 
           // Verify balance hasn't changed (double-spend protection)
-          if (currentBalance < amountUSDT + WITHDRAWAL_FEE_USDT) {
+          if (currentFiatBalance < requiredZARDebit) {
             throw new functions.https.HttpsError(
               'failed-precondition',
               'Insufficient balance (changed during transaction)'
             )
           }
 
-          // Debit user balance
-          const newBalance = currentBalance - (amountUSDT + WITHDRAWAL_FEE_USDT)
+          // Debit user fiatBalance (ZAR)
+          const newFiatBalance = currentFiatBalance - requiredZARDebit
           t.update(walletRef, {
-            usdtBalance: newBalance,
+            fiatBalance: newFiatBalance,
             updatedAt: admin.firestore.Timestamp.now(),
           })
 
@@ -454,6 +496,9 @@ export const tx_withdrawTronUSDT = functions
             requestedAmountUSDT: amountUSDT,
             sentAmountUSDT: amountUSDT,
             feeUSDT: WITHDRAWAL_FEE_USDT,
+            amountZAR_debited: requiredZARDebit,
+            fxRate: FX_RATE_ZAR_PER_USDT,
+            network: 'TRON',
             status: 'BROADCAST_FULL' as WithdrawalStatus,
             txId,
             treasuryBalanceAtAttemptUSDT: treasuryUsdt,
