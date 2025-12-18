@@ -43,7 +43,7 @@ export async function deriveTronAddress(mnemonic: string, index: number): Promis
   
   // Derive key at path
   const path = getDerivationPath(index)
-  const derivedKey = hdKey.derivePath(path, false)
+  const derivedKey = hdKey.derivePath(path)
   
   if (!derivedKey.privateKey) {
     throw new Error('Failed to derive private key')
@@ -51,7 +51,14 @@ export async function deriveTronAddress(mnemonic: string, index: number): Promis
   
   // Convert private key to TRON address
   // TRON uses secp256k1, same as Bitcoin
-  const privateKeyHex = derivedKey.privateKey.toString('hex')
+  // bip32 privateKey is a Buffer
+  const privateKeyBuffer = derivedKey.privateKey
+  if (!privateKeyBuffer) {
+    throw new Error('Failed to get private key')
+  }
+  const privateKeyHex = Buffer.isBuffer(privateKeyBuffer) 
+    ? privateKeyBuffer.toString('hex')
+    : Buffer.from(privateKeyBuffer).toString('hex')
   
   // Use TronWeb static utility to get address from private key
   // TronWeb.address is a static utility, not an instance method
