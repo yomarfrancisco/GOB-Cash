@@ -8,6 +8,7 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import type { TxStatus } from './state'
+import { sendEmailViaResend, getCoreAgentEmail } from '../utils/resendEmail'
 
 const db = admin.firestore()
 
@@ -55,8 +56,12 @@ export const tx_createBankWithdrawalRequest = functions
     const txRef = db.collection('transactions').doc()
     const txId = txRef.id
 
-    // Note: User handle is not needed for bank withdrawal creation
-    // It will be fetched when generating the PDF proof if needed
+    // Get user info for email notification
+    const userRef = db.collection('users').doc(userId)
+    const userSnap = await userRef.get()
+    const userData = userSnap.exists ? userSnap.data()! : {}
+    const userHandle = userData?.userHandle || userData?.handle || null
+    const userEmail = userData?.email || null
 
     // Create bank withdrawal record with requestedAmountZAR
     const bankWithdrawalRef = db.collection('bankWithdrawals').doc(txId)
@@ -154,9 +159,171 @@ export const tx_createBankWithdrawalRequest = functions
 
     console.log(`[tx_createBankWithdrawalRequest] Created transaction ${txId} for bank withdrawal`)
 
+    // Send email notification (non-blocking, after transaction succeeds)
+    // Check idempotency: only send if not already sent
+    const bankWithdrawalSnap = await bankWithdrawalRef.get()
+    const bankWithdrawalData = bankWithdrawalSnap.exists ? bankWithdrawalSnap.data()! : {}
+    
+    if (!bankWithdrawalData.emailSent) {
+      try {
+        const emailSubject = `Bank Withdrawal Requested — ZAR ${amountZAR.toFixed(2)}${userHandle ? ` (@${userHandle})` : ''}`
+        const emailHtml = generateBankWithdrawalEmailContent(
+          txId,
+          userHandle,
+          userEmail,
+          userId,
+          amountZAR,
+          country.trim(),
+          (bankName || `${country} Bank`).trim(),
+          accountHolderName.trim(),
+          accountNumber.trim(),
+          swiftBic.trim(),
+          now
+        )
+
+        const emailTo = getCoreAgentEmail()
+        await sendEmailViaResend(emailTo, emailSubject, emailHtml)
+
+        // Mark email as sent (idempotency)
+        await bankWithdrawalRef.update({
+          emailSent: true,
+          emailSentAt: now,
+        })
+
+        console.log(`[tx_createBankWithdrawalRequest] Email notification sent for bank withdrawal ${txId}`)
+      } catch (error) {
+        console.error('[tx_createBankWithdrawalRequest] Error sending email (non-blocking):', error)
+        // Don't throw - function already succeeded, email is non-critical
+      }
+    } else {
+      console.log(`[tx_createBankWithdrawalRequest] Email already sent for bank withdrawal ${txId}, skipping`)
+    }
+
     return {
       txId,
       bankWithdrawalId: txId,
     }
   })
+
+/**
+ * Generate email HTML content for bank withdrawal notification
+ * Mirrors the deposit email template style
+ */
+function generateBankWithdrawalEmailContent(
+  withdrawalId: string,
+  userHandle: string | null,
+  userEmail: string | null,
+  userId: string,
+  amountZAR: number,
+  country: string,
+  bankName: string,
+  accountHolderName: string,
+  accountNumber: string,
+  swiftBic: string,
+  timestamp: admin.firestore.Timestamp
+): string {
+  const formattedDate = timestamp.toDate().toLocaleString('en-ZA', {
+    timeZone: 'Africa/Johannesburg',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+  const isoDate = timestamp.toDate().toISOString()
+
+  // Note: Proof PDF is available via callable function getBankWithdrawalProof
+  // Users can download it from the chat UI
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #000; color: #fff; padding: 20px; border-radius: 8px 8px 0 0; }
+        .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
+        .detail-row { margin: 12px 0; padding: 8px; background: #fff; border-radius: 4px; }
+        .label { font-weight: 600; color: #666; }
+        .value { color: #000; margin-top: 4px; }
+        .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }
+        .button { display: inline-block; padding: 10px 20px; background: #000; color: #fff; text-decoration: none; border-radius: 4px; margin-top: 10px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="margin: 0;">Bank Withdrawal Requested</h1>
+        </div>
+        <div class="content">
+          <p>A user has requested a bank withdrawal. Details below:</p>
+          
+          <div class="detail-row">
+            <div class="label">Withdrawal Request ID</div>
+            <div class="value">${withdrawalId}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="label">User</div>
+            <div class="value">
+              ${userHandle ? `@${userHandle}` : 'No handle'}<br>
+              ${userEmail || 'No email'}<br>
+              UID: ${userId}
+            </div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="label">Amount (ZAR)</div>
+            <div class="value">R${amountZAR.toFixed(2)}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="label">Method</div>
+            <div class="value">Bank transfer</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="label">Country</div>
+            <div class="value">${country}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="label">Bank Name</div>
+            <div class="value">${bankName}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="label">Account Holder Name</div>
+            <div class="value">${accountHolderName}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="label">SWIFT/BIC</div>
+            <div class="value">${swiftBic}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="label">Account Number / IBAN</div>
+            <div class="value">${accountNumber}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="label">Timestamp</div>
+            <div class="value">
+              ${formattedDate}<br>
+              <small style="color: #666;">ISO: ${isoDate}</small>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>This is an automated notification from GoBankless.</p>
+            <p><strong>Proof PDF:</strong> Available via getBankWithdrawalProof callable function (withdrawalId: ${withdrawalId})</p>
+            <p>Transaction: <a href="https://console.firebase.google.com/project/gobankless-dev/firestore/data/transactions/${withdrawalId}">View in Firebase Console</a></p>
+            <p>Withdrawal: <a href="https://console.firebase.google.com/project/gobankless-dev/firestore/data/bankWithdrawals/${withdrawalId}">View Withdrawal Record</a></p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+}
 
