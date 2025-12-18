@@ -43,7 +43,7 @@ export async function deriveTronAddress(mnemonic: string, index: number): Promis
   
   // Derive key at path
   const path = getDerivationPath(index)
-  const derivedKey = hdKey.derivePath(path)
+  const derivedKey = hdKey.derivePath(path, false)
   
   if (!derivedKey.privateKey) {
     throw new Error('Failed to derive private key')
