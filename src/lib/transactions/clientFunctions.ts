@@ -571,7 +571,7 @@ export async function tx_withdrawTronUSDT(
   
   try {
     if (typeof window !== 'undefined') {
-      // Log full Firebase config for diagnostics
+      // Log full Firebase config for diagnostics - CRITICAL for debugging CORS
       console.log('[Withdrawal] Firebase config check:', {
         projectId: app.options.projectId,
         authDomain: app.options.authDomain,
@@ -586,6 +586,14 @@ export async function tx_withdrawTronUSDT(
         amountUSDT: params.amountUSDT,
         requestId,
         method: 'httpsCallable', // Confirm we're using httpsCallable, not fetch
+      })
+      
+      // CRITICAL: Log the actual Functions instance details to see what URL it will construct
+      console.log('[Withdrawal] Functions instance details:', {
+        appName: functions.app?.name,
+        appOptions: functions.app?.options,
+        // Try to access internal properties if available
+        _delegate: functions._delegate ? 'exists' : 'null',
       })
     }
     
