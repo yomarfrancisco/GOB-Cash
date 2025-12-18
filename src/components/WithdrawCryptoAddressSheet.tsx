@@ -102,24 +102,23 @@ export default function WithdrawCryptoAddressSheet({
           <button className="send-details-back" onClick={onBack} aria-label="Back">
             <Image src="/assets/back_ui.svg" alt="" width={24} height={24} />
           </button>
-          <h3 className="send-details-title">USDT wallet address</h3>
+          <div>
+            <h3 className="send-details-title">USDT wallet address</h3>
+            <p className="send-details-subtitle">Payout USDT into this address</p>
+          </div>
           <div style={{ width: '32px', height: '32px' }} />
         </div>
       )}
       <div className={styles.sheetContainer}>
         {/* Scrollable main area */}
         <div className={styles.scrollableContent}>
-          {/* Header */}
-          <div className={styles.header}>
-            <p className={styles.subtitle}>Payout USDT into this address</p>
-          </div>
 
           {/* Wallet Input Tile */}
           <div className={styles.walletInputWrapper}>
             <div className={styles.walletInput}>
               {/* USDT Wallet Address */}
               <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>USDT wallet address</label>
+                <label className={styles.fieldLabel}>Wallet address</label>
                 <div className={styles.field}>
                   <input
                     ref={addressRef}
