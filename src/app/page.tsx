@@ -91,6 +91,7 @@ function HomeContent() {
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
   const { play: playDollarSound } = useSoundEffect('/assets/Drum_3b.mp3')
   const { open: openSearch } = useSearchSheet()
+  const { open: openBankingDetails } = useBankingDetailsSheet()
 
   // Prefetch ActionSheet icons on page load
   useEffect(() => {
@@ -779,7 +780,6 @@ function HomeContent() {
           } else if (method === 'bank') {
             // Open Banking Details sheet (same as linked accounts)
             setOpenWithdraw(false)
-            const { open: openBankingDetails } = useBankingDetailsSheet.getState()
             setTimeout(() => {
               openBankingDetails('create', null)
             }, 220)

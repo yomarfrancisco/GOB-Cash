@@ -75,6 +75,7 @@ export default function ProfilePage() {
   const { profile, setProfile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
   const { open: openLinkedAccounts } = useLinkedAccountsSheet()
+  const { open: openBankingDetails } = useBankingDetailsSheet()
   const { openInbox, closeInbox, isInboxOpen } = useFinancialInboxStore()
   const { openNotifications } = useNotificationsStore()
   const { guardAuthed } = useRequireAuth()
@@ -653,7 +654,6 @@ export default function ProfilePage() {
           } else if (method === 'bank') {
             // Open Banking Details sheet (same as linked accounts)
             setOpenWithdraw(false)
-            const { open: openBankingDetails } = useBankingDetailsSheet.getState()
             setTimeout(() => {
               openBankingDetails('create', null)
             }, 220)
