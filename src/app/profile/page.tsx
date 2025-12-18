@@ -46,6 +46,7 @@ import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
+import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import CardDepositAccountSheet from '@/components/CardDepositAccountSheet'
 import { openAmaChatWithCardDepositScenario, openAmaChatWithAgentInduction } from '@/lib/cashDeposit/chatOrchestration'
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
@@ -649,8 +650,15 @@ export default function ProfilePage() {
             setTimeout(() => {
               setOpenWithdrawCryptoAddress(true)
             }, 220)
+          } else if (method === 'bank') {
+            // Open Banking Details sheet (same as linked accounts)
+            setOpenWithdraw(false)
+            const { open: openBankingDetails } = useBankingDetailsSheet.getState()
+            setTimeout(() => {
+              openBankingDetails('create', null)
+            }, 220)
           } else {
-            // Other methods (bank, etc.) - existing behavior
+            // Other methods - existing behavior (shouldn't happen with current options)
             setOpenWithdraw(false)
             setAmountMode('withdraw')
             setTimeout(() => setOpenAmount(true), 220)

@@ -47,6 +47,7 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
+import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { useSearchSheet } from '@/store/useSearchSheet'
 import { prefetchActionSheetIcons } from '@/lib/prefetchActionSheetIcons'
@@ -774,6 +775,13 @@ function HomeContent() {
             setTimeout(() => {
               console.log('[WithdrawSheet] Setting openWithdrawCryptoAddress to true')
               setOpenWithdrawCryptoAddress(true)
+            }, 220)
+          } else if (method === 'bank') {
+            // Open Banking Details sheet (same as linked accounts)
+            setOpenWithdraw(false)
+            const { open: openBankingDetails } = useBankingDetailsSheet.getState()
+            setTimeout(() => {
+              openBankingDetails('create', null)
             }, 220)
           } else {
             setOpenWithdraw(false)
