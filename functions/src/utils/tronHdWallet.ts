@@ -7,7 +7,8 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import * as bip39 from 'bip39'
-import * as bip32 from 'bip32'
+import { BIP32Factory } from 'bip32'
+import * as ecc from 'tiny-secp256k1'
 import TronWeb from 'tronweb'
 
 const db = admin.firestore()
@@ -37,7 +38,8 @@ export async function deriveTronAddress(mnemonic: string, index: number): Promis
   const seed = await bip39.mnemonicToSeed(mnemonic)
   
   // Create HD key from seed using bip32
-  const hdKey = bip32.fromSeed(Buffer.from(seed))
+  const bip32Factory = BIP32Factory(ecc)
+  const hdKey = bip32Factory.fromSeed(Buffer.from(seed))
   
   // Derive key at path
   const path = getDerivationPath(index)

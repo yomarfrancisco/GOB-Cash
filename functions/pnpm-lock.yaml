@@ -23,6 +23,9 @@ importers:
       firebase-functions:
         specifier: 4.9.0
         version: 4.9.0(firebase-admin@12.7.0)
+      tiny-secp256k1:
+        specifier: ^2.2.4
+        version: 2.2.4
       tronweb:
         specifier: ^5.3.4
         version: 5.3.4
@@ -1225,6 +1228,10 @@ packages:
     resolution: {integrity: sha512-resvxdc6Mgb7YEThw6G6bExlXKkv6+YbuzGg9xuXxSgxJF7Ozs+o8Y9+2R3sArdWdW8nOokoQb1yrpFB0pQK2g==}
     engines: {node: '>=14'}
 
+  tiny-secp256k1@2.2.4:
+    resolution: {integrity: sha512-FoDTcToPqZE454Q04hH9o2EhxWsm7pOSpicyHkgTwKhdKWdsTUuqfP5MLq3g+VjAtl2vSx6JpXGdwA2qpYkI0Q==}
+    engines: {node: '>=14.0.0'}
+
   toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
@@ -1257,6 +1264,10 @@ packages:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  uint8array-tools@0.0.7:
+    resolution: {integrity: sha512-vrrNZJiusLWoFWBqz5Y5KMCgP9W9hnjZHzZiZRT8oNAkq3d5Z5Oe76jAvVVSRh4U8GGR90N2X1dWtrhvx6L8UQ==}
+    engines: {node: '>=14.0.0'}
 
   uint8array-tools@0.0.8:
     resolution: {integrity: sha512-xS6+s8e0Xbx++5/0L+yyexukU7pz//Yg6IHg3BKhXotg1JcYtgxVcUctQ0HxLByiJzpAkNFawz1Nz5Xadzo82g==}
@@ -2993,6 +3004,10 @@ snapshots:
       - supports-color
     optional: true
 
+  tiny-secp256k1@2.2.4:
+    dependencies:
+      uint8array-tools: 0.0.7
+
   toidentifier@1.0.1: {}
 
   tr46@0.0.3:
@@ -3036,6 +3051,8 @@ snapshots:
       mime-types: 3.0.2
 
   typescript@5.9.3: {}
+
+  uint8array-tools@0.0.7: {}
 
   uint8array-tools@0.0.8: {}
 
