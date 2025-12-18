@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { MailPlus, Globe, AtSign, Landmark, CreditCard, Wallet, Receipt, Users } from 'lucide-react'
+import { MailPlus, Globe, AtSign, Landmark, CreditCard, Receipt, Users } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 import '@/styles/send-details-sheet.css'
