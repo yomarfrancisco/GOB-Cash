@@ -522,6 +522,7 @@ export async function wallet_ensureTronAddress(): Promise<{ address: string; ind
 export interface WithdrawTronUsdtParams {
   toAddress: string
   amountUSDT: number
+  requestId: string // UUID for idempotency
 }
 
 export interface WithdrawTronUsdtResult {
@@ -530,14 +531,14 @@ export interface WithdrawTronUsdtResult {
   sentAmountUSDT: number
   feeUSDT: number
   treasuryBalanceAtAttemptUSDT: number
-  shortfallUSDT: number
   txId: string | null
-  status: 'PENDING' | 'BROADCAST_PARTIAL' | 'BROADCAST_FULL' | 'FAILED_ZERO_TREASURY' | 'CONFIRMED'
+  status: 'DEBITED' | 'BROADCAST_FULL' | 'FAILED_INSUFFICIENT_TREASURY' | 'FAILED_ZERO_TREASURY' | 'FAILED_TREASURY_NO_TRX' | 'FAILED_BROADCAST_REFUNDED' | 'FAILED_BROADCAST_NEEDS_MANUAL'
 }
 
 /**
  * Withdraw USDT to TRON address
- * Supports partial fill on treasury shortfall
+ * Hard fail only: rejects if treasury cannot cover full amount
+ * Idempotent: uses requestId to prevent double-sends
  */
 export async function tx_withdrawTronUSDT(
   params: WithdrawTronUsdtParams
@@ -550,6 +551,7 @@ export async function tx_withdrawTronUSDT(
       console.log('[Withdrawal] Calling tx_withdrawTronUSDT', {
         toAddress: params.toAddress,
         amountUSDT: params.amountUSDT,
+        requestId: params.requestId,
       })
     }
     
@@ -565,6 +567,7 @@ export async function tx_withdrawTronUSDT(
     console.error('[Withdrawal] Failed to withdraw USDT:', {
       toAddress: params.toAddress,
       amountUSDT: params.amountUSDT,
+      requestId: params.requestId,
       errorCode: error?.code,
       errorMessage: error?.message,
       errorDetails: error?.details || error,

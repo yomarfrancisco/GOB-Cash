@@ -23,6 +23,16 @@ declare module 'tronweb' {
     contract(): {
       at(address: string): Promise<Contract>
     }
+    trx: {
+      getBalance(address: string): Promise<string | number>
+    }
+    fromSun(amount: any): number
+    defaultAddress: {
+      base58: string
+    }
+    address: {
+      fromPrivateKey(privateKey: string): string
+    }
   }
 
   export default TronWeb

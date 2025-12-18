@@ -85,6 +85,23 @@ export async function getTreasuryUsdtBalance(): Promise<number> {
 }
 
 /**
+ * Get treasury TRX balance (on-chain)
+ */
+export async function getTreasuryTrxBalance(): Promise<number> {
+  const tronWeb = getTronWeb()
+  const treasuryAddress = getTreasuryAddress()
+  
+  try {
+    const balanceSun = await tronWeb.trx.getBalance(treasuryAddress)
+    const balanceTRX = tronWeb.fromSun(balanceSun) as number
+    return balanceTRX
+  } catch (error: any) {
+    console.error('[TronUtils] Error getting treasury TRX balance:', error)
+    throw new Error(`Failed to get treasury TRX balance: ${error.message}`)
+  }
+}
+
+/**
  * Validate TRON address format
  */
 export function validateTronAddress(address: string): boolean {

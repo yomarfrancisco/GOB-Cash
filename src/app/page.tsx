@@ -8,6 +8,7 @@ import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
 import WithdrawTronUsdtSheet from '@/components/WithdrawTronUsdtSheet'
+import WithdrawCryptoAddressSheet from '@/components/WithdrawCryptoAddressSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
@@ -123,6 +124,8 @@ function HomeContent() {
 
   const [openWithdraw, setOpenWithdraw] = useState(false)
   const [openWithdrawTronUsdt, setOpenWithdrawTronUsdt] = useState(false)
+  const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
+  const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
@@ -751,11 +754,15 @@ function HomeContent() {
       <WithdrawSheet
         open={openWithdraw}
         onClose={closeWithdraw}
+        onBack={amountMode === 'withdraw' ? () => {
+          setOpenWithdraw(false)
+          setTimeout(() => setOpenAmount(true), 220)
+        } : undefined}
         onSelect={(method) => {
           if (method === 'crypto') {
-            // Open TRON USDT withdrawal sheet
+            // Open crypto address modal
             setOpenWithdraw(false)
-            setOpenWithdrawTronUsdt(true)
+            setTimeout(() => setOpenWithdrawCryptoAddress(true), 220)
           } else {
             setOpenWithdraw(false)
             setAmountMode('withdraw')
@@ -775,24 +782,45 @@ function HomeContent() {
         onSuccess={(result) => {
           // Show success message or notification
           const { pushNotification } = useNotificationStore.getState()
-          if (result.shortfallUSDT > 0) {
-            // Partial fill - show notification
-            pushNotification({
-              kind: 'transfer',
-              title: 'Withdrawal partially filled',
-              body: `Sent ${result.sentAmountUSDT.toFixed(6)} USDT. ${result.shortfallUSDT.toFixed(6)} USDT couldn't be sent due to treasury liquidity.`,
-              amount: {
-                currency: 'USDT',
-                value: result.sentAmountUSDT,
-              },
-              direction: 'down',
-              actor: { type: 'system', name: 'GoBankless' },
+          // Hard fail mode: always full fill or failure
+          pushNotification({
+            kind: 'transfer',
+            title: 'USDT Withdrawal Sent',
+            body: `${result.sentAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
+            amount: {
+              currency: 'USDT',
+              value: result.sentAmountUSDT,
+            },
+            direction: 'down',
+            actor: { type: 'system', name: 'GoBankless' },
+          })
+        }}
+      />
+      <WithdrawCryptoAddressSheet
+        open={openWithdrawCryptoAddress}
+        onClose={() => setOpenWithdrawCryptoAddress(false)}
+        onBack={() => {
+          setOpenWithdrawCryptoAddress(false)
+          setTimeout(() => setOpenWithdraw(true), 220)
+        }}
+        onSubmit={async (address, network) => {
+          const { pushNotification } = useNotificationStore.getState()
+          const { tx_withdrawTronUSDT } = await import('@/lib/transactions/clientFunctions')
+          
+          // Generate requestId for idempotency
+          const requestId = crypto.randomUUID()
+          
+          try {
+            const result = await tx_withdrawTronUSDT({
+              toAddress: address,
+              amountUSDT: withdrawCryptoAmountUSDT,
+              requestId,
             })
-          } else {
-            // Full fill
+            
+            // Success notification
             pushNotification({
               kind: 'transfer',
-              title: 'Withdrawal sent',
+              title: 'USDT Withdrawal Sent',
               body: `${result.sentAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
               amount: {
                 currency: 'USDT',
@@ -801,8 +829,28 @@ function HomeContent() {
               direction: 'down',
               actor: { type: 'system', name: 'GoBankless' },
             })
+            
+            setOpenWithdrawCryptoAddress(false)
+            // Balance updates automatically via Firestore subscription
+          } catch (error: any) {
+            // Error handling - re-throw to let component show error
+            if (error.code === 'functions/failed-precondition') {
+              if (error.message?.includes('Insufficient treasury') || error.message?.includes('treasury')) {
+                throw new Error(`Withdrawal failed: Treasury has insufficient balance. Requested ${withdrawCryptoAmountUSDT.toFixed(6)} USDT.`)
+              } else if (error.message?.includes('Insufficient user balance') || error.message?.includes('user balance')) {
+                throw new Error('Insufficient USDT balance. Please check your balance and try again.')
+              } else if (error.message?.includes('in progress')) {
+                throw new Error('Withdrawal already in progress. Please wait and try again.')
+              }
+            } else if (error.code === 'functions/internal') {
+              if (error.message?.includes('broadcast')) {
+                throw new Error('Transaction failed to broadcast. Please try again or contact support.')
+              }
+            }
+            throw error
           }
         }}
+        amountUSDT={withdrawCryptoAmountUSDT}
       />
       <AmountSheet
         open={openAmount}
@@ -887,20 +935,15 @@ function HomeContent() {
               }
             : undefined
         }
-        onSubmit={amountMode === 'withdraw' ? ({ amountZAR }) => {
-          // Cash withdrawal flow: start scenario and open Ama chat
-          setConvertAmount(amountZAR)
-          // Close keypad modal
+        onSubmit={amountMode === 'withdraw' ? ({ amountZAR, amountUSDT }) => {
+          // Store USDT amount for crypto withdrawal
+          if (amountUSDT) {
+            setWithdrawCryptoAmountUSDT(amountUSDT)
+          }
+          // Close keypad and open withdraw method sheet
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
-          
-          // Start cash withdrawal scenario
-          startCashWithdrawalScenario(amountZAR)
-          
-          // Small delay to ensure modals are fully closed, then open Ama chat
-          setTimeout(() => {
-            openAmaChatWithScenario('cash_withdrawal')
-          }, 220) // Match other modal transitions
+          setTimeout(() => setOpenWithdraw(true), 220)
         } : amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
