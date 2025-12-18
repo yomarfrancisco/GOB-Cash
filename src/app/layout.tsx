@@ -73,11 +73,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.gobankless.app',
   },
-  other: {
-    // Preload ActionSheet icons for immediate display
-    'preload-usdt-icon': '/icons/usdt-icon.webp',
-    'preload-tether-fallback': '/assets/Tether.png',
-  },
 }
 
 export const viewport: Viewport = {
