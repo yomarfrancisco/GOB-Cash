@@ -627,3 +627,43 @@ export async function tx_withdrawTronUSDT(
   }
 }
 
+/**
+ * Download withdrawal proof PDF
+ */
+export async function downloadWithdrawalProof(withdrawalId: string): Promise<void> {
+  const app = getFirebaseApp()
+  const functions = getFunctionsInstance()
+  
+  if (!app || !functions) {
+    throw new Error('Firebase not initialized')
+  }
+  
+  try {
+    const fn = httpsCallable(functions, 'getWithdrawalProof')
+    const result = await fn({ withdrawalId })
+    const data = result.data as { pdfBase64: string; filename: string; mimeType: string }
+    
+    // Convert base64 to blob
+    const byteCharacters = atob(data.pdfBase64)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: data.mimeType })
+    
+    // Create download link
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = data.filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (error: any) {
+    console.error('[downloadWithdrawalProof] Error:', error)
+    throw error
+  }
+}
+

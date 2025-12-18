@@ -27,19 +27,28 @@ export function renderRichContent(
     { pattern: /(Distance: )([\d.]+ km)/g, replacement: '$1<strong>$2</strong>' },
     { pattern: /\*\*(.+?)\*\*/g, replacement: '<strong>$1</strong>' }, // Markdown **bold**
   ]
+  
+  // URL pattern for making links clickable
+  const urlPattern = /(https?:\/\/[^\s]+)/g
 
   const allBoldPatterns = [...defaultBoldPatterns, ...boldPatterns]
 
   // Check if message has @handles (requires line-by-line processing)
   const hasHandles = /@\w+/.test(text)
   
+  // Helper to make URLs clickable
+  const makeUrlsClickable = (text: string): string => {
+    return text.replace(urlPattern, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #0066cc; text-decoration: underline;">$1</a>')
+  }
+  
   // If no handles, render as single block with white-space: pre-line for compact spacing
   if (!hasHandles || !onHandleClick) {
-    // Apply bold patterns to entire text
+    // Apply bold patterns and make URLs clickable
     let processed = text
     allBoldPatterns.forEach(({ pattern, replacement }) => {
       processed = processed.replace(pattern, replacement)
     })
+    processed = makeUrlsClickable(processed)
     
     return (
       <span 
@@ -96,13 +105,14 @@ export function renderRichContent(
             parts.push(processedLine.substring(lastIndex))
           }
 
-          // Apply bold patterns to each part
+          // Apply bold patterns and make URLs clickable to each part
           const finalParts = parts.map((part, partIdx) => {
             if (typeof part === 'string') {
               let processed = part
               allBoldPatterns.forEach(({ pattern, replacement }) => {
                 processed = processed.replace(pattern, replacement)
               })
+              processed = makeUrlsClickable(processed)
               return (
                 <span
                   key={`part-${partIdx}`}
@@ -121,11 +131,12 @@ export function renderRichContent(
           )
         }
 
-        // No handles, just apply bold patterns
+        // No handles, just apply bold patterns and make URLs clickable
         let processed = processedLine
         allBoldPatterns.forEach(({ pattern, replacement }) => {
           processed = processed.replace(pattern, replacement)
         })
+        processed = makeUrlsClickable(processed)
 
         return (
           <div key={lineIdx}>

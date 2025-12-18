@@ -689,6 +689,14 @@ export default function ProfilePage() {
             })
             
             setOpenWithdrawCryptoAddress(false)
+            
+            // Open chat sheet with transaction ID (same as deposit flow)
+            // The transaction document was created server-side with txId as the document ID
+            if (result.txId && result.status === 'BROADCAST_FULL') {
+              setDepositChatTxId(result.txId)
+              setOpenDepositChat(true)
+            }
+            
             // Balance updates automatically via Firestore subscription
           } catch (error: any) {
             // Log full error for debugging
