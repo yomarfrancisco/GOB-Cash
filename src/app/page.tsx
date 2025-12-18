@@ -7,6 +7,8 @@ import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
+import WithdrawTronUsdtSheet from '@/components/WithdrawTronUsdtSheet'
+import WithdrawTronUsdtSheet from '@/components/WithdrawTronUsdtSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
@@ -115,6 +117,7 @@ function HomeContent() {
   }, [])
 
   const [openWithdraw, setOpenWithdraw] = useState(false)
+  const [openWithdrawTronUsdt, setOpenWithdrawTronUsdt] = useState(false)
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
@@ -744,11 +747,56 @@ function HomeContent() {
         open={openWithdraw}
         onClose={closeWithdraw}
         onSelect={(method) => {
-          setOpenWithdraw(false)
-          setAmountMode('withdraw')
-          setAmountEntryPoint(undefined)
-          setConvertAmount(0)
-          setTimeout(() => setOpenAmount(true), 220)
+          if (method === 'crypto') {
+            // Open TRON USDT withdrawal sheet
+            setOpenWithdraw(false)
+            setOpenWithdrawTronUsdt(true)
+          } else {
+            setOpenWithdraw(false)
+            setAmountMode('withdraw')
+            setAmountEntryPoint(undefined)
+            setConvertAmount(0)
+            setTimeout(() => setOpenAmount(true), 220)
+          }
+        }}
+      />
+      <WithdrawTronUsdtSheet
+        open={openWithdrawTronUsdt}
+        onClose={() => setOpenWithdrawTronUsdt(false)}
+        onBack={() => {
+          setOpenWithdrawTronUsdt(false)
+          setOpenWithdraw(true)
+        }}
+        onSuccess={(result) => {
+          // Show success message or notification
+          const { pushNotification } = useNotificationStore.getState()
+          if (result.shortfallUSDT > 0) {
+            // Partial fill - show notification
+            pushNotification({
+              kind: 'transfer',
+              title: 'Withdrawal partially filled',
+              body: `Sent ${result.sendAmountUSDT.toFixed(6)} USDT. ${result.shortfallUSDT.toFixed(6)} USDT couldn't be sent due to treasury liquidity.`,
+              amount: {
+                currency: 'USDT',
+                value: result.sendAmountUSDT,
+              },
+              direction: 'down',
+              actor: { type: 'system', name: 'GoBankless' },
+            })
+          } else {
+            // Full fill
+            pushNotification({
+              kind: 'transfer',
+              title: 'Withdrawal sent',
+              body: `${result.sendAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
+              amount: {
+                currency: 'USDT',
+                value: result.sendAmountUSDT,
+              },
+              direction: 'down',
+              actor: { type: 'system', name: 'GoBankless' },
+            })
+          }
         }}
       />
       <AmountSheet

@@ -40,4 +40,6 @@ export { resetMyBalances } from './resetMyBalances'
 export { admin_backfillDirectory } from './admin/backfillDirectory'
 export { seedCoreAgentBalance } from './admin/seedCoreAgentBalance'
 export { setCoreAgentBalance } from './admin/setCoreAgentBalance'
+export { wallet_ensureTronAddress } from './tx/ensureTronAddress'
+export { tx_withdrawTronUSDT } from './tx/withdrawTronUsdt'
 

@@ -339,10 +339,13 @@ export default function CardStackCard({
   const pct = allocPct(cents)
   
   // Generate a stable key for SlotCounter that changes when balance changes
-  // This forces remount when balance updates (e.g., after payment)
-  // Use rounded cents to avoid floating point precision issues
+  // This forces remount when balance updates (e.g., after payment or withdrawal)
+  // Include updatedAt timestamp to catch Firestore updates even if balance value is same
+  // Use rounded cents + updatedAt to avoid floating point precision issues and catch all updates
+  const wallet = authState === 'authed' && isBalanceReady && walletId ? (wallets as any)[walletId] : null
+  const updatedAtMillis = wallet?.updatedAt?.toMillis?.() ?? wallet?.updatedAt ?? 0
   const balanceKey = authState === 'authed' && isBalanceReady && walletId
-    ? `${walletId}-${cents}`
+    ? `${walletId}-${cents}-${updatedAtMillis}`
     : `${walletId}-not-ready`
 
   // Check if ANY card exceeds threshold - if so, apply compact sizing to ALL cards for consistency

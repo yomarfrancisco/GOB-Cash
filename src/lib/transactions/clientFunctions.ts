@@ -495,3 +495,81 @@ export async function tx_creditAndLock(txId: string): Promise<{ ok: boolean; sta
   }
 }
 
+/**
+ * Ensure user has a TRON address assigned (derived from HD wallet)
+ * Idempotent: returns existing address if already assigned
+ */
+export async function wallet_ensureTronAddress(): Promise<{ address: string; index: number; path: string }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'wallet_ensureTronAddress')
+  
+  try {
+    const result = await fn({})
+    const data = result.data as { address: string; index: number; path: string }
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Wallet] TRON address ensured:', data)
+    }
+    return data
+  } catch (error: any) {
+    console.error('[Wallet] Failed to ensure TRON address:', {
+      errorCode: error?.code,
+      errorMessage: error?.message,
+    })
+    throw error
+  }
+}
+
+export interface WithdrawTronUsdtParams {
+  toAddress: string
+  amountUSDT: number
+}
+
+export interface WithdrawTronUsdtResult {
+  withdrawalId: string
+  requestedAmountUSDT: number
+  sentAmountUSDT: number
+  feeUSDT: number
+  treasuryBalanceAtAttemptUSDT: number
+  shortfallUSDT: number
+  txId: string | null
+  status: 'PENDING' | 'BROADCAST_PARTIAL' | 'BROADCAST_FULL' | 'FAILED_ZERO_TREASURY' | 'CONFIRMED'
+}
+
+/**
+ * Withdraw USDT to TRON address
+ * Supports partial fill on treasury shortfall
+ */
+export async function tx_withdrawTronUSDT(
+  params: WithdrawTronUsdtParams
+): Promise<WithdrawTronUsdtResult> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'tx_withdrawTronUSDT')
+  
+  try {
+    if (typeof window !== 'undefined') {
+      console.log('[Withdrawal] Calling tx_withdrawTronUSDT', {
+        toAddress: params.toAddress,
+        amountUSDT: params.amountUSDT,
+      })
+    }
+    
+    const result = await fn(params)
+    const data = result.data as WithdrawTronUsdtResult
+    
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Withdrawal] Withdrawal result:', data)
+    }
+    
+    return data
+  } catch (error: any) {
+    console.error('[Withdrawal] Failed to withdraw USDT:', {
+      toAddress: params.toAddress,
+      amountUSDT: params.amountUSDT,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+      errorDetails: error?.details || error,
+    })
+    throw error
+  }
+}
+

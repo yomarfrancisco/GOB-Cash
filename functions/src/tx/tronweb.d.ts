@@ -13,6 +13,9 @@ declare module 'tronweb' {
     transfer(to: string, amount: number): {
       send(): Promise<string>
     }
+    balanceOf(address: string): {
+      call(): Promise<string | number>
+    }
   }
 
   class TronWeb {
