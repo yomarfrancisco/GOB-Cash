@@ -592,8 +592,6 @@ export async function tx_withdrawTronUSDT(
       console.log('[Withdrawal] Functions instance details:', {
         appName: functions.app?.name,
         appOptions: functions.app?.options,
-        // Try to access internal properties if available
-        _delegate: functions._delegate ? 'exists' : 'null',
       })
     }
     
