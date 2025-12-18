@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Copy, AtSign, Share } from 'lucide-react'
+import { Share } from 'lucide-react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
@@ -110,7 +110,7 @@ export default function ShareProfileSheet() {
       await navigator.clipboard.writeText(paymentUrl)
       pushNotification({
         kind: 'payment_sent',
-        title: 'Copied!',
+        title: 'Copied link',
         body: 'Payment link copied to clipboard',
       })
     } catch (error) {
@@ -161,10 +161,6 @@ export default function ShareProfileSheet() {
   }
 
   // Determine wording based on mode
-  const copyCaption = mode === 'self'
-    ? 'Copy your personal payment URL.'
-    : `Copy ${subjectHandle}'s personal payment URL.`
-  
   const shareTitle = mode === 'self'
     ? 'Share my profile'
     : 'Share this profile'
@@ -190,31 +186,33 @@ export default function ShareProfileSheet() {
           )}
         </div>
 
-        {/* User Handle - now acts as primary title */}
-        <div className={styles.handleText}>{displayHandle}</div>
+        {/* User Handle - now acts as primary title and copy target */}
+        <div 
+          className={styles.handleText}
+          onClick={handleCopy}
+          style={{ cursor: 'pointer' }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleCopy()
+            }
+          }}
+          aria-label={`Copy payment link for ${displayHandle}`}
+        >
+          {displayHandle}
+        </div>
 
         {/* Divider */}
         <div className={styles.divider} />
 
         {/* Action Rows */}
-        {/* Copy payment link - first */}
+        {/* Share profile - first */}
         <ActionSheetItem
           icon={
             <div className={styles.avatarIcon}>
               <Avatar avatarUrl={avatarUrl} name={avatarName} email={avatarEmail} size={40} />
-            </div>
-          }
-          title="Copy payment link"
-          caption={copyCaption}
-          onClick={handleCopy}
-          trailing={<Copy size={18} strokeWidth={2} style={{ color: '#111' }} />}
-        />
-
-        {/* Share profile - second */}
-        <ActionSheetItem
-          icon={
-            <div className={styles.iconCircle}>
-              <AtSign size={20} strokeWidth={2.2} style={{ color: '#111' }} />
             </div>
           }
           title={shareTitle}
@@ -223,7 +221,7 @@ export default function ShareProfileSheet() {
           trailing={<Share size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
         />
 
-        {/* Share USDT address - third (only for self mode) */}
+        {/* Share USDT address - second (only for self mode) */}
         {mode === 'self' && (
           <>
             {isLoadingTronAddress ? (
@@ -257,10 +255,10 @@ export default function ShareProfileSheet() {
                     />
                   </div>
                 }
-                title="My USDT address"
-                caption={`Send your GoBankless USDT (TRON) address to anyone`}
-                onClick={handleCopyTronAddress}
-                trailing={<Copy size={18} strokeWidth={2} style={{ color: '#111' }} />}
+                title="Share my USDT address"
+                caption="Send your GoBankless USDT (TRON) address to anyone"
+                onClick={handleShareTronAddress}
+                trailing={<Share size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
               />
             ) : null}
           </>

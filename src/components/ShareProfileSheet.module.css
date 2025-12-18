@@ -41,7 +41,7 @@
   font-weight: 400;
 }
 
-/* User Handle Text - acts as primary title */
+/* User Handle Text - acts as primary title and copy target */
 .handleText {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-weight: 500;
@@ -51,6 +51,16 @@
   text-align: center;
   margin: 16px 0 16px;
   letter-spacing: -0.02em;
+  transition: opacity 0.2s ease;
+  user-select: none;
+}
+
+.handleText:hover {
+  opacity: 0.7;
+}
+
+.handleText:active {
+  opacity: 0.5;
 }
 
 /* Divider */
