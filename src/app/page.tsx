@@ -759,9 +759,16 @@ function HomeContent() {
           setTimeout(() => setOpenAmount(true), 220)
         } : undefined}
         onSelect={(method) => {
-          console.log('[WithdrawSheet] onSelect called with method:', method)
+          console.log('[WithdrawSheet] onSelect called with method:', method, 'amountUSDT:', withdrawCryptoAmountUSDT)
           if (method === 'crypto') {
             // Open crypto address modal
+            // If amountUSDT is 0, we need to get it from the last amount entered
+            // This can happen if user came from deposit keypad flow
+            if (withdrawCryptoAmountUSDT === 0) {
+              console.warn('[WithdrawSheet] withdrawCryptoAmountUSDT is 0, cannot proceed with crypto withdrawal')
+              // TODO: Could try to get amount from depositAmountUSDT or other state
+              // For now, we'll let the backend handle validation
+            }
             console.log('[WithdrawSheet] Opening crypto address sheet, amountUSDT:', withdrawCryptoAmountUSDT)
             setOpenWithdraw(false)
             setTimeout(() => {
@@ -951,6 +958,15 @@ function HomeContent() {
           setAmountEntryPoint(undefined)
           setTimeout(() => setOpenWithdraw(true), 220)
         } : amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
+          // Store amount even in deposit mode, in case user navigates to withdraw
+          // This handles the case where user enters amount in deposit keypad, then opens WithdrawSheet
+          if (amountUSDT) {
+            setWithdrawCryptoAmountUSDT(amountUSDT)
+            setDepositAmountUSDT(amountUSDT) // Also store for deposit flow
+          }
+          if (amountZAR) {
+            setDepositAmountZAR(amountZAR)
+          }
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
