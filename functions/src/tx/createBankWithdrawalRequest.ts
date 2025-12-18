@@ -58,18 +58,19 @@ export const tx_createBankWithdrawalRequest = functions
     // Note: User handle is not needed for bank withdrawal creation
     // It will be fetched when generating the PDF proof if needed
 
-    // Create bank withdrawal record
+    // Create bank withdrawal record with requestedAmountZAR
     const bankWithdrawalRef = db.collection('bankWithdrawals').doc(txId)
     const bankWithdrawal = {
       id: txId,
       userId,
-      amountZAR,
+      requestedAmountZAR: amountZAR, // Use requestedAmountZAR as source of truth
+      amountZAR: amountZAR, // Keep for backward compatibility
       country: country.trim(),
       bankName: (bankName || `${country} Bank`).trim(),
       accountHolderName: accountHolderName.trim(),
       accountNumber: accountNumber.trim(),
       swiftBic: swiftBic.trim(),
-      status: 'PENDING',
+      status: 'REQUESTED',
       createdAt: now,
       updatedAt: now,
     }
@@ -116,8 +117,36 @@ export const tx_createBankWithdrawalRequest = functions
       },
     }
 
-    // Write transaction, bank withdrawal record, and message atomically
+    // Reserve balance and write transaction, bank withdrawal record, and message atomically
+    const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
+    
     await db.runTransaction(async (t) => {
+      // Read current wallet balance
+      const walletSnap = await t.get(walletRef)
+      const walletData = walletSnap.exists ? walletSnap.data()! : {}
+      const currentFiatBalance = walletData?.fiatBalance || 0
+      const currentBankWithdrawLocked = walletData?.bankWithdrawLockedZar || 0
+      
+      // Verify sufficient balance
+      if (currentFiatBalance < amountZAR) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Insufficient balance. Available: R${currentFiatBalance.toFixed(2)}, Requested: R${amountZAR.toFixed(2)}`
+        )
+      }
+      
+      // Reserve balance: move from fiatBalance to bankWithdrawLockedZar
+      const newFiatBalance = currentFiatBalance - amountZAR
+      const newBankWithdrawLocked = currentBankWithdrawLocked + amountZAR
+      
+      // Update wallet with reserved balance
+      t.update(walletRef, {
+        fiatBalance: newFiatBalance,
+        bankWithdrawLockedZar: newBankWithdrawLocked,
+        updatedAt: now,
+      })
+      
+      // Write transaction, bank withdrawal record, and message
       t.set(txRef, transaction)
       t.set(bankWithdrawalRef, bankWithdrawal)
       t.set(sambaMsgRef, sambaMessage)

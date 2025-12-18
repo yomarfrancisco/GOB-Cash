@@ -128,6 +128,7 @@ function HomeContent() {
   const [openWithdrawTronUsdt, setOpenWithdrawTronUsdt] = useState(false)
   const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
   const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
+  const [withdrawAmountZAR, setWithdrawAmountZAR] = useState(0) // Store keypad amount for bank withdrawals
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
@@ -778,15 +779,15 @@ function HomeContent() {
               setOpenWithdrawCryptoAddress(true)
             }, 220)
           } else if (method === 'bank') {
-            // Open Banking Details sheet in withdrawal mode with amount
-            // Get amount from wallet balance (user's available balance)
-            const wallet = useWalletStore.getState().wallets?.cashZAR
-            const availableZAR = (wallet?.fiatBalance || 0) - (wallet?.lockedBalance || 0)
+            // Open Banking Details sheet in withdrawal mode with keypad amount
+            if (withdrawAmountZAR <= 0) {
+              console.error('[WithdrawSheet] No withdrawal amount available')
+              return
+            }
             setOpenWithdraw(false)
             setTimeout(() => {
-              // For page.tsx, we don't have chat state here, so just open the sheet
-              // Chat will be handled by BankingDetailsSheet directly if needed
-              openBankingDetails('withdraw', null, availableZAR > 0 ? availableZAR : null)
+              // Open with keypad amount (page.tsx doesn't have chat state, so no callback)
+              openBankingDetails('withdraw', null, withdrawAmountZAR)
             }, 220)
           } else {
             setOpenWithdraw(false)
@@ -990,7 +991,8 @@ function HomeContent() {
             : undefined
         }
         onSubmit={amountMode === 'withdraw' ? ({ amountZAR, amountUSDT }) => {
-          // Store USDT amount for crypto withdrawal
+          // Store amounts for withdrawals
+          setWithdrawAmountZAR(amountZAR)
           if (amountUSDT) {
             setWithdrawCryptoAmountUSDT(amountUSDT)
           }

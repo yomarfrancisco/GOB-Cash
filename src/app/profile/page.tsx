@@ -122,6 +122,7 @@ export default function ProfilePage() {
   const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
   const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
   const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
+  const [withdrawAmountZAR, setWithdrawAmountZAR] = useState(0) // Store keypad amount for bank withdrawals
 
   const openPaymentsSheet = useCallback(() => setOpenPayments(true), [])
   const closePaymentsSheet = useCallback(() => setOpenPayments(false), [])
@@ -653,14 +654,15 @@ export default function ProfilePage() {
               setOpenWithdrawCryptoAddress(true)
             }, 220)
           } else if (method === 'bank') {
-            // Open Banking Details sheet in withdrawal mode with amount
-            // Get amount from wallet balance (user's available balance)
-            const wallet = useWalletStore.getState().wallets?.cashZAR
-            const availableZAR = (wallet?.fiatBalance || 0) - (wallet?.lockedBalance || 0)
+            // Open Banking Details sheet in withdrawal mode with keypad amount
+            if (withdrawAmountZAR <= 0) {
+              console.error('[WithdrawSheet] No withdrawal amount available')
+              return
+            }
             setOpenWithdraw(false)
             setTimeout(() => {
-              // Open with callback to handle chat opening
-              openBankingDetails('withdraw', null, availableZAR > 0 ? availableZAR : null, (txId: string) => {
+              // Open with callback to handle chat opening, using keypad amount
+              openBankingDetails('withdraw', null, withdrawAmountZAR, (txId: string) => {
                 // Open chat immediately with typing bubble
                 setDepositChatTxId(null)
                 setDepositChatError(null)
@@ -876,6 +878,19 @@ export default function ProfilePage() {
           }, 220)
         } : undefined}
         onSubmit={amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
+          // Withdraw mode: store amount and open withdraw method sheet
+          if (amountMode === 'withdraw') {
+            setWithdrawAmountZAR(amountZAR)
+            if (amountUSDT) {
+              setWithdrawCryptoAmountUSDT(amountUSDT)
+            }
+            setOpenAmount(false)
+            setAmountEntryPoint(undefined)
+            setTimeout(() => {
+              openWithdrawSheet()
+            }, 220)
+            return
+          }
           // Card deposit flow: branch based on linked accounts
           if (amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card') {
             setOpenAmount(false)

@@ -40,7 +40,7 @@ export async function getBankWithdrawalData(bankWithdrawalId: string): Promise<B
   
   return {
     bankWithdrawalId,
-    amountZAR: withdrawalData.amountZAR || 0,
+    amountZAR: withdrawalData.requestedAmountZAR || withdrawalData.amountZAR || 0, // Use requestedAmountZAR as source of truth
     country: withdrawalData.country || '',
     bankName: withdrawalData.bankName || '',
     accountHolderName: withdrawalData.accountHolderName || '',
