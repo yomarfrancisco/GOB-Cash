@@ -176,12 +176,12 @@ export const tx_withdrawTronUSDT = functions
 
       // 2. Pre-checks: validate balances BEFORE any debit
       // Read wallet to get fiatBalance for conversion and logging
-      const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
-      const walletSnap = await walletRef.get()
-      const walletData = walletSnap.exists ? walletSnap.data()! : {}
+      const preCheckWalletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
+      const preCheckWalletSnap = await preCheckWalletRef.get()
+      const preCheckWalletData = preCheckWalletSnap.exists ? preCheckWalletSnap.data()! : {}
       
-      const fiatBalance = walletData?.fiatBalance || 0
-      const lockedBalance = walletData?.lockedBalance || 0
+      const fiatBalance = preCheckWalletData?.fiatBalance || 0
+      const lockedBalance = preCheckWalletData?.lockedBalance || 0
       
       // Convert fiatBalance (ZAR) to available USDT
       const userAvailableUSDT = await getUserUsdtBalance(userId)
@@ -200,7 +200,7 @@ export const tx_withdrawTronUSDT = functions
         requestedAmountUsdt: amountUSDT,
         withdrawalFeeUSDT: WITHDRAWAL_FEE_USDT,
         requiredUsdt: requiredUSDT,
-        requiredZarDebit,
+        requiredZarDebit: requiredZARDebit,
         walletPath: `users/${userId}/wallets/cashZAR`,
       })
       
@@ -214,7 +214,7 @@ export const tx_withdrawTronUSDT = functions
           computedAvailableUsdt: userAvailableUSDT,
           requestedAmountUsdt: amountUSDT,
           requiredUsdt: requiredUSDT,
-          requiredZarDebit,
+          requiredZarDebit: requiredZARDebit,
         })
         throw new functions.https.HttpsError(
           'failed-precondition',
