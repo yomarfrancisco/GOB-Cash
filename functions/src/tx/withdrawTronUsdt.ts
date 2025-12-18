@@ -16,6 +16,7 @@ import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { getTronWeb, getTreasuryUsdtBalance, getTreasuryTrxBalance, getTreasuryAddress, USDT_CONTRACT_ADDRESS, USDT_DECIMALS, validateTronAddress } from '../utils/tronUtils'
 import { sendEmailViaResend, getCoreAgentEmail, generateTreasuryShortfallEmail } from '../utils/resendEmail'
+import type { TxStatus } from './state'
 
 const db = admin.firestore()
 
@@ -91,6 +92,107 @@ async function getUserInfo(userId: string): Promise<{ handle: string | null; ema
     handle: userData?.handle || userData?.userHandle || null,
     email: userData?.email || null,
   }
+}
+
+/**
+ * Create transaction document and messages for withdrawal chat
+ * Uses same format as deposit transactions
+ */
+async function createWithdrawalTransactionAndMessages(
+  userId: string,
+  chainTxId: string, // TRON transaction hash
+  withdrawalId: string,
+  amountUSDT: number,
+  amountZAR_debited: number,
+  toAddress: string,
+  timestamp: admin.firestore.Timestamp
+): Promise<void> {
+  // Use chainTxId as transaction ID (same as deposit flow uses txId)
+  const txRef = db.collection('transactions').doc(chainTxId)
+  
+  // Check if transaction already exists (idempotency)
+  const existingTx = await txRef.get()
+  if (existingTx.exists) {
+    console.log(`[createWithdrawalTransactionAndMessages] Transaction ${chainTxId} already exists, skipping`)
+    return
+  }
+  
+  const participants = [userId, 'samba']
+  
+  // Create transaction document (same schema as deposits)
+  const transaction = {
+    id: chainTxId,
+    type: 'WITHDRAWAL_USDT_TRON' as const,
+    userId,
+    participants,
+    status: 'COMPLETED' as TxStatus, // Withdrawal is immediately completed after broadcast
+    createdAt: timestamp,
+    statusUpdatedAt: timestamp,
+    updatedAt: timestamp,
+    amountZar: amountZAR_debited,
+    amountUSDT: amountUSDT,
+    fxRateZARperUSDT: FX_RATE_ZAR_PER_USDT,
+    network: 'TRON',
+    toAddress: toAddress,
+    chainTxId: chainTxId, // TRON transaction hash
+    withdrawalId: withdrawalId, // Link to /withdrawals/{withdrawalId}
+    withdrawal: {}, // Empty object for consistency with deposit schema
+  }
+  
+  // Generate URLs
+  const tronScanUrl = `https://tronscan.org/#/transaction/${chainTxId}`
+  
+  // Format amount for display
+  const formattedAmountUSDT = amountUSDT.toFixed(6)
+  const addressPreview = `${toAddress.slice(0, 8)}...${toAddress.slice(-6)}`
+  
+  // Create messages (same format as deposit chat)
+  const systemMsgRef = txRef.collection('messages').doc()
+  const systemMessage = {
+    id: systemMsgRef.id,
+    txId: chainTxId,
+    createdAt: timestamp,
+    senderType: 'SYSTEM' as const,
+    text: `Withdrawal completed`,
+    metadata: {
+      status: 'COMPLETED',
+      withdrawalId,
+      chainTxId,
+    },
+  }
+  
+  const sambaMsg1Ref = txRef.collection('messages').doc()
+  const sambaMessage1 = {
+    id: sambaMsg1Ref.id,
+    txId: chainTxId,
+    createdAt: timestamp,
+    senderType: 'SAMBA' as const,
+    senderUid: 'samba',
+    text: `Withdrawal confirmed ✅`,
+  }
+  
+  const sambaMsg2Ref = txRef.collection('messages').doc()
+  const sambaMessage2 = {
+    id: sambaMsg2Ref.id,
+    txId: chainTxId,
+    createdAt: timestamp,
+    senderType: 'SAMBA' as const,
+    senderUid: 'samba',
+    text: `Your withdrawal of ${formattedAmountUSDT} USDT to ${addressPreview} was sent.\n\n• View on TronScan: ${tronScanUrl}\n• Proof of payment available (withdrawal ID: ${withdrawalId})`,
+    metadata: {
+      withdrawalId, // Store withdrawalId in metadata for PDF download
+    },
+  }
+  
+  // Write transaction and messages atomically
+  await db.runTransaction(async (t) => {
+    t.set(txRef, transaction)
+    t.set(systemMsgRef, systemMessage)
+    t.set(sambaMsg1Ref, sambaMessage1)
+    t.set(sambaMsg2Ref, sambaMessage2)
+  })
+  
+  console.log(`[createWithdrawalTransactionAndMessages] Created transaction ${chainTxId} and messages for withdrawal ${withdrawalId}`)
 }
 
 export const tx_withdrawTronUSDT = functions
@@ -509,6 +611,25 @@ export const tx_withdrawTronUSDT = functions
         })
         
         console.log(`[tx_withdrawTronUSDT] User debited and withdrawal record created. TxHash: ${txId}`)
+        
+        // Create transaction document and messages for chat (non-blocking, after debit succeeds)
+        // Only create if txId exists (should always be set at this point)
+        if (txId) {
+          try {
+            await createWithdrawalTransactionAndMessages(
+              userId,
+              txId,
+              withdrawalId,
+              amountUSDT,
+              requiredZARDebit,
+              toAddress.trim(),
+              now
+            )
+          } catch (chatError: any) {
+            // Log but don't fail withdrawal if chat creation fails
+            console.error('[tx_withdrawTronUSDT] Failed to create transaction/messages for chat (non-blocking):', chatError)
+          }
+        }
       } catch (debitError: any) {
         console.error('[tx_withdrawTronUSDT] CRITICAL: Broadcast succeeded but debit failed:', debitError)
         
