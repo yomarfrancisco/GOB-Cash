@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import clsx from 'clsx'
 
 type ActionSheetIconProps = {
@@ -16,6 +15,7 @@ type ActionSheetIconProps = {
 /**
  * Optimized icon component with fallback
  * Shows grey circle with single letter until image loads
+ * Uses plain <img> tag to avoid Next/Image optimizer overhead for small icons
  */
 export default function ActionSheetIcon({
   src,
@@ -77,9 +77,9 @@ export default function ActionSheetIcon({
         </span>
       )}
 
-      {/* Image */}
+      {/* Image - using plain <img> to avoid Next/Image optimizer overhead */}
       {!imageError && (
-        <Image
+        <img
           src={currentSrc}
           alt={alt}
           width={size}
@@ -88,10 +88,12 @@ export default function ActionSheetIcon({
             objectFit: 'contain',
             opacity: imageLoaded ? 1 : 0,
             transition: 'opacity 0.2s ease-in-out',
+            width: '100%',
+            height: '100%',
           }}
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
-          priority={false} // Preload handles priority
+          loading="lazy"
         />
       )}
     </div>

@@ -6,9 +6,7 @@
  */
 
 const ACTION_SHEET_ICONS = [
-  '/icons/usdt-icon.webp',
-  '/icons/usdt-icon.png', // Fallback
-  '/assets/Tether.png', // Current path until optimized version is added
+  '/assets/Tether.png', // USDT icon for ActionSheet
 ] as const
 
 // Idempotency: check both module scope and sessionStorage

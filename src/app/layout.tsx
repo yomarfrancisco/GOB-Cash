@@ -98,7 +98,6 @@ export default function RootLayout({
         {/* Disable iOS Safari phone number auto-detection to avoid blue/underlined flashes */}
         <meta name="format-detection" content="telephone=no" />
         {/* Preload ActionSheet icons for immediate display */}
-        <link rel="preload" href="/icons/usdt-icon.webp" as="image" type="image/webp" />
         <link rel="preload" href="/assets/Tether.png" as="image" type="image/png" />
         {/* Structured data (JSON-LD) */}
         <script

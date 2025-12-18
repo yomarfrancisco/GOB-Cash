@@ -225,10 +225,9 @@ export default function ShareProfileSheet() {
               <ActionSheetItem
                 icon={
                   <ActionSheetIcon
-                    src="/icons/usdt-icon.webp"
+                    src="/assets/Tether.png"
                     alt="USDT"
                     fallbackLetter="U"
-                    fallbackSrc="/assets/Tether.png"
                     size={40}
                   />
                 }
@@ -241,10 +240,9 @@ export default function ShareProfileSheet() {
               <ActionSheetItem
                 icon={
                   <ActionSheetIcon
-                    src="/icons/usdt-icon.webp"
+                    src="/assets/Tether.png"
                     alt="USDT"
                     fallbackLetter="U"
-                    fallbackSrc="/assets/Tether.png"
                     size={40}
                   />
                 }
