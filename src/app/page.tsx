@@ -778,10 +778,15 @@ function HomeContent() {
               setOpenWithdrawCryptoAddress(true)
             }, 220)
           } else if (method === 'bank') {
-            // Open Banking Details sheet (same as linked accounts)
+            // Open Banking Details sheet in withdrawal mode with amount
+            // Get amount from wallet balance (user's available balance)
+            const wallet = useWalletStore.getState().wallets?.cashZAR
+            const availableZAR = (wallet?.fiatBalance || 0) - (wallet?.lockedBalance || 0)
             setOpenWithdraw(false)
             setTimeout(() => {
-              openBankingDetails('create', null)
+              // For page.tsx, we don't have chat state here, so just open the sheet
+              // Chat will be handled by BankingDetailsSheet directly if needed
+              openBankingDetails('withdraw', null, availableZAR > 0 ? availableZAR : null)
             }, 220)
           } else {
             setOpenWithdraw(false)

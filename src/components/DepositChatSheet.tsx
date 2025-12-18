@@ -388,16 +388,48 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
               // The UI will show "Processing..." until server messages arrive
             }
 
+            // Find the raw message to check metadata for download button
+            const rawMessage = messages.find(m => m.id === message.id)
+            const messageMetadata = rawMessage?.metadata || {}
+            const hasDownloadButton = messageMetadata.hasDownloadButton === true && messageMetadata.bankWithdrawalId
+
+            const handleDownloadProof = async () => {
+              if (!messageMetadata.bankWithdrawalId || isProcessing) return
+              
+              setIsProcessing(true)
+              try {
+                const { downloadBankWithdrawalProof } = await import('@/lib/transactions/clientFunctions')
+                await downloadBankWithdrawalProof(messageMetadata.bankWithdrawalId)
+              } catch (error) {
+                console.error('[DepositChat] Error downloading proof:', error)
+                // TODO: Show error to user
+              } finally {
+                setIsProcessing(false)
+              }
+            }
+
+            // Determine buttons for this message
+            let messageButtons: Array<{ label: string; onClick: () => void; variant: 'primary' }> | undefined
+            if (isIntroMessage) {
+              messageButtons = [{
+                label: "I've deposited",
+                onClick: handleCTAClick,
+                variant: 'primary' as const
+              }]
+            } else if (hasDownloadButton) {
+              messageButtons = [{
+                label: 'Download proof',
+                onClick: handleDownloadProof,
+                variant: 'primary' as const
+              }]
+            }
+
             return (
               <ChatMessageBubble
                 key={message.id}
                 message={{
                   ...message,
-                  buttons: isIntroMessage ? [{
-                    label: "I've deposited",
-                    onClick: handleCTAClick,
-                    variant: 'primary' as const
-                  }] : undefined
+                  buttons: messageButtons
                 }}
                 avatarSrc="/assets/Brics-girl-blue.png"
                 avatarSize={31}

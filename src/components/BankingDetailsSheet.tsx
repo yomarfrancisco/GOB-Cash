@@ -10,7 +10,7 @@ import { COUNTRIES } from '@/constants/countries'
 import styles from './BankingDetailsSheet.module.css'
 
 export default function BankingDetailsSheet() {
-  const { isOpen, mode, editingBankId, close } = useBankingDetailsSheet()
+  const { isOpen, mode, editingBankId, withdrawalAmountZAR, onWithdrawalCreated, close } = useBankingDetailsSheet()
   const { open: openLinkedAccounts } = useLinkedAccountsSheet()
   const { profile, addOrUpdateLinkedBank, removeLinkedBank } = useUserProfileStore()
   const accountHolderRef = useRef<HTMLInputElement>(null)
@@ -36,8 +36,8 @@ export default function BankingDetailsSheet() {
         setAccountNumber(bank.accountNumber || '')
         setHasSavedBank(true)
       }
-    } else if (mode === 'create') {
-      // Reset form for create mode
+    } else if (mode === 'create' || mode === 'withdraw') {
+      // Reset form for create or withdraw mode
       setCountry('South Africa')
       setAccountHolderName('')
       setSwiftBic('')
@@ -75,13 +75,48 @@ export default function BankingDetailsSheet() {
     setTimeout(checkAndOpen, 100)
   }
 
-  const handleDone = () => {
+  const handleDone = async () => {
     if (!isValid) return
 
     // Derive bank name from country (simple approach - can be enhanced later)
     const bankName = `${country} Bank` // Placeholder - could be a separate field later
 
-    // Save bank to linkedBanks array
+    // If in withdrawal mode, create withdrawal request and open chat
+    if (mode === 'withdraw') {
+      if (!withdrawalAmountZAR || withdrawalAmountZAR <= 0) {
+        console.error('[BankingDetailsSheet] No withdrawal amount provided')
+        return
+      }
+
+      try {
+        // Import client function dynamically
+        const { tx_createBankWithdrawalRequest } = await import('@/lib/transactions/clientFunctions')
+        
+        // Close sheet immediately
+        close()
+        
+        // Create withdrawal request
+        const result = await tx_createBankWithdrawalRequest({
+          amountZAR: withdrawalAmountZAR,
+          country: country.trim(),
+          bankName: bankName.trim(),
+          accountHolderName: accountHolderName.trim(),
+          accountNumber: accountNumber.trim(),
+          swiftBic: swiftBic.trim(),
+        })
+        
+        // Callback to open chat (will be handled by parent via store)
+        if (onWithdrawalCreated) {
+          onWithdrawalCreated(result.txId)
+        }
+      } catch (error: any) {
+        console.error('[BankingDetailsSheet] Failed to create bank withdrawal:', error)
+        // TODO: Show error to user
+      }
+      return
+    }
+
+    // For create/edit mode: Save bank to linkedBanks array
     addOrUpdateLinkedBank({
       id: editingBankId || undefined,
       bankName,

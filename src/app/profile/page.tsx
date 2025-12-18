@@ -28,6 +28,7 @@ import { useActivityStore } from '@/store/activity'
 import { useProfileEditSheet } from '@/store/useProfileEditSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
+import { useWalletStore } from '@/store/wallets'
 import { useSupportSheet } from '@/store/useSupportSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
@@ -652,10 +653,23 @@ export default function ProfilePage() {
               setOpenWithdrawCryptoAddress(true)
             }, 220)
           } else if (method === 'bank') {
-            // Open Banking Details sheet (same as linked accounts)
+            // Open Banking Details sheet in withdrawal mode with amount
+            // Get amount from wallet balance (user's available balance)
+            const wallet = useWalletStore.getState().wallets?.cashZAR
+            const availableZAR = (wallet?.fiatBalance || 0) - (wallet?.lockedBalance || 0)
             setOpenWithdraw(false)
             setTimeout(() => {
-              openBankingDetails('create', null)
+              // Open with callback to handle chat opening
+              openBankingDetails('withdraw', null, availableZAR > 0 ? availableZAR : null, (txId: string) => {
+                // Open chat immediately with typing bubble
+                setDepositChatTxId(null)
+                setDepositChatError(null)
+                setOpenDepositChat(true)
+                // Update txId when transaction is ready (will trigger Firestore listeners)
+                setTimeout(() => {
+                  setDepositChatTxId(txId)
+                }, 100)
+              })
             }, 220)
           } else {
             // Other methods - existing behavior (shouldn't happen with current options)

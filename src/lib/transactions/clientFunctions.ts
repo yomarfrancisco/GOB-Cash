@@ -628,6 +628,83 @@ export async function tx_withdrawTronUSDT(
 }
 
 /**
+ * Create bank withdrawal request
+ */
+export async function tx_createBankWithdrawalRequest(params: {
+  amountZAR: number
+  country: string
+  bankName: string
+  accountHolderName: string
+  accountNumber: string
+  swiftBic: string
+}): Promise<{ txId: string; bankWithdrawalId: string }> {
+  const app = getFirebaseApp()
+  if (!app || !app.options.projectId) {
+    throw new Error('[Bank Withdrawal] Firebase app not initialized')
+  }
+  const functions = getFunctionsInstance()
+  if (!functions) {
+    throw new Error('[Bank Withdrawal] Firebase Functions instance not initialized')
+  }
+
+  const fn = httpsCallable(functions, 'tx_createBankWithdrawalRequest')
+  
+  try {
+    const result = await fn(params)
+    const data = result.data as { txId: string; bankWithdrawalId: string }
+    
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Bank Withdrawal] Withdrawal request created:', data)
+    }
+    
+    return data
+  } catch (error: any) {
+    console.error('[Bank Withdrawal] Failed to create withdrawal request:', error)
+    throw error
+  }
+}
+
+/**
+ * Download bank withdrawal proof PDF
+ */
+export async function downloadBankWithdrawalProof(bankWithdrawalId: string): Promise<void> {
+  const app = getFirebaseApp()
+  const functions = getFunctionsInstance()
+  
+  if (!app || !functions) {
+    throw new Error('Firebase not initialized')
+  }
+  
+  try {
+    const fn = httpsCallable(functions, 'getBankWithdrawalProof')
+    const result = await fn({ bankWithdrawalId })
+    const data = result.data as { pdfBase64: string; filename: string; mimeType: string }
+    
+    // Convert base64 to blob
+    const byteCharacters = atob(data.pdfBase64)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: data.mimeType })
+    
+    // Create download link
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = data.filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (error: any) {
+    console.error('[downloadBankWithdrawalProof] Error:', error)
+    throw error
+  }
+}
+
+/**
  * Download withdrawal proof PDF
  */
 export async function downloadWithdrawalProof(withdrawalId: string): Promise<void> {
