@@ -55,11 +55,8 @@ export const tx_createBankWithdrawalRequest = functions
     const txRef = db.collection('transactions').doc()
     const txId = txRef.id
 
-    // Get user info for handle
-    const userRef = db.collection('users').doc(userId)
-    const userSnap = await userRef.get()
-    const userData = userSnap.exists ? userSnap.data()! : {}
-    const userHandle = userData?.userHandle || userData?.handle || null
+    // Note: User handle is not needed for bank withdrawal creation
+    // It will be fetched when generating the PDF proof if needed
 
     // Create bank withdrawal record
     const bankWithdrawalRef = db.collection('bankWithdrawals').doc(txId)
