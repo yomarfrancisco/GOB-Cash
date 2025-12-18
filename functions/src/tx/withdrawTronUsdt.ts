@@ -14,7 +14,7 @@
 
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-import { getTronWeb, getTreasuryUsdtBalance, getTreasuryTrxBalance, USDT_CONTRACT_ADDRESS, USDT_DECIMALS, validateTronAddress } from '../utils/tronUtils'
+import { getTronWeb, getTreasuryUsdtBalance, getTreasuryTrxBalance, getTreasuryAddress, USDT_CONTRACT_ADDRESS, USDT_DECIMALS, validateTronAddress } from '../utils/tronUtils'
 import { sendEmailViaResend, getCoreAgentEmail, generateTreasuryShortfallEmail } from '../utils/resendEmail'
 
 const db = admin.firestore()
@@ -160,8 +160,34 @@ export const tx_withdrawTronUSDT = functions
       // 2. Pre-checks: validate balances BEFORE any debit
       const userAvailableUSDT = await getUserUsdtBalance(userId)
       
+      // DIAGNOSTIC: Log balance details before checks
+      const diagnosticWalletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
+      const diagnosticWalletSnap = await diagnosticWalletRef.get()
+      const diagnosticWalletData = diagnosticWalletSnap.exists ? diagnosticWalletSnap.data()! : {}
+      
+      console.log('[tx_withdrawTronUSDT] Balance diagnostics:', {
+        userId,
+        requestedAmountUSDT: amountUSDT,
+        userAvailableUSDT, // from getUserUsdtBalance (reads usdtBalance field)
+        walletFiatBalance: diagnosticWalletData?.fiatBalance || 0,
+        walletLockedBalance: diagnosticWalletData?.lockedBalance || 0,
+        walletUsdtBalance: diagnosticWalletData?.usdtBalance || 0,
+        withdrawalFeeUSDT: WITHDRAWAL_FEE_USDT,
+        requiredUSDT: amountUSDT + WITHDRAWAL_FEE_USDT,
+        walletPath: `users/${userId}/wallets/cashZAR`,
+      })
+      
       // Check user balance
       if (userAvailableUSDT < amountUSDT + WITHDRAWAL_FEE_USDT) {
+        console.error('[tx_withdrawTronUSDT] Insufficient user balance:', {
+          userId,
+          userAvailableUSDT,
+          requestedAmountUSDT: amountUSDT,
+          requiredUSDT: amountUSDT + WITHDRAWAL_FEE_USDT,
+          walletFiatBalance: diagnosticWalletData?.fiatBalance || 0,
+          walletLockedBalance: diagnosticWalletData?.lockedBalance || 0,
+          walletUsdtBalance: diagnosticWalletData?.usdtBalance || 0,
+        })
         throw new functions.https.HttpsError(
           'failed-precondition',
           'Insufficient user balance',
@@ -171,6 +197,15 @@ export const tx_withdrawTronUSDT = functions
 
       // Check treasury USDT balance (hard fail: must cover FULL amount)
       const treasuryUsdt = await getTreasuryUsdtBalance()
+      
+      // DIAGNOSTIC: Log treasury details
+      const treasuryAddress = getTreasuryAddress()
+      console.log('[tx_withdrawTronUSDT] Treasury diagnostics:', {
+        treasuryAddress,
+        treasuryUsdt,
+        requiredTreasuryUSDT: amountUSDT + WITHDRAWAL_FEE_USDT,
+        contractAddress: USDT_CONTRACT_ADDRESS,
+      })
       const requiredTreasuryUSDT = amountUSDT + WITHDRAWAL_FEE_USDT
       
       if (treasuryUsdt < requiredTreasuryUSDT) {
