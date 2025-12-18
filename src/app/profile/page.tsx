@@ -7,6 +7,7 @@ import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
+import WithdrawCryptoAddressSheet from '@/components/WithdrawCryptoAddressSheet'
 // CashInOutSheet removed - Cash-in/out button now opens AmountSheet directly
 import CountrySelectSheet from '@/components/CountrySelectSheet'
 import BankSelectSheet, { type SelectedBank } from '@/components/BankSelectSheet'
@@ -39,6 +40,7 @@ import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { useNotificationsStore } from '@/state/notifications'
+import { useNotificationStore } from '@/store/notifications'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
@@ -115,6 +117,8 @@ export default function ProfilePage() {
   const [selectedCryptoDepositWallet, setSelectedCryptoDepositWallet] = useState<DepositCryptoWallet | null>(null)
   const [showCryptoAddressSheet, setShowCryptoAddressSheet] = useState(false)
   const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
+  const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
+  const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
 
   const openPaymentsSheet = useCallback(() => setOpenPayments(true), [])
   const closePaymentsSheet = useCallback(() => setOpenPayments(false), [])
@@ -639,10 +643,72 @@ export default function ProfilePage() {
           // Withdraw flow: close sheet (no keypad to return to from Cash-in/out entry point)
         }}
         onSelect={(method) => {
-          setOpenWithdraw(false)
-          setAmountMode('withdraw')
-          setTimeout(() => setOpenAmount(true), 220)
+          if (method === 'crypto') {
+            // Open crypto address modal
+            setOpenWithdraw(false)
+            setTimeout(() => {
+              setOpenWithdrawCryptoAddress(true)
+            }, 220)
+          } else {
+            // Other methods (bank, etc.) - existing behavior
+            setOpenWithdraw(false)
+            setAmountMode('withdraw')
+            setTimeout(() => setOpenAmount(true), 220)
+          }
         }}
+      />
+      <WithdrawCryptoAddressSheet
+        open={openWithdrawCryptoAddress}
+        onClose={() => setOpenWithdrawCryptoAddress(false)}
+        onBack={() => {
+          setOpenWithdrawCryptoAddress(false)
+          setTimeout(() => setOpenWithdraw(true), 220)
+        }}
+        onSubmit={async (address, network) => {
+          const { pushNotification } = useNotificationStore.getState()
+          const { tx_withdrawTronUSDT } = await import('@/lib/transactions/clientFunctions')
+          
+          try {
+            const result = await tx_withdrawTronUSDT({
+              toAddress: address,
+              amountUSDT: withdrawCryptoAmountUSDT,
+              // requestId is optional, will be generated in clientFunctions if not provided
+            })
+            
+            // Success notification
+            pushNotification({
+              kind: 'transfer',
+              title: 'USDT Withdrawal Sent',
+              body: `${result.sentAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
+              amount: {
+                currency: 'USDT',
+                value: result.sentAmountUSDT,
+              },
+              direction: 'down',
+              actor: { type: 'system', name: 'GoBankless' },
+            })
+            
+            setOpenWithdrawCryptoAddress(false)
+            // Balance updates automatically via Firestore subscription
+          } catch (error: any) {
+            // Error handling - re-throw to let component show error
+            if (error.code === 'functions/failed-precondition') {
+              if (error.message?.includes('Insufficient treasury') || error.message?.includes('treasury')) {
+                throw new Error(`Withdrawal failed: Treasury has insufficient balance. Requested ${withdrawCryptoAmountUSDT.toFixed(6)} USDT.`)
+              } else if (error.message?.includes('Insufficient user balance') || error.message?.includes('user balance')) {
+                throw new Error('Insufficient USDT balance. Please check your balance and try again.')
+              } else if (error.message?.includes('in progress')) {
+                throw new Error('Withdrawal already in progress. Please wait and try again.')
+              }
+            } else if (error.code === 'functions/internal') {
+              if (error.message?.includes('broadcast')) {
+                throw new Error('Transaction failed to broadcast. Please try again or contact support.')
+              }
+            }
+            throw error
+          }
+        }}
+        amountUSDT={withdrawCryptoAmountUSDT}
       />
       <AmountSheet
         open={openAmount}
@@ -693,8 +759,11 @@ export default function ProfilePage() {
           setTimeout(() => {
             openPaymentDetails('request', amountZAR)
           }, 220)
-        } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountZAR }) => {
-          // Deposit keypad: "Withdraw" button - open withdraw sheet
+        } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountZAR, amountUSDT }) => {
+          // Deposit keypad: "Withdraw" button - store amount and open withdraw sheet
+          if (amountUSDT) {
+            setWithdrawCryptoAmountUSDT(amountUSDT)
+          }
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           setTimeout(() => {
