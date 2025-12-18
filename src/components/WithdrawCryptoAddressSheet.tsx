@@ -176,7 +176,7 @@ export default function WithdrawCryptoAddressSheet({
               type="button"
             >
               {isValid && !isSubmitting && <Check size={18} strokeWidth={2.5} />}
-              {isSubmitting ? 'Processing...' : 'Done'}
+              Done
             </button>
           </div>
         </div>

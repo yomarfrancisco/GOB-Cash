@@ -668,6 +668,22 @@ export default function ProfilePage() {
           const { pushNotification } = useNotificationStore.getState()
           const { tx_withdrawTronUSDT } = await import('@/lib/transactions/clientFunctions')
           
+          // Open chat immediately with null txId (shows local typing bubble, no Firestore listeners yet)
+          setOpenWithdrawCryptoAddress(false)
+          setDepositChatTxId(null) // Start with null - will be updated when we have valid txId
+          setDepositChatError(null) // Clear any previous errors
+          setOpenDepositChat(true)
+          
+          // Track if we got a result (for timeout check)
+          let hasResult = false
+          
+          // Set timeout fallback (15 seconds)
+          const timeoutId = setTimeout(() => {
+            if (!hasResult) {
+              setDepositChatError('Still processing—please wait or try again.')
+            }
+          }, 15000)
+          
           try {
             const result = await tx_withdrawTronUSDT({
               toAddress: address,
@@ -675,30 +691,44 @@ export default function ProfilePage() {
               // requestId is optional, will be generated in clientFunctions if not provided
             })
             
-            // Success notification
-            pushNotification({
-              kind: 'transfer',
-              title: 'USDT Withdrawal Sent',
-              body: `${result.sentAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
-              amount: {
-                currency: 'USDT',
-                value: result.sentAmountUSDT,
-              },
-              direction: 'down',
-              actor: { type: 'system', name: 'GoBankless' },
-            })
+            hasResult = true
+            clearTimeout(timeoutId)
             
-            setOpenWithdrawCryptoAddress(false)
-            
-            // Open chat sheet with transaction ID (same as deposit flow)
-            // The transaction document was created server-side with txId as the document ID
+            // Only start Firestore listeners if we have a valid txId and successful status
             if (result.txId && result.status === 'BROADCAST_FULL') {
+              // Update txId - this will trigger Firestore listeners in DepositChatSheet
               setDepositChatTxId(result.txId)
-              setOpenDepositChat(true)
+              
+              // Success notification
+              pushNotification({
+                kind: 'transfer',
+                title: 'USDT Withdrawal Sent',
+                body: `${result.sentAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
+                amount: {
+                  currency: 'USDT',
+                  value: result.sentAmountUSDT,
+                },
+                direction: 'down',
+                actor: { type: 'system', name: 'GoBankless' },
+              })
+            } else {
+              // Failed status - show error in chat (no Firestore listeners)
+              let errorMessage = 'Withdrawal failed. Please try again or contact support.'
+              if (result.status === 'FAILED_INSUFFICIENT_TREASURY' || result.status === 'FAILED_ZERO_TREASURY') {
+                errorMessage = 'Withdrawal failed: Treasury has insufficient balance. Please try again later or contact support.'
+              } else if (result.status === 'FAILED_TREASURY_NO_TRX') {
+                errorMessage = 'Withdrawal failed: Treasury lacks TRX to execute the transaction. Please contact support.'
+              } else if (result.status === 'FAILED_BROADCAST') {
+                errorMessage = 'Withdrawal failed: Transaction could not be broadcast. Please try again or contact support.'
+              }
+              setDepositChatError(errorMessage)
             }
             
             // Balance updates automatically via Firestore subscription
           } catch (error: any) {
+            hasResult = true
+            clearTimeout(timeoutId)
+            
             // Log full error for debugging
             console.error('[WithdrawCryptoAddressSheet] Error details:', {
               code: error?.code,
@@ -707,41 +737,42 @@ export default function ProfilePage() {
               stack: error?.stack,
             })
 
-            // Map Firebase error codes to user-friendly messages
-            // Show "Not allowed" for failed-precondition, "Server error" for internal
+            // Map Firebase error codes to user-friendly messages for chat display
+            let errorMessage = 'Withdrawal failed. Please try again or contact support.'
+            
             if (error?.code === 'functions/failed-precondition') {
               if (error.message?.includes('Insufficient treasury') || error.message?.includes('treasury') || error.message?.includes('Treasury')) {
-                throw new Error(`Not allowed: Treasury has insufficient balance. Requested ${withdrawCryptoAmountUSDT.toFixed(6)} USDT.`)
+                errorMessage = `Treasury has insufficient balance. Requested ${withdrawCryptoAmountUSDT.toFixed(6)} USDT. Please try again later or contact support.`
               } else if (error.message?.includes('Insufficient user balance') || error.message?.includes('user balance') || error.message?.includes('Insufficient balance')) {
-                throw new Error('Not allowed: Insufficient USDT balance. Please check your balance and try again.')
+                errorMessage = 'Insufficient USDT balance. Please check your balance and try again.'
               } else if (error.message?.includes('in progress') || error.message?.includes('already in progress')) {
-                throw new Error('Not allowed: Withdrawal already in progress. Please wait and try again.')
+                errorMessage = 'Withdrawal already in progress. Please wait and try again.'
               } else if (error.message?.includes('Invalid TRON address') || error.message?.includes('Invalid address')) {
-                throw new Error('Not allowed: Invalid TRON address format.')
+                errorMessage = 'Invalid TRON address format. Please check the address and try again.'
               } else {
-                // Generic failed-precondition
-                throw new Error(`Not allowed: ${error.message || 'Withdrawal cannot be processed at this time.'}`)
+                errorMessage = error.message || 'Withdrawal cannot be processed at this time. Please try again.'
               }
             } else if (error?.code === 'functions/invalid-argument') {
-              throw new Error(`Not allowed: ${error.message || 'Invalid request parameters.'}`)
+              errorMessage = error.message || 'Invalid request parameters. Please try again.'
             } else if (error?.code === 'functions/internal') {
               if (error.message?.includes('broadcast') || error.message?.includes('Broadcast')) {
-                throw new Error('Server error: Transaction failed to broadcast. Please try again or contact support.')
+                errorMessage = 'Transaction failed to broadcast. Please try again or contact support.'
               } else {
-                throw new Error(`Server error: ${error.message || 'Withdrawal could not be processed. Please try again.'}`)
+                errorMessage = error.message || 'Withdrawal could not be processed. Please try again.'
               }
             } else if (error?.code === 'functions/unauthenticated') {
-              throw new Error('Not allowed: You must be logged in to withdraw.')
+              errorMessage = 'You must be logged in to withdraw. Please log in and try again.'
             } else if (error?.code === 'functions/permission-denied') {
-              throw new Error('Not allowed: You do not have permission to perform this action.')
+              errorMessage = 'You do not have permission to perform this action. Please contact support.'
             } else if (error?.message?.includes('CORS') || error?.message?.includes('cors')) {
-              // CORS error should not happen with httpsCallable, but handle it if it does
               console.error('[WithdrawCryptoAddressSheet] CORS error detected - this should not happen with httpsCallable')
-              throw new Error('Network error: Please check your connection and try again.')
-            } else {
-              // Unknown error - show generic message but log full details
-              throw new Error(`Error: ${error?.message || 'Failed to process withdrawal. Please try again.'}`)
+              errorMessage = 'Network error: Please check your connection and try again.'
+            } else if (error?.message) {
+              errorMessage = error.message
             }
+            
+            // Show error in chat (no Firestore listeners, chat is already open)
+            setDepositChatError(errorMessage)
           }
         }}
         amountUSDT={withdrawCryptoAmountUSDT}

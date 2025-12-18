@@ -442,7 +442,7 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
               </div>
               <div className={chatStyles.bubbleContainer}>
                 <div className={chatStyles.messageBubble}>
-                  Something went wrong. Try again.
+                  {txCreationError || 'Something went wrong. Try again.'}
                 </div>
               </div>
             </div>
