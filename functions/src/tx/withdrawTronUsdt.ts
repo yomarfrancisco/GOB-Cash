@@ -23,13 +23,12 @@ const db = admin.firestore()
  * Withdrawal status types (hard fail + rollback model)
  */
 type WithdrawalStatus = 
-  | 'DEBITED'                          // User debited, awaiting broadcast
-  | 'BROADCAST_FULL'                   // Broadcast succeeded, txId stored
+  | 'BROADCAST_FULL'                   // Broadcast succeeded, user debited, txId stored
   | 'FAILED_INSUFFICIENT_TREASURY'     // Hard fail: treasury USDT insufficient (no debit)
   | 'FAILED_ZERO_TREASURY'             // Hard fail: treasury USDT = 0 (no debit)
   | 'FAILED_TREASURY_NO_TRX'           // Hard fail: treasury TRX insufficient (no debit)
-  | 'FAILED_BROADCAST_REFUNDED'        // Broadcast failed, user refunded
-  | 'FAILED_BROADCAST_NEEDS_MANUAL'    // Refund failed - rare but explicit
+  | 'FAILED_BROADCAST'                  // Broadcast failed (no debit)
+  | 'FAILED_BROADCAST_NEEDS_MANUAL'    // Broadcast succeeded but debit failed - manual reconciliation required
 
 /**
  * Fixed withdrawal fee (USDT)
@@ -145,11 +144,14 @@ export const tx_withdrawTronUSDT = functions
           }
         }
         
-        // If in progress (DEBITED), reject to prevent double-send
-        if (existingStatus === 'DEBITED') {
+        // If in progress (shouldn't happen with new flow, but check anyway)
+        // Status should be either BROADCAST_FULL or one of the FAILED_* statuses
+        // If it's neither, it's an unexpected state
+        const validStatuses: WithdrawalStatus[] = ['BROADCAST_FULL', 'FAILED_INSUFFICIENT_TREASURY', 'FAILED_ZERO_TREASURY', 'FAILED_TREASURY_NO_TRX', 'FAILED_BROADCAST', 'FAILED_BROADCAST_NEEDS_MANUAL']
+        if (!validStatuses.includes(existingStatus)) {
           throw new functions.https.HttpsError(
             'failed-precondition',
-            'Withdrawal in progress. Please wait and try again.',
+            'Withdrawal in unexpected state. Please try again.',
             { withdrawalId, status: existingStatus }
           )
         }
@@ -287,61 +289,11 @@ export const tx_withdrawTronUSDT = functions
         }
       }
 
-      // 3. All pre-checks passed: proceed with two-phase withdrawal
+      // 3. All pre-checks passed: proceed with atomic withdrawal (broadcast first, then debit)
       const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
       let txId: string | null = null
 
-      // Phase 1: Atomic Firestore transaction - debit user and create withdrawal record
-      await db.runTransaction(async (t) => {
-        // Re-check withdrawal doesn't exist (double-check idempotency)
-        const existingCheck = await t.get(withdrawalRef)
-        if (existingCheck.exists) {
-          const existingStatus = existingCheck.data()!.status as WithdrawalStatus
-          if (existingStatus === 'DEBITED' || existingStatus === 'BROADCAST_FULL') {
-            throw new functions.https.HttpsError(
-              'failed-precondition',
-              'Withdrawal already in progress or completed'
-            )
-          }
-        }
-
-        // Read current wallet balance
-        const walletSnap = await t.get(walletRef)
-        const currentBalance = walletSnap.data()?.usdtBalance || 0
-
-        // Verify balance hasn't changed (double-spend protection)
-        if (currentBalance < amountUSDT + WITHDRAWAL_FEE_USDT) {
-          throw new functions.https.HttpsError(
-            'failed-precondition',
-            'Insufficient balance (changed during transaction)'
-          )
-        }
-
-        // Debit user balance
-        const newBalance = currentBalance - (amountUSDT + WITHDRAWAL_FEE_USDT)
-        t.update(walletRef, {
-          usdtBalance: newBalance,
-          updatedAt: now,
-        })
-
-        // Create withdrawal record with status DEBITED
-        const withdrawalDoc = {
-          id: withdrawalId,
-          userId,
-          toAddress: toAddress.trim(),
-          requestedAmountUSDT: amountUSDT,
-          sentAmountUSDT: 0, // Will be updated after broadcast
-          feeUSDT: WITHDRAWAL_FEE_USDT,
-          status: 'DEBITED' as WithdrawalStatus,
-          txId: null, // Will be updated after broadcast
-          treasuryBalanceAtAttemptUSDT: treasuryUsdt,
-          createdAt: now,
-          updatedAt: now,
-        }
-        t.set(withdrawalRef, withdrawalDoc)
-      })
-
-      // Phase 2: Broadcast on-chain transfer from treasury
+      // Phase 1: Broadcast on-chain transfer from treasury FIRST (before debiting user)
       try {
         const tronWeb = getTronWeb()
         const contract = await tronWeb.contract().at(USDT_CONTRACT_ADDRESS)
@@ -364,113 +316,170 @@ export const tx_withdrawTronUSDT = functions
           throw new Error('Could not extract transaction hash from result')
         }
 
-        // Update withdrawal record: broadcast succeeded
-        await withdrawalRef.update({
-          status: 'BROADCAST_FULL',
-          sentAmountUSDT: amountUSDT,
-          txId,
-          updatedAt: admin.firestore.Timestamp.now(),
-        })
-
-        console.log(`[tx_withdrawTronUSDT] USDT sent successfully. TxHash: ${txId}`)
+        console.log(`[tx_withdrawTronUSDT] Broadcast succeeded. TxHash: ${txId}`)
       } catch (broadcastError: any) {
         console.error('[tx_withdrawTronUSDT] Error broadcasting transaction:', broadcastError)
         
-        // Phase 3: Rollback - refund user balance
+        // Broadcast failed: create withdrawal record with FAILED_BROADCAST status (NO DEBIT)
+        const withdrawalDoc = {
+          id: withdrawalId,
+          userId,
+          toAddress: toAddress.trim(),
+          requestedAmountUSDT: amountUSDT,
+          sentAmountUSDT: 0,
+          feeUSDT: WITHDRAWAL_FEE_USDT,
+          status: 'FAILED_BROADCAST' as WithdrawalStatus,
+          txId: null,
+          treasuryBalanceAtAttemptUSDT: treasuryUsdt,
+          createdAt: now,
+          updatedAt: now,
+        }
+        
+        await withdrawalRef.set(withdrawalDoc)
+        
+        // Send email to CoreAgent about broadcast failure
+        const userInfo = await getUserInfo(userId)
         try {
-          await db.runTransaction(async (t) => {
-            const walletSnap = await t.get(walletRef)
-            const currentBalance = walletSnap.data()?.usdtBalance || 0
-            
-            // Refund user balance
-            const refundedBalance = currentBalance + (amountUSDT + WITHDRAWAL_FEE_USDT)
-            t.update(walletRef, {
-              usdtBalance: refundedBalance,
-              updatedAt: admin.firestore.Timestamp.now(),
-            })
-            
-            // Update withdrawal status: refunded
-            t.update(withdrawalRef, {
-              status: 'FAILED_BROADCAST_REFUNDED',
-              updatedAt: admin.firestore.Timestamp.now(),
-            })
-          })
-          
-          console.log(`[tx_withdrawTronUSDT] User refunded successfully after broadcast failure`)
-          
-          // Send email to CoreAgent about broadcast failure
-          const userInfo = await getUserInfo(userId)
-          try {
-            await sendEmailViaResend(
-              getCoreAgentEmail(),
-              `Withdrawal Broadcast Failure - User Refunded`,
-              `
-                <h2>Withdrawal Broadcast Failure</h2>
-                <p>Transaction broadcast failed, but user has been refunded.</p>
-                <p><strong>Withdrawal ID:</strong> ${withdrawalId}</p>
-                <p><strong>User ID:</strong> ${userId}</p>
-                <p><strong>User Handle:</strong> ${userInfo.handle || 'N/A'}</p>
-                <p><strong>Amount:</strong> ${amountUSDT.toFixed(6)} USDT</p>
-                <p><strong>Error:</strong> ${broadcastError.message}</p>
-                <p>User balance has been refunded. Please investigate the broadcast failure.</p>
-              `
-            )
-          } catch (emailError: any) {
-            console.error('[tx_withdrawTronUSDT] Failed to send email:', emailError)
-          }
-          
-          // Return failure with refunded status
-          throw new functions.https.HttpsError(
-            'internal',
-            'Failed to broadcast transaction. User has been refunded.',
-            {
+          await sendEmailViaResend(
+            getCoreAgentEmail(),
+            `Withdrawal Broadcast Failure - No Debit`,
+            generateTreasuryShortfallEmail(
               withdrawalId,
-              error: broadcastError.message,
-              status: 'FAILED_BROADCAST_REFUNDED',
-            }
+              userId,
+              userInfo.handle,
+              userInfo.email,
+              toAddress.trim(),
+              amountUSDT,
+              0, // sentAmountUSDT
+              treasuryUsdt,
+              amountUSDT, // shortfallUSDT
+              null, // txId
+              now
+            )
           )
-        } catch (refundError: any) {
-          console.error('[tx_withdrawTronUSDT] CRITICAL: Failed to refund user after broadcast failure:', refundError)
-          
-          // Mark as needs manual intervention
-          await withdrawalRef.update({
-            status: 'FAILED_BROADCAST_NEEDS_MANUAL',
+        } catch (emailError: any) {
+          console.error('[tx_withdrawTronUSDT] Failed to send email:', emailError)
+        }
+        
+        // Return failure (no debit)
+        throw new functions.https.HttpsError(
+          'internal',
+          'Failed to broadcast transaction. User was not debited.',
+          {
+            withdrawalId,
+            error: broadcastError.message,
+            status: 'FAILED_BROADCAST',
+          }
+        )
+      }
+
+      // Phase 2: Broadcast succeeded - now debit user and create withdrawal record atomically
+      try {
+        await db.runTransaction(async (t) => {
+          // Re-check withdrawal doesn't exist (double-check idempotency)
+          const existingCheck = await t.get(withdrawalRef)
+          if (existingCheck.exists) {
+            const existingStatus = existingCheck.data()!.status as WithdrawalStatus
+            if (existingStatus === 'BROADCAST_FULL') {
+              // Already completed - return success
+              return
+            }
+            if (!existingStatus.startsWith('FAILED_')) {
+              throw new functions.https.HttpsError(
+                'failed-precondition',
+                'Withdrawal already in progress'
+              )
+            }
+          }
+
+          // Read current wallet balance
+          const walletSnap = await t.get(walletRef)
+          const currentBalance = walletSnap.data()?.usdtBalance || 0
+
+          // Verify balance hasn't changed (double-spend protection)
+          if (currentBalance < amountUSDT + WITHDRAWAL_FEE_USDT) {
+            throw new functions.https.HttpsError(
+              'failed-precondition',
+              'Insufficient balance (changed during transaction)'
+            )
+          }
+
+          // Debit user balance
+          const newBalance = currentBalance - (amountUSDT + WITHDRAWAL_FEE_USDT)
+          t.update(walletRef, {
+            usdtBalance: newBalance,
             updatedAt: admin.firestore.Timestamp.now(),
           })
-          
-          // Send urgent email to CoreAgent
-          const userInfo = await getUserInfo(userId)
-          try {
-            await sendEmailViaResend(
-              getCoreAgentEmail(),
-              `URGENT: Withdrawal Refund Failed - Manual Intervention Required`,
-              `
-                <h2>URGENT: Manual Intervention Required</h2>
-                <p>Transaction broadcast failed AND automatic refund failed. User balance needs manual refund.</p>
-                <p><strong>Withdrawal ID:</strong> ${withdrawalId}</p>
-                <p><strong>User ID:</strong> ${userId}</p>
-                <p><strong>User Handle:</strong> ${userInfo.handle || 'N/A'}</p>
-                <p><strong>Amount to Refund:</strong> ${amountUSDT.toFixed(6)} USDT + ${WITHDRAWAL_FEE_USDT.toFixed(6)} USDT fee</p>
-                <p><strong>Broadcast Error:</strong> ${broadcastError.message}</p>
-                <p><strong>Refund Error:</strong> ${refundError.message}</p>
-                <p><strong>ACTION REQUIRED:</strong> Manually refund user balance in Firestore.</p>
-              `
-            )
-          } catch (emailError: any) {
-            console.error('[tx_withdrawTronUSDT] Failed to send email:', emailError)
+
+          // Create withdrawal record with status BROADCAST_FULL (broadcast already succeeded)
+          const withdrawalDoc = {
+            id: withdrawalId,
+            userId,
+            toAddress: toAddress.trim(),
+            requestedAmountUSDT: amountUSDT,
+            sentAmountUSDT: amountUSDT,
+            feeUSDT: WITHDRAWAL_FEE_USDT,
+            status: 'BROADCAST_FULL' as WithdrawalStatus,
+            txId,
+            treasuryBalanceAtAttemptUSDT: treasuryUsdt,
+            createdAt: now,
+            updatedAt: admin.firestore.Timestamp.now(),
           }
-          
-          throw new functions.https.HttpsError(
-            'internal',
-            'Failed to broadcast transaction and refund failed. Manual intervention required.',
-            {
-              withdrawalId,
-              broadcastError: broadcastError.message,
-              refundError: refundError.message,
-              status: 'FAILED_BROADCAST_NEEDS_MANUAL',
-            }
+          t.set(withdrawalRef, withdrawalDoc)
+        })
+        
+        console.log(`[tx_withdrawTronUSDT] User debited and withdrawal record created. TxHash: ${txId}`)
+      } catch (debitError: any) {
+        console.error('[tx_withdrawTronUSDT] CRITICAL: Broadcast succeeded but debit failed:', debitError)
+        
+        // Broadcast succeeded but Firestore debit failed - mark for manual reconciliation
+        await withdrawalRef.set({
+          id: withdrawalId,
+          userId,
+          toAddress: toAddress.trim(),
+          requestedAmountUSDT: amountUSDT,
+          sentAmountUSDT: amountUSDT, // Broadcast succeeded
+          feeUSDT: WITHDRAWAL_FEE_USDT,
+          status: 'FAILED_BROADCAST_NEEDS_MANUAL' as WithdrawalStatus,
+          txId, // Transaction was broadcast successfully
+          treasuryBalanceAtAttemptUSDT: treasuryUsdt,
+          createdAt: now,
+          updatedAt: admin.firestore.Timestamp.now(),
+        }, { merge: true })
+        
+        // Send urgent email to CoreAgent
+        const userInfo = await getUserInfo(userId)
+        try {
+          await sendEmailViaResend(
+            getCoreAgentEmail(),
+            `URGENT: Withdrawal Debit Failed After Broadcast - Manual Reconciliation Required`,
+            `
+              <h2>URGENT: Manual Reconciliation Required</h2>
+              <p>Transaction was broadcast successfully, but Firestore debit failed. User was NOT debited but funds were sent.</p>
+              <p><strong>Withdrawal ID:</strong> ${withdrawalId}</p>
+              <p><strong>User ID:</strong> ${userId}</p>
+              <p><strong>User Handle:</strong> ${userInfo.handle || 'N/A'}</p>
+              <p><strong>TxID:</strong> ${txId}</p>
+              <p><strong>Amount Sent:</strong> ${amountUSDT.toFixed(6)} USDT</p>
+              <p><strong>Fee:</strong> ${WITHDRAWAL_FEE_USDT.toFixed(6)} USDT</p>
+              <p><strong>Debit Error:</strong> ${debitError.message}</p>
+              <p><strong>ACTION REQUIRED:</strong> Manually debit user balance in Firestore: ${amountUSDT + WITHDRAWAL_FEE_USDT} USDT</p>
+            `
           )
+        } catch (emailError: any) {
+          console.error('[tx_withdrawTronUSDT] Failed to send email:', emailError)
         }
+        
+        throw new functions.https.HttpsError(
+          'internal',
+          'Transaction broadcast succeeded but debit failed. Manual reconciliation required.',
+          {
+            withdrawalId,
+            txId,
+            debitError: debitError.message,
+            status: 'FAILED_BROADCAST_NEEDS_MANUAL',
+          }
+        )
       }
 
       // Success: return withdrawal details
