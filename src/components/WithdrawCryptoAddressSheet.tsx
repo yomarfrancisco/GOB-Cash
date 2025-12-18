@@ -111,7 +111,6 @@ export default function WithdrawCryptoAddressSheet({
         <div className={styles.scrollableContent}>
           {/* Header */}
           <div className={styles.header}>
-            <h2 className={styles.title}>USDT wallet address</h2>
             <p className={styles.subtitle}>Payout USDT into this address</p>
           </div>
 
