@@ -161,13 +161,9 @@ export default function ShareProfileSheet() {
   }
 
   // Determine wording based on mode
-  const shareTitle = mode === 'self'
-    ? 'Share my profile'
-    : 'Share this profile'
+  const shareTitle = 'Share profile'
   
-  const shareCaption = mode === 'self'
-    ? 'Send your GoBankless profile to anyone.'
-    : 'Send this GoBankless profile to anyone.'
+  const shareCaption = 'Profile & payment link'
 
   // Use subject avatar data (only if subject exists)
   const avatarUrl = subject?.avatarUrl || undefined
@@ -255,8 +251,8 @@ export default function ShareProfileSheet() {
                     />
                   </div>
                 }
-                title="Share my USDT address"
-                caption="Send your GoBankless USDT (TRON) address to anyone"
+                title="Share USDT address"
+                caption="My TRON network address"
                 onClick={handleShareTronAddress}
                 trailing={<Share size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
               />
