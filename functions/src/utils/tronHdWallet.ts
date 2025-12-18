@@ -6,8 +6,8 @@
 
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-import { mnemonicToSeedSync } from '@scure/bip39'
-import { HDKey } from '@scure/bip32'
+import * as bip39 from 'bip39'
+import * as bip32 from '@scure/bip32'
 import TronWeb from 'tronweb'
 
 const db = admin.firestore()
@@ -27,17 +27,17 @@ function getDerivationPath(index: number): string {
 /**
  * Derive TRON address from mnemonic and index
  */
-export function deriveTronAddress(mnemonic: string, index: number): { address: string; path: string } {
+export async function deriveTronAddress(mnemonic: string, index: number): Promise<{ address: string; path: string }> {
   // Validate mnemonic
   if (!mnemonic || typeof mnemonic !== 'string') {
     throw new Error('Invalid mnemonic')
   }
 
-  // Convert mnemonic to seed
-  const seed = mnemonicToSeedSync(mnemonic)
+  // Convert mnemonic to seed using bip39
+  const seed = await bip39.mnemonicToSeed(mnemonic)
   
-  // Create HD key from seed
-  const hdKey = HDKey.fromMasterSeed(seed)
+  // Create HD key from seed using @scure/bip32
+  const hdKey = bip32.HDKey.fromMasterSeed(Buffer.from(seed))
   
   // Derive key at path
   const path = getDerivationPath(index)
@@ -109,7 +109,7 @@ export async function ensureTronAddress(userId: string): Promise<{ address: stri
   })
   
   // Derive address
-  const { address, path } = deriveTronAddress(mnemonic, tronIndex)
+  const { address, path } = await deriveTronAddress(mnemonic, tronIndex)
   
   // Store on user doc
   const now = admin.firestore.Timestamp.now()
