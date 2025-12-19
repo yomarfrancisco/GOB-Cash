@@ -58,8 +58,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payment does not belong to user' }, { status: 403 })
     }
 
-    // Check if already credited
-    if (paymentData.status === 'CREDITED') {
+    // Check if already credited (idempotency check)
+    // Check both status === 'CREDITED' AND creditedAt field to prevent double credit
+    // Return handler sets status: 'COMPLETE' + creditedAt, so we must check creditedAt too
+    if (paymentData.status === 'CREDITED' || paymentData.creditedAt) {
       // Get current balance
       const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
       const walletDoc = await walletRef.get()
@@ -70,6 +72,8 @@ export async function POST(request: NextRequest) {
         ref,
         amountZAR: paymentData.amountZAR,
         currentBalance,
+        status: paymentData.status,
+        creditedAt: paymentData.creditedAt?.toDate?.()?.toISOString(),
       })
 
       return NextResponse.json({
@@ -108,6 +112,32 @@ export async function POST(request: NextRequest) {
     const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
     
     await db.runTransaction(async (transaction) => {
+      // Re-read payment doc in transaction to check for concurrent credit
+      const paymentDocInTx = await transaction.get(paymentRef)
+      if (!paymentDocInTx.exists) {
+        throw new Error('Payment not found in transaction')
+      }
+      
+      const paymentDataInTx = paymentDocInTx.data()!
+      
+      // Double-check idempotency inside transaction (prevents race condition)
+      if (paymentDataInTx.creditedAt || paymentDataInTx.status === 'CREDITED') {
+        // Already credited by another process - get current balance and return
+        const walletDocInTx = await transaction.get(walletRef)
+        const currentBalance = walletDocInTx.exists ? (walletDocInTx.data()?.fiatBalance || 0) : 0
+        
+        console.log('[PayFast Credit] Already credited in transaction (race condition prevented)', {
+          ref,
+          amountZAR: paymentData.amountZAR,
+          currentBalance,
+          status: paymentDataInTx.status,
+          creditedAt: paymentDataInTx.creditedAt?.toDate?.()?.toISOString(),
+        })
+        
+        // Return current balance (no credit)
+        return currentBalance
+      }
+      
       const walletDoc = await transaction.get(walletRef)
       const currentBalance = walletDoc.exists ? (walletDoc.data()?.fiatBalance || 0) : 0
       const newBalance = currentBalance + amountZAR
