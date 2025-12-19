@@ -59,15 +59,30 @@ export async function POST(request: NextRequest) {
     // Read raw body as text (form-encoded)
     const rawBody = await request.text()
     
+    // Log raw ITN body for debugging
+    console.log('[PayFast Notify] Raw body received', {
+      bodyLength: rawBody.length,
+      bodyPreview: rawBody.substring(0, 500), // First 500 chars
+    })
+    
     // Parse form data
     const params = parseFormData(rawBody)
     
-    // Get payment reference
+    // Get payment reference from m_payment_id (PayFast echoes back what we sent)
     const ref = params.m_payment_id
-    if (!ref) {
-      console.error('[PayFast Notify] Missing m_payment_id')
+    if (!ref || ref.trim() === '') {
+      console.error('[PayFast Notify] Missing m_payment_id', {
+        receivedParams: Object.keys(params),
+        rawBodyPreview: rawBody.substring(0, 200),
+      })
       return new NextResponse('Missing payment reference', { status: 400 })
     }
+    
+    console.log('[PayFast Notify] ITN for payment', {
+      ref,
+      payment_status: params.payment_status || null,
+      pf_payment_id: params.pf_payment_id || null,
+    })
 
     // Get PayFast configuration
     const config = getPayFastConfig()
@@ -135,7 +150,12 @@ export async function POST(request: NextRequest) {
 
     await paymentRef.update(updateData)
 
-    console.log('[PayFast Notify] Payment updated', { ref, status: paymentStatus })
+    console.log('[PayFast Notify] Payment updated in Firestore', { 
+      ref, 
+      paymentStatus,
+      firestoreStatus: updateData.status || 'unchanged',
+      willTriggerCredit: updateData.status === 'COMPLETE',
+    })
 
     // Return 200 OK to PayFast
     return new NextResponse('OK', { status: 200 })

@@ -15,13 +15,16 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
+  // Log entry
+  const { searchParams } = new URL(request.url)
+  const body = await request.json().catch(() => ({}))
+  const ref = searchParams.get('ref') || body.ref
+  
+  console.log('[PayFast Credit] ENTER', { ref })
+  
   try {
-    // Get ref from query params or body
-    const { searchParams } = new URL(request.url)
-    const body = await request.json().catch(() => ({}))
-    const ref = searchParams.get('ref') || body.ref
-
     if (!ref || typeof ref !== 'string') {
+      console.error('[PayFast Credit] Missing ref')
       return NextResponse.json({ error: 'ref is required' }, { status: 400 })
     }
 
@@ -48,6 +51,7 @@ export async function POST(request: NextRequest) {
     const paymentDoc = await paymentRef.get()
 
     if (!paymentDoc.exists) {
+      console.error('[PayFast Credit] Payment not found', { ref })
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
     }
 
@@ -55,17 +59,28 @@ export async function POST(request: NextRequest) {
 
     // Verify payment belongs to user
     if (paymentData.userId !== userId) {
+      console.error('[PayFast Credit] Payment does not belong to user', { ref, paymentUserId: paymentData.userId, requestUserId: userId })
       return NextResponse.json({ error: 'Payment does not belong to user' }, { status: 403 })
     }
 
+    // Log state
+    const paymentStatus = paymentData.status || 'UNKNOWN'
+    const hasPayfastPaymentId = !!paymentData.payfastPaymentId
+    
+    console.log('[PayFast Credit] state', {
+      ref,
+      paymentStatus,
+      hasPayfastPaymentId,
+      amountZAR: paymentData.amountZAR,
+    })
+
     // Check if already credited
-    if (paymentData.status === 'CREDITED') {
+    if (paymentStatus === 'CREDITED') {
       // Get current balance
       const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
       const walletDoc = await walletRef.get()
       const currentBalance = walletDoc.exists ? (walletDoc.data()?.fiatBalance || 0) : 0
 
-      // Log idempotency for live testing
       console.log('[PayFast Credit] Already credited (idempotent)', {
         ref,
         amountZAR: paymentData.amountZAR,
@@ -74,30 +89,40 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         ok: true,
+        status: 'CREDITED',
         credited: false,
         alreadyCredited: true,
         newBalance: currentBalance,
       })
     }
 
-    // If payment is still PENDING, try to validate with PayFast
-    if (paymentData.status === 'PENDING') {
-      // Optionally: Call PayFast validate/query endpoint here
-      // For now, return error and let client retry
-      return NextResponse.json(
-        { 
-          error: `Payment not complete yet. Status: ${paymentData.status}`,
-          status: paymentData.status,
-          retry: true,
-        },
-        { status: 400 }
-      )
+    // If payment is still PENDING, return 200 with status (non-fatal, client can retry)
+    if (paymentStatus === 'PENDING') {
+      console.log('[PayFast Credit] Payment still PENDING, returning 200 for polling', {
+        ref,
+        status: paymentStatus,
+      })
+      
+      return NextResponse.json({
+        ok: true,
+        status: 'PENDING',
+        retry: true,
+      })
     }
 
-    // Ensure payment is COMPLETE
-    if (paymentData.status !== 'COMPLETE') {
+    // Ensure payment is COMPLETE before crediting
+    if (paymentStatus !== 'COMPLETE') {
+      console.error('[PayFast Credit] Payment not in valid state for crediting', {
+        ref,
+        status: paymentStatus,
+      })
+      
       return NextResponse.json(
-        { error: `Payment not complete. Status: ${paymentData.status}` },
+        { 
+          ok: false,
+          error: `Payment not complete. Status: ${paymentStatus}`,
+          status: paymentStatus,
+        },
         { status: 400 }
       )
     }
@@ -107,15 +132,25 @@ export async function POST(request: NextRequest) {
     // Credit user balance atomically
     const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
     
+    let beforeBalance = 0
+    let afterBalance = 0
+    
     await db.runTransaction(async (transaction) => {
       const walletDoc = await transaction.get(walletRef)
-      const currentBalance = walletDoc.exists ? (walletDoc.data()?.fiatBalance || 0) : 0
-      const newBalance = currentBalance + amountZAR
+      beforeBalance = walletDoc.exists ? (walletDoc.data()?.fiatBalance || 0) : 0
+      afterBalance = beforeBalance + amountZAR
+
+      console.log('[PayFast Credit] Transaction executing', {
+        ref,
+        beforeBalance,
+        amountZAR,
+        computedNewBalance: afterBalance,
+      })
 
       // Update wallet balance
       if (walletDoc.exists) {
         transaction.update(walletRef, {
-          fiatBalance: newBalance,
+          fiatBalance: afterBalance,
           updatedAt: new Date(),
         })
       } else {
@@ -125,7 +160,7 @@ export async function POST(request: NextRequest) {
           walletId: 'cashZAR',
           kind: 'cash',
           displayCurrency: 'ZAR',
-          fiatBalance: newBalance,
+          fiatBalance: afterBalance,
           usdtBalance: 0,
           updatedAt: new Date(),
         })
@@ -137,23 +172,26 @@ export async function POST(request: NextRequest) {
         creditedAt: new Date(),
       })
 
-      return newBalance
+      return afterBalance
     })
 
-    // Get final balance
+    // Get final balance to verify
     const walletDoc = await walletRef.get()
     const finalBalance = walletDoc.exists ? (walletDoc.data()?.fiatBalance || 0) : 0
 
-    // Log credit success for live testing
-    console.log('[PayFast Credit] Balance credited', {
+    // Log credit success
+    console.log('[PayFast Credit] credited', {
       ref,
-      amountZAR: amountZAR,
-      newBalance: finalBalance,
-      credited: true,
+      beforeBalance,
+      afterBalance,
+      finalBalance,
+      amountZAR,
+      transactionSuccess: finalBalance === afterBalance,
     })
 
     return NextResponse.json({
       ok: true,
+      status: 'CREDITED',
       credited: true,
       newBalance: finalBalance,
     })

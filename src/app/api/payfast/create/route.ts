@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
       notify_url: config.notifyUrl,
       amount: amount_zar.toFixed(2), // Must be exactly 2 decimal places
       item_name: `GoBankless Deposit - ${ref.substring(0, 8)}`,
+      m_payment_id: ref, // PayFast will echo this back in ITN callback for reconciliation
       // Passphrase is included in signature calculation but NOT in final params
     }
 
@@ -115,6 +116,8 @@ export async function POST(request: NextRequest) {
       baseUrl: config.baseUrl,
       mode: config.mode,
       userId: user_id,
+      hasMPaymentId: !!params.m_payment_id,
+      mPaymentId: params.m_payment_id || 'MISSING',
       toSign: toSign.substring(0, 100) + '...', // Truncate for security
       computedSignature: signature.substring(0, 8) + '...',
       finalQueryString: queryString.substring(0, 100) + '...', // Truncate for security
