@@ -1187,19 +1187,67 @@ export default function ProfileClient() {
             }, 220)
             return
           }
-          // Card deposit flow: non-tokenized v1 - always go to CardDetailsSheet (no account selection)
+          // Card deposit flow: non-tokenized v1 - directly redirect to PayFast (skip CardDetailsSheet)
           if (amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card') {
             setOpenAmount(false)
             setAmountEntryPoint(undefined)
             
-            // Store amount in pending deposit store
+            // Store amount in pending deposit store (for Ama confirmation after return)
             usePendingDeposit.getState().setAmount(amountZAR)
             usePendingDeposit.getState().setMethod('card')
             
-            // Always open CardDetailsSheet for non-tokenized v1 (no account selection)
-            setTimeout(() => {
-              useCardDetailsSheet.getState().open('create', null, 'depositCard')
-            }, 220)
+            // Directly call PayFast create and redirect (skip CardDetailsSheet - PayFast handles card details)
+            const handlePayFastRedirect = async () => {
+              try {
+                // Get current user ID from Firebase Auth
+                const auth = getFirebaseAuth()
+                if (!auth?.currentUser) {
+                  console.error('[PayFast Redirect] User not authenticated')
+                  const { pushNotification } = useNotificationStore.getState()
+                  pushNotification({
+                    kind: 'payment_failed',
+                    title: 'Authentication required',
+                    body: 'You must be logged in to make a deposit.',
+                  })
+                  return
+                }
+
+                const userId = auth.currentUser.uid
+
+                // Call PayFast create API
+                const response = await fetch('/api/payfast/create', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    user_id: userId,
+                    amount_zar: amountZAR,
+                  }),
+                })
+
+                if (!response.ok) {
+                  const error = await response.json()
+                  throw new Error(error.error || 'Failed to create payment')
+                }
+
+                const data = await response.json()
+                const { redirect_url } = data
+
+                // Redirect to PayFast
+                window.location.href = redirect_url
+              } catch (error: any) {
+                console.error('[PayFast Redirect] Failed:', error)
+                const { pushNotification } = useNotificationStore.getState()
+                pushNotification({
+                  kind: 'payment_failed',
+                  title: 'Payment setup failed',
+                  body: error.message || 'Please try again.',
+                })
+              }
+            }
+
+            handlePayFastRedirect()
           } else {
             // Other deposit methods (ATM, agent, etc.) - keep existing behavior
             setOpenAmount(false)
