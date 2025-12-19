@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import TopGlassBar from '@/components/TopGlassBar'
@@ -72,10 +72,14 @@ export default function ProfileClient() {
     }
   }, [authReady, isAuthed, router])
 
+  // Ref to prevent double-processing of credited return
+  const handledCreditedReturnRef = useRef(false)
+
   // Handle PayFast return (ref query param) with retry logic
   useEffect(() => {
     const ref = searchParams.get('ref')
     const cancel = searchParams.get('cancel')
+    const credited = searchParams.get('credited')
     
     if (cancel === 'true') {
       // User cancelled PayFast payment
@@ -84,7 +88,165 @@ export default function ProfileClient() {
       return
     }
 
-    if (ref && isAuthed && authReady) {
+    // Handle credited return (Option 5: return handler already credited)
+    if (ref && credited === 'true' && isAuthed && authReady) {
+      // Prevent double-processing on re-render
+      if (handledCreditedReturnRef.current) {
+        return
+      }
+      handledCreditedReturnRef.current = true
+
+      const handleCreditedReturn = async () => {
+        console.log('[PayFast Client] credited flow start', { ref })
+
+        // Show "Confirming payment..." state
+        const { pushNotification } = useNotificationStore.getState()
+        pushNotification({
+          kind: 'payment_sent',
+          title: 'Confirming payment...',
+          body: 'Please wait while we verify your payment',
+        })
+
+        try {
+          // Get auth token
+          const auth = getFirebaseAuth()
+          if (!auth?.currentUser) {
+            console.error('[PayFast Client] User not authenticated')
+            router.replace('/profile')
+            return
+          }
+
+          const token = await auth.currentUser.getIdToken()
+
+          // Step 1: Fetch payment data from server (independent of Zustand store)
+          let paymentData: { amountZAR: number | null; currency: string; status: string | null } | null = null
+          let amountSource = 'none'
+
+          try {
+            const paymentResponse = await fetch(`/api/payfast/payment?ref=${ref}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            })
+
+            if (paymentResponse.ok) {
+              paymentData = await paymentResponse.json()
+              amountSource = 'payment-doc'
+              console.log('[PayFast Client] payment data fetched', {
+                ref,
+                amountZAR: paymentData?.amountZAR,
+                status: paymentData?.status,
+              })
+            }
+          } catch (error) {
+            console.error('[PayFast Client] Failed to fetch payment data', error)
+          }
+
+          // Step 2: Get amountZAR from payment doc, fallback to store, then query params
+          let amountZAR: number | null = null
+          if (paymentData && paymentData.amountZAR) {
+            amountZAR = paymentData.amountZAR
+            amountSource = 'payment-doc'
+          } else {
+            // Fallback to Zustand store
+            const storeAmount = usePendingDeposit.getState().amountZAR
+            if (storeAmount) {
+              amountZAR = storeAmount
+              amountSource = 'store'
+            } else {
+              // Fallback to query params (amount_gross from PayFast return)
+              const amountGross = searchParams.get('amount_gross')
+              if (amountGross) {
+                amountZAR = parseFloat(amountGross)
+                amountSource = 'query-param'
+              }
+            }
+          }
+
+          console.log('[PayFast Client] amountZAR source', { amountZAR, amountSource })
+
+          // Step 3: Optionally call credit API as "reconcile/ensure" step (will be no-op if already credited)
+          try {
+            const creditResponse = await fetch(`/api/payfast/credit?ref=${ref}`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            })
+
+            const creditData = await creditResponse.json()
+            console.log('[PayFast Client] credit API called', {
+              ref,
+              credited: creditData.credited,
+              alreadyCredited: creditData.alreadyCredited,
+              newBalance: creditData.newBalance,
+            })
+          } catch (error) {
+            console.error('[PayFast Client] Credit API call failed (non-fatal)', error)
+          }
+
+          // Step 4: Wait for wallet balance to update (if we have wallets store)
+          const walletStore = useWalletStore.getState()
+          const initialBalance = walletStore.wallets?.cashZAR?.fiatBalance || 0
+          const expectedBalance = initialBalance + (amountZAR || 0)
+
+          // Wait up to 2 seconds for balance to update
+          const MAX_BALANCE_WAIT = 2000
+          const BALANCE_CHECK_INTERVAL = 100
+          let balanceWaitTime = 0
+
+          while (balanceWaitTime < MAX_BALANCE_WAIT) {
+            const currentBalance = useWalletStore.getState().wallets?.cashZAR?.fiatBalance || 0
+            if (currentBalance >= expectedBalance || currentBalance > initialBalance) {
+              console.log('[PayFast Client] Balance updated', {
+                initialBalance,
+                currentBalance,
+                expectedBalance,
+                waitTime: balanceWaitTime,
+              })
+              break
+            }
+            await new Promise(resolve => setTimeout(resolve, BALANCE_CHECK_INTERVAL))
+            balanceWaitTime += BALANCE_CHECK_INTERVAL
+          }
+
+          // Step 5: Open Ama chat with confirmation (if we have amount)
+          if (amountZAR) {
+            openAmaChatWithCardDepositScenario(amountZAR, 'ZAR account')
+            usePendingDeposit.getState().clear()
+          } else {
+            // Generic confirmation without amount
+            pushNotification({
+              kind: 'payment_sent',
+              title: 'Payment confirmed',
+              body: 'Your payment has been processed successfully.',
+            })
+          }
+
+          console.log('[PayFast Client] credited flow end', { ref, amountZAR, amountSource })
+
+          // Step 6: Clean up query params
+          router.replace('/profile')
+        } catch (error: any) {
+          console.error('[PayFast Client] Credited return flow error', error)
+          pushNotification({
+            kind: 'payment_failed',
+            title: 'Payment confirmation error',
+            body: error.message || 'Please contact support if your payment was successful.',
+          })
+          router.replace('/profile')
+        }
+      }
+
+      handleCreditedReturn()
+      return
+    }
+
+    // Handle non-credited return (legacy flow - payment still pending)
+    if (ref && !credited && isAuthed && authReady) {
       // User returned from PayFast - credit balance and open chat with retry
       const handlePayFastReturn = async () => {
         const MAX_RETRIES = 10
@@ -135,6 +297,16 @@ export default function ProfileClient() {
               }
 
               // Remove query params from URL
+              router.replace('/profile')
+              return
+            } else if (data.alreadyCredited) {
+              // Already credited - open Ama chat if we have amount
+              isProcessing = false
+              const { amountZAR } = usePendingDeposit.getState()
+              if (amountZAR) {
+                openAmaChatWithCardDepositScenario(amountZAR, 'ZAR account')
+                usePendingDeposit.getState().clear()
+              }
               router.replace('/profile')
               return
             } else if (data.retry && data.status === 'PENDING') {
