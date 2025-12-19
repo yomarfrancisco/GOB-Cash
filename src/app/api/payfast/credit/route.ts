@@ -119,8 +119,14 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date(),
         })
       } else {
+        // Create wallet with all required WalletDoc fields
+        // This ensures subscription can map it correctly by walletId
         transaction.set(walletRef, {
+          walletId: 'cashZAR',
+          kind: 'cash',
+          displayCurrency: 'ZAR',
           fiatBalance: newBalance,
+          usdtBalance: 0,
           updatedAt: new Date(),
         })
       }
