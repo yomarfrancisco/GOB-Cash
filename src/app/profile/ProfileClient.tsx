@@ -986,7 +986,16 @@ export default function ProfileClient() {
             openPaymentDetails('pay', amountZAR)
           }, 220)
         } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountZAR }) => {
-          // Deposit keypad: "Deposit" button - store amount and proceed to DepositSheet
+          // Deposit keypad: "Deposit" button - commit amount to store and proceed to DepositSheet
+          console.log('[Deposit] commit amount=', amountZAR)
+          if (amountZAR > 0) {
+            // Commit to Zustand store
+            usePendingDeposit.getState().setPendingDeposit({
+              direction: 'deposit',
+              amountZAR,
+              source: 'keypad',
+            })
+          }
           setDepositAmountZAR(amountZAR)
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
