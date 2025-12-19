@@ -4,6 +4,7 @@
  */
 
 import { callLLM } from './llmClient'
+import { buildAmaSystemPrompt, type PromptContext } from './prompts'
 
 export type AmaResponse = {
   text: string
@@ -15,6 +16,7 @@ export type RouteAmaMessageParams = {
   userId: string
   messageText: string
   recentMessages?: Array<{ role: 'user' | 'assistant', text: string }>
+  context?: PromptContext
 }
 
 /**
@@ -23,7 +25,7 @@ export type RouteAmaMessageParams = {
 export async function routeAmaMessage(
   params: RouteAmaMessageParams
 ): Promise<AmaResponse> {
-  const { messageText, recentMessages = [] } = params
+  const { messageText, recentMessages = [], context } = params
 
   // Step 1: Try scripted response (minimal for now - can be expanded)
   const scriptedResponse = getScriptedResponse(messageText)
@@ -56,8 +58,8 @@ export async function routeAmaMessage(
     }
   }
 
-  // Step 4: Build system prompt
-  const systemPrompt = buildSystemPrompt()
+  // Step 4: Build system prompt with context (location-aware, scenario-aware)
+  const systemPrompt = buildAmaSystemPrompt(context)
 
   // Step 5: Build messages array (last 10 messages + current)
   const messageHistory = recentMessages
@@ -115,24 +117,4 @@ function getScriptedResponse(messageText: string): string | null {
   return null
 }
 
-/**
- * Build system prompt for LLM
- */
-function buildSystemPrompt(): string {
-  return `You are Ama, a friendly and helpful Portfolio Manager for GoBankless. You help users with:
-- Deposits (card, cash, bank transfer)
-- Payments and requests
-- Connecting to agents
-- General questions about the platform
-
-Tone: Friendly, concise, professional. Use emojis sparingly (1-2 per message max).
-
-Constraints:
-- You CANNOT execute payments, credit wallets, or modify balances
-- You CAN suggest next steps (e.g., "tap Cash in/out", "choose Card")
-- You CAN answer questions about the platform
-- You CAN guide users through flows
-
-Keep responses brief and helpful. If you don't know something, say so honestly.`
-}
 

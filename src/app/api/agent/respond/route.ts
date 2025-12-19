@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { routeAmaMessage } from '@/lib/ama/router'
+import type { PromptContext } from '@/lib/ama/prompts'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -9,6 +10,7 @@ interface AgentRespondRequest {
   userId: string
   messageText: string
   recentMessages?: Array<{ role: 'user' | 'assistant', text: string }>
+  context?: PromptContext
 }
 
 export async function POST(request: NextRequest) {
@@ -29,6 +31,7 @@ export async function POST(request: NextRequest) {
       userId,
       messageText,
       recentMessages: body.recentMessages || [],
+      context: body.context,
     })
 
     return NextResponse.json({
