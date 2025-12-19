@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/firebase-admin'
-import { getPayFastBase } from '@/lib/payfast'
+import { getPayFastBase, buildProcessQueryAndSignature } from '@/lib/payfast'
 import crypto from 'crypto'
 
 export const runtime = 'nodejs'
@@ -69,34 +69,25 @@ export async function POST(request: NextRequest) {
     // Get PayFast configuration
     const config = getPayFastConfig()
 
-    // Build query string ONCE - this exact string will be used for both signing and redirecting
-    // PayFast computes signature from the exact query string it receives, so they must match byte-for-byte
-    const params = new URLSearchParams()
-    
-    params.append('merchant_id', config.merchantId)
-    params.append('merchant_key', config.merchantKey)
-    params.append('return_url', `${config.returnUrl}?ref=${ref}`)
-    params.append('cancel_url', `${config.cancelUrl}?cancel=true`)
-    params.append('notify_url', config.notifyUrl)
-    params.append('amount', amount_zar.toFixed(2)) // Must be exactly 2 decimal places
-    params.append('item_name', `GoBankless Deposit - ${ref.substring(0, 8)}`)
-    params.append('m_payment_id', ref) // PayFast will echo this back in ITN callback for reconciliation
-    
-    // Get the base query string (this is what PayFast will see, minus signature)
-    const baseQS = params.toString()
-    
-    // Sign THAT EXACT STRING - do not re-encode, do not sort, do not rebuild
-    let toSign = baseQS
-    if (config.passphrase) {
-      toSign += `&passphrase=${config.passphrase}`
+    // Build raw parameters (order doesn't matter - will be sorted alphabetically)
+    const rawParams: Record<string, string> = {
+      merchant_id: config.merchantId,
+      merchant_key: config.merchantKey,
+      return_url: `${config.returnUrl}?ref=${ref}`,
+      cancel_url: `${config.cancelUrl}?cancel=true`,
+      notify_url: config.notifyUrl,
+      amount: amount_zar.toFixed(2), // Must be exactly 2 decimal places
+      item_name: `GoBankless Deposit - ${ref.substring(0, 8)}`,
+      m_payment_id: ref, // PayFast will echo this back in ITN callback for reconciliation
     }
-    
-    // Compute MD5 hash
-    const signature = crypto.createHash('md5').update(toSign).digest('hex')
+
+    // Build query string and signature using canonical deterministic builder
+    // This is the single source of truth - alphabetical sort, proper encoding
+    const { queryString, signature, toSign } = buildProcessQueryAndSignature(rawParams, config.passphrase)
     
     // Log for verification (temporary instrumentation)
-    console.log('[PayFast Create] baseQS:', baseQS)
     console.log('[PayFast Create] toSign:', toSign.substring(0, 200) + '...') // Truncate passphrase
+    console.log('[PayFast Create] queryString:', queryString.substring(0, 200) + '...')
     console.log('[PayFast Create] signature:', signature)
 
     // Store payment record in Firestore
@@ -115,9 +106,12 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Redirect using the SAME query string - no second URLSearchParams, no mutation
-    // This ensures PayFast receives the exact bytes we hashed
-    const redirectUrl = `${config.baseUrl}/eng/process?${baseQS}&signature=${signature}`
+    // Build redirect URL using the exact query string from signature builder
+    // Do not rebuild with URLSearchParams - use the canonical queryString directly
+    const redirectUrl = `${config.baseUrl}/eng/process?${queryString}&signature=${signature}`
+    
+    // Log redirect URL preview (first 200 chars for verification)
+    console.log('[PayFast Create] redirectUrl:', redirectUrl.substring(0, 200) + '...')
 
     // Log debug info (server-side only)
     console.log('[PayFast Create] Payment created', {
@@ -126,7 +120,7 @@ export async function POST(request: NextRequest) {
       baseUrl: config.baseUrl,
       mode: config.mode,
       userId: user_id,
-      hasMPaymentId: baseQS.includes('m_payment_id='),
+      hasMPaymentId: queryString.includes('m_payment_id='),
       redirectUrlPreview: redirectUrl.substring(0, 200) + '...', // Truncate for security
     })
 
@@ -134,7 +128,6 @@ export async function POST(request: NextRequest) {
       ok: true,
       ref,
       redirect_url: redirectUrl, // Ready-to-use GET URL
-      form_data: params, // Also return for client-side POST if needed
     })
   } catch (error: any) {
     console.error('[PayFast Create] Error:', error)

@@ -22,48 +22,46 @@ export function getPayFastBase(mode: string): string {
 }
 
 /**
- * Build PayFast parameters and signature
+ * Build PayFast process query string and signature (deterministic)
  * 
- * @param rawParams - Parameters in insertion order (no sorting)
- * @param passphrase - Passphrase for signature (included in hash, not in final params)
- * @returns Object with params (without passphrase) and signature
+ * This is the single source of truth for /eng/process endpoint.
+ * Uses alphabetical sorting for stable, deterministic signature generation.
+ * 
+ * @param rawParams - Parameters (order doesn't matter, will be sorted)
+ * @param passphrase - Passphrase for signature (included in hash, not in query string)
+ * @returns Object with queryString (without signature), signature, and toSign
  */
-export function buildParamsAndSignature(
+export function buildProcessQueryAndSignature(
   rawParams: Record<string, string>,
   passphrase?: string
-): { params: Record<string, string>; signature: string; toSign: string } {
-  // Create URLSearchParams to maintain insertion order and handle encoding
-  const params = new URLSearchParams()
-  
-  // Add all params in order (spaces will become + in toString())
-  for (const [key, value] of Object.entries(rawParams)) {
-    if (value !== undefined && value !== null && value !== '') {
-      params.append(key, value)
+): { queryString: string; signature: string; toSign: string } {
+  // Filter out empty/undefined/null values
+  const filtered: Record<string, string> = {}
+  for (const [k, v] of Object.entries(rawParams)) {
+    if (v !== undefined && v !== null && v !== '') {
+      filtered[k] = v
     }
   }
+
+  // Sort keys alphabetically (stable deterministic order)
+  const keys = Object.keys(filtered).sort()
   
-  // Build string to sign: params.toString() (spaces → +)
-  let toSign = params.toString()
+  // Encode helper: encodeURIComponent then replace %20 with +
+  const enc = (s: string) => encodeURIComponent(s).replace(/%20/g, '+')
+
+  // Build query string in sorted order
+  const queryString = keys.map(k => `${k}=${enc(filtered[k])}`).join('&')
   
-  // Add passphrase if provided (only for signature calculation)
+  // Build signature base string
+  let toSign = queryString
   if (passphrase) {
-    toSign += `&passphrase=${passphrase}`
+    toSign += `&passphrase=${enc(passphrase)}`
   }
-  
+
   // Compute MD5 hash
   const signature = crypto.createHash('md5').update(toSign).digest('hex')
   
-  // Return params without passphrase, plus signature and toSign for debugging
-  const finalParams: Record<string, string> = {}
-  params.forEach((value, key) => {
-    finalParams[key] = value
-  })
-  
-  return {
-    params: finalParams,
-    signature,
-    toSign,
-  }
+  return { queryString, signature, toSign }
 }
 
 /**
