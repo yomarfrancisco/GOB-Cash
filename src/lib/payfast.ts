@@ -22,42 +22,45 @@ export function getPayFastBase(mode: string): string {
 }
 
 /**
- * Build PayFast process query string and signature (deterministic)
+ * Build PayFast process query string and signature (ordered, no sorting)
  * 
  * This is the single source of truth for /eng/process endpoint.
- * Uses alphabetical sorting for stable, deterministic signature generation.
+ * Uses FIXED ORDER (insertion order) to match the known-working baseline.
  * 
- * @param rawParams - Parameters (order doesn't matter, will be sorted)
+ * IMPORTANT: This matches the old behavior that got us past /eng/process.
+ * Do NOT sort alphabetically - PayFast /eng/process expects a specific order.
+ * 
+ * @param pairs - Ordered array of [key, value] tuples (order matters!)
  * @param passphrase - Passphrase for signature (included in hash, not in query string)
  * @returns Object with queryString (without signature), signature, and toSign
  */
-export function buildProcessQueryAndSignature(
-  rawParams: Record<string, string>,
+export function buildProcessQueryAndSignatureOrdered(
+  pairs: Array<[string, string]>,
   passphrase?: string
 ): { queryString: string; signature: string; toSign: string } {
-  // Filter out empty/undefined/null values
-  const filtered: Record<string, string> = {}
-  for (const [k, v] of Object.entries(rawParams)) {
+  // IMPORTANT: Use the same encoding for queryString and toSign.
+  // Start with the SAME behavior as the last known working create flow:
+  // - URLSearchParams preserves append order
+  // - URL encoding matches what the browser actually sends
+  // - passphrase appended UNENCODED (legacy behavior for /eng/process)
+  const params = new URLSearchParams()
+  
+  for (const [k, v] of pairs) {
     if (v !== undefined && v !== null && v !== '') {
-      filtered[k] = v
+      params.append(k, v)
     }
   }
-
-  // Sort keys alphabetically (stable deterministic order)
-  const keys = Object.keys(filtered).sort()
   
-  // Encode helper: encodeURIComponent then replace %20 with +
-  const enc = (s: string) => encodeURIComponent(s).replace(/%20/g, '+')
-
-  // Build query string in sorted order
-  const queryString = keys.map(k => `${k}=${enc(filtered[k])}`).join('&')
+  // Get query string (preserves append order, spaces → +)
+  const queryString = params.toString()
   
-  // Build signature base string
+  // Build signature base string (same as queryString)
   let toSign = queryString
   if (passphrase) {
-    toSign += `&passphrase=${enc(passphrase)}`
+    // Keep legacy behavior: passphrase unencoded for /eng/process
+    toSign += `&passphrase=${passphrase}`
   }
-
+  
   // Compute MD5 hash
   const signature = crypto.createHash('md5').update(toSign).digest('hex')
   
