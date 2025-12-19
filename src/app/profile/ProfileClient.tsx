@@ -284,22 +284,25 @@ export default function ProfileClient() {
 
   // Register onSelect handler for global Transact sheet
   useEffect(() => {
-    setOnSelect((method) => {
-      if (method === 'deposit') {
-        setAmountMode('deposit')
-        setAmountEntryPoint('depositKeypad')
-        setTimeout(() => setOpenAmount(true), 220)
-      } else if (method === 'withdraw') {
-        setAmountMode('withdraw')
-        setAmountEntryPoint(undefined)
-        setTimeout(() => setOpenAmount(true), 220)
-      } else if (method === 'send') {
-        setAmountMode('send')
+    setOnSelect((action) => {
+      if (action === 'deposit') {
+        setTimeout(() => setOpenDeposit(true), 220)
+      } else if (action === 'withdraw') {
+        setTimeout(() => setOpenWithdraw(true), 220)
+      } else if (action === 'payment') {
         setFlowType('payment')
-        setAmountEntryPoint(undefined)
+        setTimeout(() => setOpenDirectPayment(true), 220)
+      } else if (action === 'transfer') {
+        setFlowType('transfer')
+        setAmountMode('send')
+        setSendMethod('brics') // Use GoBankless Handle flow like payment
         setTimeout(() => setOpenAmount(true), 220)
       }
     })
+    
+    return () => {
+      setOnSelect(null) // Cleanup on unmount
+    }
   }, [setOnSelect])
 
   return (
