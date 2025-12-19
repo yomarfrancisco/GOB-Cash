@@ -445,18 +445,63 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       }
     }
     
-    // Send user message (portfolio-manager thread - local only)
-    sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'user', inputText.trim())
+    // Portfolio-manager thread: Call agent endpoint (script-first, LLM-fallback)
+    const userMessage = inputText.trim()
     setInputText('')
     
-    // Add stub AI reply after delay
-    setTimeout(() => {
+    // Optimistically add user message
+    sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'user', userMessage)
+    
+    try {
+      // Get current user
+      const auth = getFirebaseAuth()
+      const userId = auth.currentUser?.uid
+      
+      if (!userId) {
+        throw new Error('User not authenticated')
+      }
+      
+      // Get recent messages from Zustand for context
+      const store = useFinancialInboxStore.getState()
+      const messages = store.messagesByThreadId[PORTFOLIO_MANAGER_THREAD_ID] || []
+      const recentMessages = messages
+        .slice(-10)
+        .map(m => ({
+          role: (m.from === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+          text: m.text,
+        }))
+      
+      // Call agent endpoint
+      const response = await fetch('/api/agent/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          threadId: PORTFOLIO_MANAGER_THREAD_ID,
+          userId,
+          messageText: userMessage,
+          recentMessages,
+        }),
+      })
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to get response' }))
+        throw new Error(error.error || 'Failed to get response')
+      }
+      
+      const data = await response.json()
+      
+      // Add AI response
+      sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', data.assistantMessageText)
+      
+    } catch (error: any) {
+      console.error('[Ama] Failed to get response:', error)
+      // Fallback to generic response on error
       sendMessage(
         PORTFOLIO_MANAGER_THREAD_ID,
         'ai',
-        "Got it – I'll help you with that. This will later come from the BabyCDO backend."
+        "I'm having trouble processing that right now. Please try again."
       )
-    }, 800)
+    }
   }, [inputText, sendMessage, agentInductionStep, agentFloatToday, activeThreadId, threads, txStatus])
 
   // Manage intro stages for demo intro - only in chat view
