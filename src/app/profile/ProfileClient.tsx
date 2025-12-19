@@ -212,7 +212,6 @@ export default function ProfileClient() {
   const [depositChatError, setDepositChatError] = useState<string | null>(null)
   const [openAgentInbox, setOpenAgentInbox] = useState(false)
   const [depositAmountZAR, setDepositAmountZAR] = useState(0) // Persist deposit amount through flow
-  const [amountDraft, setAmountDraft] = useState<string>('') // Track keypad input as user types
   
   // Check if current user is agent
   const auth = getFirebaseAuth()
