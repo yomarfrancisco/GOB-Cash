@@ -6,6 +6,7 @@ import { Check, ChevronDown, CreditCard } from 'lucide-react'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
+import { usePendingDeposit } from '@/store/usePendingDeposit'
 import { useUserProfileStore, type CardBrand } from '@/store/userProfile'
 import { COUNTRIES } from '@/constants/countries'
 import { CardBrandIcon } from './CardBrandIcon'
@@ -152,9 +153,86 @@ export default function CardDetailsSheet() {
     }
   }
 
-  const handleDone = () => {
+  const handleDone = async () => {
     if (!isValid || !cardBrand) return
 
+    // For depositCard origin, redirect to PayFast (non-tokenized v1)
+    if (origin === 'depositCard') {
+      const { amountZAR } = usePendingDeposit.getState()
+      if (!amountZAR || amountZAR <= 0) {
+        console.error('[CardDetailsSheet] No deposit amount available')
+        return
+      }
+
+      // Get current user ID from Firebase Auth
+      const { getFirebaseAuth } = await import('@/lib/firebase')
+      const auth = getFirebaseAuth()
+      if (!auth?.currentUser) {
+        console.error('[CardDetailsSheet] User not authenticated')
+        const { pushNotification } = await import('@/store/notifications').then(m => m.useNotificationStore.getState())
+        pushNotification({
+          kind: 'payment_failed',
+          title: 'Authentication required',
+          body: 'You must be logged in to make a deposit.',
+        })
+        return
+      }
+
+      const userId = auth.currentUser.uid
+
+      try {
+        // Call PayFast create API
+        const response = await fetch('/api/payfast/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            amount_zar: amountZAR,
+          }),
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to create payment')
+        }
+
+        const data = await response.json()
+        const { redirect_url, form_data } = data
+
+        // Create a form and submit to PayFast
+        const form = document.createElement('form')
+        form.method = 'POST'
+        form.action = redirect_url
+
+        // Add all form fields
+        Object.entries(form_data).forEach(([key, value]) => {
+          const input = document.createElement('input')
+          input.type = 'hidden'
+          input.name = key
+          input.value = value as string
+          form.appendChild(input)
+        })
+
+        document.body.appendChild(form)
+        
+        // Close sheet immediately before redirect
+        close()
+        
+        // Small delay to ensure sheet closes, then submit form
+        setTimeout(() => {
+          form.submit()
+        }, 100)
+      } catch (error: any) {
+        console.error('[CardDetailsSheet] PayFast redirect failed:', error)
+        // TODO: Show error notification to user
+        alert(`Payment setup failed: ${error.message}`)
+      }
+      return
+    }
+
+    // For link_card origin, save card normally
     const digits = cardNumber.replace(/\s+/g, '')
     const last4 = digits.slice(-4)
     const maskedDisplay = `*******${last4}`

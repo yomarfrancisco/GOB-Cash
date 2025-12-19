@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
@@ -47,6 +47,7 @@ import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
+import { usePendingDeposit } from '@/store/usePendingDeposit'
 import CardDepositAccountSheet from '@/components/CardDepositAccountSheet'
 import { openAmaChatWithCardDepositScenario, openAmaChatWithAgentInduction } from '@/lib/cashDeposit/chatOrchestration'
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
@@ -60,6 +61,7 @@ const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false
 
 export default function ProfilePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { isAuthed, authReady, openAuthEntry } = useAuthStore()
   const { hasCompletedAgentOnboarding } = useAgentOnboardingStore()
   
@@ -69,6 +71,120 @@ export default function ProfilePage() {
       router.replace('/')
     }
   }, [authReady, isAuthed, router])
+
+  // Handle PayFast return (ref query param) with retry logic
+  useEffect(() => {
+    const ref = searchParams.get('ref')
+    const cancel = searchParams.get('cancel')
+    
+    if (cancel === 'true') {
+      // User cancelled PayFast payment
+      usePendingDeposit.getState().clear()
+      router.replace('/profile')
+      return
+    }
+
+    if (ref && isAuthed && authReady) {
+      // User returned from PayFast - credit balance and open chat with retry
+      const handlePayFastReturn = async () => {
+        const MAX_RETRIES = 10
+        const RETRY_DELAY = 1500
+        let attempt = 0
+        let isProcessing = true
+
+        // Show "Confirming payment..." state
+        const { pushNotification } = useNotificationStore.getState()
+        pushNotification({
+          kind: 'payment_sent',
+          title: 'Confirming payment...',
+          body: 'Please wait while we verify your payment',
+        })
+
+        while (attempt < MAX_RETRIES && isProcessing) {
+          try {
+            // Get auth token
+            const auth = getFirebaseAuth()
+            if (!auth?.currentUser) {
+              console.error('[ProfilePage] User not authenticated for PayFast credit')
+              isProcessing = false
+              return
+            }
+
+            const token = await auth.currentUser.getIdToken()
+
+            // Call credit API
+            const response = await fetch(`/api/payfast/credit?ref=${ref}`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            })
+
+            const data = await response.json()
+
+            if (response.ok && data.credited) {
+              // Success - payment credited
+              isProcessing = false
+              
+              // Open Ama chat with confirmation
+              const { amountZAR } = usePendingDeposit.getState()
+              if (amountZAR) {
+                openAmaChatWithCardDepositScenario(amountZAR, 'ZAR account')
+                usePendingDeposit.getState().clear()
+              }
+
+              // Remove query params from URL
+              router.replace('/profile')
+              return
+            } else if (data.retry && data.status === 'PENDING') {
+              // Payment still pending - retry
+              attempt++
+              if (attempt < MAX_RETRIES) {
+                console.log(`[ProfilePage] Payment still pending, retry ${attempt}/${MAX_RETRIES}`)
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+                continue
+              } else {
+                // Max retries reached
+                pushNotification({
+                  kind: 'payment_failed',
+                  title: 'Payment confirmation timeout',
+                  body: 'Your payment is being processed. Balance will update shortly.',
+                })
+                router.replace('/profile')
+                isProcessing = false
+                return
+              }
+            } else {
+              // Other error - don't retry
+              throw new Error(data.error || 'Failed to credit balance')
+            }
+          } catch (error: any) {
+            console.error(`[ProfilePage] PayFast credit attempt ${attempt + 1} failed:`, error)
+            
+            // If it's a retryable error and we haven't maxed out, continue
+            if (attempt < MAX_RETRIES - 1 && error.message?.includes('not complete')) {
+              attempt++
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+              continue
+            } else {
+              // Non-retryable error or max retries
+              pushNotification({
+                kind: 'payment_failed',
+                title: 'Payment confirmation failed',
+                body: error.message || 'Please contact support if your payment was successful.',
+              })
+              router.replace('/profile')
+              isProcessing = false
+              return
+            }
+          }
+        }
+      }
+
+      handlePayFastReturn()
+    }
+  }, [searchParams, isAuthed, authReady, router])
   const activityCount = useActivityStore((s) => s.items.length)
   const { open: openProfileEdit } = useProfileEditSheet()
   const { setOnSelect, open } = useTransactSheet()
@@ -606,9 +722,21 @@ export default function ProfilePage() {
             setTimeout(() => setOpenCountrySelect(true), 220)
           } else if (method === 'card') {
             setDepositMethod('card')
-            setAmountMode('deposit')
-            setAmountEntryPoint('cardDeposit')
-            setTimeout(() => setOpenAmount(true), 220)
+            usePendingDeposit.getState().setMethod('card')
+            // Fix loop: Open CardDetailsSheet directly instead of going back to keypad
+            // Amount should already be stored from the initial keypad entry
+            const { amountZAR } = usePendingDeposit.getState()
+            if (amountZAR && amountZAR > 0) {
+              setOpenDeposit(false)
+              setTimeout(() => {
+                useCardDetailsSheet.getState().open('create', null, 'depositCard')
+              }, 220)
+            } else {
+              // If no amount stored, go to keypad first
+              setAmountMode('deposit')
+              setAmountEntryPoint('cardDeposit')
+              setTimeout(() => setOpenAmount(true), 220)
+            }
           }
           // Crypto wallet option removed - no longer handled
         }}
