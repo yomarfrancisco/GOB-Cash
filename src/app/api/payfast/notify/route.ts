@@ -12,6 +12,7 @@ import { getDb } from '@/lib/firebase-admin'
 import crypto from 'crypto'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 // PayFast configuration
 const getPayFastConfig = () => {
