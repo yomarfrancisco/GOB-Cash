@@ -726,15 +726,14 @@ export default function ProfileClient() {
             const pendingDeposit = usePendingDeposit.getState()
             let finalAmount = pendingDeposit.amountZAR
             
-            // Belt-and-suspenders: if store is empty, try to parse from local state
+            // Belt-and-suspenders: if store is empty, try to use local state
             if (!finalAmount || finalAmount <= 0) {
-              const parsedDraft = parseFloat(amountDraft) || 0
-              if (parsedDraft > 0) {
-                console.log('[Card] Fallback: using amountDraft', parsedDraft)
-                finalAmount = parsedDraft
+              if (depositAmountZAR > 0) {
+                console.log('[Card] Fallback: using depositAmountZAR', depositAmountZAR)
+                finalAmount = depositAmountZAR
                 usePendingDeposit.getState().setPendingDeposit({
                   direction: 'deposit',
-                  amountZAR: parsedDraft,
+                  amountZAR: depositAmountZAR,
                   source: 'keypad',
                 })
               }
