@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/firebase-admin'
-import crypto from 'crypto'
+import { calculatePayFastSignature } from '@/lib/payfast'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -46,24 +46,12 @@ function parseFormData(body: string): Record<string, string> {
 
 /**
  * Generate PayFast signature for validation
+ * 
+ * Uses the shared calculatePayFastSignature function from payfast.ts
  */
 function generatePayFastSignature(params: Record<string, string>, passphrase: string): string {
-  // Exclude signature from calculation
-  const { signature: _, ...paramsToSign } = params
-  
-  // Sort parameters alphabetically
-  const sortedKeys = Object.keys(paramsToSign).sort()
-  
-  // Build query string with URL encoding
-  const queryString = sortedKeys
-    .map(key => `${key}=${encodeURIComponent(paramsToSign[key]).replace(/%20/g, '+')}`)
-    .join('&')
-  
-  // Add passphrase
-  const signatureString = `${queryString}&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, '+')}`
-  
-  // Generate MD5 hash
-  return crypto.createHash('md5').update(signatureString).digest('hex')
+  const { signature } = calculatePayFastSignature(params, passphrase)
+  return signature
 }
 
 export async function POST(request: NextRequest) {

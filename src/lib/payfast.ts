@@ -66,3 +66,57 @@ export function buildParamsAndSignature(
   }
 }
 
+/**
+ * Calculate PayFast signature for ITN validation
+ * 
+ * ⚠️ FOR ITN VALIDATION ONLY — NOT FOR PAYMENT CREATION ⚠️
+ * 
+ * IMPORTANT: ITN validation uses DIFFERENT algorithm than payment creation:
+ * - ITN validation: Alphabetical sorting, encodeURIComponent().replace(/%20/g, '+')
+ * - Payment creation: NO sorting, URLSearchParams.toString(), passphrase NOT encoded
+ * 
+ * This function is ONLY for validating signatures from PayFast ITN callbacks.
+ * Do NOT use this for payment creation - use buildParamsAndSignature() instead.
+ * 
+ * @param params - Parameters to sign (excluding signature itself)
+ * @param passphrase - Passphrase for signature
+ * @returns Object with signature, queryString, and toSign for debugging
+ */
+export function calculatePayFastSignature(
+  params: Record<string, string>,
+  passphrase: string
+): { signature: string; queryString: string; toSign: string } {
+  // Filter out empty values and signature itself
+  const { signature: _, ...paramsToSign } = params
+  const filteredParams: Record<string, string> = {}
+  
+  for (const [key, value] of Object.entries(paramsToSign)) {
+    if (value !== undefined && value !== null && value !== '') {
+      filteredParams[key] = value
+    }
+  }
+  
+  // Sort parameters alphabetically (ITN validation requirement)
+  const sortedKeys = Object.keys(filteredParams).sort()
+  
+  // Build query string with proper encoding (+ for spaces)
+  const queryString = sortedKeys
+    .map(key => {
+      const value = filteredParams[key]
+      return `${key}=${encodeURIComponent(value).replace(/%20/g, '+')}`
+    })
+    .join('&')
+  
+  // Build signature string with passphrase (encoded)
+  const toSign = `${queryString}&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, '+')}`
+  
+  // Compute MD5 hash
+  const signature = crypto.createHash('md5').update(toSign).digest('hex')
+  
+  return {
+    signature,
+    queryString,
+    toSign,
+  }
+}
+
