@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/firebase-admin'
-import { getPayFastBase, buildProcessQueryAndSignature } from '@/lib/payfast'
+import { getPayFastBase, buildProcessQueryAndSignatureOrdered } from '@/lib/payfast'
 import crypto from 'crypto'
 
 export const runtime = 'nodejs'
@@ -69,21 +69,22 @@ export async function POST(request: NextRequest) {
     // Get PayFast configuration
     const config = getPayFastConfig()
 
-    // Build raw parameters (order doesn't matter - will be sorted alphabetically)
-    const rawParams: Record<string, string> = {
-      merchant_id: config.merchantId,
-      merchant_key: config.merchantKey,
-      return_url: `${config.returnUrl}?ref=${ref}`,
-      cancel_url: `${config.cancelUrl}?cancel=true`,
-      notify_url: config.notifyUrl,
-      amount: amount_zar.toFixed(2), // Must be exactly 2 decimal places
-      item_name: `GoBankless Deposit - ${ref.substring(0, 8)}`,
-      m_payment_id: ref, // PayFast will echo this back in ITN callback for reconciliation
-    }
+    // Build ordered parameter pairs (order matters - matches known-working baseline)
+    // Position A: m_payment_id immediately after merchant_key
+    const pairs: Array<[string, string]> = [
+      ['merchant_id', config.merchantId],
+      ['merchant_key', config.merchantKey],
+      ['m_payment_id', ref], // Position A: immediately after merchant_key
+      ['return_url', `${config.returnUrl}?ref=${ref}`],
+      ['cancel_url', `${config.cancelUrl}?cancel=true`],
+      ['notify_url', config.notifyUrl],
+      ['amount', amount_zar.toFixed(2)], // Must be exactly 2 decimal places
+      ['item_name', `GoBankless Deposit - ${ref.substring(0, 8)}`],
+    ]
 
-    // Build query string and signature using canonical deterministic builder
-    // This is the single source of truth - alphabetical sort, proper encoding
-    const { queryString, signature, toSign } = buildProcessQueryAndSignature(rawParams, config.passphrase)
+    // Build query string and signature using ordered builder (no sorting)
+    // This preserves insertion order to match the known-working baseline
+    const { queryString, signature, toSign } = buildProcessQueryAndSignatureOrdered(pairs, config.passphrase)
     
     // Log for verification (temporary instrumentation)
     console.log('[PayFast Create] toSign:', toSign.substring(0, 200) + '...') // Truncate passphrase
