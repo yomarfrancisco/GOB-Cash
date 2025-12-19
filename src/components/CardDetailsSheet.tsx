@@ -209,30 +209,15 @@ export default function CardDetailsSheet() {
         }
 
         const data = await response.json()
-        const { redirect_url, form_data } = data
+        const { redirect_url } = data
 
-        // Create a form and submit to PayFast
-        const form = document.createElement('form')
-        form.method = 'POST'
-        form.action = redirect_url
-
-        // Add all form fields
-        Object.entries(form_data).forEach(([key, value]) => {
-          const input = document.createElement('input')
-          input.type = 'hidden'
-          input.name = key
-          input.value = value as string
-          form.appendChild(input)
-        })
-
-        document.body.appendChild(form)
-        
         // Close sheet immediately before redirect
         close()
         
-        // Small delay to ensure sheet closes, then submit form
+        // Small delay to ensure sheet closes, then redirect to PayFast
+        // redirect_url is already a complete GET URL with all params
         setTimeout(() => {
-          form.submit()
+          window.location.href = redirect_url
         }, 100)
       } catch (error: any) {
         console.error('[CardDetailsSheet] PayFast redirect failed:', error)

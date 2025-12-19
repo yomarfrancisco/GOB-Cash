@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/firebase-admin'
+import { getPayFastBase, buildParamsAndSignature } from '@/lib/payfast'
 import crypto from 'crypto'
 
 export const runtime = 'nodejs'
@@ -22,7 +23,7 @@ interface CreatePaymentRequest {
 
 // PayFast configuration from environment variables
 const getPayFastConfig = () => {
-  const mode = process.env.PAYFAST_MODE || 'sandbox'
+  const mode = process.env.PAYFAST_MODE || 'live'
   const merchantId = process.env.PAYFAST_MERCHANT_ID
   const merchantKey = process.env.PAYFAST_MERCHANT_KEY
   const passphrase = process.env.PAYFAST_PASSPHRASE
@@ -34,10 +35,7 @@ const getPayFastConfig = () => {
     throw new Error('PayFast configuration missing. Set PAYFAST_MERCHANT_ID, PAYFAST_MERCHANT_KEY, and PAYFAST_PASSPHRASE')
   }
 
-  // Treat anything other than "sandbox" as live
-  const baseUrl = mode === 'sandbox' 
-    ? 'https://sandbox.payfast.co.za'
-    : 'https://www.payfast.co.za'
+  const baseUrl = getPayFastBase(mode)
 
   return {
     baseUrl,
@@ -49,26 +47,6 @@ const getPayFastConfig = () => {
     returnUrl,
     cancelUrl,
   }
-}
-
-/**
- * Generate PayFast signature
- * Parameters must be sorted alphabetically, URL-encoded, and concatenated
- */
-function generatePayFastSignature(params: Record<string, string>, passphrase: string): string {
-  // Sort parameters alphabetically
-  const sortedKeys = Object.keys(params).sort()
-  
-  // Build query string with URL encoding
-  const queryString = sortedKeys
-    .map(key => `${key}=${encodeURIComponent(params[key]).replace(/%20/g, '+')}`)
-    .join('&')
-  
-  // Add passphrase
-  const signatureString = `${queryString}&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, '+')}`
-  
-  // Generate MD5 hash
-  return crypto.createHash('md5').update(signatureString).digest('hex')
 }
 
 export async function POST(request: NextRequest) {
@@ -91,25 +69,24 @@ export async function POST(request: NextRequest) {
     // Get PayFast configuration
     const config = getPayFastConfig()
 
-    // Build PayFast parameters
-    const payfastParams: Record<string, string> = {
+    // Build raw parameters in exact order (no sorting, no encodeURIComponent)
+    // Order matters for signature calculation
+    const rawParams: Record<string, string> = {
       merchant_id: config.merchantId,
       merchant_key: config.merchantKey,
       return_url: `${config.returnUrl}?ref=${ref}`,
       cancel_url: `${config.cancelUrl}?cancel=true`,
       notify_url: config.notifyUrl,
-      name_first: 'User', // Will be collected on PayFast checkout
-      name_last: 'Deposit',
-      email_address: '', // Will be collected on PayFast checkout
-      cell_number: '',
-      m_payment_id: ref,
-      amount: amount_zar.toFixed(2),
+      amount: amount_zar.toFixed(2), // Must be exactly 2 decimal places
       item_name: `GoBankless Deposit - ${ref.substring(0, 8)}`,
+      // Passphrase is included in signature calculation but NOT in final params
     }
 
-    // Generate signature (passphrase included in signature calculation, not in params)
-    const signature = generatePayFastSignature(payfastParams, config.passphrase)
-    payfastParams.signature = signature
+    // Build params and signature using known-good implementation
+    const { params, signature, toSign } = buildParamsAndSignature(rawParams, config.passphrase)
+
+    // Add signature to params (after calculation)
+    params.signature = signature
 
     // Store payment record in Firestore
     const db = getDb()
@@ -121,29 +98,33 @@ export async function POST(request: NextRequest) {
       status: 'PENDING',
       createdAt: new Date(),
       payfastParams: {
-        merchant_id: payfastParams.merchant_id,
-        amount: payfastParams.amount,
-        item_name: payfastParams.item_name,
+        merchant_id: params.merchant_id,
+        amount: params.amount,
+        item_name: params.item_name,
       },
     })
 
-    // Build redirect URL with form data
-    const redirectUrl = `${config.baseUrl}/eng/process`
+    // Build redirect URL: ${PF_BASE}/eng/process?${params.toString()}
+    const queryString = new URLSearchParams(params).toString()
+    const redirectUrl = `${config.baseUrl}/eng/process?${queryString}`
 
-    // Log for live testing
+    // Log debug info (server-side only)
     console.log('[PayFast Create] Payment created', {
       ref,
       amountZAR: amount_zar,
       baseUrl: config.baseUrl,
       mode: config.mode,
       userId: user_id,
+      toSign: toSign.substring(0, 100) + '...', // Truncate for security
+      computedSignature: signature.substring(0, 8) + '...',
+      finalQueryString: queryString.substring(0, 100) + '...', // Truncate for security
     })
 
     return NextResponse.json({
       ok: true,
       ref,
-      redirect_url: redirectUrl,
-      form_data: payfastParams, // Client will POST this to PayFast
+      redirect_url: redirectUrl, // Ready-to-use GET URL
+      form_data: params, // Also return for client-side POST if needed
     })
   } catch (error: any) {
     console.error('[PayFast Create] Error:', error)

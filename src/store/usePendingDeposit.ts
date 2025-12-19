@@ -15,6 +15,7 @@ interface PendingDepositState {
   setAmount: (amountZAR: number) => void // Legacy support
   setMethod: (method: 'card' | 'bank' | null) => void // Legacy support
   clear: () => void
+  clearPendingDeposit: () => void // Alias for clear
 }
 
 export const usePendingDeposit = create<PendingDepositState>()(
@@ -32,6 +33,7 @@ export const usePendingDeposit = create<PendingDepositState>()(
       setAmount: (amountZAR) => set({ amountZAR }), // Legacy support
       setMethod: (method) => set({ method }), // Legacy support
       clear: () => set({ direction: null, amountZAR: null, method: null, source: null }),
+      clearPendingDeposit: () => set({ direction: null, amountZAR: null, method: null, source: null }), // Alias
     }),
     {
       name: 'gob-pending-deposit',
