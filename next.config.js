@@ -21,6 +21,11 @@ const nextConfig = {
       },
     ],
   },
+  env: {
+    // Version marker - Vercel automatically sets VERCEL_GIT_COMMIT_SHA
+    // This makes it available at build time
+    NEXT_PUBLIC_APP_VERSION: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'unknown',
+  },
 }
 
 module.exports = nextConfig
