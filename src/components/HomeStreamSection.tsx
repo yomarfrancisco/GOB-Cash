@@ -5,6 +5,7 @@ import { SmartphoneNfc, Tag, Clock3, BadgeDollarSign, Info } from 'lucide-react'
 import styles from './HomeStreamSection.module.css'
 import sharedStyles from './ConvertCashSection.module.css'
 import { useAuthStore } from '@/store/auth'
+import { openAmaChatWithLocationAgentRequest } from '@/lib/cashDeposit/chatOrchestration'
 
 // Commercial agent avatar pool - includes original 5-8 plus new 13-15 and Ariel
 const COMMERCIAL_AGENT_AVATARS = [
@@ -57,6 +58,12 @@ type StreamItemData = {
   industryTag: string
   showUpTag: string
   commissionTag: string
+  // Location data for agent requests
+  location?: {
+    lat: number
+    lng: number
+    radiusMeters: number
+  }
 }
 
 // Generate stream items with deterministic avatar selection
@@ -77,6 +84,11 @@ const generateStreamItems = (): StreamItemData[] => {
       industryTag: 'coffee',
       showUpTag: 'R70/hr show-up',
       commissionTag: '12% commission',
+      location: {
+        lat: -26.1458292,
+        lng: 28.0417716,
+        radiusMeters: 400, // Tight radius for specific location
+      },
     },
     {
       id: 'medicross',
@@ -93,6 +105,11 @@ const generateStreamItems = (): StreamItemData[] => {
       industryTag: 'health',
       showUpTag: 'R85/hr show-up',
       commissionTag: '15% commission',
+      location: {
+        lat: -26.11871,
+        lng: 27.88455,
+        radiusMeters: 500, // Specific location
+      },
     },
     {
       id: 'or-tambo',
@@ -109,6 +126,11 @@ const generateStreamItems = (): StreamItemData[] => {
       industryTag: 'travel',
       showUpTag: 'R90/hr show-up',
       commissionTag: '18% commission',
+      location: {
+        lat: -26.1392,
+        lng: 28.2460,
+        radiusMeters: 3000, // Airport - 3km radius
+      },
     },
     {
       id: 'ekurhuleni',
@@ -125,6 +147,11 @@ const generateStreamItems = (): StreamItemData[] => {
       industryTag: 'mobility',
       showUpTag: 'R75/hr show-up',
       commissionTag: '10% commission',
+      location: {
+        lat: -26.1772,
+        lng: 28.2219,
+        radiusMeters: 7500, // Region/municipality - 7.5km radius
+      },
     },
     {
       id: 'wits',
@@ -141,6 +168,11 @@ const generateStreamItems = (): StreamItemData[] => {
       industryTag: 'education',
       showUpTag: 'R120/hr show-up',
       commissionTag: '12% commission',
+      location: {
+        lat: -26.191,
+        lng: 28.030,
+        radiusMeters: 2000, // Large campus - 2km radius
+      },
     },
     {
       id: 'mall-of-africa',
@@ -157,6 +189,11 @@ const generateStreamItems = (): StreamItemData[] => {
       industryTag: 'retail',
       showUpTag: 'R90/hr show-up',
       commissionTag: '10% commission',
+      location: {
+        lat: -26.015,
+        lng: 28.102,
+        radiusMeters: 1500, // Large mall - 1.5km radius
+      },
     },
     {
       id: 'mcdonalds',
@@ -173,6 +210,11 @@ const generateStreamItems = (): StreamItemData[] => {
       industryTag: 'food',
       showUpTag: 'R85/hr show-up',
       commissionTag: '9% commission',
+      location: {
+        lat: -26.1072374,
+        lng: 28.0534418,
+        radiusMeters: 400, // Tight radius for specific location
+      },
     },
     {
       id: 'shell-fuel',
@@ -189,6 +231,11 @@ const generateStreamItems = (): StreamItemData[] => {
       industryTag: 'fuel',
       showUpTag: 'R80/hr show-up',
       commissionTag: '8% commission',
+      location: {
+        lat: -26.0426667,
+        lng: 28.0218889,
+        radiusMeters: 400, // Tight radius for specific location
+      },
     },
     {
       id: 'hotel-avenida',
@@ -205,6 +252,11 @@ const generateStreamItems = (): StreamItemData[] => {
       industryTag: 'hospitality',
       showUpTag: 'R80/hr show-up',
       commissionTag: '10% commission',
+      location: {
+        lat: -25.962093,
+        lng: 32.58338,
+        radiusMeters: 400, // Hotel - tight radius
+      },
     },
   ]
 
@@ -234,6 +286,62 @@ function StreamItem({ item, index }: StreamItemProps) {
     // For authenticated users, this is a no-op
     if (!isAuthed) {
       openAuthEntrySignup()
+    }
+  }
+
+  const handleAgentRequest = async () => {
+    // Only handle if user is authenticated and location data exists
+    if (!isAuthed || !item.location) {
+      if (!isAuthed) {
+        openAuthEntrySignup()
+      }
+      return
+    }
+
+    try {
+      // Get user's current geolocation
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocation not supported'))
+          return
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          resolve,
+          reject,
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0,
+          }
+        )
+      })
+
+      const userLat = position.coords.latitude
+      const userLng = position.coords.longitude
+
+      // Open Ama chat with location context
+      openAmaChatWithLocationAgentRequest(
+        item.id,
+        item.title,
+        item.location.lat,
+        item.location.lng,
+        item.location.radiusMeters,
+        userLat,
+        userLng
+      )
+    } catch (error) {
+      // Geolocation unavailable or denied - treat as outside radius
+      console.warn('[HomeStreamSection] Geolocation unavailable', error)
+      openAmaChatWithLocationAgentRequest(
+        item.id,
+        item.title,
+        item.location.lat,
+        item.location.lng,
+        item.location.radiusMeters,
+        null, // userLat
+        null  // userLng
+      )
     }
   }
   
@@ -334,8 +442,8 @@ function StreamItem({ item, index }: StreamItemProps) {
           <SmartphoneNfc 
             size={27} 
             className={styles.streamFooterIcon}
-            onClick={!isAuthed ? () => handleCommercialClick(item.id) : undefined}
-            style={{ cursor: !isAuthed ? 'pointer' : 'default' }}
+            onClick={isAuthed ? handleAgentRequest : () => handleCommercialClick(item.id)}
+            style={{ cursor: 'pointer' }}
           />
         </div>
       </div>

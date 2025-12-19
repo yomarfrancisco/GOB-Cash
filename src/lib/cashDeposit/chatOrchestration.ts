@@ -8,6 +8,7 @@ import { useAgentOnboardingStore } from '@/state/agentOnboarding'
 import { formatZAR } from '@/lib/money'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useNotificationStore } from '@/store/notifications'
+import { isWithinRadius } from '@/lib/location/distance'
 
 const PORTFOLIO_MANAGER_THREAD_ID = 'portfolio-manager'
 
@@ -178,6 +179,59 @@ export function openAmaChatWithAgentInduction(): void {
     'ai',
     `Hey 👋\n\nYou're about to earn as a cash agent.\n\nIn simple terms:\n\n• You help people turn cash ↔ digital\n\n• You earn a commission on each transaction\n\n• And over time, you build agent credit so we can trust you with more volume.\n\nBefore we start, I need to check a few basics.`
   )
+  
+  // Open the inbox sheet
+  store.openInbox()
+  
+  // Switch to chat view and set active thread to Ama
+  store.openChatSheet(PORTFOLIO_MANAGER_THREAD_ID)
+}
+
+/**
+ * Opens Ama's chat thread for location-aware agent requests
+ * This is called when user taps smartphone-nfc icon on commercial cards
+ */
+export function openAmaChatWithLocationAgentRequest(
+  locationId: string,
+  locationName: string,
+  locationLat: number,
+  locationLng: number,
+  radiusMeters: number,
+  userLat: number | null,
+  userLng: number | null
+): void {
+  const store = useFinancialInboxStore.getState()
+  
+  // Ensure the portfolio manager thread exists
+  store.ensurePortfolioManagerThread()
+  
+  // Calculate if user is within radius
+  let isWithinLocation = false
+  if (userLat !== null && userLng !== null) {
+    isWithinLocation = isWithinRadius(userLat, userLng, locationLat, locationLng, radiusMeters)
+  }
+  
+  // Case A: User IS within radius
+  if (isWithinLocation) {
+    // Send first message immediately
+    store.sendMessage(
+      PORTFOLIO_MANAGER_THREAD_ID,
+      'ai',
+      `You're within a GoBankless location 📍\n\nI'm checking for the nearest available agent now.\n\nWhile I do that — what do you need help with today?\n• Cash agent\n• Support agent`
+    )
+  } else {
+    // Case B: User IS NOT within radius (or geolocation unavailable)
+    const locationUnavailable = userLat === null || userLng === null
+    
+    let message = ''
+    if (locationUnavailable) {
+      message = `I can't confirm your location right now, but I can still help you 😊\n\nI can:\n• Make or request payments\n• Top up or withdraw (card or on-chain)\n• Answer questions about GoBankless\n\nWhat would you like to do?`
+    } else {
+      message = `I can only connect you to human agents when you're physically at a GoBankless location.\n\nNo worries though — I can still help you right now 😊\n\nI can:\n• Make or request payments\n• Top up or withdraw (card or on-chain)\n• Answer questions about GoBankless\n\nWhat would you like to do?`
+    }
+    
+    store.sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', message)
+  }
   
   // Open the inbox sheet
   store.openInbox()
