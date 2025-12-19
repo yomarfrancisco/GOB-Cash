@@ -144,9 +144,35 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
 
   ensurePortfolioManagerThread: () => {
     const state = get()
+    
+    // Defensive: Remove any duplicate PM threads first (keep only the first one)
+    const pmThreads = state.threads.filter((t) => t.id === PORTFOLIO_MANAGER_THREAD_ID || t.kind === 'portfolio_manager')
+    if (pmThreads.length > 1) {
+      console.warn('[Inbox] Found duplicate Ama threads, deduplicating...', pmThreads.length)
+      const deduplicatedThreads = state.threads.filter((t, index, self) => {
+        // Keep first PM thread, remove duplicates
+        if (t.id === PORTFOLIO_MANAGER_THREAD_ID || t.kind === 'portfolio_manager') {
+          return index === self.findIndex((tt) => tt.id === PORTFOLIO_MANAGER_THREAD_ID || tt.kind === 'portfolio_manager')
+        }
+        return true
+      })
+      const hasUnread = recomputeHasUnread(deduplicatedThreads)
+      set({
+        threads: deduplicatedThreads,
+        hasUnreadNotification: hasUnread,
+      })
+    }
+    
     const pmThread = state.threads.find((t) => t.id === PORTFOLIO_MANAGER_THREAD_ID)
     if (!pmThread) {
       set((state) => {
+        // Ensure no duplicates before adding
+        const existingPM = state.threads.find((t) => t.id === PORTFOLIO_MANAGER_THREAD_ID || t.kind === 'portfolio_manager')
+        if (existingPM) {
+          // PM thread already exists (maybe with different ID), don't add duplicate
+          return state
+        }
+        
         const newThreads: Thread[] = [
           {
             id: PORTFOLIO_MANAGER_THREAD_ID,
@@ -308,15 +334,36 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
     const unsubscribe = subscribeTransactionThreads(uid, (transactionThreads) => {
       const currentState = get()
       
-      // Keep portfolio-manager thread (always first)
-      const pmThread = currentState.threads.find((t) => t.id === PORTFOLIO_MANAGER_THREAD_ID)
+      // Keep portfolio-manager thread (always first) - defensive deduplication
+      const pmThreads = currentState.threads.filter((t) => t.id === PORTFOLIO_MANAGER_THREAD_ID || t.kind === 'portfolio_manager')
+      const pmThread = pmThreads.length > 0 ? pmThreads[0] : null // Keep first PM thread if multiple exist
       
-      // Merge: portfolio-manager + transaction threads
+      // Filter out any PM threads from transaction threads (defensive)
+      const filteredTransactionThreads = transactionThreads.filter(
+        (t) => t.id !== PORTFOLIO_MANAGER_THREAD_ID && t.kind !== 'portfolio_manager'
+      )
+      
+      // Merge: portfolio-manager + transaction threads (ensure single PM thread)
       const mergedThreads: Thread[] = []
       if (pmThread) {
         mergedThreads.push(pmThread)
       }
-      mergedThreads.push(...transactionThreads)
+      mergedThreads.push(...filteredTransactionThreads)
+      
+      // Final defensive check: ensure no duplicate PM threads in merged result
+      const pmThreadsInMerged = mergedThreads.filter((t) => t.id === PORTFOLIO_MANAGER_THREAD_ID || t.kind === 'portfolio_manager')
+      if (pmThreadsInMerged.length > 1) {
+        console.warn('[Transaction] Duplicate PM threads detected in merge, deduplicating...', pmThreadsInMerged.length)
+        // Keep first PM thread, remove others
+        const deduplicatedMerged = mergedThreads.filter((t, index, self) => {
+          if (t.id === PORTFOLIO_MANAGER_THREAD_ID || t.kind === 'portfolio_manager') {
+            return index === self.findIndex((tt) => tt.id === PORTFOLIO_MANAGER_THREAD_ID || tt.kind === 'portfolio_manager')
+          }
+          return true
+        })
+        mergedThreads.length = 0
+        mergedThreads.push(...deduplicatedMerged)
+      }
       
       const hasUnread = recomputeHasUnread(mergedThreads)
       
@@ -327,7 +374,7 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
       })
       
       if (process.env.NODE_ENV !== 'production') {
-        console.log('[Transaction] Synced transaction threads:', transactionThreads.length)
+        console.log('[Transaction] Synced transaction threads:', filteredTransactionThreads.length, 'PM thread:', pmThread ? 'present' : 'missing')
       }
     })
 

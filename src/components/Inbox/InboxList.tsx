@@ -7,8 +7,31 @@ import styles from './InboxList.module.css'
 export default function InboxList() {
   const { threads, setActiveThread } = useFinancialInboxStore()
 
+  // Defensive deduplication: ensure only one Ama thread (keep newest by lastMessageAt)
+  const deduplicatedThreads = threads.reduce((acc, thread) => {
+    if (thread.id === 'portfolio-manager' || thread.kind === 'portfolio_manager') {
+      const existingPM = acc.find((t) => t.id === 'portfolio-manager' || t.kind === 'portfolio_manager')
+      if (existingPM) {
+        // Keep the one with the most recent message
+        const existingTime = new Date(existingPM.lastMessageAt).getTime()
+        const currentTime = new Date(thread.lastMessageAt).getTime()
+        if (currentTime > existingTime) {
+          // Replace with newer one
+          const index = acc.indexOf(existingPM)
+          acc[index] = thread
+        }
+        // Otherwise keep existing
+      } else {
+        acc.push(thread)
+      }
+    } else {
+      acc.push(thread)
+    }
+    return acc
+  }, [] as typeof threads)
+
   // Sort threads: portfolio_manager first, then by lastMessageAt
-  const sortedThreads = [...threads].sort((a, b) => {
+  const sortedThreads = [...deduplicatedThreads].sort((a, b) => {
     if (a.kind === 'portfolio_manager' && b.kind !== 'portfolio_manager') return -1
     if (a.kind !== 'portfolio_manager' && b.kind === 'portfolio_manager') return 1
     return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()

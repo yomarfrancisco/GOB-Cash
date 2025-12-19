@@ -835,7 +835,31 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
 
             {/* Thread list - scrollable (includes portfolio-manager + transaction threads) */}
             <div className={listStyles.conversationList}>
-              {threads.map((thread) => (
+              {(() => {
+                // Defensive deduplication: ensure only one Ama thread (keep newest by lastMessageAt)
+                const deduplicatedThreads = threads.reduce((acc, thread) => {
+                  if (thread.id === 'portfolio-manager' || thread.kind === 'portfolio_manager') {
+                    const existingPM = acc.find((t) => t.id === 'portfolio-manager' || t.kind === 'portfolio_manager')
+                    if (existingPM) {
+                      // Keep the one with the most recent message
+                      const existingTime = new Date(existingPM.lastMessageAt).getTime()
+                      const currentTime = new Date(thread.lastMessageAt).getTime()
+                      if (currentTime > existingTime) {
+                        // Replace with newer one
+                        const index = acc.indexOf(existingPM)
+                        acc[index] = thread
+                      }
+                      // Otherwise keep existing
+                    } else {
+                      acc.push(thread)
+                    }
+                  } else {
+                    acc.push(thread)
+                  }
+                  return acc
+                }, [] as typeof threads)
+                return deduplicatedThreads
+              })().map((thread) => (
                 <button
                   key={thread.id}
                   className={listStyles.inboxRow}
