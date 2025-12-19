@@ -55,9 +55,9 @@ export function buildParamsAndSignature(
   
   // Return params without passphrase, plus signature and toSign for debugging
   const finalParams: Record<string, string> = {}
-  for (const [key, value] of params.entries()) {
+  params.forEach((value, key) => {
     finalParams[key] = value
-  }
+  })
   
   return {
     params: finalParams,
