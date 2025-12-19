@@ -917,10 +917,67 @@ export default function ProfileClient() {
             
             console.log('[Card] pendingDeposit=', { amountZAR: finalAmount, method: 'card' })
             
-            setOpenDeposit(false)
-            setTimeout(() => {
-              useCardDetailsSheet.getState().open('create', null, 'depositCard')
-            }, 220)
+            // Directly redirect to PayFast (skip CardDetailsSheet - PayFast handles card details)
+            if (finalAmount && finalAmount > 0) {
+              setOpenDeposit(false)
+              const handlePayFastRedirect = async () => {
+                try {
+                  // Get current user ID from Firebase Auth
+                  const auth = getFirebaseAuth()
+                  if (!auth?.currentUser) {
+                    console.error('[PayFast Redirect] User not authenticated')
+                    const { pushNotification } = useNotificationStore.getState()
+                    pushNotification({
+                      kind: 'payment_failed',
+                      title: 'Authentication required',
+                      body: 'You must be logged in to make a deposit.',
+                    })
+                    return
+                  }
+
+                  const userId = auth.currentUser.uid
+
+                  // Call PayFast create API
+                  const response = await fetch('/api/payfast/create', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      user_id: userId,
+                      amount_zar: finalAmount,
+                    }),
+                  })
+
+                  if (!response.ok) {
+                    const error = await response.json()
+                    throw new Error(error.error || 'Failed to create payment')
+                  }
+
+                  const data = await response.json()
+                  const { redirect_url } = data
+
+                  // Redirect to PayFast
+                  window.location.href = redirect_url
+                } catch (error: any) {
+                  console.error('[PayFast Redirect] Failed:', error)
+                  const { pushNotification } = useNotificationStore.getState()
+                  pushNotification({
+                    kind: 'payment_failed',
+                    title: 'Payment setup failed',
+                    body: error.message || 'Please try again.',
+                  })
+                }
+              }
+
+              handlePayFastRedirect()
+            } else {
+              // No amount yet - open amount keypad first
+              setOpenDeposit(false)
+              setAmountMode('deposit')
+              setAmountEntryPoint('cardDeposit')
+              setTimeout(() => setOpenAmount(true), 220)
+            }
           }
           // Crypto wallet option removed - no longer handled
         }}
