@@ -159,8 +159,18 @@ export default function CardDetailsSheet() {
     // For depositCard origin, redirect to PayFast (non-tokenized v1)
     if (origin === 'depositCard') {
       const { amountZAR } = usePendingDeposit.getState()
+      console.log('[CardDetails] amount=', amountZAR)
       if (!amountZAR || amountZAR <= 0) {
         console.error('[CardDetailsSheet] No deposit amount available')
+        const { pushNotification } = await import('@/store/notifications').then(m => m.useNotificationStore.getState())
+        pushNotification({
+          kind: 'payment_failed',
+          title: 'Amount required',
+          body: 'Please enter an amount first',
+        })
+        // Close sheet and return to keypad
+        close()
+        // Note: Parent component should handle reopening keypad
         return
       }
 

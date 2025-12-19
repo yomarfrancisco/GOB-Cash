@@ -212,6 +212,7 @@ export default function ProfileClient() {
   const [depositChatError, setDepositChatError] = useState<string | null>(null)
   const [openAgentInbox, setOpenAgentInbox] = useState(false)
   const [depositAmountZAR, setDepositAmountZAR] = useState(0) // Persist deposit amount through flow
+  const [amountDraft, setAmountDraft] = useState<string>('') // Track keypad input as user types
   
   // Check if current user is agent
   const auth = getFirebaseAuth()
@@ -721,14 +722,31 @@ export default function ProfileClient() {
             setTimeout(() => setOpenCountrySelect(true), 220)
           } else if (method === 'card') {
             setDepositMethod('card')
-            usePendingDeposit.getState().setMethod('card')
-            // Fix loop: ALWAYS open CardDetailsSheet directly (never return to keypad)
-            // Amount should already be stored from the initial keypad entry
-            const { amountZAR } = usePendingDeposit.getState()
-            if (!amountZAR || amountZAR <= 0) {
-              console.error('[DepositSheet] No deposit amount available for card deposit')
-              // Still open CardDetailsSheet - it will show error if amount missing
+            // Read pending deposit from store (committed when user tapped "Deposit")
+            const pendingDeposit = usePendingDeposit.getState()
+            let finalAmount = pendingDeposit.amountZAR
+            
+            // Belt-and-suspenders: if store is empty, try to parse from local state
+            if (!finalAmount || finalAmount <= 0) {
+              const parsedDraft = parseFloat(amountDraft) || 0
+              if (parsedDraft > 0) {
+                console.log('[Card] Fallback: using amountDraft', parsedDraft)
+                finalAmount = parsedDraft
+                usePendingDeposit.getState().setPendingDeposit({
+                  direction: 'deposit',
+                  amountZAR: parsedDraft,
+                  source: 'keypad',
+                })
+              }
             }
+            
+            // Set method in store
+            usePendingDeposit.getState().setPendingDeposit({
+              method: 'card',
+            })
+            
+            console.log('[Card] pendingDeposit=', { amountZAR: finalAmount, method: 'card' })
+            
             setOpenDeposit(false)
             setTimeout(() => {
               useCardDetailsSheet.getState().open('create', null, 'depositCard')
