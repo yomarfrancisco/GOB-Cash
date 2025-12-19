@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { db, auth } from '@/lib/firebase-admin'
+import { getDb, getAuth } from '@/lib/firebase-admin'
 
 export const runtime = 'nodejs'
 
@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7)
     let userId: string
 
+    const auth = getAuth()
     try {
       const decodedToken = await auth.verifyIdToken(token)
       userId = decodedToken.uid
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get payment record
+    const db = getDb()
     const paymentRef = db.collection('payments').doc(ref)
     const paymentDoc = await paymentRef.get()
 

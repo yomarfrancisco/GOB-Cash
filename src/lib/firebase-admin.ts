@@ -1,65 +1,97 @@
 /**
  * Firebase Admin SDK initialization for Next.js API routes
  * 
- * This module initializes Firebase Admin SDK for server-side operations
- * in Next.js API routes. It uses the service account JSON file.
+ * Lazy initialization - only initializes when getDb() or getAuth() is called
+ * Uses FIREBASE_SERVICE_ACCOUNT_JSON environment variable (Vercel-friendly)
+ * 
+ * IMPORTANT: Do not initialize at module import time to avoid Vercel build failures
  */
 
 import * as admin from 'firebase-admin'
 
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-  try {
-    // Try to use service account from environment variable or file
-    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
-    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+let adminApp: admin.app.App | null = null
+let dbInstance: admin.firestore.Firestore | null = null
+let authInstance: admin.auth.Auth | null = null
 
-    if (serviceAccountJson) {
-      // Parse JSON from environment variable (Vercel-friendly)
-      try {
-        const serviceAccount = JSON.parse(serviceAccountJson)
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        })
-        console.log('[Firebase Admin] Initialized from FIREBASE_SERVICE_ACCOUNT_JSON')
-      } catch (parseError) {
-        console.error('[Firebase Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', parseError)
-        throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON is invalid JSON')
-      }
-    } else if (serviceAccountPath) {
-      // Load from file path
-      try {
-        const serviceAccount = require(serviceAccountPath)
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        })
-        console.log('[Firebase Admin] Initialized from FIREBASE_SERVICE_ACCOUNT_PATH:', serviceAccountPath)
-      } catch (requireError) {
-        console.error('[Firebase Admin] Failed to load service account from path:', serviceAccountPath, requireError)
-        throw new Error(`Failed to load service account from ${serviceAccountPath}`)
-      }
-    } else {
-      // Try default service account file location (local development)
-      try {
-        const serviceAccount = require('../../../gobankless-dev-firebase-adminsdk-fbsvc-f9e7a2ca07.json')
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        })
-        console.log('[Firebase Admin] Initialized from default service account file')
-      } catch (defaultError) {
-        console.error('[Firebase Admin] Failed to initialize:', defaultError)
-        console.error('[Firebase Admin] Missing environment variables: FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_SERVICE_ACCOUNT_PATH')
-        throw new Error(
-          'Firebase Admin initialization failed. Set FIREBASE_SERVICE_ACCOUNT_JSON (JSON string) or FIREBASE_SERVICE_ACCOUNT_PATH (file path)'
-        )
-      }
+/**
+ * Initialize Firebase Admin SDK lazily
+ * Only called when getDb() or getAuth() is first invoked
+ */
+function initializeAdmin(): void {
+  // If already initialized, return early
+  if (adminApp) {
+    return
+  }
+
+  // Check if already initialized by getApps()
+  const existingApps = admin.apps
+  if (existingApps.length > 0) {
+    adminApp = existingApps[0]
+    return
+  }
+
+  // Get service account JSON from environment variable
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+
+  if (!serviceAccountJson) {
+    const error = new Error(
+      'FIREBASE_SERVICE_ACCOUNT_JSON environment variable is required. ' +
+      'Set it in Vercel environment variables as a JSON string.'
+    )
+    console.error('[Firebase Admin] Missing environment variable:', error.message)
+    throw error
+  }
+
+  try {
+    // Parse JSON string
+    const serviceAccount = JSON.parse(serviceAccountJson)
+
+    // Fix private_key: replace \\n with \n (common issue when storing in env vars)
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n')
     }
+
+    // Initialize Firebase Admin
+    adminApp = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    })
+
+    console.log('[Firebase Admin] Initialized successfully from FIREBASE_SERVICE_ACCOUNT_JSON')
   } catch (error: any) {
-    console.error('[Firebase Admin] Initialization error:', error)
+    console.error('[Firebase Admin] Initialization failed:', error)
+    if (error instanceof SyntaxError) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON is invalid JSON. Check your environment variable.')
+    }
     throw new Error(`Firebase Admin initialization failed: ${error.message}`)
   }
 }
 
-export const db = admin.firestore()
-export const auth = admin.auth()
+/**
+ * Get Firestore database instance (lazy initialization)
+ * Call this inside route handlers, not at module level
+ */
+export function getDb(): admin.firestore.Firestore {
+  if (!dbInstance) {
+    initializeAdmin()
+    if (!adminApp) {
+      throw new Error('Firebase Admin app not initialized')
+    }
+    dbInstance = admin.firestore()
+  }
+  return dbInstance
+}
 
+/**
+ * Get Auth instance (lazy initialization)
+ * Call this inside route handlers, not at module level
+ */
+export function getAuth(): admin.auth.Auth {
+  if (!authInstance) {
+    initializeAdmin()
+    if (!adminApp) {
+      throw new Error('Firebase Admin app not initialized')
+    }
+    authInstance = admin.auth()
+  }
+  return authInstance
+}

@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase-admin'
+import { getDb } from '@/lib/firebase-admin'
 import crypto from 'crypto'
 
 export const runtime = 'nodejs'
@@ -111,6 +111,7 @@ export async function POST(request: NextRequest) {
     payfastParams.signature = signature
 
     // Store payment record in Firestore
+    const db = getDb()
     const paymentRef = db.collection('payments').doc(ref)
     await paymentRef.set({
       ref,
