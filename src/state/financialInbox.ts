@@ -102,7 +102,7 @@ const initialPMMessages: ChatMessage[] = [
     id: nanoid(),
     threadId: PORTFOLIO_MANAGER_THREAD_ID,
     from: 'ai',
-    text: 'Hi, I\'m Ama, your Stokvel Treasurer 👋   I can help you make your first deposit, join a Stokvel, or start a new group with friends.   What would you like to do first?',
+    text: 'Hi, I\'m Ama, your Portfolio Manager. Just let me know how I can help. I can help you move cash anywhere, invest or connect to agents.',
     createdAt: '14:09',
   },
 ]
@@ -116,8 +116,8 @@ const recomputeHasUnread = (threads: Thread[]): boolean => {
 const initialThreads: Thread[] = [
   {
     id: PORTFOLIO_MANAGER_THREAD_ID,
-    title: 'Ama — Stokvel Treasurer',
-    subtitle: 'Welcome! I can help you join or start a Stokvel.',
+    title: 'Ama — Portfolio Manager',
+    subtitle: 'Welcome! I can help you move cash, invest, or connect to agents.',
     avatarUrl: '/assets/Brics-girl-blue.png',
     unreadCount: 1, // Mark as unread with blue dot
     lastMessageAt: '16:09',
@@ -150,8 +150,8 @@ export const useFinancialInboxStore = create<FinancialInboxState>((set, get) => 
         const newThreads: Thread[] = [
           {
             id: PORTFOLIO_MANAGER_THREAD_ID,
-            title: 'Ama — Stokvel Treasurer',
-            subtitle: 'Welcome! I can help you join or start a Stokvel.',
+            title: 'Ama — Portfolio Manager',
+            subtitle: 'Welcome! I can help you move cash, invest, or connect to agents.',
             avatarUrl: '/assets/Brics-girl-blue.png',
             unreadCount: 0,
             lastMessageAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
