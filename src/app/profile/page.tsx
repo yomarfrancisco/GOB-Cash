@@ -723,20 +723,17 @@ export default function ProfilePage() {
           } else if (method === 'card') {
             setDepositMethod('card')
             usePendingDeposit.getState().setMethod('card')
-            // Fix loop: Open CardDetailsSheet directly instead of going back to keypad
+            // Fix loop: ALWAYS open CardDetailsSheet directly (never return to keypad)
             // Amount should already be stored from the initial keypad entry
             const { amountZAR } = usePendingDeposit.getState()
-            if (amountZAR && amountZAR > 0) {
-              setOpenDeposit(false)
-              setTimeout(() => {
-                useCardDetailsSheet.getState().open('create', null, 'depositCard')
-              }, 220)
-            } else {
-              // If no amount stored, go to keypad first
-              setAmountMode('deposit')
-              setAmountEntryPoint('cardDeposit')
-              setTimeout(() => setOpenAmount(true), 220)
+            if (!amountZAR || amountZAR <= 0) {
+              console.error('[DepositSheet] No deposit amount available for card deposit')
+              // Still open CardDetailsSheet - it will show error if amount missing
             }
+            setOpenDeposit(false)
+            setTimeout(() => {
+              useCardDetailsSheet.getState().open('create', null, 'depositCard')
+            }, 220)
           }
           // Crypto wallet option removed - no longer handled
         }}
