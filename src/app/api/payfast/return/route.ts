@@ -21,12 +21,63 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     
     // Get ref from query params (we set this in return_url)
-    const ref = searchParams.get('ref')
+    let ref = searchParams.get('ref')
     
     // Get PayFast return params
     const pfPaymentId = searchParams.get('pf_payment_id')
     const paymentStatus = searchParams.get('payment_status')
     const amountGross = searchParams.get('amount_gross')
+    const itemName = searchParams.get('item_name')
+    
+    // Option 4: If ref is missing, try to parse from item_name using REF: marker
+    if (!ref || ref.trim() === '') {
+      console.log('[PayFast Return] ref missing from query params, attempting to parse from item_name', {
+        itemName,
+        allKeys: Array.from(searchParams.keys()),
+      })
+      
+      if (itemName) {
+        // Parse ref from item_name: "GoBankless Deposit | REF:12345678"
+        const refMatch = itemName.match(/REF:([a-f0-9]{8})/i)
+        if (refMatch) {
+          const refPrefix = refMatch[1]
+          console.log('[PayFast Return] Found ref prefix in item_name', { refPrefix })
+          
+          // Try to find payment by matching first 8 chars of ref
+          // Note: This is a fallback - we'll search Firestore for matching payment
+          const db = getDb()
+          const paymentsRef = db.collection('payments')
+          const snapshot = await paymentsRef
+            .where('status', '==', 'PENDING')
+            .limit(10)
+            .get()
+          
+          // Find payment where ref starts with the prefix
+          let foundPayment: FirebaseFirestore.QueryDocumentSnapshot | null = null
+          for (const doc of snapshot.docs) {
+            const docRef = doc.id
+            if (docRef.toLowerCase().startsWith(refPrefix.toLowerCase())) {
+              foundPayment = doc
+              ref = docRef
+              console.log('[PayFast Return] Matched payment by ref prefix', {
+                refPrefix,
+                fullRef: ref,
+              })
+              break
+            }
+          }
+          
+          if (!foundPayment) {
+            console.error('[PayFast Return] Could not find payment matching ref prefix', {
+              refPrefix,
+              searchedPayments: snapshot.size,
+            })
+          }
+        } else {
+          console.warn('[PayFast Return] item_name does not contain REF: marker', { itemName })
+        }
+      }
+    }
     
     // Log received params
     const receivedParams = {
@@ -34,13 +85,18 @@ export async function GET(request: NextRequest) {
       pfPaymentId,
       paymentStatus,
       amountGross,
+      itemName,
+      refSource: ref ? (searchParams.get('ref') ? 'query_param' : 'item_name_parsed') : 'missing',
       allKeys: Array.from(searchParams.keys()),
     }
     console.log('[PayFast Return] received', receivedParams)
     
-    // Require ref (we set this in return_url)
+    // Require ref (either from query param or parsed from item_name)
     if (!ref || ref.trim() === '') {
-      console.error('[PayFast Return] Missing ref parameter')
+      console.error('[PayFast Return] Missing ref parameter and could not parse from item_name', {
+        itemName,
+        allParams: Object.fromEntries(searchParams.entries()),
+      })
       // Redirect to profile with error
       return NextResponse.redirect(new URL('/profile?error=missing_ref', request.url))
     }

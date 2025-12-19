@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       cancel_url: `${config.cancelUrl}?cancel=true`,
       notify_url: config.notifyUrl,
       amount: amount_zar.toFixed(2), // Must be exactly 2 decimal places
-      item_name: `GoBankless Deposit - ${ref.substring(0, 8)}`,
+      item_name: `GoBankless Deposit | REF:${ref.substring(0, 8)}`, // Option 4: Reference marker for backup reconciliation
       // Passphrase is included in signature calculation but NOT in final params
     }
 
