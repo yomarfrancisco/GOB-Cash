@@ -71,10 +71,11 @@ export async function POST(request: NextRequest) {
 
     // Build raw parameters in exact order (no sorting, no encodeURIComponent)
     // Order matters for signature calculation
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gobankless.app'
     const rawParams: Record<string, string> = {
       merchant_id: config.merchantId,
       merchant_key: config.merchantKey,
-      return_url: `${config.returnUrl}?ref=${ref}`,
+      return_url: `${baseUrl}/api/payfast/return?ref=${ref}`, // Server-side return handler (Option 5)
       cancel_url: `${config.cancelUrl}?cancel=true`,
       notify_url: config.notifyUrl,
       amount: amount_zar.toFixed(2), // Must be exactly 2 decimal places
