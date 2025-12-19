@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/firebase-admin'
-import { getPayFastBase, buildParamsAndSignature } from '@/lib/payfast'
+import { getPayFastBase } from '@/lib/payfast'
 import crypto from 'crypto'
 
 export const runtime = 'nodejs'
@@ -69,25 +69,35 @@ export async function POST(request: NextRequest) {
     // Get PayFast configuration
     const config = getPayFastConfig()
 
-    // Build raw parameters in exact order (no sorting, no encodeURIComponent)
-    // Order matters for signature calculation
-    const rawParams: Record<string, string> = {
-      merchant_id: config.merchantId,
-      merchant_key: config.merchantKey,
-      return_url: `${config.returnUrl}?ref=${ref}`,
-      cancel_url: `${config.cancelUrl}?cancel=true`,
-      notify_url: config.notifyUrl,
-      amount: amount_zar.toFixed(2), // Must be exactly 2 decimal places
-      item_name: `GoBankless Deposit - ${ref.substring(0, 8)}`,
-      m_payment_id: ref, // PayFast will echo this back in ITN callback for reconciliation
-      // Passphrase is included in signature calculation but NOT in final params
+    // Build query string ONCE - this exact string will be used for both signing and redirecting
+    // PayFast computes signature from the exact query string it receives, so they must match byte-for-byte
+    const params = new URLSearchParams()
+    
+    params.append('merchant_id', config.merchantId)
+    params.append('merchant_key', config.merchantKey)
+    params.append('return_url', `${config.returnUrl}?ref=${ref}`)
+    params.append('cancel_url', `${config.cancelUrl}?cancel=true`)
+    params.append('notify_url', config.notifyUrl)
+    params.append('amount', amount_zar.toFixed(2)) // Must be exactly 2 decimal places
+    params.append('item_name', `GoBankless Deposit - ${ref.substring(0, 8)}`)
+    params.append('m_payment_id', ref) // PayFast will echo this back in ITN callback for reconciliation
+    
+    // Get the base query string (this is what PayFast will see, minus signature)
+    const baseQS = params.toString()
+    
+    // Sign THAT EXACT STRING - do not re-encode, do not sort, do not rebuild
+    let toSign = baseQS
+    if (config.passphrase) {
+      toSign += `&passphrase=${config.passphrase}`
     }
-
-    // Build params and signature using known-good implementation
-    const { params, signature, toSign } = buildParamsAndSignature(rawParams, config.passphrase)
-
-    // Add signature to params (after calculation)
-    params.signature = signature
+    
+    // Compute MD5 hash
+    const signature = crypto.createHash('md5').update(toSign).digest('hex')
+    
+    // Log for verification (temporary instrumentation)
+    console.log('[PayFast Create] baseQS:', baseQS)
+    console.log('[PayFast Create] toSign:', toSign.substring(0, 200) + '...') // Truncate passphrase
+    console.log('[PayFast Create] signature:', signature)
 
     // Store payment record in Firestore
     const db = getDb()
@@ -99,15 +109,15 @@ export async function POST(request: NextRequest) {
       status: 'PENDING',
       createdAt: new Date(),
       payfastParams: {
-        merchant_id: params.merchant_id,
-        amount: params.amount,
-        item_name: params.item_name,
+        merchant_id: config.merchantId,
+        amount: amount_zar.toFixed(2),
+        item_name: `GoBankless Deposit - ${ref.substring(0, 8)}`,
       },
     })
 
-    // Build redirect URL: ${PF_BASE}/eng/process?${params.toString()}
-    const queryString = new URLSearchParams(params).toString()
-    const redirectUrl = `${config.baseUrl}/eng/process?${queryString}`
+    // Redirect using the SAME query string - no second URLSearchParams, no mutation
+    // This ensures PayFast receives the exact bytes we hashed
+    const redirectUrl = `${config.baseUrl}/eng/process?${baseQS}&signature=${signature}`
 
     // Log debug info (server-side only)
     console.log('[PayFast Create] Payment created', {
@@ -116,11 +126,8 @@ export async function POST(request: NextRequest) {
       baseUrl: config.baseUrl,
       mode: config.mode,
       userId: user_id,
-      hasMPaymentId: !!params.m_payment_id,
-      mPaymentId: params.m_payment_id || 'MISSING',
-      toSign: toSign.substring(0, 100) + '...', // Truncate for security
-      computedSignature: signature.substring(0, 8) + '...',
-      finalQueryString: queryString.substring(0, 100) + '...', // Truncate for security
+      hasMPaymentId: baseQS.includes('m_payment_id='),
+      redirectUrlPreview: redirectUrl.substring(0, 200) + '...', // Truncate for security
     })
 
     return NextResponse.json({
