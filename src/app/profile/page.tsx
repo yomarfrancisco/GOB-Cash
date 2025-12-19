@@ -991,29 +991,19 @@ export default function ProfilePage() {
             }, 220)
             return
           }
-          // Card deposit flow: branch based on linked accounts
+          // Card deposit flow: non-tokenized v1 - always go to CardDetailsSheet (no account selection)
           if (amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card') {
             setOpenAmount(false)
             setAmountEntryPoint(undefined)
             
-            // TODO: Replace with real check from wallet store
-            const { linkedCards } = useUserProfileStore.getState().profile
-            const hasLinkedAccounts = linkedCards.length > 0
+            // Store amount in pending deposit store
+            usePendingDeposit.getState().setAmount(amountZAR)
+            usePendingDeposit.getState().setMethod('card')
             
-            if (hasLinkedAccounts) {
-              // User has linked cards, go directly to account selection
-              setTimeout(() => {
-                useCardDepositAccountSheet.getState().open(amountZAR)
-              }, 220)
-            } else {
-              // User needs to link a card first
-              // Store amount for after card linking (without opening the sheet)
-              useCardDepositAccountSheet.getState().setAmount(amountZAR)
-              // Open CardDetailsSheet directly with depositCard origin (skip LinkedAccountsSheet)
-              setTimeout(() => {
-                useCardDetailsSheet.getState().open('create', null, 'depositCard')
-              }, 220)
-            }
+            // Always open CardDetailsSheet for non-tokenized v1 (no account selection)
+            setTimeout(() => {
+              useCardDetailsSheet.getState().open('create', null, 'depositCard')
+            }, 220)
           } else {
             // Other deposit methods (ATM, agent, etc.) - keep existing behavior
             setOpenAmount(false)
