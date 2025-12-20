@@ -181,7 +181,27 @@ curl -sS -X POST \
 1. **"show me crypto balances"** → Returns BTC/ETH lines (0 if 0), NOT ZAR
 2. **"list my wallets and balances"** → Shows all wallets including zeros
 3. **"give me a portfolio snapshot"** → Asks clarifying question: "Do you want (1) balances, (2) crypto balances, or (3) recent payments?"
-4. **"what was my last payment"** → Either returns payment or clean index message (no stack traces)
+4. **"what was my last payment"** → Returns payment details (ref, status, amount, date) OR clean message if no payments exist
+
+## Payment History Test Cases
+
+### After Dual-Write Implementation
+
+| Query | Expected Intent | Expected Tool | Expected Response |
+|-------|----------------|---------------|-------------------|
+| "what was my last payment" | `payments` | `list_recent_payments` | Last payment: ref, status, amount, date |
+| "show the last 3 transactions" | `payments` | `list_recent_payments` | Last 3 payments with details |
+| "second most recent payment — amount and status" | `payments` | `list_recent_payments` | Second payment: amount + status |
+| "any deposits recently" | `payments` | `list_recent_payments` | Recent payment list |
+| "last transaction — amount + status" | `payments` | `list_recent_payments` | Last payment: amount + status |
+| "show pending vs completed payments" | `payments` | `list_recent_payments` | Payment list with statuses |
+
+### Expected Behavior
+
+- **After backfill**: All queries return payment data from `users/{uid}/payments` subcollection
+- **Before backfill**: Queries return empty array (subcollection doesn't exist yet)
+- **Fallback enabled**: If `AMA_PAYMENTS_FALLBACK_ENABLED=true`, falls back to global collection (requires index)
+- **Error handling**: Never shows raw Firestore errors, always user-friendly messages
 
 ## Notes
 

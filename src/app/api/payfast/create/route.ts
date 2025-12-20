@@ -89,15 +89,17 @@ export async function POST(request: NextRequest) {
     // Add signature to params (after calculation)
     params.signature = signature
 
-    // Store payment record in Firestore
+    // Store payment record in Firestore (dual-write: global + user subcollection)
     const db = getDb()
-    const paymentRef = db.collection('payments').doc(ref)
-    await paymentRef.set({
+    const { upsertPayment } = await import('@/lib/payfast/paymentMirror')
+    await upsertPayment(db, {
       ref,
       userId: user_id,
       amountZAR: amount_zar,
+      currency: 'ZAR',
       status: 'PENDING',
       createdAt: new Date(),
+      provider: 'payfast',
       payfastParams: {
         merchant_id: params.merchant_id,
         amount: params.amount,

@@ -493,9 +493,12 @@ export async function routeAmaMessage(
 
       // Tool execution failed
       if (toolResult && !toolResult.ok) {
+        // Map structured errors (no raw Firestore errors exposed)
+        const errorMessage = toolResult.error || 'Unknown error'
+        
         // Check for Firestore index error
-        if (toolResult.error?.includes('index') || toolResult.error?.includes('FAILED_PRECONDITION')) {
-          const indexUrlMatch = toolResult.error.match(/https:\/\/console\.firebase\.google\.com[^\s]+/)
+        if (errorMessage.includes('index') || errorMessage.includes('FAILED_PRECONDITION')) {
+          const indexUrlMatch = errorMessage.match(/https:\/\/console\.firebase\.google\.com[^\s]+/)
           const indexUrl = indexUrlMatch ? indexUrlMatch[0] : null
           
           return {
@@ -506,6 +509,23 @@ export async function routeAmaMessage(
           }
         }
         
+        // Check for permission errors
+        if (errorMessage.includes('permission') || errorMessage.includes('PERMISSION_DENIED')) {
+          return {
+            text: "You don't have permission to access this data.",
+            mode: 'SCRIPTED',
+          }
+        }
+        
+        // Check for not found errors
+        if (errorMessage.includes('not found') || errorMessage.includes('NOT_FOUND')) {
+          return {
+            text: "I couldn't find that data.",
+            mode: 'SCRIPTED',
+          }
+        }
+        
+        // Generic error (don't expose raw Firestore errors)
         return {
           text: params.requestId
             ? `I couldn't fetch that data (requestId: ${params.requestId}). Please try again.`
@@ -516,8 +536,11 @@ export async function routeAmaMessage(
     } catch (error: any) {
       console.error('[Ama Router] Tool execution failed:', error)
       
+      // Map structured errors (no raw Firestore errors exposed)
+      const errorMessage = error.message || 'Unknown error'
+      
       // Check for Firestore index error
-      if (error.message?.includes('index') || error.message?.includes('FAILED_PRECONDITION')) {
+      if (errorMessage.includes('index') || errorMessage.includes('FAILED_PRECONDITION')) {
         const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || 'gobankless-dev'
         const indexUrl = `https://console.firebase.google.com/project/${projectId}/firestore/indexes`
         
@@ -527,6 +550,15 @@ export async function routeAmaMessage(
         }
       }
       
+      // Check for permission errors
+      if (errorMessage.includes('permission') || errorMessage.includes('PERMISSION_DENIED')) {
+        return {
+          text: "You don't have permission to access this data.",
+          mode: 'SCRIPTED',
+        }
+      }
+      
+      // Generic error (don't expose raw Firestore errors)
       return {
         text: params.requestId
           ? `I encountered an error (requestId: ${params.requestId}). Please try again.`

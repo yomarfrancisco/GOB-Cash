@@ -90,8 +90,37 @@ export async function getPaymentByRef(
 }
 
 /**
+ * Map Firestore errors to user-friendly messages
+ */
+function mapFirestoreError(error: any): Error {
+  // Missing index error
+  if (error.code === 9 || error.message?.includes('index') || error.message?.includes('FAILED_PRECONDITION')) {
+    const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || 'gobankless-dev'
+    const indexUrl = `https://console.firebase.google.com/project/${projectId}/firestore/indexes`
+    return new Error(
+      `Payments query requires a Firestore index. Please create the index: ` +
+      `Collection: payments, Fields: userId (Ascending), createdAt (Descending). ` +
+      `Or visit: ${indexUrl}`
+    )
+  }
+
+  // Permission denied
+  if (error.code === 7 || error.message?.includes('permission') || error.message?.includes('PERMISSION_DENIED')) {
+    return new Error('You do not have permission to access this data.')
+  }
+
+  // Not found
+  if (error.code === 5 || error.message?.includes('not found') || error.message?.includes('NOT_FOUND')) {
+    return new Error('Payment data not found.')
+  }
+
+  // Generic error (don't expose raw Firestore errors)
+  return new Error('Unable to fetch payment data. Please try again later.')
+}
+
+/**
  * List recent payments for user (USER mode - scoped to uid)
- * Tries subcollection first (no index needed), falls back to main collection with composite index
+ * Prefers subcollection (no index needed), falls back to main collection if enabled
  */
 export async function listRecentPayments(
   db: firestore.Firestore,
@@ -128,41 +157,52 @@ export async function listRecentPayments(
   }
   
   // Fallback: Query main payments collection (requires composite index)
-  try {
-    const paymentsRef = db.collection('payments')
-    const snapshot = await paymentsRef
-      .where('userId', '==', uid)
-      .orderBy('createdAt', 'desc')
-      .limit(limit)
-      .get()
-    
-    const payments: Array<Record<string, any>> = []
-    snapshot.forEach((doc) => {
-      const data = doc.data()
-      payments.push({
-        ref: doc.id,
-        ...data,
-        // Convert Firestore timestamps
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
-        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
-        creditedAt: data.creditedAt?.toDate?.()?.toISOString() || null,
-        completedAt: data.completedAt?.toDate?.()?.toISOString() || null,
+  // Only enabled if feature flag is set
+  const fallbackEnabled = process.env.AMA_PAYMENTS_FALLBACK_ENABLED === 'true'
+  
+  if (fallbackEnabled) {
+    try {
+      const paymentsRef = db.collection('payments')
+      const snapshot = await paymentsRef
+        .where('userId', '==', uid)
+        .orderBy('createdAt', 'desc')
+        .limit(limit)
+        .get()
+      
+      // Log fallback usage (indicates missing subcollection data)
+      console.warn('[DAL] Using fallback query to global payments collection', {
+        uid,
+        limit,
+        count: snapshot.size,
+        hint: 'Consider running backfill script to populate user subcollections',
       })
-    })
-    
-    return payments
-  } catch (error: any) {
-    // Check if it's a missing index error
-    if (error.code === 9 || error.message?.includes('index') || error.message?.includes('FAILED_PRECONDITION')) {
-      const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || 'gobankless-dev'
-      const indexUrl = `https://console.firebase.google.com/project/${projectId}/firestore/indexes`
-      throw new Error(
-        `Payments query requires a Firestore index. Please create the index: ` +
-        `Collection: payments, Fields: userId (Ascending), createdAt (Descending). ` +
-        `Or visit: ${indexUrl}`
-      )
+      
+      const payments: Array<Record<string, any>> = []
+      snapshot.forEach((doc) => {
+        const data = doc.data()
+        payments.push({
+          ref: doc.id,
+          ...data,
+          // Convert Firestore timestamps
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+          creditedAt: data.creditedAt?.toDate?.()?.toISOString() || null,
+          completedAt: data.completedAt?.toDate?.()?.toISOString() || null,
+        })
+      })
+      
+      return payments
+    } catch (error: any) {
+      // Map Firestore errors to user-friendly messages
+      throw mapFirestoreError(error)
     }
-    throw error
+  } else {
+    // Fallback disabled - return empty array with helpful message
+    console.warn('[DAL] Subcollection empty and fallback disabled', {
+      uid,
+      hint: 'Enable AMA_PAYMENTS_FALLBACK_ENABLED=true or run backfill script',
+    })
+    return []
   }
 }
 

@@ -170,6 +170,22 @@ export async function POST(request: NextRequest) {
       return newBalance
     })
 
+    // Mirror status update to user subcollection (non-blocking)
+    try {
+      const { updatePaymentStatus } = await import('@/lib/payfast/paymentMirror')
+      await updatePaymentStatus(db, ref, userId, {
+        status: 'CREDITED',
+        creditedAt: new Date(),
+      })
+    } catch (mirrorError: any) {
+      // Log but don't fail - payment is already credited in global collection
+      console.warn('[PayFast Credit] Failed to mirror status update to subcollection', {
+        ref,
+        userId,
+        error: mirrorError.message,
+      })
+    }
+
     // Get final balance
     const walletDoc = await walletRef.get()
     const finalBalance = walletDoc.exists ? (walletDoc.data()?.fiatBalance || 0) : 0

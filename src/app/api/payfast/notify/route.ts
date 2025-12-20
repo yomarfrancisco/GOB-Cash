@@ -147,6 +147,27 @@ export async function POST(request: NextRequest) {
 
     await paymentRef.update(updateData)
 
+    // Mirror status update to user subcollection (non-blocking)
+    const paymentData = paymentDoc.data()
+    if (paymentData?.userId) {
+      try {
+        const { updatePaymentStatus } = await import('@/lib/payfast/paymentMirror')
+        await updatePaymentStatus(db, ref, paymentData.userId, {
+          status: updateData.status || paymentData.status,
+          completedAt: updateData.completedAt || null,
+          payfastPaymentId: pfPaymentId,
+          payfastStatus: paymentStatus,
+        })
+      } catch (mirrorError: any) {
+        // Log but don't fail - payment is already updated in global collection
+        console.warn('[PayFast Notify] Failed to mirror status update to subcollection', {
+          ref,
+          userId: paymentData.userId,
+          error: mirrorError.message,
+        })
+      }
+    }
+
     console.log('[PayFast Notify] Payment updated', { ref, status: paymentStatus })
 
     // Return 200 OK to PayFast
