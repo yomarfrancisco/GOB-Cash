@@ -615,16 +615,8 @@ export async function routeAmaMessage(
     return deterministicResponse
   }
 
-  // Step 1: Try scripted response (minimal for now - can be expanded)
-  const scriptedResponse = getScriptedResponse(messageText)
-  if (scriptedResponse) {
-    return {
-      text: scriptedResponse,
-      mode: 'SCRIPTED',
-    }
-  }
-
-  // Step 2: Check if LLM is enabled
+  // Step 3: Check if LLM is enabled
+  // Note: scriptedResponse was already checked at Step 0, no need to check again
   const llmEnabled = process.env.LLM_ENABLED === 'true'
   if (!llmEnabled) {
     // Fallback to generic response if LLM disabled
