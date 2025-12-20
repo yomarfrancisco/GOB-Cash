@@ -194,17 +194,19 @@ export async function executeTool(params: ExecuteToolParams): Promise<ToolResult
       data: redactedResult,
     }
   } catch (error: any) {
-    console.error('[Ama Tool Executor] Error:', error)
-    
-    // Map PAYMENTS_NOT_SYNCED to typed error
+    // Map PAYMENTS_NOT_SYNCED to typed error (expected state, not an error)
     if (error.message === 'PAYMENTS_NOT_SYNCED' || error.errorType === 'NOT_SYNCED') {
+      console.warn('[Ama Tool Executor] Payments not synced (expected state)', { uid, toolName })
       return {
         ok: false,
-        error: 'Payments data not synced to user subcollection',
+        error: 'PAYMENTS_NOT_SYNCED',
         status: 503, // Service Unavailable
         errorType: 'NOT_SYNCED',
       }
     }
+    
+    // Log actual errors (not expected states)
+    console.error('[Ama Tool Executor] Error:', error)
     
     return {
       ok: false,
