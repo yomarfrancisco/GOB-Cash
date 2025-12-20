@@ -129,5 +129,17 @@ export const AMA_TOOLS = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'debug_whoami',
+      description: 'Debug tool: Returns current user UID, email, admin status, and project ID. Use for diagnostics only.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
 ]
 

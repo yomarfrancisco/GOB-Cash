@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { routeAmaMessage } from '@/lib/ama/router'
 import type { PromptContext } from '@/lib/ama/prompts'
+import { getAdminAuth } from '@/lib/firebaseAdmin'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -32,6 +33,30 @@ export async function POST(request: NextRequest) {
       console.log('[Agent Respond] authToken length:', authToken.length)
     }
 
+    // Verify token once and extract uid/admin status (for tool calls)
+    let decodedUid: string | undefined
+    let decodedIsAdmin: boolean | undefined
+
+    if (authToken) {
+      try {
+        const auth = getAdminAuth()
+        const decoded = await auth.verifyIdToken(authToken)
+        decodedUid = decoded.uid
+
+        // Check admin status
+        const adminUids = (process.env.AMA_ADMIN_UIDS || '')
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean)
+        decodedIsAdmin = adminUids.includes(decodedUid)
+
+        console.log('[Agent Respond] Token verified, uid:', decodedUid, 'isAdmin:', decodedIsAdmin)
+      } catch (tokenError: any) {
+        console.warn('[Agent Respond] Token verification failed:', tokenError.message)
+        // Continue without decoded uid - router will try to verify again if needed
+      }
+    }
+
     // Route message (script-first, LLM-fallback with tool support)
     const response = await routeAmaMessage({
       threadId,
@@ -39,7 +64,9 @@ export async function POST(request: NextRequest) {
       messageText,
       recentMessages: body.recentMessages || [],
       context: body.context,
-      authToken, // Pass auth token for tool calls
+      authToken, // Pass auth token (router will use decodedUid if available)
+      decodedUid, // Pre-verified UID (avoids double verification)
+      decodedIsAdmin, // Pre-verified admin status
     })
 
     return NextResponse.json({

@@ -463,10 +463,10 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       
       const userId = user.uid
       
-      // Get Firebase ID token for tool calls
+      // Get Firebase ID token for tool calls (force refresh for debugging)
       let authToken: string | undefined
       try {
-        authToken = await user.getIdToken()
+        authToken = await user.getIdToken(true) // force refresh for debugging
         // Diagnostic log (dev-only)
         if (process.env.NODE_ENV !== 'production') {
           console.log('[Ama Client] Got auth token, length:', authToken?.length || 0)

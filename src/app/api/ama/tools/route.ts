@@ -1,24 +1,15 @@
 /**
  * Ama Tools API Route
  * Server-side tool execution for LLM
- * All tools are user-scoped unless admin mode
+ * Thin wrapper: verify token → call executeTool(...)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb, getAuth } from '@/lib/firebase-admin'
-import * as dal from '@/lib/ama/dal'
+import { getAdminAuth } from '@/lib/firebaseAdmin'
+import { executeTool, type ToolName } from '@/lib/ama/toolsExecutor'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-type ToolName =
-  | 'get_user_wallets'
-  | 'get_user_profile'
-  | 'get_payment_by_ref'
-  | 'list_recent_payments'
-  | 'search_transactions'
-  | 'admin_get_user_by_handle'
-  | 'admin_search_payments'
 
 interface ToolRequest {
   tool: ToolName
@@ -33,148 +24,96 @@ function isAdmin(uid: string, adminUids: string[]): boolean {
   return adminUids.includes(uid)
 }
 
-/**
- * Verify Firebase Auth token and get uid
- */
-async function verifyAuth(request: NextRequest): Promise<{ uid: string; isAdmin: boolean; adminUids: string[] }> {
-  const authHeader = request.headers.get('authorization')
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid authorization header')
-  }
-  
-  const token = authHeader.substring(7)
-  const auth = getAuth()
-  
+export async function POST(request: NextRequest) {
   try {
-    const decodedToken = await auth.verifyIdToken(token)
-    const uid = decodedToken.uid
-    
+    // Parse request body first (may contain authToken for alternative auth)
+    const body: ToolRequest & { authToken?: string } = await request.json()
+    const { tool, args, authToken: bodyAuthToken } = body
+
+    if (!tool || typeof tool !== 'string') {
+      return NextResponse.json({ error: 'tool is required' }, { status: 400 })
+    }
+
+    // Get token from header or body (body for internal calls)
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader?.startsWith('Bearer ') 
+      ? authHeader.substring(7)
+      : bodyAuthToken || null
+
+    // Hard, visible diagnostics
+    console.log('[AMA_TOOLS] token present:', Boolean(token))
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Missing authToken', detail: 'No token in Authorization header or request body' },
+        { status: 401 }
+      )
+    }
+
+    // Verify token
+    let decoded
+    try {
+      const auth = getAdminAuth()
+      decoded = await auth.verifyIdToken(token)
+      console.log('[AMA_TOOLS] verifyIdToken success, uid:', decoded.uid)
+    } catch (e: any) {
+      console.error('[AMA_TOOLS] verifyIdToken failed:', e?.message)
+      const errorDetail = process.env.NODE_ENV !== 'production' ? e?.message : undefined
+      return NextResponse.json(
+        { error: 'verifyIdToken failed', detail: errorDetail },
+        { status: 401 }
+      )
+    }
+
+    const uid = decoded.uid
+
     // Harden env parsing: split, trim, filter empty strings
     const adminUids = (process.env.AMA_ADMIN_UIDS || '')
       .split(',')
       .map(s => s.trim())
       .filter(Boolean)
-    
-    const admin = isAdmin(uid, adminUids)
-    
-    // Safe debug logs (no secrets)
-    console.log('[Ama Tools] uid:', uid)
-    console.log('[Ama Tools] adminUIDs:', adminUids)
-    console.log('[Ama Tools] isAdmin:', admin)
-    console.log('[Ama Tools] has FIREBASE_ADMIN_PRIVATE_KEY:', Boolean(process.env.FIREBASE_ADMIN_PRIVATE_KEY))
-    console.log('[Ama Tools] project:', process.env.FIREBASE_ADMIN_PROJECT_ID)
-    console.log('[Ama Tools] clientEmail:', process.env.FIREBASE_ADMIN_CLIENT_EMAIL)
-    
-    return { uid, isAdmin: admin, adminUids }
-  } catch (error: any) {
-    throw new Error(`Invalid auth token: ${error.message}`)
-  }
-}
 
-export async function POST(request: NextRequest) {
-  try {
-    // Verify authentication
-    const { uid, isAdmin } = await verifyAuth(request)
-    
-    // Parse request body
-    const body: ToolRequest = await request.json()
-    const { tool, args } = body
-    
-    if (!tool || typeof tool !== 'string') {
-      return NextResponse.json({ error: 'tool is required' }, { status: 400 })
-    }
-    
+    const admin = isAdmin(uid, adminUids)
+
+    // Safe debug logs (no secrets)
+    console.log('[AMA_TOOLS] uid:', uid)
+    console.log('[AMA_TOOLS] adminUIDs:', adminUids)
+    console.log('[AMA_TOOLS] isAdmin:', admin)
+    console.log('[AMA_TOOLS] has FIREBASE_ADMIN_PRIVATE_KEY:', Boolean(process.env.FIREBASE_ADMIN_PRIVATE_KEY))
+    console.log('[AMA_TOOLS] project:', process.env.FIREBASE_ADMIN_PROJECT_ID)
+    console.log('[AMA_TOOLS] clientEmail:', process.env.FIREBASE_ADMIN_CLIENT_EMAIL)
+
     // Log tool call
-    console.log('[Ama Tool]', {
+    console.log('[AMA_TOOLS] Executing tool', {
       uid,
-      admin: isAdmin,
+      admin,
       tool,
-      args: JSON.stringify(args).substring(0, 200), // Truncate for logging
+      args: JSON.stringify(args).substring(0, 200),
     })
-    
-    // Get database instance
-    const db = getDb()
-    
-    // Execute tool based on name
-    let result: any
-    
-    switch (tool) {
-      case 'get_user_wallets':
-        result = await dal.getUserWallets(db, uid)
-        break
-        
-      case 'get_user_profile':
-        result = await dal.getUserProfile(db, uid)
-        break
-        
-      case 'get_payment_by_ref':
-        if (!args.ref || typeof args.ref !== 'string') {
-          return NextResponse.json({ error: 'ref is required' }, { status: 400 })
-        }
-        result = await dal.getPaymentByRef(db, uid, args.ref)
-        break
-        
-      case 'list_recent_payments':
-        const limit = args.limit ? Math.min(Number(args.limit), 50) : 20
-        result = await dal.listRecentPayments(db, uid, limit)
-        break
-        
-      case 'search_transactions':
-        result = await dal.searchTransactions(db, uid, {
-          status: args.status,
-          type: args.type,
-          limit: args.limit ? Math.min(Number(args.limit), 50) : 20,
-        })
-        break
-        
-      case 'admin_get_user_by_handle':
-        if (!isAdmin) {
-          return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-        }
-        if (!args.handle || typeof args.handle !== 'string') {
-          return NextResponse.json({ error: 'handle is required' }, { status: 400 })
-        }
-        result = await dal.adminGetUserByHandle(db, args.handle)
-        break
-        
-      case 'admin_search_payments':
-        if (!isAdmin) {
-          return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-        }
-        result = await dal.adminSearchPayments(db, {
-          status: args.status,
-          userId: args.userId,
-          limit: args.limit ? Math.min(Number(args.limit), 50) : 20,
-        })
-        break
-        
-      default:
-        return NextResponse.json({ error: `Unknown tool: ${tool}` }, { status: 400 })
+
+    // Execute tool directly (no HTTP call)
+    const result = await executeTool({
+      uid,
+      isAdmin: admin,
+      toolName: tool,
+      args: args || {},
+    })
+
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status }
+      )
     }
-    
-    // Redact sensitive data
-    const redactedResult = dal.redactSensitiveData(result)
-    
-    // Limit response size (safety check)
-    const resultString = JSON.stringify(redactedResult)
-    if (resultString.length > 100000) { // 100KB limit
-      console.warn('[Ama Tool] Response too large, truncating', { tool, size: resultString.length })
-      return NextResponse.json({
-        ok: true,
-        data: { error: 'Response too large', truncated: true },
-        size: resultString.length,
-      })
-    }
-    
+
     return NextResponse.json({
       ok: true,
-      data: redactedResult,
+      data: result.data,
     })
   } catch (error: any) {
-    console.error('[Ama Tool] Error:', error)
+    console.error('[AMA_TOOLS] Error:', error)
+    const errorDetail = process.env.NODE_ENV !== 'production' ? error.message : undefined
     return NextResponse.json(
-      { error: error.message || 'Tool execution failed' },
+      { error: error.message || 'Tool execution failed', detail: errorDetail },
       { status: 500 }
     )
   }

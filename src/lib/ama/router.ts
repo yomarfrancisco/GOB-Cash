@@ -6,6 +6,8 @@
 import { callLLM } from './llmClient'
 import { buildAmaSystemPrompt, type PromptContext } from './prompts'
 import { AMA_TOOLS } from './tools'
+import { executeTool } from './toolsExecutor'
+import { getAdminAuth } from '@/lib/firebaseAdmin'
 
 export type AmaResponse = {
   text: string
@@ -18,7 +20,9 @@ export type RouteAmaMessageParams = {
   messageText: string
   recentMessages?: Array<{ role: 'user' | 'assistant', text: string }>
   context?: PromptContext
-  authToken?: string // For tool calls
+  authToken?: string // For tool calls (used to verify and get uid)
+  decodedUid?: string // Pre-verified UID (optional, for direct calls)
+  decodedIsAdmin?: boolean // Pre-verified admin status (optional)
 }
 
 /**
@@ -132,9 +136,36 @@ Rules:
           count: toolCallCount,
         })
 
-        // Execute tool via API endpoint
-        if (!params.authToken) {
-          console.warn('[Ama Router] No auth token provided, cannot execute tool')
+        // Execute tool directly (no HTTP call)
+        // Verify token and get uid if not already provided
+        let uid = params.decodedUid
+        let isAdmin = params.decodedIsAdmin ?? false
+
+        if (!uid && params.authToken) {
+          try {
+            const auth = getAdminAuth()
+            const decoded = await auth.verifyIdToken(params.authToken)
+            uid = decoded.uid
+            
+            // Check admin status
+            const adminUids = (process.env.AMA_ADMIN_UIDS || '')
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean)
+            isAdmin = adminUids.includes(uid)
+          } catch (tokenError: any) {
+            console.error('[Ama Router] Token verification failed:', tokenError.message)
+            return {
+              text: process.env.NODE_ENV !== 'production' 
+                ? `Tool error: verifyIdToken failed: ${tokenError.message}`
+                : "I need to check that for you, but I'm missing authentication. Please try again.",
+              mode: 'LLM',
+            }
+          }
+        }
+
+        if (!uid) {
+          console.warn('[Ama Router] No uid available, cannot execute tool')
           return {
             text: "I need to check that for you, but I'm missing authentication. Please try again.",
             mode: 'LLM',
@@ -142,27 +173,18 @@ Rules:
         }
 
         try {
-          // For server-side requests, use NEXT_PUBLIC_APP_URL or construct from request
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-          const toolResponse = await fetch(`${baseUrl}/api/ama/tools`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${params.authToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              tool: llmResponse.toolCall.name,
-              args: llmResponse.toolCall.arguments,
-            }),
+          // Execute tool directly (no HTTP)
+          const toolResult = await executeTool({
+            uid,
+            isAdmin,
+            toolName: llmResponse.toolCall.name as any,
+            args: llmResponse.toolCall.arguments,
           })
 
-          if (!toolResponse.ok) {
-            const error = await toolResponse.json().catch(() => ({ error: 'Tool execution failed' }))
-            throw new Error(error.error || 'Tool execution failed')
+          if (!toolResult.ok) {
+            throw new Error(toolResult.error || 'Tool execution failed')
           }
 
-          const toolData = await toolResponse.json()
-          
           // Add assistant message with tool call (OpenAI format)
           conversationMessages.push({
             role: 'assistant',
@@ -182,7 +204,7 @@ Rules:
           // Add tool result message
           conversationMessages.push({
             role: 'tool',
-            content: JSON.stringify(toolData.data),
+            content: JSON.stringify(toolResult.data),
             tool_call_id: llmResponse.toolCall.id,
           } as any)
 
