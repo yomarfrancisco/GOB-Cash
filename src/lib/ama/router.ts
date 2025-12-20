@@ -477,8 +477,17 @@ export async function routeAmaMessage(
         })
         
         if (toolResult.ok) {
+          // Handle empty array intelligently (expected state, not an error)
+          const payments = toolResult.data || []
+          if (payments.length === 0) {
+            return {
+              text: "I don't see any transactions yet in your account history.\n\nWas it a deposit? If you tell me an approximate amount, date, or reference, I can try a narrower lookup.\n\nYou can also check your account directly.",
+              mode: 'SCRIPTED',
+            }
+          }
+          
           return {
-            text: renderPayments(toolResult.data, intentResult.filters),
+            text: renderPayments(payments, intentResult.filters),
             mode: 'SCRIPTED',
           }
         }
@@ -514,18 +523,6 @@ export async function routeAmaMessage(
 
       // Tool execution failed
       if (toolResult && !toolResult.ok) {
-        // Handle NOT_SYNCED as expected state (read model empty)
-        const errorType = (toolResult as any).errorType
-        if (errorType === 'NOT_SYNCED' || toolResult.error === 'PAYMENTS_NOT_SYNCED') {
-          return {
-            text:
-              "I can't access your transaction history yet — it hasn't synced into your account view.\n\n" +
-              "I can still show balances. If you tell me an approximate amount/date/reference, I can try a narrower lookup.\n\n" +
-              "If you're an admin: run the backfill to populate users/{uid}/payments.",
-            mode: 'SCRIPTED',
-          }
-        }
-        
         // Map structured errors (no raw Firestore errors exposed)
         const errorMessage = toolResult.error || 'Unknown error'
         

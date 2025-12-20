@@ -161,29 +161,47 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Mark payment as credited
+      // Mark payment as credited (in transaction for atomicity with wallet update)
+      const admin = await import('firebase-admin')
       transaction.update(paymentRef, {
         status: 'CREDITED',
-        creditedAt: new Date(),
+        creditedAt: admin.firestore.Timestamp.now(),
+        updatedAt: admin.firestore.Timestamp.now(),
       })
 
       return newBalance
     })
 
-    // Mirror status update to user subcollection (non-blocking)
+    // Mirror status update to user subcollection (atomic batch - both collections updated together)
     try {
       const { updatePaymentStatus } = await import('@/lib/payfast/paymentMirror')
+      const admin = await import('firebase-admin')
       await updatePaymentStatus(db, ref, userId, {
         status: 'CREDITED',
-        creditedAt: new Date(),
+        creditedAt: admin.firestore.Timestamp.now(),
       })
+      
+      // Log dual-write success (dev-only)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[PayFast Credit] Payment status dual-write', {
+          paymentRef: ref,
+          uid: userId,
+          status: 'CREDITED',
+          wroteGlobal: true,
+          wroteUserSubcollection: true,
+        })
+      }
     } catch (mirrorError: any) {
-      // Log but don't fail - payment is already credited in global collection
-      console.warn('[PayFast Credit] Failed to mirror status update to subcollection', {
+      // Log error - this should not happen if mirror function throws properly
+      console.error('[PayFast Credit] Failed to mirror status update to subcollection', {
         ref,
         userId,
         error: mirrorError.message,
+        wroteGlobal: true,
+        wroteUserSubcollection: false,
       })
+      // Re-throw to ensure atomicity (both collections must be updated)
+      throw mirrorError
     }
 
     // Get final balance

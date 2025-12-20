@@ -92,13 +92,14 @@ export async function POST(request: NextRequest) {
     // Store payment record in Firestore (dual-write: global + user subcollection)
     const db = getDb()
     const { upsertPayment } = await import('@/lib/payfast/paymentMirror')
+    const admin = await import('firebase-admin')
     await upsertPayment(db, {
       ref,
       userId: user_id,
       amountZAR: amount_zar,
       currency: 'ZAR',
       status: 'PENDING',
-      createdAt: new Date(),
+      createdAt: admin.firestore.Timestamp.now(),
       provider: 'payfast',
       payfastParams: {
         merchant_id: params.merchant_id,
@@ -106,6 +107,17 @@ export async function POST(request: NextRequest) {
         item_name: params.item_name,
       },
     })
+    
+    // Log dual-write success (dev-only)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[PayFast Create] Payment dual-write', {
+        paymentRef: ref,
+        uid: user_id,
+        status: 'PENDING',
+        wroteGlobal: true,
+        wroteUserSubcollection: true,
+      })
+    }
 
     // Build redirect URL: ${PF_BASE}/eng/process?${params.toString()}
     const queryString = new URLSearchParams(params).toString()

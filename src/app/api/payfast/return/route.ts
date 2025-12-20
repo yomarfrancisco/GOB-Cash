@@ -203,18 +203,20 @@ export async function GET(request: NextRequest) {
         })
       }
       
-      // Mark payment as COMPLETE and credited
+      // Mark payment as COMPLETE and credited (in transaction for atomicity with wallet update)
+      const admin = await import('firebase-admin')
+      const now = admin.firestore.Timestamp.now()
       transaction.update(paymentRef, {
         status: 'COMPLETE',
-        creditedAt: new Date(),
+        creditedAt: now,
         creditedRef: ref,
         payfastPaymentId: pfPaymentId || null,
         payfastReturnData: {
           paymentStatus,
           amountGross,
-          receivedAt: new Date(),
+          receivedAt: now,
         },
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       
       credited = true
@@ -230,22 +232,38 @@ export async function GET(request: NextRequest) {
       amountZAR,
     })
     
-    // Mirror status update to user subcollection (non-blocking)
+    // Mirror status update to user subcollection (atomic batch - both collections updated together)
     if (credited && userId) {
       try {
         const { updatePaymentStatus } = await import('@/lib/payfast/paymentMirror')
+        const admin = await import('firebase-admin')
         await updatePaymentStatus(db, ref, userId, {
           status: 'COMPLETE',
-          creditedAt: new Date(),
+          creditedAt: admin.firestore.Timestamp.now(),
           payfastPaymentId: pfPaymentId || null,
         })
+        
+        // Log dual-write success (dev-only)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[PayFast Return] Payment status dual-write', {
+            paymentRef: ref,
+            uid: userId,
+            status: 'COMPLETE',
+            wroteGlobal: true,
+            wroteUserSubcollection: true,
+          })
+        }
       } catch (mirrorError: any) {
-        // Log but don't fail - payment is already credited in global collection
-        console.warn('[PayFast Return] Failed to mirror status update to subcollection', {
+        // Log error - this should not happen if mirror function throws properly
+        console.error('[PayFast Return] Failed to mirror status update to subcollection', {
           ref,
           userId,
           error: mirrorError.message,
+          wroteGlobal: true,
+          wroteUserSubcollection: false,
         })
+        // Re-throw to ensure atomicity (both collections must be updated)
+        throw mirrorError
       }
     }
     

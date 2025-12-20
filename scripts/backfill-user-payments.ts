@@ -43,18 +43,45 @@ function initializeFirebaseAdmin() {
 
 /**
  * Create slim payment projection for subcollection
+ * Preserves original Firestore Timestamps from global collection
  */
 function createPaymentProjection(paymentData: any, ref: string): Record<string, any> {
+  // Preserve original Firestore Timestamps (don't convert to Date)
+  // If timestamps are already Firestore Timestamps, keep them
+  // If they're Date objects, convert to Firestore Timestamp
+  const admin = require('firebase-admin')
+  
+  function preserveTimestamp(value: any): any {
+    if (!value) return null
+    // If it's already a Firestore Timestamp, keep it
+    if (value instanceof admin.firestore.Timestamp) {
+      return value
+    }
+    // If it's a Date, convert to Firestore Timestamp
+    if (value instanceof Date) {
+      return admin.firestore.Timestamp.fromDate(value)
+    }
+    // If it has toDate method (Firestore Timestamp from client SDK), convert
+    if (value && typeof value.toDate === 'function') {
+      return admin.firestore.Timestamp.fromDate(value.toDate())
+    }
+    // Fallback: try to parse as Date
+    if (typeof value === 'string' || typeof value === 'number') {
+      return admin.firestore.Timestamp.fromDate(new Date(value))
+    }
+    return value
+  }
+  
   return {
     ref,
     userId: paymentData.userId,
     amountZAR: paymentData.amountZAR || 0,
     currency: paymentData.currency || 'ZAR',
     status: paymentData.status || 'PENDING',
-    createdAt: paymentData.createdAt || new Date(),
-    updatedAt: paymentData.updatedAt || paymentData.createdAt || new Date(),
-    creditedAt: paymentData.creditedAt || null,
-    completedAt: paymentData.completedAt || null,
+    createdAt: preserveTimestamp(paymentData.createdAt) || admin.firestore.Timestamp.now(),
+    updatedAt: preserveTimestamp(paymentData.updatedAt) || preserveTimestamp(paymentData.createdAt) || admin.firestore.Timestamp.now(),
+    creditedAt: preserveTimestamp(paymentData.creditedAt),
+    completedAt: preserveTimestamp(paymentData.completedAt),
     provider: paymentData.provider || 'payfast',
     // Pointer to global doc
     _globalDocPath: `payments/${ref}`,

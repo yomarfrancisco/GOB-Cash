@@ -120,14 +120,15 @@ function mapFirestoreError(error: any): Error {
 
 /**
  * List recent payments for user (USER mode - scoped to uid)
- * Prefers subcollection (no index needed), falls back to main collection if enabled
+ * Reads ONLY from users/{uid}/payments subcollection (canonical read model)
+ * Returns empty array if subcollection is empty (no fallback, no error)
  */
 export async function listRecentPayments(
   db: firestore.Firestore,
   uid: string,
   limit: number = 20
 ): Promise<Array<Record<string, any>>> {
-  // Try subcollection first (users/{uid}/payments) - no composite index needed
+  // Query subcollection only (canonical read model - no fallback)
   try {
     const subcollectionRef = db.collection('users').doc(uid).collection('payments')
     const subcollectionSnapshot = await subcollectionRef
@@ -135,77 +136,41 @@ export async function listRecentPayments(
       .limit(limit)
       .get()
     
-    if (!subcollectionSnapshot.empty) {
-      const payments: Array<Record<string, any>> = []
-      subcollectionSnapshot.forEach((doc) => {
-        const data = doc.data()
-        payments.push({
-          ref: doc.id,
-          ...data,
-          // Convert Firestore timestamps
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
-          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
-          creditedAt: data.creditedAt?.toDate?.()?.toISOString() || null,
-          completedAt: data.completedAt?.toDate?.()?.toISOString() || null,
-        })
+    const payments: Array<Record<string, any>> = []
+    subcollectionSnapshot.forEach((doc) => {
+      const data = doc.data()
+      payments.push({
+        ref: doc.id,
+        ...data,
+        // Convert Firestore timestamps
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+        creditedAt: data.creditedAt?.toDate?.()?.toISOString() || null,
+        completedAt: data.completedAt?.toDate?.()?.toISOString() || null,
       })
-      return payments
-    }
-  } catch (subcollectionError: any) {
-    // Subcollection doesn't exist or query failed - fall through to main collection
-    console.log('[DAL] Subcollection query failed, trying main collection:', subcollectionError.message)
-  }
-  
-  // Fallback: Query main payments collection (requires composite index)
-  // Only enabled if feature flag is set
-  const fallbackEnabled = process.env.AMA_PAYMENTS_FALLBACK_ENABLED === 'true'
-  
-  if (fallbackEnabled) {
-    try {
-      const paymentsRef = db.collection('payments')
-      const snapshot = await paymentsRef
-        .where('userId', '==', uid)
-        .orderBy('createdAt', 'desc')
-        .limit(limit)
-        .get()
-      
-      // Log fallback usage (indicates missing subcollection data)
-      console.warn('[DAL] Using fallback query to global payments collection', {
+    })
+    
+    // Log query result (dev-only)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[DAL] listRecentPayments query result', {
         uid,
         limit,
-        count: snapshot.size,
-        hint: 'Consider running backfill script to populate user subcollections',
+        foundSubcollectionDocs: payments.length,
+        isEmpty: payments.length === 0,
       })
-      
-      const payments: Array<Record<string, any>> = []
-      snapshot.forEach((doc) => {
-        const data = doc.data()
-        payments.push({
-          ref: doc.id,
-          ...data,
-          // Convert Firestore timestamps
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
-          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
-          creditedAt: data.creditedAt?.toDate?.()?.toISOString() || null,
-          completedAt: data.completedAt?.toDate?.()?.toISOString() || null,
-        })
-      })
-      
-      return payments
-    } catch (error: any) {
-      // Map Firestore errors to user-friendly messages
-      throw mapFirestoreError(error)
     }
-  } else {
-    // Fallback disabled - payments not synced to subcollection (expected state)
-    console.warn('[DAL] Subcollection empty and fallback disabled (expected state)', {
+    
+    // Return empty array if no payments found (expected state, not an error)
+    return payments
+  } catch (error: any) {
+    // Log query error
+    console.error('[DAL] listRecentPayments query failed', {
       uid,
-      hint: 'Enable AMA_PAYMENTS_FALLBACK_ENABLED=true or run backfill script',
+      limit,
+      error: error.message,
     })
-    // Throw typed error for NOT_SYNCED state
-    const notSyncedError = new Error('PAYMENTS_NOT_SYNCED')
-    ;(notSyncedError as any).errorType = 'NOT_SYNCED'
-    throw notSyncedError
+    // Map Firestore errors to user-friendly messages
+    throw mapFirestoreError(error)
   }
 }
 

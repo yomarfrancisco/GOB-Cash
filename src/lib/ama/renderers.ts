@@ -193,7 +193,7 @@ export function renderPayments(
   filters?: IntentFilters
 ): string {
   if (!payments || payments.length === 0) {
-    return "I don't see any payments in your recent history view. This could mean:\n• Your payment history hasn't synced yet\n• You haven't made any payments recently\n\nYou can check your account directly or try again in a moment."
+    return "I don't see any transactions yet in your account history.\n\nWas it a deposit? If you tell me an approximate amount, date, or reference, I can try a narrower lookup.\n\nYou can also check your account directly."
   }
 
   // Apply offset if specified

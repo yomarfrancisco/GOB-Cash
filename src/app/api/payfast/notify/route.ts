@@ -129,9 +129,17 @@ export async function POST(request: NextRequest) {
       return new NextResponse('Payment not found', { status: 404 })
     }
 
-    // Update payment status
-    const updateData: any = {
-      updatedAt: new Date(),
+    // Update payment status using atomic dual-write (both collections updated together)
+    const paymentData = paymentDoc.data()
+    if (!paymentData?.userId) {
+      console.error('[PayFast Notify] Payment missing userId', { ref })
+      return new NextResponse('Payment missing userId', { status: 400 })
+    }
+
+    const admin = await import('firebase-admin')
+    const now = admin.firestore.Timestamp.now()
+    
+    const statusUpdates: any = {
       payfastPaymentId: pfPaymentId,
       payfastStatus: paymentStatus,
       payfastData: params, // Store full ITN data for debugging
@@ -139,33 +147,38 @@ export async function POST(request: NextRequest) {
 
     // If payment is complete, mark as COMPLETE
     if (paymentStatus === 'COMPLETE') {
-      updateData.status = 'COMPLETE'
-      updateData.completedAt = new Date()
+      statusUpdates.status = 'COMPLETE'
+      statusUpdates.completedAt = now
     } else if (paymentStatus === 'FAILED' || paymentStatus === 'CANCELLED') {
-      updateData.status = 'FAILED'
+      statusUpdates.status = 'FAILED'
     }
 
-    await paymentRef.update(updateData)
-
-    // Mirror status update to user subcollection (non-blocking)
-    const paymentData = paymentDoc.data()
-    if (paymentData?.userId) {
-      try {
-        const { updatePaymentStatus } = await import('@/lib/payfast/paymentMirror')
-        await updatePaymentStatus(db, ref, paymentData.userId, {
-          status: updateData.status || paymentData.status,
-          completedAt: updateData.completedAt || null,
-          payfastPaymentId: pfPaymentId,
-          payfastStatus: paymentStatus,
-        })
-      } catch (mirrorError: any) {
-        // Log but don't fail - payment is already updated in global collection
-        console.warn('[PayFast Notify] Failed to mirror status update to subcollection', {
-          ref,
-          userId: paymentData.userId,
-          error: mirrorError.message,
+    // Use atomic dual-write (both collections updated in same batch)
+    try {
+      const { updatePaymentStatus } = await import('@/lib/payfast/paymentMirror')
+      await updatePaymentStatus(db, ref, paymentData.userId, statusUpdates)
+      
+      // Log dual-write success (dev-only)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[PayFast Notify] Payment status dual-write', {
+          paymentRef: ref,
+          uid: paymentData.userId,
+          status: statusUpdates.status || paymentData.status,
+          wroteGlobal: true,
+          wroteUserSubcollection: true,
         })
       }
+    } catch (mirrorError: any) {
+      // Log error - this should not happen if mirror function throws properly
+      console.error('[PayFast Notify] Failed to mirror status update to subcollection', {
+        ref,
+        userId: paymentData.userId,
+        error: mirrorError.message,
+        wroteGlobal: false,
+        wroteUserSubcollection: false,
+      })
+      // Re-throw to ensure atomicity (both collections must be updated)
+      throw mirrorError
     }
 
     console.log('[PayFast Notify] Payment updated', { ref, status: paymentStatus })

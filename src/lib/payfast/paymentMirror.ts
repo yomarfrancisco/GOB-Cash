@@ -5,6 +5,22 @@
  */
 
 import type { firestore } from 'firebase-admin'
+import * as admin from 'firebase-admin'
+
+/**
+ * Convert Date or Timestamp to Firestore Timestamp
+ */
+function toFirestoreTimestamp(value: Date | firestore.Timestamp | null | undefined): firestore.Timestamp | null {
+  if (!value) return null
+  if (value instanceof Date) {
+    return admin.firestore.Timestamp.fromDate(value)
+  }
+  if (value instanceof admin.firestore.Timestamp) {
+    return value
+  }
+  // If it's already a Firestore Timestamp from admin SDK
+  return value as firestore.Timestamp
+}
 
 export type PaymentData = {
   ref: string
@@ -26,16 +42,17 @@ export type PaymentData = {
  * Includes pointer to global doc for full data access
  */
 function createPaymentProjection(paymentData: PaymentData): Record<string, any> {
+  const now = admin.firestore.Timestamp.now()
   return {
     ref: paymentData.ref,
     userId: paymentData.userId,
     amountZAR: paymentData.amountZAR,
     currency: paymentData.currency || 'ZAR',
     status: paymentData.status,
-    createdAt: paymentData.createdAt,
-    updatedAt: paymentData.updatedAt || paymentData.createdAt,
-    creditedAt: paymentData.creditedAt || null,
-    completedAt: paymentData.completedAt || null,
+    createdAt: toFirestoreTimestamp(paymentData.createdAt) || now,
+    updatedAt: toFirestoreTimestamp(paymentData.updatedAt) || toFirestoreTimestamp(paymentData.createdAt) || now,
+    creditedAt: toFirestoreTimestamp(paymentData.creditedAt),
+    completedAt: toFirestoreTimestamp(paymentData.completedAt),
     provider: paymentData.provider || 'payfast',
     // Pointer to global doc for full data access
     _globalDocPath: `payments/${paymentData.ref}`,
@@ -61,32 +78,47 @@ export async function upsertPayment(
 
   // Use batch write for atomicity
   const batch = db.batch()
+  const now = admin.firestore.Timestamp.now()
+
+  // Normalize timestamps for global collection
+  const globalData: Record<string, any> = {
+    ...paymentData,
+    createdAt: toFirestoreTimestamp(paymentData.createdAt) || now,
+    updatedAt: toFirestoreTimestamp(paymentData.updatedAt) || now,
+  }
+  if (paymentData.creditedAt) {
+    globalData.creditedAt = toFirestoreTimestamp(paymentData.creditedAt)
+  }
+  if (paymentData.completedAt) {
+    globalData.completedAt = toFirestoreTimestamp(paymentData.completedAt)
+  }
 
   // Write to global collection (full data)
   const globalRef = db.collection('payments').doc(ref)
-  batch.set(globalRef, {
-    ...paymentData,
-    updatedAt: paymentData.updatedAt || new Date(),
-  }, { merge: true }) // Merge for idempotent upserts
+  batch.set(globalRef, globalData, { merge: true }) // Merge for idempotent upserts
 
   // Write to user subcollection (slim projection)
   const userRef = db.collection('users').doc(userId).collection('payments').doc(ref)
-  batch.set(userRef, {
-    ...projection,
-    updatedAt: projection.updatedAt || new Date(),
-  }, { merge: true }) // Merge for idempotent upserts
+  batch.set(userRef, projection, { merge: true }) // Merge for idempotent upserts
 
   try {
     await batch.commit()
-    console.log('[Payment Mirror] Successfully mirrored payment', { ref, userId })
+    console.log('[Payment Mirror] Successfully mirrored payment', {
+      ref,
+      userId,
+      wroteGlobal: true,
+      wroteUserSubcollection: true,
+    })
   } catch (error: any) {
     console.error('[Payment Mirror] Failed to mirror payment', {
       ref,
       userId,
       error: error.message,
+      wroteGlobal: false,
+      wroteUserSubcollection: false,
     })
-    // Don't throw - allow payment creation to succeed even if mirroring fails
-    // The fallback query will still work
+    // Throw to ensure payment creation fails if mirroring fails (atomicity)
+    throw error
   }
 }
 
@@ -110,33 +142,58 @@ export async function updatePaymentStatus(
   }
 
   const batch = db.batch()
-  const now = new Date()
+  const now = admin.firestore.Timestamp.now()
+
+  // Normalize timestamps in updates
+  const normalizedUpdates: Record<string, any> = {
+    ...updates,
+    updatedAt: now,
+  }
+  if (updates.creditedAt) {
+    normalizedUpdates.creditedAt = toFirestoreTimestamp(updates.creditedAt)
+  }
+  if (updates.completedAt) {
+    normalizedUpdates.completedAt = toFirestoreTimestamp(updates.completedAt)
+  }
 
   // Update global collection
   const globalRef = db.collection('payments').doc(ref)
-  batch.update(globalRef, {
-    ...updates,
-    updatedAt: now,
-  })
+  batch.update(globalRef, normalizedUpdates)
 
-  // Update user subcollection (slim projection)
+  // Update user subcollection (slim projection - only relevant fields)
   const userRef = db.collection('users').doc(userId).collection('payments').doc(ref)
-  batch.update(userRef, {
-    ...updates,
+  const subcollectionUpdates: Record<string, any> = {
+    status: normalizedUpdates.status,
     updatedAt: now,
-  })
+  }
+  if (normalizedUpdates.creditedAt) {
+    subcollectionUpdates.creditedAt = normalizedUpdates.creditedAt
+  }
+  if (normalizedUpdates.completedAt) {
+    subcollectionUpdates.completedAt = normalizedUpdates.completedAt
+  }
+  batch.update(userRef, subcollectionUpdates)
 
   try {
     await batch.commit()
-    console.log('[Payment Mirror] Successfully updated payment status', { ref, userId, updates })
+    console.log('[Payment Mirror] Successfully updated payment status', {
+      ref,
+      userId,
+      status: updates.status,
+      wroteGlobal: true,
+      wroteUserSubcollection: true,
+    })
   } catch (error: any) {
     console.error('[Payment Mirror] Failed to update payment status', {
       ref,
       userId,
       updates,
       error: error.message,
+      wroteGlobal: false,
+      wroteUserSubcollection: false,
     })
-    // Don't throw - allow status update to succeed even if mirroring fails
+    // Throw to ensure status update fails if mirroring fails (atomicity)
+    throw error
   }
 }
 
