@@ -556,12 +556,17 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
         }))
       
       // Call agent endpoint
+      // Build headers object (only include authorization if token exists)
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (authToken) {
+        headers['authorization'] = `Bearer ${authToken}` // Send lowercase to match server normalization
+      }
+      
       const response = await fetch('/api/agent/respond', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'authorization': authToken ? `Bearer ${authToken}` : '', // Send lowercase to match server normalization
-        },
+        headers,
         body: JSON.stringify({
           threadId: PORTFOLIO_MANAGER_THREAD_ID,
           userId,
