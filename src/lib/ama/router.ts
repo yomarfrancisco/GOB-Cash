@@ -409,11 +409,10 @@ export async function routeAmaMessage(
     filters: intentResult.filters,
   })
 
-  // Handle ambiguous snapshot/portfolio queries
-  if (intentResult.intent === 'general' && 
-      (messageText.toLowerCase().includes('snapshot') || messageText.toLowerCase().includes('portfolio'))) {
+  // Handle ambiguous queries
+  if (intentResult.intent === 'ambiguous' && intentResult.clarification) {
     return {
-      text: "Do you want (1) balances, (2) crypto balances, or (3) recent payments?",
+      text: intentResult.clarification,
       mode: 'SCRIPTED',
     }
   }
@@ -486,7 +485,7 @@ export async function routeAmaMessage(
         
         if (toolResult.ok) {
           return {
-            text: renderWallets(toolResult.data, intentResult.filters),
+            text: renderWallets(toolResult.data, intentResult.intent as 'wallets_all' | 'wallets_crypto' | 'wallets_apy', intentResult.filters),
             mode: 'SCRIPTED',
           }
         }

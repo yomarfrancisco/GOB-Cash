@@ -62,9 +62,11 @@ function formatTimestamp(timestamp: string | null | undefined): string {
 
 /**
  * Render wallets data deterministically
+ * Always includes all wallets when asked (never only ZAR)
  */
 export function renderWallets(
   wallets: WalletData[] | Record<string, any>,
+  intent?: 'wallets_all' | 'wallets_crypto' | 'wallets_apy',
   filters?: IntentFilters
 ): string {
   // Convert object map to array if needed
@@ -80,30 +82,57 @@ export function renderWallets(
         kind: data.kind || null,
       }))
 
-  // Apply filters
-  if (filters?.cryptoOnly) {
+  // Apply filters based on intent
+  if (intent === 'wallets_crypto' || filters?.cryptoOnly) {
+    // Only include BTC and ETH (even if 0)
     walletsArray = walletsArray.filter(w => 
-      w.displayCurrency !== 'ZAR' && !w.walletId.toLowerCase().includes('zar')
+      (w.displayCurrency === 'BTC' || w.walletId.toLowerCase() === 'btc') ||
+      (w.displayCurrency === 'ETH' || w.walletId.toLowerCase() === 'eth')
     )
-  }
-
-  if (filters?.walletIds && filters.walletIds.length > 0) {
-    walletsArray = walletsArray.filter(w => 
-      filters.walletIds!.some(id => 
-        w.walletId.toLowerCase() === id.toLowerCase() ||
-        w.displayCurrency.toLowerCase() === id.toLowerCase()
-      )
-    )
+    
+    // Ensure BTC and ETH exist (add zeros if missing)
+    const hasBtc = walletsArray.some(w => w.displayCurrency === 'BTC' || w.walletId.toLowerCase() === 'btc')
+    const hasEth = walletsArray.some(w => w.displayCurrency === 'ETH' || w.walletId.toLowerCase() === 'eth')
+    
+    if (!hasBtc) {
+      walletsArray.push({
+        walletId: 'btc',
+        displayCurrency: 'BTC',
+        fiatBalance: 0,
+        usdtBalance: 0,
+        apy: null,
+        updatedAt: null,
+        kind: null,
+      })
+    }
+    
+    if (!hasEth) {
+      walletsArray.push({
+        walletId: 'eth',
+        displayCurrency: 'ETH',
+        fiatBalance: 0,
+        usdtBalance: 0,
+        apy: null,
+        updatedAt: null,
+        kind: null,
+      })
+    }
+  } else if (intent === 'wallets_apy') {
+    // Include all wallets for APY queries
+    // (no filtering)
+  } else {
+    // wallets_all: Include ALL wallets (never filter to only ZAR)
+    // (no filtering)
   }
 
   // Sort by walletId for consistency
   walletsArray.sort((a, b) => a.walletId.localeCompare(b.walletId))
 
   if (walletsArray.length === 0) {
-    return "You don't have any wallets matching that criteria."
+    return "You don't have any wallets set up yet."
   }
 
-  // Format each wallet
+  // Format each wallet (always include all fields)
   const lines = walletsArray.map(w => {
     const currency = w.displayCurrency || w.walletId
     const balance = currency === 'ZAR'
@@ -119,6 +148,10 @@ export function renderWallets(
     
     return `${currency}: ${balance}${apy} | Updated: ${updatedAt}`
   })
+
+  if (intent === 'wallets_apy') {
+    return `Your wallet APYs:\n${lines.map(l => l.split(' | ')[0] + (l.includes('APY:') ? ' | ' + l.split('APY:')[1].split(' | ')[0] : ' | APY: N/A')).join('\n')}`
+  }
 
   return `Your wallets:\n${lines.join('\n')}`
 }

@@ -1,6 +1,6 @@
 # Ama Tools Smoke Test
 
-Quick verification commands for testing Ama tools end-to-end.
+Quick verification commands and test cases for Ama intent routing and formatting.
 
 ## Prerequisites
 
@@ -129,39 +129,63 @@ curl -sS -X POST \
 }
 ```
 
-## UI Test Scenarios (Deterministic Intents)
+## UI Test Scenarios
 
-These queries bypass LLM and use deterministic routing for 100% reliability:
+### 10 Messy Wallet Queries
 
-1. **"What's my ZAR balance and last updated time?"**
-   - Intent: `WALLET_BALANCE_SINGLE`
-   - Expected: "Your ZAR balance is R150.50. Last updated: Dec 20, 2025 at 10:30 AM."
-   - Must include: balance + updatedAt timestamp
+| Query | Expected Intent | Expected Tool | Expected Response Contains |
+|-------|----------------|---------------|----------------------------|
+| "show me crypto balances" | `wallets_crypto` | `get_user_wallets` | BTC and ETH only (0 if 0), NOT ZAR |
+| "list my wallets and balances" | `wallets_all` | `get_user_wallets` | ALL wallets including zeros |
+| "what's my balance" | `wallets_all` | `get_user_wallets` | ALL wallets |
+| "how much money do I have" | `wallets_all` | `get_user_wallets` | ALL wallets |
+| "show all my wallets" | `wallets_all` | `get_user_wallets` | ALL wallets |
+| "what wallets do I have" | `wallets_all` | `get_user_wallets` | ALL wallets |
+| "my balances" | `wallets_all` | `get_user_wallets` | ALL wallets |
+| "wallet list" | `wallets_all` | `get_user_wallets` | ALL wallets |
+| "holdings" | `wallets_all` | `get_user_wallets` | ALL wallets |
+| "what do I have" | `wallets_all` | `get_user_wallets` | ALL wallets |
 
-2. **"List my wallets and balances."**
-   - Intent: `WALLETS_LIST`
-   - Expected: All wallets with currency, balance, APY, updatedAt
-   - Format: "Your wallets:\nZAR: R150.50 | APY: 5.2% | Updated: Dec 20, 2025 at 10:30 AM\nBTC: 0.5 BTC | APY: 3.1% | Updated: ..."
-   - Must include: BTC/ETH even if zero
+### 5 Crypto-Only Queries
 
-3. **"What's my BTC and ETH balance?"**
-   - Intent: `CRYPTO_BALANCE_PAIR`
-   - Expected: "BTC: 0.5 BTC (updated: Dec 20, 2025 at 10:30 AM)\nETH: 2.3 ETH (updated: ...)"
-   - Must return: BTC and ETH only, NOT ZAR
+| Query | Expected Intent | Expected Tool | Expected Response Contains |
+|-------|----------------|---------------|----------------------------|
+| "show me crypto balances" | `wallets_crypto` | `get_user_wallets` | BTC and ETH only (0 if 0) |
+| "what's my btc and eth" | `wallets_crypto` | `get_user_wallets` | BTC and ETH only |
+| "crypto balances" | `wallets_crypto` | `get_user_wallets` | BTC and ETH only |
+| "bitcoin and ethereum" | `wallets_crypto` | `get_user_wallets` | BTC and ETH only |
+| "my crypto" | `wallets_crypto` | `get_user_wallets` | BTC and ETH only |
 
-4. **"Show my wallet APYs."**
-   - Intent: `WALLET_APYS`
-   - Expected: "Your wallet APYs:\nZAR: 5.2%\nBTC: 3.1%\nETH: 2.8%"
-   - Must include: All wallets with APY (including zeros if present)
+### 5 Profile Queries
 
-5. **"What's my handle and email?"**
-   - Intent: `PROFILE_HANDLE_EMAIL`
-   - Expected: "Handle: @ygor-francisco-6120\nEmail: ygor.francisco@gmail.com"
-   - Must return: Values from get_user_profile
+| Query | Expected Intent | Expected Tool | Expected Response Contains |
+|-------|----------------|---------------|----------------------------|
+| "who am i logged in as" | `profile` | `get_user_profile` | Email, handle, uid |
+| "what's my handle and email" | `profile` | `get_user_profile` | Email, handle |
+| "my account info" | `profile` | `get_user_profile` | Email, handle |
+| "who am i" | `profile` | `get_user_profile` | Email, handle |
+| "what account is this" | `profile` | `get_user_profile` | Email, handle |
 
-## Additional Test Scenarios (LLM Path)
+### 5 Payments Queries
 
-6. **"List my last 3 payments"**
-   - Intent: `UNKNOWN` (falls through to LLM)
-   - Expected: Returns last 3 payments OR clean index link message
+| Query | Expected Intent | Expected Tool | Expected Response Contains |
+|-------|----------------|---------------|----------------------------|
+| "what was my last payment" | `payments` | `list_recent_payments` | Last payment or clean index message |
+| "show my recent payments" | `payments` | `list_recent_payments` | Recent payments list |
+| "last 3 payments" | `payments` | `list_recent_payments` | Last 3 payments |
+| "my transactions" | `payments` | `list_recent_payments` | Payment/transaction list |
+| "payment history" | `payments` | `list_recent_payments` | Payment list |
 
+## Acceptance Tests
+
+1. **"show me crypto balances"** → Returns BTC/ETH lines (0 if 0), NOT ZAR
+2. **"list my wallets and balances"** → Shows all wallets including zeros
+3. **"give me a portfolio snapshot"** → Asks clarifying question: "Do you want (1) balances, (2) crypto balances, or (3) recent payments?"
+4. **"what was my last payment"** → Either returns payment or clean index message (no stack traces)
+
+## Notes
+
+- All wallet queries must include ALL wallets when asked (never only ZAR)
+- Crypto queries must return BTC and ETH only (even if 0)
+- Payments queries must not hard-fail (graceful index error messages)
+- Profile queries must handle missing profile gracefully
