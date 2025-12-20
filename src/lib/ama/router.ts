@@ -410,9 +410,10 @@ export async function routeAmaMessage(
   // Step 1: Strict intent router (new deterministic path)
   const intentResult = routeIntent(messageText)
   
-  // Log intent routing for debugging
-  console.log('[Ama Router] Intent routing:', {
-    message: messageText.substring(0, 100),
+  // Log intent routing for debugging (with requestId)
+  console.log('[Ama Router] routeIntent result', {
+    requestId,
+    message: messageText,
     intent: intentResult.intent,
     tool: intentResult.tool,
     filters: intentResult.filters,
@@ -448,6 +449,17 @@ export async function routeAmaMessage(
           isAdmin: false,
           toolName: 'get_payment_by_ref',
           args: { ref: intentResult.filters.paymentRef },
+        })
+        
+        // Diagnostic log for tool result
+        console.log('[Ama Router] toolResult summary', {
+          requestId,
+          tool: intentResult.tool,
+          ok: toolResult?.ok,
+          hasError: Boolean(toolResult?.error),
+          error: toolResult?.error,
+          status: toolResult?.status,
+          errorType: (toolResult as any)?.errorType,
         })
         
         if (toolResult.ok) {
