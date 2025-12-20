@@ -199,9 +199,8 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   const { cashFlowState, confirmCashDeposit, confirmCashWithdrawal } = useCashFlowStateStore()
   const { profile } = useUserProfileStore()
   
-  // Admin status and copy token state
+  // Admin status
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
-  const [tokenCopied, setTokenCopied] = useState(false)
   
   // Check admin status when authenticated
   useEffect(() => {
@@ -238,23 +237,6 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     checkAdmin()
   }, [isAuthed])
   
-  // Copy token handler
-  const handleCopyToken = async () => {
-    try {
-      const auth = getFirebaseAuth()
-      const user = auth.currentUser
-      if (!user) return
-      
-      const token = await user.getIdToken(true)
-      if (token) {
-        await navigator.clipboard.writeText(token)
-        setTokenCopied(true)
-        setTimeout(() => setTokenCopied(false), 2000)
-      }
-    } catch (e) {
-      console.error('[Ama] Failed to copy token:', e)
-    }
-  }
   const { agentInductionStep, photoUploaded, idUploaded, selfieUploaded, agentFloatToday } = useAgentOnboardingStore()
   
   // Use prop if provided, otherwise fall back to store flag
@@ -1097,25 +1079,6 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
               />
             </div>
             <div className={chatStyles.name}>Ama — Investment Manager</div>
-            {/* Copy ID token button (admin-only) */}
-            {isAuthed && isAdmin === true && (
-              <button
-                onClick={handleCopyToken}
-                style={{
-                  marginLeft: '8px',
-                  padding: '4px 8px',
-                  fontSize: '10px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  background: tokenCopied ? '#4CAF50' : 'white',
-                  color: tokenCopied ? 'white' : '#666',
-                  cursor: 'pointer',
-                }}
-                title="Copy ID token (admin debug)"
-              >
-                {tokenCopied ? 'Copied!' : 'Copy token'}
-              </button>
-            )}
           </div>
 
           {/* Dev-only: Show current user UID for admin debugging */}

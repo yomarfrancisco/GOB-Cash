@@ -21,16 +21,39 @@ import type { Firestore } from 'firebase-admin/firestore'
 // Initialize Firebase Admin
 function initializeFirebaseAdmin() {
   if (getApps().length === 0) {
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
-      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
-      : {
-          projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    let serviceAccount: any
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      try {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+        // Map project_id to projectId for compatibility
+        if (serviceAccount.project_id && !serviceAccount.projectId) {
+          serviceAccount.projectId = serviceAccount.project_id
         }
+        if (serviceAccount.client_email && !serviceAccount.clientEmail) {
+          serviceAccount.clientEmail = serviceAccount.client_email
+        }
+        if (serviceAccount.private_key && !serviceAccount.privateKey) {
+          serviceAccount.privateKey = serviceAccount.private_key
+        }
+      } catch (error: any) {
+        throw new Error(`Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: ${error.message}`)
+      }
+    } else {
+      serviceAccount = {
+        projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      }
+    }
 
     if (!serviceAccount.projectId || !serviceAccount.clientEmail || !serviceAccount.privateKey) {
-      throw new Error('Firebase Admin credentials missing. Set FIREBASE_SERVICE_ACCOUNT_JSON or individual env vars.')
+      console.error('[Backfill] Service account missing fields:', {
+        hasProjectId: !!serviceAccount.projectId,
+        hasClientEmail: !!serviceAccount.clientEmail,
+        hasPrivateKey: !!serviceAccount.privateKey,
+        keys: Object.keys(serviceAccount),
+      })
+      throw new Error('Firebase Admin credentials missing. Set FIREBASE_SERVICE_ACCOUNT_JSON, FIREBASE_SERVICE_ACCOUNT_JSON_PATH, or individual env vars.')
     }
 
     initializeApp({
@@ -131,10 +154,29 @@ async function main() {
   const args = process.argv.slice(2)
   const batchSize = parseInt(args.find(arg => arg.startsWith('--batch-size='))?.split('=')[1] || '100', 10)
   const resumeFrom = args.find(arg => arg.startsWith('--resume-from='))?.split('=')[1]
+  const serviceAccountPath = args.find(arg => arg.startsWith('--service-account='))?.split('=')[1]
+  
+  // Set env var if service account path provided (MUST happen before initializeFirebaseAdmin)
+  if (serviceAccountPath && !process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    const fs = require('fs')
+    const path = require('path')
+    const expandedPath = serviceAccountPath.startsWith('~') 
+      ? path.join(process.env.HOME || '', serviceAccountPath.slice(1))
+      : serviceAccountPath
+    try {
+      const jsonContent = fs.readFileSync(expandedPath, 'utf8')
+      process.env.FIREBASE_SERVICE_ACCOUNT_JSON = jsonContent
+      console.log('[Backfill] Loaded service account from:', expandedPath)
+    } catch (error: any) {
+      console.error('[Backfill] Failed to read service account file:', error.message)
+      throw error
+    }
+  }
 
   console.log('[Backfill] Starting payment backfill', {
     batchSize,
     resumeFrom: resumeFrom || 'start',
+    hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
   })
 
   const db = initializeFirebaseAdmin()
