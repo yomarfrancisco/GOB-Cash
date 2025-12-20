@@ -11,6 +11,7 @@ interface AgentRespondRequest {
   messageText: string
   recentMessages?: Array<{ role: 'user' | 'assistant', text: string }>
   context?: PromptContext
+  authToken?: string // Firebase ID token for tool calls
 }
 
 export async function POST(request: NextRequest) {
@@ -25,13 +26,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Route message (script-first, LLM-fallback)
+    // Route message (script-first, LLM-fallback with tool support)
     const response = await routeAmaMessage({
       threadId,
       userId,
       messageText,
       recentMessages: body.recentMessages || [],
       context: body.context,
+      authToken: body.authToken, // Pass auth token for tool calls
     })
 
     return NextResponse.json({

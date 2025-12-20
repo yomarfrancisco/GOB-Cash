@@ -453,12 +453,23 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
     sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'user', userMessage)
     
     try {
-      // Get current user
+      // Get current user and auth token
       const auth = getFirebaseAuth()
-      const userId = auth.currentUser?.uid
+      const user = auth.currentUser
       
-      if (!userId) {
+      if (!user) {
         throw new Error('User not authenticated')
+      }
+      
+      const userId = user.uid
+      
+      // Get Firebase ID token for tool calls
+      let authToken: string | undefined
+      try {
+        authToken = await user.getIdToken()
+      } catch (tokenError) {
+        console.warn('[Ama] Failed to get auth token:', tokenError)
+        // Continue without token - tools won't work but LLM will still respond
       }
       
       // Get recent messages from Zustand for context
@@ -480,6 +491,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
           userId,
           messageText: userMessage,
           recentMessages,
+          authToken, // Include auth token for tool calls
         }),
       })
       

@@ -152,7 +152,13 @@ Rules:
 
 ---
 
-Respond only with the best possible message to the user, following all rules above.`
+Respond only with the best possible message to the user, following all rules above.
+
+---
+
+## Tool Usage
+
+When you need to check balances, payment status, or account information, use the available tools. Do not guess or make up data. If a tool is needed, call it. The system will execute it and provide you with the results, then you can answer the user's question accurately.`
 
   return prompt
 }
