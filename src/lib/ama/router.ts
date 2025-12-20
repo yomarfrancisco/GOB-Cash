@@ -8,6 +8,7 @@ import { buildAmaSystemPrompt, type PromptContext } from './prompts'
 import { AMA_TOOLS } from './tools'
 import { executeTool } from './toolsExecutor'
 import { getAdminAuth } from '@/lib/firebaseAdmin'
+import { classifyIntent, extractCurrency, type AmaIntent } from './intents'
 
 export type AmaResponse = {
   text: string
@@ -28,131 +29,247 @@ export type RouteAmaMessageParams = {
 }
 
 /**
- * Handle balance intent (fast-path, NO LLM)
- * Detects balance queries and directly calls get_user_wallets
+ * Get uid from params (verify token if needed)
  */
-async function handleBalanceIntent(
-  params: RouteAmaMessageParams
-): Promise<AmaResponse | null> {
-  const { messageText, authToken, decodedUid, requestId } = params
+async function getUidFromParams(params: RouteAmaMessageParams): Promise<string | null> {
+  let uid = params.decodedUid
   
-  // Intent detection
-  const t = messageText.toLowerCase()
-  const isBalanceQuery =
-    t.includes('balance') ||
-    t.includes('zar balance') ||
-    (t.includes('my zar') && t.includes('balance')) ||
-    (t.includes('wallet') && (t.includes('zar') || t.includes('cashzar')))
-  
-  if (!isBalanceQuery) {
-    return null // Not a balance query, continue normal flow
-  }
-  
-  // Need auth token and uid to fetch wallets
-  let uid = decodedUid
-  
-  if (!uid && authToken) {
+  if (!uid && params.authToken) {
     try {
       const auth = getAdminAuth()
-      const decoded = await auth.verifyIdToken(authToken)
+      const decoded = await auth.verifyIdToken(params.authToken)
       uid = decoded.uid
     } catch (tokenError: any) {
-      return {
-        text: requestId
-          ? `You're not signed in (requestId: ${requestId}). Please sign in and try again.`
-          : "You're not signed in. Please sign in and try again.",
-        mode: 'SCRIPTED',
-      }
+      return null
     }
   }
   
+  return uid || null
+}
+
+/**
+ * Format timestamp to human-readable or ISO
+ */
+function formatTimestamp(timestamp: string | null | undefined): string {
+  if (!timestamp) return 'Unknown'
+  
+  try {
+    const date = new Date(timestamp)
+    if (isNaN(date.getTime())) return 'Unknown'
+    
+    // Human-readable format: "Dec 20, 2025 at 10:30 AM"
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+  } catch {
+    return timestamp // Fallback to ISO string
+  }
+}
+
+/**
+ * Handle deterministic intents (bypass LLM)
+ */
+async function handleDeterministicIntent(
+  intent: AmaIntent,
+  params: RouteAmaMessageParams
+): Promise<AmaResponse | null> {
+  if (intent === 'UNKNOWN') {
+    return null // Fall through to LLM
+  }
+
+  const uid = await getUidFromParams(params)
   if (!uid) {
     return {
-      text: requestId
-        ? `You're not signed in (requestId: ${requestId}). Please sign in and try again.`
+      text: params.requestId
+        ? `You're not signed in (requestId: ${params.requestId}). Please sign in and try again.`
         : "You're not signed in. Please sign in and try again.",
       mode: 'SCRIPTED',
     }
   }
-  
-  // Call tools executor directly (same internal path as LLM tool calls)
+
   try {
-    const toolResult = await executeTool({
-      uid,
-      isAdmin: false, // Balance queries don't need admin
-      toolName: 'get_user_wallets',
-      args: {},
-    })
-    
-    if (!toolResult.ok) {
+    // PROFILE_HANDLE_EMAIL
+    if (intent === 'PROFILE_HANDLE_EMAIL') {
+      const toolResult = await executeTool({
+        uid,
+        isAdmin: false,
+        toolName: 'get_user_profile',
+        args: {},
+      })
+
+      if (!toolResult.ok) {
+        return {
+          text: params.requestId
+            ? `I couldn't fetch your profile (requestId: ${params.requestId}). Please try again.`
+            : "I couldn't fetch your profile. Please try again.",
+          mode: 'SCRIPTED',
+        }
+      }
+
+      const profile = toolResult.data as Record<string, any>
+      const handle = profile.handle || 'Not set'
+      const email = profile.email || 'Not set'
+
       return {
-        text: requestId
-          ? `I couldn't fetch your wallets (requestId: ${requestId}). Please try again.`
-          : "I couldn't fetch your wallets. Please try again.",
+        text: `Handle: ${handle}\nEmail: ${email}`,
         mode: 'SCRIPTED',
       }
     }
-    
-    const wallets = toolResult.data as Record<string, any>
-    
-    // Find cashZAR wallet
-    let cashZAR: any = null
-    for (const [walletId, walletData] of Object.entries(wallets)) {
-      if (walletId === 'cashZAR' || walletData?.displayCurrency === 'ZAR') {
-        cashZAR = walletData
-        break
+
+    // All wallet-related intents need get_user_wallets
+    if (['WALLET_BALANCE_SINGLE', 'WALLETS_LIST', 'CRYPTO_BALANCE_PAIR', 'WALLET_APYS'].includes(intent)) {
+      const toolResult = await executeTool({
+        uid,
+        isAdmin: false,
+        toolName: 'get_user_wallets',
+        args: {},
+      })
+
+      if (!toolResult.ok) {
+        return {
+          text: params.requestId
+            ? `I couldn't fetch your wallets (requestId: ${params.requestId}). Please try again.`
+            : "I couldn't fetch your wallets. Please try again.",
+          mode: 'SCRIPTED',
+        }
       }
-    }
-    
-    // If no cashZAR found, check all wallets for ZAR currency
-    if (!cashZAR) {
-      for (const [walletId, walletData] of Object.entries(wallets)) {
-        if (walletData?.displayCurrency === 'ZAR' || walletId.toLowerCase().includes('zar')) {
-          cashZAR = walletData
-          break
+
+      const wallets = toolResult.data as Record<string, any>
+      const walletsArray = Object.entries(wallets).map(([walletId, data]) => ({
+        walletId,
+        ...data,
+      }))
+
+      // WALLET_BALANCE_SINGLE
+      if (intent === 'WALLET_BALANCE_SINGLE') {
+        const currency = extractCurrency(params.messageText) || 'ZAR'
+        
+        // Find wallet matching currency
+        let wallet = walletsArray.find(
+          w => w.displayCurrency === currency || w.walletId.toLowerCase().includes(currency.toLowerCase())
+        )
+
+        // Default to ZAR if not found
+        if (!wallet && currency === 'ZAR') {
+          wallet = walletsArray.find(
+            w => w.walletId === 'cashZAR' || w.displayCurrency === 'ZAR'
+          )
+        }
+
+        if (!wallet) {
+          return {
+            text: `I couldn't find your ${currency} wallet. Please make sure you have a ${currency} wallet set up.`,
+            mode: 'SCRIPTED',
+          }
+        }
+
+        const balance = wallet.displayCurrency === 'ZAR' 
+          ? (wallet.fiatBalance || 0)
+          : (wallet.usdtBalance || 0)
+        
+        const formattedBalance = wallet.displayCurrency === 'ZAR'
+          ? new Intl.NumberFormat('en-ZA', {
+              style: 'currency',
+              currency: 'ZAR',
+              minimumFractionDigits: 2,
+            }).format(balance)
+          : `${balance} ${wallet.displayCurrency}`
+        
+        const updatedAt = formatTimestamp(wallet.updatedAt)
+        
+        return {
+          text: `Your ${wallet.displayCurrency} balance is ${formattedBalance}. Last updated: ${updatedAt}.`,
+          mode: 'SCRIPTED',
+        }
+      }
+
+      // WALLETS_LIST
+      if (intent === 'WALLETS_LIST') {
+        if (walletsArray.length === 0) {
+          return {
+            text: "You don't have any wallets set up yet.",
+            mode: 'SCRIPTED',
+          }
+        }
+
+        const lines = walletsArray.map(w => {
+          const currency = w.displayCurrency || w.walletId
+          const fiatBalance = w.fiatBalance || 0
+          const usdtBalance = w.usdtBalance || 0
+          const apy = w.apy ? `${w.apy}%` : 'N/A'
+          const updatedAt = formatTimestamp(w.updatedAt)
+          
+          const balance = currency === 'ZAR' 
+            ? new Intl.NumberFormat('en-ZA', {
+                style: 'currency',
+                currency: 'ZAR',
+                minimumFractionDigits: 2,
+              }).format(fiatBalance)
+            : `${usdtBalance} ${currency}`
+          
+          return `${currency}: ${balance} | APY: ${apy} | Updated: ${updatedAt}`
+        })
+
+        return {
+          text: `Your wallets:\n${lines.join('\n')}`,
+          mode: 'SCRIPTED',
+        }
+      }
+
+      // CRYPTO_BALANCE_PAIR
+      if (intent === 'CRYPTO_BALANCE_PAIR') {
+        const btcWallet = walletsArray.find(w => 
+          w.displayCurrency === 'BTC' || w.walletId.toLowerCase() === 'btc'
+        )
+        const ethWallet = walletsArray.find(w => 
+          w.displayCurrency === 'ETH' || w.walletId.toLowerCase() === 'eth'
+        )
+
+        const btcBalance = btcWallet?.usdtBalance || 0
+        const ethBalance = ethWallet?.usdtBalance || 0
+        const btcUpdated = formatTimestamp(btcWallet?.updatedAt)
+        const ethUpdated = formatTimestamp(ethWallet?.updatedAt)
+
+        return {
+          text: `BTC: ${btcBalance} BTC (updated: ${btcUpdated})\nETH: ${ethBalance} ETH (updated: ${ethUpdated})`,
+          mode: 'SCRIPTED',
+        }
+      }
+
+      // WALLET_APYS
+      if (intent === 'WALLET_APYS') {
+        if (walletsArray.length === 0) {
+          return {
+            text: "You don't have any wallets set up yet.",
+            mode: 'SCRIPTED',
+          }
+        }
+
+        const lines = walletsArray.map(w => {
+          const currency = w.displayCurrency || w.walletId
+          const apy = w.apy ? `${w.apy}%` : '0%'
+          return `${currency}: ${apy}`
+        })
+
+        return {
+          text: `Your wallet APYs:\n${lines.join('\n')}`,
+          mode: 'SCRIPTED',
         }
       }
     }
-    
-    if (!cashZAR) {
-      return {
-        text: "I couldn't find your ZAR wallet. Please make sure you have a ZAR wallet set up.",
-        mode: 'SCRIPTED',
-      }
-    }
-    
-    const balance = cashZAR.fiatBalance || 0
-    const locked = cashZAR.lockedBalance || 0
-    
-    // Format balance with thousands separator
-    const formattedBalance = new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 2,
-    }).format(balance)
-    
-    const formattedLocked = locked > 0
-      ? new Intl.NumberFormat('en-ZA', {
-          style: 'currency',
-          currency: 'ZAR',
-          minimumFractionDigits: 2,
-        }).format(locked)
-      : null
-    
-    const responseText = formattedLocked
-      ? `Your ZAR balance is ${formattedBalance}. Locked: ${formattedLocked}.`
-      : `Your ZAR balance is ${formattedBalance}.`
-    
-    return {
-      text: responseText,
-      mode: 'SCRIPTED',
-    }
+
+    return null // Should not reach here
   } catch (error: any) {
-    console.error('[Ama Router] Balance intent failed:', error)
+    console.error('[Ama Router] Deterministic intent failed:', error)
     return {
-      text: requestId
-        ? `I couldn't fetch your wallets (requestId: ${requestId}). Please try again.`
-        : "I couldn't fetch your wallets. Please try again.",
+      text: params.requestId
+        ? `I encountered an error (requestId: ${params.requestId}). Please try again.`
+        : "I encountered an error. Please try again.",
       mode: 'SCRIPTED',
     }
   }
@@ -166,10 +283,11 @@ export async function routeAmaMessage(
 ): Promise<AmaResponse> {
   const { messageText, recentMessages = [], context, requestId } = params
 
-  // Step 0: Check for balance intent (fast-path, NO LLM)
-  const balanceResponse = await handleBalanceIntent(params)
-  if (balanceResponse) {
-    return balanceResponse
+  // Step 0: Classify intent and handle deterministically (bypass LLM for core queries)
+  const intent = classifyIntent(messageText)
+  const deterministicResponse = await handleDeterministicIntent(intent, params)
+  if (deterministicResponse) {
+    return deterministicResponse
   }
 
   // Step 1: Try scripted response (minimal for now - can be expanded)

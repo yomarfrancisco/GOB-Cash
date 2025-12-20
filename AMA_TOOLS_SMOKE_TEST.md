@@ -129,20 +129,39 @@ curl -sS -X POST \
 }
 ```
 
-## UI Test Scenarios
+## UI Test Scenarios (Deterministic Intents)
 
-1. **"List my wallets and balances"**
-   - Expected: Returns ALL wallets (ZAR, BTC, ETH, etc.), not just ZAR
+These queries bypass LLM and use deterministic routing for 100% reliability:
 
-2. **"What's my BTC and ETH balance?"**
-   - Expected: Returns BTC and ETH balances only, NOT ZAR
+1. **"What's my ZAR balance and last updated time?"**
+   - Intent: `WALLET_BALANCE_SINGLE`
+   - Expected: "Your ZAR balance is R150.50. Last updated: Dec 20, 2025 at 10:30 AM."
+   - Must include: balance + updatedAt timestamp
 
-3. **"Show my wallet APYs"**
-   - Expected: Lists APY per wallet (e.g., "ZAR: 5.2%, BTC: 3.1%")
+2. **"List my wallets and balances."**
+   - Intent: `WALLETS_LIST`
+   - Expected: All wallets with currency, balance, APY, updatedAt
+   - Format: "Your wallets:\nZAR: R150.50 | APY: 5.2% | Updated: Dec 20, 2025 at 10:30 AM\nBTC: 0.5 BTC | APY: 3.1% | Updated: ..."
+   - Must include: BTC/ETH even if zero
 
-4. **"What's my handle and email?"**
-   - Expected: Returns handle and email from get_user_profile
+3. **"What's my BTC and ETH balance?"**
+   - Intent: `CRYPTO_BALANCE_PAIR`
+   - Expected: "BTC: 0.5 BTC (updated: Dec 20, 2025 at 10:30 AM)\nETH: 2.3 ETH (updated: ...)"
+   - Must return: BTC and ETH only, NOT ZAR
 
-5. **"List my last 3 payments"**
+4. **"Show my wallet APYs."**
+   - Intent: `WALLET_APYS`
+   - Expected: "Your wallet APYs:\nZAR: 5.2%\nBTC: 3.1%\nETH: 2.8%"
+   - Must include: All wallets with APY (including zeros if present)
+
+5. **"What's my handle and email?"**
+   - Intent: `PROFILE_HANDLE_EMAIL`
+   - Expected: "Handle: @ygor-francisco-6120\nEmail: ygor.francisco@gmail.com"
+   - Must return: Values from get_user_profile
+
+## Additional Test Scenarios (LLM Path)
+
+6. **"List my last 3 payments"**
+   - Intent: `UNKNOWN` (falls through to LLM)
    - Expected: Returns last 3 payments OR clean index link message
 
