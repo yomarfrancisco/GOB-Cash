@@ -230,6 +230,25 @@ export async function GET(request: NextRequest) {
       amountZAR,
     })
     
+    // Mirror status update to user subcollection (non-blocking)
+    if (credited && userId) {
+      try {
+        const { updatePaymentStatus } = await import('@/lib/payfast/paymentMirror')
+        await updatePaymentStatus(db, ref, userId, {
+          status: 'COMPLETE',
+          creditedAt: new Date(),
+          payfastPaymentId: pfPaymentId || null,
+        })
+      } catch (mirrorError: any) {
+        // Log but don't fail - payment is already credited in global collection
+        console.warn('[PayFast Return] Failed to mirror status update to subcollection', {
+          ref,
+          userId,
+          error: mirrorError.message,
+        })
+      }
+    }
+    
     // Redirect to profile with success
     return NextResponse.redirect(new URL(`/profile?ref=${ref}&credited=${credited}`, request.url))
   } catch (error: any) {
