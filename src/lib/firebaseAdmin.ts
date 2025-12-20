@@ -1,6 +1,6 @@
 /**
- * Firebase Admin SDK initialization (alternative approach)
- * Uses individual environment variables instead of JSON blob
+ * Firebase Admin SDK initialization (hardened singleton)
+ * Uses individual environment variables
  * 
  * Supports both approaches:
  * - FIREBASE_SERVICE_ACCOUNT_JSON (existing)
@@ -17,14 +17,19 @@ function getPrivateKey(): string {
   return key.replace(/\\n/g, '\n')
 }
 
+// Singleton instances
+let adminApp: admin.app.App | null = null
+let adminAuthInstance: admin.auth.Auth | null = null
+let adminDbInstance: admin.firestore.Firestore | null = null
+
 /**
- * Get Firebase Admin app instance
- * Initializes exactly once
+ * Initialize Firebase Admin (singleton, only once)
  */
-export function getAdminApp(): admin.app.App {
-  // Check if already initialized
+function initializeAdmin(): void {
+  // Already initialized
   if (admin.apps.length > 0) {
-    return admin.app()
+    adminApp = admin.app()
+    return
   }
 
   // Try individual env vars first (new approach)
@@ -34,17 +39,17 @@ export function getAdminApp(): admin.app.App {
 
   if (projectId && clientEmail && privateKey) {
     try {
-      admin.initializeApp({
+      adminApp = admin.initializeApp({
         credential: admin.credential.cert({
           projectId,
           clientEmail,
           privateKey: getPrivateKey(),
         }),
       })
-      console.log('[Firebase Admin] Initialized from individual env vars')
-      return admin.app()
+      console.log('[Firebase Admin] Initialized from individual env vars, project:', projectId)
+      return
     } catch (error: any) {
-      console.error('[Firebase Admin] Initialization from env vars failed:', error)
+      console.error('[Firebase Admin] Initialization from env vars failed:', error.message)
       throw new Error(`Firebase Admin initialization failed: ${error.message}`)
     }
   }
@@ -52,10 +57,15 @@ export function getAdminApp(): admin.app.App {
   // Fallback to FIREBASE_SERVICE_ACCOUNT_JSON (existing approach)
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
   if (!serviceAccountJson) {
+    const missing = []
+    if (!projectId) missing.push('FIREBASE_ADMIN_PROJECT_ID')
+    if (!clientEmail) missing.push('FIREBASE_ADMIN_CLIENT_EMAIL')
+    if (!privateKey) missing.push('FIREBASE_ADMIN_PRIVATE_KEY')
     throw new Error(
-      'Missing Firebase Admin credentials. Set either:\n' +
-      '  - FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY\n' +
-      '  - OR FIREBASE_SERVICE_ACCOUNT_JSON'
+      `Missing Firebase Admin credentials. Set either:\n` +
+      `  - FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY\n` +
+      `  - OR FIREBASE_SERVICE_ACCOUNT_JSON\n` +
+      `Missing: ${missing.join(', ')}`
     )
   }
 
@@ -64,13 +74,13 @@ export function getAdminApp(): admin.app.App {
     if (serviceAccount.private_key) {
       serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n')
     }
-    admin.initializeApp({
+    adminApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     })
-    console.log('[Firebase Admin] Initialized from FIREBASE_SERVICE_ACCOUNT_JSON')
-    return admin.app()
+    console.log('[Firebase Admin] Initialized from FIREBASE_SERVICE_ACCOUNT_JSON, project:', serviceAccount.project_id || 'unknown')
+    return
   } catch (error: any) {
-    console.error('[Firebase Admin] Initialization failed:', error)
+    console.error('[Firebase Admin] Initialization failed:', error.message)
     if (error instanceof SyntaxError) {
       throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON is invalid JSON')
     }
@@ -79,18 +89,48 @@ export function getAdminApp(): admin.app.App {
 }
 
 /**
- * Get Firebase Admin Auth instance
+ * Get Firebase Admin app instance (singleton)
  */
-export function getAdminAuth(): admin.auth.Auth {
-  getAdminApp()
-  return admin.auth()
+export function getAdminApp(): admin.app.App {
+  if (!adminApp) {
+    initializeAdmin()
+  }
+  if (!adminApp) {
+    throw new Error('Firebase Admin app not initialized')
+  }
+  return adminApp
 }
 
 /**
- * Get Firebase Admin Firestore instance
+ * Get Firebase Admin Auth instance (singleton)
+ */
+export function getAdminAuth(): admin.auth.Auth {
+  if (!adminAuthInstance) {
+    getAdminApp()
+    adminAuthInstance = admin.auth()
+  }
+  return adminAuthInstance
+}
+
+/**
+ * Get Firebase Admin Firestore instance (singleton)
  */
 export function getAdminDb(): admin.firestore.Firestore {
+  if (!adminDbInstance) {
+    getAdminApp()
+    adminDbInstance = admin.firestore()
+  }
+  return adminDbInstance
+}
+
+// Export singleton instances for convenience
+export const adminAuth = (() => {
+  getAdminApp()
+  return admin.auth()
+})()
+
+export const adminDb = (() => {
   getAdminApp()
   return admin.firestore()
-}
+})()
 

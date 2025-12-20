@@ -132,6 +132,72 @@ export const AMA_TOOLS = [
   {
     type: 'function' as const,
     function: {
+      name: 'admin_get_user_by_uid',
+      description: '[ADMIN ONLY] Get user information by UID. Returns profile, wallets, and last 20 payments summary. Only use if you are in admin mode.',
+      parameters: {
+        type: 'object',
+        properties: {
+          uid: {
+            type: 'string',
+            description: 'User UID',
+          },
+        },
+        required: ['uid'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'admin_get_doc_by_path',
+      description: '[ADMIN ONLY] Get a specific Firestore document by explicit path. Max 50KB response. Only use if you are in admin mode and need to inspect a specific document.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Explicit document path (e.g., "users/abc123" or "payments/xyz789")',
+          },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'admin_query_collection',
+      description: '[ADMIN ONLY] Query a Firestore collection with filters. Requires limit (max 50). Only use if you are in admin mode.',
+      parameters: {
+        type: 'object',
+        properties: {
+          collectionPath: {
+            type: 'string',
+            description: 'Collection path (e.g., "payments", "users")',
+          },
+          where: {
+            type: 'array',
+            description: 'Array of where conditions: [{ field, operator, value }]',
+            items: {
+              type: 'object',
+            },
+          },
+          orderBy: {
+            type: 'object',
+            description: 'Order by: { field, direction: "asc" | "desc" }',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of documents to return (required, max: 50)',
+          },
+        },
+        required: ['collectionPath', 'limit'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'debug_whoami',
       description: 'Debug tool: Returns current user UID, email, admin status, and project ID. Use for diagnostics only.',
       parameters: {

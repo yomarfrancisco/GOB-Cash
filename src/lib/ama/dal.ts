@@ -239,6 +239,203 @@ export async function adminSearchPayments(
 }
 
 /**
+ * Admin: Get user by UID (ADMIN only - returns profile + wallets + last 20 payments/tx summary)
+ */
+export async function adminGetUserByUid(
+  db: firestore.Firestore,
+  targetUid: string
+): Promise<Record<string, any> | null> {
+  // Get user profile
+  const userRef = db.collection('users').doc(targetUid)
+  const userDoc = await userRef.get()
+  
+  if (!userDoc.exists) {
+    return null
+  }
+  
+  const userData = userDoc.data()!
+  
+  // Get wallets
+  const walletsRef = userRef.collection('wallets')
+  const walletsSnapshot = await walletsRef.get()
+  const wallets: Record<string, any> = {}
+  walletsSnapshot.forEach((doc) => {
+    const data = doc.data()
+    wallets[doc.id] = {
+      walletId: doc.id,
+      displayCurrency: data.displayCurrency,
+      fiatBalance: data.fiatBalance,
+      usdtBalance: data.usdtBalance,
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+    }
+  })
+  
+  // Get last 20 payments
+  const paymentsRef = db.collection('payments')
+  const paymentsSnapshot = await paymentsRef
+    .where('userId', '==', targetUid)
+    .orderBy('createdAt', 'desc')
+    .limit(20)
+    .get()
+  
+  const payments: Array<Record<string, any>> = []
+  paymentsSnapshot.forEach((doc) => {
+    const data = doc.data()
+    payments.push({
+      ref: doc.id,
+      status: data.status,
+      amountZAR: data.amountZAR,
+      currency: data.currency,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+    })
+  })
+  
+  return {
+    userId: targetUid,
+    handle: userData.handle,
+    email: userData.email ? `${userData.email.split('@')[0]}@***` : null, // Partial email
+    createdAt: userData.createdAt?.toDate?.()?.toISOString() || null,
+    wallets,
+    recentPayments: payments,
+  }
+}
+
+/**
+ * Admin: Get document by explicit path (ADMIN only - max 50KB response)
+ */
+export async function adminGetDocByPath(
+  db: firestore.Firestore,
+  path: string
+): Promise<Record<string, any> | null> {
+  // Validate path format (must be collection/doc or collection/doc/subcollection/doc)
+  if (!path || typeof path !== 'string') {
+    throw new Error('Invalid path: must be a non-empty string')
+  }
+  
+  // Block wildcard paths
+  if (path.includes('*') || path.includes('{') || path.includes('}')) {
+    throw new Error('Invalid path: wildcards not allowed')
+  }
+  
+  // Block root-level access to sensitive collections
+  const blockedRoots = ['_secrets', '_admin', '_config']
+  const firstSegment = path.split('/')[0]
+  if (blockedRoots.includes(firstSegment)) {
+    throw new Error('Access to this collection is blocked')
+  }
+  
+  try {
+    const docRef = db.doc(path)
+    const doc = await docRef.get()
+    
+    if (!doc.exists) {
+      return null
+    }
+    
+    const data = doc.data()!
+    
+    // Check response size (50KB limit)
+    const dataString = JSON.stringify(data)
+    if (dataString.length > 50 * 1024) {
+      return {
+        error: 'Document too large',
+        size: dataString.length,
+        maxSize: 50 * 1024,
+        path,
+      }
+    }
+    
+    return {
+      path: doc.ref.path,
+      ...data,
+      // Convert Firestore timestamps
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+    }
+  } catch (error: any) {
+    throw new Error(`Failed to get document: ${error.message}`)
+  }
+}
+
+/**
+ * Admin: Query collection (ADMIN only - require limit, block wildcard paths)
+ */
+export async function adminQueryCollection(
+  db: firestore.Firestore,
+  query: {
+    collectionPath: string
+    where?: Array<{ field: string; operator: string; value: any }>
+    orderBy?: { field: string; direction?: 'asc' | 'desc' }
+    limit: number
+  }
+): Promise<Array<Record<string, any>>> {
+  // Validate collection path
+  if (!query.collectionPath || typeof query.collectionPath !== 'string') {
+    throw new Error('Invalid collectionPath: must be a non-empty string')
+  }
+  
+  // Block wildcard paths
+  if (query.collectionPath.includes('*') || query.collectionPath.includes('{') || query.collectionPath.includes('}')) {
+    throw new Error('Invalid collectionPath: wildcards not allowed')
+  }
+  
+  // Block root-level access to sensitive collections
+  const blockedRoots = ['_secrets', '_admin', '_config']
+  const firstSegment = query.collectionPath.split('/')[0]
+  if (blockedRoots.includes(firstSegment)) {
+    throw new Error('Access to this collection is blocked')
+  }
+  
+  // Require limit (max 50)
+  const limit = Math.min(query.limit || 20, 50)
+  if (limit < 1) {
+    throw new Error('limit must be at least 1')
+  }
+  
+  try {
+    let collectionRef = db.collection(query.collectionPath) as any
+    
+    // Apply where clauses
+    if (query.where && Array.isArray(query.where)) {
+      for (const condition of query.where) {
+        if (condition.field && condition.operator && condition.value !== undefined) {
+          collectionRef = collectionRef.where(condition.field, condition.operator, condition.value)
+        }
+      }
+    }
+    
+    // Apply orderBy
+    if (query.orderBy && query.orderBy.field) {
+      collectionRef = collectionRef.orderBy(
+        query.orderBy.field,
+        query.orderBy.direction || 'asc'
+      )
+    }
+    
+    // Apply limit
+    collectionRef = collectionRef.limit(limit)
+    
+    const snapshot = await collectionRef.get()
+    
+    const results: Array<Record<string, any>> = []
+    snapshot.forEach((doc: firestore.QueryDocumentSnapshot) => {
+      const data = doc.data()
+      results.push({
+        id: doc.id,
+        ...data,
+        // Convert Firestore timestamps
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+      })
+    })
+    
+    return results
+  } catch (error: any) {
+    throw new Error(`Failed to query collection: ${error.message}`)
+  }
+}
+
+/**
  * Redact sensitive data from tool outputs
  */
 export function redactSensitiveData(data: any): any {

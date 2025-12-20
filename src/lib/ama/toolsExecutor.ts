@@ -15,6 +15,9 @@ export type ToolName =
   | 'search_transactions'
   | 'admin_get_user_by_handle'
   | 'admin_search_payments'
+  | 'admin_get_user_by_uid'
+  | 'admin_get_doc_by_path'
+  | 'admin_query_collection'
   | 'debug_whoami'
 
 export type ExecuteToolParams = {
@@ -90,6 +93,51 @@ export async function executeTool(params: ExecuteToolParams): Promise<ToolResult
           status: args.status,
           userId: args.userId,
           limit: args.limit ? Math.min(Number(args.limit), 50) : 20,
+        })
+        break
+
+      case 'admin_get_user_by_uid':
+        if (!isAdmin) {
+          return { ok: false, error: 'Admin access required', status: 403 }
+        }
+        if (!args.uid || typeof args.uid !== 'string') {
+          return { ok: false, error: 'uid is required', status: 400 }
+        }
+        console.log('[Ama Tool Executor] Admin tool: admin_get_user_by_uid', { uid: args.uid, callerUid: uid })
+        result = await dal.adminGetUserByUid(db, args.uid)
+        break
+
+      case 'admin_get_doc_by_path':
+        if (!isAdmin) {
+          return { ok: false, error: 'Admin access required', status: 403 }
+        }
+        if (!args.path || typeof args.path !== 'string') {
+          return { ok: false, error: 'path is required', status: 400 }
+        }
+        console.log('[Ama Tool Executor] Admin tool: admin_get_doc_by_path', { path: args.path, callerUid: uid })
+        result = await dal.adminGetDocByPath(db, args.path)
+        break
+
+      case 'admin_query_collection':
+        if (!isAdmin) {
+          return { ok: false, error: 'Admin access required', status: 403 }
+        }
+        if (!args.collectionPath || typeof args.collectionPath !== 'string') {
+          return { ok: false, error: 'collectionPath is required', status: 400 }
+        }
+        if (!args.limit || typeof args.limit !== 'number' || args.limit < 1) {
+          return { ok: false, error: 'limit is required and must be at least 1', status: 400 }
+        }
+        console.log('[Ama Tool Executor] Admin tool: admin_query_collection', { 
+          collectionPath: args.collectionPath, 
+          limit: args.limit,
+          callerUid: uid 
+        })
+        result = await dal.adminQueryCollection(db, {
+          collectionPath: args.collectionPath,
+          where: args.where,
+          orderBy: args.orderBy,
+          limit: args.limit,
         })
         break
 

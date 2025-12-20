@@ -73,14 +73,13 @@ export async function POST(request: NextRequest) {
       .filter(Boolean)
 
     const admin = isAdmin(uid, adminUids)
+    const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || 'unknown'
 
     // Safe debug logs (no secrets)
     console.log('[AMA_TOOLS] uid:', uid)
-    console.log('[AMA_TOOLS] adminUIDs:', adminUids)
     console.log('[AMA_TOOLS] isAdmin:', admin)
-    console.log('[AMA_TOOLS] has FIREBASE_ADMIN_PRIVATE_KEY:', Boolean(process.env.FIREBASE_ADMIN_PRIVATE_KEY))
-    console.log('[AMA_TOOLS] project:', process.env.FIREBASE_ADMIN_PROJECT_ID)
-    console.log('[AMA_TOOLS] clientEmail:', process.env.FIREBASE_ADMIN_CLIENT_EMAIL)
+    console.log('[AMA_TOOLS] adminUidsCount:', adminUids.length)
+    console.log('[AMA_TOOLS] firebaseProjectId:', projectId)
 
     // Log tool call
     console.log('[AMA_TOOLS] Executing tool', {

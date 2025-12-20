@@ -210,13 +210,25 @@ Rules:
 
           // Continue loop to get final answer from LLM
         } catch (toolError: any) {
-          console.error('[Ama Router] Tool execution failed:', toolError)
-          // Add error to conversation and let LLM handle it
-          conversationMessages.push({
-            role: 'tool',
-            content: JSON.stringify({ error: toolError.message || 'Tool execution failed' }),
-            tool_call_id: `tool_${toolCallCount}`,
-          } as any)
+          const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(7)}`
+          console.error('[Ama Router] Tool execution failed:', {
+            requestId,
+            tool: llmResponse.toolCall.name,
+            error: toolError.message,
+            status: toolError.status || 500,
+          })
+          
+          // Surface tool error to user (truncated for safety)
+          const errorMessage = toolError.message || 'Tool execution failed'
+          const truncatedError = errorMessage.length > 200 
+            ? errorMessage.substring(0, 200) + '...' 
+            : errorMessage
+          
+          // Return user-friendly error message
+          return {
+            text: `Tool error: ${truncatedError}. I can't access data right now.`,
+            mode: 'LLM',
+          }
         }
       } else {
         // No tool call and no text - unexpected state
