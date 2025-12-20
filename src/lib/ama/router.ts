@@ -860,17 +860,28 @@ Rules:
             }
           }
           
-          // Check if it's a Firestore index error
+          // Check if it's a Firestore index error (only show URL in admin/dev mode)
           if (toolError.message?.includes('index') || toolError.message?.includes('FAILED_PRECONDITION')) {
-            // Extract index URL if present in error message
-            const indexUrlMatch = toolError.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/)
-            const indexUrl = indexUrlMatch ? indexUrlMatch[0] : null
+            const isAdmin = params.decodedIsAdmin === true
+            const isDev = process.env.NODE_ENV !== 'production'
             
-            return {
-              text: indexUrl
-                ? `I need a Firestore index to access that data. Please create the index: ${indexUrl}`
-                : `I need a Firestore index to access that data. Please contact support.`,
-              mode: 'LLM',
+            if (isAdmin || isDev) {
+              // Extract index URL if present in error message
+              const indexUrlMatch = toolError.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/)
+              const indexUrl = indexUrlMatch ? indexUrlMatch[0] : null
+              
+              return {
+                text: indexUrl
+                  ? `I need a Firestore index to access that data. Please create the index: ${indexUrl}`
+                  : `I need a Firestore index to access that data. Please contact support.`,
+                mode: 'LLM',
+              }
+            } else {
+              // User-facing message (no index URL)
+              return {
+                text: "I'm having trouble accessing that data right now. Please try again later or contact support if the issue persists.",
+                mode: 'LLM',
+              }
             }
           }
           
