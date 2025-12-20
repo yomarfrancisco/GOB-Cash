@@ -579,15 +579,6 @@ export async function routeAmaMessage(
       
       // Map structured errors (no raw Firestore errors exposed)
       const errorMessage = error.message || 'Unknown error'
-      const errorType = error.errorType
-      
-      // Handle NOT_SYNCED error type (payments not synced to subcollection)
-      if (errorType === 'NOT_SYNCED' || errorMessage === 'PAYMENTS_NOT_SYNCED') {
-        return {
-          text: "I don't see any payments in your recent history view. This could mean:\n• Your payment history hasn't synced yet\n• You haven't made any payments recently\n\nYou can check your account directly or try again in a moment.",
-          mode: 'SCRIPTED',
-        }
-      }
       
       // Check for Firestore index error (only show URL in admin/dev mode)
       if (errorMessage.includes('index') || errorMessage.includes('FAILED_PRECONDITION')) {
