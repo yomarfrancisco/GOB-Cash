@@ -198,6 +198,18 @@ export const AMA_TOOLS = [
   {
     type: 'function' as const,
     function: {
+      name: 'get_user_snapshot',
+      description: 'Get a complete user snapshot: profile, all wallets, and recent payments (last 5). Returns empty array for payments if unavailable. Use this for "portfolio snapshot", "holdings", "net worth", "what do I have", "show everything", or "account summary" requests.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'debug_whoami',
       description: 'Debug tool: Returns current user UID, email, admin status, and project ID. Use for diagnostics only.',
       parameters: {

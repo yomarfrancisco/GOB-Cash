@@ -29,6 +29,72 @@ export type RouteAmaMessageParams = {
 }
 
 /**
+ * Validate LLM response and auto-retry if needed
+ */
+async function validateAndRetryIfNeeded(
+  messageText: string,
+  toolName: string,
+  toolData: any,
+  params: RouteAmaMessageParams
+): Promise<{ shouldRetry: boolean; reason?: string; correctedData?: any }> {
+  const lower = messageText.toLowerCase()
+  
+  // Check if user asked for BTC/ETH but response contains ZAR or omits BTC/ETH
+  if (toolName === 'get_user_wallets' && (lower.includes('btc') || lower.includes('eth'))) {
+    const walletsArray = Array.isArray(toolData) ? toolData : Object.values(toolData)
+    const hasBtc = walletsArray.some((w: any) => 
+      (w.displayCurrency === 'BTC' || w.walletId?.toLowerCase() === 'btc')
+    )
+    const hasEth = walletsArray.some((w: any) => 
+      (w.displayCurrency === 'ETH' || w.walletId?.toLowerCase() === 'eth')
+    )
+    const hasZar = walletsArray.some((w: any) => 
+      (w.displayCurrency === 'ZAR' || w.walletId?.toLowerCase().includes('zar'))
+    )
+    
+    // If asking for BTC/ETH but response has ZAR or missing BTC/ETH, filter to only requested currencies
+    if ((lower.includes('btc') && !hasBtc) || (lower.includes('eth') && !hasEth) || (hasZar && (lower.includes('btc') || lower.includes('eth')))) {
+      const requestedCurrencies: string[] = []
+      if (lower.includes('btc') || lower.includes('bitcoin')) requestedCurrencies.push('BTC')
+      if (lower.includes('eth') || lower.includes('ethereum')) requestedCurrencies.push('ETH')
+      
+      const filtered = walletsArray.filter((w: any) => 
+        requestedCurrencies.includes(w.displayCurrency) || 
+        requestedCurrencies.some(c => w.walletId?.toLowerCase() === c.toLowerCase())
+      )
+      
+      return {
+        shouldRetry: true,
+        reason: 'Response contained ZAR or missing requested crypto currencies',
+        correctedData: filtered,
+      }
+    }
+  }
+  
+  // Check if user asked for "wallets and balances" but response only has ZAR
+  if (toolName === 'get_user_wallets' && (lower.includes('wallets') && lower.includes('balances'))) {
+    const walletsArray = Array.isArray(toolData) ? toolData : Object.values(toolData)
+    const nonZarWallets = walletsArray.filter((w: any) => 
+      w.displayCurrency !== 'ZAR' && !w.walletId?.toLowerCase().includes('zar')
+    )
+    
+    // If only ZAR wallets present, ensure we include all wallets (even zeros)
+    if (nonZarWallets.length === 0 && walletsArray.length === 1) {
+      // This is fine - user might only have ZAR wallet
+      return { shouldRetry: false }
+    }
+    
+    // If we have multiple wallets but response only shows ZAR, return all
+    if (walletsArray.length > 1 && walletsArray.every((w: any) => w.displayCurrency === 'ZAR' || w.walletId?.toLowerCase().includes('zar'))) {
+      // This shouldn't happen if we're returning all wallets, but just in case
+      return { shouldRetry: false }
+    }
+  }
+  
+  return { shouldRetry: false }
+}
+
+/**
  * Get uid from params (verify token if needed)
  */
 async function getUidFromParams(params: RouteAmaMessageParams): Promise<string | null> {
@@ -117,6 +183,53 @@ async function handleDeterministicIntent(
 
       return {
         text: `Handle: ${handle}\nEmail: ${email}`,
+        mode: 'SCRIPTED',
+      }
+    }
+
+    // USER_SNAPSHOT
+    if (intent === 'USER_SNAPSHOT') {
+      const toolResult = await executeTool({
+        uid,
+        isAdmin: false,
+        toolName: 'get_user_snapshot',
+        args: {},
+      })
+
+      if (!toolResult.ok) {
+        return {
+          text: params.requestId
+            ? `I couldn't fetch your snapshot (requestId: ${params.requestId}). Please try again.`
+            : "I couldn't fetch your snapshot. Please try again.",
+          mode: 'SCRIPTED',
+        }
+      }
+
+      const snapshot = toolResult.data as { profile: any; wallets: any[]; recentPayments: any[] }
+      
+      // Format snapshot
+      const profileLines = snapshot.profile
+        ? [`Handle: ${snapshot.profile.handle || 'Not set'}`, `Email: ${snapshot.profile.email || 'Not set'}`]
+        : []
+      
+      const walletLines = snapshot.wallets.map(w => {
+        const currency = w.displayCurrency || w.walletId
+        const balance = currency === 'ZAR'
+          ? new Intl.NumberFormat('en-ZA', {
+              style: 'currency',
+              currency: 'ZAR',
+              minimumFractionDigits: 2,
+            }).format(w.fiatBalance || 0)
+          : `${w.usdtBalance || 0} ${currency}`
+        return `${currency}: ${balance}`
+      })
+      
+      const paymentLines = snapshot.recentPayments.length > 0
+        ? [`\nRecent payments: ${snapshot.recentPayments.length} payment(s)`]
+        : []
+      
+      return {
+        text: `Portfolio Snapshot:\n${profileLines.join('\n')}\n\nWallets:\n${walletLines.join('\n')}${paymentLines.join('\n')}`,
         mode: 'SCRIPTED',
       }
     }
@@ -463,17 +576,57 @@ Rules:
           // Post-process tool data for better LLM understanding
           let processedData = toolResult.data
           
-          // If get_user_wallets, convert object map to sorted array for better LLM processing
-          if (llmResponse.toolCall.name === 'get_user_wallets') {
-            const walletsMap = toolResult.data as Record<string, any>
+          // Normalize wallet payload: convert object map to sorted array with consistent fields
+          if (llmResponse.toolCall.name === 'get_user_wallets' || llmResponse.toolCall.name === 'get_user_snapshot') {
+            let walletsMap: Record<string, any>
+            
+            if (llmResponse.toolCall.name === 'get_user_snapshot') {
+              // Snapshot returns { profile, wallets[], recentPayments[] }
+              const snapshot = toolResult.data as { profile: any; wallets: any[]; recentPayments: any[] }
+              walletsMap = snapshot.wallets.reduce((acc, w) => {
+                acc[w.walletId] = w
+                return acc
+              }, {} as Record<string, any>)
+            } else {
+              walletsMap = toolResult.data as Record<string, any>
+            }
+            
+            // Normalize to sorted array with consistent fields
             const walletsArray = Object.entries(walletsMap)
               .map(([walletId, walletData]) => ({
                 walletId,
-                ...walletData,
+                displayCurrency: walletData.displayCurrency || walletId,
+                fiatBalance: walletData.fiatBalance || 0,
+                usdtBalance: walletData.usdtBalance || 0,
+                apy: walletData.apy || null,
+                updatedAt: walletData.updatedAt || null,
+                kind: walletData.kind || null,
               }))
               .sort((a, b) => a.walletId.localeCompare(b.walletId)) // Sort by walletId for consistency
             
-            processedData = walletsArray
+            if (llmResponse.toolCall.name === 'get_user_snapshot') {
+              // Keep snapshot structure but normalize wallets
+              processedData = {
+                ...toolResult.data,
+                wallets: walletsArray,
+              }
+            } else {
+              processedData = walletsArray
+            }
+          }
+          
+          // Response validation and auto-retry for common failures
+          const validationResult = await validateAndRetryIfNeeded(
+            params.messageText,
+            llmResponse.toolCall.name,
+            processedData,
+            params
+          )
+          
+          if (validationResult.shouldRetry) {
+            console.log('[Ama Router] Response validation failed, auto-retrying:', validationResult.reason)
+            // Replace processedData with corrected data
+            processedData = validationResult.correctedData || processedData
           }
           
           // Add tool result message

@@ -10,6 +10,7 @@ import * as dal from '@/lib/ama/dal'
 export type ToolName =
   | 'get_user_wallets'
   | 'get_user_profile'
+  | 'get_user_snapshot'
   | 'get_payment_by_ref'
   | 'list_recent_payments'
   | 'search_transactions'
@@ -53,6 +54,10 @@ export async function executeTool(params: ExecuteToolParams): Promise<ToolResult
 
       case 'get_user_profile':
         result = await dal.getUserProfile(db, uid)
+        break
+
+      case 'get_user_snapshot':
+        result = await dal.getUserSnapshot(db, uid)
         break
 
       case 'get_payment_by_ref':

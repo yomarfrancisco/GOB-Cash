@@ -167,6 +167,45 @@ export async function listRecentPayments(
 }
 
 /**
+ * Get user snapshot (profile + wallets + recent payments)
+ * Returns empty array for recentPayments if unavailable (does not hard-fail)
+ */
+export async function getUserSnapshot(
+  db: firestore.Firestore,
+  uid: string
+): Promise<{
+  profile: Record<string, any> | null
+  wallets: Array<Record<string, any>>
+  recentPayments: Array<Record<string, any>>
+}> {
+  // Fetch profile (may be null)
+  const profile = await getUserProfile(db, uid)
+  
+  // Fetch wallets
+  const walletsMap = await getUserWallets(db, uid)
+  const wallets = Object.entries(walletsMap).map(([walletId, data]) => ({
+    walletId,
+    ...data,
+  }))
+  
+  // Fetch recent payments (gracefully handle failures)
+  let recentPayments: Array<Record<string, any>> = []
+  try {
+    recentPayments = await listRecentPayments(db, uid, 5) // Last 5 payments
+  } catch (error: any) {
+    // If payments query fails (e.g., missing index), return empty array
+    console.warn('[DAL] getUserSnapshot: Failed to fetch payments, returning empty array:', error.message)
+    recentPayments = []
+  }
+  
+  return {
+    profile,
+    wallets,
+    recentPayments,
+  }
+}
+
+/**
  * Search transactions for user (USER mode - scoped to uid)
  */
 export async function searchTransactions(

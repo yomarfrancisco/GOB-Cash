@@ -9,6 +9,7 @@ export type AmaIntent =
   | 'CRYPTO_BALANCE_PAIR'
   | 'WALLET_APYS'
   | 'PROFILE_HANDLE_EMAIL'
+  | 'USER_SNAPSHOT' // Portfolio snapshot, holdings, net worth
   | 'UNKNOWN' // Fall through to LLM
 
 /**
@@ -17,12 +18,30 @@ export type AmaIntent =
 export function classifyIntent(messageText: string): AmaIntent {
   const lower = messageText.toLowerCase().trim()
 
-  // PROFILE_HANDLE_EMAIL: handle, email, profile fields
+  // USER_SNAPSHOT: portfolio snapshot, holdings, net worth, show everything
+  if (
+    lower.includes('portfolio snapshot') ||
+    lower.includes('portfolio summary') ||
+    lower.includes('holdings') ||
+    lower.includes('net worth') ||
+    lower.includes('what do i have') ||
+    lower.includes('show everything') ||
+    lower.includes('account summary') ||
+    lower.includes('my portfolio')
+  ) {
+    return 'USER_SNAPSHOT'
+  }
+
+  // PROFILE_HANDLE_EMAIL: handle, email, profile fields, who am I logged in as
   if (
     (lower.includes('handle') && lower.includes('email')) ||
     (lower.includes('email') && (lower.includes('on file') || lower.includes('my email'))) ||
     (lower.includes('what') && lower.includes('email')) ||
-    (lower.includes('my handle') || lower.includes('my email'))
+    (lower.includes('my handle') || lower.includes('my email')) ||
+    lower.includes('who am i logged in as') ||
+    lower.includes('what account is this') ||
+    lower.includes('who am i') ||
+    (lower.includes('logged') && lower.includes('as'))
   ) {
     return 'PROFILE_HANDLE_EMAIL'
   }
@@ -37,23 +56,27 @@ export function classifyIntent(messageText: string): AmaIntent {
     return 'WALLET_APYS'
   }
 
-  // CRYPTO_BALANCE_PAIR: BTC and ETH together
+  // CRYPTO_BALANCE_PAIR: BTC and ETH together (messy variations)
   if (
     (lower.includes('btc') && lower.includes('eth')) ||
     (lower.includes('bitcoin') && lower.includes('ethereum')) ||
     (lower.includes('my btc') && lower.includes('eth')) ||
-    (lower.includes('btc') && lower.includes('ethereum'))
+    (lower.includes('btc') && lower.includes('ethereum')) ||
+    (lower.includes('bitcoin') && lower.includes('eth')) ||
+    (lower.includes('btc') && lower.includes('ethereum balance'))
   ) {
     return 'CRYPTO_BALANCE_PAIR'
   }
 
-  // WALLETS_LIST: list, all wallets, wallets and balances
+  // WALLETS_LIST: list, all wallets, wallets and balances, crypto balances
   if (
     lower.includes('list my wallets') ||
     lower.includes('list wallets') ||
     (lower.includes('wallets') && (lower.includes('list') || lower.includes('all') || lower.includes('balances'))) ||
     lower.includes('show my wallets') ||
-    lower.includes('all my wallets')
+    lower.includes('all my wallets') ||
+    lower.includes('crypto balances') ||
+    (lower.includes('show') && lower.includes('balances'))
   ) {
     return 'WALLETS_LIST'
   }
