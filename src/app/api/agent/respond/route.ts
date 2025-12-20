@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { routeAmaMessage } from '@/lib/ama/router'
 import type { PromptContext } from '@/lib/ama/prompts'
 import { getAdminAuth } from '@/lib/firebaseAdmin'
+import { extractBearerToken } from '@/lib/ama/auth'
+import { randomUUID } from 'crypto'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -16,32 +18,39 @@ interface AgentRespondRequest {
 }
 
 export async function POST(request: NextRequest) {
+  const requestId = randomUUID()
+  let toolsInvoked = false
+  let verifiedUid: string | undefined
+  
   try {
+    // Parse body once
     const body: AgentRespondRequest = await request.json()
-    const { threadId, userId, messageText, authToken } = body
+    const { threadId, userId, messageText } = body
 
     if (!threadId || !userId || !messageText) {
       return NextResponse.json(
-        { error: 'Missing required fields: threadId, userId, messageText' },
+        { 
+          error: 'Missing required fields: threadId, userId, messageText',
+          requestId,
+        },
         { status: 400 }
       )
     }
 
-    // Verify token is actually being passed (diagnostic log)
-    console.log('[Agent Respond] authToken present:', Boolean(authToken))
-    if (authToken) {
-      console.log('[Agent Respond] authToken length:', authToken.length)
-    }
+    // Extract token using shared helper (handles header casing + body fallback)
+    const token = extractBearerToken(request, body)
+    const hasAuthToken = Boolean(token)
 
     // Verify token once and extract uid/admin status (for tool calls)
     let decodedUid: string | undefined
     let decodedIsAdmin: boolean | undefined
 
-    if (authToken) {
+    if (token) {
       try {
         const auth = getAdminAuth()
-        const decoded = await auth.verifyIdToken(authToken)
+        const decoded = await auth.verifyIdToken(token)
         decodedUid = decoded.uid
+        verifiedUid = decodedUid
 
         // Check admin status
         const adminUids = (process.env.AMA_ADMIN_UIDS || '')
@@ -49,13 +58,19 @@ export async function POST(request: NextRequest) {
           .map(s => s.trim())
           .filter(Boolean)
         decodedIsAdmin = adminUids.includes(decodedUid)
-
-        console.log('[Agent Respond] Token verified, uid:', decodedUid, 'isAdmin:', decodedIsAdmin)
       } catch (tokenError: any) {
         console.warn('[Agent Respond] Token verification failed:', tokenError.message)
         // Continue without decoded uid - router will try to verify again if needed
       }
     }
+
+    // Server log per request (no secrets)
+    console.log('[Agent Respond]', {
+      requestId,
+      uid: verifiedUid || 'unverified',
+      hasAuthToken,
+      messageLength: messageText.length,
+    })
 
     // Route message (script-first, LLM-fallback with tool support)
     const response = await routeAmaMessage({
@@ -64,19 +79,39 @@ export async function POST(request: NextRequest) {
       messageText,
       recentMessages: body.recentMessages || [],
       context: body.context,
-      authToken, // Pass auth token (router will use decodedUid if available)
+      authToken: token || undefined, // Pass extracted token
       decodedUid, // Pre-verified UID (avoids double verification)
       decodedIsAdmin, // Pre-verified admin status
+      requestId, // Pass requestId for error messages
+    })
+
+    // Check if tools were invoked (response mode indicates this)
+    toolsInvoked = response.mode === 'LLM' && response.toolsInvoked === true
+
+    // Final log with tools status
+    console.log('[Agent Respond]', {
+      requestId,
+      uid: verifiedUid || 'unverified',
+      toolsInvoked,
+      mode: response.mode,
     })
 
     return NextResponse.json({
       assistantMessageText: response.text,
       mode: response.mode,
+      requestId,
     })
   } catch (error: any) {
-    console.error('[Agent Respond] Error:', error)
+    console.error('[Agent Respond] Error:', {
+      requestId,
+      uid: verifiedUid || 'unverified',
+      error: error.message,
+    })
     return NextResponse.json(
-      { error: error.message || 'Failed to process message' },
+      { 
+        error: error.message || 'Failed to process message',
+        requestId,
+      },
       { status: 500 }
     )
   }

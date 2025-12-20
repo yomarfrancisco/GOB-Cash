@@ -12,6 +12,7 @@ import { getAdminAuth } from '@/lib/firebaseAdmin'
 export type AmaResponse = {
   text: string
   mode: 'SCRIPTED' | 'LLM'
+  toolsInvoked?: boolean // Whether tools were invoked
 }
 
 export type RouteAmaMessageParams = {
@@ -23,6 +24,138 @@ export type RouteAmaMessageParams = {
   authToken?: string // For tool calls (used to verify and get uid)
   decodedUid?: string // Pre-verified UID (optional, for direct calls)
   decodedIsAdmin?: boolean // Pre-verified admin status (optional)
+  requestId?: string // Request ID for error messages
+}
+
+/**
+ * Handle balance intent (fast-path, NO LLM)
+ * Detects balance queries and directly calls get_user_wallets
+ */
+async function handleBalanceIntent(
+  params: RouteAmaMessageParams
+): Promise<AmaResponse | null> {
+  const { messageText, authToken, decodedUid, requestId } = params
+  
+  // Intent detection
+  const t = messageText.toLowerCase()
+  const isBalanceQuery =
+    t.includes('balance') ||
+    t.includes('zar balance') ||
+    (t.includes('my zar') && t.includes('balance')) ||
+    (t.includes('wallet') && (t.includes('zar') || t.includes('cashzar')))
+  
+  if (!isBalanceQuery) {
+    return null // Not a balance query, continue normal flow
+  }
+  
+  // Need auth token and uid to fetch wallets
+  let uid = decodedUid
+  
+  if (!uid && authToken) {
+    try {
+      const auth = getAdminAuth()
+      const decoded = await auth.verifyIdToken(authToken)
+      uid = decoded.uid
+    } catch (tokenError: any) {
+      return {
+        text: requestId
+          ? `You're not signed in (requestId: ${requestId}). Please sign in and try again.`
+          : "You're not signed in. Please sign in and try again.",
+        mode: 'SCRIPTED',
+      }
+    }
+  }
+  
+  if (!uid) {
+    return {
+      text: requestId
+        ? `You're not signed in (requestId: ${requestId}). Please sign in and try again.`
+        : "You're not signed in. Please sign in and try again.",
+      mode: 'SCRIPTED',
+    }
+  }
+  
+  // Call tools executor directly (same internal path as LLM tool calls)
+  try {
+    const toolResult = await executeTool({
+      uid,
+      isAdmin: false, // Balance queries don't need admin
+      toolName: 'get_user_wallets',
+      args: {},
+    })
+    
+    if (!toolResult.ok) {
+      return {
+        text: requestId
+          ? `I couldn't fetch your wallets (requestId: ${requestId}). Please try again.`
+          : "I couldn't fetch your wallets. Please try again.",
+        mode: 'SCRIPTED',
+      }
+    }
+    
+    const wallets = toolResult.data as Record<string, any>
+    
+    // Find cashZAR wallet
+    let cashZAR: any = null
+    for (const [walletId, walletData] of Object.entries(wallets)) {
+      if (walletId === 'cashZAR' || walletData?.displayCurrency === 'ZAR') {
+        cashZAR = walletData
+        break
+      }
+    }
+    
+    // If no cashZAR found, check all wallets for ZAR currency
+    if (!cashZAR) {
+      for (const [walletId, walletData] of Object.entries(wallets)) {
+        if (walletData?.displayCurrency === 'ZAR' || walletId.toLowerCase().includes('zar')) {
+          cashZAR = walletData
+          break
+        }
+      }
+    }
+    
+    if (!cashZAR) {
+      return {
+        text: "I couldn't find your ZAR wallet. Please make sure you have a ZAR wallet set up.",
+        mode: 'SCRIPTED',
+      }
+    }
+    
+    const balance = cashZAR.fiatBalance || 0
+    const locked = cashZAR.lockedBalance || 0
+    
+    // Format balance with thousands separator
+    const formattedBalance = new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: 'ZAR',
+      minimumFractionDigits: 2,
+    }).format(balance)
+    
+    const formattedLocked = locked > 0
+      ? new Intl.NumberFormat('en-ZA', {
+          style: 'currency',
+          currency: 'ZAR',
+          minimumFractionDigits: 2,
+        }).format(locked)
+      : null
+    
+    const responseText = formattedLocked
+      ? `Your ZAR balance is ${formattedBalance}. Locked: ${formattedLocked}.`
+      : `Your ZAR balance is ${formattedBalance}.`
+    
+    return {
+      text: responseText,
+      mode: 'SCRIPTED',
+    }
+  } catch (error: any) {
+    console.error('[Ama Router] Balance intent failed:', error)
+    return {
+      text: requestId
+        ? `I couldn't fetch your wallets (requestId: ${requestId}). Please try again.`
+        : "I couldn't fetch your wallets. Please try again.",
+      mode: 'SCRIPTED',
+    }
+  }
 }
 
 /**
@@ -31,7 +164,13 @@ export type RouteAmaMessageParams = {
 export async function routeAmaMessage(
   params: RouteAmaMessageParams
 ): Promise<AmaResponse> {
-  const { messageText, recentMessages = [], context } = params
+  const { messageText, recentMessages = [], context, requestId } = params
+
+  // Step 0: Check for balance intent (fast-path, NO LLM)
+  const balanceResponse = await handleBalanceIntent(params)
+  if (balanceResponse) {
+    return balanceResponse
+  }
 
   // Step 1: Try scripted response (minimal for now - can be expanded)
   const scriptedResponse = getScriptedResponse(messageText)
@@ -101,6 +240,7 @@ Rules:
   // Step 6: Call LLM with tool support (max 2 tool calls)
   let toolCallCount = 0
   const maxToolCalls = 2
+  let toolsInvoked = false
   let conversationMessages = [
     { role: 'system' as const, content: systemPrompt },
     ...messageHistory,
@@ -124,6 +264,7 @@ Rules:
         return {
           text: llmResponse.text,
           mode: 'LLM',
+          toolsInvoked,
         }
       }
 
@@ -207,12 +348,15 @@ Rules:
             content: JSON.stringify(toolResult.data),
             tool_call_id: llmResponse.toolCall.id,
           } as any)
+          
+          // Mark that tools were invoked
+          toolsInvoked = true
 
           // Continue loop to get final answer from LLM
         } catch (toolError: any) {
-          const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(7)}`
+          const errorRequestId = params.requestId || `req_${Date.now()}_${Math.random().toString(36).substring(7)}`
           console.error('[Ama Router] Tool execution failed:', {
-            requestId,
+            requestId: errorRequestId,
             tool: llmResponse.toolCall.name,
             error: toolError.message,
             status: toolError.status || 500,
@@ -221,7 +365,9 @@ Rules:
           // Check if it's an auth error (401)
           if (toolError.status === 401 || toolError.message?.includes('auth') || toolError.message?.includes('token')) {
             return {
-              text: "Auth token missing/expired — please sign in again.",
+              text: errorRequestId
+                ? `Auth token missing/expired (requestId: ${errorRequestId}) — please sign in again.`
+                : "Auth token missing/expired — please sign in again.",
               mode: 'LLM',
             }
           }
@@ -232,9 +378,11 @@ Rules:
             ? errorMessage.substring(0, 200) + '...' 
             : errorMessage
           
-          // Return user-friendly error message
+          // Return user-friendly error message with requestId
           return {
-            text: `Tool error: ${truncatedError}. I can't access data right now.`,
+            text: errorRequestId
+              ? `Tool error (requestId: ${errorRequestId}): ${truncatedError}. I can't access data right now.`
+              : `Tool error: ${truncatedError}. I can't access data right now.`,
             mode: 'LLM',
           }
         }
@@ -258,20 +406,27 @@ Rules:
       return {
         text: finalResponse.text || "I've checked the information, but I'm having trouble formulating a response. Please try rephrasing your question.",
         mode: 'LLM',
+        toolsInvoked,
       }
     }
 
     // Fallback
     return {
-      text: "I'm having trouble processing that right now. Please try again.",
+      text: params.requestId
+        ? `I'm having trouble processing that right now (requestId: ${params.requestId}). Please try again.`
+        : "I'm having trouble processing that right now. Please try again.",
       mode: 'SCRIPTED',
+      toolsInvoked,
     }
   } catch (error: any) {
     console.error('[Ama Router] LLM call failed:', error)
     // Fallback to generic response on error
     return {
-      text: "I'm having trouble processing that right now. Please try again.",
+      text: params.requestId
+        ? `I'm having trouble processing that right now (requestId: ${params.requestId}). Please try again.`
+        : "I'm having trouble processing that right now. Please try again.",
       mode: 'SCRIPTED',
+      toolsInvoked,
     }
   }
 }

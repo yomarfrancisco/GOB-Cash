@@ -577,23 +577,39 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       })
       
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Failed to get response' }))
-        throw new Error(error.error || 'Failed to get response')
+        const errorData = await response.json().catch(() => ({ error: 'Failed to get response' }))
+        const errorMessage = errorData.error || 'Failed to get response'
+        const requestId = errorData.requestId || ''
+        const detail = errorData.detail || ''
+        
+        // Show actual error with requestId
+        const fullError = requestId
+          ? `Error (requestId: ${requestId}): ${errorMessage}${detail ? ` - ${detail}` : ''}`
+          : `Error: ${errorMessage}${detail ? ` - ${detail}` : ''}`
+        
+        throw new Error(fullError)
       }
       
       const data = await response.json()
+      
+      // If response contains an error field, show it
+      if (data.error) {
+        const requestId = data.requestId || ''
+        const errorMessage = requestId
+          ? `Error (requestId: ${requestId}): ${data.error}`
+          : `Error: ${data.error}`
+        sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', errorMessage)
+        return
+      }
       
       // Add AI response
       sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', data.assistantMessageText)
       
     } catch (error: any) {
       console.error('[Ama] Failed to get response:', error)
-      // Fallback to generic response on error
-      sendMessage(
-        PORTFOLIO_MANAGER_THREAD_ID,
-        'ai',
-        "I'm having trouble processing that right now. Please try again."
-      )
+      // Show actual error message (includes requestId if available)
+      const errorMessage = error.message || "I'm having trouble processing that right now. Please try again."
+      sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', errorMessage)
     }
   }, [inputText, sendMessage, agentInductionStep, agentFloatToday, activeThreadId, threads, txStatus])
 
