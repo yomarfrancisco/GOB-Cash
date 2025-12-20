@@ -8,7 +8,7 @@ export const AMA_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'get_user_wallets',
-      description: 'Get the user\'s wallet balances (ZAR, crypto, etc.). Use this when asked about balance, funds, or account status.',
+      description: 'Get ALL of the user\'s wallet balances (ZAR, BTC, ETH, USDT, etc.). Returns an array of all wallets with displayCurrency, fiatBalance, usdtBalance, apy (if present), and updatedAt. Use this when asked about wallets, balances, BTC, ETH, APY, "list wallets", "wallet APYs", or "updated time". IMPORTANT: Return ALL wallets the user asks about, not just ZAR.',
       parameters: {
         type: 'object',
         properties: {},
@@ -20,7 +20,7 @@ export const AMA_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'get_user_profile',
-      description: 'Get the user\'s profile information (name, handle, verification status). Use this when asked about profile or account details.',
+      description: 'Get the user\'s profile information (handle, email, name, verification status). Use this when asked about email, handle, profile, or account details.',
       parameters: {
         type: 'object',
         properties: {},
@@ -49,7 +49,7 @@ export const AMA_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'list_recent_payments',
-      description: 'List recent payments for the user. Use this when asked about payment history or recent transactions.',
+      description: 'List recent payments for the user. Use this when asked about payments list, last payment, payment status, or "list my payments". Returns payment details: ref, status, amountZAR, currency, createdAt.',
       parameters: {
         type: 'object',
         properties: {

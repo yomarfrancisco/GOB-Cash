@@ -91,34 +91,79 @@ export async function getPaymentByRef(
 
 /**
  * List recent payments for user (USER mode - scoped to uid)
+ * Tries subcollection first (no index needed), falls back to main collection with composite index
  */
 export async function listRecentPayments(
   db: firestore.Firestore,
   uid: string,
   limit: number = 20
 ): Promise<Array<Record<string, any>>> {
-  const paymentsRef = db.collection('payments')
-  const snapshot = await paymentsRef
-    .where('userId', '==', uid)
-    .orderBy('createdAt', 'desc')
-    .limit(limit)
-    .get()
+  // Try subcollection first (users/{uid}/payments) - no composite index needed
+  try {
+    const subcollectionRef = db.collection('users').doc(uid).collection('payments')
+    const subcollectionSnapshot = await subcollectionRef
+      .orderBy('createdAt', 'desc')
+      .limit(limit)
+      .get()
+    
+    if (!subcollectionSnapshot.empty) {
+      const payments: Array<Record<string, any>> = []
+      subcollectionSnapshot.forEach((doc) => {
+        const data = doc.data()
+        payments.push({
+          ref: doc.id,
+          ...data,
+          // Convert Firestore timestamps
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+          creditedAt: data.creditedAt?.toDate?.()?.toISOString() || null,
+          completedAt: data.completedAt?.toDate?.()?.toISOString() || null,
+        })
+      })
+      return payments
+    }
+  } catch (subcollectionError: any) {
+    // Subcollection doesn't exist or query failed - fall through to main collection
+    console.log('[DAL] Subcollection query failed, trying main collection:', subcollectionError.message)
+  }
   
-  const payments: Array<Record<string, any>> = []
-  snapshot.forEach((doc) => {
-    const data = doc.data()
-    payments.push({
-      ref: doc.id,
-      ...data,
-      // Convert Firestore timestamps
-      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
-      updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
-      creditedAt: data.creditedAt?.toDate?.()?.toISOString() || null,
-      completedAt: data.completedAt?.toDate?.()?.toISOString() || null,
+  // Fallback: Query main payments collection (requires composite index)
+  try {
+    const paymentsRef = db.collection('payments')
+    const snapshot = await paymentsRef
+      .where('userId', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .limit(limit)
+      .get()
+    
+    const payments: Array<Record<string, any>> = []
+    snapshot.forEach((doc) => {
+      const data = doc.data()
+      payments.push({
+        ref: doc.id,
+        ...data,
+        // Convert Firestore timestamps
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+        creditedAt: data.creditedAt?.toDate?.()?.toISOString() || null,
+        completedAt: data.completedAt?.toDate?.()?.toISOString() || null,
+      })
     })
-  })
-  
-  return payments
+    
+    return payments
+  } catch (error: any) {
+    // Check if it's a missing index error
+    if (error.code === 9 || error.message?.includes('index') || error.message?.includes('FAILED_PRECONDITION')) {
+      const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || 'gobankless-dev'
+      const indexUrl = `https://console.firebase.google.com/project/${projectId}/firestore/indexes`
+      throw new Error(
+        `Payments query requires a Firestore index. Please create the index: ` +
+        `Collection: payments, Fields: userId (Ascending), createdAt (Descending). ` +
+        `Or visit: ${indexUrl}`
+      )
+    }
+    throw error
+  }
 }
 
 /**

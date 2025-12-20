@@ -342,10 +342,26 @@ Rules:
             ],
           } as any)
           
+          // Post-process tool data for better LLM understanding
+          let processedData = toolResult.data
+          
+          // If get_user_wallets, convert object map to sorted array for better LLM processing
+          if (llmResponse.toolCall.name === 'get_user_wallets') {
+            const walletsMap = toolResult.data as Record<string, any>
+            const walletsArray = Object.entries(walletsMap)
+              .map(([walletId, walletData]) => ({
+                walletId,
+                ...walletData,
+              }))
+              .sort((a, b) => a.walletId.localeCompare(b.walletId)) // Sort by walletId for consistency
+            
+            processedData = walletsArray
+          }
+          
           // Add tool result message
           conversationMessages.push({
             role: 'tool',
-            content: JSON.stringify(toolResult.data),
+            content: JSON.stringify(processedData),
             tool_call_id: llmResponse.toolCall.id,
           } as any)
           
@@ -368,6 +384,20 @@ Rules:
               text: errorRequestId
                 ? `Auth token missing/expired (requestId: ${errorRequestId}) — please sign in again.`
                 : "Auth token missing/expired — please sign in again.",
+              mode: 'LLM',
+            }
+          }
+          
+          // Check if it's a Firestore index error
+          if (toolError.message?.includes('index') || toolError.message?.includes('FAILED_PRECONDITION')) {
+            // Extract index URL if present in error message
+            const indexUrlMatch = toolError.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/)
+            const indexUrl = indexUrlMatch ? indexUrlMatch[0] : null
+            
+            return {
+              text: indexUrl
+                ? `I need a Firestore index to access that data. Please create the index: ${indexUrl}`
+                : `I need a Firestore index to access that data. Please contact support.`,
               mode: 'LLM',
             }
           }
