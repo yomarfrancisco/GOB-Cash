@@ -9,6 +9,8 @@ import { AMA_TOOLS } from './tools'
 import { executeTool } from './toolsExecutor'
 import { getAdminAuth } from '@/lib/firebaseAdmin'
 import { classifyIntent, extractCurrency, type AmaIntent } from './intents'
+import { routeIntent } from './intentRouter'
+import { renderWallets, renderProfile, renderPayments, renderPayment } from './renderers'
 
 export type AmaResponse = {
   text: string
@@ -396,7 +398,146 @@ export async function routeAmaMessage(
 ): Promise<AmaResponse> {
   const { messageText, recentMessages = [], context, requestId } = params
 
-  // Step 0: Classify intent and handle deterministically (bypass LLM for core queries)
+  // Step 0: Strict intent router (new deterministic path)
+  const intentResult = routeIntent(messageText)
+  
+  // Log intent routing for debugging
+  console.log('[Ama Router] Intent routing:', {
+    message: messageText.substring(0, 100),
+    intent: intentResult.intent,
+    tool: intentResult.tool,
+    filters: intentResult.filters,
+  })
+
+  // Handle ambiguous snapshot/portfolio queries
+  if (intentResult.intent === 'general' && 
+      (messageText.toLowerCase().includes('snapshot') || messageText.toLowerCase().includes('portfolio'))) {
+    return {
+      text: "Do you want (1) balances, (2) crypto balances, or (3) recent payments?",
+      mode: 'SCRIPTED',
+    }
+  }
+
+  // Execute tool if specified
+  if (intentResult.tool) {
+    const uid = await getUidFromParams(params)
+    if (!uid) {
+      return {
+        text: params.requestId
+          ? `You're not signed in (requestId: ${params.requestId}). Please sign in and try again.`
+          : "You're not signed in. Please sign in and try again.",
+        mode: 'SCRIPTED',
+      }
+    }
+
+    try {
+      let toolResult: any
+      
+      // Execute the tool
+      if (intentResult.tool === 'get_payment_by_ref' && intentResult.filters?.paymentRef) {
+        toolResult = await executeTool({
+          uid,
+          isAdmin: false,
+          toolName: 'get_payment_by_ref',
+          args: { ref: intentResult.filters.paymentRef },
+        })
+        
+        if (toolResult.ok) {
+          return {
+            text: renderPayment(toolResult.data),
+            mode: 'SCRIPTED',
+          }
+        }
+      } else if (intentResult.tool === 'list_recent_payments') {
+        toolResult = await executeTool({
+          uid,
+          isAdmin: false,
+          toolName: 'list_recent_payments',
+          args: { limit: intentResult.filters?.limit || 20 },
+        })
+        
+        if (toolResult.ok) {
+          return {
+            text: renderPayments(toolResult.data, intentResult.filters),
+            mode: 'SCRIPTED',
+          }
+        }
+      } else if (intentResult.tool === 'get_user_profile') {
+        toolResult = await executeTool({
+          uid,
+          isAdmin: false,
+          toolName: 'get_user_profile',
+          args: {},
+        })
+        
+        if (toolResult.ok) {
+          return {
+            text: renderProfile(toolResult.data),
+            mode: 'SCRIPTED',
+          }
+        }
+      } else if (intentResult.tool === 'get_user_wallets') {
+        toolResult = await executeTool({
+          uid,
+          isAdmin: false,
+          toolName: 'get_user_wallets',
+          args: {},
+        })
+        
+        if (toolResult.ok) {
+          return {
+            text: renderWallets(toolResult.data, intentResult.filters),
+            mode: 'SCRIPTED',
+          }
+        }
+      }
+
+      // Tool execution failed
+      if (toolResult && !toolResult.ok) {
+        // Check for Firestore index error
+        if (toolResult.error?.includes('index') || toolResult.error?.includes('FAILED_PRECONDITION')) {
+          const indexUrlMatch = toolResult.error.match(/https:\/\/console\.firebase\.google\.com[^\s]+/)
+          const indexUrl = indexUrlMatch ? indexUrlMatch[0] : null
+          
+          return {
+            text: indexUrl
+              ? `I need a Firestore index to access that data. Please create the index: ${indexUrl}`
+              : `I need a Firestore index to access that data. Please contact support.`,
+            mode: 'SCRIPTED',
+          }
+        }
+        
+        return {
+          text: params.requestId
+            ? `I couldn't fetch that data (requestId: ${params.requestId}). Please try again.`
+            : "I couldn't fetch that data. Please try again.",
+          mode: 'SCRIPTED',
+        }
+      }
+    } catch (error: any) {
+      console.error('[Ama Router] Tool execution failed:', error)
+      
+      // Check for Firestore index error
+      if (error.message?.includes('index') || error.message?.includes('FAILED_PRECONDITION')) {
+        const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || 'gobankless-dev'
+        const indexUrl = `https://console.firebase.google.com/project/${projectId}/firestore/indexes`
+        
+        return {
+          text: `I need a Firestore index to access that data. Please create the index: ${indexUrl}`,
+          mode: 'SCRIPTED',
+        }
+      }
+      
+      return {
+        text: params.requestId
+          ? `I encountered an error (requestId: ${params.requestId}). Please try again.`
+          : "I encountered an error. Please try again.",
+        mode: 'SCRIPTED',
+      }
+    }
+  }
+
+  // Step 1: Fallback to old deterministic intent classifier (for backward compatibility)
   const intent = classifyIntent(messageText)
   const deterministicResponse = await handleDeterministicIntent(intent, params)
   if (deterministicResponse) {
