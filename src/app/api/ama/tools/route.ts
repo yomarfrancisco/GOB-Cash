@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminAuth } from '@/lib/firebaseAdmin'
 import { executeTool, type ToolName } from '@/lib/ama/toolsExecutor'
+import { extractBearerToken, getTokenDiagnostics } from '@/lib/ama/auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -26,25 +27,27 @@ function isAdmin(uid: string, adminUids: string[]): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse request body first (may contain authToken for alternative auth)
+    // Parse request body once
     const body: ToolRequest & { authToken?: string } = await request.json()
-    const { tool, args, authToken: bodyAuthToken } = body
+    const { tool, args } = body
 
     if (!tool || typeof tool !== 'string') {
       return NextResponse.json({ error: 'tool is required' }, { status: 400 })
     }
 
-    // Get token from header or body (body for internal calls)
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.startsWith('Bearer ') 
-      ? authHeader.substring(7)
-      : bodyAuthToken || null
+    // Extract token (handles header casing variations + body fallback)
+    const token = extractBearerToken(request, body)
 
     // Hard, visible diagnostics
     console.log('[AMA_TOOLS] token present:', Boolean(token))
     if (!token) {
+      const diagnostics = getTokenDiagnostics(request)
       return NextResponse.json(
-        { error: 'Missing authToken', detail: 'No token in Authorization header or request body' },
+        {
+          error: 'Missing authToken',
+          detail: 'No token in Authorization header or request body',
+          diagnostics, // Include header presence diagnostics
+        },
         { status: 401 }
       )
     }

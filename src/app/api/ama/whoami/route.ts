@@ -6,41 +6,35 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminAuth } from '@/lib/firebaseAdmin'
+import { extractBearerToken, getTokenDiagnostics } from '@/lib/ama/auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get token from Authorization header (primary) or request body (dev convenience)
-    const authHeader = request.headers.get('authorization')
-    const hasAuthHeader = Boolean(authHeader && authHeader.startsWith('Bearer '))
+    // Extract token (handles header casing variations + body fallback)
+    let body: any = {}
+    try {
+      // Try to parse body if present (for POST requests or dev convenience)
+      body = await request.json().catch(() => ({}))
+    } catch {
+      // Not JSON or no body - that's fine for GET
+    }
+    
+    const token = extractBearerToken(request, body)
     
     // Log presence (not contents) of token sources
-    console.log('[Ama Whoami] Authorization header present:', hasAuthHeader)
-    
-    let token: string | null = null
-    
-    if (hasAuthHeader) {
-      token = authHeader!.substring(7)
-    } else {
-      // Try to get from request body (for POST requests or dev convenience)
-      try {
-        const body = await request.json().catch(() => ({}))
-        if (body.authToken && typeof body.authToken === 'string') {
-          token = body.authToken
-          console.log('[Ama Whoami] authToken in body present:', true)
-        }
-      } catch {
-        // Not JSON or no body
-      }
-    }
+    const diagnostics = getTokenDiagnostics(request)
+    console.log('[Ama Whoami] Authorization header present:', diagnostics.hasAuthorizationHeader || diagnostics.hasauthorizationHeader || diagnostics.hasAUTHORIZATIONHeader)
+    console.log('[Ama Whoami] authToken in body present:', Boolean(body?.authToken || body?.token))
     
     if (!token) {
       return NextResponse.json(
         {
           error: 'missing_id_token',
           hint: 'Pass Firebase ID token as Authorization: Bearer <JWT>',
+          diagnostics, // Include header presence diagnostics
         },
         { status: 401 }
       )

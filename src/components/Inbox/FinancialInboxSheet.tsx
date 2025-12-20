@@ -558,13 +558,16 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       // Call agent endpoint
       const response = await fetch('/api/agent/respond', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': authToken ? `Bearer ${authToken}` : '', // Send lowercase to match server normalization
+        },
         body: JSON.stringify({
           threadId: PORTFOLIO_MANAGER_THREAD_ID,
           userId,
           messageText: userMessage,
           recentMessages,
-          authToken, // Include auth token for tool calls (string | undefined)
+          authToken, // Include auth token in body as well (belt + suspenders)
         }),
       })
       
