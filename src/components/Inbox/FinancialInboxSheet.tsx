@@ -467,6 +467,11 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       let authToken: string | undefined
       try {
         authToken = await user.getIdToken()
+        // Diagnostic log (dev-only)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[Ama Client] Got auth token, length:', authToken?.length || 0)
+          console.log('[Ama Client] Current user UID:', userId)
+        }
       } catch (tokenError) {
         console.warn('[Ama] Failed to get auth token:', tokenError)
         // Continue without token - tools won't work but LLM will still respond
@@ -491,7 +496,7 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
           userId,
           messageText: userMessage,
           recentMessages,
-          authToken, // Include auth token for tool calls
+          authToken, // Include auth token for tool calls (string | undefined)
         }),
       })
       
@@ -1001,6 +1006,20 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
             </div>
             <div className={chatStyles.name}>Ama — Investment Manager</div>
           </div>
+
+          {/* Dev-only: Show current user UID for admin debugging */}
+          {process.env.NODE_ENV !== 'production' && isAuthed && (
+            <div style={{ 
+              padding: '4px 12px', 
+              fontSize: '10px', 
+              color: '#666', 
+              backgroundColor: '#f0f0f0',
+              fontFamily: 'monospace',
+              textAlign: 'center',
+            }}>
+              UID: {getFirebaseAuth().currentUser?.uid || 'N/A'}
+            </div>
+          )}
 
           {/* Divider line */}
           <div className={chatStyles.divider} />

@@ -17,13 +17,19 @@ interface AgentRespondRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: AgentRespondRequest = await request.json()
-    const { threadId, userId, messageText } = body
+    const { threadId, userId, messageText, authToken } = body
 
     if (!threadId || !userId || !messageText) {
       return NextResponse.json(
         { error: 'Missing required fields: threadId, userId, messageText' },
         { status: 400 }
       )
+    }
+
+    // Verify token is actually being passed (diagnostic log)
+    console.log('[Agent Respond] authToken present:', Boolean(authToken))
+    if (authToken) {
+      console.log('[Agent Respond] authToken length:', authToken.length)
     }
 
     // Route message (script-first, LLM-fallback with tool support)
@@ -33,7 +39,7 @@ export async function POST(request: NextRequest) {
       messageText,
       recentMessages: body.recentMessages || [],
       context: body.context,
-      authToken: body.authToken, // Pass auth token for tool calls
+      authToken, // Pass auth token for tool calls
     })
 
     return NextResponse.json({

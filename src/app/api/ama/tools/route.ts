@@ -27,27 +27,16 @@ interface ToolRequest {
 
 /**
  * Check if user is admin
+ * Hardened parsing: split, trim, filter empty strings
  */
-function isAdmin(uid: string): boolean {
-  // Check AMA_ADMIN_UIDS env var (comma-separated)
-  const adminUids = process.env.AMA_ADMIN_UIDS
-  if (adminUids) {
-    const adminList = adminUids.split(',').map(u => u.trim())
-    if (adminList.includes(uid)) {
-      return true
-    }
-  }
-  
-  // TODO: Check custom claims if you use them
-  // For now, only env var check
-  
-  return false
+function isAdmin(uid: string, adminUids: string[]): boolean {
+  return adminUids.includes(uid)
 }
 
 /**
  * Verify Firebase Auth token and get uid
  */
-async function verifyAuth(request: NextRequest): Promise<{ uid: string; isAdmin: boolean }> {
+async function verifyAuth(request: NextRequest): Promise<{ uid: string; isAdmin: boolean; adminUids: string[] }> {
   const authHeader = request.headers.get('authorization')
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -60,9 +49,24 @@ async function verifyAuth(request: NextRequest): Promise<{ uid: string; isAdmin:
   try {
     const decodedToken = await auth.verifyIdToken(token)
     const uid = decodedToken.uid
-    const admin = isAdmin(uid)
     
-    return { uid, isAdmin: admin }
+    // Harden env parsing: split, trim, filter empty strings
+    const adminUids = (process.env.AMA_ADMIN_UIDS || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+    
+    const admin = isAdmin(uid, adminUids)
+    
+    // Safe debug logs (no secrets)
+    console.log('[Ama Tools] uid:', uid)
+    console.log('[Ama Tools] adminUIDs:', adminUids)
+    console.log('[Ama Tools] isAdmin:', admin)
+    console.log('[Ama Tools] has FIREBASE_ADMIN_PRIVATE_KEY:', Boolean(process.env.FIREBASE_ADMIN_PRIVATE_KEY))
+    console.log('[Ama Tools] project:', process.env.FIREBASE_ADMIN_PROJECT_ID)
+    console.log('[Ama Tools] clientEmail:', process.env.FIREBASE_ADMIN_CLIENT_EMAIL)
+    
+    return { uid, isAdmin: admin, adminUids }
   } catch (error: any) {
     throw new Error(`Invalid auth token: ${error.message}`)
   }
