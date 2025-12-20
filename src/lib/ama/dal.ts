@@ -197,12 +197,15 @@ export async function listRecentPayments(
       throw mapFirestoreError(error)
     }
   } else {
-    // Fallback disabled - return empty array with helpful message
+    // Fallback disabled - payments not synced to subcollection
     console.warn('[DAL] Subcollection empty and fallback disabled', {
       uid,
       hint: 'Enable AMA_PAYMENTS_FALLBACK_ENABLED=true or run backfill script',
     })
-    return []
+    // Throw typed error for NOT_SYNCED state
+    const notSyncedError = new Error('PAYMENTS_NOT_SYNCED')
+    ;(notSyncedError as any).errorType = 'NOT_SYNCED'
+    throw notSyncedError
   }
 }
 

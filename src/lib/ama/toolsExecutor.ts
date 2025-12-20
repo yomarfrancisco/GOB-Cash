@@ -35,6 +35,7 @@ export type ToolResult = {
   ok: false
   error: string
   status: number
+  errorType?: string // e.g., 'NOT_SYNCED'
 }
 
 /**
@@ -180,6 +181,17 @@ export async function executeTool(params: ExecuteToolParams): Promise<ToolResult
     }
   } catch (error: any) {
     console.error('[Ama Tool Executor] Error:', error)
+    
+    // Map PAYMENTS_NOT_SYNCED to typed error
+    if (error.message === 'PAYMENTS_NOT_SYNCED' || error.errorType === 'NOT_SYNCED') {
+      return {
+        ok: false,
+        error: 'Payments data not synced to user subcollection',
+        status: 503, // Service Unavailable
+        errorType: 'NOT_SYNCED',
+      }
+    }
+    
     return {
       ok: false,
       error: error.message || 'Tool execution failed',

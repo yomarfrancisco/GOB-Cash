@@ -398,7 +398,16 @@ export async function routeAmaMessage(
 ): Promise<AmaResponse> {
   const { messageText, recentMessages = [], context, requestId } = params
 
-  // Step 0: Strict intent router (new deterministic path)
+  // Step 0: Try scripted response first (fixes "hi/hello" before intent routing)
+  const scriptedResponse = getScriptedResponse(messageText)
+  if (scriptedResponse) {
+    return {
+      text: scriptedResponse,
+      mode: 'SCRIPTED',
+    }
+  }
+
+  // Step 1: Strict intent router (new deterministic path)
   const intentResult = routeIntent(messageText)
   
   // Log intent routing for debugging
@@ -409,7 +418,7 @@ export async function routeAmaMessage(
     filters: intentResult.filters,
   })
 
-  // Handle ambiguous queries
+  // Handle ambiguous queries (only for actual snapshot/portfolio queries)
   if (intentResult.intent === 'ambiguous' && intentResult.clarification) {
     return {
       text: intentResult.clarification,
@@ -538,15 +547,35 @@ export async function routeAmaMessage(
       
       // Map structured errors (no raw Firestore errors exposed)
       const errorMessage = error.message || 'Unknown error'
+      const errorType = error.errorType
       
-      // Check for Firestore index error
-      if (errorMessage.includes('index') || errorMessage.includes('FAILED_PRECONDITION')) {
-        const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || 'gobankless-dev'
-        const indexUrl = `https://console.firebase.google.com/project/${projectId}/firestore/indexes`
-        
+      // Handle NOT_SYNCED error type (payments not synced to subcollection)
+      if (errorType === 'NOT_SYNCED' || errorMessage === 'PAYMENTS_NOT_SYNCED') {
         return {
-          text: `I need a Firestore index to access that data. Please create the index: ${indexUrl}`,
+          text: "I don't see any payments in your recent history view. This could mean:\n• Your payment history hasn't synced yet\n• You haven't made any payments recently\n\nYou can check your account directly or try again in a moment.",
           mode: 'SCRIPTED',
+        }
+      }
+      
+      // Check for Firestore index error (only show URL in admin/dev mode)
+      if (errorMessage.includes('index') || errorMessage.includes('FAILED_PRECONDITION')) {
+        const isAdmin = params.decodedIsAdmin === true
+        const isDev = process.env.NODE_ENV !== 'production'
+        
+        if (isAdmin || isDev) {
+          const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || 'gobankless-dev'
+          const indexUrl = `https://console.firebase.google.com/project/${projectId}/firestore/indexes`
+          
+          return {
+            text: `I need a Firestore index to access that data. Please create the index: ${indexUrl}`,
+            mode: 'SCRIPTED',
+          }
+        } else {
+          // User-facing message (no index URL)
+          return {
+            text: "I'm having trouble accessing that data right now. Please try again later or contact support if the issue persists.",
+            mode: 'SCRIPTED',
+          }
         }
       }
       

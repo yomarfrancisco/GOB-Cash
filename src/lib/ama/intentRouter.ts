@@ -3,7 +3,7 @@
  * Deterministic intent classification with structured output
  */
 
-export type IntentType = 'wallets_all' | 'wallets_crypto' | 'wallets_apy' | 'profile' | 'payments' | 'ambiguous'
+export type IntentType = 'wallets_all' | 'wallets_crypto' | 'wallets_apy' | 'profile' | 'payments' | 'ambiguous' | 'unknown'
 
 export type ToolName =
   | null
@@ -251,11 +251,10 @@ export function classifyIntent(message: string): IntentResult {
     }
   }
 
-  // Default: ambiguous (will trigger clarification or fall through to LLM)
+  // Default: unknown (fall through to LLM)
   return {
-    intent: 'ambiguous',
+    intent: 'unknown',
     tool: null,
-    clarification: "Do you want (1) balances, (2) crypto balances, or (3) recent payments?",
   }
 }
 
