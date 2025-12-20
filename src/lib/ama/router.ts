@@ -218,6 +218,14 @@ Rules:
             status: toolError.status || 500,
           })
           
+          // Check if it's an auth error (401)
+          if (toolError.status === 401 || toolError.message?.includes('auth') || toolError.message?.includes('token')) {
+            return {
+              text: "Auth token missing/expired — please sign in again.",
+              mode: 'LLM',
+            }
+          }
+          
           // Surface tool error to user (truncated for safety)
           const errorMessage = toolError.message || 'Tool execution failed'
           const truncatedError = errorMessage.length > 200 

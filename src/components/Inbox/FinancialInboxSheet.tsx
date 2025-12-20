@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
 import { Copy, RefreshCcw, Volume2 } from 'lucide-react'
+import { nanoid } from 'nanoid'
 import ActionSheet from '../ActionSheet'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
@@ -197,6 +198,63 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
   const { isAuthed, openAuthEntrySignup } = useAuthStore()
   const { cashFlowState, confirmCashDeposit, confirmCashWithdrawal } = useCashFlowStateStore()
   const { profile } = useUserProfileStore()
+  
+  // Admin status and copy token state
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
+  const [tokenCopied, setTokenCopied] = useState(false)
+  
+  // Check admin status when authenticated
+  useEffect(() => {
+    if (!isAuthed) {
+      setIsAdmin(null)
+      return
+    }
+    
+    const checkAdmin = async () => {
+      try {
+        const auth = getFirebaseAuth()
+        const user = auth.currentUser
+        if (!user) return
+        
+        const token = await user.getIdToken(true)
+        if (!token) return
+        
+        const response = await fetch('/api/ama/whoami', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setIsAdmin(data.isAdmin || false)
+        } else {
+          setIsAdmin(false)
+        }
+      } catch (e) {
+        console.warn('[Ama] Failed to check admin status:', e)
+        setIsAdmin(false)
+      }
+    }
+    
+    checkAdmin()
+  }, [isAuthed])
+  
+  // Copy token handler
+  const handleCopyToken = async () => {
+    try {
+      const auth = getFirebaseAuth()
+      const user = auth.currentUser
+      if (!user) return
+      
+      const token = await user.getIdToken(true)
+      if (token) {
+        await navigator.clipboard.writeText(token)
+        setTokenCopied(true)
+        setTimeout(() => setTokenCopied(false), 2000)
+      }
+    } catch (e) {
+      console.error('[Ama] Failed to copy token:', e)
+    }
+  }
   const { agentInductionStep, photoUploaded, idUploaded, selfieUploaded, agentFloatToday } = useAgentOnboardingStore()
   
   // Use prop if provided, otherwise fall back to store flag
@@ -463,18 +521,28 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
       
       const userId = user.uid
       
-      // Get Firebase ID token for tool calls (force refresh for debugging)
+      // Get Firebase ID token for tool calls (force refresh)
       let authToken: string | undefined
       try {
-        authToken = await user.getIdToken(true) // force refresh for debugging
+        authToken = await user.getIdToken(true) // force refresh
         // Diagnostic log (dev-only)
         if (process.env.NODE_ENV !== 'production') {
           console.log('[Ama Client] Got auth token, length:', authToken?.length || 0)
+          console.log('[Ama Client] Token starts with eyJ:', authToken?.startsWith('eyJ') || false)
           console.log('[Ama Client] Current user UID:', userId)
         }
       } catch (tokenError) {
         console.warn('[Ama] Failed to get auth token:', tokenError)
-        // Continue without token - tools won't work but LLM will still respond
+        // Show user-friendly message if token retrieval fails
+        const errorMessage = "You're not signed in — please sign in again."
+        sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', errorMessage)
+        return // Don't proceed without token
+      }
+      
+      if (!authToken) {
+        const errorMessage = "You're not signed in — please sign in again."
+        sendMessage(PORTFOLIO_MANAGER_THREAD_ID, 'ai', errorMessage)
+        return // Don't proceed without token
       }
       
       // Get recent messages from Zustand for context
@@ -1005,6 +1073,25 @@ export default function FinancialInboxSheet({ onRequestAgent, isDemoIntro: propI
               />
             </div>
             <div className={chatStyles.name}>Ama — Investment Manager</div>
+            {/* Copy ID token button (admin-only) */}
+            {isAuthed && isAdmin === true && (
+              <button
+                onClick={handleCopyToken}
+                style={{
+                  marginLeft: '8px',
+                  padding: '4px 8px',
+                  fontSize: '10px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  background: tokenCopied ? '#4CAF50' : 'white',
+                  color: tokenCopied ? 'white' : '#666',
+                  cursor: 'pointer',
+                }}
+                title="Copy ID token (admin debug)"
+              >
+                {tokenCopied ? 'Copied!' : 'Copy token'}
+              </button>
+            )}
           </div>
 
           {/* Dev-only: Show current user UID for admin debugging */}

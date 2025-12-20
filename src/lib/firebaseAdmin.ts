@@ -43,10 +43,10 @@ function initializeAdmin(): void {
         credential: admin.credential.cert({
           projectId,
           clientEmail,
-          privateKey: getPrivateKey(),
+          privateKey: getPrivateKey(), // Already handles \\n -> \n replacement
         }),
       })
-      console.log('[Firebase Admin] Initialized from individual env vars, project:', projectId)
+      console.log('[Firebase Admin] Initialized from individual env vars, project_id:', projectId)
       return
     } catch (error: any) {
       console.error('[Firebase Admin] Initialization from env vars failed:', error.message)
@@ -77,7 +77,8 @@ function initializeAdmin(): void {
     adminApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     })
-    console.log('[Firebase Admin] Initialized from FIREBASE_SERVICE_ACCOUNT_JSON, project:', serviceAccount.project_id || 'unknown')
+    const projectId = serviceAccount.project_id || 'unknown'
+    console.log('[Firebase Admin] Initialized from FIREBASE_SERVICE_ACCOUNT_JSON, project_id:', projectId)
     return
   } catch (error: any) {
     console.error('[Firebase Admin] Initialization failed:', error.message)
