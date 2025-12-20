@@ -70,7 +70,21 @@ export async function executeTool(params: ExecuteToolParams): Promise<ToolResult
 
       case 'list_recent_payments':
         const limit = args.limit ? Math.min(Number(args.limit), 50) : 20
-        result = await dal.listRecentPayments(db, uid, limit)
+        try {
+          result = await dal.listRecentPayments(db, uid, limit)
+        } catch (error: any) {
+          // Handle NOT_SYNCED as expected state (not an error)
+          if (error.message === 'PAYMENTS_NOT_SYNCED' || error.errorType === 'NOT_SYNCED') {
+            return {
+              ok: false,
+              errorType: 'NOT_SYNCED',
+              status: 503,
+              error: 'PAYMENTS_NOT_SYNCED',
+            }
+          }
+          // Re-throw other errors to be caught by outer catch
+          throw error
+        }
         break
 
       case 'search_transactions':
