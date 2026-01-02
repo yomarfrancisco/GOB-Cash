@@ -48,8 +48,8 @@ const cardsData: CardData[] = [
   },
   {
     type: 'zwd',
-    image: '/assets/cards/card-ZIM2X-1.jpg',
-    alt: 'ZWD Card',
+    image: '/assets/cards/card-USA.jpg',
+    alt: 'USD Card',
     width: 342,
     height: 213,
   },

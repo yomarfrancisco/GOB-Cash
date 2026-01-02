@@ -66,9 +66,9 @@ const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' 
   yieldSurprise: 'ethCents', // Reuse yield card allocation (ethCents)
 }
 
-const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC'> = {
+const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC' | 'USD'> = {
   savings: 'CASH',
-  zwd: 'ZWD',
+  zwd: 'USD',
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
@@ -80,6 +80,7 @@ const FLAG_BY_CCY: Record<string, { src: string; id: string }> = {
   ZAR: { src: '/assets/south%20africa.svg', id: 'flag-za' },
   MZN: { src: '/assets/mozambique.svg', id: 'flag-mz' },
   ZWD: { src: '/assets/zimbabwe.png', id: 'flag-zw' },
+  USD: { src: '/assets/united_states.png', id: 'flag-us' },
 }
 
 // Coin mapping for crypto cards
@@ -97,13 +98,14 @@ const CURRENCY_LABEL: Record<string, string> = {
   ZAR: 'ZAR',
   MZN: 'MZN',
   ZWD: 'ZWD',
+  USD: 'USD',
 }
 
 // Determine currency for card type (for flags)
 const getCardCurrency = (cardType: CardType): string | null => {
   if (cardType === 'savings') return 'ZAR'
   if (cardType === 'mzn') return 'MZN'
-  if (cardType === 'zwd') return 'ZWD'
+  if (cardType === 'zwd') return 'USD'
   if (cardType === 'yieldSurprise') return 'ZAR' // CREDIT CARD uses ZAR flag
   return null // yield and btc use coin badges instead
 }
@@ -584,7 +586,7 @@ export default function CardStackCard({
                   <img
                     id={flagInfo.id}
                     src={flagInfo.src}
-                    alt={currency === 'ZAR' ? 'South Africa flag' : 'Mozambique flag'}
+                    alt={currency === 'ZAR' ? 'South Africa flag' : currency === 'MZN' ? 'Mozambique flag' : currency === 'USD' ? 'United States flag' : 'Flag'}
                     className="flag-icon"
                     draggable={false}
                     decoding="async"
