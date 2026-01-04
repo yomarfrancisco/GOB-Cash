@@ -31,6 +31,7 @@ import WalletHelperSheet from '@/components/WalletHelperSheet'
 import MapHelperSheet from '@/components/MapHelperSheet'
 import InternalTransferSheet from '@/components/InternalTransferSheet'
 import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
+import { useFxRates } from '@/lib/exchangeRates/useFxRates'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import { useNotificationStore } from '@/store/notifications'
 import HomeStreamSection from '@/components/HomeStreamSection'
@@ -81,6 +82,9 @@ function HomeContent() {
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const [helperWalletKey, setHelperWalletKey] = useState<CardType | null>(null)
   const [isMapHelperOpen, setIsMapHelperOpen] = useState(false)
+  
+  // Fetch exchange rates once for all cards (USD and MZN)
+  const { rates: fxRates } = useFxRates(['USD', 'MZN'])
   const cardStackRef = useRef<CardStackHandle>(null)
   const scrollContentRef = useRef<HTMLDivElement | null>(null)
   const { setOnSelect, open } = useTransactSheet()
@@ -717,6 +721,7 @@ function HomeContent() {
                     setHelperWalletKey(cardType)
                     setIsHelperOpen(true)
                   }}
+                  fxRates={fxRates}
                 />
               </div>
 

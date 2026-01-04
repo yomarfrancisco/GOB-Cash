@@ -16,6 +16,8 @@ import clsx from 'clsx'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import { BASE_USDT_ADDRESS } from '@/config/addresses'
 import { useNotificationStore } from '@/store/notifications'
+import type { FxRates } from '@/lib/exchangeRates/useFxRates'
+import { applyFeeToRate } from '@/lib/exchangeRates/applyFeeToRate'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -133,6 +135,7 @@ type CardStackCardProps = {
   isSpecialMode?: boolean
   isSpecialCard?: boolean
   onApyPillClick?: (cardType: CardType) => void
+  fxRates?: FxRates | null // Exchange rates from server
 }
 
 export default function CardStackCard({
@@ -152,6 +155,7 @@ export default function CardStackCard({
   isSpecialMode = false,
   isSpecialCard = false,
   onApyPillClick,
+  fxRates,
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
@@ -457,11 +461,54 @@ export default function CardStackCard({
     }
   }, [portfolioHealth, prefersReducedMotion])
 
-  // Get card definition for annual yield
+  // Map card type to target currency for exchange rate
+  const CARD_TO_EXCHANGE_CURRENCY: Record<CardType, string | null> = {
+    savings: null, // Base currency (ZAR), no exchange rate needed
+    zwd: 'USD', // Show USD = 1 ZAR
+    mzn: 'MZN', // Show MZN = 1 ZAR
+    yield: null, // Crypto card, keep APY
+    btc: null, // Crypto card, keep APY
+    yieldSurprise: null, // Countdown timer, skip exchange rate
+  }
+
+  // Get card definition for annual yield (fallback)
   // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
   const cardDef = getCardDefinition(card.type === 'yieldSurprise' ? 'yield' : card.type)
   const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
   const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
+
+  // Determine what to display in the pill
+  const getPillContent = (): { strong: string; label: string } => {
+    // Special case: yieldSurprise shows countdown
+    if (card.type === 'yieldSurprise' && formattedCountdown) {
+      return {
+        strong: formattedCountdown,
+        label: 'left',
+      }
+    }
+
+    // Check if this card should show exchange rate
+    const targetCurrency = CARD_TO_EXCHANGE_CURRENCY[card.type]
+    if (targetCurrency && fxRates?.rates?.[targetCurrency] !== undefined && fxRates.rates[targetCurrency] !== null) {
+      // Show exchange rate: "3.88 MZN = 1 ZAR"
+      const midRate = fxRates.rates[targetCurrency]!
+      const feeBps = 0 // Platform fee (0% for now, can be configured later)
+      const adjustedRate = applyFeeToRate(midRate, feeBps)
+      const formattedRate = adjustedRate.toFixed(2) // "3.88"
+      return {
+        strong: `${formattedRate} ${targetCurrency}`,
+        label: '= 1 ZAR',
+      }
+    }
+
+    // Fallback: Show APY (for crypto cards or if exchange rate fails/missing)
+    return {
+      strong: `${formattedAnnualYield}%`,
+      label: 'APY',
+    }
+  }
+
+  const pillContent = getPillContent()
 
   // 4-hour countdown timer for yieldSurprise card
   const FOUR_HOURS = 4 * 60 * 60 // seconds
@@ -694,25 +741,12 @@ export default function CardStackCard({
         style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
       >
         <span className="card-allocation-pill__text">
-          {card.type === 'yieldSurprise' && formattedCountdown ? (
-            <>
-              <span className="card-allocation-pill__yield-strong">
-                {formattedCountdown}
-              </span>{' '}
-              <span className="card-allocation-pill__yield-label">
-                left
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="card-allocation-pill__yield-strong">
-                {formattedAnnualYield}%
-              </span>{' '}
-              <span className="card-allocation-pill__yield-label">
-                APY
-              </span>
-            </>
-          )}
+          <span className="card-allocation-pill__yield-strong">
+            {pillContent.strong}
+          </span>{' '}
+          <span className="card-allocation-pill__yield-label">
+            {pillContent.label}
+          </span>
         </span>
       </div>
 

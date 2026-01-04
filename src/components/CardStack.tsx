@@ -11,6 +11,7 @@ import { useWalletAlloc } from '@/state/walletAlloc'
 import { getStackStyle } from '@/lib/stack/getStackStyle'
 import CardStackCard from './CardStackCard'
 import { useAuthStore } from '@/store/auth'
+import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 
 // Temporary FX rate (will be wired to real API later)
 const FX_USD_ZAR_DEFAULT = 18.1
@@ -113,6 +114,8 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC'> =
   yieldSurprise: 'ETH', // Reuse yield card symbol (ETH)
 }
 
+import type { FxRates } from '@/lib/exchangeRates/useFxRates'
+
 interface CardStackProps {
   onTopCardChange?: (cardType: CardType) => void
   flipControllerRef?: React.MutableRefObject<{ pause: () => void; resume: () => void } | null>
@@ -120,6 +123,7 @@ interface CardStackProps {
   onCardClick?: () => void // Optional auth guard wrapper for card clicks
   onCreditSurprise?: (amountZAR: number) => void // Callback for credit surprise animation
   onApyPillClick?: (cardType: CardType) => void // Callback for APY pill clicks (opens helper)
+  fxRates?: FxRates | null // Exchange rates from server
 }
 
 export type CardStackHandle = {
@@ -133,7 +137,7 @@ const FLIP_DURATION_MS = FLIP_MS
 // Number of cards visible in the stack at any time
 const VISIBLE_COUNT = 5
 
-const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, aiCycleControllerRef, onCardClick, onCreditSurprise, onApyPillClick }, ref) {
+const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, aiCycleControllerRef, onCardClick, onCreditSurprise, onApyPillClick, fxRates }, ref) {
   // Dynamic order initialization based on cards.length
   // Note: order.length === 6 (includes hidden card), but only first VISIBLE_COUNT are rendered
   const initialOrder = Array.from({ length: cardsData.length }, (_, i) => i)
@@ -576,6 +580,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             onTouchStart={(e) => handleTouchStart(e, cardIdx)}
             onTouchEnd={(e) => handleTouchEnd(e, cardIdx)}
             onApyPillClick={onApyPillClick}
+            fxRates={fxRates}
             style={{
               position: 'absolute',
               width: effectiveStyle.width,
