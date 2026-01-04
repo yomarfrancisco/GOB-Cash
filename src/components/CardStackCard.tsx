@@ -489,11 +489,13 @@ export default function CardStackCard({
 
     // Check if this card should show exchange rate
     const targetCurrency = CARD_TO_EXCHANGE_CURRENCY[card.type]
-    if (targetCurrency && fxRates?.rates?.[targetCurrency] !== undefined && fxRates.rates[targetCurrency] !== null) {
+    const rate = targetCurrency ? fxRates?.rates?.[targetCurrency] : null
+    
+    // Only show rate if it's a valid number (not null/undefined)
+    if (targetCurrency && rate !== null && rate !== undefined && typeof rate === 'number' && !isNaN(rate)) {
       // Show exchange rate: "3.88 MZN = 1 ZAR"
-      const midRate = fxRates.rates[targetCurrency]!
       const feeBps = 0 // Platform fee (0% for now, can be configured later)
-      const adjustedRate = applyFeeToRate(midRate, feeBps)
+      const adjustedRate = applyFeeToRate(rate, feeBps)
       const formattedRate = adjustedRate.toFixed(2) // "3.88"
       return {
         strong: `${formattedRate} ${targetCurrency}`,

@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 
 export type FxRates = {
+  ok: boolean
   base: string
-  timestamp: number
-  rates: Record<string, number>
+  timestamp?: number
+  rates: Record<string, number | null>
+  source?: string
+  error?: string
 }
 
 type UseFxRatesResult = {
@@ -51,8 +54,9 @@ export function useFxRates(symbols: string[]): UseFxRatesResult {
 
         const data: FxRates = await response.json()
 
+        // Always set rates (even if ok=false, rates may have null values)
         setRates(data)
-        setError(null)
+        setError(data.ok === false ? new Error(data.error || 'Failed to fetch rates') : null)
       } catch (err) {
         console.error('[useFxRates] Failed to fetch rates:', err)
         setError(err instanceof Error ? err : new Error('Unknown error'))
