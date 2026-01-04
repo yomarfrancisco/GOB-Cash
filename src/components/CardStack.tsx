@@ -114,8 +114,6 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC'> =
   yieldSurprise: 'ETH', // Reuse yield card symbol (ETH)
 }
 
-import type { FxRates } from '@/lib/exchangeRates/useFxRates'
-
 interface CardStackProps {
   onTopCardChange?: (cardType: CardType) => void
   flipControllerRef?: React.MutableRefObject<{ pause: () => void; resume: () => void } | null>
