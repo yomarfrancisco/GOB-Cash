@@ -477,6 +477,29 @@ export default function CardStackCard({
   const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
   const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
 
+  // 4-hour countdown timer for yieldSurprise card
+  // MUST be declared BEFORE getPillContent() to avoid TDZ error
+  const FOUR_HOURS = 4 * 60 * 60 // seconds
+  const [countdown, setCountdown] = useState(FOUR_HOURS)
+  
+  useEffect(() => {
+    if (card.type !== 'yieldSurprise') return
+    if (countdown <= 0) return
+    
+    const id = setInterval(() => {
+      setCountdown((prev) => Math.max(prev - 1, 0))
+    }, 1000)
+    
+    return () => clearInterval(id)
+  }, [countdown, card.type])
+  
+  const formattedCountdown = useMemo(() => {
+    if (card.type !== 'yieldSurprise') return null
+    const hours = Math.floor(countdown / 3600)
+    const minutes = Math.floor((countdown % 3600) / 60)
+    return `${hours}h${minutes.toString().padStart(2, '0')}`
+  }, [countdown, card.type])
+
   // Determine what to display in the pill
   const getPillContent = (): { strong: string; label: string } => {
     // Special case: yieldSurprise shows countdown
@@ -511,28 +534,6 @@ export default function CardStackCard({
   }
 
   const pillContent = getPillContent()
-
-  // 4-hour countdown timer for yieldSurprise card
-  const FOUR_HOURS = 4 * 60 * 60 // seconds
-  const [countdown, setCountdown] = useState(FOUR_HOURS)
-  
-  useEffect(() => {
-    if (card.type !== 'yieldSurprise') return
-    if (countdown <= 0) return
-    
-    const id = setInterval(() => {
-      setCountdown((prev) => Math.max(prev - 1, 0))
-    }, 1000)
-    
-    return () => clearInterval(id)
-  }, [countdown, card.type])
-  
-  const formattedCountdown = useMemo(() => {
-    if (card.type !== 'yieldSurprise') return null
-    const hours = Math.floor(countdown / 3600)
-    const minutes = Math.floor((countdown % 3600) / 60)
-    return `${hours}h${minutes.toString().padStart(2, '0')}`
-  }, [countdown, card.type])
 
   // Double-tap detection for APY/timer pill clicks
   const DOUBLE_TAP_DELAY = 300 // ms
