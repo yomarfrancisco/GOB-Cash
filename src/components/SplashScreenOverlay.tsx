@@ -13,7 +13,7 @@ export default function SplashScreenOverlay() {
           fill
           style={{ objectFit: 'contain' }}
           priority
-          sizes="(max-width: 600px) 40vw, 119px"
+          sizes="(max-width: 600px) 50vw, 149px"
         />
       </div>
     </div>
