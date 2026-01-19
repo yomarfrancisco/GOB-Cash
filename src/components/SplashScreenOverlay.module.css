@@ -17,7 +17,7 @@
   justify-content: center;
   align-items: center;
   width: 100%;
-  max-width: 238px; /* Original size: 280px * 0.85 = 238px */
+  max-width: 119px; /* 50% of original 238px */
   aspect-ratio: 220 / 80; /* maintain logo proportions (220x80 original) */
   position: relative;
 }
