@@ -156,8 +156,8 @@ body {
   position: absolute;
   top: 48px;
   left: 16px;
-  width: 124px; /* 25% larger than 99px (99 * 1.25 = 124px) */
-  height: 38px; /* 25% larger than 30px (30 * 1.25 = 38px) */
+  width: 149px; /* 20% larger than 124px (124 * 1.20 = 149px) */
+  height: 46px; /* 20% larger than 38px (38 * 1.20 = 46px) */
   object-fit: contain;
   z-index: 2;
   background: transparent !important;

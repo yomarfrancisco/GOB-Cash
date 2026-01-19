@@ -63,10 +63,10 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
             src="/assets/core/Go_B logo.png"
             alt="GoBankless"
             className="gobankless-logo"
-            width={124}
-            height={38}
+            width={149}
+            height={46}
             priority
-            sizes="124px"
+            sizes="149px"
             quality={92}
           />
         )
