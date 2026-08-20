@@ -21,6 +21,16 @@ import { applyFeeToRate } from '@/lib/exchangeRates/applyFeeToRate'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
+function getSecondsUntil17hReset(): number {
+  const now = new Date()
+  const next = new Date(now)
+  next.setHours(17, 0, 0, 0)
+  if (now.getTime() >= next.getTime()) {
+    next.setDate(next.getDate() + 1)
+  }
+  return Math.max(0, Math.floor((next.getTime() - now.getTime()) / 1000))
+}
+
 type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
 type HealthLevel = 'good' | 'moderate' | 'caution' | 'fragile'
@@ -56,7 +66,7 @@ const CARD_LABELS: Record<CardType, string> = {
   zwd: 'CASH CARD', // ZWD fiat card
   yield: 'CRYPTO CARD', // ETH crypto card
   btc: 'CRYPTO CARD', // BTC crypto card
-  yieldSurprise: 'EARNINGS', // Agent earnings card
+  yieldSurprise: 'REWARDS', // Agent rewards card
 }
 
 const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents'> = {
@@ -477,21 +487,20 @@ export default function CardStackCard({
   const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
   const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
 
-  // 4-hour countdown timer for yieldSurprise card
+  // Rewards card countdown: 24h cycle that resets at 17:00 local time
   // MUST be declared BEFORE getPillContent() to avoid TDZ error
-  const FOUR_HOURS = 4 * 60 * 60 // seconds
-  const [countdown, setCountdown] = useState(FOUR_HOURS)
+  const [countdown, setCountdown] = useState(getSecondsUntil17hReset)
   
   useEffect(() => {
     if (card.type !== 'yieldSurprise') return
-    if (countdown <= 0) return
-    
+
+    setCountdown(getSecondsUntil17hReset())
     const id = setInterval(() => {
-      setCountdown((prev) => Math.max(prev - 1, 0))
+      setCountdown(getSecondsUntil17hReset())
     }, 1000)
     
     return () => clearInterval(id)
-  }, [countdown, card.type])
+  }, [card.type])
   
   const formattedCountdown = useMemo(() => {
     if (card.type !== 'yieldSurprise') return null
@@ -507,6 +516,20 @@ export default function CardStackCard({
       return {
         strong: formattedCountdown,
         label: 'left',
+      }
+    }
+
+    if (card.type === 'mzn') {
+      return {
+        strong: '4.5 MZN',
+        label: '= 1 ZAR',
+      }
+    }
+
+    if (card.type === 'zwd') {
+      return {
+        strong: '72 MZN',
+        label: '= 1 USD',
       }
     }
 
@@ -643,7 +666,7 @@ export default function CardStackCard({
                     loading="eager"
                   />
                   <span className="currency-code">
-                    {card.type === 'yieldSurprise' ? 'EARNINGS' : CURRENCY_LABEL[currency]}
+                    {card.type === 'yieldSurprise' ? 'REWARDS' : CURRENCY_LABEL[currency]}
                   </span>
                 </span>
               </div>
@@ -756,7 +779,7 @@ export default function CardStackCard({
       {/* Bottom-right health bar */}
       <div className="card-health-group">
         <span className="card-health-label">
-          {card.type === 'yieldSurprise' ? 'Credit' : 'Daily Limit'}
+          {card.type === 'yieldSurprise' || card.type === 'savings' ? 'Daily Target' : 'Daily Limit'}
         </span>
         <div className="card-health-bar-container">
           <div
