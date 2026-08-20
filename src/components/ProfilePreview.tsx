@@ -132,12 +132,12 @@ export default function ProfilePreview({
               )}
               <div className={styles.stat}>
                 <div className={styles.statValue}>{sponsors.toLocaleString()}</div>
-                <div className={styles.statSub}>Backers</div>
+                <div className={styles.statSub}>Clients</div>
               </div>
               <div className={styles.statDivider} />
               <div className={styles.stat}>
                 <div className={styles.statValue}>{sponsoring.toLocaleString()}</div>
-                <div className={styles.statSub}>Backing</div>
+                <div className={styles.statSub}>Recipients</div>
               </div>
             </div>
             <div className={styles.networkPill}>
@@ -148,7 +148,7 @@ export default function ProfilePreview({
                 />
               </div>
               <div className={styles.networkLabel} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
-                <span>Productivity</span>
+                <span>Compliance</span>
                 <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
               </div>
             </div>

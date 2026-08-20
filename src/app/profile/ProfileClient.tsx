@@ -575,12 +575,12 @@ export default function ProfileClient() {
                         <div className="stat-divider" />
                         <div className="stat">
                           <div className="stat-value">{sponsors.toLocaleString()}</div>
-                          <div className="stat-sub">Backers</div>
+                          <div className="stat-sub">Clients</div>
                         </div>
                         <div className="stat-divider" />
                         <div className="stat">
                           <div className="stat-value">{sponsoring.toLocaleString()}</div>
-                          <div className="stat-sub">Backing</div>
+                          <div className="stat-sub">Recipients</div>
                         </div>
                       </>
                     );
@@ -591,7 +591,7 @@ export default function ProfileClient() {
                     <div className="network-fill" />
                   </div>
                   <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
-                    <span>Productivity</span>
+                    <span>Compliance</span>
                     <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
                   </div>
                 </div>

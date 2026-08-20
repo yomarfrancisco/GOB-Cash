@@ -223,12 +223,12 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                   )}
                   <div className="stat">
                     <div className="stat-value">{profile.sponsors?.toLocaleString() || '0'}</div>
-                    <div className="stat-sub">Backers</div>
+                    <div className="stat-sub">Clients</div>
                   </div>
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">{profile.sponsoring?.toLocaleString() || '0'}</div>
-                    <div className="stat-sub">Backing</div>
+                    <div className="stat-sub">Recipients</div>
                   </div>
                 </div>
                 <div className="network-pill">
@@ -239,7 +239,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                     />
                   </div>
                   <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
-                    <span>Productivity</span>
+                    <span>Compliance</span>
                     <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
                   </div>
                 </div>

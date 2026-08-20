@@ -279,7 +279,7 @@ export default function ProductivityHelperSheet({ isOpen, onClose, onNextPage }:
     <BaseHelperSheet
       isOpen={isOpen}
       onClose={onClose}
-      title="Productivity Score"
+      title="Compliance Score"
       description={(pageIndex) => getDescription(pageIndex)}
       pages={pages}
       currentPage={page}
