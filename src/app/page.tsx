@@ -595,7 +595,7 @@ function HomeContent() {
   // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
   const cardDef = getCardDefinition(topCardType === 'yieldSurprise' ? 'yield' : topCardType)
   // Title - conditional based on auth status
-  const title = isAuthed ? `Cash wallet` : `Cash wallet`
+  const title = 'Wallet'
   
   // Subtitle text - conditional based on auth status
   const totalBalanceZAR = isAuthed ? ((wallets as any)?.cashZAR?.fiatBalance ?? alloc.totalCents / 100) : 0
