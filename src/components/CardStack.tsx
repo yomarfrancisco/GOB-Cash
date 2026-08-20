@@ -84,8 +84,9 @@ const allCardsData: CardData[] = [
   },
 ]
 
-// Hide ETH and BTC from the wallet stack. Empty this array to restore them.
-const HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc']
+// Visible: ZAR + MZN only. USD (`zwd`) and Rewards (`yieldSurprise`) stay in allCardsData —
+// remove those two from this list to switch them back on. ETH/BTC stay hidden too.
+const HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd', 'yieldSurprise']
 const cardsData: CardData[] = allCardsData.filter((card) => !HIDDEN_CARD_TYPES.includes(card.type))
 
 // Card labels mapping

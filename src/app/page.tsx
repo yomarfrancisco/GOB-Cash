@@ -724,11 +724,13 @@ function HomeContent() {
                 />
               </div>
 
-              {/* Explore savings circles section with shared shell - directly under .content */}
+              {/* Send cash anywhere — temporarily hidden; set to true to restore */}
+              {false && (
               <ConvertCashSection 
                 onHelpClick={() => setIsMapHelperOpen(true)} 
                 onMapClick={handleHomeMapClick}
               />
+              )}
               <BranchManagerFooter 
                 onHelicopterClick={handleHelicopterConvertClick}
                 onWhatsAppClick={() => {
