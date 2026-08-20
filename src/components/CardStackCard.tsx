@@ -710,7 +710,7 @@ export default function CardStackCard({
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span>0.00 BRICS</span>
+                <span>0.00 OMLT</span>
               </div>
             </>
           ) : (
@@ -743,7 +743,7 @@ export default function CardStackCard({
                   )}
                 />
               </div>
-              <div className="card-amounts__usdt" aria-label={`${usdt.toFixed(2)} BRICS`} suppressHydrationWarning>
+              <div className="card-amounts__usdt" aria-label={`${usdt.toFixed(2)} OMLT`} suppressHydrationWarning>
                 <SlotCounter 
                   key={`${balanceKey}-usdt`}
                   value={usdt} 
@@ -751,7 +751,7 @@ export default function CardStackCard({
                   durationMs={isBalanceReady ? 700 : 0} 
                   className="card-amounts__usdt-value" 
                 />
-                <span style={{ marginLeft: '4px' }}>BRICS</span>
+                <span style={{ marginLeft: '4px' }}>OMLT</span>
               </div>
             </>
           )}

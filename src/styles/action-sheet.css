@@ -365,6 +365,20 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
+.asi:disabled,
+.asi[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.asi:disabled:hover,
+.asi[aria-disabled="true"]:hover,
+.asi:disabled:active,
+.asi[aria-disabled="true"]:active {
+  background: transparent;
+}
+
 .asi-left {
   display: flex;
   align-items: center;

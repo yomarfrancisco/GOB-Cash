@@ -16,6 +16,7 @@ type Props = {
 
 export default function DepositSheet({ open, onClose, onSelect, variant = 'deposit', onBack }: Props) {
   const handleSelect = (method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics' | 'atm' | 'agent') => {
+    if (method === 'card') return
     if (onSelect) {
       onSelect(method)
     }
@@ -65,7 +66,8 @@ export default function DepositSheet({ open, onClose, onSelect, variant = 'depos
           title: 'Debit or Credit',
           caption: 'Link your card for instant deposits.',
           method: 'card' as const,
-          icon: <CreditCard size={22} strokeWidth={2} />
+          icon: <CreditCard size={22} strokeWidth={2} />,
+          disabled: true,
         }
       ]
 
@@ -97,6 +99,7 @@ export default function DepositSheet({ open, onClose, onSelect, variant = 'depos
       )}
       {options.map((option) => {
         const hasIcon = 'icon' in option && option.icon
+        const isDisabled = 'disabled' in option && option.disabled
         return (
           <ActionSheetItem
             key={option.method}
@@ -105,6 +108,7 @@ export default function DepositSheet({ open, onClose, onSelect, variant = 'depos
             title={option.title}
             caption={option.caption}
             onClick={() => handleSelect(option.method)}
+            disabled={Boolean(isDisabled)}
           />
         )
       })}

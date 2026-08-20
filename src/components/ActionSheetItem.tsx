@@ -13,6 +13,7 @@ type Props = {
   onClick?: () => void
   ariaLabel?: string
   trailing?: ReactNode // Custom trailing element (replaces chevron)
+  disabled?: boolean
 }
 
 export default function ActionSheetItem({
@@ -23,9 +24,16 @@ export default function ActionSheetItem({
   onClick,
   ariaLabel,
   trailing,
+  disabled = false,
 }: Props) {
   return (
-    <button className="asi" onClick={onClick} aria-label={ariaLabel || title}>
+    <button
+      className="asi"
+      onClick={disabled ? undefined : onClick}
+      aria-label={ariaLabel || title}
+      disabled={disabled}
+      aria-disabled={disabled}
+    >
       <div className="asi-left">
         <div className="asi-icon">
           {icon ? icon : iconSrc && <Image src={iconSrc} alt="" width={24} height={24} />}
