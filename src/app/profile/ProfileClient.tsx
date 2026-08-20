@@ -702,7 +702,7 @@ export default function ProfileClient() {
                   }}
                   aria-disabled={isRestricted}
                 >
-                  Inbox
+                  Proof
                   <LockOverlay show={isRestricted} />
                 </button>
               </div>
