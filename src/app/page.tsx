@@ -731,6 +731,8 @@ function HomeContent() {
                 onMapClick={handleHomeMapClick}
               />
               )}
+              {/* Avatars + helicopter — temporarily hidden; set to true to restore */}
+              {false && (
               <BranchManagerFooter 
                 onHelicopterClick={handleHelicopterConvertClick}
                 onWhatsAppClick={() => {
@@ -739,6 +741,7 @@ function HomeContent() {
                   })
                 }} 
               />
+              )}
               <HomeStreamSection />
 
             </div>
