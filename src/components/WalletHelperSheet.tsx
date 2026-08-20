@@ -14,7 +14,7 @@ export type WalletKey = CardType
 const WALLET_SEQUENCE: WalletKey[] = [
   'mzn',          // MZN wallet (default landing card)
   'savings',      // ZAR wallet
-  'zwd',          // USD wallet
+  // 'zwd',       // USD wallet — hidden
   // 'yield',     // ETH wallet — hidden with BTC/ETH card removal
   // 'btc',       // BTC wallet — hidden with BTC/ETH card removal
   'yieldSurprise' // Rewards wallet
