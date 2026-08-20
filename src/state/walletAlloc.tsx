@@ -54,15 +54,10 @@ const ZERO: WalletAlloc = {
   btcCents: 0,
 }
 
-// Demo balances for pre-auth (marketing)
+// Demo balances for pre-auth (marketing) — currently same as ZERO so signed-out
+// does not preview funds the user has not committed.
 const DEMO: WalletAlloc = {
-  totalCents: 610300, // R6,103.00 (~337 USDT @ 18.1 FX)
-  cashCents: 488240, // 80% of total
-  ethCents: 18309, // 3% of total
-  zwdCents: 42721, // 7% of total
-  earningsCents: 61030, // 10% of total (R610.30) - Earnings card never starts at 0
-  mznCents: 0,
-  btcCents: 0,
+  ...ZERO,
 }
 
 export function WalletAllocProvider({ children }: { children: ReactNode }) {

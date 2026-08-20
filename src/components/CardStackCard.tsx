@@ -346,8 +346,8 @@ export default function CardStackCard({
       }
     }
   } else {
-    // Unauthed: demo is allowed
-    cents = (alloc as any)[allocKey] || 0
+    // Unauthed: no preview balances — user has not committed funds yet
+    cents = 0
   }
   
   const zar = cents / 100

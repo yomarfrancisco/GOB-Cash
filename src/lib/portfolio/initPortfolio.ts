@@ -20,6 +20,15 @@ export function initPortfolioFromAlloc(
   const zwdZAR = zwdCents / 100
   const totalZAR = totalCents / 100
 
+  if (!Number.isFinite(totalZAR) || totalZAR <= 0) {
+    setHoldingsBulk({
+      CASH: { symbol: 'CASH', amountZAR: 0, amountUSDT: 0, allocationPct: 0, displayPct: 0, health: 100 },
+      ETH: { symbol: 'ETH', amountZAR: 0, amountUSDT: 0, allocationPct: 0, displayPct: 0, health: 60 },
+      ZWD: { symbol: 'ZWD', amountZAR: 0, amountUSDT: 0, allocationPct: 0, displayPct: 0, health: 100 },
+    })
+    return
+  }
+
   // Calculate raw percentages
   const rawCashPct = (cashZAR / totalZAR) * 100
   const rawEthPct = (ethZAR / totalZAR) * 100
