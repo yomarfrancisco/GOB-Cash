@@ -707,7 +707,8 @@ export default function ProfileClient() {
                 </button>
               </div>
 
-              {/* Invite friends section */}
+              {/* Earn as a cash agent tile — temporarily hidden; set to true to restore */}
+              {false && (
               <div className="profile-social-task">
                 <button
                   className="profile-social-task-row"
@@ -736,8 +737,7 @@ export default function ProfileClient() {
                   <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                 </button>
               </div>
-
-              {/* Settings section */}
+              )}
               <div className="profile-settings">
                 <h2 className="profile-settings-heading">Settings</h2>
                 <div className="profile-settings-card">
