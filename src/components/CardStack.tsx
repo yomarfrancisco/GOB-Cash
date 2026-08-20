@@ -41,6 +41,13 @@ interface CardData {
 
 const allCardsData: CardData[] = [
   {
+    type: 'mzn',
+    image: '/assets/cards/card-MZN2X-1.jpg',
+    alt: 'MZN Cash Card',
+    width: 342,
+    height: 213,
+  },
+  {
     type: 'savings',
     image: '/assets/cards/card-savings.jpg',
     alt: 'Cash Card',
@@ -60,13 +67,6 @@ const allCardsData: CardData[] = [
     alt: 'Yield Card',
     width: 310,
     height: 193,
-  },
-  {
-    type: 'mzn',
-    image: '/assets/cards/card-MZN2X-1.jpg',
-    alt: 'MZN Cash Card',
-    width: 342,
-    height: 213,
   },
   {
     type: 'btc',

@@ -35,6 +35,7 @@ import { useFxRates } from '@/lib/exchangeRates/useFxRates'
 import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import { useNotificationStore } from '@/store/notifications'
 import HomeStreamSection from '@/components/HomeStreamSection'
+import { DEMO_ANIMATIONS_ENABLED } from '@/lib/flags'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
@@ -78,7 +79,7 @@ function HomeWithSearchParams() {
 
 // Main home page content
 function HomeContent() {
-  const [topCardType, setTopCardType] = useState<CardType>('savings')
+  const [topCardType, setTopCardType] = useState<CardType>('mzn')
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const [helperWalletKey, setHelperWalletKey] = useState<CardType | null>(null)
   const [isMapHelperOpen, setIsMapHelperOpen] = useState(false)
@@ -342,7 +343,7 @@ function HomeContent() {
       setEth,
       setZwd,
     },
-    authState === 'unauthed' // enable only when explicitly unauthed (not loading, not authed)
+    DEMO_ANIMATIONS_ENABLED && authState === 'unauthed'
   )
   // Store pause/resume in ref for CardStack to access
   aiCycleControllerRef.current = { pause: aiCycle.pause, resume: aiCycle.resume }
@@ -363,7 +364,7 @@ function HomeContent() {
   // TODO: Remove this and wire to actual deposit success event
   useEffect(() => {
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
-    if (!isDemoMode || isAuthed) return
+    if (!DEMO_ANIMATIONS_ENABLED || !isDemoMode || isAuthed) return
 
     // Trigger credit surprise 10 seconds after page load (for testing)
     const timer = setTimeout(() => {
@@ -379,7 +380,7 @@ function HomeContent() {
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   useEffect(() => {
     // Stop demo notifications if user is authenticated
-    if (isAuthed) {
+    if (!DEMO_ANIMATIONS_ENABLED || isAuthed) {
       stopDemoNotificationEngine()
       return
     }
@@ -416,7 +417,7 @@ function HomeContent() {
     const isAuthFlowActive = authState.authEntryOpen || authState.authPasswordOpen || authState.phoneSignupOpen
     
     // If user authed, intro already used, or auth flow already active → bail
-    if (isAuthed || hasShownAmaIntroRef.current || isAuthFlowActive) {
+    if (!DEMO_ANIMATIONS_ENABLED || isAuthed || hasShownAmaIntroRef.current || isAuthFlowActive) {
       return
     }
     

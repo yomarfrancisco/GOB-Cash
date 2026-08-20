@@ -17,8 +17,9 @@ import type { CardStackHandle } from '@/components/CardStack'
 import { useAuthStore } from '@/store/auth'
 import { useAppModeStore } from '@/store/appMode'
 import { getDemoConfig, RANDOM_FLIP_CONFIG } from '@/lib/demo/demoConfig'
+import { DEMO_ANIMATIONS_ENABLED } from '@/lib/flags'
 
-const ENABLED = process.env.NEXT_PUBLIC_ENABLE_RANDOM_CARD_FLIPS === '1'
+const ENABLED = DEMO_ANIMATIONS_ENABLED && process.env.NEXT_PUBLIC_ENABLE_RANDOM_CARD_FLIPS === '1'
 
 type FlipController = {
   pause: () => void

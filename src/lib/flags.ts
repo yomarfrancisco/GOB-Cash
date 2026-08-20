@@ -7,3 +7,6 @@ export const DEV_CARD_FLIP_DEBUG = process.env.NEXT_PUBLIC_DEV_CARD_FLIP_DEBUG =
 // Earnings Surprise Animation feature flag
 export const EARNINGS_SURPRISE_ENABLED = false // Disabled
 
+// Signed-out demo theater (notifications, FAB avatars, AI trades, card flips, Ama intro)
+export const DEMO_ANIMATIONS_ENABLED = false
+
