@@ -458,7 +458,7 @@ export default function HomeStreamSection() {
       <div className={sharedStyles.mapHeader}>
         <div className={sharedStyles.headerRow}>
           <h2 id="stream-title" className={sharedStyles.mapHeaderTitle}>
-            Find a cash agent
+            Talk to an agent
           </h2>
         </div>
         <p className={sharedStyles.mapHeaderSub}>
