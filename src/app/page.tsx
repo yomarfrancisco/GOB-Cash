@@ -742,7 +742,8 @@ function HomeContent() {
                 }} 
               />
               )}
-              <HomeStreamSection />
+              {/* Talk to an agent stream — temporarily hidden; set to true to restore */}
+              {false && <HomeStreamSection />}
 
             </div>
           </div>
