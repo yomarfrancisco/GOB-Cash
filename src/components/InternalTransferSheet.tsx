@@ -32,21 +32,24 @@ const WALLET_CONFIG: Record<WalletId, { name: string; cardImage: string; allocKe
   btc: { name: 'BTC wallet', cardImage: '/assets/cards/card-BTC.jpg', allocKey: 'btcCents' },
 }
 
+// Hide ETH and BTC while those cards are removed from the stack.
+const VISIBLE_WALLET_IDS: WalletId[] = ['savings', 'zwd', 'mzn']
+
 export default function InternalTransferSheet({ open, onClose, onNext, defaultFromWalletId = 'savings' }: InternalTransferSheetProps) {
   const { alloc } = useWalletAlloc()
-  const [fromWalletId, setFromWalletId] = useState<WalletId>(defaultFromWalletId)
+  const resolvedFromWalletId = VISIBLE_WALLET_IDS.includes(defaultFromWalletId)
+    ? defaultFromWalletId
+    : 'savings'
+  const [fromWalletId, setFromWalletId] = useState<WalletId>(resolvedFromWalletId)
   const [toWalletId, setToWalletId] = useState<WalletId>(() => {
-    // Default to next wallet in list, or first different wallet
-    const walletIds: WalletId[] = ['savings', 'zwd', 'yield', 'mzn', 'btc']
-    const currentIndex = walletIds.indexOf(defaultFromWalletId)
-    return walletIds[(currentIndex + 1) % walletIds.length]
+    const currentIndex = VISIBLE_WALLET_IDS.indexOf(resolvedFromWalletId)
+    return VISIBLE_WALLET_IDS[(currentIndex + 1) % VISIBLE_WALLET_IDS.length]
   })
   const [expandedPicker, setExpandedPicker] = useState<'from' | 'to' | null>(null)
 
   // Build wallet list with balances
   const wallets = useMemo<Wallet[]>(() => {
-    const walletIds: WalletId[] = ['savings', 'zwd', 'yield', 'mzn', 'btc']
-    return walletIds.map((id) => {
+    return VISIBLE_WALLET_IDS.map((id) => {
       const config = WALLET_CONFIG[id]
       const balanceCents = alloc[config.allocKey] || 0
       return {

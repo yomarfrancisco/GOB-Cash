@@ -177,14 +177,13 @@ function HomeContent() {
         setFlowType('transfer')
         setAmountMode('send')
         // Map topCardType to walletId for default FROM wallet
-        // yieldSurprise maps to 'yield' wallet (reuse yield card wallet)
         const cardTypeToWalletId: Record<CardType, 'savings' | 'zwd' | 'yield' | 'mzn' | 'btc'> = {
           savings: 'savings',
           zwd: 'zwd',
-          yield: 'yield',
+          yield: 'savings',
           mzn: 'mzn',
-          btc: 'btc',
-          yieldSurprise: 'yield', // Map yieldSurprise to yield wallet
+          btc: 'savings',
+          yieldSurprise: 'savings',
         }
         setTransferFromWalletId(cardTypeToWalletId[topCardType])
         setTimeout(() => setOpenInternalTransfer(true), 220)

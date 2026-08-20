@@ -39,7 +39,7 @@ interface CardData {
   height: number
 }
 
-const cardsData: CardData[] = [
+const allCardsData: CardData[] = [
   {
     type: 'savings',
     image: '/assets/cards/card-savings.jpg',
@@ -83,6 +83,10 @@ const cardsData: CardData[] = [
     height: 193,
   },
 ]
+
+// Hide ETH and BTC from the wallet stack. Empty this array to restore them.
+const HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc']
+const cardsData: CardData[] = allCardsData.filter((card) => !HIDDEN_CARD_TYPES.includes(card.type))
 
 // Card labels mapping
 const CARD_LABELS: Record<CardType, string> = {
@@ -133,7 +137,7 @@ export type CardStackHandle = {
 const FLIP_DURATION_MS = FLIP_MS
 
 // Number of cards visible in the stack at any time
-const VISIBLE_COUNT = 5
+const VISIBLE_COUNT = Math.min(5, cardsData.length)
 
 const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, aiCycleControllerRef, onCardClick, onCreditSurprise, onApyPillClick, fxRates }, ref) {
   // Dynamic order initialization based on cards.length
