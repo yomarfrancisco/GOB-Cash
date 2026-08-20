@@ -84,9 +84,8 @@ const allCardsData: CardData[] = [
   },
 ]
 
-// Visible: ZAR + MZN only. USD (`zwd`) and Rewards (`yieldSurprise`) stay in allCardsData —
-// remove those two from this list to switch them back on. ETH/BTC stay hidden too.
-const HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd', 'yieldSurprise']
+// Visible: ZAR, USD, MZN, Rewards. ETH (`yield`) and BTC stay hidden.
+const HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc']
 const cardsData: CardData[] = allCardsData.filter((card) => !HIDDEN_CARD_TYPES.includes(card.type))
 
 // Card labels mapping

@@ -14,10 +14,10 @@ export type WalletKey = CardType
 const WALLET_SEQUENCE: WalletKey[] = [
   'savings',      // ZAR wallet
   'mzn',          // MZN wallet
-  // 'zwd',       // USD wallet — hidden for ZAR/MZN-only preview
+  'zwd',          // USD wallet
   // 'yield',     // ETH wallet — hidden with BTC/ETH card removal
   // 'btc',       // BTC wallet — hidden with BTC/ETH card removal
-  // 'yieldSurprise' // Rewards wallet — hidden for ZAR/MZN-only preview
+  'yieldSurprise' // Rewards wallet
 ]
 
 type WalletHelperSheetProps = {

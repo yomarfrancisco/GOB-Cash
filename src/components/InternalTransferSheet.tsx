@@ -32,8 +32,8 @@ const WALLET_CONFIG: Record<WalletId, { name: string; cardImage: string; allocKe
   btc: { name: 'BTC wallet', cardImage: '/assets/cards/card-BTC.jpg', allocKey: 'btcCents' },
 }
 
-// Visible wallets match the card stack (ZAR + MZN). Add 'zwd' back with the USD card.
-const VISIBLE_WALLET_IDS: WalletId[] = ['savings', 'mzn']
+// Visible wallets match the card stack (ZAR, USD, MZN).
+const VISIBLE_WALLET_IDS: WalletId[] = ['savings', 'zwd', 'mzn']
 
 export default function InternalTransferSheet({ open, onClose, onNext, defaultFromWalletId = 'savings' }: InternalTransferSheetProps) {
   const { alloc } = useWalletAlloc()
