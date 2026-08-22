@@ -521,15 +521,15 @@ export default function CardStackCard({
 
     if (card.type === 'savings') {
       return {
-        strong: '4.5 MZN',
-        label: '= 1 ZAR',
+        strong: '1 MZN',
+        label: '= 0.22 ZAR',
       }
     }
 
     if (card.type === 'mzn') {
       return {
-        strong: '9.38%',
-        label: 'APY',
+        strong: '4.5 MZN',
+        label: '= 1 ZAR',
       }
     }
 
