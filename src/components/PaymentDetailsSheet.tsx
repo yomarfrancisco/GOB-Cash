@@ -12,8 +12,10 @@ import { getRankedContacts, type RankedContact } from '@/lib/contacts/rankContac
 import { groupByFirstLetter } from '@/lib/contacts/contactGrouping'
 import { ContactListWithIndex, type ContactListHandle } from './contacts/ContactListWithIndex'
 import { AlphabetIndex } from './contacts/AlphabetIndex'
+import { openWhatsAppPaymentDraft } from '@/lib/whatsappPayment'
 import '@/styles/send-details-sheet.css'
 import styles from './PaymentDetailsSheet.module.css'
+import contactListStyles from './contacts/ContactListWithIndex.module.css'
 import { useSyncContacts } from '@/hooks/useSyncContacts'
 import { useUserContactsForUI } from '@/hooks/useUserContactsForUI'
 import { useGlobalContactsPublicForUI } from '@/hooks/useGlobalContactsPublic'
@@ -225,6 +227,12 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     close()
   }
 
+  const handlePayViaWhatsApp = () => {
+    if (amountZAR === null) return
+    openWhatsAppPaymentDraft(amountZAR, recipient)
+    close()
+  }
+
   if (!mode) return null
 
   const labelText = mode === 'pay' ? 'Make payment to' : 'Request payment from'
@@ -270,6 +278,29 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
               </label>
             </div>
 
+            <button
+              type="button"
+              className={styles.contactRow}
+              onClick={handlePayViaWhatsApp}
+            >
+              <div className={styles.contactRowLeft}>
+                <div className={styles.avatarWrapper}>
+                  <Image
+                    src="/assets/WhatsApp_Green 2.png"
+                    alt="WhatsApp"
+                    width={28}
+                    height={28}
+                    className={styles.whatsappLogo}
+                    unoptimized
+                  />
+                </div>
+                <div className={styles.contactTextBlock}>
+                  <div className={styles.contactHandle}>Pay via WhatsApp</div>
+                  <div className={styles.contactSubtitle}>Select from your contact</div>
+                </div>
+              </div>
+            </button>
+
             {/* Contacts list (A-Z index rendered separately as fixed overlay) */}
             {displayContacts.length > 0 ? (
               <ContactListWithIndex
@@ -279,6 +310,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
                 selectedContactId={selectedContactId}
                 onSelectContact={handleContactClick}
                 isAuthenticated={isAuthed}
+                suggestedLabel="Members"
                 onHandleReady={(handle) => {
                   contactListRef.current = handle
                   setAlphabetLetters(handle.allLetters)
@@ -288,6 +320,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
             ) : (
               /* Fallback to hardcoded contacts if no Google contacts */
               <div className={styles.contactsList}>
+                <div className={contactListStyles.contactsSectionHeader}>Members</div>
                 {FALLBACK_CONTACTS.map((contact) => {
                   const isSelected = selectedContactId === contact.id
                   return (

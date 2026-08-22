@@ -89,6 +89,12 @@
   border-radius: 50%;
 }
 
+.whatsappLogo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
 .contactTextBlock {
   display: flex;
   flex-direction: column;

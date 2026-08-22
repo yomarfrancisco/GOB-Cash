@@ -27,6 +27,7 @@ type ContactListWithIndexProps = {
   selectedContactId?: string | null
   onHandleReady?: (handle: ContactListHandle) => void // Callback to expose handle to parent
   isAuthenticated?: boolean // For computing subtitles
+  suggestedLabel?: string
 }
 
 // Reusable contact row component
@@ -115,6 +116,7 @@ export const ContactListWithIndex = forwardRef<ContactListHandle, ContactListWit
   selectedContactId,
   onHandleReady,
   isAuthenticated = false,
+  suggestedLabel = 'Suggested',
 }, ref) => {
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [sectionOffsets, setSectionOffsets] = useState<Record<string, number>>({})
@@ -221,7 +223,7 @@ export const ContactListWithIndex = forwardRef<ContactListHandle, ContactListWit
       <div ref={contentRef} className={styles.contactsListContent}>
         {suggested.length > 0 && (
           <>
-            <div className={styles.contactsSectionHeader}>Suggested</div>
+            <div className={styles.contactsSectionHeader}>{suggestedLabel}</div>
                 {suggested.map((c) => (
                   <ContactRow
                     key={c.id}
