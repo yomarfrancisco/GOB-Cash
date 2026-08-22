@@ -5,6 +5,7 @@ import ActionSheet from './ActionSheet'
 import { Check, ChevronDown } from 'lucide-react'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
+import { useWhatsAppClaimStore } from '@/store/useWhatsAppClaim'
 import { useUserProfileStore } from '@/store/userProfile'
 import { COUNTRIES } from '@/constants/countries'
 import styles from './BankingDetailsSheet.module.css'
@@ -62,6 +63,17 @@ export default function BankingDetailsSheet() {
   const isValid = validateForm()
 
   const handleClose = () => {
+    const claim = useWhatsAppClaimStore.getState()
+    if (claim.isActive && claim.phase === 'banking') {
+      close()
+      claim.exitToHome()
+      return
+    }
+    if (claim.isActive) {
+      close()
+      return
+    }
+
     close()
     // Poll until BankingDetailsSheet is closed, then reopen LinkedAccountsSheet
     const checkAndOpen = () => {
@@ -85,6 +97,19 @@ export default function BankingDetailsSheet() {
     if (mode === 'withdraw') {
       if (!withdrawalAmountZAR || withdrawalAmountZAR <= 0) {
         console.error('[BankingDetailsSheet] No withdrawal amount provided')
+        return
+      }
+
+      const claim = useWhatsAppClaimStore.getState()
+      if (claim.isActive) {
+        claim.submitBanking({
+          country: country.trim(),
+          bankName: bankName.trim(),
+          accountHolderName: accountHolderName.trim(),
+          accountNumber: accountNumber.trim(),
+          swiftBic: swiftBic.trim(),
+        })
+        close()
         return
       }
 

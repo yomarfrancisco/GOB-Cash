@@ -29,6 +29,7 @@ import AuthModal from '@/components/AuthModal'
 import AuthEntrySheet from '@/components/AuthEntrySheet'
 import PhoneSignupSheet from '@/components/PhoneSignupSheet'
 import PaymentDetailsSheetWrapper from '@/components/PaymentDetailsSheetWrapper'
+import WhatsAppClaimBootstrap from '@/components/WhatsAppClaimBootstrap'
 import SearchSheet from '@/components/SearchSheet'
 import ProfilePreviewSheetWrapper from '@/components/ProfilePreviewSheetWrapper'
 import FirebaseAuthListener from '@/components/FirebaseAuthListener'
@@ -180,6 +181,7 @@ export default function RootLayout({
               <PhoneSignupSheet />
               {/* Global Payment Details Sheet */}
               <PaymentDetailsSheetWrapper />
+              <WhatsAppClaimBootstrap />
               {/* Global Search Sheet */}
               <SearchSheet />
               {/* Global Profile Preview Sheet */}

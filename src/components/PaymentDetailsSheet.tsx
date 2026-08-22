@@ -296,7 +296,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
                 </div>
                 <div className={styles.contactTextBlock}>
                   <div className={styles.contactHandle}>Pay via WhatsApp</div>
-                  <div className={styles.contactSubtitle}>Select from your contact</div>
+                  <div className={styles.contactSubtitle}>Select from your contacts</div>
                 </div>
               </div>
             </button>

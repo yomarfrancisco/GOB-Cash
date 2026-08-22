@@ -1,5 +1,9 @@
-import { formatZARWithDot } from '@/lib/money'
 import { validateRecipientInput } from '@/lib/recipientValidation'
+import {
+  buildWhatsAppClaimMessage,
+  buildWhatsAppClaimUrl,
+  createWhatsAppClaimToken,
+} from '@/lib/whatsappClaim'
 
 function toWhatsAppDigits(raw: string): string | null {
   const cleaned = raw.replace(/[()\s-]/g, '')
@@ -9,14 +13,12 @@ function toWhatsAppDigits(raw: string): string | null {
   return digits
 }
 
-export function buildWhatsAppPaymentMessage(amountZAR: number): string {
-  return `Hi, I'd like to send you ${formatZARWithDot(amountZAR)} on GoBankless.`
-}
-
 export function openWhatsAppPaymentDraft(amountZAR: number, recipient?: string): void {
   if (typeof window === 'undefined') return
 
-  const text = encodeURIComponent(buildWhatsAppPaymentMessage(amountZAR))
+  const token = createWhatsAppClaimToken(amountZAR)
+  const claimUrl = buildWhatsAppClaimUrl(token)
+  const text = encodeURIComponent(buildWhatsAppClaimMessage(amountZAR, claimUrl))
   const trimmed = recipient?.trim() ?? ''
   const digits =
     trimmed && validateRecipientInput(trimmed) ? toWhatsAppDigits(trimmed) : null
