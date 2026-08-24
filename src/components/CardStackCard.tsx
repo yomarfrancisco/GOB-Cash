@@ -794,30 +794,30 @@ export default function CardStackCard({
       </div>
 
       {/* Bottom-right health bar */}
-      <div className="card-health-group">
-        <span className="card-health-label">
-          {card.type === 'mzn'
-            ? 'Limit'
-            : card.type === 'savings'
-              ? 'Converted'
+      {card.type !== 'savings' && (
+        <div className="card-health-group">
+          <span className="card-health-label">
+            {card.type === 'mzn'
+              ? 'Limit'
               : card.type === 'yieldSurprise'
                 ? 'Daily Target'
                 : 'Daily Limit'}
-        </span>
-        <div className="card-health-bar-container">
-          <div
-            className={clsx(
-              'card-health-bar-fill',
-              `card-health-bar-fill--${healthLevel}`,
-              {
-                'card-health-bar-fill--changing': isHealthBarChanging,
-                'card-health-bar-fill--minimum': operationalBarPercent <= 0,
-              }
-            )}
-            style={{ width: `${Math.max(5, Math.min(100, animatedHealth))}%` }}
-          />
+          </span>
+          <div className="card-health-bar-container">
+            <div
+              className={clsx(
+                'card-health-bar-fill',
+                `card-health-bar-fill--${healthLevel}`,
+                {
+                  'card-health-bar-fill--changing': isHealthBarChanging,
+                  'card-health-bar-fill--minimum': operationalBarPercent <= 0,
+                }
+              )}
+              style={{ width: `${Math.max(5, Math.min(100, animatedHealth))}%` }}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
