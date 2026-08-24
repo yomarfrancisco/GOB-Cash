@@ -1,60 +1,118 @@
 'use client'
 
 import { useMemo, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import styles from '@/app/activity/activity.module.css'
 
 const GOB_AVATAR_PATH = '/assets/aa2b32f2dc3e3a159949cb59284abddef5683b05.png'
+const TASK_AVATARS = {
+  paymentSent: '/assets/avatar - profile (1).png',
+  paymentDelivered: '/assets/avatar - profile (2).png',
+  paymentReceived: '/assets/avatar - profile (3).png',
+  proofOfPayment: '/assets/Brics-girl-blue.png',
+  mznDeposited: '/assets/avatar - profile (4).png',
+  zarWithdrawn: '/assets/Brics-girl-blue.png',
+} as const
 
 function groupByTimePeriod(items: ActivityItem[]) {
-  const now = Date.now()
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const todayStart = startOfToday.getTime()
   const oneDay = 24 * 60 * 60 * 1000
-  const sevenDays = 7 * oneDay
-  const thirtyDays = 30 * oneDay
+  const yesterdayStart = todayStart - oneDay
+  const last7DaysStart = todayStart - 7 * oneDay
+  const last30DaysStart = todayStart - 30 * oneDay
 
   const today: typeof items = []
+  const yesterday: typeof items = []
   const last7Days: typeof items = []
   const last30Days: typeof items = []
+  const older: typeof items = []
 
   items.forEach((item) => {
-    const age = now - item.createdAt
-    if (age <= oneDay) {
+    if (item.createdAt >= todayStart) {
       today.push(item)
-    } else if (age <= sevenDays) {
+    } else if (item.createdAt >= yesterdayStart) {
+      yesterday.push(item)
+    } else if (item.createdAt >= last7DaysStart) {
       last7Days.push(item)
-    } else if (age <= thirtyDays) {
+    } else if (item.createdAt >= last30DaysStart) {
       last30Days.push(item)
+    } else {
+      older.push(item)
     }
   })
 
-  return { today, last7Days, last30Days }
+  return { today, yesterday, last7Days, last30Days, older }
+}
+
+function searchableText(item: ActivityItem): string {
+  return `${item.title} ${item.body ?? ''} ${item.actor.name ?? ''}`.toLowerCase()
+}
+
+function isPaymentActivity(item: ActivityItem): boolean {
+  if (
+    item.kind &&
+    [
+      'payment_sent',
+      'payment_delivered',
+      'payment_received',
+      'proof_of_payment',
+      'mzn_deposited',
+      'zar_withdrawn',
+    ].includes(item.kind)
+  ) {
+    return true
+  }
+  const text = searchableText(item)
+  return [
+    'payment',
+    'paid',
+    'delivered',
+    'received',
+    'proof',
+    'deposit',
+    'deposited',
+    'withdraw',
+    'withdrawn',
+  ].some((keyword) => text.includes(keyword))
+}
+
+function resolveTaskAvatar(item: ActivityItem): string {
+  if (item.kind === 'proof_of_payment') return TASK_AVATARS.proofOfPayment
+  if (item.kind === 'mzn_deposited') return TASK_AVATARS.mznDeposited
+  if (item.kind === 'zar_withdrawn') return TASK_AVATARS.zarWithdrawn
+  if (item.kind === 'payment_delivered') return TASK_AVATARS.paymentDelivered
+  if (item.kind === 'payment_received') return TASK_AVATARS.paymentReceived
+  if (item.kind === 'payment_sent') return TASK_AVATARS.paymentSent
+
+  const text = searchableText(item)
+  if (text.includes('proof')) return TASK_AVATARS.proofOfPayment
+  if (text.includes('mzn') && (text.includes('deposit') || text.includes('deposited'))) {
+    return TASK_AVATARS.mznDeposited
+  }
+  if (text.includes('zar') && (text.includes('withdraw') || text.includes('withdrawn'))) {
+    return TASK_AVATARS.zarWithdrawn
+  }
+  if (text.includes('delivered')) return TASK_AVATARS.paymentDelivered
+  if (text.includes('received')) return TASK_AVATARS.paymentReceived
+  if (text.includes('sent') || text.includes('paid')) return TASK_AVATARS.paymentSent
+  return item.actor.avatarUrl || GOB_AVATAR_PATH
 }
 
 function ActivityItemCard({ item }: { item: ActivityItem }) {
-  const router = useRouter()
-
-  const avatarUrl =
-    item.actor.type === 'ai'
-      ? GOB_AVATAR_PATH
-      : item.actor.avatarUrl || GOB_AVATAR_PATH
-
-  const handleClick = () => {
-    if (item.routeOnTap) {
-      router.push(item.routeOnTap)
-    }
-  }
+  const avatarUrl = resolveTaskAvatar(item)
 
   return (
-    <div className={styles.activityItem} onClick={handleClick} style={{ cursor: item.routeOnTap ? 'pointer' : 'default' }}>
+    <article className={styles.activityItem}>
       <div className={styles.activityAvatar}>
         <Image
           src={avatarUrl}
-          alt={item.actor.type === 'ai' ? 'AI' : item.actor.name || 'User'}
-          width={38}
-          height={38}
+          alt={item.actor.name || 'Payment agent'}
+          width={40}
+          height={40}
           className={styles.avatarImg}
           unoptimized
         />
@@ -68,7 +126,7 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
           <div className={styles.activityBody}>{item.body}</div>
         )}
       </div>
-    </div>
+    </article>
   )
 }
 
@@ -87,7 +145,7 @@ function ActivitySection({ title, items }: { title: string; items: ActivityItem[
   )
 }
 
-export function NotificationsList() {
+export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }) {
   const clear = useActivityStore((s) => s.clear)
   const all = useActivityStore((s) => s.all)
   
@@ -104,13 +162,30 @@ export function NotificationsList() {
   }, [all, clear])
   
   const allItems = useActivityStore((s) => s.all())
-  const { today, last7Days, last30Days } = useMemo(() => groupByTimePeriod(allItems), [allItems])
+  const filteredItems = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase()
+    return allItems.filter((item) => {
+      if (!isPaymentActivity(item)) return false
+      return !normalizedQuery || searchableText(item).includes(normalizedQuery)
+    })
+  }, [allItems, searchQuery])
+  const { today, yesterday, last7Days, last30Days, older } = useMemo(
+    () => groupByTimePeriod(filteredItems),
+    [filteredItems]
+  )
 
   return (
     <div className={styles.activityContainer}>
       <ActivitySection title="Today" items={today} />
+      <ActivitySection title="Yesterday" items={yesterday} />
       <ActivitySection title="Last 7 days" items={last7Days} />
       <ActivitySection title="Last 30 days" items={last30Days} />
+      <ActivitySection title="Older" items={older} />
+      {filteredItems.length === 0 && (
+        <p className={styles.emptyState}>
+          {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}
+        </p>
+      )}
     </div>
   )
 }

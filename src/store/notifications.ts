@@ -4,7 +4,11 @@ import { joinActionAndReason } from '@/lib/notifications/formatReason'
 
 export type NotificationKind =
   | 'payment_sent'
+  | 'payment_delivered'
   | 'payment_received'
+  | 'proof_of_payment'
+  | 'mzn_deposited'
+  | 'zar_withdrawn'
   | 'request_sent'
   | 'payment_failed'
   | 'refund'
@@ -68,7 +72,7 @@ export type NotificationItem = {
   reason?: string // e.g., "Fragility increased in crypto markets; preserving purchasing power."
   amount?: {
     // optional: for later Transactions page
-    currency: 'ZAR' | 'USDT'
+    currency: 'MZN' | 'ZAR' | 'USDT'
     value: number // positive for inflow, negative for outflow
   }
   direction?: 'up' | 'down' // inflow/outflow (for Transactions derivation)
@@ -120,6 +124,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     
     activityStore.add({
       id: notification.id,
+      kind: notification.kind,
       actor: activityActor,
       title: notification.title,
       body: detail || undefined,

@@ -24,7 +24,6 @@ import SuccessSheet from '@/components/SuccessSheet'
 import { ScanOverlay } from '@/components/ScanOverlay'
 import { ScanQrSheet } from '@/components/ScanQrSheet'
 import { formatUSDT } from '@/lib/money'
-import { useActivityStore } from '@/store/activity'
 import { useProfileEditSheet } from '@/store/useProfileEditSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
@@ -37,7 +36,6 @@ import Avatar from '@/components/Avatar'
 // Crypto deposit removed - no longer needed
 import PaymentsSheet from '@/components/PaymentsSheet'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
-import { useFinancialInboxStore } from '@/state/financialInbox'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useNotificationStore } from '@/store/notifications'
@@ -358,14 +356,12 @@ export default function ProfileClient() {
     }
   }, [searchParams, isAuthed, authReady, router])
 
-  const activityCount = useActivityStore((s) => s.items.length)
   const { open: openProfileEdit } = useProfileEditSheet()
   const { setOnSelect, open } = useTransactSheet()
   const { profile, setProfile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
   const { open: openLinkedAccounts } = useLinkedAccountsSheet()
   const { open: openBankingDetails } = useBankingDetailsSheet()
-  const { openInbox, closeInbox, isInboxOpen } = useFinancialInboxStore()
   const { openNotifications } = useNotificationsStore()
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
@@ -627,14 +623,14 @@ export default function ProfileClient() {
                   Cash-in / out
                   <LockOverlay show={isRestricted} />
                 </button>
-                {/* Inbox button with lock overlay */}
+                {/* Activity button with lock overlay */}
                 <button
                   className="btn profile-inbox"
                   disabled={isRestricted}
                   onClick={() => {
                     if (isRestricted) return
                     guardAuthed(() => {
-                      openInbox()
+                      router.push('/activity')
                     })
                   }}
                   style={{ 
@@ -643,7 +639,7 @@ export default function ProfileClient() {
                   }}
                   aria-disabled={isRestricted}
                 >
-                  Proof
+                  Activity
                   <LockOverlay show={isRestricted} />
                 </button>
               </div>

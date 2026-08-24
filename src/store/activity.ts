@@ -3,10 +3,18 @@ import { persist } from 'zustand/middleware'
 
 export type ActivityItem = {
   id: string
+  kind?:
+    | 'payment_sent'
+    | 'payment_delivered'
+    | 'payment_received'
+    | 'proof_of_payment'
+    | 'mzn_deposited'
+    | 'zar_withdrawn'
+    | string
   actor: { type: 'ai' | 'user' | 'counterparty'; name?: string; avatarUrl?: string }
   title: string
   body?: string
-  amount?: { currency: 'ZAR' | 'USDT'; value: number; sign: 'credit' | 'debit' }
+  amount?: { currency: 'MZN' | 'ZAR' | 'USDT'; value: number; sign: 'credit' | 'debit' }
   createdAt: number
   routeOnTap?: string
 }
