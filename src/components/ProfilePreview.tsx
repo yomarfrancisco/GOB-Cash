@@ -28,6 +28,7 @@ interface ProfilePreviewProps {
 export default function ProfilePreview({
   userHandle,
   fullName,
+  email,
   avatarUrl,
   backdropUrl,
   rating,
