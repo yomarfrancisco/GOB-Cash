@@ -105,14 +105,6 @@ const COIN_BY_CARD: Record<CardType, { src: string; id: string; label: string } 
   yieldSurprise: null, // Uses flag (ZAR) instead of coin
 }
 
-// Currency label mapping
-const CURRENCY_LABEL: Record<string, string> = {
-  ZAR: 'ZAR',
-  MZN: 'MZN',
-  ZWD: 'ZWD',
-  USD: 'USD',
-}
-
 // Determine currency for card type (for flags)
 const getCardCurrency = (cardType: CardType): string | null => {
   if (cardType === 'savings') return 'ZAR'
@@ -672,9 +664,6 @@ export default function CardStackCard({
                     decoding="async"
                     loading="eager"
                   />
-                  <span className="currency-code">
-                    {card.type === 'yieldSurprise' ? 'REWARDS' : CURRENCY_LABEL[currency]}
-                  </span>
                 </span>
               </div>
             )
@@ -743,7 +732,7 @@ export default function CardStackCard({
                   }}
                   renderMajor={(major) => (
                     <span className="amt-int card-amounts__whole" suppressHydrationWarning>
-                      {card.type === 'mzn' ? `Mt ${major}` : major}
+                      {card.type === 'mzn' ? `Mt ${major}` : card.type === 'savings' ? `R ${major}` : major}
                     </span>
                   )}
                   renderCents={(cents) => (
