@@ -4,7 +4,8 @@ import Image from 'next/image'
 import type { StaticImageData } from 'next/image'
 import { useRef, useEffect, useState, useMemo } from 'react'
 import SlotCounter from './SlotCounter'
-import { formatZAR, formatUSDT } from '@/lib/formatCurrency'
+import { formatZAR, formatUSDT as formatBRICS } from '@/lib/formatCurrency'
+import { mznToZar } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAuthStore } from '@/store/auth'
@@ -343,7 +344,11 @@ export default function CardStackCard({
   }
   
   const zar = cents / 100
-  const usdt = zar / FX_USD_ZAR_DEFAULT
+  const brics = card.type === 'mzn'
+    ? mznToZar(zar)
+    : card.type === 'savings'
+      ? zar
+      : zar / FX_USD_ZAR_DEFAULT
   const pct = allocPct(cents)
   
   // Generate a stable key for SlotCounter that changes when balance changes
@@ -743,11 +748,11 @@ export default function CardStackCard({
                   )}
                 />
               </div>
-              <div className="card-amounts__usdt" aria-label={`${usdt.toFixed(2)} BRIC$`} suppressHydrationWarning>
+              <div className="card-amounts__usdt" aria-label={`${brics.toFixed(2)} BRIC$`} suppressHydrationWarning>
                 <SlotCounter 
-                  key={`${balanceKey}-usdt`}
-                  value={usdt} 
-                  format={formatUSDT} 
+                  key={`${balanceKey}-brics`}
+                  value={brics}
+                  format={formatBRICS}
                   durationMs={isBalanceReady ? 700 : 0} 
                   className="card-amounts__usdt-value" 
                 />

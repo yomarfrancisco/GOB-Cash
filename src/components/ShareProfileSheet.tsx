@@ -1,24 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Share, Copy } from 'lucide-react'
-import Image from 'next/image'
+import { Share } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { generateQRCode } from '@/lib/qr'
 import { useNotificationStore } from '@/store/notifications'
-import { wallet_ensureTronAddress } from '@/lib/transactions/clientFunctions'
 import Avatar from './Avatar'
-import ActionSheetIcon from './ActionSheetIcon'
 import styles from './ShareProfileSheet.module.css'
 
 export default function ShareProfileSheet() {
   const { isOpen, close, subject, mode } = useShareProfileSheet()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   const [qrDataURL, setQrDataURL] = useState<string | null>(null)
-  const [tronAddress, setTronAddress] = useState<string | null>(null)
-  const [isLoadingTronAddress, setIsLoadingTronAddress] = useState(false)
 
   // Normalize handle to always have @ prefix (use fallback if no subject)
   const subjectHandle = subject?.handle?.startsWith('@') 
@@ -51,29 +46,6 @@ export default function ShareProfileSheet() {
 
     generateQR()
   }, [isOpen, subject, paymentUrl, pushNotification])
-
-  // Fetch TRON address when sheet opens (self mode only)
-  useEffect(() => {
-    if (!isOpen || mode !== 'self') {
-      // Reset when sheet closes or not in self mode
-      setTronAddress(null)
-      setIsLoadingTronAddress(false)
-      return
-    }
-
-    setIsLoadingTronAddress(true)
-    wallet_ensureTronAddress()
-      .then(data => {
-        setTronAddress(data.address)
-      })
-      .catch(err => {
-        console.error('[ShareProfileSheet] Failed to load TRON address:', err)
-        setTronAddress(null)
-      })
-      .finally(() => {
-        setIsLoadingTronAddress(false)
-      })
-  }, [isOpen, mode])
 
   // Early return if no subject (after all hooks)
   if (!subject) {
@@ -122,42 +94,6 @@ export default function ShareProfileSheet() {
         body: 'Failed to copy link',
       })
     }
-  }
-
-  const handleCopyTronAddress = async () => {
-    if (!tronAddress) return
-    try {
-      await navigator.clipboard.writeText(tronAddress)
-      pushNotification({
-        kind: 'payment_sent',
-        title: 'Copied',
-        body: 'Address copied',
-      })
-    } catch (error) {
-      console.error('Failed to copy TRON address:', error)
-      pushNotification({
-        kind: 'payment_failed',
-        title: 'Error',
-        body: 'Failed to copy address',
-      })
-    }
-  }
-
-  // Format TRON address for display (truncated)
-  const formatTronAddress = (address: string): string => {
-    if (address.length <= 14) return address
-    return `${address.slice(0, 8)}...${address.slice(-6)}`
-  }
-
-  // Get subtitle for USDT address row
-  const getUsdtAddressSubtitle = (): string => {
-    if (isLoadingTronAddress) {
-      return 'My TRON network address'
-    }
-    if (tronAddress) {
-      return formatTronAddress(tronAddress)
-    }
-    return 'My TRON network address'
   }
 
   // Determine wording based on mode
@@ -216,43 +152,6 @@ export default function ShareProfileSheet() {
           onClick={handleShare}
           trailing={<Share size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
         />
-
-        {/* Share USDT address - second (only for self mode) */}
-        {mode === 'self' && (
-          <>
-            {isLoadingTronAddress ? (
-              <ActionSheetItem
-                icon={
-                  <ActionSheetIcon
-                    src="/assets/Tether.png"
-                    alt="USDT"
-                    fallbackLetter="U"
-                    size={40}
-                  />
-                }
-                title="Share USDT address"
-                caption="My TRON network address"
-                onClick={() => {}}
-                trailing={<div style={{ width: 18, height: 18 }} />}
-              />
-            ) : tronAddress ? (
-              <ActionSheetItem
-                icon={
-                  <ActionSheetIcon
-                    src="/assets/Tether.png"
-                    alt="USDT"
-                    fallbackLetter="U"
-                    size={40}
-                  />
-                }
-                title="Share USDT address"
-                caption={getUsdtAddressSubtitle()}
-                onClick={handleCopyTronAddress}
-                trailing={<Copy size={18} strokeWidth={2.2} style={{ color: '#111' }} />}
-              />
-            ) : null}
-          </>
-        )}
       </div>
     </ActionSheet>
   )
