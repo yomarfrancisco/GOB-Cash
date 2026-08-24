@@ -11,7 +11,15 @@ import { COUNTRIES } from '@/constants/countries'
 import styles from './BankingDetailsSheet.module.css'
 
 export default function BankingDetailsSheet() {
-  const { isOpen, mode, editingBankId, withdrawalAmountZAR, onWithdrawalCreated, close } = useBankingDetailsSheet()
+  const {
+    isOpen,
+    mode,
+    editingBankId,
+    withdrawalAmountZAR,
+    withdrawalAmountMZN,
+    onWithdrawalCreated,
+    close,
+  } = useBankingDetailsSheet()
   const { open: openLinkedAccounts } = useLinkedAccountsSheet()
   const { profile, addOrUpdateLinkedBank, removeLinkedBank } = useUserProfileStore()
   const accountHolderRef = useRef<HTMLInputElement>(null)
@@ -113,6 +121,11 @@ export default function BankingDetailsSheet() {
         return
       }
 
+      if (!withdrawalAmountMZN || withdrawalAmountMZN <= 0) {
+        console.error('[BankingDetailsSheet] No MZN source amount provided')
+        return
+      }
+
       try {
         // Import client function dynamically
         const { tx_createBankWithdrawalRequest } = await import('@/lib/transactions/clientFunctions')
@@ -122,6 +135,7 @@ export default function BankingDetailsSheet() {
         
         // Create withdrawal request
         const result = await tx_createBankWithdrawalRequest({
+          amountMZN: withdrawalAmountMZN,
           amountZAR: withdrawalAmountZAR,
           country: country.trim(),
           bankName: bankName.trim(),

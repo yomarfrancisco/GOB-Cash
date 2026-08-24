@@ -79,8 +79,13 @@ export function buildWhatsAppClaimUrl(token: string): string {
   return `${getWhatsAppClaimOrigin()}/claim/${token}`
 }
 
-export function buildWhatsAppClaimMessage(amountZAR: number, claimUrl: string): string {
-  return `Hi, I'd like to send you ${formatClaimAmount(amountZAR)} on GoBankless. You can withdraw the funds within 24 hours here ${claimUrl}.`
+export function buildWhatsAppClaimMessage(
+  amountZAR: number,
+  claimUrl: string,
+  amountMZN?: number
+): string {
+  const source = amountMZN ? ` converted from Mt ${amountMZN.toFixed(2)}` : ''
+  return `Hi, I'd like to send you ${formatClaimAmount(amountZAR)}${source} on GoBankless. You can withdraw the funds within 24 hours here ${claimUrl}.`
 }
 
 export function buildWhatsAppClaimAmaText(amountZAR: number, bank: WhatsAppClaimBank): string {

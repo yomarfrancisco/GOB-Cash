@@ -12,7 +12,7 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
-import { formatUSDT, formatZAR } from '@/lib/money'
+import { formatMZN, formatUSDT, formatZAR } from '@/lib/money'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
@@ -110,6 +110,7 @@ function HomeContent() {
   const [openWithdrawTronUsdt, setOpenWithdrawTronUsdt] = useState(false)
   const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
   const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
+  const [withdrawAmountMZN, setWithdrawAmountMZN] = useState(0)
   const [withdrawAmountZAR, setWithdrawAmountZAR] = useState(0) // Store keypad amount for bank withdrawals
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
@@ -264,10 +265,10 @@ function HomeContent() {
   // Freeze at 0 until isBalanceReady (authState === 'authed' && walletsHydrated === true)
   // This prevents demo/animated balances from showing in the header
   // Option A: fiatBalance only (lockedBalance shown separately if needed)
-  let fundsAvailableZAR: number
+  let fundsAvailableMZN: number
   if (isAuthed && !isBalanceReady) {
     // Not ready yet: show 0 (freeze until Firestore arrives)
-    fundsAvailableZAR = 0
+    fundsAvailableMZN = 0
     if (process.env.NODE_ENV !== 'production') {
       console.log('[BALANCE_READY] Header balance forced to 0 (waiting for hydration)', {
         isBalanceReady,
@@ -276,12 +277,12 @@ function HomeContent() {
     }
   } else if (isAuthed && isBalanceReady) {
     // Ready: use Firestore balance (fiatBalance only, no lockedBalance)
-    fundsAvailableZAR = (wallets as any)?.cashZAR?.fiatBalance ?? 0
+    fundsAvailableMZN = (wallets as any)?.cashMZN?.fiatBalance ?? 0
   } else {
     // Unauthed: allow demo values
-    fundsAvailableZAR = (wallets as any)?.cashZAR?.fiatBalance ?? alloc.totalCents / 100
+    fundsAvailableMZN = (wallets as any)?.cashMZN?.fiatBalance ?? (alloc.mznCents ?? 0) / 100
   }
-  const formattedFunds = formatZAR(fundsAvailableZAR)
+  const formattedFunds = formatMZN(fundsAvailableMZN)
   // Log source of balances (Firestore for authenticated users, demo for unauthenticated)
   if (isAuthed && wallets && !demoMode) {
     console.log('[Wallet] Using Firestore wallets:', wallets)
@@ -576,8 +577,8 @@ function HomeContent() {
   const title = 'Wallet'
   
   // Subtitle text - conditional based on auth status
-  const totalBalanceZAR = isAuthed ? ((wallets as any)?.cashZAR?.fiatBalance ?? alloc.totalCents / 100) : 0
-  const formattedBalance = formatZAR(totalBalanceZAR || 0)
+  const totalBalanceMZN = isAuthed ? ((wallets as any)?.cashMZN?.fiatBalance ?? (alloc.mznCents ?? 0) / 100) : 0
+  const formattedBalance = formatMZN(totalBalanceMZN || 0)
   const subtitleText = isAuthed 
     ? `${formattedBalance} available`
     : `Pay anyone anywhere. Free. Private.`
@@ -775,7 +776,7 @@ function HomeContent() {
             setOpenWithdraw(false)
             setTimeout(() => {
               // Open with keypad amount (page.tsx doesn't have chat state, so no callback)
-              openBankingDetails('withdraw', null, withdrawAmountZAR)
+              openBankingDetails('withdraw', null, withdrawAmountZAR, undefined, withdrawAmountMZN)
             }, 220)
           } else {
             setOpenWithdraw(false)
@@ -904,8 +905,7 @@ function HomeContent() {
         mode={amountMode}
         withdrawOnly={amountMode === 'withdraw'}
         flowType={flowType}
-        balanceZAR={200}
-        fxRateZARperUSDT={18.1}
+        balanceMZN={0}
         initialAmount={sendAmountZAR > 0 ? sendAmountZAR : undefined} // Pre-fill amount when returning from SendDetailsSheet
         ctaLabel={amountMode === 'depositCard' ? 'Deposit' : amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
@@ -923,12 +923,12 @@ function HomeContent() {
             }, 220)
           })
         } : undefined}
-        onCashSubmit={amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountZAR }) => {
+        onCashSubmit={amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountMZN, amountZAR }) => {
           // Cash button flow ("Request"): open PaymentDetailsSheet
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           setTimeout(() => {
-            openPaymentDetails('request', amountZAR)
+            openPaymentDetails('request', amountMZN, amountZAR)
           }, 220)
         } : amountMode === 'convert' ? ({ amountZAR }) => {
           // Legacy cash convert flow (helicopter): start scenario and open Ama chat
@@ -945,12 +945,12 @@ function HomeContent() {
             openAmaChatWithScenario('cash_deposit')
           }, 220) // Match other modal transitions
         } : undefined}
-        onCardSubmit={amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountZAR, amountUSDT }) => {
+        onCardSubmit={amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountMZN, amountZAR }) => {
           // Cash button flow ("Pay someone"): open PaymentDetailsSheet
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           setTimeout(() => {
-            openPaymentDetails('pay', amountZAR)
+            openPaymentDetails('pay', amountMZN, amountZAR)
           }, 220)
         } : amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
           // Legacy card payment flow: close keypad, then show SendDetailsSheet
@@ -978,8 +978,9 @@ function HomeContent() {
               }
             : undefined
         }
-        onSubmit={amountMode === 'withdraw' ? ({ amountZAR, amountUSDT }) => {
+        onSubmit={amountMode === 'withdraw' ? ({ amountMZN, amountZAR, amountUSDT }) => {
           // Store amounts for withdrawals
+          setWithdrawAmountMZN(amountMZN)
           setWithdrawAmountZAR(amountZAR)
           if (amountUSDT) {
             setWithdrawCryptoAmountUSDT(amountUSDT)

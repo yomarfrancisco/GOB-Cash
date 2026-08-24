@@ -48,17 +48,18 @@ const MIN_TRX_BALANCE = 10
  * TODO: Make this configurable or fetch from external source
  */
 const FX_RATE_ZAR_PER_USDT = 18.1
+const FX_RATE_MZN_PER_ZAR = 4.5
 
 /**
- * Get user available USDT balance derived from fiatBalance (ZAR)
+ * Get user available USDT balance derived from fiatBalance (MZN)
  * 
- * Converts fiatBalance (ZAR) to USDT using fixed exchange rate.
+ * Converts fiatBalance (MZN) through ZAR to USDT using fixed exchange rates.
  * Only considers fiatBalance (available balance), not lockedBalance.
  * 
- * This matches the deposit flow which credits fiatBalance in ZAR.
+ * This matches the primary MZN cash-in flow.
  */
 async function getUserUsdtBalance(userId: string): Promise<number> {
-  const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
+  const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashMZN')
   const walletSnap = await walletRef.get()
   
   if (!walletSnap.exists) {
@@ -68,9 +69,9 @@ async function getUserUsdtBalance(userId: string): Promise<number> {
   const walletData = walletSnap.data()
   const fiatBalance = walletData?.fiatBalance || 0
   
-  // Convert ZAR to USDT using fixed exchange rate
+  // Convert MZN → ZAR → USDT.
   // Only use fiatBalance (available), not lockedBalance (locked for settlement)
-  const availableUsdt = fiatBalance / FX_RATE_ZAR_PER_USDT
+  const availableUsdt = fiatBalance / FX_RATE_MZN_PER_ZAR / FX_RATE_ZAR_PER_USDT
   
   return availableUsdt
 }
@@ -103,6 +104,7 @@ async function createWithdrawalTransactionAndMessages(
   chainTxId: string, // TRON transaction hash
   withdrawalId: string,
   amountUSDT: number,
+  amountMZN_debited: number,
   amountZAR_debited: number,
   toAddress: string,
   timestamp: admin.firestore.Timestamp
@@ -129,8 +131,10 @@ async function createWithdrawalTransactionAndMessages(
     createdAt: timestamp,
     statusUpdatedAt: timestamp,
     updatedAt: timestamp,
+    amountMzn: amountMZN_debited,
     amountZar: amountZAR_debited,
     amountUSDT: amountUSDT,
+    fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
     fxRateZARperUSDT: FX_RATE_ZAR_PER_USDT,
     network: 'TRON',
     toAddress: toAddress,
@@ -278,19 +282,20 @@ export const tx_withdrawTronUSDT = functions
 
       // 2. Pre-checks: validate balances BEFORE any debit
       // Read wallet to get fiatBalance for conversion and logging
-      const preCheckWalletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
+      const preCheckWalletRef = db.collection('users').doc(userId).collection('wallets').doc('cashMZN')
       const preCheckWalletSnap = await preCheckWalletRef.get()
       const preCheckWalletData = preCheckWalletSnap.exists ? preCheckWalletSnap.data()! : {}
       
       const fiatBalance = preCheckWalletData?.fiatBalance || 0
       const lockedBalance = preCheckWalletData?.lockedBalance || 0
       
-      // Convert fiatBalance (ZAR) to available USDT
+      // Convert fiatBalance (MZN) to available USDT
       const userAvailableUSDT = await getUserUsdtBalance(userId)
       
       // Calculate required ZAR debit amount
       const requiredUSDT = amountUSDT + WITHDRAWAL_FEE_USDT
       const requiredZARDebit = requiredUSDT * FX_RATE_ZAR_PER_USDT
+      const requiredMZNDebit = requiredZARDebit * FX_RATE_MZN_PER_ZAR
       
       // DETERMINISTIC LOGGING: Log all balance details before checks
       console.log('[tx_withdrawTronUSDT] Balance diagnostics:', {
@@ -303,7 +308,8 @@ export const tx_withdrawTronUSDT = functions
         withdrawalFeeUSDT: WITHDRAWAL_FEE_USDT,
         requiredUsdt: requiredUSDT,
         requiredZarDebit: requiredZARDebit,
-        walletPath: `users/${userId}/wallets/cashZAR`,
+        requiredMznDebit: requiredMZNDebit,
+        walletPath: `users/${userId}/wallets/cashMZN`,
       })
       
       // Check user balance (derived from fiatBalance)
@@ -317,6 +323,7 @@ export const tx_withdrawTronUSDT = functions
           requestedAmountUsdt: amountUSDT,
           requiredUsdt: requiredUSDT,
           requiredZarDebit: requiredZARDebit,
+          requiredMznDebit: requiredMZNDebit,
         })
         throw new functions.https.HttpsError(
           'failed-precondition',
@@ -461,7 +468,7 @@ export const tx_withdrawTronUSDT = functions
       }
 
       // 3. All pre-checks passed: proceed with atomic withdrawal (broadcast first, then debit)
-      const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
+      const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashMZN')
       let txId: string | null = null
 
       // Phase 1: Broadcast on-chain transfer from treasury FIRST (before debiting user)
@@ -566,25 +573,26 @@ export const tx_withdrawTronUSDT = functions
             }
           }
 
-          // Read current wallet balance (fiatBalance in ZAR)
+          // Read current wallet balance (fiatBalance in MZN)
           const walletSnap = await t.get(walletRef)
           const walletData = walletSnap.exists ? walletSnap.data()! : {}
           const currentFiatBalance = walletData?.fiatBalance || 0
 
-          // Calculate required ZAR debit
+          // Calculate required MZN debit through the ZAR quote.
           const requiredUSDT = amountUSDT + WITHDRAWAL_FEE_USDT
           const requiredZARDebit = requiredUSDT * FX_RATE_ZAR_PER_USDT
+          const requiredMZNDebit = requiredZARDebit * FX_RATE_MZN_PER_ZAR
 
           // Verify balance hasn't changed (double-spend protection)
-          if (currentFiatBalance < requiredZARDebit) {
+          if (currentFiatBalance < requiredMZNDebit) {
             throw new functions.https.HttpsError(
               'failed-precondition',
               'Insufficient balance (changed during transaction)'
             )
           }
 
-          // Debit user fiatBalance (ZAR)
-          const newFiatBalance = currentFiatBalance - requiredZARDebit
+          // Debit user fiatBalance (MZN)
+          const newFiatBalance = currentFiatBalance - requiredMZNDebit
           t.update(walletRef, {
             fiatBalance: newFiatBalance,
             updatedAt: admin.firestore.Timestamp.now(),
@@ -598,7 +606,9 @@ export const tx_withdrawTronUSDT = functions
             requestedAmountUSDT: amountUSDT,
             sentAmountUSDT: amountUSDT,
             feeUSDT: WITHDRAWAL_FEE_USDT,
+            amountMZN_debited: requiredMZNDebit,
             amountZAR_debited: requiredZARDebit,
+            fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
             fxRate: FX_RATE_ZAR_PER_USDT,
             network: 'TRON',
             status: 'BROADCAST_FULL' as WithdrawalStatus,
@@ -621,6 +631,7 @@ export const tx_withdrawTronUSDT = functions
               txId,
               withdrawalId,
               amountUSDT,
+              requiredMZNDebit,
               requiredZARDebit,
               toAddress.trim(),
               now

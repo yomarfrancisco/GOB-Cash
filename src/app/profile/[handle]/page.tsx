@@ -365,23 +365,22 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
         }}
         mode={amountMode}
         flowType="payment"
-        balanceZAR={200}
-        fxRateZARperUSDT={18.1}
+        balanceMZN={0}
         entryPoint="cashButton"
-        onCashSubmit={({ amountZAR }) => {
+        onCashSubmit={({ amountMZN, amountZAR }) => {
           // Profile flow: skip PaymentDetailsSheet, go straight to Ama chat with locked recipient
           if (!normalizedHandle) return
           setOpenAmount(false)
           setTimeout(() => {
-            openAmaChatWithPaymentScenario('request', amountZAR, normalizedHandle)
+            openAmaChatWithPaymentScenario('request', amountMZN, normalizedHandle, amountZAR)
           }, 220)
         }}
-        onCardSubmit={({ amountZAR }) => {
+        onCardSubmit={({ amountMZN, amountZAR }) => {
           // Profile flow: skip PaymentDetailsSheet, go straight to Ama chat with locked recipient
           if (!normalizedHandle) return
           setOpenAmount(false)
           setTimeout(() => {
-            openAmaChatWithPaymentScenario('pay', amountZAR, normalizedHandle)
+            openAmaChatWithPaymentScenario('pay', amountMZN, normalizedHandle, amountZAR)
           }, 220)
         }}
       />
@@ -393,8 +392,7 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
         }}
         mode={amountMode}
         flowType="payment"
-        balanceZAR={200}
-        fxRateZARperUSDT={18.1}
+        balanceMZN={0}
         entryPoint="sponsorButton"
         sponsorHandle={normalizedHandle || undefined}
         onWeeklySubmit={({ amountZAR }) => {

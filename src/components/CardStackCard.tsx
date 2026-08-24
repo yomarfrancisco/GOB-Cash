@@ -712,7 +712,7 @@ export default function CardStackCard({
             // Placeholder/skeleton while auth state is loading
             <>
               <div className="card-amounts__zar amount-headline" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span className="amt-int card-amounts__whole">R 0</span>
+                <span className="amt-int card-amounts__whole">{card.type === 'mzn' ? 'Mt 0' : 'R 0'}</span>
                 <span className="amt-dot card-amounts__dot">.</span>
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
@@ -728,7 +728,7 @@ export default function CardStackCard({
                   'flash-down': flashDirection === 'down',
                   'amount-topline--compact': shouldUseCompactSizing,
                 })}
-                aria-label={`${zar.toFixed(2)} rand`}
+                aria-label={`${zar.toFixed(2)} ${card.type === 'mzn' ? 'meticais' : 'rand'}`}
                 onAnimationEnd={onFlashEnd}
                 suppressHydrationWarning
               >
@@ -741,7 +741,11 @@ export default function CardStackCard({
                   onStart={() => {
                     // Flash direction is already computed and set
                   }}
-                  renderMajor={(major) => <span className="amt-int card-amounts__whole" suppressHydrationWarning>{major}</span>}
+                  renderMajor={(major) => (
+                    <span className="amt-int card-amounts__whole" suppressHydrationWarning>
+                      {card.type === 'mzn' ? `Mt ${major}` : major}
+                    </span>
+                  )}
                   renderCents={(cents) => (
                     <>
                       <span className="amt-dot card-amounts__dot" suppressHydrationWarning>.</span>

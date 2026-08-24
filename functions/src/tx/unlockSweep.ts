@@ -33,7 +33,7 @@ export const tx_unlockSweep = functions
     console.log(`[tx_unlockSweep] Found ${snapshot.size} transactions to unlock`)
 
     const batch = db.batch()
-    const walletUpdates: Map<string, { userId: string; amount: number }> = new Map()
+    const walletUpdates: Map<string, { userId: string; walletId: 'cashMZN' | 'cashZAR'; amount: number }> = new Map()
 
     snapshot.docs.forEach((doc) => {
       const tx = doc.data()
@@ -42,11 +42,12 @@ export const tx_unlockSweep = functions
 
       // Collect wallet updates (group by userId)
       const userId = tx.userId
-      const amount = tx.amountZar || 0
-      const walletKey = userId
+      const walletId = tx.depositCurrency === 'MZN' ? 'cashMZN' : 'cashZAR'
+      const amount = walletId === 'cashMZN' ? (tx.amountMzn || 0) : (tx.amountZar || 0)
+      const walletKey = `${userId}:${walletId}`
 
       if (!walletUpdates.has(walletKey)) {
-        walletUpdates.set(walletKey, { userId, amount: 0 })
+        walletUpdates.set(walletKey, { userId, walletId, amount: 0 })
       }
       const walletUpdate = walletUpdates.get(walletKey)!
       walletUpdate.amount += amount
@@ -75,17 +76,17 @@ export const tx_unlockSweep = functions
     const walletRefs: Map<string, admin.firestore.DocumentReference> = new Map()
     const walletData: Map<string, any> = new Map()
     
-    for (const { userId } of walletUpdates.values()) {
-      const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
-      walletRefs.set(userId, walletRef)
+    for (const [walletKey, { userId, walletId }] of walletUpdates.entries()) {
+      const walletRef = db.collection('users').doc(userId).collection('wallets').doc(walletId)
+      walletRefs.set(walletKey, walletRef)
       const walletSnap = await walletRef.get()
-      walletData.set(userId, walletSnap.exists ? walletSnap.data()! : { fiatBalance: 0, lockedBalance: 0 })
+      walletData.set(walletKey, walletSnap.exists ? walletSnap.data()! : { fiatBalance: 0, lockedBalance: 0 })
     }
 
     // Update wallets: move from locked to available
-    for (const { userId, amount } of walletUpdates.values()) {
-      const walletRef = walletRefs.get(userId)!
-      const wallet = walletData.get(userId)!
+    for (const [walletKey, { amount }] of walletUpdates.entries()) {
+      const walletRef = walletRefs.get(walletKey)!
+      const wallet = walletData.get(walletKey)!
 
       // Move from locked to available
       batch.set(walletRef, {

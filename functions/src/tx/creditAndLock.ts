@@ -47,11 +47,13 @@ export const tx_creditAndLock = functions
     const lockSeconds = 86400 // 24 hours
     const unlockAt = admin.firestore.Timestamp.fromMillis(now.toMillis() + lockSeconds * 1000)
 
-    // Get user wallet
-    const walletRef = db.collection('users').doc(tx.userId).collection('wallets').doc('cashZAR')
+    const isMznDeposit = tx.depositCurrency === 'MZN'
+    const walletId = isMznDeposit ? 'cashMZN' : 'cashZAR'
+    const currencyLabel = isMznDeposit ? 'Mt' : 'R'
+    const walletRef = db.collection('users').doc(tx.userId).collection('wallets').doc(walletId)
     const walletSnap = await walletRef.get()
 
-    const amount = tx.amountZar || 0
+    const amount = isMznDeposit ? (tx.amountMzn || 0) : (tx.amountZar || 0)
 
     // Create SYSTEM message
     const msgRef = txRef.collection('messages').doc()
@@ -60,7 +62,7 @@ export const tx_creditAndLock = functions
       txId,
       createdAt: now,
       senderType: 'SYSTEM' as const,
-      text: `💳 Credited R${amount.toFixed(2)}. Funds locked for 24h until settlement clears. Available for withdrawal after ${unlockAt.toDate().toLocaleString()}.`,
+      text: `💳 Credited ${currencyLabel}${amount.toFixed(2)}. Funds locked for 24h until settlement clears. Available for withdrawal after ${unlockAt.toDate().toLocaleString()}.`,
       metadata: {
         status: 'LOCKED',
         unlockAt: unlockAt.toMillis(),

@@ -28,9 +28,9 @@ export type Transaction = {
   createdAt: any
   statusUpdatedAt?: any
   unlockAt?: any
+  amountMzn?: number
   amountZar?: number
-  amountUSDT?: number // For PAYMENT_TO_USER
-  fxRateZARperUSDT?: number // For PAYMENT_TO_USER
+  fxRateMZNperZAR?: number // For MZN → ZAR payment
   receiverHandle?: string // For PAYMENT_TO_USER
   withdrawal?: {
     network?: 'TRON'

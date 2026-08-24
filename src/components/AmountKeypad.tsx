@@ -3,22 +3,22 @@
 import React from 'react'
 
 type AmountKeypadProps = {
-  currencySymbol?: string // default 'R'
+  currencySymbol?: string // default 'Mt'
   value: string // numeric string (e.g. "100.00" or "100")
   onChange: (next: string) => void
   onBackspace: () => void
   onDot: () => void // decimal point
   onSubmit: () => void // CTA
-  ctaLabel: string // e.g. "Transfer USDT"
+  ctaLabel: string
   hideCTA?: boolean // if true, don't render the CTA (moved to parent)
   isConvertMode?: boolean // if true, show "0% transaction fee" instead of "excl. 2.5–6.5% transaction fee"
   isHelicopterConvert?: boolean // if true, show custom fee note for helicopter/map flow
-  amountZAR?: number // current amount in ZAR for dynamic fee note
+  amountMZN?: number // current amount in MZN for dynamic fee note
   customFeeText?: string // custom fee text override (e.g. "excl. 3% transaction fee")
 }
 
 export default function AmountKeypad({
-  currencySymbol = 'R',
+  currencySymbol = 'Mt',
   value,
   onChange,
   onBackspace,
@@ -28,7 +28,7 @@ export default function AmountKeypad({
   hideCTA = false,
   isConvertMode = false,
   isHelicopterConvert = false,
-  amountZAR = 0,
+  amountMZN = 0,
   customFeeText,
 }: AmountKeypadProps) {
   const handleNumber = (num: string) => {
@@ -90,7 +90,7 @@ export default function AmountKeypad({
             {customFeeText ? (
               customFeeText
             ) : isHelicopterConvert ? (
-              amountZAR > 0 ? '3% fee to deposit / withdraw' : 'Cash ↔ USDT with verified agents.'
+              amountMZN > 0 ? '3% fee to deposit / withdraw' : 'MZN ↔ ZAR with verified agents.'
             ) : isConvertMode ? (
               '0% transaction fee'
             ) : (
@@ -108,7 +108,7 @@ export default function AmountKeypad({
           {customFeeText ? (
             customFeeText
           ) : isHelicopterConvert ? (
-            amountZAR > 0 ? '$5k min cash deposit / withdrawal' : 'Cash ↔ USDT with verified agents.'
+            amountMZN > 0 ? 'Mt 45 min cash deposit / withdrawal' : 'MZN ↔ ZAR with verified agents.'
           ) : isConvertMode ? (
             '0% transaction fee'
           ) : (

@@ -15,6 +15,7 @@ import * as admin from 'firebase-admin'
 import type { TxStatus } from './state'
 
 const db = admin.firestore()
+const FX_RATE_MZN_PER_ZAR = 4.5
 
 // CRITICAL: Must use .https.onCall (not .https.onRequest)
 // This ensures proper CORS handling and callable endpoint resolution
@@ -38,7 +39,7 @@ export const tx_createBankDepositRequest = functions
     // Extract and validate inputs
     const {
       receiverId,
-      amountZar,
+      amountMzn,
       bankCountry,
       bankId,
       depositCurrency,
@@ -51,9 +52,9 @@ export const tx_createBankDepositRequest = functions
       console.error('[tx_createBankDepositRequest] Invalid receiverId', { receiverId, type: typeof receiverId })
       throw new functions.https.HttpsError('invalid-argument', 'receiverId is required')
     }
-    if (!amountZar || typeof amountZar !== 'number' || amountZar <= 0) {
-      console.error('[tx_createBankDepositRequest] Invalid amountZar', { amountZar, type: typeof amountZar })
-      throw new functions.https.HttpsError('invalid-argument', 'amountZar must be a positive number')
+    if (!amountMzn || typeof amountMzn !== 'number' || amountMzn <= 0) {
+      console.error('[tx_createBankDepositRequest] Invalid amountMzn', { amountMzn, type: typeof amountMzn })
+      throw new functions.https.HttpsError('invalid-argument', 'amountMzn must be a positive number')
     }
     if (bankCountry && typeof bankCountry !== 'string') {
       throw new functions.https.HttpsError('invalid-argument', 'bankCountry must be a string')
@@ -71,6 +72,7 @@ export const tx_createBankDepositRequest = functions
       throw new functions.https.HttpsError('invalid-argument', 'depositDetails must be an object')
     }
 
+    const amountZar = Math.round((amountMzn / FX_RATE_MZN_PER_ZAR) * 100) / 100
     const now = admin.firestore.Timestamp.now()
     const participants = [userId, receiverId, 'samba'] // lock participants server-side
     
@@ -94,7 +96,9 @@ export const tx_createBankDepositRequest = functions
       statusUpdatedAt: now,
       updatedAt: now,
       expiresAt, // Timeout for AWAITING_DEPOSIT state
+      amountMzn,
       amountZar,
+      fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
       unlockAt: null,
       withdrawal: {},
       // Enrichment fields (optional, provided by client)
@@ -108,12 +112,14 @@ export const tx_createBankDepositRequest = functions
 
     // Create initial SYSTEM message
     const msgRef = txRef.collection('messages').doc()
+    const requestCurrency = depositCurrency || (bankCountry === 'MZ' ? 'MZN' : 'ZAR')
+    const requestAmount = requestCurrency === 'MZN' ? amountMzn : amountZar
     const message = {
       id: msgRef.id,
       txId,
       createdAt: now,
       senderType: 'SYSTEM' as const,
-      text: `Bank deposit request created for R${amountZar.toFixed(2)}. Please deposit the funds and mark as sent.`,
+      text: `Bank deposit request created for ${requestCurrency} ${requestAmount.toFixed(2)}. Please deposit the funds and mark as sent.`,
       metadata: {
         status: 'AWAITING_DEPOSIT',
       },
@@ -130,6 +136,7 @@ export const tx_createBankDepositRequest = functions
         txId,
         userId,
         receiverId,
+        amountMzn,
         amountZar,
         status: 'AWAITING_DEPOSIT',
       })
@@ -156,7 +163,8 @@ export const tx_createBankDepositRequest = functions
           
           // Format currency: MZN X,XXX.XX or ZAR X,XXX.XX
           const currency = depositCurrency || (bankCountry === 'MZ' ? 'MZN' : 'ZAR')
-          const formattedAmount = amountZar.toLocaleString('en-US', {
+          const depositAmount = currency === 'MZN' ? amountMzn : amountZar
+          const formattedAmount = depositAmount.toLocaleString('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })
@@ -168,7 +176,8 @@ export const tx_createBankDepositRequest = functions
           // Generate Ama intro message with compact formatting and button reference
           // Use single \n only - will be rendered as single block with white-space: pre-line
           // Three compact paragraphs with line gaps between them
-          const introText = `Hi ${handleCustomer} — I'm Ama from GoBankless.\n\nTo confirm:\n• Deposit amount: **${amountDisplay}**\n• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: USDT (TRC-20)\n• Next step: After you send the bank transfer, confirm by tapping the button below **"I've deposited"** and upload proof of payment (screenshot, PDF or reference).\n\nWhen you're ready, **tap the button below**.`
+          const walletCurrency = currency === 'MZN' ? 'MZN balance' : 'ZAR balance'
+          const introText = `Hi ${handleCustomer} — I'm Ama from GoBankless.\n\nTo confirm:\n• Deposit amount: **${amountDisplay}**\n• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: ${walletCurrency}\n• Next step: After you send the bank transfer, confirm by tapping the button below **"I've deposited"** and upload proof of payment (screenshot, PDF or reference).\n\nWhen you're ready, **tap the button below**.`
 
           const introMsgRef = txRef.collection('messages').doc()
           const introMessage = {

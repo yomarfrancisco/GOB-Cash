@@ -5,7 +5,8 @@ import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
-import { formatZAR, formatZARWithDot, formatUSDT } from '@/lib/money'
+import { formatMZN, formatMZNWithDot, formatZAR } from '@/lib/money'
+import { MZN_PER_ZAR, mznToZar, zarToUsdt } from '@/lib/mznZar'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import '@/styles/amount-sheet.css'
@@ -15,26 +16,27 @@ type AmountSheetProps = {
   onClose: () => void
   mode: 'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert' // for header text (e.g., "Buy", "Withdraw", "Convert")
   flowType?: 'payment' | 'transfer' // default 'payment'
-  balanceZAR?: number // show at top small "R200.00 balance"
-  fxRateZARperUSDT?: number // default 18.10 if undefined
-  ctaLabel?: string // default "Transfer USDT"
+  balanceMZN?: number
+  fxRateMZNperZAR?: number
+  ctaLabel?: string
   onSubmit?: (payload: {
+    amountMZN: number
     amountZAR: number
     amountUSDT?: number
     mode?: 'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'
   }) => void
   onAmountSubmit?: (amountZAR: number) => void // simpler callback for send/transfer flow
   showDualButtons?: boolean // if true, show "Cash" and "Card" buttons instead of single CTA
-  onCashSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Cash button
-  onCardSubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Card button
+  onCashSubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Cash button
+  onCardSubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Card button
   entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' | 'sponsorButton' | 'depositKeypad' // distinguishes entry point for conditional button rendering
   sponsorHandle?: string // profile handle for sponsor flow (e.g. '@ama')
-  onWeeklySubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Weekly button (sponsor flow)
-  onMonthlySubmit?: (payload: { amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Monthly button (sponsor flow)
+  onWeeklySubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Weekly button (sponsor flow)
+  onMonthlySubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Monthly button (sponsor flow)
   onScanClick?: () => void // callback for scan icon (only shown for cashButton entryPoint)
   initialAmount?: number // optional initial amount to pre-fill (for back navigation)
   withdrawOnly?: boolean // if true, force single CTA button and skip dual-button logic
-  onHelicopterWithdraw?: (payload: { amountZAR: number; amountUSDT?: number }) => void // callback for helicopter "Withdraw Cash" button
+  onHelicopterWithdraw?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number }) => void // callback for helicopter "Withdraw Cash" button
   depositMethod?: 'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null // deposit method for card deposit flow customization
   customFeeText?: string // custom fee text override (for card deposit: "excl. 3% transaction fee")
 }
@@ -44,8 +46,8 @@ export default function AmountSheet({
   onClose,
   mode,
   flowType = 'payment',
-  balanceZAR = 200,
-  fxRateZARperUSDT = 18.1,
+  balanceMZN,
+  fxRateMZNperZAR = MZN_PER_ZAR,
   ctaLabel,
   onSubmit,
   onAmountSubmit,
@@ -67,8 +69,8 @@ export default function AmountSheet({
   const { isAuthed } = useAuthStore()
   const { alloc } = useWalletAlloc()
   
-  // Calculate balance: show 0 for unauthenticated users, real balance for authenticated
-  const displayBalanceZAR = isAuthed ? alloc.totalCents / 100 : 0
+  // The primary balance and input currency are MZN.
+  const displayBalanceMZN = isAuthed ? (alloc.mznCents ?? 0) / 100 : (balanceMZN ?? 0)
 
   // Reset amount when sheet opens, or use initialAmount if provided
   useEffect(() => {
@@ -85,8 +87,10 @@ export default function AmountSheet({
     }
   }, [open, initialAmount])
 
-  const amountZAR = parseFloat(amount) || 0
-  const amountUSDT = amountZAR / fxRateZARperUSDT
+  const amountMZN = parseFloat(amount) || 0
+  const amountZAR = mznToZar(amountMZN, fxRateMZNperZAR)
+  // Still needed by the explicitly selected external-crypto withdrawal path.
+  const amountUSDT = zarToUsdt(amountZAR)
 
   const handleNumberChange = (next: string) => {
     // Enforce max 2 decimal places
@@ -127,7 +131,8 @@ export default function AmountSheet({
       onAmountSubmit(amountZAR)
     } else if (onSubmit) {
       onSubmit({
-        amountZAR: amountZAR,
+        amountMZN,
+        amountZAR,
         amountUSDT: mode !== 'depositCard' ? amountUSDT : undefined,
         mode,
       })
@@ -153,20 +158,22 @@ export default function AmountSheet({
       hasOnSubmit: !!onSubmit,
     })
 
-    if (!amountZAR) return
+    if (!amountMZN) return
 
     // For all non-withdraw flows, pass through the *prop* mode, not some hard-coded arg
     if (onCashSubmit) {
       onCashSubmit({
-        amountZAR: amountZAR,
-        amountUSDT: amountUSDT,
+        amountMZN,
+        amountZAR,
+        amountUSDT,
         mode,
       })
     } else if (onSubmit) {
       // Fallback to existing onSubmit for backward compatibility
       onSubmit({
-        amountZAR: amountZAR,
-        amountUSDT: amountUSDT,
+        amountMZN,
+        amountZAR,
+        amountUSDT,
         mode,
       })
     }
@@ -176,8 +183,9 @@ export default function AmountSheet({
     // Handler for card payment flow ("Pay")
     if (onCardSubmit) {
       onCardSubmit({
-        amountZAR: amountZAR,
-        amountUSDT: amountUSDT,
+        amountMZN,
+        amountZAR,
+        amountUSDT,
         mode: 'convert',
       })
     }
@@ -199,11 +207,13 @@ export default function AmountSheet({
   const isCardDeposit = mode === 'deposit' && entryPoint === 'cardDeposit' && depositMethod === 'card'
   
   // Minimum amount for cash transactions (helicopter flow only)
-  const MIN_CASH_ZAR = 10
-  const meetsMinCash = isHelicopterConvert ? amountZAR >= MIN_CASH_ZAR : true
+  const MIN_CASH_MZN = 45
+  const meetsMinCash = isHelicopterConvert ? amountMZN >= MIN_CASH_MZN : true
   
   const modeLabel = isCardDeposit
     ? 'Deposit'
+    : mode === 'deposit' && entryPoint === 'depositKeypad'
+    ? 'Cash-in / out'
     : flowType === 'transfer' 
     ? 'Transfer' 
     : mode === 'deposit' || mode === 'depositCard' 
@@ -221,9 +231,9 @@ export default function AmountSheet({
     ? 'Send' 
     : mode === 'convert'
     ? 'Request agent'
-    : 'Transfer USDT'
+    : 'Continue'
   const finalCtaLabel = ctaLabel || defaultCtaLabel
-  const isPositive = amountZAR > 0
+  const isPositive = amountMZN > 0
 
   // Format amount for display (remove leading zeros except "0.")
   const displayAmount = amount === '0' ? '0' : amount.replace(/^0+(?=\d)/, '')
@@ -251,7 +261,7 @@ export default function AmountSheet({
           )}
           <div className="amount-sheet__header-content">
             <div className="amount-sheet__balance">
-              {formatZAR(displayBalanceZAR)} <span className="amount-sheet__balance-label">balance</span>
+              {formatMZN(displayBalanceMZN)} <span className="amount-sheet__balance-label">balance</span>
             </div>
             <div className="amount-sheet__title">{modeLabel}</div>
           </div>
@@ -260,12 +270,12 @@ export default function AmountSheet({
         <div className="amount-body">
           <div className="amount-sheet__amount-display">
             <FitAmount
-              text={formatZARWithDot(amountZAR)}
+              text={formatMZNWithDot(amountMZN)}
               maxPx={72}
               minPx={28}
               className="amount-sheet__zar amount-fit"
             />
-            <div className="amount-sheet__usdt-chip">{formatUSDT(amountUSDT)}</div>
+            <div className="amount-sheet__usdt-chip">{formatZAR(amountZAR)}</div>
           </div>
           <AmountKeypad
             value={displayAmount}
@@ -277,7 +287,7 @@ export default function AmountSheet({
             hideCTA
             isConvertMode={mode === 'convert'}
             isHelicopterConvert={isHelicopterConvert}
-            amountZAR={amountZAR}
+            amountMZN={amountMZN}
             customFeeText={customFeeText}
           />
         </div>
@@ -307,11 +317,11 @@ export default function AmountSheet({
               <button 
                 className="amount-keypad__cta amount-keypad__cta--card" 
                 onClick={() => {
-                  if (!amountZAR) return
+                  if (!amountMZN) return
                   if (onHelicopterWithdraw) {
-                    onHelicopterWithdraw({ amountZAR, amountUSDT })
+                    onHelicopterWithdraw({ amountMZN, amountZAR, amountUSDT })
                   } else if (onSubmit) {
-                    onSubmit({ amountZAR, amountUSDT, mode: 'withdraw' as any })
+                    onSubmit({ amountMZN, amountZAR, amountUSDT, mode: 'withdraw' as any })
                   }
                 }}
                 type="button"
@@ -326,10 +336,11 @@ export default function AmountSheet({
               <button 
                 className="amount-keypad__cta amount-keypad__cta--cash" 
                 onClick={() => {
-                  if (!amountZAR || !onWeeklySubmit) return
+                  if (!amountMZN || !onWeeklySubmit) return
                   onWeeklySubmit({
-                    amountZAR: amountZAR,
-                    amountUSDT: amountUSDT,
+                    amountMZN,
+                    amountZAR,
+                    amountUSDT,
                     mode: 'convert',
                   })
                 }} 
@@ -341,10 +352,11 @@ export default function AmountSheet({
               <button 
                 className="amount-keypad__cta amount-keypad__cta--card" 
                 onClick={() => {
-                  if (!amountZAR || !onMonthlySubmit) return
+                  if (!amountMZN || !onMonthlySubmit) return
                   onMonthlySubmit({
-                    amountZAR: amountZAR,
-                    amountUSDT: amountUSDT,
+                    amountMZN,
+                    amountZAR,
+                    amountUSDT,
                     mode: 'convert',
                   })
                 }} 

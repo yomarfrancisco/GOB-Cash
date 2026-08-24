@@ -13,5 +13,14 @@ export function formatZARWithDot(amount: number): string {
   return `${sign}R ${wholeWithSep}.${cents}`
 }
 
+export const formatMZN = (n: number) => formatMZNWithDot(n)
+
+export function formatMZNWithDot(amount: number): string {
+  const [whole, cents] = Math.abs(amount).toFixed(2).split('.')
+  const wholeWithSep = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+  const sign = amount < 0 ? '-' : ''
+  return `${sign}Mt ${wholeWithSep}.${cents}`
+}
+
 export const formatUSDT = (n: number) => `USDT ${n.toFixed(2)}`
 

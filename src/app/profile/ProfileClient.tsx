@@ -383,7 +383,8 @@ export default function ProfileClient() {
   const [isSubmittingDeposit, setIsSubmittingDeposit] = useState(false)
   const [depositChatError, setDepositChatError] = useState<string | null>(null)
   const [openAgentInbox, setOpenAgentInbox] = useState(false)
-  const [depositAmountZAR, setDepositAmountZAR] = useState(0) // Persist deposit amount through flow
+  const [depositAmountMZN, setDepositAmountMZN] = useState(0)
+  const [depositAmountZAR, setDepositAmountZAR] = useState(0) // Converted ZAR quote
   
   // Check if current user is agent
   const auth = getFirebaseAuth()
@@ -408,7 +409,8 @@ export default function ProfileClient() {
   const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
   const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
   const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
-  const [withdrawAmountZAR, setWithdrawAmountZAR] = useState(0) // Store keypad amount for bank withdrawals
+  const [withdrawAmountMZN, setWithdrawAmountMZN] = useState(0)
+  const [withdrawAmountZAR, setWithdrawAmountZAR] = useState(0) // Converted ZAR payout
 
   const openPaymentsSheet = useCallback(() => setOpenPayments(true), [])
   const closePaymentsSheet = useCallback(() => setOpenPayments(false), [])
@@ -953,7 +955,7 @@ export default function ProfileClient() {
                 setTimeout(() => {
                   setDepositChatTxId(txId)
                 }, 100)
-              })
+              }, withdrawAmountMZN)
             }, 220)
           } else {
             // Other methods - existing behavior (shouldn't happen with current options)
@@ -1097,6 +1099,7 @@ export default function ProfileClient() {
             // Deposit keypad: close and clear amount
             setOpenAmount(false)
             setAmountEntryPoint(undefined)
+            setDepositAmountMZN(0)
             setDepositAmountZAR(0) // Clear amount on close
           } else {
             setOpenAmount(false)
@@ -1105,9 +1108,8 @@ export default function ProfileClient() {
         }}
         mode={amountMode}
         flowType={flowType}
-        balanceZAR={200}
-        fxRateZARperUSDT={18.1}
-        ctaLabel={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'Next' : amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
+        balanceMZN={0}
+        ctaLabel={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'Next' : amountMode === 'deposit' ? 'Continue' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
         depositMethod={depositMethod}
@@ -1125,15 +1127,16 @@ export default function ProfileClient() {
             }, 220)
           })
         } : undefined}
-        onCashSubmit={amountMode === 'convert' ? ({ amountZAR }) => {
+        onCashSubmit={amountMode === 'convert' ? ({ amountMZN, amountZAR }) => {
           // Cash convert flow ("Request" button): open PaymentDetailsSheet
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           setTimeout(() => {
-            openPaymentDetails('request', amountZAR)
+            openPaymentDetails('request', amountMZN, amountZAR)
           }, 220)
-        } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountZAR, amountUSDT }) => {
+        } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountMZN, amountZAR, amountUSDT }) => {
           // Deposit keypad: "Withdraw" button - store amount and open withdraw sheet
+          setWithdrawAmountMZN(amountMZN)
           setWithdrawAmountZAR(amountZAR) // Store ZAR amount for bank withdrawals
           if (amountUSDT) {
             setWithdrawCryptoAmountUSDT(amountUSDT)
@@ -1144,17 +1147,17 @@ export default function ProfileClient() {
             openWithdrawSheet()
           }, 220)
         } : undefined}
-        onCardSubmit={amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
+        onCardSubmit={amountMode === 'convert' ? ({ amountMZN, amountZAR }) => {
           // Card payment flow ("Pay someone"): open PaymentDetailsSheet
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           setTimeout(() => {
-            openPaymentDetails('pay', amountZAR)
+            openPaymentDetails('pay', amountMZN, amountZAR)
           }, 220)
-        } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountZAR }) => {
+        } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountMZN, amountZAR }) => {
           // Deposit keypad: "Deposit" button - commit amount to store and proceed to DepositSheet
-          console.log('[Deposit] commit amount=', amountZAR)
-          if (amountZAR > 0) {
+          console.log('[Deposit] commit amount=', { amountMZN, amountZAR })
+          if (amountMZN > 0) {
             // Commit to Zustand store
             usePendingDeposit.getState().setPendingDeposit({
               direction: 'deposit',
@@ -1162,6 +1165,7 @@ export default function ProfileClient() {
               source: 'keypad',
             })
           }
+          setDepositAmountMZN(amountMZN)
           setDepositAmountZAR(amountZAR)
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
@@ -1169,9 +1173,10 @@ export default function ProfileClient() {
             openDepositSheet()
           }, 220)
         } : undefined}
-        onSubmit={amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
+        onSubmit={amountMode !== 'send' && amountMode !== 'convert' ? ({ amountMZN, amountZAR, amountUSDT }) => {
           // Withdraw mode: store amount and open withdraw method sheet
           if (amountMode === 'withdraw') {
+            setWithdrawAmountMZN(amountMZN)
             setWithdrawAmountZAR(amountZAR)
             if (amountUSDT) {
               setWithdrawCryptoAmountUSDT(amountUSDT)
@@ -1252,7 +1257,7 @@ export default function ProfileClient() {
           }
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
-        initialAmount={amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountZAR > 0 ? depositAmountZAR : undefined}
+        initialAmount={amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountMZN > 0 ? depositAmountMZN : undefined}
       />
       <SendDetailsSheet
         open={openSendDetails}
@@ -1346,6 +1351,7 @@ export default function ProfileClient() {
           setOpenBankTransferDetails(false)
           // Reset bank selection when closing
           setSelectedBank(undefined)
+          setDepositAmountMZN(0)
           setDepositAmountZAR(0) // Clear deposit amount when closing
         }}
         onBack={() => {
@@ -1365,7 +1371,7 @@ export default function ProfileClient() {
               return
             }
 
-            if (depositAmountZAR <= 0) {
+            if (depositAmountMZN <= 0 || depositAmountZAR <= 0) {
               setIsSubmittingDeposit(false)
               alert('Please enter a valid deposit amount.')
               return
@@ -1393,6 +1399,7 @@ export default function ProfileClient() {
             // Create transaction async (don't block sheet opening)
             const { txId } = await tx_createBankDepositRequest({
               receiverId: AGENT_UID,
+              amountMzn: depositAmountMZN,
               amountZar: depositAmountZAR,
               bankCountry: bankTransferCountry,
               bankId: selectedBank || (bankTransferCountry === 'MZ' ? 'BCI' : 'FNB'),
@@ -1400,7 +1407,7 @@ export default function ProfileClient() {
               depositReference: config.referencePrefix,
               chatStep: 'INTRO_CONFIRM_INTENT',
               depositDetails: {
-                amount: depositAmountZAR,
+                amount: bankTransferCountry === 'MZ' ? depositAmountMZN : depositAmountZAR,
                 currency: bankTransferCountry === 'MZ' ? 'MZN' : 'ZAR',
                 country: countryName,
                 bankName: config.bankName,
@@ -1440,6 +1447,7 @@ export default function ProfileClient() {
           setOpenDepositChat(false)
           setDepositChatTxId(null)
           setDepositChatError(null)
+          setDepositAmountMZN(0)
           setDepositAmountZAR(0) // Clear deposit amount when chat closes
         }}
         txId={depositChatTxId}

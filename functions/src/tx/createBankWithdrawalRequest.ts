@@ -11,6 +11,7 @@ import type { TxStatus } from './state'
 import { sendEmailViaResend, getCoreAgentEmail } from '../utils/resendEmail'
 
 const db = admin.firestore()
+const FX_RATE_MZN_PER_ZAR = 4.5
 
 export const tx_createBankWithdrawalRequest = functions
   .region('us-central1')
@@ -21,7 +22,7 @@ export const tx_createBankWithdrawalRequest = functions
 
     const userId = context.auth.uid
     const {
-      amountZAR,
+      amountMZN,
       country,
       bankName,
       accountHolderName,
@@ -30,8 +31,8 @@ export const tx_createBankWithdrawalRequest = functions
     } = data
 
     // Validate input
-    if (!amountZAR || typeof amountZAR !== 'number' || amountZAR <= 0) {
-      throw new functions.https.HttpsError('invalid-argument', 'amountZAR must be a positive number')
+    if (!amountMZN || typeof amountMZN !== 'number' || amountMZN <= 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'amountMZN must be a positive number')
     }
 
     if (!country || typeof country !== 'string') {
@@ -50,6 +51,7 @@ export const tx_createBankWithdrawalRequest = functions
       throw new functions.https.HttpsError('invalid-argument', 'swiftBic is required')
     }
 
+    const amountZAR = Math.round((amountMZN / FX_RATE_MZN_PER_ZAR) * 100) / 100
     const now = admin.firestore.Timestamp.now()
     
     // Generate transaction ID
@@ -68,8 +70,11 @@ export const tx_createBankWithdrawalRequest = functions
     const bankWithdrawal = {
       id: txId,
       userId,
+      requestedAmountMZN: amountMZN,
       requestedAmountZAR: amountZAR, // Use requestedAmountZAR as source of truth
+      amountMZN,
       amountZAR: amountZAR, // Keep for backward compatibility
+      fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
       country: country.trim(),
       bankName: (bankName || `${country} Bank`).trim(),
       accountHolderName: accountHolderName.trim(),
@@ -92,7 +97,9 @@ export const tx_createBankWithdrawalRequest = functions
       createdAt: now,
       statusUpdatedAt: now,
       updatedAt: now,
+      amountMzn: amountMZN,
       amountZar: amountZAR,
+      fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
       bankWithdrawalId: txId, // Link to /bankWithdrawals/{txId}
       bankWithdrawal: {
         country: country.trim(),
@@ -105,6 +112,7 @@ export const tx_createBankWithdrawalRequest = functions
 
     // Format message content
     const formattedAmount = `R${amountZAR.toFixed(2)}`
+    const formattedSourceAmount = `Mt ${amountMZN.toFixed(2)}`
     const bankDisplayName = bankName || `${country} Bank`
     
     // Create SAMBA confirmation message with button metadata
@@ -115,7 +123,7 @@ export const tx_createBankWithdrawalRequest = functions
       createdAt: now,
       senderType: 'SAMBA' as const,
       senderUid: 'samba',
-      text: `Bank withdrawal request received ✅\n\n**Amount:** ${formattedAmount}\n**Method:** Bank transfer\n**Country:** ${country}\n**Bank:** ${bankDisplayName}\n**Account holder:** ${accountHolderName}\n\nYou will receive ${formattedAmount} in your bank account.\n\n*Note: Bank payouts typically take 24–72 hours depending on your bank/network.*`,
+      text: `Bank withdrawal request received ✅\n\n**Converted from:** ${formattedSourceAmount}\n**Amount:** ${formattedAmount}\n**Method:** Bank transfer\n**Country:** ${country}\n**Bank:** ${bankDisplayName}\n**Account holder:** ${accountHolderName}\n\nYou will receive ${formattedAmount} in your bank account.\n\n*Note: Bank payouts typically take 24–72 hours depending on your bank/network.*`,
       metadata: {
         bankWithdrawalId: txId, // Store for PDF download button
         hasDownloadButton: true, // Flag to show download button in UI
@@ -123,31 +131,31 @@ export const tx_createBankWithdrawalRequest = functions
     }
 
     // Reserve balance and write transaction, bank withdrawal record, and message atomically
-    const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
+    const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashMZN')
     
     await db.runTransaction(async (t) => {
       // Read current wallet balance
       const walletSnap = await t.get(walletRef)
       const walletData = walletSnap.exists ? walletSnap.data()! : {}
       const currentFiatBalance = walletData?.fiatBalance || 0
-      const currentBankWithdrawLocked = walletData?.bankWithdrawLockedZar || 0
+      const currentBankWithdrawLocked = walletData?.bankWithdrawLockedMzn || 0
       
       // Verify sufficient balance
-      if (currentFiatBalance < amountZAR) {
+      if (currentFiatBalance < amountMZN) {
         throw new functions.https.HttpsError(
           'failed-precondition',
-          `Insufficient balance. Available: R${currentFiatBalance.toFixed(2)}, Requested: R${amountZAR.toFixed(2)}`
+          `Insufficient balance. Available: Mt ${currentFiatBalance.toFixed(2)}, Requested: Mt ${amountMZN.toFixed(2)}`
         )
       }
       
-      // Reserve balance: move from fiatBalance to bankWithdrawLockedZar
-      const newFiatBalance = currentFiatBalance - amountZAR
-      const newBankWithdrawLocked = currentBankWithdrawLocked + amountZAR
+      // Reserve the MZN source balance until the ZAR payout is completed.
+      const newFiatBalance = currentFiatBalance - amountMZN
+      const newBankWithdrawLocked = currentBankWithdrawLocked + amountMZN
       
       // Update wallet with reserved balance
       t.update(walletRef, {
         fiatBalance: newFiatBalance,
-        bankWithdrawLockedZar: newBankWithdrawLocked,
+        bankWithdrawLockedMzn: newBankWithdrawLocked,
         updatedAt: now,
       })
       

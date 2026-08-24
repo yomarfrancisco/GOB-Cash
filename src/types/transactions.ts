@@ -52,6 +52,7 @@ export interface BankDepositTransaction {
   bankId: 'ABSA' | 'BCI' | 'FNB'
   depositCurrency: 'ZAR' | 'MZN'
   depositReference: string
+  amountMzn: number
   amountZar: number
   withdrawalAddressCandidate?: string // TRON address collected from user
   chatStep: ChatStep
@@ -77,9 +78,9 @@ export interface PaymentTransaction {
   senderId: string // Payer UID
   receiverId: string // Payee UID
   participants: string[] // [senderId, receiverId, 'samba']
+  amountMzn: number
   amountZar: number
-  amountUSDT: number
-  fxRateZARperUSDT: number // Snapshot of rate used
+  fxRateMZNperZAR: number // Snapshot of rate used
   receiverHandle: string // For display/search
   createdAt: any
   updatedAt: any

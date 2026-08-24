@@ -50,13 +50,14 @@ const FALLBACK_CONTACTS: PaymentContact[] = [
 type PaymentDetailsSheetProps = {
   onSubmit: (payload: {
     mode: PaymentDetailsMode
+    amountMZN: number
     amountZAR: number
     handle: string
   }) => void
 }
 
 export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetProps) {
-  const { isOpen, mode, amountZAR, close } = usePaymentDetailsSheet()
+  const { isOpen, mode, amountMZN, amountZAR, close } = usePaymentDetailsSheet()
   const [recipient, setRecipient] = useState('')
   const [recipientError, setRecipientError] = useState('')
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
@@ -202,10 +203,10 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
 
   // Button is enabled when recipient is valid
   const isValid = validateRecipientInput(recipient)
-  const canSubmit = isValid && !recipientError && mode !== null && amountZAR !== null
+  const canSubmit = isValid && !recipientError && mode !== null && amountMZN !== null && amountZAR !== null
 
   const handleSubmit = () => {
-    if (!canSubmit || !mode || amountZAR === null) return
+    if (!canSubmit || !mode || amountMZN === null || amountZAR === null) return
 
     // Normalize the recipient input
     const normalizedRecipient = normalizeRecipientInput(recipient)
@@ -219,6 +220,7 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
     // Call parent's onSubmit handler
     onSubmit({
       mode,
+      amountMZN,
       amountZAR,
       handle: normalizedRecipient, // Keep 'handle' name for backward compatibility
     })
@@ -228,8 +230,8 @@ export default function PaymentDetailsSheet({ onSubmit }: PaymentDetailsSheetPro
   }
 
   const handlePayViaWhatsApp = () => {
-    if (amountZAR === null) return
-    openWhatsAppPaymentDraft(amountZAR, recipient)
+    if (amountMZN === null || amountZAR === null) return
+    openWhatsAppPaymentDraft(amountMZN, amountZAR, recipient)
     close()
   }
 

@@ -5,7 +5,7 @@
 
 import { useFinancialInboxStore, type PaymentFlowSummaryMode } from '@/state/financialInbox'
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
-import { formatZAR } from '@/lib/money'
+import { formatMZN, formatZAR } from '@/lib/money'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useNotificationStore } from '@/store/notifications'
 import { isWithinRadius } from '@/lib/location/distance'
@@ -35,8 +35,9 @@ export function openAmaChatWithScenario(scenarioType: 'cash_deposit' | 'cash_wit
  */
 export function openAmaChatWithPaymentScenario(
   mode: PaymentFlowSummaryMode,
-  amountZAR: number,
-  handle: string
+  amountMZN: number,
+  handle: string,
+  amountZAR?: number
 ): void {
   const store = useFinancialInboxStore.getState()
   
@@ -45,7 +46,7 @@ export function openAmaChatWithPaymentScenario(
   store.setLastPaymentFlow({
     id,
     mode,
-    amountZAR,
+    amountZAR: amountZAR ?? amountMZN,
     handle,
     createdAt: Date.now(),
   })
@@ -54,7 +55,9 @@ export function openAmaChatWithPaymentScenario(
   store.ensurePortfolioManagerThread()
   
   // Format amount for display
-  const amountLabel = formatZAR(amountZAR)
+  const amountLabel = amountZAR === undefined
+    ? formatMZN(amountMZN)
+    : `${formatMZN(amountMZN)} (${formatZAR(amountZAR)})`
   
   // Seed initial confirmation messages based on mode
   if (mode === 'pay') {

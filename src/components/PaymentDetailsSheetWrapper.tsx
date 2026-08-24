@@ -13,7 +13,7 @@ export default function PaymentDetailsSheetWrapper() {
   
   return (
     <PaymentDetailsSheet
-      onSubmit={async ({ mode: submitMode, amountZAR, handle }) => {
+      onSubmit={async ({ mode: submitMode, amountMZN, amountZAR, handle }) => {
         // Only handle 'pay' mode for now (real payment)
         // 'request' mode can still use the old Zustand flow
         if (submitMode !== 'pay') {
@@ -21,7 +21,7 @@ export default function PaymentDetailsSheetWrapper() {
           const { openAmaChatWithPaymentScenario } = await import('@/lib/cashDeposit/chatOrchestration')
           closePaymentDetails()
           setTimeout(() => {
-            openAmaChatWithPaymentScenario(submitMode, amountZAR, handle)
+            openAmaChatWithPaymentScenario(submitMode, amountMZN, handle, amountZAR)
           }, 220)
           return
         }
@@ -34,6 +34,7 @@ export default function PaymentDetailsSheetWrapper() {
         try {
           const result = await tx_createPaymentAndSettle({
             receiverHandle: handle,
+            amountMZN,
             amountZAR,
           })
           

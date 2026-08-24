@@ -323,21 +323,20 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
         }}
         mode={amountMode}
         flowType="payment"
-        balanceZAR={200}
-        fxRateZARperUSDT={18.1}
+        balanceMZN={0}
         entryPoint="cashButton"
-        onCashSubmit={({ amountZAR }) => {
+        onCashSubmit={({ amountMZN, amountZAR }) => {
           if (!normalizedHandle) return
           setOpenAmount(false)
           setTimeout(() => {
-            openAmaChatWithPaymentScenario('request', amountZAR, normalizedHandle)
+            openAmaChatWithPaymentScenario('request', amountMZN, normalizedHandle, amountZAR)
           }, 220)
         }}
-        onCardSubmit={({ amountZAR }) => {
+        onCardSubmit={({ amountMZN, amountZAR }) => {
           if (!normalizedHandle) return
           setOpenAmount(false)
           setTimeout(() => {
-            openAmaChatWithPaymentScenario('pay', amountZAR, normalizedHandle)
+            openAmaChatWithPaymentScenario('pay', amountMZN, normalizedHandle, amountZAR)
           }, 220)
         }}
       />
@@ -350,8 +349,7 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
         }}
         mode={amountMode}
         flowType="payment"
-        balanceZAR={200}
-        fxRateZARperUSDT={18.1}
+        balanceMZN={0}
         entryPoint="sponsorButton"
         sponsorHandle={normalizedHandle || undefined}
         onWeeklySubmit={({ amountZAR }) => {

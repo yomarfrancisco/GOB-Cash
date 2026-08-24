@@ -49,13 +49,13 @@ export default function WithdrawSheet({ open, onClose, onSelect, onBack }: Props
       <ActionSheetItem
         icon={<Landmark size={22} strokeWidth={2} />}
         title="Bank account"
-        caption="Send ZAR to your linked bank account."
+        caption="Convert MZN and send ZAR to your linked bank account."
         onClick={() => handleSelect('bank')}
       />
       <ActionSheetItem
         icon={<Wallet size={22} strokeWidth={2} />}
         title="External crypto wallet"
-        caption="Send USDT to an external wallet."
+        caption="Convert MZN and send USDT to an external wallet."
         onClick={() => handleSelect('crypto')}
       />
     </ActionSheet>

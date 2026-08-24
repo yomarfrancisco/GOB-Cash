@@ -16,8 +16,8 @@ const db = admin.firestore()
 // MVP restriction: Only this UID can send payments
 const ALLOWED_SENDER_UID = 'xHKmkizXhPOU25vwTIB6dxhMzSH2'
 
-// Exchange rate (hardcoded for MVP)
-const FX_RATE_ZAR_PER_USDT = 18.1
+// Exchange quote for the MVP. The server is the source of truth.
+const FX_RATE_MZN_PER_ZAR = 4.5
 
 export const tx_createPaymentAndSettle = functions
   .region('us-central1')
@@ -44,13 +44,13 @@ export const tx_createPaymentAndSettle = functions
     }
 
     // Extract and validate inputs
-    const { receiverHandle, amountZAR } = data || {}
+    const { receiverHandle, amountMZN } = data || {}
 
     if (!receiverHandle || typeof receiverHandle !== 'string') {
       throw new functions.https.HttpsError('invalid-argument', 'receiverHandle is required')
     }
-    if (!amountZAR || typeof amountZAR !== 'number' || amountZAR <= 0) {
-      throw new functions.https.HttpsError('invalid-argument', 'amountZAR must be a positive number')
+    if (!amountMZN || typeof amountMZN !== 'number' || amountMZN <= 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'amountMZN must be a positive number')
     }
 
     // Normalize handle (remove @ prefix if present, lowercase)
@@ -83,11 +83,10 @@ export const tx_createPaymentAndSettle = functions
       throw new functions.https.HttpsError('invalid-argument', 'Cannot send payment to yourself')
     }
 
-    // Calculate USDT amount
-    const amountUSDT = amountZAR / FX_RATE_ZAR_PER_USDT
+    const amountZAR = Math.round((amountMZN / FX_RATE_MZN_PER_ZAR) * 100) / 100
 
-    // Get sender and receiver wallet references
-    const senderWalletRef = db.collection('users').doc(senderId).collection('wallets').doc('cashZAR')
+    // The sender spends MZN; the recipient receives converted ZAR.
+    const senderWalletRef = db.collection('users').doc(senderId).collection('wallets').doc('cashMZN')
     const receiverWalletRef = db.collection('users').doc(receiverId).collection('wallets').doc('cashZAR')
 
     // Create transaction document reference
@@ -103,10 +102,10 @@ export const tx_createPaymentAndSettle = functions
 
         // Check sender balance
         const senderBalance = (senderWallet.fiatBalance || 0) + (senderWallet.lockedBalance || 0)
-        if (senderBalance < amountZAR) {
+        if (senderBalance < amountMZN) {
           throw new functions.https.HttpsError(
             'failed-precondition',
-            `Insufficient balance. Available: R${senderBalance.toFixed(2)}, Required: R${amountZAR.toFixed(2)}`
+            `Insufficient balance. Available: Mt ${senderBalance.toFixed(2)}, Required: Mt ${amountMZN.toFixed(2)}`
           )
         }
 
@@ -116,8 +115,8 @@ export const tx_createPaymentAndSettle = functions
 
         // Update sender wallet (decrement fiatBalance, prefer fiatBalance over lockedBalance)
         const senderFiat = senderWallet.fiatBalance || 0
-        const deductionFromFiat = Math.min(senderFiat, amountZAR)
-        const deductionFromLocked = amountZAR - deductionFromFiat
+        const deductionFromFiat = Math.min(senderFiat, amountMZN)
+        const deductionFromLocked = amountMZN - deductionFromFiat
 
         // Use set to create or overwrite wallet (we've already read it, so we have all fields)
         t.set(senderWalletRef, {
@@ -144,9 +143,9 @@ export const tx_createPaymentAndSettle = functions
           senderId,
           receiverId,
           participants,
+          amountMzn: amountMZN,
           amountZar: amountZAR,
-          amountUSDT: amountUSDT,
-          fxRateZARperUSDT: FX_RATE_ZAR_PER_USDT,
+          fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
           receiverHandle: normalizedHandle,
           createdAt: now,
           updatedAt: now,
@@ -186,7 +185,11 @@ export const tx_createPaymentAndSettle = functions
 
         // 3. AI message: Payment details
         const aiMsg2Ref = txRef.collection('messages').doc()
-        const formattedAmount = amountZAR.toLocaleString('en-US', {
+        const formattedMZN = amountMZN.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+        const formattedZAR = amountZAR.toLocaleString('en-US', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })
@@ -196,7 +199,7 @@ export const tx_createPaymentAndSettle = functions
           createdAt: now,
           senderType: 'SAMBA' as const,
           senderUid: 'samba',
-          text: `Your payment of R${formattedAmount} to @${normalizedHandle} was delivered.`,
+          text: `Your payment of Mt ${formattedMZN} (R${formattedZAR}) to @${normalizedHandle} was delivered.`,
         }
         t.set(aiMsg2Ref, aiMessage2)
       })
@@ -206,15 +209,15 @@ export const tx_createPaymentAndSettle = functions
         senderId,
         receiverId,
         receiverHandle: normalizedHandle,
+        amountMZN,
         amountZAR,
-        amountUSDT,
       })
 
       return {
         txId,
         receiverId,
+        amountMZN,
         amountZAR,
-        amountUSDT,
       }
     } catch (error: any) {
       // Re-throw HttpsError as-is

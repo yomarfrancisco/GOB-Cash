@@ -273,6 +273,7 @@ export async function tx_raiseDispute(txId: string, reason: string): Promise<voi
  */
 type CreateBankDepositRequestParams = {
   receiverId: string
+  amountMzn: number
   amountZar: number
   bankCountry?: string
   bankId?: string
@@ -417,12 +418,13 @@ export async function seedCoreAgentBalance(
 
 export interface CreatePaymentAndSettleParams {
   receiverHandle: string
+  amountMZN: number
   amountZAR: number
 }
 
 export async function tx_createPaymentAndSettle(
   params: CreatePaymentAndSettleParams
-): Promise<{ txId: string; receiverId: string; amountZAR: number; amountUSDT: number }> {
+): Promise<{ txId: string; receiverId: string; amountMZN: number; amountZAR: number }> {
   const app = getFirebaseApp()
   
   if (!app || !app.options.projectId) {
@@ -444,12 +446,13 @@ export async function tx_createPaymentAndSettle(
         region: 'us-central1',
         functionName: 'tx_createPaymentAndSettle',
         receiverHandle: params.receiverHandle,
+        amountMZN: params.amountMZN,
         amountZAR: params.amountZAR,
       })
     }
     
     const result = await fn(params)
-    const data = result.data as { txId: string; receiverId: string; amountZAR: number; amountUSDT: number }
+    const data = result.data as { txId: string; receiverId: string; amountMZN: number; amountZAR: number }
     
     if (process.env.NODE_ENV !== 'production') {
       console.log('[Transaction] Payment created via httpsCallable:', data)
@@ -459,6 +462,7 @@ export async function tx_createPaymentAndSettle(
   } catch (error: any) {
     console.error('[Transaction] Failed to create payment:', {
       receiverHandle: params.receiverHandle,
+      amountMZN: params.amountMZN,
       amountZAR: params.amountZAR,
       errorCode: error?.code,
       errorMessage: error?.message,
@@ -631,6 +635,7 @@ export async function tx_withdrawTronUSDT(
  * Create bank withdrawal request
  */
 export async function tx_createBankWithdrawalRequest(params: {
+  amountMZN: number
   amountZAR: number
   country: string
   bankName: string

@@ -13,12 +13,16 @@ function toWhatsAppDigits(raw: string): string | null {
   return digits
 }
 
-export function openWhatsAppPaymentDraft(amountZAR: number, recipient?: string): void {
+export function openWhatsAppPaymentDraft(
+  amountMZN: number,
+  amountZAR: number,
+  recipient?: string
+): void {
   if (typeof window === 'undefined') return
 
   const token = createWhatsAppClaimToken(amountZAR)
   const claimUrl = buildWhatsAppClaimUrl(token)
-  const text = encodeURIComponent(buildWhatsAppClaimMessage(amountZAR, claimUrl))
+  const text = encodeURIComponent(buildWhatsAppClaimMessage(amountZAR, claimUrl, amountMZN))
   const trimmed = recipient?.trim() ?? ''
   const digits =
     trimmed && validateRecipientInput(trimmed) ? toWhatsAppDigits(trimmed) : null
