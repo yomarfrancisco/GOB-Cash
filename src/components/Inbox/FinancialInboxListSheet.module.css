@@ -13,6 +13,21 @@
   overflow: hidden;
 }
 
+.activityIllustrationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 20px 56px 0;
+  margin-bottom: 42px;
+}
+
+.activityIllustration {
+  display: block;
+  width: min(100%, 190px);
+  height: auto;
+}
+
 .subtitle {
   font-size: 13px;
   font-weight: 300;

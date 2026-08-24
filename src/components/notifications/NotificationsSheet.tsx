@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import ActionSheet from '../ActionSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { NotificationsList } from './NotificationsList'
@@ -14,11 +15,22 @@ export default function NotificationsSheet() {
     <ActionSheet
       open={isNotificationsOpen}
       onClose={closeNotifications}
-      title="Activity"
+      title=""
       size="tall"
       className={`${listStyles.financialInboxSheet} inboxTallSheet`}
     >
       <div className={listStyles.content}>
+        <div className={listStyles.activityIllustrationHeader}>
+          <Image
+            src="/assets/Activity_new.png"
+            alt="Activity"
+            width={2007}
+            height={784}
+            className={listStyles.activityIllustration}
+            priority
+          />
+        </div>
+
         <label className={listStyles.searchBar}>
           <svg
             className={listStyles.searchIcon}
