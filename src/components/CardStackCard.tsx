@@ -528,6 +528,13 @@ export default function CardStackCard({
       }
     }
 
+    if (card.type === 'savings') {
+      return {
+        strong: '4.5 MZN',
+        label: '= 1 ZAR',
+      }
+    }
+
     if (card.type === 'mzn') {
       return {
         strong: '4.5 MZN',
@@ -775,22 +782,20 @@ export default function CardStackCard({
       {/* Top-right card label - removed in both auth and non-auth states */}
 
       {/* Bottom-left annual yield pill or countdown timer */}
-      {card.type !== 'savings' && (
-        <div
-          className={pillClassName}
-          onClick={handlePillDoubleTap}
-          style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
-        >
-          <span className="card-allocation-pill__text">
-            <span className="card-allocation-pill__yield-strong">
-              {pillContent.strong}
-            </span>{' '}
-            <span className="card-allocation-pill__yield-label">
-              {pillContent.label}
-            </span>
+      <div
+        className={pillClassName}
+        onClick={handlePillDoubleTap}
+        style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
+      >
+        <span className="card-allocation-pill__text">
+          <span className="card-allocation-pill__yield-strong">
+            {pillContent.strong}
+          </span>{' '}
+          <span className="card-allocation-pill__yield-label">
+            {pillContent.label}
           </span>
-        </div>
-      )}
+        </span>
+      </div>
 
       {/* Bottom-right health bar */}
       {card.type !== 'savings' && (
