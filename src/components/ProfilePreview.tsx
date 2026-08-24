@@ -28,11 +28,8 @@ interface ProfilePreviewProps {
 export default function ProfilePreview({
   userHandle,
   fullName,
-  email,
   avatarUrl,
   backdropUrl,
-  instagramUrl,
-  linkedinUrl,
   rating,
   ratingCount,
   sponsors = 0,
@@ -152,67 +149,6 @@ export default function ProfilePreview({
                 <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
               </div>
             </div>
-          </div>
-
-          {/* Social row */}
-          <div className={styles.socialRow}>
-            {email ? (
-              <a
-                href={`mailto:${email}`}
-                style={{ display: 'inline-flex', alignItems: 'center' }}
-                aria-label="Email"
-              >
-                <Image src="/assets/profile/email_outlined.svg" alt="Email" width={20} height={20} />
-              </a>
-            ) : (
-              <Image
-                src="/assets/profile/email_outlined.svg"
-                alt="Email"
-                width={20}
-                height={20}
-                style={{ opacity: 0.3, pointerEvents: 'none' }}
-              />
-            )}
-            <Image src="/assets/profile/dot.svg" alt="" width={3} height={3} />
-            {instagramUrl ? (
-              <a
-                href={instagramUrl.startsWith('http') ? instagramUrl : `https://instagram.com/${instagramUrl.replace(/^@/, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center' }}
-                aria-label="Instagram"
-              >
-                <Image src="/assets/profile/instagram.svg" alt="Instagram" width={20} height={20} />
-              </a>
-            ) : (
-              <Image
-                src="/assets/profile/instagram.svg"
-                alt="Instagram"
-                width={20}
-                height={20}
-                style={{ opacity: 0.3, pointerEvents: 'none' }}
-              />
-            )}
-            <Image src="/assets/profile/dot.svg" alt="" width={3} height={3} />
-            {linkedinUrl ? (
-              <a
-                href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://linkedin.com/in/${linkedinUrl}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center' }}
-                aria-label="LinkedIn"
-              >
-                <Image src="/assets/profile/linkedin.svg" alt="LinkedIn" width={20} height={20} />
-              </a>
-            ) : (
-              <Image
-                src="/assets/profile/linkedin.svg"
-                alt="LinkedIn"
-                width={20}
-                height={20}
-                style={{ opacity: 0.3, pointerEvents: 'none' }}
-              />
-            )}
           </div>
 
           {/* Sponsor section */}

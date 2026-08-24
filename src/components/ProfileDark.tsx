@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import styles from './ProfileDark.module.css'
 
 export default function ProfileDark() {
@@ -71,15 +70,6 @@ export default function ProfileDark() {
             <div className={styles.myDealerNetwork}>Groups</div>
           </div>
         </div>
-      </div>
-
-      {/* Social row */}
-      <div className={styles.socialMedia}>
-        <Image src="/assets/profile/mail.svg" alt="Email" width={20} height={20} />
-        <span className={styles.ico24OtherCircle} />
-        <Image src="/assets/profile/instagram.svg" alt="Instagram" width={20} height={20} />
-        <span className={styles.ico24OtherCircle} />
-        <Image src="/assets/profile/linkedin.svg" alt="LinkedIn" width={20} height={20} />
       </div>
 
       {/* Buttons */}

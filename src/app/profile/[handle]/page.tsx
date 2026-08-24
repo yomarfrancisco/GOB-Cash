@@ -245,67 +245,6 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                 </div>
               </div>
 
-              {/* Social row */}
-              <div className="profile-social">
-                {profile.email ? (
-                  <a
-                    href={`mailto:${profile.email}`}
-                    style={{ display: 'inline-flex', alignItems: 'center' }}
-                    aria-label="Email"
-                  >
-                    <Image src="/assets/profile/email_outlined.svg" alt="Email" width={20} height={20} />
-                  </a>
-                ) : (
-                  <Image
-                    src="/assets/profile/email_outlined.svg"
-                    alt="Email"
-                    width={20}
-                    height={20}
-                    style={{ opacity: 0.3, pointerEvents: 'none' }}
-                  />
-                )}
-                <Image src="/assets/profile/dot.svg" alt="" width={3} height={3} />
-                {profile.instagramUrl ? (
-                  <a
-                    href={profile.instagramUrl.startsWith('http') ? profile.instagramUrl : `https://instagram.com/${profile.instagramUrl.replace(/^@/, '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center' }}
-                    aria-label="Instagram"
-                  >
-                    <Image src="/assets/profile/instagram.svg" alt="Instagram" width={20} height={20} />
-                  </a>
-                ) : (
-                  <Image
-                    src="/assets/profile/instagram.svg"
-                    alt="Instagram"
-                    width={20}
-                    height={20}
-                    style={{ opacity: 0.3, pointerEvents: 'none' }}
-                  />
-                )}
-                <Image src="/assets/profile/dot.svg" alt="" width={3} height={3} />
-                {profile.linkedinUrl ? (
-                  <a
-                    href={profile.linkedinUrl.startsWith('http') ? profile.linkedinUrl : `https://linkedin.com/in/${profile.linkedinUrl}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center' }}
-                    aria-label="LinkedIn"
-                  >
-                    <Image src="/assets/profile/linkedin.svg" alt="LinkedIn" width={20} height={20} />
-                  </a>
-                ) : (
-                  <Image
-                    src="/assets/profile/linkedin.svg"
-                    alt="LinkedIn"
-                    width={20}
-                    height={20}
-                    style={{ opacity: 0.3, pointerEvents: 'none' }}
-                  />
-                )}
-              </div>
-
               {/* Sponsor section - Figma-accurate structure */}
               <section className="sponsor">
                 <div className="sponsor2">
