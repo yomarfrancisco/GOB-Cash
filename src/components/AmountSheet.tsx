@@ -240,6 +240,7 @@ export default function AmountSheet({
 
   // Show scan icon only for cashButton entryPoint
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
+  const hideModeLabel = entryPoint === 'cashButton' || entryPoint === 'depositKeypad'
 
   // Determine if keypad should use lime green background (helicopter, $-button, and sponsor flows)
   const isSponsorButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'sponsorButton'
@@ -263,7 +264,7 @@ export default function AmountSheet({
             <div className="amount-sheet__balance">
               {formatMZN(displayBalanceMZN)} <span className="amount-sheet__balance-label">balance</span>
             </div>
-            <div className="amount-sheet__title">{modeLabel}</div>
+            {!hideModeLabel && <div className="amount-sheet__title">{modeLabel}</div>}
           </div>
           {/* Close button is provided by ActionSheet (as-close-only) */}
         </div>
