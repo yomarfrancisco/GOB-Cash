@@ -12,8 +12,8 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
-import { formatSADC, formatUSDT, formatZAR } from '@/lib/money'
-import { mznToZar } from '@/lib/mznZar'
+import { formatMZN, formatUSDT, formatZAR } from '@/lib/money'
+import { zarToMzn } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
@@ -561,8 +561,8 @@ function HomeContent() {
     isAuthed && isBalanceReady ? ((wallets as any)?.cashMZN?.fiatBalance ?? 0) : 0
   const cashZARBalance =
     isAuthed && isBalanceReady ? ((wallets as any)?.cashZAR?.fiatBalance ?? 0) : 0
-  const totalBalanceSADC = cashZARBalance + mznToZar(cashMZNBalance)
-  const formattedBalance = formatSADC(totalBalanceSADC)
+  const totalBalanceMZN = cashMZNBalance + zarToMzn(cashZARBalance)
+  const formattedBalance = formatMZN(totalBalanceMZN)
   const subtitleText = isAuthed 
     ? `Total balance: ${formattedBalance}`
     : `Pay anyone anywhere. Free. Private.`

@@ -4,8 +4,8 @@ import Image from 'next/image'
 import type { StaticImageData } from 'next/image'
 import { useRef, useEffect, useState, useMemo } from 'react'
 import SlotCounter from './SlotCounter'
-import { formatZAR, formatUSDT as formatBRICS } from '@/lib/formatCurrency'
-import { mznToZar } from '@/lib/mznZar'
+import { formatZAR, formatUSDT as formatConvertedAmount } from '@/lib/formatCurrency'
+import { mznToZar, zarToMzn } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAuthStore } from '@/store/auth'
@@ -344,10 +344,10 @@ export default function CardStackCard({
   }
   
   const zar = cents / 100
-  const brics = card.type === 'mzn'
+  const convertedAmount = card.type === 'mzn'
     ? mznToZar(zar)
     : card.type === 'savings'
-      ? zar
+      ? zarToMzn(zar)
       : zar / FX_USD_ZAR_DEFAULT
   const pct = allocPct(cents)
   
@@ -525,13 +525,6 @@ export default function CardStackCard({
       return {
         strong: formattedCountdown,
         label: 'left',
-      }
-    }
-
-    if (card.type === 'savings') {
-      return {
-        strong: '1 MZN',
-        label: '= 0.22 ZAR',
       }
     }
 
@@ -723,7 +716,7 @@ export default function CardStackCard({
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span>0.00 SADC</span>
+                <span>0.00 {card.type === 'mzn' ? 'ZAR' : 'MZN'}</span>
               </div>
             </>
           ) : (
@@ -760,15 +753,19 @@ export default function CardStackCard({
                   )}
                 />
               </div>
-              <div className="card-amounts__usdt" aria-label={`${brics.toFixed(2)} SADC`} suppressHydrationWarning>
+              <div
+                className="card-amounts__usdt"
+                aria-label={`${convertedAmount.toFixed(2)} ${card.type === 'mzn' ? 'ZAR' : 'MZN'}`}
+                suppressHydrationWarning
+              >
                 <SlotCounter 
-                  key={`${balanceKey}-brics`}
-                  value={brics}
-                  format={formatBRICS}
+                  key={`${balanceKey}-converted`}
+                  value={convertedAmount}
+                  format={formatConvertedAmount}
                   durationMs={isBalanceReady ? 700 : 0} 
                   className="card-amounts__usdt-value" 
                 />
-                <span style={{ marginLeft: '4px' }}>SADC</span>
+                <span style={{ marginLeft: '4px' }}>{card.type === 'mzn' ? 'ZAR' : 'MZN'}</span>
               </div>
             </>
           )}
@@ -778,20 +775,22 @@ export default function CardStackCard({
       {/* Top-right card label - removed in both auth and non-auth states */}
 
       {/* Bottom-left annual yield pill or countdown timer */}
-      <div 
-        className={pillClassName}
-        onClick={handlePillDoubleTap}
-        style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
-      >
-        <span className="card-allocation-pill__text">
-          <span className="card-allocation-pill__yield-strong">
-            {pillContent.strong}
-          </span>{' '}
-          <span className="card-allocation-pill__yield-label">
-            {pillContent.label}
+      {card.type !== 'savings' && (
+        <div
+          className={pillClassName}
+          onClick={handlePillDoubleTap}
+          style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
+        >
+          <span className="card-allocation-pill__text">
+            <span className="card-allocation-pill__yield-strong">
+              {pillContent.strong}
+            </span>{' '}
+            <span className="card-allocation-pill__yield-label">
+              {pillContent.label}
+            </span>
           </span>
-        </span>
-      </div>
+        </div>
+      )}
 
       {/* Bottom-right health bar */}
       {card.type !== 'savings' && (

@@ -22,12 +22,5 @@ export function formatMZNWithDot(amount: number): string {
   return `${sign}Mt ${wholeWithSep}.${cents}`
 }
 
-export function formatSADC(amount: number): string {
-  const [whole, cents] = Math.abs(amount).toFixed(2).split('.')
-  const wholeWithSep = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-  const sign = amount < 0 ? '-' : ''
-  return `${sign}${wholeWithSep}.${cents} SADC`
-}
-
 export const formatUSDT = (n: number) => `USDT ${n.toFixed(2)}`
 
