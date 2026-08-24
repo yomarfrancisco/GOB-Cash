@@ -393,12 +393,24 @@ export default function CardStackCard({
   // Use direct selector for reactivity (Zustand will re-render when holdings[symbol] changes)
   const symbol = CARD_TO_SYMBOL[card.type]
   const holding = usePortfolioStore((s) => s.holdings[symbol])
+  const mznCapacityPercent = usePortfolioStore(
+    (s) => s.holdings.MZN?.health ?? HEALTH_CONFIG.mzn.percent
+  )
   const portfolioAllocationPct = holding?.allocationPct ?? pct
   const portfolioDisplayPct = holding?.displayPct ?? Math.round(pct)
   const portfolioHealth = holding?.health ?? HEALTH_CONFIG[card.type].percent
+  const operationalBarPercent =
+    card.type === 'mzn'
+      ? mznCapacityPercent
+      : card.type === 'savings'
+        ? 100 - mznCapacityPercent
+        : portfolioHealth
   
-  // Derive health level from percent (dynamic, not fixed per card type)
-  const healthLevel = getHealthLevel(portfolioHealth)
+  // Cash-card bars represent capacity/volume, so keep their progress fill green.
+  const healthLevel =
+    card.type === 'mzn' || card.type === 'savings'
+      ? 'good'
+      : getHealthLevel(operationalBarPercent)
 
   // Animate allocation % with fade in/out (use displayPct for pill, allocationPct for internal calculations)
   const animatedAllocationPct = useTweenNumber(portfolioDisplayPct, {
@@ -423,8 +435,8 @@ export default function CardStackCard({
   // Health animation with two-stage tween for minimum visual delta
   // Cash: gentler movement (0.6/2.0), ETH/PEPE: standard (1.2/3.5)
   // Skip two-stage for reduced motion (just use direct value)
-  const isCash = card.type === 'savings'
-  const healthTweenResult = useTwoStageTween(portfolioHealth, {
+  const isCash = card.type === 'savings' || card.type === 'mzn'
+  const healthTweenResult = useTwoStageTween(operationalBarPercent, {
     minVisualDelta: isCash ? 0.6 : 1.2,
     previewCap: isCash ? 2.0 : 3.5,
     stageADuration: 220,
@@ -432,17 +444,17 @@ export default function CardStackCard({
     stageBDelay: 40,
     round: (n) => Math.round(n * 10) / 10,
   })
-  const animatedHealth = prefersReducedMotion ? portfolioHealth : healthTweenResult.value
+  const animatedHealth = prefersReducedMotion ? operationalBarPercent : healthTweenResult.value
   const isHealthAnimating = prefersReducedMotion ? false : healthTweenResult.isAnimating
 
   // Visibility states for health bar
-  const prevHealthRef = useRef(portfolioHealth)
+  const prevHealthRef = useRef(operationalBarPercent)
   const healthPulseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [isHealthBarChanging, setIsHealthBarChanging] = useState(false)
 
   // Detect health changes and trigger pulse (no numeric display)
   useEffect(() => {
-    if (portfolioHealth !== prevHealthRef.current) {
+    if (operationalBarPercent !== prevHealthRef.current) {
       // Only add pulse if not reduced motion
       if (!prefersReducedMotion) {
         setIsHealthBarChanging(true)
@@ -458,7 +470,7 @@ export default function CardStackCard({
         }, 200)
       }
 
-      prevHealthRef.current = portfolioHealth
+      prevHealthRef.current = operationalBarPercent
     }
 
     return () => {
@@ -466,7 +478,7 @@ export default function CardStackCard({
         clearTimeout(healthPulseTimeoutRef.current)
       }
     }
-  }, [portfolioHealth, prefersReducedMotion])
+  }, [operationalBarPercent, prefersReducedMotion])
 
   // Map card type to target currency for exchange rate
   const CARD_TO_EXCHANGE_CURRENCY: Record<CardType, string | null> = {
@@ -711,7 +723,7 @@ export default function CardStackCard({
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span>0.00 $ADC</span>
+                <span>0.00 BRIC$</span>
               </div>
             </>
           ) : (
@@ -748,7 +760,7 @@ export default function CardStackCard({
                   )}
                 />
               </div>
-              <div className="card-amounts__usdt" aria-label={`${brics.toFixed(2)} $ADC`} suppressHydrationWarning>
+              <div className="card-amounts__usdt" aria-label={`${brics.toFixed(2)} BRIC$`} suppressHydrationWarning>
                 <SlotCounter 
                   key={`${balanceKey}-brics`}
                   value={brics}
@@ -756,7 +768,7 @@ export default function CardStackCard({
                   durationMs={isBalanceReady ? 700 : 0} 
                   className="card-amounts__usdt-value" 
                 />
-                <span style={{ marginLeft: '4px' }}>$ADC</span>
+                <span style={{ marginLeft: '4px' }}>BRIC$</span>
               </div>
             </>
           )}
@@ -784,7 +796,13 @@ export default function CardStackCard({
       {/* Bottom-right health bar */}
       <div className="card-health-group">
         <span className="card-health-label">
-          {card.type === 'yieldSurprise' || card.type === 'savings' ? 'Daily Target' : 'Daily Limit'}
+          {card.type === 'mzn'
+            ? 'Daily Capacity'
+            : card.type === 'savings'
+              ? 'Vol. converted'
+              : card.type === 'yieldSurprise'
+                ? 'Daily Target'
+                : 'Daily Limit'}
         </span>
         <div className="card-health-bar-container">
           <div
