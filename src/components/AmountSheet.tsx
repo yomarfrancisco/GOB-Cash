@@ -286,7 +286,6 @@ export default function AmountSheet({
             onSubmit={handleSubmit}
             ctaLabel={finalCtaLabel}
             hideCTA
-            isConvertMode={mode === 'convert'}
             isHelicopterConvert={isHelicopterConvert}
             amountMZN={amountMZN}
             customFeeText={customFeeText}

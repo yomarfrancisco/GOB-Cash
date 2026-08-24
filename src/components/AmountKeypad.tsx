@@ -11,7 +11,6 @@ type AmountKeypadProps = {
   onSubmit: () => void // CTA
   ctaLabel: string
   hideCTA?: boolean // if true, don't render the CTA (moved to parent)
-  isConvertMode?: boolean // if true, show "0% transaction fee" instead of "excl. 2.5–6.5% transaction fee"
   isHelicopterConvert?: boolean // if true, show custom fee note for helicopter/map flow
   amountMZN?: number // current amount in MZN for dynamic fee note
   customFeeText?: string // custom fee text override (e.g. "excl. 3% transaction fee")
@@ -26,11 +25,17 @@ export default function AmountKeypad({
   onSubmit,
   ctaLabel,
   hideCTA = false,
-  isConvertMode = false,
   isHelicopterConvert = false,
   amountMZN = 0,
   customFeeText,
 }: AmountKeypadProps) {
+  const feeNote = customFeeText
+    ?? (isHelicopterConvert
+      ? amountMZN > 0
+        ? (hideCTA ? 'Mt 45 min cash deposit / withdrawal' : '3% fee to deposit / withdraw')
+        : 'MZN ↔ ZAR with verified agents.'
+      : null)
+
   const handleNumber = (num: string) => {
     const current = value || '0'
     
@@ -86,34 +91,20 @@ export default function AmountKeypad({
       </div>
       {!hideCTA && (
         <div className="amount-keypad__footer" style={{ ['--cta-h' as any]: '88px' }}>
-          <div className={`amount-keypad__fee-note ${isHelicopterConvert ? 'amount-keypad__fee-note--helicopter' : ''}`}>
-            {customFeeText ? (
-              customFeeText
-            ) : isHelicopterConvert ? (
-              amountMZN > 0 ? '3% fee to deposit / withdraw' : 'MZN ↔ ZAR with verified agents.'
-            ) : isConvertMode ? (
-              '0% transaction fee'
-            ) : (
-              'excl. 2.5–6.5% transaction fee'
-            )}
-          </div>
+          {feeNote && (
+            <div className={`amount-keypad__fee-note ${isHelicopterConvert ? 'amount-keypad__fee-note--helicopter' : ''}`}>
+              {feeNote}
+            </div>
+          )}
           <button className="amount-keypad__cta" onClick={onSubmit} type="button">
             {ctaLabel}
             <span className="amount-keypad__cta-arrow">→</span>
           </button>
         </div>
       )}
-      {hideCTA && (
+      {hideCTA && feeNote && (
         <div className={`amount-keypad__fee-note ${isHelicopterConvert ? 'amount-keypad__fee-note--helicopter' : ''}`} style={{ paddingTop: '12px', textAlign: 'center' }}>
-          {customFeeText ? (
-            customFeeText
-          ) : isHelicopterConvert ? (
-            amountMZN > 0 ? 'Mt 45 min cash deposit / withdrawal' : 'MZN ↔ ZAR with verified agents.'
-          ) : isConvertMode ? (
-            '0% transaction fee'
-          ) : (
-            'excl. 2.5–6.5% transaction fee'
-          )}
+          {feeNote}
         </div>
       )}
     </div>
