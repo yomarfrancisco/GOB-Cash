@@ -12,7 +12,8 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
-import { formatMZN, formatUSDT, formatZAR } from '@/lib/money'
+import { formatSADC, formatUSDT, formatZAR } from '@/lib/money'
+import { mznToZar } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
@@ -250,9 +251,9 @@ function HomeContent() {
     }
   }, [amountMode, flowType, transferToWalletId])
 
-  // Get wallet allocation for funds available display (demo fallback)
+  // Get wallet allocation and hydrated wallet balances.
   const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd, syncFromWallets } = useWalletAlloc()
-  const { wallets, demoMode, walletsHydrated } = useWalletStore()
+  const { wallets, demoMode } = useWalletStore()
   const isBalanceReady = useAppModeStore((state) => state.isBalanceReady())
 
   // Sync WalletAlloc from wallet docs when they change (only if user is authenticated)
@@ -262,27 +263,6 @@ function HomeContent() {
     }
   }, [isAuthed, wallets, syncFromWallets])
 
-  // Freeze at 0 until isBalanceReady (authState === 'authed' && walletsHydrated === true)
-  // This prevents demo/animated balances from showing in the header
-  // Option A: fiatBalance only (lockedBalance shown separately if needed)
-  let fundsAvailableMZN: number
-  if (isAuthed && !isBalanceReady) {
-    // Not ready yet: show 0 (freeze until Firestore arrives)
-    fundsAvailableMZN = 0
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[BALANCE_READY] Header balance forced to 0 (waiting for hydration)', {
-        isBalanceReady,
-        walletsHydrated,
-      })
-    }
-  } else if (isAuthed && isBalanceReady) {
-    // Ready: use Firestore balance (fiatBalance only, no lockedBalance)
-    fundsAvailableMZN = (wallets as any)?.cashMZN?.fiatBalance ?? 0
-  } else {
-    // Unauthed: allow demo values
-    fundsAvailableMZN = (wallets as any)?.cashMZN?.fiatBalance ?? (alloc.mznCents ?? 0) / 100
-  }
-  const formattedFunds = formatMZN(fundsAvailableMZN)
   // Log source of balances (Firestore for authenticated users, demo for unauthenticated)
   if (isAuthed && wallets && !demoMode) {
     console.log('[Wallet] Using Firestore wallets:', wallets)
@@ -577,10 +557,14 @@ function HomeContent() {
   const title = 'Wallet'
   
   // Subtitle text - conditional based on auth status
-  const totalBalanceMZN = isAuthed ? ((wallets as any)?.cashMZN?.fiatBalance ?? (alloc.mznCents ?? 0) / 100) : 0
-  const formattedBalance = formatMZN(totalBalanceMZN || 0)
+  const cashMZNBalance =
+    isAuthed && isBalanceReady ? ((wallets as any)?.cashMZN?.fiatBalance ?? 0) : 0
+  const cashZARBalance =
+    isAuthed && isBalanceReady ? ((wallets as any)?.cashZAR?.fiatBalance ?? 0) : 0
+  const totalBalanceSADC = cashZARBalance + mznToZar(cashMZNBalance)
+  const formattedBalance = formatSADC(totalBalanceSADC)
   const subtitleText = isAuthed 
-    ? `${formattedBalance} available`
+    ? `Total balance: ${formattedBalance}`
     : `Pay anyone anywhere. Free. Private.`
 
 
