@@ -800,13 +800,6 @@ export default function CardStackCard({
       {/* Bottom-right health bar */}
       {card.type !== 'savings' && (
         <div className="card-health-group">
-          <span className="card-health-label">
-            {card.type === 'mzn'
-              ? 'Limit'
-              : card.type === 'yieldSurprise'
-                ? 'Daily Target'
-                : 'Daily Limit'}
-          </span>
           <div className="card-health-bar-container">
             <div
               className={clsx(

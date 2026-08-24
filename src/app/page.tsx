@@ -556,16 +556,14 @@ function HomeContent() {
   // Title - conditional based on auth status
   const title = 'Wallet'
   
-  // Subtitle text - conditional based on auth status
+  // Show the same total-balance summary before and after sign-in.
   const cashMZNBalance =
     isAuthed && isBalanceReady ? ((wallets as any)?.cashMZN?.fiatBalance ?? 0) : 0
   const cashZARBalance =
     isAuthed && isBalanceReady ? ((wallets as any)?.cashZAR?.fiatBalance ?? 0) : 0
   const totalBalanceMZN = cashMZNBalance + zarToMzn(cashZARBalance)
   const formattedBalance = formatMZN(totalBalanceMZN)
-  const subtitleText = isAuthed 
-    ? `Total balance: ${formattedBalance}`
-    : `Pay anyone anywhere. Free. Private.`
+  const subtitleText = `Total balance: ${formattedBalance}`
 
 
   return (
