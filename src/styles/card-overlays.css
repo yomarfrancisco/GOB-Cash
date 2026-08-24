@@ -137,6 +137,12 @@
   background: #EF4444;
 }
 
+.card-health-bar-fill--minimum {
+  background: #9CA3AF;
+  opacity: 0.75;
+  animation: none;
+}
+
 /* Subtle jitter animation for liveliness */
 @keyframes healthJitter {
   0%, 100% {

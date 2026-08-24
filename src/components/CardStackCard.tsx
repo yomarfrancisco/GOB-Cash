@@ -723,7 +723,7 @@ export default function CardStackCard({
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span>0.00 BRIC$</span>
+                <span>0.00 SADC</span>
               </div>
             </>
           ) : (
@@ -760,7 +760,7 @@ export default function CardStackCard({
                   )}
                 />
               </div>
-              <div className="card-amounts__usdt" aria-label={`${brics.toFixed(2)} BRIC$`} suppressHydrationWarning>
+              <div className="card-amounts__usdt" aria-label={`${brics.toFixed(2)} SADC`} suppressHydrationWarning>
                 <SlotCounter 
                   key={`${balanceKey}-brics`}
                   value={brics}
@@ -768,7 +768,7 @@ export default function CardStackCard({
                   durationMs={isBalanceReady ? 700 : 0} 
                   className="card-amounts__usdt-value" 
                 />
-                <span style={{ marginLeft: '4px' }}>BRIC$</span>
+                <span style={{ marginLeft: '4px' }}>SADC</span>
               </div>
             </>
           )}
@@ -797,9 +797,9 @@ export default function CardStackCard({
       <div className="card-health-group">
         <span className="card-health-label">
           {card.type === 'mzn'
-            ? 'Daily Capacity'
+            ? 'Limit'
             : card.type === 'savings'
-              ? 'Vol. converted'
+              ? 'Converted'
               : card.type === 'yieldSurprise'
                 ? 'Daily Target'
                 : 'Daily Limit'}
@@ -811,9 +811,10 @@ export default function CardStackCard({
               `card-health-bar-fill--${healthLevel}`,
               {
                 'card-health-bar-fill--changing': isHealthBarChanging,
+                'card-health-bar-fill--minimum': operationalBarPercent <= 0,
               }
             )}
-            style={{ width: `${Math.max(0, Math.min(100, animatedHealth))}%` }}
+            style={{ width: `${Math.max(5, Math.min(100, animatedHealth))}%` }}
           />
         </div>
       </div>
