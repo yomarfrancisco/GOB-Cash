@@ -365,6 +365,20 @@ export default function ProfileClient() {
   const { openNotifications } = useNotificationsStore()
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
+
+  useEffect(() => {
+    if (searchParams.get('activity') !== '1' || !authReady) return
+
+    if (isAuthed) {
+      openNotifications()
+    }
+
+    const nextParams = new URLSearchParams(searchParams.toString())
+    nextParams.delete('activity')
+    const nextQuery = nextParams.toString()
+    router.replace(`/profile${nextQuery ? `?${nextQuery}` : ''}`, { scroll: false })
+  }, [authReady, isAuthed, openNotifications, router, searchParams])
+
   const [openPayments, setOpenPayments] = useState(false)
   // openCashInOut removed - Cash-in/out button now opens AmountSheet directly
   const [openDeposit, setOpenDeposit] = useState(false)
@@ -630,7 +644,7 @@ export default function ProfileClient() {
                   onClick={() => {
                     if (isRestricted) return
                     guardAuthed(() => {
-                      router.push('/activity')
+                      openNotifications()
                     })
                   }}
                   style={{ 
