@@ -21,14 +21,14 @@ export type BankAccountDetails = {
 }
 
 // For Mozambique, we support multiple banks
-export type MozambiqueBank = 'BCI' | 'ABSA'
+export type MozambiqueBank = 'BCI' | 'ABSA' | 'FNB' | 'MOZA' | 'VISTA' | 'BIM'
 // For South Africa, we support multiple banks
 export type SouthAfricaBank = 'FNB'
 // Union type for all bank selections
 export type SelectedBank = MozambiqueBank | SouthAfricaBank
 
 // Mozambique bank accounts (multiple banks supported)
-export const MOZAMBIQUE_BANK_ACCOUNTS: Record<'BCI' | 'ABSA', BankAccountDetails> = {
+export const MOZAMBIQUE_BANK_ACCOUNTS: Record<MozambiqueBank, BankAccountDetails> = {
   BCI: {
     countryCode: 'MZ',
     countryName: 'Mozambique',
@@ -48,6 +48,46 @@ export const MOZAMBIQUE_BANK_ACCOUNTS: Record<'BCI' | 'ABSA', BankAccountDetails
     accountType: 'Current / Cheque',
     swift: 'ABMZMZMA',
     referencePrefix: 'BRICSABSA7K2X9', // Pattern: BRICSABSA + 6 alphanum (e.g., BRICSABSA7K2X9)
+  },
+  FNB: {
+    countryCode: 'MZ',
+    countryName: 'Mozambique',
+    recipient: 'BRICS AI, EI',
+    bankName: 'FNB Mozambique',
+    accountNumber: '4829002310001',
+    accountType: 'Business current account',
+    swift: 'FIRNMZMX',
+    referencePrefix: 'BRICSFNBMZ4P8K',
+  },
+  MOZA: {
+    countryCode: 'MZ',
+    countryName: 'Mozambique',
+    recipient: 'WOLF DIGITAL LDA',
+    bankName: 'Moza Banco',
+    accountNumber: '4841111710001',
+    accountType: 'Empresa',
+    swift: 'MOZAMZMA',
+    referencePrefix: 'BRICSMOZA6Q3N',
+  },
+  VISTA: {
+    countryCode: 'MZ',
+    countryName: 'Mozambique',
+    recipient: 'BRICS AI EI',
+    bankName: 'Vista Bank',
+    accountNumber: '1000014687',
+    accountType: 'MZN current account',
+    swift: 'VSTBMZMA',
+    referencePrefix: 'BRICSVISTA5R2M',
+  },
+  BIM: {
+    countryCode: 'MZ',
+    countryName: 'Mozambique',
+    recipient: 'YGOR OMAR FRANCISCO',
+    bankName: 'Millennium BIM',
+    accountNumber: '1254815863',
+    accountType: 'Current account',
+    swift: 'BIMOMZMXXXX',
+    referencePrefix: 'BRICSBIM8T4W',
   },
 }
 
@@ -151,7 +191,7 @@ export const COUNTRY_SELECT_OPTIONS: Array<{
     code: 'MZ',
     name: 'Mozambique',
     flagPath: '/assets/mozambique.png',
-    subtitle: 'Deposits to BCI or ABSA · Maputo',
+    subtitle: 'Deposits to major Mozambique banks · Maputo',
   },
   {
     code: 'ZA',

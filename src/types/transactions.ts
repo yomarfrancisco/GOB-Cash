@@ -49,7 +49,7 @@ export interface BankDepositTransaction {
   receiverId: string // Agent UID (hardcoded for v1)
   participants: string[] // [customerUid, agentUid, 'samba']
   bankCountry: 'MZ' | 'ZA'
-  bankId: 'ABSA' | 'BCI' | 'FNB'
+  bankId: 'ABSA' | 'BCI' | 'FNB' | 'MOZA' | 'VISTA' | 'BIM'
   depositCurrency: 'ZAR' | 'MZN'
   depositReference: string
   amountMzn: number

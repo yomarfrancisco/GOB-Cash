@@ -3,12 +3,15 @@
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 import Image from 'next/image'
-import { CountryCode } from '@/config/depositBankAccounts'
+import {
+  CountryCode,
+  type MozambiqueBank,
+  type SouthAfricaBank,
+  type SelectedBank,
+} from '@/config/depositBankAccounts'
 import '@/styles/send-details-sheet.css'
 
-export type MozambiqueBank = 'BCI' | 'ABSA'
-export type SouthAfricaBank = 'FNB'
-export type SelectedBank = MozambiqueBank | SouthAfricaBank
+export type { SelectedBank } from '@/config/depositBankAccounts'
 
 type BankSelectSheetProps = {
   isOpen: boolean
@@ -23,6 +26,9 @@ const BANK_LOGOS: Record<string, string> = {
   ABSA: '/assets/ABSA_logo.png',
   BCI: '/assets/BCI_logo.png',
   FNB: '/assets/fnb_logo.png',
+  MOZA: '/assets/moza_logo.png',
+  VISTA: '/assets/vista_logo.png',
+  BIM: '/assets/BIM_LOGO.png',
 }
 
 // Mozambique banks
@@ -43,6 +49,30 @@ const MOZAMBIQUE_BANKS: Array<{
     name: 'BCI',
     subtitle: 'Deposits to BCI',
     logoPath: BANK_LOGOS.BCI,
+  },
+  {
+    code: 'FNB',
+    name: 'FNB',
+    subtitle: 'Deposits to FNB Mozambique',
+    logoPath: BANK_LOGOS.FNB,
+  },
+  {
+    code: 'MOZA',
+    name: 'Moza Banco',
+    subtitle: 'Deposits to Moza Banco',
+    logoPath: BANK_LOGOS.MOZA,
+  },
+  {
+    code: 'VISTA',
+    name: 'Vista Bank',
+    subtitle: 'Deposits to Vista Bank',
+    logoPath: BANK_LOGOS.VISTA,
+  },
+  {
+    code: 'BIM',
+    name: 'Millennium BIM',
+    subtitle: 'Deposits to Millennium BIM',
+    logoPath: BANK_LOGOS.BIM,
   },
 ]
 

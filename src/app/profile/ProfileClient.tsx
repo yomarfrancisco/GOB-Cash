@@ -1387,7 +1387,7 @@ export default function ProfileClient() {
             // Get bank config for reference
             const { DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, SOUTH_AFRICA_BANK_ACCOUNTS, COUNTRY_SELECT_OPTIONS } = await import('@/config/depositBankAccounts')
             let config
-            if (bankTransferCountry === 'MZ' && selectedBank && (selectedBank === 'BCI' || selectedBank === 'ABSA')) {
+            if (bankTransferCountry === 'MZ' && selectedBank) {
               config = MOZAMBIQUE_BANK_ACCOUNTS[selectedBank]
             } else if (bankTransferCountry === 'ZA' && selectedBank === 'FNB') {
               config = SOUTH_AFRICA_BANK_ACCOUNTS[selectedBank]

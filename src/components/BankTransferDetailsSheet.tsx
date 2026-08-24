@@ -29,7 +29,7 @@ export default function BankTransferDetailsSheet({
 }: BankTransferDetailsSheetProps) {
   // Get bank-specific config if provided, otherwise use default for country
   let config: BankAccountDetails
-  if (countryCode === 'MZ' && bank && (bank === 'BCI' || bank === 'ABSA')) {
+  if (countryCode === 'MZ' && bank) {
     config = MOZAMBIQUE_BANK_ACCOUNTS[bank]
   } else if (countryCode === 'ZA' && bank === 'FNB') {
     config = SOUTH_AFRICA_BANK_ACCOUNTS[bank]
