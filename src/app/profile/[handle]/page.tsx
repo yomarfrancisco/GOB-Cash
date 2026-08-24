@@ -127,10 +127,10 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                 <button
                   type="button"
                   onClick={() => {
-                    router.push('/?searchOpen=1')
+                    router.push('/')
                   }}
                   className="profile-back-button"
-                  aria-label="Back to search"
+                  aria-label="Back to home"
                   style={{
                     background: 'transparent',
                     border: 'none',

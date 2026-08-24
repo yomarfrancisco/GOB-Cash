@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import CardStack, { type CardStackHandle, type CardType } from '@/components/CardStack'
 import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
@@ -51,31 +50,10 @@ import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
-import { useSearchSheet } from '@/store/useSearchSheet'
 import { prefetchActionSheetIcons } from '@/lib/prefetchActionSheetIcons'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
-
-// Inner component that uses search params (must be wrapped in Suspense)
-function HomeWithSearchParams() {
-  const searchParams = useSearchParams()
-  const { open: openSearch } = useSearchSheet()
-
-  // Auto-open search sheet when searchOpen=1 query param is present
-  useEffect(() => {
-    const shouldOpenSearch = searchParams?.get('searchOpen') === '1'
-    if (shouldOpenSearch) {
-      openSearch()
-      // Clear the query param from URL without reload
-      const url = new URL(window.location.href)
-      url.searchParams.delete('searchOpen')
-      window.history.replaceState({}, '', url.toString())
-    }
-  }, [searchParams, openSearch])
-
-  return <HomeContent />
-}
 
 // Main home page content
 function HomeContent() {
@@ -95,7 +73,6 @@ function HomeContent() {
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
   const { play: playDollarSound } = useSoundEffect('/assets/Drum_3b.mp3')
-  const { open: openSearch } = useSearchSheet()
   const { open: openBankingDetails } = useBankingDetailsSheet()
 
   // Prefetch ActionSheet icons on page load
@@ -1134,11 +1111,6 @@ function HomeContent() {
   )
 }
 
-// Default export wraps in Suspense for useSearchParams
 export default function Home() {
-  return (
-    <Suspense fallback={null}>
-      <HomeWithSearchParams />
-    </Suspense>
-  )
+  return <HomeContent />
 }

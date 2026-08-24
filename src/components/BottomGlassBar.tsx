@@ -6,7 +6,6 @@ import clsx from 'clsx'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
 import { useFinancialInboxStore } from '@/state/financialInbox'
-import { useSearchSheet } from '@/store/useSearchSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
@@ -26,7 +25,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
   const { hasUnreadNotification } = useFinancialInboxStore()
-  const { open: openSearch, isOpen: isSearchOpen } = useSearchSheet()
   const { profile } = useUserProfileStore()
   
   const handleCenterButtonClick = () => {
@@ -190,27 +188,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             </>
           )}
         </Link>
-      </div>
-      <div className="nav-item">
-        <button
-          onClick={openSearch}
-          aria-label="Search"
-          type="button"
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-          }}
-        >
-          <Image 
-            src="/assets/nav/search.svg" 
-            alt="Search" 
-            className={`nav-icon ${isSearchOpen ? 'nav-icon-search-active' : 'nav-icon-dim'}`} 
-            width={28} 
-            height={28} 
-          />
-        </button>
       </div>
     </>
   )
