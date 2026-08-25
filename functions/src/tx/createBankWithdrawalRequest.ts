@@ -69,13 +69,6 @@ export const tx_createBankWithdrawalRequest = functions
     const txRef = db.collection('transactions').doc()
     const txId = txRef.id
 
-    // Get user info for email notification
-    const userRef = db.collection('users').doc(userId)
-    const userSnap = await userRef.get()
-    const userData = userSnap.exists ? userSnap.data()! : {}
-    const userHandle = userData?.userHandle || userData?.handle || null
-    const userEmail = userData?.email || null
-
     // Create bank withdrawal record with requestedAmountZAR
     const bankWithdrawalRef = db.collection('bankWithdrawals').doc(txId)
     const bankWithdrawal = {
@@ -226,49 +219,58 @@ export const tx_createBankWithdrawalRequest = functions
 
     console.log(`[tx_createBankWithdrawalRequest] Created transaction ${txId} for bank withdrawal`)
 
-    // Send email notification (non-blocking, after transaction succeeds)
-    // Check idempotency: only send if not already sent
-    const bankWithdrawalSnap = await bankWithdrawalRef.get()
-    const bankWithdrawalData = bankWithdrawalSnap.exists ? bankWithdrawalSnap.data()! : {}
-    
-    if (!bankWithdrawalData.emailSent) {
-      try {
-        const emailSubject = `Bank Withdrawal Requested — ZAR ${amountZAR.toFixed(2)}${userHandle ? ` (@${userHandle})` : ''}`
-        const emailHtml = generateBankWithdrawalEmailContent(
-          txId,
-          userHandle,
-          userEmail,
-          userId,
-          amountZAR,
-          country.trim(),
-          (bankName || `${country} Bank`).trim(),
-          accountHolderName.trim(),
-          accountNumber.trim(),
-          swiftBic.trim(),
-          now
-        )
-
-        const emailTo = getCoreAgentEmail()
-        await sendEmailViaResend(emailTo, emailSubject, emailHtml)
-
-        // Mark email as sent (idempotency)
-        await bankWithdrawalRef.update({
-          emailSent: true,
-          emailSentAt: now,
-        })
-
-        console.log(`[tx_createBankWithdrawalRequest] Email notification sent for bank withdrawal ${txId}`)
-      } catch (error) {
-        console.error('[tx_createBankWithdrawalRequest] Error sending email (non-blocking):', error)
-        // Don't throw - function already succeeded, email is non-critical
-      }
-    } else {
-      console.log(`[tx_createBankWithdrawalRequest] Email already sent for bank withdrawal ${txId}, skipping`)
-    }
-
     return {
       txId,
       bankWithdrawalId: txId,
+    }
+  })
+
+export const onBankWithdrawalCreated = functions
+  .region('us-central1')
+  .firestore.document('bankWithdrawals/{withdrawalId}')
+  .onCreate(async (snapshot) => {
+    const data = snapshot.data()
+    if (!data || data.emailSent) return
+
+    const withdrawalId = snapshot.id
+    const userId = data.userId as string
+    const amountZAR = Number(data.requestedAmountZAR ?? data.amountZAR ?? 0)
+    const country = String(data.country || '')
+    const bankName = String(data.bankName || `${country} Bank`)
+    const accountHolderName = String(data.accountHolderName || '')
+    const accountNumber = String(data.accountNumber || '')
+    const swiftBic = String(data.swiftBic || '')
+    const createdAt = data.createdAt || admin.firestore.Timestamp.now()
+
+    try {
+      const userSnap = await db.collection('users').doc(userId).get()
+      const userData = userSnap.exists ? userSnap.data()! : {}
+      const userHandle = userData?.userHandle || userData?.handle || null
+      const userEmail = userData?.email || null
+
+      const emailSubject = `Bank Withdrawal Requested — ZAR ${amountZAR.toFixed(2)}${userHandle ? ` (@${userHandle})` : ''}`
+      const emailHtml = generateBankWithdrawalEmailContent(
+        withdrawalId,
+        userHandle,
+        userEmail,
+        userId,
+        amountZAR,
+        country,
+        bankName,
+        accountHolderName,
+        accountNumber,
+        swiftBic,
+        createdAt
+      )
+
+      await sendEmailViaResend(getCoreAgentEmail(), emailSubject, emailHtml)
+      await snapshot.ref.update({
+        emailSent: true,
+        emailSentAt: admin.firestore.Timestamp.now(),
+      })
+      console.log(`[onBankWithdrawalCreated] Email notification sent for bank withdrawal ${withdrawalId}`)
+    } catch (error) {
+      console.error('[onBankWithdrawalCreated] Error sending email (non-blocking):', error)
     }
   })
 

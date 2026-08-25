@@ -182,12 +182,11 @@ export default function BankingDetailsSheet() {
           console.warn('[BankingDetailsSheet] Withdrawal created; notification persist failed.', error)
         }
 
-        try {
-          const { downloadBankWithdrawalProof } = await import('@/lib/transactions/clientFunctions')
-          await downloadBankWithdrawalProof(result.txId)
-        } catch (error) {
-          console.warn('[BankingDetailsSheet] Withdrawal created; proof download failed.', error)
-        }
+        void import('@/lib/transactions/clientFunctions')
+          .then(({ downloadBankWithdrawalProof }) => downloadBankWithdrawalProof(result.txId))
+          .catch((error) => {
+            console.warn('[BankingDetailsSheet] Withdrawal created; proof download failed.', error)
+          })
       } catch (error: any) {
         console.error('[BankingDetailsSheet] Failed to create bank withdrawal:', error)
         const message = String(error?.message || '')
