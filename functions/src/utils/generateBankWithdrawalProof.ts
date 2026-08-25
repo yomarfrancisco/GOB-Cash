@@ -1,11 +1,15 @@
 /**
- * Generate PDF proof of payment for bank withdrawal
+ * Generate MozPay confirmation PDF for a recorded bank withdrawal.
+ * This is an app confirmation, not an external bank proof of payment.
  */
 
 import * as admin from 'firebase-admin'
 import PDFDocument from 'pdfkit'
 
 const db = admin.firestore()
+
+const DISCLAIMER =
+  'MozPay transaction confirmation — this document is not an external bank proof of payment.'
 
 export interface BankWithdrawalProofData {
   bankWithdrawalId: string
@@ -18,6 +22,35 @@ export interface BankWithdrawalProofData {
   userId: string
   userHandle: string | null
   timestamp: admin.firestore.Timestamp
+  documentType: 'APP_CONFIRMATION'
+  issuer: 'MOZPAY'
+  instructionStatus: string | null
+  bankWithdrawalStatus: string | null
+  externalReference: string | null
+  confirmedAt: admin.firestore.Timestamp | null
+}
+
+function isBankConfirmed(data: BankWithdrawalProofData): boolean {
+  const statuses = [data.instructionStatus, data.bankWithdrawalStatus]
+    .filter(Boolean)
+    .map((value) => String(value).toUpperCase())
+  return statuses.some((status) =>
+    status === 'BANK_CONFIRMED' ||
+    status === 'WITHDRAWAL_CONFIRMED' ||
+    status === 'CONFIRMED'
+  )
+}
+
+function formatTimestamp(timestamp: admin.firestore.Timestamp): string {
+  return timestamp.toDate().toLocaleString('en-ZA', {
+    timeZone: 'Africa/Johannesburg',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  })
 }
 
 /**
@@ -25,22 +58,25 @@ export interface BankWithdrawalProofData {
  */
 export async function getBankWithdrawalData(bankWithdrawalId: string): Promise<BankWithdrawalProofData | null> {
   const withdrawalRef = db.collection('bankWithdrawals').doc(bankWithdrawalId)
-  const withdrawalSnap = await withdrawalRef.get()
-  
+  const txRef = db.collection('transactions').doc(bankWithdrawalId)
+  const [withdrawalSnap, txSnap] = await Promise.all([withdrawalRef.get(), txRef.get()])
+
   if (!withdrawalSnap.exists) {
     return null
   }
-  
+
   const withdrawalData = withdrawalSnap.data()!
-  
-  // Get user info
+  const txData = txSnap.exists ? txSnap.data()! : {}
+
   const userRef = db.collection('users').doc(withdrawalData.userId)
   const userSnap = await userRef.get()
   const userData = userSnap.exists ? userSnap.data()! : {}
-  
+
+  const confirmedAt = txData.confirmedAt || withdrawalData.confirmedAt || null
+
   return {
     bankWithdrawalId,
-    amountZAR: withdrawalData.requestedAmountZAR || withdrawalData.amountZAR || 0, // Use requestedAmountZAR as source of truth
+    amountZAR: withdrawalData.requestedAmountZAR || withdrawalData.amountZAR || 0,
     country: withdrawalData.country || '',
     bankName: withdrawalData.bankName || '',
     accountHolderName: withdrawalData.accountHolderName || '',
@@ -49,11 +85,35 @@ export async function getBankWithdrawalData(bankWithdrawalId: string): Promise<B
     userId: withdrawalData.userId,
     userHandle: userData?.userHandle || userData?.handle || null,
     timestamp: withdrawalData.createdAt || admin.firestore.Timestamp.now(),
+    documentType: 'APP_CONFIRMATION',
+    issuer: 'MOZPAY',
+    instructionStatus: txData.instructionStatus || null,
+    bankWithdrawalStatus: withdrawalData.status || null,
+    externalReference: txData.externalReference || withdrawalData.externalReference || null,
+    confirmedAt: confirmedAt && typeof confirmedAt.toDate === 'function' ? confirmedAt : null,
   }
 }
 
 /**
- * Generate PDF buffer for bank withdrawal proof
+ * Stamp MozPay confirmation metadata on the linked transaction if missing.
+ * Existing withdrawals created before this field still become APP_CONFIRMATION on download.
+ */
+export async function stampAppConfirmationOnTransaction(txId: string): Promise<void> {
+  const txRef = db.collection('transactions').doc(txId)
+  const txSnap = await txRef.get()
+  if (!txSnap.exists) return
+
+  const data = txSnap.data() || {}
+  const patch: Record<string, string> = {}
+  if (data.documentType !== 'APP_CONFIRMATION') patch.documentType = 'APP_CONFIRMATION'
+  if (data.issuer !== 'MOZPAY') patch.issuer = 'MOZPAY'
+  if (Object.keys(patch).length === 0) return
+
+  await txRef.update(patch)
+}
+
+/**
+ * Generate PDF buffer for MozPay withdrawal confirmation
  */
 export function generateBankWithdrawalProofPdf(data: BankWithdrawalProofData): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -62,7 +122,7 @@ export function generateBankWithdrawalProofPdf(data: BankWithdrawalProofData): P
         size: 'A4',
         margins: { top: 50, bottom: 50, left: 50, right: 50 },
       })
-      
+
       const buffers: Buffer[] = []
       doc.on('data', buffers.push.bind(buffers))
       doc.on('end', () => {
@@ -70,114 +130,69 @@ export function generateBankWithdrawalProofPdf(data: BankWithdrawalProofData): P
         resolve(pdfBuffer)
       })
       doc.on('error', reject)
-      
-      // Header
+
+      const bankConfirmed = isBankConfirmed(data)
+
       doc.fontSize(24)
         .font('Helvetica-Bold')
-        .text('GoBankless', 50, 50, { align: 'center' })
-      
+        .text('MozPay', 50, 50, { align: 'center' })
+
       doc.fontSize(18)
         .font('Helvetica-Bold')
-        .text('Proof of Bank Withdrawal', 50, 90, { align: 'center' })
-      
-      // Line separator
+        .text('Settlement Confirmation', 50, 90, { align: 'center' })
+
       doc.moveTo(50, 130)
         .lineTo(550, 130)
         .stroke()
-      
-      // Content
+
       let yPos = 160
       const lineHeight = 25
       const leftMargin = 50
       const labelWidth = 200
-      
+
       doc.fontSize(12)
         .font('Helvetica')
-      
-      // Withdrawal ID
-      doc.font('Helvetica-Bold')
-        .text('Withdrawal ID:', leftMargin, yPos, { width: labelWidth })
-      doc.font('Helvetica')
-        .text(data.bankWithdrawalId, leftMargin + labelWidth, yPos)
+
+      const rows: Array<[string, string]> = [
+        ['Document type:', data.documentType],
+        ['Issuer:', 'MozPay'],
+        ['Transaction ID:', data.bankWithdrawalId],
+        ['Status:', bankConfirmed ? 'Bank confirmed' : 'Instructed'],
+        ['Amount:', `R${Number(data.amountZAR || 0).toFixed(2)}`],
+        ['Country:', data.country],
+        ['Bank:', data.bankName],
+        ['Account holder:', data.accountHolderName],
+        ['Account number:', data.accountNumber],
+        ['SWIFT/BIC:', data.swiftBic],
+        ['User:', data.userHandle || data.userId],
+        ['Instructed at:', formatTimestamp(data.timestamp)],
+      ]
+
+      if (data.externalReference) {
+        rows.push(['External reference:', String(data.externalReference)])
+      }
+      if (data.confirmedAt) {
+        rows.push(['Confirmed at:', formatTimestamp(data.confirmedAt)])
+      }
+
+      for (const [label, value] of rows) {
+        doc.font('Helvetica-Bold')
+          .text(label, leftMargin, yPos, { width: labelWidth })
+        doc.font('Helvetica')
+          .text(value || '—', leftMargin + labelWidth, yPos, { width: 300 })
+        yPos += lineHeight
+      }
+
       yPos += lineHeight
-      
-      // Amount
-      doc.font('Helvetica-Bold')
-        .text('Amount:', leftMargin, yPos, { width: labelWidth })
-      doc.font('Helvetica')
-        .text(`R${data.amountZAR.toFixed(2)}`, leftMargin + labelWidth, yPos)
-      yPos += lineHeight
-      
-      // Country
-      doc.font('Helvetica-Bold')
-        .text('Country:', leftMargin, yPos, { width: labelWidth })
-      doc.font('Helvetica')
-        .text(data.country, leftMargin + labelWidth, yPos)
-      yPos += lineHeight
-      
-      // Bank Name
-      doc.font('Helvetica-Bold')
-        .text('Bank:', leftMargin, yPos, { width: labelWidth })
-      doc.font('Helvetica')
-        .text(data.bankName, leftMargin + labelWidth, yPos)
-      yPos += lineHeight
-      
-      // Account Holder
-      doc.font('Helvetica-Bold')
-        .text('Account Holder:', leftMargin, yPos, { width: labelWidth })
-      doc.font('Helvetica')
-        .text(data.accountHolderName, leftMargin + labelWidth, yPos)
-      yPos += lineHeight
-      
-      // Account Number
-      doc.font('Helvetica-Bold')
-        .text('Account Number:', leftMargin, yPos, { width: labelWidth })
-      doc.font('Helvetica')
-        .text(data.accountNumber, leftMargin + labelWidth, yPos)
-      yPos += lineHeight
-      
-      // SWIFT/BIC
-      doc.font('Helvetica-Bold')
-        .text('SWIFT/BIC:', leftMargin, yPos, { width: labelWidth })
-      doc.font('Helvetica')
-        .text(data.swiftBic, leftMargin + labelWidth, yPos)
-      yPos += lineHeight * 2
-      
-      // User Handle/UID
-      doc.font('Helvetica-Bold')
-        .text('User:', leftMargin, yPos, { width: labelWidth })
-      doc.font('Helvetica')
-        .text(data.userHandle || data.userId, leftMargin + labelWidth, yPos)
-      yPos += lineHeight
-      
-      // Date/Time
-      const date = data.timestamp.toDate()
-      const formattedDate = date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZoneName: 'short',
-      })
-      
-      doc.font('Helvetica-Bold')
-        .text('Date & Time:', leftMargin, yPos, { width: labelWidth })
-      doc.font('Helvetica')
-        .text(formattedDate, leftMargin + labelWidth, yPos)
-      yPos += lineHeight * 2
-      
-      // Footer
       doc.fontSize(10)
         .font('Helvetica')
-        .text('This document serves as proof of payment for the above bank withdrawal request.', leftMargin, yPos, { width: 500 })
-      yPos += lineHeight
-      doc.text('Generated by GoBankless', leftMargin, yPos, { width: 500 })
-      
+        .text(DISCLAIMER, leftMargin, yPos, { width: 500 })
+      yPos += lineHeight + 8
+      doc.text('Generated by MozPay', leftMargin, yPos, { width: 500 })
+
       doc.end()
     } catch (error) {
       reject(error)
     }
   })
 }
-

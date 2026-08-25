@@ -672,7 +672,7 @@ export async function tx_createBankWithdrawalRequest(params: {
 }
 
 /**
- * Download bank withdrawal proof PDF
+ * Download MozPay confirmation PDF for a recorded bank withdrawal.
  */
 export async function downloadBankWithdrawalProof(bankWithdrawalId: string): Promise<void> {
   const app = getFirebaseApp()

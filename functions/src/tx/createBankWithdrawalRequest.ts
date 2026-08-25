@@ -126,6 +126,8 @@ export const tx_createBankWithdrawalRequest = functions
       destinationCountry: country.trim(),
       destinationAccountMasked,
       instructionStatus: 'INITIATED',
+      documentType: 'APP_CONFIRMATION',
+      issuer: 'MOZPAY',
       groupId: groupId || txId,
     }
 
@@ -305,8 +307,7 @@ function generateBankWithdrawalEmailContent(
   })
   const isoDate = timestamp.toDate().toISOString()
 
-  // Note: Proof PDF is available via callable function getBankWithdrawalProof
-  // Users can download it from the chat UI
+  // Note: MozPay confirmation PDF is available via getBankWithdrawalProof
 
   return `
     <!DOCTYPE html>
@@ -392,7 +393,7 @@ function generateBankWithdrawalEmailContent(
           
           <div class="footer">
             <p>This is an automated notification from GoBankless.</p>
-            <p><strong>Proof PDF:</strong> Available via getBankWithdrawalProof callable function (withdrawalId: ${withdrawalId})</p>
+            <p><strong>Confirmation PDF:</strong> Available via getBankWithdrawalProof callable function (withdrawalId: ${withdrawalId})</p>
             <p>Transaction: <a href="https://console.firebase.google.com/project/gobankless-dev/firestore/data/transactions/${withdrawalId}">View in Firebase Console</a></p>
             <p>Withdrawal: <a href="https://console.firebase.google.com/project/gobankless-dev/firestore/data/bankWithdrawals/${withdrawalId}">View Withdrawal Record</a></p>
           </div>

@@ -418,7 +418,7 @@ export default function DepositChatSheet({ open, onClose, txId, error }: Deposit
               }]
             } else if (hasDownloadButton) {
               messageButtons = [{
-                label: 'Download proof',
+                label: 'Download confirmation',
                 onClick: handleDownloadProof,
                 variant: 'primary' as const
               }]

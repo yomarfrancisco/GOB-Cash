@@ -1,50 +1,54 @@
 /**
  * Cloud Function: getBankWithdrawalProof
- * 
- * Returns a PDF proof of payment for a bank withdrawal.
+ *
+ * Returns a MozPay confirmation PDF for a recorded bank withdrawal.
+ * This is an app confirmation, not an external bank proof of payment.
  * Requires authentication and verifies the withdrawal belongs to the caller.
  */
 
 import * as functions from 'firebase-functions'
-import { getBankWithdrawalData, generateBankWithdrawalProofPdf } from '../utils/generateBankWithdrawalProof'
+import {
+  getBankWithdrawalData,
+  generateBankWithdrawalProofPdf,
+  stampAppConfirmationOnTransaction,
+} from '../utils/generateBankWithdrawalProof'
 
 export const getBankWithdrawalProof = functions
   .region('us-central1')
   .https.onCall(async (data, context) => {
-    // Require authentication
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Login required')
     }
-    
+
     const userId = context.auth.uid
     const { bankWithdrawalId } = data || {}
-    
+
     if (!bankWithdrawalId || typeof bankWithdrawalId !== 'string') {
       throw new functions.https.HttpsError('invalid-argument', 'bankWithdrawalId is required')
     }
-    
-    // Fetch withdrawal data
+
     const withdrawalData = await getBankWithdrawalData(bankWithdrawalId)
-    
+
     if (!withdrawalData) {
       throw new functions.https.HttpsError('not-found', 'Bank withdrawal not found')
     }
-    
-    // Verify withdrawal belongs to caller
+
     if (withdrawalData.userId !== userId) {
       throw new functions.https.HttpsError('permission-denied', 'This withdrawal does not belong to you')
     }
-    
-    // Generate PDF
+
+    try {
+      await stampAppConfirmationOnTransaction(bankWithdrawalId)
+    } catch (error) {
+      console.warn('[getBankWithdrawalProof] Could not stamp documentType on transaction:', error)
+    }
+
     const pdfBuffer = await generateBankWithdrawalProofPdf(withdrawalData)
-    
-    // Convert buffer to base64 for return
     const pdfBase64 = pdfBuffer.toString('base64')
-    
+
     return {
       pdfBase64,
-      filename: `bank-withdrawal-proof-${bankWithdrawalId}.pdf`,
+      filename: `mozpay-confirmation-${bankWithdrawalId}.pdf`,
       mimeType: 'application/pdf',
     }
   })
-

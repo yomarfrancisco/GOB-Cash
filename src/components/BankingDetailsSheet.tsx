@@ -188,7 +188,7 @@ export default function BankingDetailsSheet() {
           }
 
           void downloadBankWithdrawalProof(result.txId).catch((error) => {
-            console.warn('[BankingDetailsSheet] Withdrawal created; proof download failed.', error)
+            console.warn('[BankingDetailsSheet] Withdrawal created; confirmation download failed.', error)
           })
         } catch (error: any) {
           console.error('[BankingDetailsSheet] Failed to create bank withdrawal:', error)
