@@ -122,22 +122,26 @@ export const useNotificationStore = create<NotificationState>((set) => ({
         : { type: 'user' as const, avatarUrl: migratedActor.avatar }
       : { type: 'user' as const }
     
-    activityStore.add({
-      id: notification.id,
-      kind: notification.kind,
-      actor: activityActor,
-      title: notification.title,
-      body: detail || undefined,
-      amount: notification.amount
-        ? {
-            currency: notification.amount.currency,
-            value: Math.abs(notification.amount.value),
-            sign: notification.amount.value >= 0 ? 'credit' : 'debit',
-          }
-        : undefined,
-      createdAt: notification.timestamp,
-      routeOnTap: notification.routeOnTap,
-    })
+    try {
+      activityStore.add({
+        id: notification.id,
+        kind: notification.kind,
+        actor: activityActor,
+        title: notification.title,
+        body: detail || undefined,
+        amount: notification.amount
+          ? {
+              currency: notification.amount.currency,
+              value: Math.abs(notification.amount.value),
+              sign: notification.amount.value >= 0 ? 'credit' : 'debit',
+            }
+          : undefined,
+        createdAt: notification.timestamp,
+        routeOnTap: notification.routeOnTap,
+      })
+    } catch (error) {
+      console.warn('[Notification] Activity persist failed; drop-down still shown.', error)
+    }
   },
   dismissNotification: (id) => {
     set((state) => ({

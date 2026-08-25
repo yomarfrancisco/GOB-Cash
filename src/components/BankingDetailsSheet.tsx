@@ -159,29 +159,31 @@ export default function BankingDetailsSheet() {
           linkedBankId: matchedBank?.id ?? editingBankId,
         })
 
-        useNotificationStore.getState().pushNotification({
-          id: result.txId,
-          kind: 'zar_withdrawn',
-          title: 'Withdrawal instructed',
-          body: `R${withdrawalAmountZAR.toFixed(2)} to ${accountHolderName.trim()} · ${bankName.trim()}`,
-          amount: {
-            currency: 'ZAR',
-            value: -withdrawalAmountZAR,
-          },
-          direction: 'down',
-          actor: {
-            type: 'ai_manager',
-            avatar: '/assets/Brics-girl-blue.png',
-            name: 'Ama',
-          },
-          routeOnTap: '/profile?activity=1',
-        })
-
         close()
-        
-        // Callback to open chat (will be handled by parent via store)
         if (onWithdrawalCreated) {
           onWithdrawalCreated(result.txId)
+        }
+
+        try {
+          useNotificationStore.getState().pushNotification({
+            id: result.txId,
+            kind: 'zar_withdrawn',
+            title: 'Withdrawal instructed',
+            body: `R${withdrawalAmountZAR.toFixed(2)} to ${accountHolderName.trim()} · ${bankName.trim()}`,
+            amount: {
+              currency: 'ZAR',
+              value: -withdrawalAmountZAR,
+            },
+            direction: 'down',
+            actor: {
+              type: 'ai_manager',
+              avatar: '/assets/Brics-girl-blue.png',
+              name: 'Ama',
+            },
+            routeOnTap: '/profile?activity=1',
+          })
+        } catch (error) {
+          console.warn('[BankingDetailsSheet] Withdrawal created; notification persist failed.', error)
         }
       } catch (error: any) {
         console.error('[BankingDetailsSheet] Failed to create bank withdrawal:', error)
