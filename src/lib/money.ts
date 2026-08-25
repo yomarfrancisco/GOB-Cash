@@ -24,3 +24,11 @@ export function formatMZNWithDot(amount: number): string {
 
 export const formatUSDT = (n: number) => `USDT ${n.toFixed(2)}`
 
+export function toMinorUnits(amount: number): number {
+  return Math.round((Number(amount) || 0) * 100)
+}
+
+export function exceedsAvailableZar(amountZar: number, availableZar: number): boolean {
+  return toMinorUnits(amountZar) > toMinorUnits(availableZar)
+}
+

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
-import { formatMZN, formatMZNWithDot, formatZAR, formatZARWithDot } from '@/lib/money'
+import { exceedsAvailableZar, formatMZN, formatMZNWithDot, formatZAR, formatZARWithDot } from '@/lib/money'
 import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsdt } from '@/lib/mznZar'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
@@ -166,6 +166,10 @@ export default function AmountSheet({
 
     if (!amountMZN) return
 
+    if (isZarPrimaryKeypad && exceedsAvailableZar(amountZAR, displayBalanceZAR)) {
+      return
+    }
+
     // For all non-withdraw flows, pass through the *prop* mode, not some hard-coded arg
     if (onCashSubmit) {
       onCashSubmit({
@@ -240,6 +244,8 @@ export default function AmountSheet({
     : 'Continue'
   const finalCtaLabel = ctaLabel || defaultCtaLabel
   const isPositive = typedAmount > 0
+  const exceedsZarBalance = isZarPrimaryKeypad && exceedsAvailableZar(amountZAR, displayBalanceZAR)
+  const keypadFeeText = exceedsZarBalance ? 'Insufficient ZAR balance.' : customFeeText
 
   // Format amount for display (remove leading zeros except "0.")
   const displayAmount = amount === '0' ? '0' : amount.replace(/^0+(?=\d)/, '')
@@ -298,7 +304,7 @@ export default function AmountSheet({
             currencySymbol={isZarPrimaryKeypad ? 'R' : 'Mt'}
             isHelicopterConvert={isHelicopterConvert}
             amountMZN={amountMZN}
-            customFeeText={customFeeText}
+            customFeeText={keypadFeeText}
           />
         </div>
         <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>

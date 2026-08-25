@@ -52,6 +52,7 @@ export const tx_createBankWithdrawalRequest = functions
     }
 
     const amountZAR = Math.round((amountMZN / FX_RATE_MZN_PER_ZAR) * 100) / 100
+    const amountMinor = Math.round(amountZAR * 100)
     const now = admin.firestore.Timestamp.now()
     const linkedBankId = typeof data.linkedBankId === 'string' && data.linkedBankId.trim()
       ? data.linkedBankId.trim()
@@ -122,7 +123,7 @@ export const tx_createBankWithdrawalRequest = functions
       recordingSource: 'USER_UI',
       executionChannel: 'EXTERNAL_BANK',
       currency: 'ZAR',
-      amountMinor: Math.round(amountZAR * 100),
+      amountMinor,
       linkedBankId,
       counterpartyName: accountHolderName.trim(),
       destinationBankName: (bankName || `${country} Bank`).trim(),
@@ -154,15 +155,37 @@ export const tx_createBankWithdrawalRequest = functions
 
     // Reserve balance and write transaction, bank withdrawal record, and message atomically
     const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashMZN')
+    const cashZarRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
     
+    // Guard against oversized ZAR withdrawals before any documents are written.
+    const preflightZarSnap = await cashZarRef.get()
+    const preflightZar = Number(preflightZarSnap.exists ? preflightZarSnap.data()?.fiatBalance || 0 : 0)
+    if (amountMinor > Math.round(preflightZar * 100)) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'Insufficient ZAR balance.'
+      )
+    }
+
     await db.runTransaction(async (t) => {
-      // Read current wallet balance
+      // Reads must happen before writes
+      const cashZarSnap = await t.get(cashZarRef)
       const walletSnap = await t.get(walletRef)
+      const cashZarData = cashZarSnap.exists ? cashZarSnap.data()! : {}
       const walletData = walletSnap.exists ? walletSnap.data()! : {}
+      const availableZar = Number(cashZarData?.fiatBalance || 0)
+      const availableZarMinor = Math.round(availableZar * 100)
       const currentFiatBalance = walletData?.fiatBalance || 0
       const currentBankWithdrawLocked = walletData?.bankWithdrawLockedMzn || 0
+
+      if (amountMinor > availableZarMinor) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Insufficient ZAR balance.'
+        )
+      }
       
-      // Verify sufficient balance
+      // Verify sufficient MZN source balance for the existing reserve behaviour
       if (currentFiatBalance < amountMZN) {
         throw new functions.https.HttpsError(
           'failed-precondition',

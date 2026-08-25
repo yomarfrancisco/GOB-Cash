@@ -8,6 +8,8 @@ import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { useWhatsAppClaimStore } from '@/store/useWhatsAppClaim'
 import { useUserProfileStore } from '@/store/userProfile'
 import { COUNTRIES } from '@/constants/countries'
+import { exceedsAvailableZar } from '@/lib/money'
+import { useWalletAlloc } from '@/state/walletAlloc'
 import styles from './BankingDetailsSheet.module.css'
 
 export default function BankingDetailsSheet() {
@@ -22,6 +24,7 @@ export default function BankingDetailsSheet() {
   } = useBankingDetailsSheet()
   const { open: openLinkedAccounts } = useLinkedAccountsSheet()
   const { profile, addOrUpdateLinkedBank, removeLinkedBank } = useUserProfileStore()
+  const { alloc } = useWalletAlloc()
   const accountHolderRef = useRef<HTMLInputElement>(null)
 
   // Form state
@@ -30,10 +33,12 @@ export default function BankingDetailsSheet() {
   const [swiftBic, setSwiftBic] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
   const [hasSavedBank, setHasSavedBank] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   // Initialize form when sheet opens
   useEffect(() => {
     if (!isOpen) return
+    setFormError(null)
 
     // Load existing bank data if editing
     if (editingBankId) {
@@ -126,12 +131,15 @@ export default function BankingDetailsSheet() {
         return
       }
 
+      const availableZar = (alloc.cashCents ?? 0) / 100
+      if (exceedsAvailableZar(withdrawalAmountZAR, availableZar)) {
+        setFormError('Insufficient ZAR balance.')
+        return
+      }
+
       try {
         // Import client function dynamically
         const { tx_createBankWithdrawalRequest } = await import('@/lib/transactions/clientFunctions')
-        
-        // Close sheet immediately
-        close()
         
         // Create withdrawal request
         const normalizedAccount = accountNumber.replace(/\s+/g, '')
@@ -149,6 +157,8 @@ export default function BankingDetailsSheet() {
           swiftBic: swiftBic.trim(),
           linkedBankId: matchedBank?.id ?? editingBankId,
         })
+
+        close()
         
         // Callback to open chat (will be handled by parent via store)
         if (onWithdrawalCreated) {
@@ -156,7 +166,12 @@ export default function BankingDetailsSheet() {
         }
       } catch (error: any) {
         console.error('[BankingDetailsSheet] Failed to create bank withdrawal:', error)
-        // TODO: Show error to user
+        const message = String(error?.message || '')
+        setFormError(
+          /insufficient/i.test(message)
+            ? 'Insufficient ZAR balance.'
+            : 'Unable to create withdrawal.'
+        )
       }
       return
     }
@@ -295,6 +310,9 @@ export default function BankingDetailsSheet() {
               Done
             </button>
           </div>
+          {formError && (
+            <p className={styles.subtitle}>{formError}</p>
+          )}
           {hasSavedBank && editingBankId && (
             <button className={styles.removeBankButton} onClick={handleRemoveBank} type="button">
               Remove bank account
