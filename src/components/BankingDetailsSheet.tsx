@@ -26,6 +26,7 @@ export default function BankingDetailsSheet() {
   const { profile, addOrUpdateLinkedBank, removeLinkedBank } = useUserProfileStore()
   const { alloc } = useWalletAlloc()
   const accountHolderRef = useRef<HTMLInputElement>(null)
+  const submittingRef = useRef(false)
 
   // Form state
   const [country, setCountry] = useState('South Africa')
@@ -131,71 +132,82 @@ export default function BankingDetailsSheet() {
         return
       }
 
+      if (submittingRef.current) return
+
       const availableZar = (alloc.cashCents ?? 0) / 100
       if (exceedsAvailableZar(withdrawalAmountZAR, availableZar)) {
         setFormError('Insufficient ZAR balance.')
         return
       }
 
-      try {
-        // Import client function dynamically
-        const { tx_createBankWithdrawalRequest } = await import('@/lib/transactions/clientFunctions')
-        
-        // Create withdrawal request
-        const normalizedAccount = accountNumber.replace(/\s+/g, '')
-        const matchedBank = profile.linkedBanks.find(
-          (bank) => bank.accountNumber.replace(/\s+/g, '') === normalizedAccount
-        )
+      const amountZAR = withdrawalAmountZAR
+      const amountMZN = withdrawalAmountMZN
+      const payload = {
+        amountMZN,
+        amountZAR,
+        country: country.trim(),
+        bankName: bankName.trim(),
+        accountHolderName: accountHolderName.trim(),
+        accountNumber: accountNumber.trim(),
+        swiftBic: swiftBic.trim(),
+        linkedBankId: profile.linkedBanks.find(
+          (bank) => bank.accountNumber.replace(/\s+/g, '') === accountNumber.replace(/\s+/g, '')
+        )?.id ?? editingBankId,
+      }
 
-        const result = await tx_createBankWithdrawalRequest({
-          amountMZN: withdrawalAmountMZN,
-          amountZAR: withdrawalAmountZAR,
-          country: country.trim(),
-          bankName: bankName.trim(),
-          accountHolderName: accountHolderName.trim(),
-          accountNumber: accountNumber.trim(),
-          swiftBic: swiftBic.trim(),
-          linkedBankId: matchedBank?.id ?? editingBankId,
-        })
+      submittingRef.current = true
+      close()
 
-        close()
-
+      void (async () => {
         try {
-          useNotificationStore.getState().pushNotification({
-            id: result.txId,
-            kind: 'zar_withdrawn',
-            title: 'Withdrawal instructed',
-            body: `R${withdrawalAmountZAR.toFixed(2)} to ${accountHolderName.trim()} · ${bankName.trim()}`,
-            amount: {
-              currency: 'ZAR',
-              value: -withdrawalAmountZAR,
-            },
-            direction: 'down',
-            actor: {
-              type: 'ai_manager',
-              avatar: '/assets/Brics-girl-blue.png',
-              name: 'Ama',
-            },
-            routeOnTap: '/profile?activity=1',
-          })
-        } catch (error) {
-          console.warn('[BankingDetailsSheet] Withdrawal created; notification persist failed.', error)
-        }
+          const { tx_createBankWithdrawalRequest, downloadBankWithdrawalProof } = await import(
+            '@/lib/transactions/clientFunctions'
+          )
+          const result = await tx_createBankWithdrawalRequest(payload)
 
-        void import('@/lib/transactions/clientFunctions')
-          .then(({ downloadBankWithdrawalProof }) => downloadBankWithdrawalProof(result.txId))
-          .catch((error) => {
+          try {
+            useNotificationStore.getState().pushNotification({
+              id: result.txId,
+              kind: 'zar_withdrawn',
+              title: 'Withdrawal instructed',
+              body: `R${amountZAR.toFixed(2)} to ${payload.accountHolderName} · ${payload.bankName}`,
+              amount: {
+                currency: 'ZAR',
+                value: -amountZAR,
+              },
+              direction: 'down',
+              actor: {
+                type: 'ai_manager',
+                avatar: '/assets/Brics-girl-blue.png',
+                name: 'Ama',
+              },
+              routeOnTap: '/profile?activity=1',
+            })
+          } catch (error) {
+            console.warn('[BankingDetailsSheet] Withdrawal created; notification persist failed.', error)
+          }
+
+          void downloadBankWithdrawalProof(result.txId).catch((error) => {
             console.warn('[BankingDetailsSheet] Withdrawal created; proof download failed.', error)
           })
-      } catch (error: any) {
-        console.error('[BankingDetailsSheet] Failed to create bank withdrawal:', error)
-        const message = String(error?.message || '')
-        setFormError(
-          /insufficient/i.test(message)
-            ? 'Insufficient ZAR balance.'
-            : 'Unable to create withdrawal.'
-        )
-      }
+        } catch (error: any) {
+          console.error('[BankingDetailsSheet] Failed to create bank withdrawal:', error)
+          const message = String(error?.message || '')
+          useNotificationStore.getState().pushNotification({
+            kind: 'payment_failed',
+            title: 'Withdrawal failed',
+            body: /insufficient/i.test(message)
+              ? 'Insufficient ZAR balance.'
+              : 'Unable to create withdrawal.',
+            actor: {
+              type: 'system',
+              name: 'MozPay',
+            },
+          })
+        } finally {
+          submittingRef.current = false
+        }
+      })()
       return
     }
 
