@@ -20,7 +20,6 @@ export default function BankingDetailsSheet() {
     editingBankId,
     withdrawalAmountZAR,
     withdrawalAmountMZN,
-    onWithdrawalCreated,
     close,
   } = useBankingDetailsSheet()
   const { open: openLinkedAccounts } = useLinkedAccountsSheet()
@@ -160,9 +159,6 @@ export default function BankingDetailsSheet() {
         })
 
         close()
-        if (onWithdrawalCreated) {
-          onWithdrawalCreated(result.txId)
-        }
 
         try {
           useNotificationStore.getState().pushNotification({
@@ -184,6 +180,13 @@ export default function BankingDetailsSheet() {
           })
         } catch (error) {
           console.warn('[BankingDetailsSheet] Withdrawal created; notification persist failed.', error)
+        }
+
+        try {
+          const { downloadBankWithdrawalProof } = await import('@/lib/transactions/clientFunctions')
+          await downloadBankWithdrawalProof(result.txId)
+        } catch (error) {
+          console.warn('[BankingDetailsSheet] Withdrawal created; proof download failed.', error)
         }
       } catch (error: any) {
         console.error('[BankingDetailsSheet] Failed to create bank withdrawal:', error)

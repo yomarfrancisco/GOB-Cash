@@ -955,17 +955,7 @@ export default function ProfileClient() {
             }
             setOpenWithdraw(false)
             setTimeout(() => {
-              // Open with callback to handle chat opening, using keypad amount
-              openBankingDetails('withdraw', null, withdrawAmountZAR, (txId: string) => {
-                // Open chat immediately with typing bubble
-                setDepositChatTxId(null)
-                setDepositChatError(null)
-                setOpenDepositChat(true)
-                // Update txId when transaction is ready (will trigger Firestore listeners)
-                setTimeout(() => {
-                  setDepositChatTxId(txId)
-                }, 100)
-              }, withdrawAmountMZN)
+              openBankingDetails('withdraw', null, withdrawAmountZAR, undefined, withdrawAmountMZN)
             }, 220)
           } else {
             // Other methods - existing behavior (shouldn't happen with current options)
