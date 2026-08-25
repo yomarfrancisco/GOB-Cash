@@ -65,6 +65,7 @@ function isPaymentActivity(item: ActivityItem): boolean {
       'mzn_deposited',
       'zar_withdrawn',
       'WITHDRAWAL_INSTRUCTED',
+      'BANK_TRANSFER_CONFIRMED',
     ].includes(item.kind)
   ) {
     return true
@@ -80,13 +81,19 @@ function isPaymentActivity(item: ActivityItem): boolean {
     'deposited',
     'withdraw',
     'withdrawn',
+    'confirmed',
+    'transfer',
   ].some((keyword) => text.includes(keyword))
 }
 
 function resolveTaskAvatar(item: ActivityItem): string {
   if (item.kind === 'proof_of_payment') return TASK_AVATARS.proofOfPayment
   if (item.kind === 'mzn_deposited') return TASK_AVATARS.mznDeposited
-  if (item.kind === 'zar_withdrawn' || item.kind === 'WITHDRAWAL_INSTRUCTED') {
+  if (
+    item.kind === 'zar_withdrawn' ||
+    item.kind === 'WITHDRAWAL_INSTRUCTED' ||
+    item.kind === 'BANK_TRANSFER_CONFIRMED'
+  ) {
     return TASK_AVATARS.zarWithdrawn
   }
   if (item.kind === 'payment_delivered') return TASK_AVATARS.paymentDelivered

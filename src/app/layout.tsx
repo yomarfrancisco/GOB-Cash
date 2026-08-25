@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import IosKeyboardShim from '@/components/IosKeyboardShim'
 import TopNotifications from '@/components/notifications/TopNotifications'
+import ActivityEventsListener from '@/components/ActivityEventsListener'
 import DevNotificationSetup from '@/components/notifications/DevNotificationSetup'
 import { WalletModeProvider } from '@/state/walletMode'
 import { WalletAllocProvider } from '@/state/walletAlloc'
@@ -134,6 +135,7 @@ export default function RootLayout({
             <WalletModeProvider>
               <WalletAllocProvider>
               <TopNotifications />
+              <ActivityEventsListener />
               <DevNotificationSetup />
               {children}
               {/* Global Transact Sheet */}

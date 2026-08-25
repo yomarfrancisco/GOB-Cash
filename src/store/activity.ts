@@ -11,6 +11,7 @@ export type ActivityItem = {
     | 'mzn_deposited'
     | 'zar_withdrawn'
     | 'WITHDRAWAL_INSTRUCTED'
+    | 'BANK_TRANSFER_CONFIRMED'
     | string
   actor: { type: 'ai' | 'user' | 'counterparty'; name?: string; avatarUrl?: string }
   title: string

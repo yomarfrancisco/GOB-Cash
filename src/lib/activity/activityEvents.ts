@@ -25,18 +25,22 @@ function createdAtMs(value: ActivityEventDoc['createdAt']): number {
 }
 
 export function activityEventToItem(eventId: string, data: ActivityEventDoc): ActivityItem {
-  const actorType = data.actorType === 'ai_manager' || data.avatarKind === 'zar_withdrawn'
-    ? 'ai'
-    : data.actorType === 'counterparty'
-      ? 'counterparty'
-      : 'user'
+  const actorType =
+    data.actorType === 'ai_manager' ||
+    data.avatarKind === 'zar_withdrawn' ||
+    data.kind === 'BANK_TRANSFER_CONFIRMED' ||
+    data.kind === 'WITHDRAWAL_INSTRUCTED'
+      ? 'ai'
+      : data.actorType === 'counterparty'
+        ? 'counterparty'
+        : 'user'
 
   return {
     id: data.id || data.txId || eventId,
     kind: data.kind,
     actor: {
       type: actorType,
-      name: data.actorType === 'ai_manager' ? 'Ama' : undefined,
+      name: actorType === 'ai' ? 'Ama' : undefined,
     },
     title: data.title || 'Activity',
     body: data.body || undefined,
@@ -52,13 +56,15 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
 }
 
 export function subscribeToActivityEvents(
-  onChange: (items: ActivityItem[]) => void
+  onChange: (items: ActivityItem[]) => void,
+  options?: { onNew?: (items: ActivityItem[]) => void }
 ): Unsubscribe {
   const auth = getFirebaseAuth()
   let eventsUnsub: Unsubscribe | null = null
 
   const listen = (uid: string) => {
     eventsUnsub?.()
+    let hydrated = false
     const eventsRef = collection(getFirestoreDb(), 'users', uid, 'activityEvents')
     eventsUnsub = onSnapshot(
       eventsRef,
@@ -67,6 +73,17 @@ export function subscribeToActivityEvents(
           activityEventToItem(docSnap.id, docSnap.data() as ActivityEventDoc)
         )
         onChange(items)
+        if (!hydrated) {
+          hydrated = true
+          return
+        }
+        const added = snap
+          .docChanges()
+          .filter((change) => change.type === 'added')
+          .map((change) =>
+            activityEventToItem(change.doc.id, change.doc.data() as ActivityEventDoc)
+          )
+        if (added.length) options?.onNew?.(added)
       },
       (error) => {
         console.error('[Activity] Failed to subscribe to activityEvents:', error)
