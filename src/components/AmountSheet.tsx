@@ -5,8 +5,8 @@ import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
-import { formatMZN, formatMZNWithDot, formatZAR } from '@/lib/money'
-import { MZN_PER_ZAR, mznToZar, zarToUsdt } from '@/lib/mznZar'
+import { formatMZN, formatMZNWithDot, formatZAR, formatZARWithDot } from '@/lib/money'
+import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsdt } from '@/lib/mznZar'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import '@/styles/amount-sheet.css'
@@ -69,8 +69,9 @@ export default function AmountSheet({
   const { isAuthed } = useAuthStore()
   const { alloc } = useWalletAlloc()
   
-  // The primary balance and input currency are MZN.
+  const isZarPrimaryKeypad = entryPoint === 'depositKeypad'
   const displayBalanceMZN = isAuthed ? (alloc.mznCents ?? 0) / 100 : (balanceMZN ?? 0)
+  const displayBalanceZAR = isAuthed ? (alloc.cashCents ?? 0) / 100 : 0
 
   // Reset amount when sheet opens, or use initialAmount if provided
   useEffect(() => {
@@ -87,8 +88,13 @@ export default function AmountSheet({
     }
   }, [open, initialAmount])
 
-  const amountMZN = parseFloat(amount) || 0
-  const amountZAR = mznToZar(amountMZN, fxRateMZNperZAR)
+  const typedAmount = parseFloat(amount) || 0
+  const amountZAR = isZarPrimaryKeypad
+    ? typedAmount
+    : mznToZar(typedAmount, fxRateMZNperZAR)
+  const amountMZN = isZarPrimaryKeypad
+    ? Math.round(zarToMzn(typedAmount, fxRateMZNperZAR) * 100) / 100
+    : typedAmount
   // Still needed by the explicitly selected external-crypto withdrawal path.
   const amountUSDT = zarToUsdt(amountZAR)
 
@@ -233,7 +239,7 @@ export default function AmountSheet({
     ? 'Request agent'
     : 'Continue'
   const finalCtaLabel = ctaLabel || defaultCtaLabel
-  const isPositive = amountMZN > 0
+  const isPositive = typedAmount > 0
 
   // Format amount for display (remove leading zeros except "0.")
   const displayAmount = amount === '0' ? '0' : amount.replace(/^0+(?=\d)/, '')
@@ -262,7 +268,8 @@ export default function AmountSheet({
           )}
           <div className="amount-sheet__header-content">
             <div className="amount-sheet__balance">
-              {formatMZN(displayBalanceMZN)} <span className="amount-sheet__balance-label">balance</span>
+              {isZarPrimaryKeypad ? formatZARWithDot(displayBalanceZAR) : formatMZN(displayBalanceMZN)}{' '}
+              <span className="amount-sheet__balance-label">balance</span>
             </div>
             {!hideModeLabel && <div className="amount-sheet__title">{modeLabel}</div>}
           </div>
@@ -271,12 +278,14 @@ export default function AmountSheet({
         <div className="amount-body">
           <div className="amount-sheet__amount-display">
             <FitAmount
-              text={formatMZNWithDot(amountMZN)}
+              text={isZarPrimaryKeypad ? formatZARWithDot(amountZAR) : formatMZNWithDot(amountMZN)}
               maxPx={72}
               minPx={28}
               className="amount-sheet__zar amount-fit"
             />
-            <div className="amount-sheet__usdt-chip">{formatZAR(amountZAR)}</div>
+            <div className="amount-sheet__usdt-chip">
+              {isZarPrimaryKeypad ? formatMZN(amountMZN) : formatZAR(amountZAR)}
+            </div>
           </div>
           <AmountKeypad
             value={displayAmount}
@@ -286,6 +295,7 @@ export default function AmountSheet({
             onSubmit={handleSubmit}
             ctaLabel={finalCtaLabel}
             hideCTA
+            currencySymbol={isZarPrimaryKeypad ? 'R' : 'Mt'}
             isHelicopterConvert={isHelicopterConvert}
             amountMZN={amountMZN}
             customFeeText={customFeeText}

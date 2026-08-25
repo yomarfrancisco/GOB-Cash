@@ -1267,7 +1267,7 @@ export default function ProfileClient() {
           }
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
-        initialAmount={amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountMZN > 0 ? depositAmountMZN : undefined}
+        initialAmount={amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountZAR > 0 ? depositAmountZAR : undefined}
       />
       <SendDetailsSheet
         open={openSendDetails}
