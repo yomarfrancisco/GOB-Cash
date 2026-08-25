@@ -88,7 +88,7 @@ export type NotificationItem = {
 
 type NotificationState = {
   notifications: NotificationItem[]
-  pushNotification: (item: Omit<NotificationItem, 'id' | 'timestamp'>) => void
+  pushNotification: (item: Omit<NotificationItem, 'id' | 'timestamp'> & { id?: string }) => void
   dismissNotification: (id: string) => void
   clearNotifications: () => void
 }
@@ -102,7 +102,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     const notification: NotificationItem = {
       ...item,
       actor: migratedActor,
-      id: crypto.randomUUID(),
+      id: item.id || crypto.randomUUID(),
       timestamp: Date.now(),
     }
     set((state) => ({

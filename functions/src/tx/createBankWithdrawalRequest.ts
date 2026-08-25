@@ -155,6 +155,26 @@ export const tx_createBankWithdrawalRequest = functions
       },
     }
 
+    const activityTitle = 'Withdrawal instructed'
+    const activityBody = `R${amountZAR.toFixed(2)} to ${accountHolderName.trim()} · ${bankDisplayName}`
+    const activityEventRef = db.collection('users').doc(userId).collection('activityEvents').doc(txId)
+    const activityEvent = {
+      id: txId,
+      kind: 'WITHDRAWAL_INSTRUCTED',
+      title: activityTitle,
+      body: activityBody,
+      actorType: 'ai_manager',
+      avatarKind: 'zar_withdrawn',
+      amountCurrency: 'ZAR',
+      amountValue: amountZAR,
+      amountSign: 'debit',
+      counterpartyName: accountHolderName.trim(),
+      destinationBankName: bankDisplayName,
+      txId,
+      createdAt: now,
+      recordingSource: 'USER_UI',
+    }
+
     // Reserve ZAR and write transaction, bank withdrawal record, and message atomically
     const cashZarRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
     
@@ -201,6 +221,7 @@ export const tx_createBankWithdrawalRequest = functions
       t.set(txRef, transaction)
       t.set(bankWithdrawalRef, bankWithdrawal)
       t.set(sambaMsgRef, sambaMessage)
+      t.set(activityEventRef, activityEvent)
     })
 
     console.log(`[tx_createBankWithdrawalRequest] Created transaction ${txId} for bank withdrawal`)

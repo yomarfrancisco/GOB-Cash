@@ -1,8 +1,10 @@
 'use client'
 
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
+import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
+import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import styles from '@/app/activity/activity.module.css'
 
@@ -62,6 +64,7 @@ function isPaymentActivity(item: ActivityItem): boolean {
       'proof_of_payment',
       'mzn_deposited',
       'zar_withdrawn',
+      'WITHDRAWAL_INSTRUCTED',
     ].includes(item.kind)
   ) {
     return true
@@ -83,7 +86,9 @@ function isPaymentActivity(item: ActivityItem): boolean {
 function resolveTaskAvatar(item: ActivityItem): string {
   if (item.kind === 'proof_of_payment') return TASK_AVATARS.proofOfPayment
   if (item.kind === 'mzn_deposited') return TASK_AVATARS.mznDeposited
-  if (item.kind === 'zar_withdrawn') return TASK_AVATARS.zarWithdrawn
+  if (item.kind === 'zar_withdrawn' || item.kind === 'WITHDRAWAL_INSTRUCTED') {
+    return TASK_AVATARS.zarWithdrawn
+  }
   if (item.kind === 'payment_delivered') return TASK_AVATARS.paymentDelivered
   if (item.kind === 'payment_received') return TASK_AVATARS.paymentReceived
   if (item.kind === 'payment_sent') return TASK_AVATARS.paymentSent
@@ -148,6 +153,8 @@ function ActivitySection({ title, items }: { title: string; items: ActivityItem[
 export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }) {
   const clear = useActivityStore((s) => s.clear)
   const all = useActivityStore((s) => s.all)
+  const isAuthed = useAuthStore((s) => s.isAuthed)
+  const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -160,8 +167,27 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       clear()
     }
   }, [all, clear])
+
+  useEffect(() => {
+    if (!isAuthed) {
+      setRemoteItems([])
+      return
+    }
+    const unsubscribe = subscribeToActivityEvents(setRemoteItems)
+    return () => {
+      unsubscribe()
+    }
+  }, [isAuthed])
   
-  const allItems = useActivityStore((s) => s.all())
+  const localItems = useActivityStore((s) => s.all())
+  const allItems = useMemo(() => {
+    const remoteIds = new Set(remoteItems.map((item) => item.id))
+    const merged = [
+      ...remoteItems,
+      ...localItems.filter((item) => !remoteIds.has(item.id)),
+    ]
+    return merged.sort((a, b) => b.createdAt - a.createdAt)
+  }, [localItems, remoteItems])
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
     return allItems.filter((item) => {

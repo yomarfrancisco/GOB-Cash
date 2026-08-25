@@ -131,6 +131,9 @@
   line-height: 20px;
   color: #000;
   flex: 1;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .notification-body {

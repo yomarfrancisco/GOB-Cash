@@ -10,6 +10,7 @@ import { useUserProfileStore } from '@/store/userProfile'
 import { COUNTRIES } from '@/constants/countries'
 import { exceedsAvailableZar } from '@/lib/money'
 import { useWalletAlloc } from '@/state/walletAlloc'
+import { useNotificationStore } from '@/store/notifications'
 import styles from './BankingDetailsSheet.module.css'
 
 export default function BankingDetailsSheet() {
@@ -156,6 +157,24 @@ export default function BankingDetailsSheet() {
           accountNumber: accountNumber.trim(),
           swiftBic: swiftBic.trim(),
           linkedBankId: matchedBank?.id ?? editingBankId,
+        })
+
+        useNotificationStore.getState().pushNotification({
+          id: result.txId,
+          kind: 'zar_withdrawn',
+          title: 'Withdrawal instructed',
+          body: `R${withdrawalAmountZAR.toFixed(2)} to ${accountHolderName.trim()} · ${bankName.trim()}`,
+          amount: {
+            currency: 'ZAR',
+            value: -withdrawalAmountZAR,
+          },
+          direction: 'down',
+          actor: {
+            type: 'ai_manager',
+            avatar: '/assets/Brics-girl-blue.png',
+            name: 'Ama',
+          },
+          routeOnTap: '/profile?activity=1',
         })
 
         close()

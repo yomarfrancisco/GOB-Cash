@@ -10,6 +10,7 @@ export type ActivityItem = {
     | 'proof_of_payment'
     | 'mzn_deposited'
     | 'zar_withdrawn'
+    | 'WITHDRAWAL_INSTRUCTED'
     | string
   actor: { type: 'ai' | 'user' | 'counterparty'; name?: string; avatarUrl?: string }
   title: string

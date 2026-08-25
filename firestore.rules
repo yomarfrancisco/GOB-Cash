@@ -47,6 +47,14 @@ service cloud.firestore {
       // Allow authenticated users to delete their own contacts
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Activity events: users/{userId}/activityEvents/{eventId}
+    match /users/{userId}/activityEvents/{eventId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
     
     // Transactions collection: transactions/{txId}
     match /transactions/{txId} {
