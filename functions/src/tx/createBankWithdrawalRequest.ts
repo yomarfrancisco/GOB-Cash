@@ -51,7 +51,10 @@ export const tx_createBankWithdrawalRequest = functions
       throw new functions.https.HttpsError('invalid-argument', 'swiftBic is required')
     }
 
-    const amountZAR = Math.round((amountMZN / FX_RATE_MZN_PER_ZAR) * 100) / 100
+    const amountZARFromMzn = Math.round((amountMZN / FX_RATE_MZN_PER_ZAR) * 100) / 100
+    const amountZAR = typeof data.amountZAR === 'number' && data.amountZAR > 0
+      ? Math.round(data.amountZAR * 100) / 100
+      : amountZARFromMzn
     const amountMinor = Math.round(amountZAR * 100)
     const now = admin.firestore.Timestamp.now()
     const linkedBankId = typeof data.linkedBankId === 'string' && data.linkedBankId.trim()
@@ -135,7 +138,6 @@ export const tx_createBankWithdrawalRequest = functions
 
     // Format message content
     const formattedAmount = `R${amountZAR.toFixed(2)}`
-    const formattedSourceAmount = `Mt ${amountMZN.toFixed(2)}`
     const bankDisplayName = bankName || `${country} Bank`
     
     // Create SAMBA confirmation message with button metadata
@@ -146,15 +148,14 @@ export const tx_createBankWithdrawalRequest = functions
       createdAt: now,
       senderType: 'SAMBA' as const,
       senderUid: 'samba',
-      text: `Bank withdrawal request received ✅\n\n**Converted from:** ${formattedSourceAmount}\n**Amount:** ${formattedAmount}\n**Method:** Bank transfer\n**Country:** ${country}\n**Bank:** ${bankDisplayName}\n**Account holder:** ${accountHolderName}\n\nYou will receive ${formattedAmount} in your bank account.\n\n*Note: Bank payouts typically take 24–72 hours depending on your bank/network.*`,
+      text: `Bank withdrawal request received ✅\n\n**Amount:** ${formattedAmount}\n**Method:** Bank transfer\n**Country:** ${country}\n**Bank:** ${bankDisplayName}\n**Account holder:** ${accountHolderName}\n\nYou will receive ${formattedAmount} in your bank account.\n\n*Note: Bank payouts typically take 24–72 hours depending on your bank/network.*`,
       metadata: {
         bankWithdrawalId: txId, // Store for PDF download button
         hasDownloadButton: true, // Flag to show download button in UI
       },
     }
 
-    // Reserve balance and write transaction, bank withdrawal record, and message atomically
-    const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashMZN')
+    // Reserve ZAR and write transaction, bank withdrawal record, and message atomically
     const cashZarRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
     
     // Guard against oversized ZAR withdrawals before any documents are written.
@@ -170,13 +171,11 @@ export const tx_createBankWithdrawalRequest = functions
     await db.runTransaction(async (t) => {
       // Reads must happen before writes
       const cashZarSnap = await t.get(cashZarRef)
-      const walletSnap = await t.get(walletRef)
       const cashZarData = cashZarSnap.exists ? cashZarSnap.data()! : {}
-      const walletData = walletSnap.exists ? walletSnap.data()! : {}
       const availableZar = Number(cashZarData?.fiatBalance || 0)
       const availableZarMinor = Math.round(availableZar * 100)
-      const currentFiatBalance = walletData?.fiatBalance || 0
-      const currentBankWithdrawLocked = walletData?.bankWithdrawLockedMzn || 0
+      const currentLockedZar = Number(cashZarData?.bankWithdrawLockedZar || 0)
+      const currentLockedZarMinor = Math.round(currentLockedZar * 100)
 
       if (amountMinor > availableZarMinor) {
         throw new functions.https.HttpsError(
@@ -184,23 +183,17 @@ export const tx_createBankWithdrawalRequest = functions
           'Insufficient ZAR balance.'
         )
       }
-      
-      // Verify sufficient MZN source balance for the existing reserve behaviour
-      if (currentFiatBalance < amountMZN) {
+
+      if (!cashZarSnap.exists) {
         throw new functions.https.HttpsError(
           'failed-precondition',
-          `Insufficient balance. Available: Mt ${currentFiatBalance.toFixed(2)}, Requested: Mt ${amountMZN.toFixed(2)}`
+          'Insufficient ZAR balance.'
         )
       }
-      
-      // Reserve the MZN source balance until the ZAR payout is completed.
-      const newFiatBalance = currentFiatBalance - amountMZN
-      const newBankWithdrawLocked = currentBankWithdrawLocked + amountMZN
-      
-      // Update wallet with reserved balance
-      t.update(walletRef, {
-        fiatBalance: newFiatBalance,
-        bankWithdrawLockedMzn: newBankWithdrawLocked,
+
+      t.update(cashZarRef, {
+        fiatBalance: (availableZarMinor - amountMinor) / 100,
+        bankWithdrawLockedZar: (currentLockedZarMinor + amountMinor) / 100,
         updatedAt: now,
       })
       
