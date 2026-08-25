@@ -53,6 +53,13 @@ export const tx_createBankWithdrawalRequest = functions
 
     const amountZAR = Math.round((amountMZN / FX_RATE_MZN_PER_ZAR) * 100) / 100
     const now = admin.firestore.Timestamp.now()
+    const linkedBankId = typeof data.linkedBankId === 'string' && data.linkedBankId.trim()
+      ? data.linkedBankId.trim()
+      : null
+    const groupId = typeof data.groupId === 'string' && data.groupId.trim()
+      ? data.groupId.trim()
+      : null
+    const destinationAccountMasked = maskAccountNumber(accountNumber)
     
     // Generate transaction ID
     const txRef = db.collection('transactions').doc()
@@ -108,6 +115,21 @@ export const tx_createBankWithdrawalRequest = functions
         accountNumber: accountNumber.trim(),
         swiftBic: swiftBic.trim(),
       },
+      // Corridor instruction (manual confirmation still happens in Firebase)
+      transactionType: 'WITHDRAWAL',
+      uiAction: 'WITHDRAW',
+      instructionSource: 'USER_INSTRUCTED',
+      recordingSource: 'USER_UI',
+      executionChannel: 'EXTERNAL_BANK',
+      currency: 'ZAR',
+      amountMinor: Math.round(amountZAR * 100),
+      linkedBankId,
+      counterpartyName: accountHolderName.trim(),
+      destinationBankName: (bankName || `${country} Bank`).trim(),
+      destinationCountry: country.trim(),
+      destinationAccountMasked,
+      instructionStatus: 'INITIATED',
+      groupId: groupId || txId,
     }
 
     // Format message content
@@ -212,6 +234,13 @@ export const tx_createBankWithdrawalRequest = functions
       bankWithdrawalId: txId,
     }
   })
+
+function maskAccountNumber(accountNumber: string): string {
+  const digits = String(accountNumber || '').replace(/\s+/g, '')
+  if (digits.length <= 4) return '****'
+  const visibleStart = Math.min(2, digits.length - 4)
+  return `${digits.slice(0, visibleStart)}****${digits.slice(-4)}`
+}
 
 /**
  * Generate email HTML content for bank withdrawal notification

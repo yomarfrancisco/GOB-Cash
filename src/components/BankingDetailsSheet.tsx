@@ -134,6 +134,11 @@ export default function BankingDetailsSheet() {
         close()
         
         // Create withdrawal request
+        const normalizedAccount = accountNumber.replace(/\s+/g, '')
+        const matchedBank = profile.linkedBanks.find(
+          (bank) => bank.accountNumber.replace(/\s+/g, '') === normalizedAccount
+        )
+
         const result = await tx_createBankWithdrawalRequest({
           amountMZN: withdrawalAmountMZN,
           amountZAR: withdrawalAmountZAR,
@@ -142,6 +147,7 @@ export default function BankingDetailsSheet() {
           accountHolderName: accountHolderName.trim(),
           accountNumber: accountNumber.trim(),
           swiftBic: swiftBic.trim(),
+          linkedBankId: matchedBank?.id ?? editingBankId,
         })
         
         // Callback to open chat (will be handled by parent via store)

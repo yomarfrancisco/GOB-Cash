@@ -642,6 +642,8 @@ export async function tx_createBankWithdrawalRequest(params: {
   accountHolderName: string
   accountNumber: string
   swiftBic: string
+  linkedBankId?: string | null
+  groupId?: string | null
 }): Promise<{ txId: string; bankWithdrawalId: string }> {
   const app = getFirebaseApp()
   if (!app || !app.options.projectId) {
