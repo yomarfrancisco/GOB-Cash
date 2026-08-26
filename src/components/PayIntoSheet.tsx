@@ -29,13 +29,13 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
   const accounts: Account[] = [
     {
       id: 'ZAR',
-      label: 'ZAR account',
+      label: 'Use my ZAR account',
       cardImage: '/assets/cards/card-savings.jpg',
       getBalanceText: () => `Balance: ${formatZARWithDot(getCash())}`,
     },
     {
       id: 'MZN',
-      label: 'MZN account',
+      label: 'Use my MZN account',
       cardImage: '/assets/cards/card-MZN2.jpg',
       getBalanceText: () => `Balance: ${formatMZN((alloc.mznCents || 0) / 100)}`,
     },
@@ -45,8 +45,8 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
     if (isOpen) setSelectedId('ZAR')
   }, [isOpen])
 
-  const selected = accounts.find((account) => account.id === selectedId) ?? accounts[0]
-  const title = selectedId === 'ZAR' ? 'Transfer MZN into' : 'Transfer ZAR into'
+  const title = selectedId === 'ZAR' ? 'Convert my MZN' : 'Convert my ZAR'
+  const receiveText = selectedId === 'ZAR' ? 'Receive ZAR' : 'Receive MZN'
 
   const handleConfirm = () => {
     setDestination(selectedId)
@@ -64,13 +64,14 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
               <label className="send-details-row">
                 <span className="send-details-label">{title}</span>
                 <input
-                  className="send-details-input"
-                  placeholder={selected.label}
-                  value={selected.label}
+                  className={`send-details-input ${styles.receiveInput}`}
+                  placeholder={receiveText}
+                  value={receiveText}
                   onChange={() => {}}
                   readOnly
                   inputMode="text"
                   type="text"
+                  style={{ fontSize: 32, fontWeight: 400, lineHeight: 1.2 }}
                 />
                 <div className="send-details-underline" />
               </label>

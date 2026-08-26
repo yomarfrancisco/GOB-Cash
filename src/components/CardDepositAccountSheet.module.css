@@ -122,6 +122,12 @@
   white-space: nowrap;
 }
 
+.receiveInput {
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 400;
+}
+
 .checkIcon {
   color: #000;
   flex-shrink: 0;
