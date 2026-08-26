@@ -42,7 +42,7 @@ interface CardData {
 const allCardsData: CardData[] = [
   {
     type: 'mzn',
-    image: '/assets/cards/card-MZN2X-1 copy.jpg',
+    image: '/assets/cards/card-MZN2X-1 copy 2.jpg',
     alt: 'MZN Cash Card',
     width: 342,
     height: 213,
