@@ -598,7 +598,7 @@ function HomeContent() {
                 onDollarClick={() => {
                   const openPayIntoSheet = () => {
                     playDollarSound()
-                    openPayInto()
+                    openPayInto(topCardType === 'mzn' ? 'MZN' : 'ZAR')
                   }
 
                   if (!isAuthed) {
