@@ -5,7 +5,7 @@ import type { StaticImageData } from 'next/image'
 import { useRef, useEffect, useState, useMemo } from 'react'
 import SlotCounter from './SlotCounter'
 import { formatZAR, formatUSDT as formatConvertedAmount } from '@/lib/formatCurrency'
-import { MZN_PER_ZAR, mznToZar, zarToMzn } from '@/lib/mznZar'
+import { mznToZar, zarToMzn, quotedMznPerZarForDestination } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAuthStore } from '@/store/auth'
@@ -344,10 +344,14 @@ export default function CardStackCard({
   }
   
   const zar = cents / 100
-  const quotedMznPerZar =
+  const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
-      : MZN_PER_ZAR
+      : 0
+  const quotedMznPerZar = quotedMznPerZarForDestination(
+    liveMzn,
+    card.type === 'savings' ? 'MZN' : 'ZAR'
+  )
   const convertedAmount = card.type === 'mzn'
     ? mznToZar(zar, quotedMznPerZar)
     : card.type === 'savings'
@@ -533,10 +537,8 @@ export default function CardStackCard({
     }
 
     if (card.type === 'savings' || card.type === 'mzn') {
-      const live = fxRates?.rates?.MZN
-      const quoted = typeof live === 'number' && live > 0 ? live : MZN_PER_ZAR
       return {
-        strong: `${quoted.toFixed(2)} MZN`,
+        strong: `${quotedMznPerZar.toFixed(2)} MZN`,
         label: '= 1 ZAR',
       }
     }
