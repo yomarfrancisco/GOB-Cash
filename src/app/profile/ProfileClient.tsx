@@ -32,7 +32,6 @@ import { useSupportSheet } from '@/store/useSupportSheet'
 import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
 import LockOverlay from '@/components/LockOverlay'
-import Avatar from '@/components/Avatar'
 // Crypto deposit removed - no longer needed
 import PaymentsSheet from '@/components/PaymentsSheet'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
@@ -639,16 +638,8 @@ export default function ProfileClient() {
           {/* Scrollable content */}
           <div className="scroll-content profile-scroll">
             <div className="content profile-content">
-              {/* Avatar + handle (full-name and meta rows removed) */}
+              {/* Handle (avatar lives on the bottom menu bar) */}
               <div className="profile-header">
-                <Avatar
-                  name={profile.fullName}
-                  email={profile.email}
-                  avatarUrl={profile.avatarUrl}
-                  size={72}
-                  rounded={24}
-                  className="profile-avatar"
-                />
                 <h1 className="profile-name">
                   {profile.userHandle && profile.userHandle !== '@' && profile.userHandle.length > 1
                     ? profile.userHandle
