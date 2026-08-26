@@ -7,6 +7,8 @@ import ActionSheet from './ActionSheet'
 import { usePayIntoSheet, type ConversionDestination } from '@/store/usePayIntoSheet'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { formatMZN, formatZARWithDot } from '@/lib/money'
+import { MZN_PER_ZAR } from '@/lib/mznZar'
+import { useFxRates } from '@/lib/exchangeRates/useFxRates'
 import '@/styles/send-details-sheet.css'
 import styles from './CardDepositAccountSheet.module.css'
 
@@ -24,6 +26,7 @@ type PayIntoSheetProps = {
 export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
   const { isOpen, close, setDestination } = usePayIntoSheet()
   const { getCash, alloc } = useWalletAlloc()
+  const { rates: fxRates } = useFxRates(['MZN'])
   const [selectedId, setSelectedId] = useState<ConversionDestination>('ZAR')
 
   const accounts: Account[] = [
@@ -47,6 +50,11 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
 
   const title = selectedId === 'ZAR' ? 'Convert MZN' : 'Convert ZAR'
   const receiveText = selectedId === 'ZAR' ? 'Receive ZAR' : 'Receive MZN'
+  const quotedMznPerZar =
+    typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
+      ? fxRates.rates.MZN
+      : MZN_PER_ZAR
+  const rateText = `@ ${quotedMznPerZar.toFixed(2)} Mt/R`
 
   const handleConfirm = () => {
     setDestination(selectedId)
@@ -63,16 +71,10 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
             <div className={styles.inputSection}>
               <label className="send-details-row">
                 <span className={`send-details-label ${styles.convertLabel}`}>{title}</span>
-                <input
-                  className={`send-details-input ${styles.receiveInput}`}
-                  placeholder={receiveText}
-                  value={receiveText}
-                  onChange={() => {}}
-                  readOnly
-                  inputMode="text"
-                  type="text"
-                  style={{ fontSize: 32, fontWeight: 200 }}
-                />
+                <div className={styles.receiveBlock}>
+                  <div className={styles.receiveLine}>{receiveText}</div>
+                  <div className={styles.receiveLine}>{rateText}</div>
+                </div>
                 <div className="send-details-underline" />
               </label>
             </div>

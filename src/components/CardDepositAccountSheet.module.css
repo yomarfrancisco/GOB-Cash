@@ -126,9 +126,16 @@
   margin-bottom: 20px;
 }
 
-.receiveInput {
+.receiveBlock {
+  padding: 6px 0;
+}
+
+.receiveLine {
   font-size: 32px;
   font-weight: 200;
+  color: #0a0a0a;
+  font-family: inherit;
+  line-height: 1.2;
 }
 
 .checkIcon {
