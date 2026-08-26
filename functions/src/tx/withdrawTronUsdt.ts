@@ -17,6 +17,7 @@ import * as admin from 'firebase-admin'
 import { getTronWeb, getTreasuryUsdtBalance, getTreasuryTrxBalance, getTreasuryAddress, USDT_CONTRACT_ADDRESS, USDT_DECIMALS, validateTronAddress } from '../utils/tronUtils'
 import { sendEmailViaResend, getCoreAgentEmail, generateTreasuryShortfallEmail } from '../utils/resendEmail'
 import type { TxStatus } from './state'
+import { fetchQuotedMznPerZar } from '../fx/quotedMznZar'
 
 const db = admin.firestore()
 
@@ -48,7 +49,6 @@ const MIN_TRX_BALANCE = 10
  * TODO: Make this configurable or fetch from external source
  */
 const FX_RATE_ZAR_PER_USDT = 18.1
-const FX_RATE_MZN_PER_ZAR = 4.5
 
 /**
  * Get user available USDT balance derived from fiatBalance (MZN)
@@ -58,7 +58,7 @@ const FX_RATE_MZN_PER_ZAR = 4.5
  * 
  * This matches the primary MZN cash-in flow.
  */
-async function getUserUsdtBalance(userId: string): Promise<number> {
+async function getUserUsdtBalance(userId: string, fxRateMZNperZAR: number): Promise<number> {
   const walletRef = db.collection('users').doc(userId).collection('wallets').doc('cashMZN')
   const walletSnap = await walletRef.get()
   
@@ -71,7 +71,7 @@ async function getUserUsdtBalance(userId: string): Promise<number> {
   
   // Convert MZN → ZAR → USDT.
   // Only use fiatBalance (available), not lockedBalance (locked for settlement)
-  const availableUsdt = fiatBalance / FX_RATE_MZN_PER_ZAR / FX_RATE_ZAR_PER_USDT
+  const availableUsdt = fiatBalance / fxRateMZNperZAR / FX_RATE_ZAR_PER_USDT
   
   return availableUsdt
 }
@@ -107,7 +107,8 @@ async function createWithdrawalTransactionAndMessages(
   amountMZN_debited: number,
   amountZAR_debited: number,
   toAddress: string,
-  timestamp: admin.firestore.Timestamp
+  timestamp: admin.firestore.Timestamp,
+  fxRateMZNperZAR: number
 ): Promise<void> {
   // Use chainTxId as transaction ID (same as deposit flow uses txId)
   const txRef = db.collection('transactions').doc(chainTxId)
@@ -134,7 +135,7 @@ async function createWithdrawalTransactionAndMessages(
     amountMzn: amountMZN_debited,
     amountZar: amountZAR_debited,
     amountUSDT: amountUSDT,
-    fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
+    fxRateMZNperZAR,
     fxRateZARperUSDT: FX_RATE_ZAR_PER_USDT,
     network: 'TRON',
     toAddress: toAddress,
@@ -223,6 +224,8 @@ export const tx_withdrawTronUSDT = functions
       throw new functions.https.HttpsError('invalid-argument', 'requestId is required')
     }
 
+    const fxRateMZNperZAR = await fetchQuotedMznPerZar()
+
     // Validate TRON address format
     if (!validateTronAddress(toAddress)) {
       throw new functions.https.HttpsError('invalid-argument', 'Invalid TRON address format')
@@ -290,12 +293,12 @@ export const tx_withdrawTronUSDT = functions
       const lockedBalance = preCheckWalletData?.lockedBalance || 0
       
       // Convert fiatBalance (MZN) to available USDT
-      const userAvailableUSDT = await getUserUsdtBalance(userId)
+      const userAvailableUSDT = await getUserUsdtBalance(userId, fxRateMZNperZAR)
       
       // Calculate required ZAR debit amount
       const requiredUSDT = amountUSDT + WITHDRAWAL_FEE_USDT
       const requiredZARDebit = requiredUSDT * FX_RATE_ZAR_PER_USDT
-      const requiredMZNDebit = requiredZARDebit * FX_RATE_MZN_PER_ZAR
+      const requiredMZNDebit = requiredZARDebit * fxRateMZNperZAR
       
       // DETERMINISTIC LOGGING: Log all balance details before checks
       console.log('[tx_withdrawTronUSDT] Balance diagnostics:', {
@@ -581,7 +584,7 @@ export const tx_withdrawTronUSDT = functions
           // Calculate required MZN debit through the ZAR quote.
           const requiredUSDT = amountUSDT + WITHDRAWAL_FEE_USDT
           const requiredZARDebit = requiredUSDT * FX_RATE_ZAR_PER_USDT
-          const requiredMZNDebit = requiredZARDebit * FX_RATE_MZN_PER_ZAR
+          const requiredMZNDebit = requiredZARDebit * fxRateMZNperZAR
 
           // Verify balance hasn't changed (double-spend protection)
           if (currentFiatBalance < requiredMZNDebit) {
@@ -608,7 +611,7 @@ export const tx_withdrawTronUSDT = functions
             feeUSDT: WITHDRAWAL_FEE_USDT,
             amountMZN_debited: requiredMZNDebit,
             amountZAR_debited: requiredZARDebit,
-            fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
+            fxRateMZNperZAR,
             fxRate: FX_RATE_ZAR_PER_USDT,
             network: 'TRON',
             status: 'BROADCAST_FULL' as WithdrawalStatus,
@@ -634,7 +637,8 @@ export const tx_withdrawTronUSDT = functions
               requiredMZNDebit,
               requiredZARDebit,
               toAddress.trim(),
-              now
+              now,
+              fxRateMZNperZAR
             )
           } catch (chatError: any) {
             // Log but don't fail withdrawal if chat creation fails

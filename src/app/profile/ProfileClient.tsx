@@ -45,6 +45,7 @@ import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { usePayIntoSheet, type ConversionDestination } from '@/store/usePayIntoSheet'
 import PayIntoSheet from '@/components/PayIntoSheet'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
+import { useFxRates } from '@/lib/exchangeRates/useFxRates'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
@@ -369,6 +370,7 @@ export default function ProfileClient() {
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
   const { open: openPayInto } = usePayIntoSheet()
+  const { rates: fxRates } = useFxRates(['MZN'])
 
   useEffect(() => {
     if (searchParams.get('activity') !== '1' || !authReady) return
@@ -1140,6 +1142,7 @@ export default function ProfileClient() {
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
         conversionDestination={conversionDestination}
+        fxRateMZNperZAR={typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : undefined}
         depositMethod={depositMethod}
         customFeeText={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'excl. 3% transaction fee' : undefined}
         onScanClick={amountEntryPoint === 'cashButton' ? () => {

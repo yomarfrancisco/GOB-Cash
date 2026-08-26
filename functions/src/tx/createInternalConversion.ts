@@ -7,9 +7,9 @@
 
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
+import { fetchQuotedMznPerZar } from '../fx/quotedMznZar'
 
 const db = admin.firestore()
-const FX_RATE_MZN_PER_ZAR = 4.5
 
 function roundMajor(value: number): number {
   return Math.round(value * 100) / 100
@@ -37,10 +37,11 @@ export const tx_createInternalConversion = functions
 
     const sourceAmountMajor = roundMajor(sourceAmount)
     const sourceAmountMinor = Math.round(sourceAmountMajor * 100)
+    const fxRateMZNperZAR = await fetchQuotedMznPerZar()
     const expectedDestinationMajor =
       sourceCurrency === 'MZN'
-        ? roundMajor(sourceAmountMajor / FX_RATE_MZN_PER_ZAR)
-        : roundMajor(sourceAmountMajor * FX_RATE_MZN_PER_ZAR)
+        ? roundMajor(sourceAmountMajor / fxRateMZNperZAR)
+        : roundMajor(sourceAmountMajor * fxRateMZNperZAR)
     const expectedDestinationMinor = Math.round(expectedDestinationMajor * 100)
 
     const sourceWalletId = sourceCurrency === 'MZN' ? 'cashMZN' : 'cashZAR'
@@ -109,10 +110,10 @@ export const tx_createInternalConversion = functions
         sourceAmountMinor,
         expectedDestinationAmountMinor: expectedDestinationMinor,
         actualDestinationAmountMinor: null,
-        quotedRate: FX_RATE_MZN_PER_ZAR,
+        quotedRate: fxRateMZNperZAR,
         amountMzn: sourceCurrency === 'MZN' ? sourceAmountMajor : expectedDestinationMajor,
         amountZar: sourceCurrency === 'ZAR' ? sourceAmountMajor : expectedDestinationMajor,
-        fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
+        fxRateMZNperZAR,
         groupId,
         createdAt: now,
         statusUpdatedAt: now,

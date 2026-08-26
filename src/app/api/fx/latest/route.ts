@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { quoteMznPerZar } from '@/lib/mznZar'
 
 // Switch to open.er-api.com (free, no API key required)
 const EXCHANGE_RATE_API_BASE = 'https://open.er-api.com/v6/latest/ZAR'
@@ -45,7 +46,7 @@ async function fetchExchangeRates(symbols: string[]): Promise<{
   symbols.forEach((symbol) => {
     const rate = data.rates?.[symbol]
     if (rate !== undefined && rate !== null && typeof rate === 'number') {
-      rates[symbol] = rate
+      rates[symbol] = symbol === 'MZN' ? quoteMznPerZar(rate) : rate
     } else {
       rates[symbol] = null
     }

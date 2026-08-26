@@ -9,9 +9,9 @@ import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import type { TxStatus } from './state'
 import { sendEmailViaResend, getCoreAgentEmail } from '../utils/resendEmail'
+import { fetchQuotedMznPerZar } from '../fx/quotedMznZar'
 
 const db = admin.firestore()
-const FX_RATE_MZN_PER_ZAR = 4.5
 
 export const tx_createBankWithdrawalRequest = functions
   .region('us-central1')
@@ -51,7 +51,8 @@ export const tx_createBankWithdrawalRequest = functions
       throw new functions.https.HttpsError('invalid-argument', 'swiftBic is required')
     }
 
-    const amountZARFromMzn = Math.round((amountMZN / FX_RATE_MZN_PER_ZAR) * 100) / 100
+    const fxRateMZNperZAR = await fetchQuotedMznPerZar()
+    const amountZARFromMzn = Math.round((amountMZN / fxRateMZNperZAR) * 100) / 100
     const amountZAR = typeof data.amountZAR === 'number' && data.amountZAR > 0
       ? Math.round(data.amountZAR * 100) / 100
       : amountZARFromMzn
@@ -78,7 +79,7 @@ export const tx_createBankWithdrawalRequest = functions
       requestedAmountZAR: amountZAR, // Use requestedAmountZAR as source of truth
       amountMZN,
       amountZAR: amountZAR, // Keep for backward compatibility
-      fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
+      fxRateMZNperZAR,
       country: country.trim(),
       bankName: (bankName || `${country} Bank`).trim(),
       accountHolderName: accountHolderName.trim(),
@@ -103,7 +104,7 @@ export const tx_createBankWithdrawalRequest = functions
       updatedAt: now,
       amountMzn: amountMZN,
       amountZar: amountZAR,
-      fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
+      fxRateMZNperZAR,
       bankWithdrawalId: txId, // Link to /bankWithdrawals/{txId}
       bankWithdrawal: {
         country: country.trim(),

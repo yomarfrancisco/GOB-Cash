@@ -10,14 +10,14 @@
 
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
+import { fetchQuotedMznPerZar } from '../fx/quotedMznZar'
 
 const db = admin.firestore()
 
 // MVP restriction: Only this UID can send payments
 const ALLOWED_SENDER_UID = 'xHKmkizXhPOU25vwTIB6dxhMzSH2'
 
-// Exchange quote for the MVP. The server is the source of truth.
-const FX_RATE_MZN_PER_ZAR = 4.5
+// Exchange quote is sourced from ExchangeRate-API free + corridor markup.
 
 export const tx_createPaymentAndSettle = functions
   .region('us-central1')
@@ -83,7 +83,8 @@ export const tx_createPaymentAndSettle = functions
       throw new functions.https.HttpsError('invalid-argument', 'Cannot send payment to yourself')
     }
 
-    const amountZAR = Math.round((amountMZN / FX_RATE_MZN_PER_ZAR) * 100) / 100
+    const fxRateMZNperZAR = await fetchQuotedMznPerZar()
+    const amountZAR = Math.round((amountMZN / fxRateMZNperZAR) * 100) / 100
 
     // The sender spends MZN; the recipient receives converted ZAR.
     const senderWalletRef = db.collection('users').doc(senderId).collection('wallets').doc('cashMZN')
@@ -145,7 +146,7 @@ export const tx_createPaymentAndSettle = functions
           participants,
           amountMzn: amountMZN,
           amountZar: amountZAR,
-          fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
+          fxRateMZNperZAR,
           receiverHandle: normalizedHandle,
           createdAt: now,
           updatedAt: now,

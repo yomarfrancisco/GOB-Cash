@@ -13,9 +13,9 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import type { TxStatus } from './state'
+import { fetchQuotedMznPerZar } from '../fx/quotedMznZar'
 
 const db = admin.firestore()
-const FX_RATE_MZN_PER_ZAR = 4.5
 
 // CRITICAL: Must use .https.onCall (not .https.onRequest)
 // This ensures proper CORS handling and callable endpoint resolution
@@ -72,7 +72,8 @@ export const tx_createBankDepositRequest = functions
       throw new functions.https.HttpsError('invalid-argument', 'depositDetails must be an object')
     }
 
-    const amountZar = Math.round((amountMzn / FX_RATE_MZN_PER_ZAR) * 100) / 100
+    const fxRateMZNperZAR = await fetchQuotedMznPerZar()
+    const amountZar = Math.round((amountMzn / fxRateMZNperZAR) * 100) / 100
     const now = admin.firestore.Timestamp.now()
     const participants = [userId, receiverId, 'samba'] // lock participants server-side
     
@@ -98,7 +99,7 @@ export const tx_createBankDepositRequest = functions
       expiresAt, // Timeout for AWAITING_DEPOSIT state
       amountMzn,
       amountZar,
-      fxRateMZNperZAR: FX_RATE_MZN_PER_ZAR,
+      fxRateMZNperZAR,
       unlockAt: null,
       withdrawal: {},
       // Enrichment fields (optional, provided by client)

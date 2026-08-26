@@ -566,7 +566,11 @@ function HomeContent() {
     isAuthed && isBalanceReady ? ((wallets as any)?.cashMZN?.fiatBalance ?? 0) : 0
   const cashZARBalance =
     isAuthed && isBalanceReady ? ((wallets as any)?.cashZAR?.fiatBalance ?? 0) : 0
-  const totalBalanceMZN = cashMZNBalance + zarToMzn(cashZARBalance)
+  const quotedMznPerZar =
+    typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
+      ? fxRates.rates.MZN
+      : undefined
+  const totalBalanceMZN = cashMZNBalance + zarToMzn(cashZARBalance, quotedMznPerZar)
   const formattedBalance = formatMZN(totalBalanceMZN)
   const subtitleText = `Total balance: ${formattedBalance}`
 
@@ -893,6 +897,7 @@ function HomeContent() {
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
         conversionDestination={conversionDestination}
+        fxRateMZNperZAR={typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : undefined}
         onScanClick={amountEntryPoint === 'cashButton' ? () => {
           guardAuthed(() => {
             // 1) Close the keypad sheet first
