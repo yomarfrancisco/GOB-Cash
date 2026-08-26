@@ -32,15 +32,15 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
   const accounts: Account[] = [
     {
       id: 'ZAR',
-      label: 'Use ZAR account',
+      label: 'Receive ZAR',
       cardImage: '/assets/cards/card-savings.jpg',
-      getBalanceText: () => `Balance: ${formatZARWithDot(getCash())}`,
+      getBalanceText: () => `Account Balance: ${formatZARWithDot(getCash())}`,
     },
     {
       id: 'MZN',
-      label: 'Use MZN account',
+      label: 'Receive MZN',
       cardImage: '/assets/cards/card-MZN2.jpg',
-      getBalanceText: () => `Balance: ${formatMZN((alloc.mznCents || 0) / 100)}`,
+      getBalanceText: () => `Account Balance: ${formatMZN((alloc.mznCents || 0) / 100)}`,
     },
   ]
 
@@ -49,7 +49,6 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
   }, [isOpen])
 
   const title = selectedId === 'ZAR' ? 'Convert MZN' : 'Convert ZAR'
-  const receiveText = selectedId === 'ZAR' ? 'Receive ZAR' : 'Receive MZN'
   const quotedMznPerZar =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
@@ -72,7 +71,6 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
               <label className="send-details-row">
                 <span className={`send-details-label ${styles.convertLabel}`}>{title}</span>
                 <div className={styles.receiveBlock}>
-                  <div className={styles.receiveLine}>{receiveText}</div>
                   <div className={styles.receiveLine}>{rateText}</div>
                 </div>
                 <div className="send-details-underline" />
