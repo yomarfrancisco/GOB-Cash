@@ -13,6 +13,7 @@ export type ActivityItem = {
     | 'WITHDRAWAL_INSTRUCTED'
     | 'BANK_TRANSFER_CONFIRMED'
     | 'EXTERNAL_DEPOSIT_CONFIRMED'
+    | 'CONVERSION_INSTRUCTED'
     | string
   actor: { type: 'ai' | 'user' | 'counterparty'; name?: string; avatarUrl?: string }
   title: string

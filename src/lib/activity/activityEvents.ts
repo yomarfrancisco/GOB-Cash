@@ -29,9 +29,11 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     data.actorType === 'ai_manager' ||
     data.avatarKind === 'zar_withdrawn' ||
     data.avatarKind === 'mzn_deposited' ||
+    data.avatarKind === 'proof_of_payment' ||
     data.kind === 'BANK_TRANSFER_CONFIRMED' ||
     data.kind === 'WITHDRAWAL_INSTRUCTED' ||
-    data.kind === 'EXTERNAL_DEPOSIT_CONFIRMED'
+    data.kind === 'EXTERNAL_DEPOSIT_CONFIRMED' ||
+    data.kind === 'CONVERSION_INSTRUCTED'
       ? 'ai'
       : data.actorType === 'counterparty'
         ? 'counterparty'

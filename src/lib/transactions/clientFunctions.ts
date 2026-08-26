@@ -672,6 +672,25 @@ export async function tx_createBankWithdrawalRequest(params: {
 }
 
 /**
+ * Convert the caller's own MZN↔ZAR wallets at the quoted rate.
+ */
+export async function tx_createInternalConversion(params: {
+  sourceCurrency: 'MZN' | 'ZAR'
+  destinationCurrency: 'ZAR' | 'MZN'
+  sourceAmount: number
+  groupId?: string | null
+}): Promise<{ txId: string }> {
+  const app = getFirebaseApp()
+  const functions = getFunctionsInstance()
+  if (!app || !functions) {
+    throw new Error('Firebase not initialized')
+  }
+  const fn = httpsCallable(functions, 'tx_createInternalConversion')
+  const result = await fn(params)
+  return result.data as { txId: string }
+}
+
+/**
  * Download MozPay confirmation PDF for a recorded bank withdrawal.
  */
 export async function downloadBankWithdrawalProof(bankWithdrawalId: string): Promise<void> {

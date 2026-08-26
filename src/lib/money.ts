@@ -32,3 +32,7 @@ export function exceedsAvailableZar(amountZar: number, availableZar: number): bo
   return toMinorUnits(amountZar) > toMinorUnits(availableZar)
 }
 
+export function exceedsAvailableMzn(amountMzn: number, availableMzn: number): boolean {
+  return toMinorUnits(amountMzn) > toMinorUnits(availableMzn)
+}
+

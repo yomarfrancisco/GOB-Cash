@@ -49,6 +49,9 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
+import { usePayIntoSheet, type ConversionDestination } from '@/store/usePayIntoSheet'
+import PayIntoSheet from '@/components/PayIntoSheet'
+import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { prefetchActionSheetIcons } from '@/lib/prefetchActionSheetIcons'
@@ -72,6 +75,7 @@ function HomeContent() {
   const { profile } = useUserProfileStore()
   const { startCashDepositScenario, startCashWithdrawalScenario } = useFinancialInboxStore()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
+  const { open: openPayInto } = usePayIntoSheet()
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
   const { play: playDollarSound } = useSoundEffect('/assets/Drum_3b.mp3')
   const { open: openBankingDetails } = useBankingDetailsSheet()
@@ -120,7 +124,8 @@ function HomeContent() {
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
   const [openCardSuccess, setOpenCardSuccess] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('deposit')
-  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | undefined>(undefined)
+  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'conversionKeypad' | undefined>(undefined)
+  const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
   const [depositAmountUSDT, setDepositAmountUSDT] = useState(0)
@@ -587,24 +592,19 @@ function HomeContent() {
               <BottomGlassBar 
                 currentPath="/" 
                 onDollarClick={() => {
-                  // NOTE: $ button opens cash-to-crypto keypad with dual "Request" / "Pay someone" buttons
-                  const openAmountSheet = () => {
-                    setAmountMode('convert')
-                    setAmountEntryPoint('cashButton')
+                  const openPayIntoSheet = () => {
                     playDollarSound()
-                    setTimeout(() => setOpenAmount(true), 220)
+                    openPayInto()
                   }
 
-                  // If not authed, go through requireAuth and ONLY open the sheet after success
                   if (!isAuthed) {
                     requireAuth(() => {
-                      openAmountSheet()
+                      openPayIntoSheet()
                     })
                     return
                   }
 
-                  // If already authed, just open the sheet immediately
-                  openAmountSheet()
+                  openPayIntoSheet()
                 }}
               />
             </div>
@@ -892,6 +892,7 @@ function HomeContent() {
         ctaLabel={amountMode === 'depositCard' ? 'Deposit' : amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
+        conversionDestination={conversionDestination}
         onScanClick={amountEntryPoint === 'cashButton' ? () => {
           guardAuthed(() => {
             // 1) Close the keypad sheet first
@@ -927,7 +928,29 @@ function HomeContent() {
             openAmaChatWithScenario('cash_deposit')
           }, 220) // Match other modal transitions
         } : undefined}
-        onCardSubmit={amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountMZN, amountZAR }) => {
+        onCardSubmit={amountEntryPoint === 'conversionKeypad' ? async ({ amountMZN, amountZAR }) => {
+          try {
+            await submitInternalConversion({
+              destination: conversionDestination,
+              amountMZN,
+              amountZAR,
+            })
+            setOpenAmount(false)
+            setAmountEntryPoint(undefined)
+          } catch (error: any) {
+            const message = String(error?.message || '')
+            useNotificationStore.getState().pushNotification({
+              kind: 'payment_failed',
+              title: 'Conversion failed',
+              body: /insufficient/i.test(message)
+                ? conversionDestination === 'ZAR'
+                  ? 'Insufficient MZN balance.'
+                  : 'Insufficient ZAR balance.'
+                : 'Unable to convert.',
+              actor: { type: 'system', name: 'MozPay' },
+            })
+          }
+        } : amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountMZN, amountZAR }) => {
           // Cash button flow ("Pay someone"): open PaymentDetailsSheet
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
@@ -1089,6 +1112,14 @@ function HomeContent() {
         />
       )}
       <FinancialInboxSheet />
+      <PayIntoSheet
+        onConfirm={(destination) => {
+          setConversionDestination(destination)
+          setAmountMode('convert')
+          setAmountEntryPoint('conversionKeypad')
+          setTimeout(() => setOpenAmount(true), 220)
+        }}
+      />
       <NotificationsSheet />
     </div>
   )

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
-import { exceedsAvailableZar, formatMZN, formatMZNWithDot, formatZAR, formatZARWithDot } from '@/lib/money'
+import { exceedsAvailableMzn, exceedsAvailableZar, formatMZN, formatMZNWithDot, formatZAR, formatZARWithDot } from '@/lib/money'
 import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsdt } from '@/lib/mznZar'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
@@ -28,8 +28,9 @@ type AmountSheetProps = {
   onAmountSubmit?: (amountZAR: number) => void // simpler callback for send/transfer flow
   showDualButtons?: boolean // if true, show "Cash" and "Card" buttons instead of single CTA
   onCashSubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Cash button
-  onCardSubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Card button
-  entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' | 'sponsorButton' | 'depositKeypad' // distinguishes entry point for conditional button rendering
+  onCardSubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void | Promise<void> // callback for Card button
+  entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' | 'sponsorButton' | 'depositKeypad' | 'conversionKeypad'
+  conversionDestination?: 'ZAR' | 'MZN'
   sponsorHandle?: string // profile handle for sponsor flow (e.g. '@ama')
   onWeeklySubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Weekly button (sponsor flow)
   onMonthlySubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Monthly button (sponsor flow)
@@ -55,6 +56,7 @@ export default function AmountSheet({
   onCashSubmit,
   onCardSubmit,
   entryPoint,
+  conversionDestination,
   onScanClick,
   initialAmount,
   withdrawOnly = false,
@@ -66,10 +68,14 @@ export default function AmountSheet({
   customFeeText,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
+  const [conversionBusy, setConversionBusy] = useState(false)
   const { isAuthed } = useAuthStore()
   const { alloc } = useWalletAlloc()
   
-  const isZarPrimaryKeypad = entryPoint === 'depositKeypad' && mode === 'withdraw'
+  const isZarPrimaryKeypad =
+    (entryPoint === 'depositKeypad' && mode === 'withdraw') ||
+    (entryPoint === 'conversionKeypad' && conversionDestination === 'MZN')
+  const isConversionKeypad = entryPoint === 'conversionKeypad'
   const displayBalanceMZN = isAuthed ? (alloc.mznCents ?? 0) / 100 : (balanceMZN ?? 0)
   const displayBalanceZAR = isAuthed ? (alloc.cashCents ?? 0) / 100 : 0
 
@@ -85,6 +91,7 @@ export default function AmountSheet({
       } else {
         setAmount('0')
       }
+      setConversionBusy(false)
     }
   }, [open, initialAmount])
 
@@ -249,19 +256,25 @@ export default function AmountSheet({
     : 'Continue'
   const finalCtaLabel = ctaLabel || defaultCtaLabel
   const isPositive = typedAmount > 0
-  const exceedsZarBalance = isZarPrimaryKeypad && mode === 'withdraw' && exceedsAvailableZar(amountZAR, displayBalanceZAR)
-  const keypadFeeText = exceedsZarBalance ? 'Insufficient ZAR balance.' : customFeeText
+  const exceedsZarBalance = isZarPrimaryKeypad && exceedsAvailableZar(amountZAR, displayBalanceZAR)
+  const exceedsMznBalance =
+    isConversionKeypad && conversionDestination === 'ZAR' && exceedsAvailableMzn(amountMZN, displayBalanceMZN)
+  const keypadFeeText = exceedsZarBalance
+    ? 'Insufficient ZAR balance.'
+    : exceedsMznBalance
+    ? 'Insufficient MZN balance.'
+    : customFeeText
 
   // Format amount for display (remove leading zeros except "0.")
   const displayAmount = amount === '0' ? '0' : amount.replace(/^0+(?=\d)/, '')
 
   // Show scan icon only for cashButton entryPoint
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
-  const hideModeLabel = entryPoint === 'cashButton' || entryPoint === 'depositKeypad'
+  const hideModeLabel = entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || isConversionKeypad
 
   // Determine if keypad should use lime green background (helicopter, $-button, and sponsor flows)
   const isSponsorButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'sponsorButton'
-  const useLimeGreenBackground = isHelicopterConvert || isCashButtonConvert || isSponsorButtonConvert
+  const useLimeGreenBackground = isHelicopterConvert || isCashButtonConvert || isSponsorButtonConvert || isConversionKeypad
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" className={`amount ${useLimeGreenBackground ? 'cash-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`} size="tall">
@@ -387,6 +400,26 @@ export default function AmountSheet({
                 Monthly
               </button>
             </>
+          ) : isConversionKeypad ? (
+            <button
+              className="amount-keypad__cta"
+              onClick={() => {
+                if (!isPositive || exceedsZarBalance || exceedsMznBalance || conversionBusy) return
+                setConversionBusy(true)
+                void Promise.resolve(
+                  onCardSubmit?.({
+                    amountMZN,
+                    amountZAR,
+                    amountUSDT,
+                    mode: 'convert',
+                  })
+                ).finally(() => setConversionBusy(false))
+              }}
+              type="button"
+              disabled={!isPositive || exceedsZarBalance || exceedsMznBalance || conversionBusy}
+            >
+              Pay
+            </button>
           ) : entryPoint === 'cashButton' ? (
             // Dual buttons for $ button entry point: "Request" and "Pay"
             <>

@@ -42,6 +42,9 @@ import { useNotificationStore } from '@/store/notifications'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
+import { usePayIntoSheet, type ConversionDestination } from '@/store/usePayIntoSheet'
+import PayIntoSheet from '@/components/PayIntoSheet'
+import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
@@ -365,6 +368,7 @@ export default function ProfileClient() {
   const { openNotifications } = useNotificationsStore()
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
+  const { open: openPayInto } = usePayIntoSheet()
 
   useEffect(() => {
     if (searchParams.get('activity') !== '1' || !authReady) return
@@ -407,7 +411,8 @@ export default function ProfileClient() {
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
-  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | undefined>(undefined)
+  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | 'conversionKeypad' | undefined>(undefined)
+  const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
   const [depositMethod, setDepositMethod] = useState<'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null>(null)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
@@ -504,11 +509,8 @@ export default function ProfileClient() {
               <BottomGlassBar 
                 currentPath="/profile" 
                 onDollarClick={() => {
-                  // NOTE: $ button opens cash-to-crypto keypad with dual "Request" / "Pay someone" buttons
                   guardAuthed(() => {
-                    setAmountMode('convert')
-                    setAmountEntryPoint('cashButton')
-                    setTimeout(() => setOpenAmount(true), 220)
+                    openPayInto()
                   })
                 }} 
               />
@@ -1137,6 +1139,7 @@ export default function ProfileClient() {
         ctaLabel={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'Next' : amountMode === 'deposit' ? 'Continue' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
+        conversionDestination={conversionDestination}
         depositMethod={depositMethod}
         customFeeText={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'excl. 3% transaction fee' : undefined}
         onScanClick={amountEntryPoint === 'cashButton' ? () => {
@@ -1172,7 +1175,29 @@ export default function ProfileClient() {
             openWithdrawSheet()
           }, 220)
         } : undefined}
-        onCardSubmit={amountMode === 'convert' ? ({ amountMZN, amountZAR }) => {
+        onCardSubmit={amountEntryPoint === 'conversionKeypad' ? async ({ amountMZN, amountZAR }) => {
+          try {
+            await submitInternalConversion({
+              destination: conversionDestination,
+              amountMZN,
+              amountZAR,
+            })
+            setOpenAmount(false)
+            setAmountEntryPoint(undefined)
+          } catch (error: any) {
+            const message = String(error?.message || '')
+            useNotificationStore.getState().pushNotification({
+              kind: 'payment_failed',
+              title: 'Conversion failed',
+              body: /insufficient/i.test(message)
+                ? conversionDestination === 'ZAR'
+                  ? 'Insufficient MZN balance.'
+                  : 'Insufficient ZAR balance.'
+                : 'Unable to convert.',
+              actor: { type: 'system', name: 'MozPay' },
+            })
+          }
+        } : amountMode === 'convert' ? ({ amountMZN, amountZAR }) => {
           // Card payment flow ("Pay someone"): open PaymentDetailsSheet
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
@@ -1337,6 +1362,14 @@ export default function ProfileClient() {
       {/* Crypto deposit sheets removed - crypto wallet option no longer available */}
       {/* NOTE: FinancialInboxSheet is now accessible from Settings → Inbox */}
       <FinancialInboxSheet />
+      <PayIntoSheet
+        onConfirm={(destination) => {
+          setConversionDestination(destination)
+          setAmountMode('convert')
+          setAmountEntryPoint('conversionKeypad')
+          setTimeout(() => setOpenAmount(true), 220)
+        }}
+      />
       <NotificationsSheet />
       <CountrySelectSheet
         isOpen={openCountrySelect}
