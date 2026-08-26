@@ -58,11 +58,11 @@ import { openAmaChatWithCardDepositScenario, openAmaChatWithAgentInduction } fro
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
 import { ChevronRight } from 'lucide-react'
 import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
-import ComplianceVerifySheet from '@/components/ComplianceVerifySheet'
 import { logout } from '@/lib/logout'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { isRestrictedUser } from '@/lib/restrictions'
 import { DEFAULT_COMPLIANCE_PERCENT } from '@/lib/didit'
+import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
@@ -145,6 +145,10 @@ export default function ProfileClient() {
       setKycPercent(typeof percent === 'number' && Number.isFinite(percent) ? percent : null)
     })
   }, [isAuthed])
+
+  useEffect(() => {
+    prefetchDiditSdk()
+  }, [])
   
   // Redirect unauthenticated users to home (only after auth is ready to prevent race during hydration)
   useEffect(() => {
@@ -503,7 +507,6 @@ export default function ProfileClient() {
   const [isPaySomeoneFlow, setIsPaySomeoneFlow] = useState(false) // Track if coming from "Pay someone" button
   // Crypto deposit removed - no longer needed
   const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
-  const [isComplianceVerifyOpen, setIsComplianceVerifyOpen] = useState(false)
   const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
   const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
   const [withdrawAmountMZN, setWithdrawAmountMZN] = useState(0)
@@ -679,7 +682,7 @@ export default function ProfileClient() {
                       style={{ width: `${complianceFill}%` }}
                     />
                   </div>
-                  <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsComplianceVerifyOpen(true)}>
+                  <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => void startDiditVerification()}>
                     <span>{complianceLabel}</span>
                     <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
                   </div>
@@ -1602,11 +1605,6 @@ export default function ProfileClient() {
         onNextPage={() => {
           console.log('[ProductivityHelperSheet] Next page clicked')
         }}
-      />
-      <ComplianceVerifySheet
-        open={isComplianceVerifyOpen}
-        onClose={() => setIsComplianceVerifyOpen(false)}
-        kycStatus={kycStatus}
       />
     </div>
   )
