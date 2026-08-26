@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getDb } from '@/lib/firebase-admin'
 import type { DiditSessionStatus } from '@/lib/didit'
+import { computeCompliancePercent, nextCompliancePercent } from '@/lib/didit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -105,6 +106,8 @@ export async function POST(req: NextRequest) {
     const already = await tx.get(eventRef)
     if (already.exists) return
 
+    const userSnap = userRef ? await tx.get(userRef) : null
+
     tx.set(eventRef, {
       eventId,
       sessionId,
@@ -116,10 +119,17 @@ export async function POST(req: NextRequest) {
 
     if (!userRef) return
 
+    const computed = computeCompliancePercent({
+      sessionStatus: status,
+      decision: parsed.decision,
+    })
+    const kycPercent = nextCompliancePercent(userSnap?.data()?.kycPercent, computed, status)
+
     const updates: Record<string, unknown> = {
       kycStatus: mapKycStatus(status),
       kycSessionStatus: status,
       kycSessionId: sessionId || null,
+      kycPercent,
       kycUpdatedAt: FieldValue.serverTimestamp(),
     }
     if (status === 'Approved') {

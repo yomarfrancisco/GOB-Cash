@@ -41,7 +41,7 @@ export default function ComplianceVerifySheet({ open, onClose, kycStatus }: Comp
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.url) {
-        throw new Error(data?.error || 'Unable to start verification')
+        throw new Error(data?.message || data?.error || 'Unable to start verification')
       }
 
       const { DiditSdk } = await import('@didit-protocol/sdk-web')

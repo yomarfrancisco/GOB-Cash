@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getAuth, getDb } from '@/lib/firebase-admin'
 import { extractBearerToken } from '@/lib/ama/auth'
-import { DIDIT_KYC_WORKFLOW_ID } from '@/lib/didit'
+import { DIDIT_KYC_WORKFLOW_ID, computeCompliancePercent } from '@/lib/didit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -46,17 +46,29 @@ export async function POST(request: NextRequest) {
   if (!res.ok) {
     const detail = await res.text()
     console.error('[Didit] session create failed', res.status)
+    const lower = detail.toLowerCase()
+    if (res.status === 400 && lower.includes('enough credits')) {
+      return NextResponse.json(
+        {
+          error: 'insufficient_credits',
+          message: 'Didit needs a credit top-up before verification can start. Add credits at business.didit.me.',
+        },
+        { status: 402 },
+      )
+    }
     return NextResponse.json({ error: 'session_create_failed' }, { status: 502 })
   }
 
   const session = await res.json()
 
   try {
+    const sessionStatus = typeof session.status === 'string' ? session.status : 'Not Started'
     await getDb().collection('users').doc(uid).set(
       {
         kycSessionId: session.session_id ?? null,
-        kycSessionStatus: typeof session.status === 'string' ? session.status : 'Not Started',
+        kycSessionStatus: sessionStatus,
         kycStatus: 'in_progress',
+        kycPercent: computeCompliancePercent({ sessionStatus }),
         kycUpdatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },

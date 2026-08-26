@@ -45,6 +45,7 @@ export interface UserDocument {
   kycStatus?: string | null
   kycSessionStatus?: string | null
   kycSessionId?: string | null
+  kycPercent?: number | null
   isAgent: boolean
   socialGraphShareContacts?: boolean
   // Profile metrics

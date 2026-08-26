@@ -62,6 +62,7 @@ import ComplianceVerifySheet from '@/components/ComplianceVerifySheet'
 import { logout } from '@/lib/logout'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { isRestrictedUser } from '@/lib/restrictions'
+import { DEFAULT_COMPLIANCE_PERCENT } from '@/lib/didit'
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
@@ -109,6 +110,7 @@ export default function ProfileClient() {
   const [pendingCount, setPendingCount] = useState(0)
   const [executedCount, setExecutedCount] = useState(0)
   const [kycStatus, setKycStatus] = useState<string | null>(null)
+  const [kycPercent, setKycPercent] = useState<number | null>(null)
 
   useEffect(() => {
     if (!isAuthed) {
@@ -126,16 +128,21 @@ export default function ProfileClient() {
   useEffect(() => {
     if (!isAuthed) {
       setKycStatus(null)
+      setKycPercent(null)
       return
     }
     const uid = getFirebaseAuth().currentUser?.uid
     if (!uid) {
       setKycStatus(null)
+      setKycPercent(null)
       return
     }
     return onSnapshot(doc(getFirestoreDb(), 'users', uid), (snap) => {
-      const status = snap.data()?.kycStatus
+      const data = snap.data()
+      const status = data?.kycStatus
+      const percent = data?.kycPercent
       setKycStatus(typeof status === 'string' ? status : null)
+      setKycPercent(typeof percent === 'number' && Number.isFinite(percent) ? percent : null)
     })
   }, [isAuthed])
   
@@ -569,6 +576,11 @@ export default function ProfileClient() {
     }
   }, [setOnSelect])
 
+  const complianceFill =
+    kycPercent == null ? DEFAULT_COMPLIANCE_PERCENT : Math.max(0, Math.min(100, kycPercent))
+  const complianceLabel =
+    kycStatus || kycPercent != null ? `${Math.round(complianceFill)}% compliant` : 'Compliance'
+
   return (
     <div className="app-shell profile-page">
       <div className="mobile-frame">
@@ -654,19 +666,13 @@ export default function ProfileClient() {
                 </div>
                 <div className="network-pill">
                   <div className="network-track">
-                    <div className="network-fill" />
+                    <div
+                      className="network-fill"
+                      style={{ width: `${complianceFill}%` }}
+                    />
                   </div>
                   <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsComplianceVerifyOpen(true)}>
-                    <span>
-                      Compliance
-                      {kycStatus === 'approved'
-                        ? ' · Verified'
-                        : kycStatus === 'pending_review'
-                          ? ' · Review'
-                          : kycStatus === 'in_progress'
-                            ? ' · In progress'
-                            : ''}
-                    </span>
+                    <span>{complianceLabel}</span>
                     <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
                   </div>
                 </div>

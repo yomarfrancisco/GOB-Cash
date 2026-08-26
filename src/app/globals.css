@@ -1206,6 +1206,7 @@ body {
   width: 22.4%;
   background: #ff3b30;
   border-radius: 100px;
+  transition: width 0.45s ease;
 }
 
 .network-label {
