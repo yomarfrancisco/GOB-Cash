@@ -611,16 +611,12 @@ export default function ProfileClient() {
 
               {/* Buttons */}
               <div className="profile-actions">
-                {/* Cash-in/out button with lock overlay */}
                 <button 
                   className="btn profile-edit" 
                   disabled={isRestricted}
                   onClick={() => {
                     if (isRestricted) return
-                    console.log('[UI] Cash-in/out clicked', { isAuthed })
                     guardAuthed(() => {
-                      console.log('[UI] guardAuthed passed -> opening deposit keypad')
-                      // Open deposit keypad directly (no CashInOutSheet)
                       setAmountMode('deposit')
                       setAmountEntryPoint('depositKeypad')
                       setTimeout(() => {
@@ -634,17 +630,20 @@ export default function ProfileClient() {
                   }}
                   aria-disabled={isRestricted}
                 >
-                  Cash-in / out
+                  Deposit
                   <LockOverlay show={isRestricted} />
                 </button>
-                {/* Activity button with lock overlay */}
                 <button
-                  className="btn profile-inbox"
+                  className="btn profile-edit"
                   disabled={isRestricted}
                   onClick={() => {
                     if (isRestricted) return
                     guardAuthed(() => {
-                      openNotifications()
+                      setAmountMode('withdraw')
+                      setAmountEntryPoint('depositKeypad')
+                      setTimeout(() => {
+                        setOpenAmount(true)
+                      }, 220)
                     })
                   }}
                   style={{ 
@@ -653,7 +652,7 @@ export default function ProfileClient() {
                   }}
                   aria-disabled={isRestricted}
                 >
-                  Activity
+                  Cash out
                   <LockOverlay show={isRestricted} />
                 </button>
               </div>
@@ -690,6 +689,33 @@ export default function ProfileClient() {
               </div>
               )}
               <div className="profile-settings">
+                <div className="profile-settings-card profile-settings-card--solo">
+                  <button
+                    className="profile-settings-row"
+                    disabled={isRestricted}
+                    onClick={() => {
+                      if (isRestricted) return
+                      guardAuthed(() => {
+                        openNotifications()
+                      })
+                    }}
+                    type="button"
+                    style={{
+                      position: 'relative',
+                      ...(isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
+                    }}
+                    aria-disabled={isRestricted}
+                  >
+                    <div className="profile-settings-left">
+                      <div className="profile-settings-icon">
+                        <Inbox size={22} strokeWidth={2} style={{ color: '#111' }} />
+                      </div>
+                      <span className="profile-settings-label">Activity</span>
+                    </div>
+                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                    <LockOverlay show={isRestricted} />
+                  </button>
+                </div>
                 <h2 className="profile-settings-heading">Settings</h2>
                 <div className="profile-settings-card">
                   {/* Notifications row - hidden for minimal UI */}
@@ -1095,12 +1121,11 @@ export default function ProfileClient() {
             setTimeout(() => {
               setOpenDeposit(true)
             }, 220)
-          } else if (amountMode === 'deposit' && amountEntryPoint === 'depositKeypad') {
-            // Deposit keypad: close and clear amount
+          } else if (amountEntryPoint === 'depositKeypad') {
             setOpenAmount(false)
             setAmountEntryPoint(undefined)
             setDepositAmountMZN(0)
-            setDepositAmountZAR(0) // Clear amount on close
+            setDepositAmountZAR(0)
           } else {
             setOpenAmount(false)
             setAmountEntryPoint(undefined) // Reset entry point when closing

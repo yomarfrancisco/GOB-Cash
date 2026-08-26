@@ -1814,7 +1814,7 @@ body {
   font-size: 16px;
   opacity: 1;
   color: #000;
-  margin: 0 0 12px 0;
+  margin: 24px 0 12px 0;
   text-align: center;
 }
 
@@ -1827,6 +1827,10 @@ body {
   flex-direction: column;
   overflow: hidden;
   margin-top: 8px;
+}
+
+.profile-settings-card--solo {
+  margin-top: 0;
 }
 
 .profile-settings-row {

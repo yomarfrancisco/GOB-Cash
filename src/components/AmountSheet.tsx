@@ -148,6 +148,9 @@ export default function AmountSheet({
   const handleCashSubmit = () => {
     // ⛔️ Hard stop: never let "cash" path start a deposit while the sheet is in withdraw mode
     if (mode === 'withdraw' || withdrawOnly) {
+      if (isZarPrimaryKeypad && exceedsAvailableZar(amountZAR, displayBalanceZAR)) {
+        return
+      }
       console.log('[AMOUNT CTA] handleCashSubmit blocked because mode=withdraw; delegating to handleSubmit', {
         modeFromProps: mode,
         withdrawOnly,
@@ -222,8 +225,10 @@ export default function AmountSheet({
   
   const modeLabel = isCardDeposit
     ? 'Deposit'
+    : mode === 'withdraw' && entryPoint === 'depositKeypad'
+    ? 'Withdraw'
     : mode === 'deposit' && entryPoint === 'depositKeypad'
-    ? 'Cash-in / out'
+    ? 'Deposit'
     : flowType === 'transfer' 
     ? 'Transfer' 
     : mode === 'deposit' || mode === 'depositCard' 
@@ -244,7 +249,7 @@ export default function AmountSheet({
     : 'Continue'
   const finalCtaLabel = ctaLabel || defaultCtaLabel
   const isPositive = typedAmount > 0
-  const exceedsZarBalance = isZarPrimaryKeypad && exceedsAvailableZar(amountZAR, displayBalanceZAR)
+  const exceedsZarBalance = isZarPrimaryKeypad && mode === 'withdraw' && exceedsAvailableZar(amountZAR, displayBalanceZAR)
   const keypadFeeText = exceedsZarBalance ? 'Insufficient ZAR balance.' : customFeeText
 
   // Format amount for display (remove leading zeros except "0.")
@@ -307,7 +312,7 @@ export default function AmountSheet({
             customFeeText={keypadFeeText}
           />
         </div>
-        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {withdrawOnly ? (
             // Force single button for withdrawal flow
             <button 
@@ -402,26 +407,26 @@ export default function AmountSheet({
                 Pay
               </button>
             </>
+          ) : entryPoint === 'depositKeypad' && mode === 'withdraw' ? (
+            <button
+              className="amount-keypad__cta"
+              onClick={handleCashSubmit}
+              type="button"
+              disabled={!isPositive || exceedsZarBalance}
+            >
+              Withdraw
+              <span className="amount-keypad__cta-arrow">→</span>
+            </button>
           ) : entryPoint === 'depositKeypad' ? (
-            // Dual buttons for deposit keypad: "Withdraw" and "Deposit"
-            <>
-              <button 
-                className="amount-keypad__cta amount-keypad__cta--cash" 
-                onClick={handleCashSubmit} 
-                type="button"
-                disabled={!isPositive}
-              >
-                Withdraw
-              </button>
-              <button 
-                className="amount-keypad__cta amount-keypad__cta--card" 
-                onClick={handleCardSubmit} 
-                type="button"
-                disabled={!isPositive}
-              >
-                Deposit
-              </button>
-            </>
+            <button
+              className="amount-keypad__cta"
+              onClick={handleCardSubmit}
+              type="button"
+              disabled={!isPositive}
+            >
+              Deposit
+              <span className="amount-keypad__cta-arrow">→</span>
+            </button>
           ) : showDualButtons ? (
             // Legacy dual button support (backward compatibility)
             <>
