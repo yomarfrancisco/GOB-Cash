@@ -40,6 +40,8 @@ import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useNotificationStore } from '@/store/notifications'
 import { useAuthStore } from '@/store/auth'
+import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
+import type { ActivityItem } from '@/store/activity'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { usePayIntoSheet, type ConversionDestination } from '@/store/usePayIntoSheet'
@@ -62,11 +64,62 @@ import { isRestrictedUser } from '@/lib/restrictions'
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 
+const PENDING_ACTIVITY_KINDS = new Set([
+  'CONVERSION_INSTRUCTED',
+  'WITHDRAWAL_INSTRUCTED',
+  'proof_of_payment',
+])
+
+const EXECUTED_ACTIVITY_KINDS = new Set([
+  'BANK_TRANSFER_CONFIRMED',
+  'EXTERNAL_DEPOSIT_CONFIRMED',
+  'mzn_deposited',
+  'zar_withdrawn',
+  'payment_delivered',
+  'payment_received',
+])
+
+function countPendingAndExecuted(items: ActivityItem[]): { pending: number; executed: number } {
+  let pending = 0
+  let executed = 0
+  for (const item of items) {
+    if (item.kind && PENDING_ACTIVITY_KINDS.has(item.kind)) {
+      pending += 1
+      continue
+    }
+    if (item.kind && EXECUTED_ACTIVITY_KINDS.has(item.kind)) {
+      executed += 1
+      continue
+    }
+    const text = `${item.title} ${item.body ?? ''}`.toLowerCase()
+    if (text.includes('pending')) pending += 1
+    else if (text.includes('confirmed') || text.includes('executed') || text.includes('deposited') || text.includes('withdrawn')) {
+      executed += 1
+    }
+  }
+  return { pending, executed }
+}
+
 export default function ProfileClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthed, authReady, openAuthEntry } = useAuthStore()
   const { hasCompletedAgentOnboarding } = useAgentOnboardingStore()
+  const [pendingCount, setPendingCount] = useState(0)
+  const [executedCount, setExecutedCount] = useState(0)
+
+  useEffect(() => {
+    if (!isAuthed) {
+      setPendingCount(0)
+      setExecutedCount(0)
+      return
+    }
+    return subscribeToActivityEvents((items) => {
+      const counts = countPendingAndExecuted(items)
+      setPendingCount(counts.pending)
+      setExecutedCount(counts.executed)
+    })
+  }, [isAuthed])
   
   // Redirect unauthenticated users to home (only after auth is ready to prevent race during hydration)
   useEffect(() => {
@@ -570,38 +623,15 @@ export default function ProfileClient() {
               {/* Stats + network pill */}
               <div className="profile-stats-card">
                 <div className="stats-row">
-                  {(() => {
-                    const rating = typeof profile?.rating === "number" ? profile.rating : 0;
-                    const ratingCount = typeof profile?.ratingCount === "number" ? profile.ratingCount : 0;
-                    const sponsors = typeof profile?.sponsors === "number" ? profile.sponsors : 0;
-                    const sponsoring = typeof profile?.sponsoring === "number" ? profile.sponsoring : 0;
-                    
-                    return (
-                      <>
-                        <div className="stat">
-                          <div className="stat-top">
-                            <span className="stat-value">
-                              {ratingCount > 0 ? rating.toFixed(1) : "0.0"}
-                            </span>
-                            <Image src="/assets/profile/star.svg" alt="" width={12} height={12} />
-                          </div>
-                          <div className="stat-sub">
-                            ({ratingCount > 0 ? ratingCount.toLocaleString() : "0"})
-                          </div>
-                        </div>
-                        <div className="stat-divider" />
-                        <div className="stat">
-                          <div className="stat-value">{sponsors.toLocaleString()}</div>
-                          <div className="stat-sub">Clients</div>
-                        </div>
-                        <div className="stat-divider" />
-                        <div className="stat">
-                          <div className="stat-value">{sponsoring.toLocaleString()}</div>
-                          <div className="stat-sub">Recipients</div>
-                        </div>
-                      </>
-                    );
-                  })()}
+                  <div className="stat">
+                    <div className="stat-value">{pendingCount.toLocaleString()}</div>
+                    <div className="stat-sub">Pending</div>
+                  </div>
+                  <div className="stat-divider" />
+                  <div className="stat">
+                    <div className="stat-value">{executedCount.toLocaleString()}</div>
+                    <div className="stat-sub">Executed</div>
+                  </div>
                 </div>
                 <div className="network-pill">
                   <div className="network-track">
