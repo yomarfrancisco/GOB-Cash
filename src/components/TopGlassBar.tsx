@@ -60,8 +60,8 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
           />
         ) : (
           <Image
-            src="/assets/MoZ-logo.png"
-            alt="MoZ"
+            src="/assets/mPaga.png"
+            alt="mPaga"
             className="gobankless-logo"
             width={149}
             height={46}
