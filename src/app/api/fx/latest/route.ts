@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { quoteMznPerZar } from '@/lib/mznZar'
 
-// Switch to open.er-api.com (free, no API key required)
-const EXCHANGE_RATE_API_BASE = 'https://open.er-api.com/v6/latest/ZAR'
 const CACHE_DURATION_MS = 120 * 1000 // 120 seconds (2 minutes)
 
-// In-memory cache
+function fxLatestZarUrl(): string {
+  const key = process.env.EXCHANGE_RATE_API_KEY
+  if (key) return `https://v6.exchangerate-api.com/v6/${key}/latest/ZAR`
+  return 'https://open.er-api.com/v6/latest/ZAR'
+}
+
+function ratesFromPayload(data: {
+  conversion_rates?: Record<string, number>
+  rates?: Record<string, number>
+}) {
+  return data.conversion_rates || data.rates
+}
+
 let rateCache: {
   data: {
     base: string
@@ -19,15 +29,15 @@ let rateCache: {
 }
 
 /**
- * Fetch exchange rates from open.er-api.com (free, no key required)
+ * Fetch ZAR-based rates from ExchangeRate-API Pro, or the free feed if no key is set.
  */
 async function fetchExchangeRates(symbols: string[]): Promise<{
   base: string
   timestamp: number
   rates: Record<string, number | null>
 }> {
-  const response = await fetch(EXCHANGE_RATE_API_BASE, {
-    next: { revalidate: 120 }, // Next.js revalidation (120 seconds)
+  const response = await fetch(fxLatestZarUrl(), {
+    next: { revalidate: 120 },
   })
 
   if (!response.ok) {
@@ -35,16 +45,15 @@ async function fetchExchangeRates(symbols: string[]): Promise<{
   }
 
   const data = await response.json()
+  const rawRates = ratesFromPayload(data)
 
-  // open.er-api.com returns { result: "success", rates: { ... } }
-  if (data.result !== 'success' || !data.rates) {
+  if (data.result !== 'success' || !rawRates) {
     throw new Error('Exchange rate API returned unsuccessful response')
   }
 
-  // Extract rates for requested symbols (return null if not found)
   const rates: Record<string, number | null> = {}
   symbols.forEach((symbol) => {
-    const rate = data.rates?.[symbol]
+    const rate = rawRates?.[symbol]
     if (rate !== undefined && rate !== null && typeof rate === 'number') {
       rates[symbol] = symbol === 'MZN' ? quoteMznPerZar(rate) : rate
     } else {
@@ -60,7 +69,6 @@ async function fetchExchangeRates(symbols: string[]): Promise<{
 }
 
 export async function GET(request: NextRequest) {
-  // Always return 200 with stable JSON shape (never throw or return 5xx)
   const searchParams = request.nextUrl.searchParams
   const symbolsParam = searchParams.get('symbols')
 
@@ -91,13 +99,11 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // Check cache
   const now = Date.now()
   const cacheAge = now - rateCache.timestamp
   const isCacheValid = cacheAge < CACHE_DURATION_MS && rateCache.data !== null
 
   if (isCacheValid && rateCache.data) {
-    // Return cached data (filter to only requested symbols)
     const cachedRates: Record<string, number | null> = {}
     symbols.forEach((symbol) => {
       cachedRates[symbol] = rateCache.data!.rates[symbol] ?? null
@@ -112,11 +118,9 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // Fetch fresh data
   try {
     const freshData = await fetchExchangeRates(symbols)
 
-    // Update cache
     rateCache = {
       data: freshData,
       timestamp: now,
@@ -130,7 +134,6 @@ export async function GET(request: NextRequest) {
       ts: freshData.timestamp,
     })
   } catch (fetchError) {
-    // If fetch fails but we have cached data, return it even if stale
     if (rateCache.data) {
       console.warn('[FX API] Fetch failed, returning stale cache:', fetchError)
       const staleRates: Record<string, number | null> = {}
@@ -147,7 +150,6 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // No cache available - return null rates but still 200 OK
     console.error('[FX API] Fetch failed and no cache available:', fetchError)
     const nullRates: Record<string, null> = {}
     symbols.forEach((symbol) => {
@@ -164,4 +166,3 @@ export async function GET(request: NextRequest) {
     })
   }
 }
-
