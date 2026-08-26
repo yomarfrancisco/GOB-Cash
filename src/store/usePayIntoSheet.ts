@@ -5,7 +5,7 @@ export type ConversionDestination = 'ZAR' | 'MZN'
 interface PayIntoSheetState {
   isOpen: boolean
   destination: ConversionDestination
-  open: (destination?: ConversionDestination) => void
+  open: () => void
   close: () => void
   setDestination: (destination: ConversionDestination) => void
 }
@@ -13,7 +13,7 @@ interface PayIntoSheetState {
 export const usePayIntoSheet = create<PayIntoSheetState>((set) => ({
   isOpen: false,
   destination: 'ZAR',
-  open: (destination: ConversionDestination = 'ZAR') => set({ isOpen: true, destination }),
+  open: () => set({ isOpen: true, destination: 'ZAR' }),
   close: () => set({ isOpen: false }),
   setDestination: (destination) => set({ destination }),
 }))

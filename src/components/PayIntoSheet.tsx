@@ -24,28 +24,29 @@ type PayIntoSheetProps = {
 }
 
 export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
-  const { isOpen, close, setDestination, destination } = usePayIntoSheet()
+  const { isOpen, close, setDestination } = usePayIntoSheet()
   const { getCash, alloc } = useWalletAlloc()
   const { rates: fxRates } = useFxRates(['MZN'])
   const [selectedId, setSelectedId] = useState<ConversionDestination>('ZAR')
 
-  const zarAccount: Account = {
-    id: 'ZAR',
-    label: 'ZAR account',
-    cardImage: '/assets/cards/card-savings.jpg',
-    getBalanceText: () => `Balance: ${formatZARWithDot(getCash())}`,
-  }
-  const mznAccount: Account = {
-    id: 'MZN',
-    label: 'MZN account',
-    cardImage: '/assets/cards/card-MZN2.jpg',
-    getBalanceText: () => `Balance: ${formatMZN((alloc.mznCents || 0) / 100)}`,
-  }
-  const accounts = selectedId === 'MZN' ? [mznAccount, zarAccount] : [zarAccount, mznAccount]
+  const accounts: Account[] = [
+    {
+      id: 'ZAR',
+      label: 'Receive ZAR',
+      cardImage: '/assets/cards/card-savings.jpg',
+      getBalanceText: () => `Balance: ${formatZARWithDot(getCash())}`,
+    },
+    {
+      id: 'MZN',
+      label: 'Receive MZN',
+      cardImage: '/assets/cards/card-MZN2.jpg',
+      getBalanceText: () => `Balance: ${formatMZN((alloc.mznCents || 0) / 100)}`,
+    },
+  ]
 
   useEffect(() => {
-    if (isOpen) setSelectedId(destination)
-  }, [isOpen, destination])
+    if (isOpen) setSelectedId('ZAR')
+  }, [isOpen])
 
   const title = selectedId === 'ZAR' ? 'Convert MZN' : 'Convert ZAR'
   const liveMzn =
