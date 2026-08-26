@@ -406,6 +406,7 @@ export default function AmountSheet({
               onClick={() => {
                 if (!isPositive || exceedsZarBalance || exceedsMznBalance || conversionBusy) return
                 setConversionBusy(true)
+                onClose()
                 void Promise.resolve(
                   onCardSubmit?.({
                     amountMZN,
@@ -413,7 +414,7 @@ export default function AmountSheet({
                     amountUSDT,
                     mode: 'convert',
                   })
-                ).finally(() => setConversionBusy(false))
+                )
               }}
               type="button"
               disabled={!isPositive || exceedsZarBalance || exceedsMznBalance || conversionBusy}

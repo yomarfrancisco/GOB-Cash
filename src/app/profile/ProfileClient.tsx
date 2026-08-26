@@ -1188,16 +1188,12 @@ export default function ProfileClient() {
             openWithdrawSheet()
           }, 220)
         } : undefined}
-        onCardSubmit={amountEntryPoint === 'conversionKeypad' ? async ({ amountMZN, amountZAR }) => {
-          try {
-            await submitInternalConversion({
-              destination: conversionDestination,
-              amountMZN,
-              amountZAR,
-            })
-            setOpenAmount(false)
-            setAmountEntryPoint(undefined)
-          } catch (error: any) {
+        onCardSubmit={amountEntryPoint === 'conversionKeypad' ? ({ amountMZN, amountZAR }) => {
+          void submitInternalConversion({
+            destination: conversionDestination,
+            amountMZN,
+            amountZAR,
+          }).catch((error: any) => {
             const message = String(error?.message || '')
             useNotificationStore.getState().pushNotification({
               kind: 'payment_failed',
@@ -1209,7 +1205,7 @@ export default function ProfileClient() {
                 : 'Unable to convert.',
               actor: { type: 'system', name: 'MozPay' },
             })
-          }
+          })
         } : amountMode === 'convert' ? ({ amountMZN, amountZAR }) => {
           // Card payment flow ("Pay someone"): open PaymentDetailsSheet
           setOpenAmount(false)

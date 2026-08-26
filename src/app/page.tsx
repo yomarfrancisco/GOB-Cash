@@ -942,16 +942,12 @@ function HomeContent() {
             openAmaChatWithScenario('cash_deposit')
           }, 220) // Match other modal transitions
         } : undefined}
-        onCardSubmit={amountEntryPoint === 'conversionKeypad' ? async ({ amountMZN, amountZAR }) => {
-          try {
-            await submitInternalConversion({
-              destination: conversionDestination,
-              amountMZN,
-              amountZAR,
-            })
-            setOpenAmount(false)
-            setAmountEntryPoint(undefined)
-          } catch (error: any) {
+        onCardSubmit={amountEntryPoint === 'conversionKeypad' ? ({ amountMZN, amountZAR }) => {
+          void submitInternalConversion({
+            destination: conversionDestination,
+            amountMZN,
+            amountZAR,
+          }).catch((error: any) => {
             const message = String(error?.message || '')
             useNotificationStore.getState().pushNotification({
               kind: 'payment_failed',
@@ -963,7 +959,7 @@ function HomeContent() {
                 : 'Unable to convert.',
               actor: { type: 'system', name: 'MozPay' },
             })
-          }
+          })
         } : amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountMZN, amountZAR }) => {
           // Cash button flow ("Pay someone"): open PaymentDetailsSheet
           setOpenAmount(false)
