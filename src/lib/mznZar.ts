@@ -1,10 +1,7 @@
-// Calibrated 26 Aug 2026 against ExchangeRate-API's free ZAR feed.
-// Mid-market: 1 ZAR = 3.98793 MZN. Corridor market: 4.6 MZN per ZAR.
-// Markup = 4.6 / 3.98793 − 1 = 15.348%.
+// Quoted MZN per ZAR = ExchangeRate-API free mid-market × 15% corridor markup.
+export const MZN_ZAR_MARKUP = 1.15
 export const MZN_ZAR_API_RATE_AT_CALIBRATION = 3.98793
-export const MZN_ZAR_CORRIDOR_AT_CALIBRATION = 4.6
-export const MZN_ZAR_MARKUP = MZN_ZAR_CORRIDOR_AT_CALIBRATION / MZN_ZAR_API_RATE_AT_CALIBRATION
-export const MZN_PER_ZAR = MZN_ZAR_CORRIDOR_AT_CALIBRATION
+export const MZN_PER_ZAR = MZN_ZAR_API_RATE_AT_CALIBRATION * MZN_ZAR_MARKUP
 export const ZAR_PER_USDT = 18.1
 
 export function quoteMznPerZar(apiMznPerZar: number): number {

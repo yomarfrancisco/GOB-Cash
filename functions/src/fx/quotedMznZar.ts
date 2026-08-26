@@ -1,12 +1,10 @@
 /**
- * Quoted MZN per ZAR = ExchangeRate-API free mid-market × corridor markup.
- * Calibrated 26 Aug 2026: 4.6 / 3.98793 = 15.348% above the feed.
+ * Quoted MZN per ZAR = ExchangeRate-API free mid-market × 15% corridor markup.
  */
 
+export const MZN_ZAR_MARKUP = 1.15
 export const MZN_ZAR_API_RATE_AT_CALIBRATION = 3.98793
-export const MZN_ZAR_CORRIDOR_AT_CALIBRATION = 4.6
-export const MZN_ZAR_MARKUP = MZN_ZAR_CORRIDOR_AT_CALIBRATION / MZN_ZAR_API_RATE_AT_CALIBRATION
-export const MZN_PER_ZAR_FALLBACK = MZN_ZAR_CORRIDOR_AT_CALIBRATION
+export const MZN_PER_ZAR_FALLBACK = MZN_ZAR_API_RATE_AT_CALIBRATION * MZN_ZAR_MARKUP
 
 const EXCHANGE_RATE_API = 'https://open.er-api.com/v6/latest/ZAR'
 const CACHE_MS = 2 * 60 * 1000
