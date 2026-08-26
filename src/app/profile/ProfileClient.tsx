@@ -655,13 +655,21 @@ export default function ProfileClient() {
               <div className="profile-stats-card">
                 <div className="stats-row">
                   <div className="stat">
-                    <div className="stat-value">{pendingCount.toLocaleString()}</div>
-                    <div className="stat-sub">Pending</div>
+                    <div className="stat-top">
+                      <span className="stat-value">{(profile.rating ?? 0).toFixed(1)}</span>
+                      <Image src="/assets/profile/star.svg" alt="" width={12} height={12} />
+                    </div>
+                    <div className="stat-sub">Score</div>
                   </div>
                   <div className="stat-divider" />
                   <div className="stat">
                     <div className="stat-value">{executedCount.toLocaleString()}</div>
-                    <div className="stat-sub">Executed</div>
+                    <div className="stat-sub">Settled</div>
+                  </div>
+                  <div className="stat-divider" />
+                  <div className="stat">
+                    <div className="stat-value">{pendingCount.toLocaleString()}</div>
+                    <div className="stat-sub">Pending</div>
                   </div>
                 </div>
                 <div className="network-pill">
