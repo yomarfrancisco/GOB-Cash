@@ -28,8 +28,10 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
   const actorType =
     data.actorType === 'ai_manager' ||
     data.avatarKind === 'zar_withdrawn' ||
+    data.avatarKind === 'mzn_deposited' ||
     data.kind === 'BANK_TRANSFER_CONFIRMED' ||
-    data.kind === 'WITHDRAWAL_INSTRUCTED'
+    data.kind === 'WITHDRAWAL_INSTRUCTED' ||
+    data.kind === 'EXTERNAL_DEPOSIT_CONFIRMED'
       ? 'ai'
       : data.actorType === 'counterparty'
         ? 'counterparty'

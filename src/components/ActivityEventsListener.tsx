@@ -5,8 +5,9 @@ import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import { useAuthStore } from '@/store/auth'
 import { useNotificationStore } from '@/store/notifications'
 
-const DROPDOWN_KINDS = new Set(['BANK_TRANSFER_CONFIRMED'])
+const DROPDOWN_KINDS = new Set(['BANK_TRANSFER_CONFIRMED', 'EXTERNAL_DEPOSIT_CONFIRMED'])
 const AMA_AVATAR = '/assets/Brics-girl-blue.png'
+const MZN_AVATAR = '/assets/avatar - profile (4).png'
 
 export default function ActivityEventsListener() {
   const isAuthed = useAuthStore((s) => s.isAuthed)
@@ -21,14 +22,15 @@ export default function ActivityEventsListener() {
           const pushNotification = useNotificationStore.getState().pushNotification
           for (const item of items) {
             if (!item.kind || !DROPDOWN_KINDS.has(item.kind)) continue
+            const isMznDeposit = item.kind === 'EXTERNAL_DEPOSIT_CONFIRMED'
             pushNotification({
               id: item.id,
-              kind: 'zar_withdrawn',
+              kind: isMznDeposit ? 'mzn_deposited' : 'zar_withdrawn',
               title: item.title,
               body: item.body,
               actor: {
                 type: 'ai_manager',
-                avatar: AMA_AVATAR,
+                avatar: isMznDeposit ? MZN_AVATAR : AMA_AVATAR,
                 name: 'Ama',
               },
               routeOnTap: '/profile?activity=1',
