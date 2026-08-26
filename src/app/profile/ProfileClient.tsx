@@ -17,7 +17,7 @@ import AgentInboxSheet from '@/components/AgentInboxSheet'
 import { CountryCode } from '@/config/depositBankAccounts'
 import { tx_createBankDepositRequest } from '@/lib/transactions/clientFunctions'
 import { AGENT_UID, type BankDepositTransaction } from '@/types/transactions'
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
@@ -58,6 +58,7 @@ import { openAmaChatWithCardDepositScenario, openAmaChatWithAgentInduction } fro
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
 import { ChevronRight } from 'lucide-react'
 import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
+import ComplianceVerifySheet from '@/components/ComplianceVerifySheet'
 import { logout } from '@/lib/logout'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { isRestrictedUser } from '@/lib/restrictions'
@@ -107,6 +108,7 @@ export default function ProfileClient() {
   const { hasCompletedAgentOnboarding } = useAgentOnboardingStore()
   const [pendingCount, setPendingCount] = useState(0)
   const [executedCount, setExecutedCount] = useState(0)
+  const [kycStatus, setKycStatus] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isAuthed) {
@@ -118,6 +120,22 @@ export default function ProfileClient() {
       const counts = countPendingAndExecuted(items)
       setPendingCount(counts.pending)
       setExecutedCount(counts.executed)
+    })
+  }, [isAuthed])
+
+  useEffect(() => {
+    if (!isAuthed) {
+      setKycStatus(null)
+      return
+    }
+    const uid = getFirebaseAuth().currentUser?.uid
+    if (!uid) {
+      setKycStatus(null)
+      return
+    }
+    return onSnapshot(doc(getFirestoreDb(), 'users', uid), (snap) => {
+      const status = snap.data()?.kycStatus
+      setKycStatus(typeof status === 'string' ? status : null)
     })
   }, [isAuthed])
   
@@ -478,6 +496,7 @@ export default function ProfileClient() {
   const [isPaySomeoneFlow, setIsPaySomeoneFlow] = useState(false) // Track if coming from "Pay someone" button
   // Crypto deposit removed - no longer needed
   const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
+  const [isComplianceVerifyOpen, setIsComplianceVerifyOpen] = useState(false)
   const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
   const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
   const [withdrawAmountMZN, setWithdrawAmountMZN] = useState(0)
@@ -637,8 +656,17 @@ export default function ProfileClient() {
                   <div className="network-track">
                     <div className="network-fill" />
                   </div>
-                  <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
-                    <span>Compliance</span>
+                  <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsComplianceVerifyOpen(true)}>
+                    <span>
+                      Compliance
+                      {kycStatus === 'approved'
+                        ? ' · Verified'
+                        : kycStatus === 'pending_review'
+                          ? ' · Review'
+                          : kycStatus === 'in_progress'
+                            ? ' · In progress'
+                            : ''}
+                    </span>
                     <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
                   </div>
                 </div>
@@ -1558,9 +1586,13 @@ export default function ProfileClient() {
         isOpen={isProductivityHelperOpen}
         onClose={() => setIsProductivityHelperOpen(false)}
         onNextPage={() => {
-          // Placeholder for page 2 navigation
           console.log('[ProductivityHelperSheet] Next page clicked')
         }}
+      />
+      <ComplianceVerifySheet
+        open={isComplianceVerifyOpen}
+        onClose={() => setIsComplianceVerifyOpen(false)}
+        kycStatus={kycStatus}
       />
     </div>
   )

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ['@didit-protocol/sdk-web'],
   eslint: {
     ignoreDuringBuilds: true,
   },

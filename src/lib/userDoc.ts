@@ -42,6 +42,9 @@ export interface UserDocument {
   createdAt: any // serverTimestamp()
   accountStatus: 'active' | 'suspended' | 'deleted'
   verificationStatus: 'unverified' | 'email-verified' | 'phone-verified' | 'full-verified'
+  kycStatus?: string | null
+  kycSessionStatus?: string | null
+  kycSessionId?: string | null
   isAgent: boolean
   socialGraphShareContacts?: boolean
   // Profile metrics
