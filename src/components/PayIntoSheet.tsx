@@ -45,7 +45,7 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
     if (isOpen) setSelectedId('ZAR')
   }, [isOpen])
 
-  const title = selectedId === 'ZAR' ? 'Convert my MZN' : 'Convert my ZAR'
+  const title = selectedId === 'ZAR' ? 'Convert MZN' : 'Convert ZAR'
   const receiveText = selectedId === 'ZAR' ? 'Receive ZAR' : 'Receive MZN'
 
   const handleConfirm = () => {
@@ -62,7 +62,7 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
           <div className={styles.scrollableContent}>
             <div className={styles.inputSection}>
               <label className="send-details-row">
-                <span className="send-details-label">{title}</span>
+                <span className={`send-details-label ${styles.convertLabel}`}>{title}</span>
                 <input
                   className={`send-details-input ${styles.receiveInput}`}
                   placeholder={receiveText}

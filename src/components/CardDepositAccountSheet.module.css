@@ -122,6 +122,10 @@
   white-space: nowrap;
 }
 
+.convertLabel {
+  margin-bottom: 20px;
+}
+
 .receiveInput {
   font-size: 32px;
   font-weight: 200;
