@@ -99,7 +99,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             </div>
           </div>
         </button>
-        <div className="nav-label">Paga</div>
+        <div className="nav-label">{isHome ? 'Convert' : 'Paga'}</div>
       </div>
       <div className="nav-item" style={{ position: 'relative' }}>
         <Link 
