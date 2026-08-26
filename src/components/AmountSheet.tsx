@@ -69,7 +69,7 @@ export default function AmountSheet({
   const { isAuthed } = useAuthStore()
   const { alloc } = useWalletAlloc()
   
-  const isZarPrimaryKeypad = entryPoint === 'depositKeypad'
+  const isZarPrimaryKeypad = entryPoint === 'depositKeypad' && mode === 'withdraw'
   const displayBalanceMZN = isAuthed ? (alloc.mznCents ?? 0) / 100 : (balanceMZN ?? 0)
   const displayBalanceZAR = isAuthed ? (alloc.cashCents ?? 0) / 100 : 0
 

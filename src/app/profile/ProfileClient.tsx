@@ -634,7 +634,7 @@ export default function ProfileClient() {
                   <LockOverlay show={isRestricted} />
                 </button>
                 <button
-                  className="btn profile-edit"
+                  className="btn profile-inbox"
                   disabled={isRestricted}
                   onClick={() => {
                     if (isRestricted) return
@@ -652,7 +652,7 @@ export default function ProfileClient() {
                   }}
                   aria-disabled={isRestricted}
                 >
-                  Cash out
+                  Withdraw
                   <LockOverlay show={isRestricted} />
                 </button>
               </div>
@@ -1282,7 +1282,7 @@ export default function ProfileClient() {
           }
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
-        initialAmount={amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountZAR > 0 ? depositAmountZAR : undefined}
+        initialAmount={amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountMZN > 0 ? depositAmountMZN : undefined}
       />
       <SendDetailsSheet
         open={openSendDetails}
