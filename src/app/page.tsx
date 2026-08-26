@@ -13,7 +13,7 @@ import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
 import { formatMZN, formatUSDT, formatZAR } from '@/lib/money'
-import { zarToMzn } from '@/lib/mznZar'
+import { zarToMzn, quotedMznPerZarForDestination } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
@@ -897,7 +897,16 @@ function HomeContent() {
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
         conversionDestination={conversionDestination}
-        fxRateMZNperZAR={typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : undefined}
+        fxRateMZNperZAR={
+          amountEntryPoint === 'conversionKeypad'
+            ? quotedMznPerZarForDestination(
+                typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0,
+                conversionDestination
+              )
+            : typeof fxRates?.rates?.MZN === 'number'
+              ? fxRates.rates.MZN
+              : undefined
+        }
         onScanClick={amountEntryPoint === 'cashButton' ? () => {
           guardAuthed(() => {
             // 1) Close the keypad sheet first

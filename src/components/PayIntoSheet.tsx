@@ -7,7 +7,7 @@ import ActionSheet from './ActionSheet'
 import { usePayIntoSheet, type ConversionDestination } from '@/store/usePayIntoSheet'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { formatMZN, formatZARWithDot } from '@/lib/money'
-import { MZN_PER_ZAR } from '@/lib/mznZar'
+import { quotedMznPerZarForDestination } from '@/lib/mznZar'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
 import '@/styles/send-details-sheet.css'
 import styles from './CardDepositAccountSheet.module.css'
@@ -49,10 +49,11 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
   }, [isOpen])
 
   const title = selectedId === 'ZAR' ? 'Convert MZN' : 'Convert ZAR'
-  const quotedMznPerZar =
+  const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
-      : MZN_PER_ZAR
+      : 0
+  const quotedMznPerZar = quotedMznPerZarForDestination(liveMzn, selectedId)
   const rateText = `@ ${quotedMznPerZar.toFixed(2)} Mt/R`
 
   const handleConfirm = () => {

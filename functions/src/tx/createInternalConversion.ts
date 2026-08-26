@@ -7,7 +7,11 @@
 
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-import { fetchQuotedMznPerZar } from '../fx/quotedMznZar'
+import {
+  fetchQuotedMznPerZar,
+  MZN_ZAR_MARKUP,
+  MZN_ZAR_MARKUP_RECEIVE_MZN,
+} from '../fx/quotedMznZar'
 
 const db = admin.firestore()
 
@@ -37,7 +41,9 @@ export const tx_createInternalConversion = functions
 
     const sourceAmountMajor = roundMajor(sourceAmount)
     const sourceAmountMinor = Math.round(sourceAmountMajor * 100)
-    const fxRateMZNperZAR = await fetchQuotedMznPerZar()
+    const fxRateMZNperZAR = await fetchQuotedMznPerZar(
+      destinationCurrency === 'MZN' ? MZN_ZAR_MARKUP_RECEIVE_MZN : MZN_ZAR_MARKUP
+    )
     const expectedDestinationMajor =
       sourceCurrency === 'MZN'
         ? roundMajor(sourceAmountMajor / fxRateMZNperZAR)

@@ -46,6 +46,7 @@ import { usePayIntoSheet, type ConversionDestination } from '@/store/usePayIntoS
 import PayIntoSheet from '@/components/PayIntoSheet'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
+import { quotedMznPerZarForDestination } from '@/lib/mznZar'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
@@ -1142,7 +1143,16 @@ export default function ProfileClient() {
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
         conversionDestination={conversionDestination}
-        fxRateMZNperZAR={typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : undefined}
+        fxRateMZNperZAR={
+          amountEntryPoint === 'conversionKeypad'
+            ? quotedMznPerZarForDestination(
+                typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0,
+                conversionDestination
+              )
+            : typeof fxRates?.rates?.MZN === 'number'
+              ? fxRates.rates.MZN
+              : undefined
+        }
         depositMethod={depositMethod}
         customFeeText={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'excl. 3% transaction fee' : undefined}
         onScanClick={amountEntryPoint === 'cashButton' ? () => {
