@@ -44,7 +44,7 @@ import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import type { ActivityItem } from '@/store/activity'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
-import { usePayIntoSheet, type ConversionDestination } from '@/store/usePayIntoSheet'
+import { type ConversionDestination } from '@/store/usePayIntoSheet'
 import PayIntoSheet from '@/components/PayIntoSheet'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
@@ -452,7 +452,6 @@ export default function ProfileClient() {
   const { openNotifications } = useNotificationsStore()
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
-  const { open: openPayInto } = usePayIntoSheet()
   const { rates: fxRates } = useFxRates(['MZN'])
 
   useEffect(() => {
@@ -600,7 +599,10 @@ export default function ProfileClient() {
                 currentPath="/profile" 
                 onDollarClick={() => {
                   guardAuthed(() => {
-                    openPayInto()
+                    setConversionDestination('ZAR')
+                    setAmountMode('convert')
+                    setAmountEntryPoint('conversionKeypad')
+                    setOpenAmount(true)
                   })
                 }} 
               />
@@ -1218,6 +1220,16 @@ export default function ProfileClient() {
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
         conversionDestination={conversionDestination}
+        onToggleConversion={amountEntryPoint === 'conversionKeypad' ? () => {
+          const next = conversionDestination === 'ZAR' ? 'MZN' : 'ZAR'
+          setOpenAmount(false)
+          setTimeout(() => {
+            setConversionDestination(next)
+            setAmountMode('convert')
+            setAmountEntryPoint('conversionKeypad')
+            setOpenAmount(true)
+          }, 600)
+        } : undefined}
         fxRateMZNperZAR={
           amountEntryPoint === 'conversionKeypad'
             ? quotedMznPerZarForDestination(

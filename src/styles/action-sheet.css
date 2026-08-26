@@ -150,7 +150,8 @@
 }
 
 /* Cash Transactions sheet - faster slide-up + fade-in animation */
-.as-sheet.cash-keypad {
+.as-sheet.cash-keypad,
+.as-sheet.pink-keypad {
   animation: cashSheetSlideUp 250ms cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
   /* Soft spring-like easing, no bounce */
 }

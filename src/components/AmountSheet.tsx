@@ -31,6 +31,7 @@ type AmountSheetProps = {
   onCardSubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void | Promise<void> // callback for Card button
   entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' | 'sponsorButton' | 'depositKeypad' | 'conversionKeypad'
   conversionDestination?: 'ZAR' | 'MZN'
+  onToggleConversion?: () => void
   sponsorHandle?: string // profile handle for sponsor flow (e.g. '@ama')
   onWeeklySubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Weekly button (sponsor flow)
   onMonthlySubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Monthly button (sponsor flow)
@@ -57,6 +58,7 @@ export default function AmountSheet({
   onCardSubmit,
   entryPoint,
   conversionDestination,
+  onToggleConversion,
   onScanClick,
   initialAmount,
   withdrawOnly = false,
@@ -272,12 +274,17 @@ export default function AmountSheet({
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
   const hideModeLabel = entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || isConversionKeypad
 
-  // Determine if keypad should use lime green background (helicopter, $-button, and sponsor flows)
+  // Lime when converting from Metical; light pink when converting from Rand.
   const isSponsorButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'sponsorButton'
-  const useLimeGreenBackground = isHelicopterConvert || isCashButtonConvert || isSponsorButtonConvert || isConversionKeypad
+  const useLimeGreenBackground =
+    isHelicopterConvert ||
+    isCashButtonConvert ||
+    isSponsorButtonConvert ||
+    (isConversionKeypad && !isZarPrimaryKeypad)
+  const usePinkKeypad = isConversionKeypad && isZarPrimaryKeypad
 
   return (
-    <ActionSheet open={open} onClose={onClose} title="" className={`amount ${useLimeGreenBackground ? 'cash-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`} size="tall">
+    <ActionSheet open={open} onClose={onClose} title="" className={`amount ${useLimeGreenBackground ? 'cash-keypad' : ''} ${usePinkKeypad ? 'pink-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`} size="tall">
       <div className={`amount-sheet amount-sheet-wrapper ${isHelicopterConvert ? 'amount-sheet--cash-transactions' : ''}`}>
         <div className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''}`} style={{ height: 'var(--hdr-h, 118px)' }}>
           {showScanIcon && (
@@ -307,9 +314,20 @@ export default function AmountSheet({
               minPx={28}
               className="amount-sheet__zar amount-fit"
             />
-            <div className="amount-sheet__usdt-chip">
-              {isZarPrimaryKeypad ? formatMZN(amountMZN) : formatZAR(amountZAR)}
-            </div>
+            {isConversionKeypad && onToggleConversion ? (
+              <button
+                type="button"
+                className="amount-sheet__usdt-chip amount-sheet__usdt-chip--swap"
+                onClick={onToggleConversion}
+                aria-label={isZarPrimaryKeypad ? 'Switch to Metical keypad' : 'Switch to Rand keypad'}
+              >
+                {isZarPrimaryKeypad ? formatMZN(amountMZN) : formatZAR(amountZAR)}
+              </button>
+            ) : (
+              <div className="amount-sheet__usdt-chip">
+                {isZarPrimaryKeypad ? formatMZN(amountMZN) : formatZAR(amountZAR)}
+              </div>
+            )}
           </div>
           <AmountKeypad
             value={displayAmount}
@@ -325,7 +343,7 @@ export default function AmountSheet({
             customFeeText={keypadFeeText}
           />
         </div>
-        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${usePinkKeypad ? 'amount-cta--pink' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {withdrawOnly ? (
             // Force single button for withdrawal flow
             <button 

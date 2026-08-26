@@ -141,6 +141,20 @@
   color: #666;
 }
 
+.amount-sheet__usdt-chip--swap {
+  border: 0;
+  margin: 0;
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.amount-sheet__usdt-chip--swap:active {
+  transform: scale(0.97);
+}
+
 /* Keypad container */
 .amount-keypad {
   flex: 1;
@@ -362,6 +376,62 @@
   background: #000000 !important;
   color: #FFFFFF !important;
   border: 0 !important; /* No border when enabled */
+}
+
+/* Light-pink keypad — convert from Rand (SA card on top) */
+.as-sheet.pink-keypad {
+  background: #FFD6DE !important;
+}
+
+.as-sheet.pink-keypad .amount-body {
+  background: #FFD6DE !important;
+}
+
+.as-sheet.pink-keypad .amount-keypad {
+  background: #FFD6DE !important;
+}
+
+.as-sheet.pink-keypad .amount-keypad__grid {
+  background: #FFD6DE !important;
+}
+
+.as-sheet.pink-keypad .amount-keypad__key {
+  color: #000 !important;
+}
+
+.as-sheet.pink-keypad .amount-keypad__key:hover {
+  background: rgba(0, 0, 0, 0.10) !important;
+}
+
+.as-sheet.pink-keypad .amount-keypad__key:active {
+  background: rgba(0, 0, 0, 0.20) !important;
+}
+
+.as-sheet.pink-keypad .amount-keypad__footer {
+  background: #FFD6DE !important;
+}
+
+.as-sheet.pink-keypad .amount-keypad__fee-note {
+  color: #555 !important;
+}
+
+.amount-cta--pink .amount-keypad__cta:disabled {
+  background: #FFD6DE !important;
+  color: #000 !important;
+  border: 1px solid #000 !important;
+  cursor: not-allowed;
+  opacity: 1 !important;
+}
+
+.amount-cta--pink .amount-keypad__cta:disabled:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: #000 !important;
+}
+
+.amount-cta--pink .amount-keypad__cta:not([disabled]):not([aria-disabled="true"]) {
+  background: #000000 !important;
+  color: #FFFFFF !important;
+  border: 0 !important;
 }
 
 /* Override ActionSheet height for amount sheet - now handled by .as-sheet.amount */

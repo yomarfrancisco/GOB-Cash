@@ -49,7 +49,7 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
-import { usePayIntoSheet, type ConversionDestination } from '@/store/usePayIntoSheet'
+import { conversionDestinationFromTopCard, type ConversionDestination } from '@/store/usePayIntoSheet'
 import PayIntoSheet from '@/components/PayIntoSheet'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
@@ -75,7 +75,6 @@ function HomeContent() {
   const { profile } = useUserProfileStore()
   const { startCashDepositScenario, startCashWithdrawalScenario } = useFinancialInboxStore()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
-  const { open: openPayInto } = usePayIntoSheet()
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
   const { play: playDollarSound } = useSoundEffect('/assets/Drum_3b.mp3')
   const { open: openBankingDetails } = useBankingDetailsSheet()
@@ -596,19 +595,22 @@ function HomeContent() {
               <BottomGlassBar 
                 currentPath="/" 
                 onDollarClick={() => {
-                  const openPayIntoSheet = () => {
+                  const openConversionKeypad = () => {
                     playDollarSound()
-                    openPayInto()
+                    setConversionDestination(conversionDestinationFromTopCard(topCardType))
+                    setAmountMode('convert')
+                    setAmountEntryPoint('conversionKeypad')
+                    setOpenAmount(true)
                   }
 
                   if (!isAuthed) {
                     requireAuth(() => {
-                      openPayIntoSheet()
+                      openConversionKeypad()
                     })
                     return
                   }
 
-                  openPayIntoSheet()
+                  openConversionKeypad()
                 }}
               />
             </div>
@@ -897,6 +899,16 @@ function HomeContent() {
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
         conversionDestination={conversionDestination}
+        onToggleConversion={amountEntryPoint === 'conversionKeypad' ? () => {
+          const next = conversionDestination === 'ZAR' ? 'MZN' : 'ZAR'
+          setOpenAmount(false)
+          setTimeout(() => {
+            setConversionDestination(next)
+            setAmountMode('convert')
+            setAmountEntryPoint('conversionKeypad')
+            setOpenAmount(true)
+          }, 600)
+        } : undefined}
         fxRateMZNperZAR={
           amountEntryPoint === 'conversionKeypad'
             ? quotedMznPerZarForDestination(
