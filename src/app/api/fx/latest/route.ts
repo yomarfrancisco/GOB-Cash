@@ -4,6 +4,7 @@ import { quoteMznPerZar } from '@/lib/mznZar'
 const CACHE_DURATION_MS = 120 * 1000 // 120 seconds (2 minutes)
 
 function fxLatestZarUrl(): string {
+  // EXCHANGE_RATE_API_KEY is set on Vercel; Pro returns conversion_rates.
   const key = process.env.EXCHANGE_RATE_API_KEY
   if (key) return `https://v6.exchangerate-api.com/v6/${key}/latest/ZAR`
   return 'https://open.er-api.com/v6/latest/ZAR'
