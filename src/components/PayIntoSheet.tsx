@@ -29,13 +29,13 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
   const accounts: Account[] = [
     {
       id: 'ZAR',
-      label: 'Use my ZAR account',
+      label: 'Use ZAR account',
       cardImage: '/assets/cards/card-savings.jpg',
       getBalanceText: () => `Balance: ${formatZARWithDot(getCash())}`,
     },
     {
       id: 'MZN',
-      label: 'Use my MZN account',
+      label: 'Use MZN account',
       cardImage: '/assets/cards/card-MZN2.jpg',
       getBalanceText: () => `Balance: ${formatMZN((alloc.mznCents || 0) / 100)}`,
     },
@@ -71,7 +71,7 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
                   readOnly
                   inputMode="text"
                   type="text"
-                  style={{ fontSize: 32, fontWeight: 400, lineHeight: 1.2 }}
+                  style={{ fontSize: 32, fontWeight: 200 }}
                 />
                 <div className="send-details-underline" />
               </label>
