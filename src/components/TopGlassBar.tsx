@@ -6,6 +6,9 @@ import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { useUserProfileStore } from '@/store/userProfile'
 
+// Scan + share stay wired, but the top bar does not show them for now.
+const SHOW_TOP_BAR_ACTIONS = false
+
 type TopGlassBarProps = {
   onScanClick?: () => void
   hideLogo?: boolean // Hide logo for third-party profiles
@@ -71,7 +74,7 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
           />
         )
       )}
-      {!hideIcons && (
+      {SHOW_TOP_BAR_ACTIONS && !hideIcons && (
         <div className="icons">
           <div className="icon-group">
             <button
