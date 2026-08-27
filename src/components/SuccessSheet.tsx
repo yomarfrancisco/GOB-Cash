@@ -183,23 +183,17 @@ export default function SuccessSheet({
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" className="send-success" size="tall">
-      <div className={`success-sheet${variant === 'failure' ? ' success-sheet--failure' : ''}`} role="dialog" aria-labelledby="success-title">
+      <div className="success-sheet" role="dialog" aria-labelledby="success-title">
         <div className="success-header">
-          {variant === 'failure' ? (
-            <span className="success-icon success-warn" role="img" aria-label="Warning">
-              ⚠️
-            </span>
-          ) : (
-            <Image
-              src="/assets/checkmark_circle.svg"
-              alt="success"
-              className="success-icon"
-              width={56}
-              height={56}
-              priority
-              unoptimized
-            />
-          )}
+          <Image
+            src={variant === 'failure' ? '/assets/cross_illustrated.png' : '/assets/tick_illustrated.png'}
+            alt={variant === 'failure' ? 'failed' : 'success'}
+            className="success-icon"
+            width={96}
+            height={96}
+            priority
+            unoptimized
+          />
           {kind === 'deposit' ? (
             <>
               <p id="success-title" className="success-headline" aria-live="polite">
