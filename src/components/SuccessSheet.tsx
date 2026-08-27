@@ -183,7 +183,7 @@ export default function SuccessSheet({
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" className="send-success" size="tall">
-      <div className="success-sheet" role="dialog" aria-labelledby="success-title">
+      <div className={`success-sheet${kind === 'deposit' || kind === 'card' ? ' success-sheet--titled' : ''}`} role="dialog" aria-labelledby="success-title">
         <div className="success-header">
           <Image
             src={variant === 'failure' ? '/assets/hazard.png' : '/assets/robot.png'}
