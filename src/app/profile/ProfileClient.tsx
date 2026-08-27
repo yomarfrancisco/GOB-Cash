@@ -452,6 +452,7 @@ export default function ProfileClient() {
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
   const { rates: fxRates } = useFxRates(['MZN'])
+  const { open: openDepositAccountSheet } = useCardDepositAccountSheet()
 
   useEffect(() => {
     if (searchParams.get('activity') !== '1' || !authReady) return
@@ -513,10 +514,10 @@ export default function ProfileClient() {
   const openPaymentsSheet = useCallback(() => setOpenPayments(true), [])
   const closePaymentsSheet = useCallback(() => setOpenPayments(false), [])
   const openDepositSheet = useCallback(() => setOpenDeposit(true), [])
-  const openBankDepositCountry = useCallback(() => {
+  const openBankDepositAccount = useCallback(() => {
     setDepositMethod('bank')
-    setOpenCountrySelect(true)
-  }, [])
+    openDepositAccountSheet(undefined, 'bank')
+  }, [openDepositAccountSheet])
   const openDirectPaymentSheet = useCallback(() => setOpenDirectPayment(true), [])
   const closeDirectPayment = useCallback(() => setOpenDirectPayment(false), [])
   const openWithdrawSheet = useCallback(() => setOpenWithdraw(true), [])
@@ -562,7 +563,7 @@ export default function ProfileClient() {
   useEffect(() => {
     setOnSelect((action) => {
       if (action === 'deposit') {
-        setTimeout(() => openBankDepositCountry(), 220)
+        setTimeout(() => openBankDepositAccount(), 220)
       } else if (action === 'withdraw') {
         setTimeout(() => setOpenWithdraw(true), 220)
       } else if (action === 'payment') {
@@ -579,7 +580,7 @@ export default function ProfileClient() {
     return () => {
       setOnSelect(null) // Cleanup on unmount
     }
-  }, [openBankDepositCountry, setOnSelect])
+  }, [openBankDepositAccount, setOnSelect])
 
   const complianceFill =
     kycPercent == null ? DEFAULT_COMPLIANCE_PERCENT : Math.max(0, Math.min(100, kycPercent))
@@ -694,7 +695,7 @@ export default function ProfileClient() {
                   onClick={() => {
                     if (isRestricted) return
                     guardAuthed(() => {
-                      openBankDepositCountry()
+                      openBankDepositAccount()
                     })
                   }}
                   style={{ 
@@ -914,7 +915,7 @@ export default function ProfileClient() {
           setTimeout(() => setOpenAmount(true), 220)
         }}
         onDeposit={() => {
-          setTimeout(() => openBankDepositCountry(), 220)
+          setTimeout(() => openBankDepositAccount(), 220)
         }}
       />
       <DepositSheet
@@ -940,7 +941,7 @@ export default function ProfileClient() {
           setOpenDeposit(false)
           if (method === 'bank') {
             setDepositMethod('bank')
-            setTimeout(() => setOpenCountrySelect(true), 220)
+            setTimeout(() => openBankDepositAccount(), 220)
           } else if (method === 'card') {
             setDepositMethod('card')
             // Read pending deposit from store (committed when user tapped "Deposit")
@@ -1431,8 +1432,13 @@ export default function ProfileClient() {
       />
       {/* PaymentDetailsSheet is now rendered in root layout */}
       <CardDepositAccountSheet
-        onConfirm={({ amountZAR, accountId, accountLabel }) => {
-          // Close sheet and open Ama chat
+        onConfirm={({ amountZAR, accountId, accountLabel, source }) => {
+          if (source === 'bank') {
+            setBankTransferCountry(accountId === 'mzn' ? 'MZ' : 'ZA')
+            setDepositMethod('bank')
+            setTimeout(() => setOpenBankSelect(true), 220)
+            return
+          }
           openAmaChatWithCardDepositScenario(amountZAR, accountLabel)
         }}
       />
@@ -1477,7 +1483,7 @@ export default function ProfileClient() {
         onClose={() => setOpenBankSelect(false)}
         onBack={() => {
           setOpenBankSelect(false)
-          setTimeout(() => setOpenCountrySelect(true), 220)
+          setTimeout(() => openBankDepositAccount(), 220)
         }}
         onSelect={(bank) => {
           setSelectedBank(bank)

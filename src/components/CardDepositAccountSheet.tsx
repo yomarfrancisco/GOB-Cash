@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { Check } from 'lucide-react'
 import ActionSheet from './ActionSheet'
-import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
+import { useCardDepositAccountSheet, type DepositAccountSource } from '@/store/useCardDepositAccountSheet'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { formatZAR } from '@/lib/formatCurrency'
 import '@/styles/send-details-sheet.css'
@@ -36,11 +36,16 @@ const getDepositAccounts = (getCash: () => number, alloc: { mznCents?: number })
 ]
 
 type CardDepositAccountSheetProps = {
-  onConfirm: (payload: { amountZAR: number; accountId: string; accountLabel: string }) => void
+  onConfirm: (payload: {
+    amountZAR: number
+    accountId: string
+    accountLabel: string
+    source: DepositAccountSource
+  }) => void
 }
 
 export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccountSheetProps) {
-  const { isOpen, amountZAR, close } = useCardDepositAccountSheet()
+  const { isOpen, amountZAR, source, close } = useCardDepositAccountSheet()
   const { getCash, alloc } = useWalletAlloc()
   const [selectedAccountId, setSelectedAccountId] = useState<AccountType | null>(null)
   const [selectedAccountLabel, setSelectedAccountLabel] = useState<string>('')
@@ -48,13 +53,13 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
 
   const accounts = getDepositAccounts(getCash, alloc)
 
-  // Reset selection when sheet opens - default to ZAR account
+  // Reset selection when sheet opens - default to MZN account
   useEffect(() => {
     if (isOpen) {
-      const zarAccount = accounts.find((a) => a.id === 'savings')
-      if (zarAccount) {
-        setSelectedAccountId('savings')
-        setSelectedAccountLabel(zarAccount.label)
+      const mznAccount = accounts.find((a) => a.id === 'mzn')
+      if (mznAccount) {
+        setSelectedAccountId('mzn')
+        setSelectedAccountLabel(mznAccount.label)
       } else {
         setSelectedAccountId(null)
         setSelectedAccountLabel('')
@@ -69,21 +74,23 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
   }
 
   const handleConfirm = () => {
-    if (!selectedAccountId || amountZAR === null) return
+    if (!selectedAccountId) return
+    if (source === 'card' && amountZAR === null) return
 
     const account = accounts.find((a) => a.id === selectedAccountId)
     if (!account) return
 
     onConfirm({
-      amountZAR,
+      amountZAR: amountZAR ?? 0,
       accountId: selectedAccountId,
       accountLabel: account.label,
+      source,
     })
 
     close()
   }
 
-  const canSubmit = selectedAccountId !== null && amountZAR !== null
+  const canSubmit = selectedAccountId !== null && (source === 'bank' || amountZAR !== null)
 
   return (
     <ActionSheet open={isOpen} onClose={close} title="" className="send-details" size="tall">
