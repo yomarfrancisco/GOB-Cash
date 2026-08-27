@@ -32,6 +32,12 @@ service cloud.firestore {
       // Allow authenticated users to delete their own wallets
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
+
+    match /users/{userId}/depositProofs/{proofId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
+    }
     
     // Contacts subcollection: users/{userId}/contacts/{contactId}
     match /users/{userId}/contacts/{contactId} {

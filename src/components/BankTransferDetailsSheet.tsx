@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Copy } from 'lucide-react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { CountryCode, DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, SOUTH_AFRICA_BANK_ACCOUNTS, type SelectedBank, type BankAccountDetails } from '@/config/depositBankAccounts'
+import { DEPOSIT_PROOF_MAX_BYTES, assertDepositProofPdf } from '@/lib/depositProof'
 import '@/styles/bank-transfer-details-sheet.css'
 import '@/styles/send-details-sheet.css'
 
@@ -12,10 +13,10 @@ type BankTransferDetailsSheetProps = {
   open: boolean
   onClose: () => void
   countryCode: CountryCode
-  bank?: SelectedBank // Optional bank selection for Mozambique or South Africa
-  onBack?: () => void // Callback for back button (to return to bank selection)
-  onNext?: (txId: string) => void | Promise<void> // Callback for NEXT button (opens chat)
-  isSubmitting?: boolean // Prevent double-tap
+  bank?: SelectedBank
+  onBack?: () => void
+  onAttachProof?: (file: File) => void | Promise<void>
+  isSubmitting?: boolean
 }
 
 export default function BankTransferDetailsSheet({
@@ -24,21 +25,23 @@ export default function BankTransferDetailsSheet({
   countryCode,
   bank,
   onBack,
-  onNext,
+  onAttachProof,
   isSubmitting = false,
 }: BankTransferDetailsSheetProps) {
-  // Get bank-specific config if provided, otherwise use default for country
   let config: BankAccountDetails
   if (countryCode === 'MZ' && bank) {
-    config = MOZAMBIQUE_BANK_ACCOUNTS[bank]
+    config = MOZAMBIQUE_BANK_ACCOUNTS[bank as keyof typeof MOZAMBIQUE_BANK_ACCOUNTS] ?? DEPOSIT_BANK_ACCOUNTS[countryCode]
   } else if (countryCode === 'ZA' && bank === 'FNB') {
     config = SOUTH_AFRICA_BANK_ACCOUNTS[bank]
   } else {
     config = DEPOSIT_BANK_ACCOUNTS[countryCode]
   }
-  
+
   const showBackButton = !!onBack
-  
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [copied, setCopied] = useState(false)
+  const [attachError, setAttachError] = useState<string | null>(null)
+
   const DETAILS = {
     recipient: config.recipient,
     accountNumber: config.accountNumber,
@@ -47,15 +50,33 @@ export default function BankTransferDetailsSheet({
     swift: config.swift,
     reference: config.referencePrefix,
   }
-  const [copied, setCopied] = useState(false)
 
-  const handleCopy = async (value: string, label: string) => {
+  const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(value)
+      await navigator.clipboard.writeText(DETAILS.reference)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error('Failed to copy:', err)
+    }
+  }
+
+  const handlePickProof = () => {
+    if (isSubmitting) return
+    setAttachError(null)
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !onAttachProof) return
+
+    try {
+      assertDepositProofPdf(file)
+      await onAttachProof(file)
+    } catch (error: any) {
+      setAttachError(String(error?.message || 'Unable to attach that PDF.'))
     }
   }
 
@@ -67,7 +88,6 @@ export default function BankTransferDetailsSheet({
             <Image src="/assets/back_ui.svg" alt="" width={24} height={24} />
           </button>
           <h3 className="send-details-title" style={{ visibility: 'hidden' }}>Bank Details</h3>
-          {/* Spacer to push title to center */}
           <div style={{ width: '32px', height: '32px' }} />
         </div>
       )}
@@ -105,7 +125,7 @@ export default function BankTransferDetailsSheet({
                 <span className="bank-transfer-value">{DETAILS.reference}</span>
                 <button
                   className="bank-transfer-copy-btn"
-                  onClick={() => handleCopy(DETAILS.reference, 'reference number')}
+                  onClick={handleCopy}
                   aria-label="Copy reference number"
                   type="button"
                 >
@@ -117,19 +137,27 @@ export default function BankTransferDetailsSheet({
 
           <p className="bank-transfer-footer">
             Deposits may take up to 72 hours to clear. Use the exact reference above.
+            Attach a PDF proof of payment (max {Math.round(DEPOSIT_PROOF_MAX_BYTES / (1024 * 1024))} MB).
           </p>
+          {copied ? <p className="bank-transfer-footer">Reference copied.</p> : null}
+          {attachError ? <p className="bank-transfer-footer" style={{ color: '#c41e3a' }}>{attachError}</p> : null}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
 
           <div className="bank-transfer-close-bar">
-            <button 
-              className="bank-transfer-close-btn" 
-              onClick={onNext ? async () => {
-                if (isSubmitting) return // Prevent double-tap
-                await onNext('') // Parent handles tx creation
-              } : onClose} 
+            <button
+              className="bank-transfer-close-btn"
+              onClick={onAttachProof ? handlePickProof : onClose}
               disabled={isSubmitting}
               type="button"
             >
-              {isSubmitting ? 'Creating...' : (onNext ? 'NEXT' : 'CLOSE')}
+              {isSubmitting ? 'Uploading...' : onAttachProof ? 'ATTACH PROOF' : 'CLOSE'}
             </button>
           </div>
         </div>
@@ -137,4 +165,3 @@ export default function BankTransferDetailsSheet({
     </ActionSheet>
   )
 }
-

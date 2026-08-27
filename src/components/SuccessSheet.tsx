@@ -14,6 +14,7 @@ type SuccessSheetProps = {
   recipient?: string // email or phone (optional for deposit)
   autoDownloadReceipt?: boolean // default true
   kind?: 'send' | 'deposit' | 'card' // default 'send'
+  suppressNotification?: boolean
   flowType?: 'payment' | 'transfer' // default 'payment'
   headlineOverride?: string // Optional override for deposit headline
   subtitleOverride?: string // Optional override for deposit subtitle
@@ -32,6 +33,7 @@ export default function SuccessSheet({
   headlineOverride,
   subtitleOverride,
   receiptOverride,
+  suppressNotification = false,
 }: SuccessSheetProps) {
   const pushNotification = useNotificationStore((state) => state.pushNotification)
 
@@ -52,7 +54,7 @@ export default function SuccessSheet({
 
   // Emit payment/transfer notification when success sheet opens
   useEffect(() => {
-    if (!open) return
+    if (!open || suppressNotification) return
 
     if (kind === 'send' && recipient) {
       // Extract amount from formatted string (e.g., "R 100.00" or "303.464 USDT")
@@ -169,7 +171,7 @@ export default function SuccessSheet({
         routeOnTap: '/transactions',
       })
     }
-  }, [open, kind, recipient, amountZAR, flowType, pushNotification])
+  }, [open, kind, recipient, amountZAR, flowType, pushNotification, suppressNotification])
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" className="send-success" size="tall">

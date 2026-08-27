@@ -10,6 +10,7 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
 import { getAuth, type Auth, GoogleAuthProvider } from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
+import { getStorage, type FirebaseStorage } from 'firebase/storage'
 
 // Firebase configuration from environment variables
 const getFirebaseConfig = () => {
@@ -122,6 +123,11 @@ export function getFirebaseAuth(): Auth {
 export function getFirestoreDb(): Firestore {
   const app = getFirebaseApp()
   return getFirestore(app)
+}
+
+export function getFirebaseStorage(): FirebaseStorage {
+  const app = getFirebaseApp()
+  return getStorage(app)
 }
 
 // Singleton Google Auth Provider instance

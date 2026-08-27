@@ -15,8 +15,9 @@ import BankTransferDetailsSheet from '@/components/BankTransferDetailsSheet'
 import DepositChatSheet from '@/components/DepositChatSheet'
 import AgentInboxSheet from '@/components/AgentInboxSheet'
 import { CountryCode } from '@/config/depositBankAccounts'
-import { tx_createBankDepositRequest } from '@/lib/transactions/clientFunctions'
-import { AGENT_UID, type BankDepositTransaction } from '@/types/transactions'
+import { resolveAssignedDepositBank, completeAssignedDepositBank } from '@/lib/depositBankCycle'
+import { uploadDepositProof } from '@/lib/depositProof'
+import { AGENT_UID } from '@/types/transactions'
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
@@ -493,6 +494,7 @@ export default function ProfileClient() {
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
+  const [openDepositSuccess, setOpenDepositSuccess] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
   const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | 'conversionKeypad' | undefined>(undefined)
@@ -1434,9 +1436,17 @@ export default function ProfileClient() {
       <CardDepositAccountSheet
         onConfirm={({ amountZAR, accountId, accountLabel, source }) => {
           if (source === 'bank') {
-            setBankTransferCountry(accountId === 'mzn' ? 'MZ' : 'ZA')
+            const country = accountId === 'mzn' ? 'MZ' : 'ZA'
+            setBankTransferCountry(country)
             setDepositMethod('bank')
-            setTimeout(() => setOpenBankSelect(true), 220)
+            void resolveAssignedDepositBank(country)
+              .then((bank) => {
+                setSelectedBank(bank)
+                setTimeout(() => setOpenBankTransferDetails(true), 220)
+              })
+              .catch((error: any) => {
+                alert(String(error?.message || 'Unable to open deposit details.'))
+              })
             return
           }
           openAmaChatWithCardDepositScenario(amountZAR, accountLabel)
@@ -1451,6 +1461,17 @@ export default function ProfileClient() {
         })}`}
         recipient={sendRecipient}
         flowType={flowType}
+      />
+      <SuccessSheet
+        open={openDepositSuccess}
+        onClose={() => setOpenDepositSuccess(false)}
+        kind="deposit"
+        amountZAR=""
+        autoDownloadReceipt={false}
+        suppressNotification
+        headlineOverride="Proof attached"
+        subtitleOverride="We'll match your deposit using the reference you transferred with."
+        receiptOverride="You can close this and continue."
       />
       {/* Crypto deposit sheets removed - crypto wallet option no longer available */}
       {/* NOTE: FinancialInboxSheet is now accessible from Settings → Inbox */}
@@ -1496,86 +1517,29 @@ export default function ProfileClient() {
         open={openBankTransferDetails}
         onClose={() => {
           setOpenBankTransferDetails(false)
-          // Reset bank selection when closing
-          setSelectedBank(undefined)
           setDepositAmountMZN(0)
-          setDepositAmountZAR(0) // Clear deposit amount when closing
+          setDepositAmountZAR(0)
         }}
         onBack={() => {
           setOpenBankTransferDetails(false)
-          setTimeout(() => setOpenBankSelect(true), 220)
+          setTimeout(() => openBankDepositAccount(), 220)
         }}
-        onNext={async () => {
+        onAttachProof={async (file) => {
+          if (!selectedBank) {
+            throw new Error('No deposit account is assigned yet.')
+          }
           setIsSubmittingDeposit(true)
-          setDepositChatError(null)
-          
           try {
-            const auth = getFirebaseAuth()
-            const user = auth.currentUser
-            if (!user) {
-              setIsSubmittingDeposit(false)
-              alert('You must be signed in to create a deposit. Please sign in and try again.')
-              return
-            }
-
-            // Close bank details sheet immediately
-            setOpenBankTransferDetails(false)
-            
-            // Open chat sheet immediately with txId: null (shows typing indicator)
-            setDepositChatTxId(null)
-            setOpenDepositChat(true)
-
-            // Get bank config for reference
-            const { DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, SOUTH_AFRICA_BANK_ACCOUNTS, COUNTRY_SELECT_OPTIONS } = await import('@/config/depositBankAccounts')
-            let config
-            if (bankTransferCountry === 'MZ' && selectedBank) {
-              config = MOZAMBIQUE_BANK_ACCOUNTS[selectedBank]
-            } else if (bankTransferCountry === 'ZA' && selectedBank === 'FNB') {
-              config = SOUTH_AFRICA_BANK_ACCOUNTS[selectedBank]
-            } else {
-              config = DEPOSIT_BANK_ACCOUNTS[bankTransferCountry]
-            }
-            const countryName = COUNTRY_SELECT_OPTIONS.find(c => c.code === bankTransferCountry)?.name || ''
-
-            // Create transaction async (don't block sheet opening)
-            const { txId } = await tx_createBankDepositRequest({
-              receiverId: AGENT_UID,
-              amountMzn: depositAmountMZN,
-              amountZar: depositAmountZAR,
-              bankCountry: bankTransferCountry,
-              bankId: selectedBank || (bankTransferCountry === 'MZ' ? 'BCI' : 'FNB'),
-              depositCurrency: bankTransferCountry === 'MZ' ? 'MZN' : 'ZAR',
-              depositReference: config.referencePrefix,
-              chatStep: 'INTRO_CONFIRM_INTENT',
-              depositDetails: {
-                amount: bankTransferCountry === 'MZ' ? depositAmountMZN : depositAmountZAR,
-                currency: bankTransferCountry === 'MZ' ? 'MZN' : 'ZAR',
-                country: countryName,
-                bankName: config.bankName,
-                reference: config.referencePrefix,
-              },
+            await uploadDepositProof({
+              file,
+              country: bankTransferCountry === 'ZA' ? 'ZA' : 'MZ',
+              bankId: selectedBank,
             })
-
-            // Update txId when transaction is created
-            setDepositChatTxId(txId)
-          } catch (error: any) {
+            await completeAssignedDepositBank(bankTransferCountry === 'ZA' ? 'ZA' : 'MZ')
+            setOpenBankTransferDetails(false)
+            setTimeout(() => setOpenDepositSuccess(true), 220)
+          } finally {
             setIsSubmittingDeposit(false)
-            console.error('[Deposit] Failed to create transaction:', error)
-            
-            // Show error in chat sheet
-            const errorMessage = error?.message || 'Unknown error'
-            setDepositChatError('Failed to create transaction. Please try again.')
-            
-            // Close chat sheet on error (user can retry from bank details)
-            setOpenDepositChat(false)
-            setDepositChatTxId(null)
-            
-            // Also show alert for immediate feedback
-            if (errorMessage.includes('CORS') || errorMessage.includes('network') || errorMessage.includes('fetch')) {
-              alert('We couldn\'t start the deposit chat. Please check your connection and try again.')
-            } else {
-              alert('We couldn\'t start the deposit chat. Please try again.')
-            }
           }
         }}
         isSubmitting={isSubmittingDeposit}
