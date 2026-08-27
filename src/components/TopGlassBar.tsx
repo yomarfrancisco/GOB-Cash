@@ -2,11 +2,12 @@
 
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { QrCode } from 'lucide-react'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { useUserProfileStore } from '@/store/userProfile'
 
-// Scan + share on the top-right of the glass bar.
+// Scan + QR on the top-right of the glass bar.
 const SHOW_TOP_BAR_ACTIONS = true
 
 type TopGlassBarProps = {
@@ -100,11 +101,11 @@ export default function TopGlassBar({ onScanClick, hideLogo = false, glassShardS
                 })
               }}
               className="icon-button"
-              aria-label="Share profile"
+              aria-label="Show QR code"
               type="button"
               style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
             >
-              <Image src="/assets/core/export.svg" alt="Share" className="icon" width={24} height={24} />
+              <QrCode className="icon" size={24} strokeWidth={2} color="#242424" />
             </button>
           </div>
         </div>

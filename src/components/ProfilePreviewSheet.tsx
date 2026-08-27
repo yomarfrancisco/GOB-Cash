@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import { Bookmark, ChevronLeft, Share, ChevronRight } from 'lucide-react'
+import { Bookmark, ChevronLeft, QrCode, ChevronRight } from 'lucide-react'
 import LockOverlay from './LockOverlay'
 import ActionSheet from './ActionSheet'
 import Avatar from './Avatar'
@@ -157,10 +157,10 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                   })
                 }}
                 className="profile-preview-icon-btn"
-                aria-label="Share profile"
+                aria-label="Show QR code"
                 type="button"
               >
-                <Share size={24} strokeWidth={2} color="#FFFFFF" />
+                <QrCode size={24} strokeWidth={2} color="#FFFFFF" />
               </button>
             </div>
           </div>

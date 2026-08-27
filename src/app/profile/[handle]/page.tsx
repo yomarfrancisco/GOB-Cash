@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, Suspense } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Bookmark, ChevronRight } from 'lucide-react'
+import { Bookmark, ChevronRight, QrCode } from 'lucide-react'
 import LockOverlay from '@/components/LockOverlay'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useAuthStore } from '@/store/auth'
@@ -183,10 +183,10 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                   })
                 }}
                 className="profile-other-icon-button"
-                aria-label="Share profile"
+                aria-label="Show QR code"
                 type="button"
               >
-                <Image src="/assets/core/export.svg" alt="Share" className="profile-other-icon" width={24} height={24} />
+                <QrCode className="profile-other-icon" size={24} strokeWidth={2} color="#111111" />
               </button>
             </div>
           </div>

@@ -41,6 +41,7 @@ type AmountSheetProps = {
   onHelicopterWithdraw?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number }) => void // callback for helicopter "Withdraw Cash" button
   depositMethod?: 'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null // deposit method for card deposit flow customization
   customFeeText?: string // custom fee text override (for card deposit: "excl. 3% transaction fee")
+  agentCash?: boolean // agent QR conversion: header says "Cash" instead of wallet balance
 }
 
 export default function AmountSheet({
@@ -68,6 +69,7 @@ export default function AmountSheet({
   onMonthlySubmit,
   depositMethod,
   customFeeText,
+  agentCash = false,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
   const [conversionBusy, setConversionBusy] = useState(false)
@@ -260,8 +262,10 @@ export default function AmountSheet({
     : 'Continue'
   const finalCtaLabel = ctaLabel || defaultCtaLabel
   const isPositive = typedAmount > 0
-  const exceedsZarBalance = isZarPrimaryKeypad && exceedsAvailableZar(amountZAR, displayBalanceZAR)
+  const exceedsZarBalance =
+    !agentCash && isZarPrimaryKeypad && exceedsAvailableZar(amountZAR, displayBalanceZAR)
   const exceedsMznBalance =
+    !agentCash &&
     ((isConversionKeypad && conversionDestination === 'ZAR') ||
       (isWithdrawKeypad && !isZarPrimaryKeypad)) &&
     exceedsAvailableMzn(amountMZN, displayBalanceMZN)
@@ -305,8 +309,14 @@ export default function AmountSheet({
           )}
           <div className="amount-sheet__header-content">
             <div className="amount-sheet__balance">
-              {isZarPrimaryKeypad ? formatZARWithDot(displayBalanceZAR) : formatMZN(displayBalanceMZN)}{' '}
-              <span className="amount-sheet__balance-label">balance</span>
+              {agentCash ? (
+                'Cash'
+              ) : (
+                <>
+                  {isZarPrimaryKeypad ? formatZARWithDot(displayBalanceZAR) : formatMZN(displayBalanceMZN)}{' '}
+                  <span className="amount-sheet__balance-label">balance</span>
+                </>
+              )}
             </div>
             {!hideModeLabel && <div className="amount-sheet__title">{modeLabel}</div>}
           </div>

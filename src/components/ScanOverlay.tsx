@@ -1,16 +1,20 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
+import { startQrScanLoop } from '@/lib/scanQrFromVideo'
 import styles from './ScanOverlay.module.css'
 
 type ScanOverlayProps = {
   isOpen: boolean
   onClose: () => void
+  onScan?: (text: string) => void
 }
 
-export const ScanOverlay: React.FC<ScanOverlayProps> = ({ isOpen, onClose }) => {
+export const ScanOverlay: React.FC<ScanOverlayProps> = ({ isOpen, onClose, onScan }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const onScanRef = useRef(onScan)
+  onScanRef.current = onScan
 
   useEffect(() => {
     if (!isOpen) {
@@ -28,6 +32,7 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({ isOpen, onClose }) => 
     }
 
     let cancelled = false
+    let stopScan: (() => void) | undefined
 
     const startCamera = async () => {
       try {
@@ -45,6 +50,12 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({ isOpen, onClose }) => 
         if (videoRef.current) {
           videoRef.current.srcObject = stream
           await videoRef.current.play()
+          if (cancelled || !videoRef.current) return
+          stopScan = startQrScanLoop({
+            video: videoRef.current,
+            isCancelled: () => cancelled,
+            onDetect: (text) => onScanRef.current?.(text),
+          })
         }
       } catch (err) {
         console.error('Error starting camera', err)
@@ -56,6 +67,7 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({ isOpen, onClose }) => 
 
     return () => {
       cancelled = true
+      stopScan?.()
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop())
         streamRef.current = null

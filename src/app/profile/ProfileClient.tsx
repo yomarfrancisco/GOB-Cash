@@ -25,6 +25,7 @@ import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
 import { ScanOverlay } from '@/components/ScanOverlay'
 import { ScanQrSheet } from '@/components/ScanQrSheet'
+import { parseAgentCashQr } from '@/lib/agentCashQr'
 import { formatUSDT } from '@/lib/money'
 import { useProfileEditSheet } from '@/store/useProfileEditSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
@@ -447,6 +448,7 @@ export default function ProfileClient() {
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
   const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | 'conversionKeypad' | 'withdrawKeypad' | undefined>(undefined)
   const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
+  const [agentCashKeypad, setAgentCashKeypad] = useState(false)
   const [withdrawFrom, setWithdrawFrom] = useState<ConversionDestination>('MZN')
   const [depositMethod, setDepositMethod] = useState<'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null>(null)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
@@ -602,6 +604,7 @@ export default function ProfileClient() {
                 currentPath="/profile" 
                 onDollarClick={() => {
                   guardAuthed(() => {
+                    setAgentCashKeypad(false)
                     setConversionDestination('ZAR')
                     setAmountMode('convert')
                     setAmountEntryPoint('conversionKeypad')
@@ -616,17 +619,23 @@ export default function ProfileClient() {
           {USE_MODAL_SCANNER ? (
             <ScanQrSheet isOpen={isScannerOpen} onClose={() => {
               setIsScannerOpen(false)
-              // Ensure amount sheet stays closed when scanner closes
-              setOpenAmount(false)
-              setAmountEntryPoint(undefined)
             }} />
           ) : (
-            <ScanOverlay isOpen={isScannerOpen} onClose={() => {
-              setIsScannerOpen(false)
-              // Ensure amount sheet stays closed when scanner closes
-              setOpenAmount(false)
-              setAmountEntryPoint(undefined)
-            }} />
+            <ScanOverlay
+              isOpen={isScannerOpen}
+              onClose={() => setIsScannerOpen(false)}
+              onScan={(text) => {
+                if (!parseAgentCashQr(text)) return
+                setIsScannerOpen(false)
+                guardAuthed(() => {
+                  setAgentCashKeypad(true)
+                  setConversionDestination('ZAR')
+                  setAmountMode('convert')
+                  setAmountEntryPoint('conversionKeypad')
+                  setOpenAmount(true)
+                })
+              }}
+            />
           )}
 
           {/* Profile backdrop: Benjamin image with white fade */}
@@ -1150,6 +1159,7 @@ export default function ProfileClient() {
       <AmountSheet
         open={openAmount}
         onClose={() => {
+          setAgentCashKeypad(false)
           // Special handling for card deposit flow: return to DepositSheet
           if (amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card') {
             setOpenAmount(false)
@@ -1173,6 +1183,7 @@ export default function ProfileClient() {
         mode={amountMode}
         flowType={flowType}
         balanceMZN={0}
+        agentCash={agentCashKeypad}
         ctaLabel={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'Next' : amountMode === 'deposit' ? 'Continue' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
@@ -1494,6 +1505,7 @@ export default function ProfileClient() {
       <FinancialInboxSheet />
       <PayIntoSheet
         onConfirm={(destination) => {
+          setAgentCashKeypad(false)
           setConversionDestination(destination)
           setAmountMode('convert')
           setAmountEntryPoint('conversionKeypad')

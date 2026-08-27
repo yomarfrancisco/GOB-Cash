@@ -55,6 +55,7 @@ import { submitInternalConversion } from '@/lib/transactions/submitInternalConve
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { prefetchActionSheetIcons } from '@/lib/prefetchActionSheetIcons'
+import { parseAgentCashQr } from '@/lib/agentCashQr'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -78,7 +79,6 @@ function HomeContent() {
   const { isMapOpen, openMap, closeMap, convertAmount, setConvertAmount } = useCashFlowStateStore()
   const { play: playDollarSound } = useSoundEffect('/assets/Drum_3b.mp3')
   const { open: openBankingDetails } = useBankingDetailsSheet()
-
   // Prefetch ActionSheet icons on page load
   useEffect(() => {
     prefetchActionSheetIcons()
@@ -125,6 +125,37 @@ function HomeContent() {
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('deposit')
   const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'conversionKeypad' | undefined>(undefined)
   const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
+  const [agentCashKeypad, setAgentCashKeypad] = useState(false)
+  const openedCashFromUrl = useRef(false)
+
+  const openConversionKeypad = useCallback((agentCash = false) => {
+    playDollarSound()
+    setAgentCashKeypad(agentCash)
+    setConversionDestination(conversionDestinationFromTopCard(topCardType))
+    setAmountMode('convert')
+    setAmountEntryPoint('conversionKeypad')
+    setOpenAmount(true)
+  }, [playDollarSound, topCardType])
+
+  useEffect(() => {
+    const cash = new URLSearchParams(window.location.search).get('cash')
+    if (!cash) return
+
+    const open = () => {
+      if (openedCashFromUrl.current) return
+      openedCashFromUrl.current = true
+      const url = new URL(window.location.href)
+      url.searchParams.delete('cash')
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+      openConversionKeypad(true)
+    }
+
+    if (!isAuthed) {
+      requireAuth(open)
+      return
+    }
+    open()
+  }, [isAuthed, openConversionKeypad, requireAuth])
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
   const [depositAmountUSDT, setDepositAmountUSDT] = useState(0)
@@ -595,22 +626,12 @@ function HomeContent() {
               <BottomGlassBar 
                 currentPath="/" 
                 onDollarClick={() => {
-                  const openConversionKeypad = () => {
-                    playDollarSound()
-                    setConversionDestination(conversionDestinationFromTopCard(topCardType))
-                    setAmountMode('convert')
-                    setAmountEntryPoint('conversionKeypad')
-                    setOpenAmount(true)
-                  }
-
                   if (!isAuthed) {
-                    requireAuth(() => {
-                      openConversionKeypad()
-                    })
+                    requireAuth(() => openConversionKeypad(false))
                     return
                   }
 
-                  openConversionKeypad()
+                  openConversionKeypad(false)
                 }}
               />
             </div>
@@ -620,17 +641,17 @@ function HomeContent() {
           {USE_MODAL_SCANNER ? (
             <ScanQrSheet isOpen={isScannerOpen} onClose={() => {
               setIsScannerOpen(false)
-              // Ensure amount sheet stays closed when scanner closes
-              setOpenAmount(false)
-              setAmountEntryPoint(undefined)
             }} />
           ) : (
-            <ScanOverlay isOpen={isScannerOpen} onClose={() => {
-              setIsScannerOpen(false)
-              // Ensure amount sheet stays closed when scanner closes
-              setOpenAmount(false)
-              setAmountEntryPoint(undefined)
-            }} />
+            <ScanOverlay
+              isOpen={isScannerOpen}
+              onClose={() => setIsScannerOpen(false)}
+              onScan={(text) => {
+                if (!parseAgentCashQr(text)) return
+                setIsScannerOpen(false)
+                openConversionKeypad(true)
+              }}
+            />
           )}
 
           {/* Scrollable content */}
@@ -888,8 +909,10 @@ function HomeContent() {
         open={openAmount}
         onClose={() => {
           setOpenAmount(false)
-          setAmountEntryPoint(undefined) // Reset entry point when closing
+          setAmountEntryPoint(undefined)
+          setAgentCashKeypad(false)
         }}
+        agentCash={agentCashKeypad}
         mode={amountMode}
         withdrawOnly={amountMode === 'withdraw'}
         flowType={flowType}
@@ -1136,6 +1159,7 @@ function HomeContent() {
       <FinancialInboxSheet />
       <PayIntoSheet
         onConfirm={(destination) => {
+          setAgentCashKeypad(false)
           setConversionDestination(destination)
           setAmountMode('convert')
           setAmountEntryPoint('conversionKeypad')
