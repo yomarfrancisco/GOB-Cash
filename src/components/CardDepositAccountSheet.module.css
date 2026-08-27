@@ -22,6 +22,10 @@
   margin-bottom: 24px;
 }
 
+.inputSection :global(.send-details-input).selectedAccountInput {
+  font-size: 24px;
+}
+
 /* Account list - matches contactsList spacing */
 .accountsList {
   display: flex;

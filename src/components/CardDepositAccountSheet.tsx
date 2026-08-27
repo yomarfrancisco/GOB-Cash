@@ -48,7 +48,6 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
   const { isOpen, amountZAR, source, close } = useCardDepositAccountSheet()
   const { getCash, alloc } = useWalletAlloc()
   const [selectedAccountId, setSelectedAccountId] = useState<AccountType | null>(null)
-  const [selectedAccountLabel, setSelectedAccountLabel] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const accounts = getDepositAccounts(getCash, alloc)
@@ -59,10 +58,8 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
       const mznAccount = accounts.find((a) => a.id === 'mzn')
       if (mznAccount) {
         setSelectedAccountId('mzn')
-        setSelectedAccountLabel(mznAccount.label)
       } else {
         setSelectedAccountId(null)
-        setSelectedAccountLabel('')
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,7 +67,6 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
 
   const handleAccountClick = (account: Account) => {
     setSelectedAccountId(account.id)
-    setSelectedAccountLabel(account.label)
   }
 
   const handleConfirm = () => {
@@ -103,12 +99,18 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
           <div className={styles.scrollableContent}>
             <div className={styles.inputSection}>
               <label className="send-details-row">
-                <span className="send-details-label">Deposit into account</span>
+                <span className="send-details-label">Deposit into</span>
                 <input
                   ref={inputRef}
-                  className="send-details-input"
+                  className={`send-details-input ${styles.selectedAccountInput}`}
                   placeholder="Select account"
-                  value={selectedAccountLabel}
+                  value={
+                    selectedAccountId === 'mzn'
+                      ? 'My MZN account'
+                      : selectedAccountId === 'savings'
+                        ? 'My ZAR account'
+                        : ''
+                  }
                   onChange={() => {}}
                   readOnly
                   inputMode="text"
