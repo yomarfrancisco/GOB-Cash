@@ -157,7 +157,7 @@ export default function BankTransferDetailsSheet({
               disabled={isSubmitting}
               type="button"
             >
-              {isSubmitting ? 'Uploading...' : onAttachProof ? 'ATTACH PROOF' : 'CLOSE'}
+              {isSubmitting ? 'Uploading...' : onAttachProof ? 'UPLOAD PROOF' : 'CLOSE'}
             </button>
           </div>
         </div>

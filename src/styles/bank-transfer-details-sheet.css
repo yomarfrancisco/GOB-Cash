@@ -1,7 +1,7 @@
 .bank-transfer-details-sheet {
   padding: 0 24px;
-  padding-top: 64px;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  padding-top: 8px;
+  padding-bottom: 16px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   min-height: 0;
@@ -18,7 +18,7 @@
   border-radius: 16px;
   padding: 12px 16px;
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 .bank-transfer-reference-label {
@@ -39,7 +39,7 @@
 }
 
 .bank-transfer-details-table {
-  margin-top: 24px;
+  margin-top: 8px;
 }
 
 .bank-transfer-row {
@@ -114,7 +114,7 @@
 
 .bank-transfer-close-bar {
   margin-top: 16px;
-  margin-bottom: max(16px, env(safe-area-inset-bottom));
+  margin-bottom: max(24px, env(safe-area-inset-bottom));
 }
 
 .bank-transfer-close-btn {
