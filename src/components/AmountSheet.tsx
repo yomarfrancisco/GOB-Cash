@@ -29,7 +29,7 @@ type AmountSheetProps = {
   showDualButtons?: boolean // if true, show "Cash" and "Card" buttons instead of single CTA
   onCashSubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Cash button
   onCardSubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void | Promise<void> // callback for Card button
-  entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' | 'sponsorButton' | 'depositKeypad' | 'conversionKeypad'
+  entryPoint?: 'helicopter' | 'cashButton' | 'cardDeposit' | 'sponsorButton' | 'depositKeypad' | 'conversionKeypad' | 'withdrawKeypad'
   conversionDestination?: 'ZAR' | 'MZN'
   onToggleConversion?: () => void
   sponsorHandle?: string // profile handle for sponsor flow (e.g. '@ama')
@@ -74,9 +74,11 @@ export default function AmountSheet({
   const { isAuthed } = useAuthStore()
   const { alloc } = useWalletAlloc()
   
+  const isWithdrawKeypad = entryPoint === 'withdrawKeypad'
   const isZarPrimaryKeypad =
     (entryPoint === 'depositKeypad' && mode === 'withdraw') ||
-    (entryPoint === 'conversionKeypad' && conversionDestination === 'MZN')
+    (entryPoint === 'conversionKeypad' && conversionDestination === 'MZN') ||
+    (isWithdrawKeypad && conversionDestination === 'ZAR')
   const isConversionKeypad = entryPoint === 'conversionKeypad'
   const displayBalanceMZN = isAuthed ? (alloc.mznCents ?? 0) / 100 : (balanceMZN ?? 0)
   const displayBalanceZAR = isAuthed ? (alloc.cashCents ?? 0) / 100 : 0
@@ -234,7 +236,7 @@ export default function AmountSheet({
   
   const modeLabel = isCardDeposit
     ? 'Deposit'
-    : mode === 'withdraw' && entryPoint === 'depositKeypad'
+    : mode === 'withdraw' && (entryPoint === 'depositKeypad' || entryPoint === 'withdrawKeypad')
     ? 'Withdraw'
     : mode === 'deposit' && entryPoint === 'depositKeypad'
     ? 'Deposit'
@@ -260,7 +262,9 @@ export default function AmountSheet({
   const isPositive = typedAmount > 0
   const exceedsZarBalance = isZarPrimaryKeypad && exceedsAvailableZar(amountZAR, displayBalanceZAR)
   const exceedsMznBalance =
-    isConversionKeypad && conversionDestination === 'ZAR' && exceedsAvailableMzn(amountMZN, displayBalanceMZN)
+    ((isConversionKeypad && conversionDestination === 'ZAR') ||
+      (isWithdrawKeypad && !isZarPrimaryKeypad)) &&
+    exceedsAvailableMzn(amountMZN, displayBalanceMZN)
   const keypadFeeText = exceedsZarBalance
     ? 'Insufficient ZAR balance.'
     : exceedsMznBalance
@@ -272,7 +276,7 @@ export default function AmountSheet({
 
   // Show scan icon only for cashButton entryPoint
   const showScanIcon = entryPoint === 'cashButton' && onScanClick
-  const hideModeLabel = entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || isConversionKeypad
+  const hideModeLabel = entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || isConversionKeypad || isWithdrawKeypad
 
   // Lime when converting from Metical; light pink when converting from Rand.
   const isSponsorButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'sponsorButton'
@@ -280,8 +284,10 @@ export default function AmountSheet({
     isHelicopterConvert ||
     isCashButtonConvert ||
     isSponsorButtonConvert ||
-    (isConversionKeypad && !isZarPrimaryKeypad)
-  const usePinkKeypad = isConversionKeypad && isZarPrimaryKeypad
+    (isConversionKeypad && !isZarPrimaryKeypad) ||
+    (isWithdrawKeypad && !isZarPrimaryKeypad)
+  const usePinkKeypad =
+    (isConversionKeypad && isZarPrimaryKeypad) || (isWithdrawKeypad && isZarPrimaryKeypad)
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" className={`amount ${useLimeGreenBackground ? 'cash-keypad' : ''} ${usePinkKeypad ? 'pink-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`} size="tall">
@@ -459,12 +465,12 @@ export default function AmountSheet({
                 Pay
               </button>
             </>
-          ) : entryPoint === 'depositKeypad' && mode === 'withdraw' ? (
+          ) : (entryPoint === 'depositKeypad' || isWithdrawKeypad) && mode === 'withdraw' ? (
             <button
               className="amount-keypad__cta"
               onClick={handleCashSubmit}
               type="button"
-              disabled={!isPositive || exceedsZarBalance}
+              disabled={!isPositive || exceedsZarBalance || exceedsMznBalance}
             >
               Withdraw
               <span className="amount-keypad__cta-arrow">→</span>

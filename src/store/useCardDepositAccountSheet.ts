@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type DepositAccountSource = 'card' | 'bank'
+export type DepositAccountSource = 'card' | 'bank' | 'withdraw'
 
 interface CardDepositAccountSheetState {
   isOpen: boolean

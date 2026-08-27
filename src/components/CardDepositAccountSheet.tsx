@@ -86,7 +86,8 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
     close()
   }
 
-  const canSubmit = selectedAccountId !== null && (source === 'bank' || amountZAR !== null)
+  const canSubmit = selectedAccountId !== null && (source !== 'card' || amountZAR !== null)
+  const isWithdraw = source === 'withdraw'
 
   return (
     <ActionSheet open={isOpen} onClose={close} title="" className="send-details" size="tall">
@@ -99,7 +100,7 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
           <div className={styles.scrollableContent}>
             <div className={styles.inputSection}>
               <label className="send-details-row">
-                <span className="send-details-label">Deposit into</span>
+                <span className="send-details-label">{isWithdraw ? 'Withdraw from' : 'Deposit into'}</span>
                 <input
                   ref={inputRef}
                   className={`send-details-input ${styles.selectedAccountInput}`}
@@ -185,7 +186,7 @@ export default function CardDepositAccountSheet({ onConfirm }: CardDepositAccoun
                 cursor: canSubmit ? 'pointer' : 'not-allowed',
               }}
             >
-              Deposit
+              {isWithdraw ? 'Withdraw' : 'Deposit'}
             </button>
           </div>
         </div>

@@ -20,6 +20,7 @@ export default function BankingDetailsSheet() {
     editingBankId,
     withdrawalAmountZAR,
     withdrawalAmountMZN,
+    onDismiss,
     close,
   } = useBankingDetailsSheet()
   const { open: openLinkedAccounts } = useLinkedAccountsSheet()
@@ -85,6 +86,12 @@ export default function BankingDetailsSheet() {
     }
     if (claim.isActive) {
       close()
+      return
+    }
+
+    if (onDismiss) {
+      close()
+      onDismiss()
       return
     }
 

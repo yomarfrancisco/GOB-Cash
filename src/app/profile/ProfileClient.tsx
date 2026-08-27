@@ -447,8 +447,9 @@ export default function ProfileClient() {
   const depositProofInputRef = useRef<HTMLInputElement>(null)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
-  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | 'conversionKeypad' | undefined>(undefined)
+  const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | 'conversionKeypad' | 'withdrawKeypad' | undefined>(undefined)
   const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
+  const [withdrawFrom, setWithdrawFrom] = useState<ConversionDestination>('MZN')
   const [depositMethod, setDepositMethod] = useState<'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null>(null)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
@@ -469,6 +470,9 @@ export default function ProfileClient() {
   const openBankDepositAccount = useCallback(() => {
     setDepositMethod('bank')
     openDepositAccountSheet(undefined, 'bank')
+  }, [openDepositAccountSheet])
+  const openBankWithdrawAccount = useCallback(() => {
+    openDepositAccountSheet(undefined, 'withdraw')
   }, [openDepositAccountSheet])
   const openDirectPaymentSheet = useCallback(() => setOpenDirectPayment(true), [])
   const closeDirectPayment = useCallback(() => setOpenDirectPayment(false), [])
@@ -694,11 +698,7 @@ export default function ProfileClient() {
                   onClick={() => {
                     if (isRestricted) return
                     guardAuthed(() => {
-                      setAmountMode('withdraw')
-                      setAmountEntryPoint('depositKeypad')
-                      setTimeout(() => {
-                        setOpenAmount(true)
-                      }, 220)
+                      openBankWithdrawAccount()
                     })
                   }}
                   style={{ 
@@ -1176,6 +1176,9 @@ export default function ProfileClient() {
             setTimeout(() => {
               setOpenDeposit(true)
             }, 220)
+          } else if (amountEntryPoint === 'withdrawKeypad') {
+            setOpenAmount(false)
+            setTimeout(() => openBankWithdrawAccount(), 220)
           } else if (amountEntryPoint === 'depositKeypad') {
             setOpenAmount(false)
             setAmountEntryPoint(undefined)
@@ -1192,7 +1195,7 @@ export default function ProfileClient() {
         ctaLabel={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'Next' : amountMode === 'deposit' ? 'Continue' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
-        conversionDestination={conversionDestination}
+        conversionDestination={amountEntryPoint === 'withdrawKeypad' ? withdrawFrom : conversionDestination}
         onToggleConversion={amountEntryPoint === 'conversionKeypad' ? () => {
           const next = conversionDestination === 'ZAR' ? 'MZN' : 'ZAR'
           setOpenAmount(false)
@@ -1301,9 +1304,14 @@ export default function ProfileClient() {
               setWithdrawCryptoAmountUSDT(amountUSDT)
             }
             setOpenAmount(false)
-            setAmountEntryPoint(undefined)
             setTimeout(() => {
-              openWithdrawSheet()
+              openBankingDetails('withdraw', null, amountZAR, undefined, amountMZN, () => {
+                setTimeout(() => {
+                  setAmountMode('withdraw')
+                  setAmountEntryPoint('withdrawKeypad')
+                  setOpenAmount(true)
+                }, 220)
+              })
             }, 220)
             return
           }
@@ -1376,7 +1384,15 @@ export default function ProfileClient() {
           }
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
-        initialAmount={amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountMZN > 0 ? depositAmountMZN : undefined}
+        initialAmount={
+          amountMode === 'withdraw' && amountEntryPoint === 'withdrawKeypad' && withdrawFrom === 'ZAR' && withdrawAmountZAR > 0
+            ? withdrawAmountZAR
+            : amountMode === 'withdraw' && amountEntryPoint === 'withdrawKeypad' && withdrawAmountMZN > 0
+              ? withdrawAmountMZN
+              : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountMZN > 0
+                ? depositAmountMZN
+                : undefined
+        }
       />
       <SendDetailsSheet
         open={openSendDetails}
@@ -1414,6 +1430,14 @@ export default function ProfileClient() {
       {/* PaymentDetailsSheet is now rendered in root layout */}
       <CardDepositAccountSheet
         onConfirm={({ amountZAR, accountId, accountLabel, source }) => {
+          if (source === 'withdraw') {
+            const from = accountId === 'mzn' ? 'MZN' : 'ZAR'
+            setWithdrawFrom(from)
+            setAmountMode('withdraw')
+            setAmountEntryPoint('withdrawKeypad')
+            setTimeout(() => setOpenAmount(true), 220)
+            return
+          }
           if (source === 'bank') {
             const country = accountId === 'mzn' ? 'MZ' : 'ZA'
             setBankTransferCountry(country)
