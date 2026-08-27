@@ -25,7 +25,8 @@ export async function uploadDepositProof(params: {
   file: File
   country: 'MZ' | 'ZA'
   bankId: SelectedBank
-}): Promise<void> {
+  depositReference: string
+}): Promise<{ proofId: string }> {
   assertDepositProofPdf(params.file)
 
   const auth = getFirebaseAuth()
@@ -37,6 +38,7 @@ export async function uploadDepositProof(params: {
   const proofDoc = await addDoc(proofsRef, {
     bankCountry: params.country,
     bankId: params.bankId,
+    depositReference: params.depositReference,
     fileName: params.file.name,
     fileSize: params.file.size,
     contentType: 'application/pdf',
@@ -47,4 +49,6 @@ export async function uploadDepositProof(params: {
   const storagePath = `depositProofs/${user.uid}/${proofDoc.id}.pdf`
   const storageRef = ref(getFirebaseStorage(), storagePath)
   await uploadBytes(storageRef, params.file, { contentType: 'application/pdf' })
+
+  return { proofId: proofDoc.id }
 }

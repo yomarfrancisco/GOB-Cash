@@ -21,6 +21,7 @@ export type ActivityItem = {
   amount?: { currency: 'MZN' | 'ZAR' | 'USDT'; value: number; sign: 'credit' | 'debit' }
   createdAt: number
   routeOnTap?: string
+  txId?: string
 }
 
 const MAX_ACTIVITY_ITEMS = 80

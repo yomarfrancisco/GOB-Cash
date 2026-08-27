@@ -68,6 +68,9 @@ function isPaymentActivity(item: ActivityItem): boolean {
       'BANK_TRANSFER_CONFIRMED',
       'EXTERNAL_DEPOSIT_CONFIRMED',
       'CONVERSION_INSTRUCTED',
+      'DEPOSIT_PROOF_PENDING',
+      'DEPOSIT_PROOF_FAILED',
+      'DEPOSIT_CREDITED',
     ].includes(item.kind)
   ) {
     return true
@@ -89,10 +92,19 @@ function isPaymentActivity(item: ActivityItem): boolean {
 }
 
 function resolveTaskAvatar(item: ActivityItem): string {
-  if (item.kind === 'proof_of_payment' || item.kind === 'CONVERSION_INSTRUCTED') {
+  if (
+    item.kind === 'proof_of_payment' ||
+    item.kind === 'CONVERSION_INSTRUCTED' ||
+    item.kind === 'DEPOSIT_PROOF_PENDING' ||
+    item.kind === 'DEPOSIT_PROOF_FAILED'
+  ) {
     return TASK_AVATARS.proofOfPayment
   }
-  if (item.kind === 'mzn_deposited' || item.kind === 'EXTERNAL_DEPOSIT_CONFIRMED') {
+  if (
+    item.kind === 'mzn_deposited' ||
+    item.kind === 'EXTERNAL_DEPOSIT_CONFIRMED' ||
+    item.kind === 'DEPOSIT_CREDITED'
+  ) {
     return TASK_AVATARS.mznDeposited
   }
   if (

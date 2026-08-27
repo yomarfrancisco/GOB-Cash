@@ -105,6 +105,19 @@ export const SOUTH_AFRICA_BANK_ACCOUNTS: Record<'FNB', BankAccountDetails> = {
   },
 }
 
+export function getDepositBankDetails(
+  countryCode: CountryCode,
+  bank?: SelectedBank
+): BankAccountDetails {
+  if (countryCode === 'MZ' && bank && bank in MOZAMBIQUE_BANK_ACCOUNTS) {
+    return MOZAMBIQUE_BANK_ACCOUNTS[bank as MozambiqueBank]
+  }
+  if (countryCode === 'ZA' && bank === 'FNB') {
+    return SOUTH_AFRICA_BANK_ACCOUNTS.FNB
+  }
+  return DEPOSIT_BANK_ACCOUNTS[countryCode]
+}
+
 export const DEPOSIT_BANK_ACCOUNTS: Record<CountryCode, BankAccountDetails> = {
   MZ: MOZAMBIQUE_BANK_ACCOUNTS.BCI, // Default to BCI for backward compatibility
   ZA: SOUTH_AFRICA_BANK_ACCOUNTS.FNB, // Default to FNB for backward compatibility

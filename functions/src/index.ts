@@ -46,4 +46,5 @@ export { getWithdrawalProof } from './tx/getWithdrawalProof'
 export { tx_createBankWithdrawalRequest, onBankWithdrawalCreated } from './tx/createBankWithdrawalRequest'
 export { getBankWithdrawalProof } from './tx/getBankWithdrawalProof'
 export { tx_createInternalConversion } from './tx/createInternalConversion'
+export { onDepositProofWrite, tx_confirmDepositProof } from './tx/onDepositProofWrite'
 

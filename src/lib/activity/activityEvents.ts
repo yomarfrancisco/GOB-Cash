@@ -33,7 +33,10 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     data.kind === 'BANK_TRANSFER_CONFIRMED' ||
     data.kind === 'WITHDRAWAL_INSTRUCTED' ||
     data.kind === 'EXTERNAL_DEPOSIT_CONFIRMED' ||
-    data.kind === 'CONVERSION_INSTRUCTED'
+    data.kind === 'CONVERSION_INSTRUCTED' ||
+    data.kind === 'DEPOSIT_PROOF_PENDING' ||
+    data.kind === 'DEPOSIT_PROOF_FAILED' ||
+    data.kind === 'DEPOSIT_CREDITED'
       ? 'ai'
       : data.actorType === 'counterparty'
         ? 'counterparty'
@@ -56,6 +59,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
         }
       : undefined,
     createdAt: createdAtMs(data.createdAt),
+    txId: data.txId,
   }
 }
 

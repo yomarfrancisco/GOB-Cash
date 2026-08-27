@@ -17,6 +17,7 @@ import AgentInboxSheet from '@/components/AgentInboxSheet'
 import { CountryCode } from '@/config/depositBankAccounts'
 import { resolveAssignedDepositBank, completeAssignedDepositBank } from '@/lib/depositBankCycle'
 import { uploadDepositProof, assertDepositProofPdf } from '@/lib/depositProof'
+import { recordDepositProofPending, resolveDepositReference } from '@/lib/depositProofActivity'
 import { AGENT_UID } from '@/types/transactions'
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'
 import AmountSheet from '@/components/AmountSheet'
@@ -70,21 +71,44 @@ const PENDING_ACTIVITY_KINDS = new Set([
   'CONVERSION_INSTRUCTED',
   'WITHDRAWAL_INSTRUCTED',
   'proof_of_payment',
+  'DEPOSIT_PROOF_PENDING',
+  'DEPOSIT_PROOF_FAILED',
 ])
 
 const EXECUTED_ACTIVITY_KINDS = new Set([
   'BANK_TRANSFER_CONFIRMED',
   'EXTERNAL_DEPOSIT_CONFIRMED',
+  'DEPOSIT_CREDITED',
   'mzn_deposited',
   'zar_withdrawn',
   'payment_delivered',
   'payment_received',
 ])
 
+const PENDING_DEPOSIT_KINDS = new Set([
+  'DEPOSIT_PROOF_PENDING',
+  'DEPOSIT_PROOF_FAILED',
+])
+
+const SETTLED_DEPOSIT_KINDS = new Set([
+  'DEPOSIT_CREDITED',
+])
+
 function countPendingAndExecuted(items: ActivityItem[]): { pending: number; executed: number } {
+  const settledDepositGroups = new Set(
+    items
+      .filter((item) => item.kind && SETTLED_DEPOSIT_KINDS.has(item.kind))
+      .map((item) => item.txId || item.id)
+  )
+
   let pending = 0
   let executed = 0
   for (const item of items) {
+    if (item.kind && PENDING_DEPOSIT_KINDS.has(item.kind)) {
+      const groupId = item.txId || item.id
+      if (!settledDepositGroups.has(groupId)) pending += 1
+      continue
+    }
     if (item.kind && PENDING_ACTIVITY_KINDS.has(item.kind)) {
       pending += 1
       continue
@@ -592,22 +616,42 @@ export default function ProfileClient() {
     kycStatus || kycPercent != null ? `${Math.round(complianceFill)}% compliant` : 'Compliance'
 
   const handleDepositProofFile = useCallback(async (file: File) => {
+    const country = bankTransferCountry === 'ZA' ? 'ZA' : 'MZ'
+    const reference = resolveDepositReference(country, selectedBank)
     setIsSubmittingDeposit(true)
     try {
       assertDepositProofPdf(file)
       if (!selectedBank) {
         throw new Error('No deposit account is assigned yet.')
       }
-      await uploadDepositProof({
+      const { proofId } = await uploadDepositProof({
         file,
-        country: bankTransferCountry === 'ZA' ? 'ZA' : 'MZ',
+        country,
         bankId: selectedBank,
+        depositReference: reference,
       })
-      await completeAssignedDepositBank(bankTransferCountry === 'ZA' ? 'ZA' : 'MZ')
+      await completeAssignedDepositBank(country)
+      await recordDepositProofPending({
+        outcome: 'uploaded',
+        country,
+        bankId: selectedBank,
+        reference,
+        proofId,
+      })
       setOpenBankTransferDetails(false)
       setOpenDepositFailure(false)
       setTimeout(() => setOpenDepositSuccess(true), 220)
     } catch {
+      try {
+        await recordDepositProofPending({
+          outcome: 'failed',
+          country,
+          bankId: selectedBank,
+          reference,
+        })
+      } catch (activityError) {
+        console.warn('[Deposit] Failed to record pending activity.', activityError)
+      }
       setOpenBankTransferDetails(false)
       setOpenDepositSuccess(false)
       setTimeout(() => setOpenDepositFailure(true), 220)
