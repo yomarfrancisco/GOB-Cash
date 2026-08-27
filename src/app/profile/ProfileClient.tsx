@@ -1433,9 +1433,11 @@ export default function ProfileClient() {
           if (source === 'withdraw') {
             const from = accountId === 'mzn' ? 'MZN' : 'ZAR'
             setWithdrawFrom(from)
-            setAmountMode('withdraw')
-            setAmountEntryPoint('withdrawKeypad')
-            setTimeout(() => setOpenAmount(true), 220)
+            setTimeout(() => {
+              openBankingDetails('withdraw', null, null, undefined, null, () => {
+                setTimeout(() => openBankWithdrawAccount(), 220)
+              }, from)
+            }, 220)
             return
           }
           if (source === 'bank') {

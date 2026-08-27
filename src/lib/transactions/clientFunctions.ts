@@ -637,6 +637,7 @@ export async function tx_withdrawTronUSDT(
 export async function tx_createBankWithdrawalRequest(params: {
   amountMZN: number
   amountZAR: number
+  sourceCurrency?: 'MZN' | 'ZAR'
   country: string
   bankName: string
   accountHolderName: string

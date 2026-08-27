@@ -22,17 +22,23 @@ export const tx_createBankWithdrawalRequest = functions
 
     const userId = context.auth.uid
     const {
-      amountMZN,
       country,
       bankName,
       accountHolderName,
       accountNumber,
       swiftBic,
     } = data
+    const sourceCurrency = data?.sourceCurrency === 'MZN' ? 'MZN' : 'ZAR'
+    const rawAmountMZN = typeof data.amountMZN === 'number' ? data.amountMZN : 0
+    const rawAmountZAR = typeof data.amountZAR === 'number' ? data.amountZAR : 0
 
     // Validate input
-    if (!amountMZN || typeof amountMZN !== 'number' || amountMZN <= 0) {
-      throw new functions.https.HttpsError('invalid-argument', 'amountMZN must be a positive number')
+    if (sourceCurrency === 'MZN') {
+      if (!rawAmountMZN || rawAmountMZN <= 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'amountMZN must be a positive number')
+      }
+    } else if ((!rawAmountZAR || rawAmountZAR <= 0) && (!rawAmountMZN || rawAmountMZN <= 0)) {
+      throw new functions.https.HttpsError('invalid-argument', 'A positive withdrawal amount is required')
     }
 
     if (!country || typeof country !== 'string') {
@@ -52,11 +58,17 @@ export const tx_createBankWithdrawalRequest = functions
     }
 
     const fxRateMZNperZAR = await fetchQuotedMznPerZar()
-    const amountZARFromMzn = Math.round((amountMZN / fxRateMZNperZAR) * 100) / 100
-    const amountZAR = typeof data.amountZAR === 'number' && data.amountZAR > 0
-      ? Math.round(data.amountZAR * 100) / 100
-      : amountZARFromMzn
-    const amountMinor = Math.round(amountZAR * 100)
+    const amountMZN = rawAmountMZN > 0
+      ? Math.round(rawAmountMZN * 100) / 100
+      : Math.round(rawAmountZAR * fxRateMZNperZAR * 100) / 100
+    const amountZAR = rawAmountZAR > 0
+      ? Math.round(rawAmountZAR * 100) / 100
+      : Math.round((amountMZN / fxRateMZNperZAR) * 100) / 100
+    const sourceAmount = sourceCurrency === 'MZN' ? amountMZN : amountZAR
+    const amountMinor = Math.round(sourceAmount * 100)
+    const walletId = sourceCurrency === 'MZN' ? 'cashMZN' : 'cashZAR'
+    const lockedField = sourceCurrency === 'MZN' ? 'bankWithdrawLockedMzn' : 'bankWithdrawLockedZar'
+    const insufficientMessage = sourceCurrency === 'MZN' ? 'Insufficient MZN balance.' : 'Insufficient ZAR balance.'
     const now = admin.firestore.Timestamp.now()
     const linkedBankId = typeof data.linkedBankId === 'string' && data.linkedBankId.trim()
       ? data.linkedBankId.trim()
@@ -75,10 +87,11 @@ export const tx_createBankWithdrawalRequest = functions
     const bankWithdrawal = {
       id: txId,
       userId,
+      sourceCurrency,
       requestedAmountMZN: amountMZN,
-      requestedAmountZAR: amountZAR, // Use requestedAmountZAR as source of truth
+      requestedAmountZAR: amountZAR,
       amountMZN,
-      amountZAR: amountZAR, // Keep for backward compatibility
+      amountZAR,
       fxRateMZNperZAR,
       country: country.trim(),
       bankName: (bankName || `${country} Bank`).trim(),
@@ -119,7 +132,8 @@ export const tx_createBankWithdrawalRequest = functions
       instructionSource: 'USER_INSTRUCTED',
       recordingSource: 'USER_UI',
       executionChannel: 'EXTERNAL_BANK',
-      currency: 'ZAR',
+      sourceCurrency,
+      currency: sourceCurrency,
       amountMinor,
       linkedBankId,
       counterpartyName: accountHolderName.trim(),
@@ -133,7 +147,9 @@ export const tx_createBankWithdrawalRequest = functions
     }
 
     // Format message content
-    const formattedAmount = `R${amountZAR.toFixed(2)}`
+    const formattedAmount = sourceCurrency === 'MZN'
+      ? `Mt ${amountMZN.toFixed(2)}`
+      : `R${amountZAR.toFixed(2)}`
     const bankDisplayName = bankName || `${country} Bank`
     
     // Create SAMBA confirmation message with button metadata
@@ -152,7 +168,7 @@ export const tx_createBankWithdrawalRequest = functions
     }
 
     const activityTitle = 'Withdrawal instructed'
-    const activityBody = `R${amountZAR.toFixed(2)} to ${accountHolderName.trim()} · ${bankDisplayName}`
+    const activityBody = `${formattedAmount} to ${accountHolderName.trim()} · ${bankDisplayName}`
     const activityEventRef = db.collection('users').doc(userId).collection('activityEvents').doc(txId)
     const activityEvent = {
       id: txId,
@@ -161,8 +177,8 @@ export const tx_createBankWithdrawalRequest = functions
       body: activityBody,
       actorType: 'ai_manager',
       avatarKind: 'zar_withdrawn',
-      amountCurrency: 'ZAR',
-      amountValue: amountZAR,
+      amountCurrency: sourceCurrency,
+      amountValue: sourceAmount,
       amountSign: 'debit',
       counterpartyName: accountHolderName.trim(),
       destinationBankName: bankDisplayName,
@@ -171,45 +187,45 @@ export const tx_createBankWithdrawalRequest = functions
       recordingSource: 'USER_UI',
     }
 
-    // Reserve ZAR and write transaction, bank withdrawal record, and message atomically
-    const cashZarRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
+    // Reserve the selected wallet and write transaction, bank withdrawal record, and message atomically
+    const sourceWalletRef = db.collection('users').doc(userId).collection('wallets').doc(walletId)
     
-    // Guard against oversized ZAR withdrawals before any documents are written.
-    const preflightZarSnap = await cashZarRef.get()
-    const preflightZar = Number(preflightZarSnap.exists ? preflightZarSnap.data()?.fiatBalance || 0 : 0)
-    if (amountMinor > Math.round(preflightZar * 100)) {
+    // Guard against oversized withdrawals before any documents are written.
+    const preflightWalletSnap = await sourceWalletRef.get()
+    const preflightAvailable = Number(preflightWalletSnap.exists ? preflightWalletSnap.data()?.fiatBalance || 0 : 0)
+    if (amountMinor > Math.round(preflightAvailable * 100)) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        'Insufficient ZAR balance.'
+        insufficientMessage
       )
     }
 
     await db.runTransaction(async (t) => {
       // Reads must happen before writes
-      const cashZarSnap = await t.get(cashZarRef)
-      const cashZarData = cashZarSnap.exists ? cashZarSnap.data()! : {}
-      const availableZar = Number(cashZarData?.fiatBalance || 0)
-      const availableZarMinor = Math.round(availableZar * 100)
-      const currentLockedZar = Number(cashZarData?.bankWithdrawLockedZar || 0)
-      const currentLockedZarMinor = Math.round(currentLockedZar * 100)
+      const sourceWalletSnap = await t.get(sourceWalletRef)
+      const sourceWalletData = sourceWalletSnap.exists ? sourceWalletSnap.data()! : {}
+      const available = Number(sourceWalletData?.fiatBalance || 0)
+      const availableMinor = Math.round(available * 100)
+      const currentLocked = Number(sourceWalletData?.[lockedField] || 0)
+      const currentLockedMinor = Math.round(currentLocked * 100)
 
-      if (amountMinor > availableZarMinor) {
+      if (amountMinor > availableMinor) {
         throw new functions.https.HttpsError(
           'failed-precondition',
-          'Insufficient ZAR balance.'
+          insufficientMessage
         )
       }
 
-      if (!cashZarSnap.exists) {
+      if (!sourceWalletSnap.exists) {
         throw new functions.https.HttpsError(
           'failed-precondition',
-          'Insufficient ZAR balance.'
+          insufficientMessage
         )
       }
 
-      t.update(cashZarRef, {
-        fiatBalance: (availableZarMinor - amountMinor) / 100,
-        bankWithdrawLockedZar: (currentLockedZarMinor + amountMinor) / 100,
+      t.update(sourceWalletRef, {
+        fiatBalance: (availableMinor - amountMinor) / 100,
+        [lockedField]: (currentLockedMinor + amountMinor) / 100,
         updatedAt: now,
       })
       
@@ -237,7 +253,12 @@ export const onBankWithdrawalCreated = functions
 
     const withdrawalId = snapshot.id
     const userId = data.userId as string
+    const sourceCurrency = data.sourceCurrency === 'MZN' ? 'MZN' : 'ZAR'
+    const amountMZN = Number(data.requestedAmountMZN ?? data.amountMZN ?? 0)
     const amountZAR = Number(data.requestedAmountZAR ?? data.amountZAR ?? 0)
+    const formattedAmount = sourceCurrency === 'MZN'
+      ? `Mt ${amountMZN.toFixed(2)}`
+      : `R${amountZAR.toFixed(2)}`
     const country = String(data.country || '')
     const bankName = String(data.bankName || `${country} Bank`)
     const accountHolderName = String(data.accountHolderName || '')
@@ -251,13 +272,13 @@ export const onBankWithdrawalCreated = functions
       const userHandle = userData?.userHandle || userData?.handle || null
       const userEmail = userData?.email || null
 
-      const emailSubject = `Bank Withdrawal Requested — ZAR ${amountZAR.toFixed(2)}${userHandle ? ` (@${userHandle})` : ''}`
+      const emailSubject = `Bank Withdrawal Requested — ${formattedAmount}${userHandle ? ` (@${userHandle})` : ''}`
       const emailHtml = generateBankWithdrawalEmailContent(
         withdrawalId,
         userHandle,
         userEmail,
         userId,
-        amountZAR,
+        formattedAmount,
         country,
         bankName,
         accountHolderName,
@@ -293,7 +314,7 @@ function generateBankWithdrawalEmailContent(
   userHandle: string | null,
   userEmail: string | null,
   userId: string,
-  amountZAR: number,
+  formattedAmount: string,
   country: string,
   bankName: string,
   accountHolderName: string,
@@ -350,8 +371,8 @@ function generateBankWithdrawalEmailContent(
           </div>
           
           <div class="detail-row">
-            <div class="label">Amount (ZAR)</div>
-            <div class="value">R${amountZAR.toFixed(2)}</div>
+            <div class="label">Amount</div>
+            <div class="value">${formattedAmount}</div>
           </div>
           
           <div class="detail-row">
@@ -380,7 +401,7 @@ function generateBankWithdrawalEmailContent(
           </div>
           
           <div class="detail-row">
-            <div class="label">Account Number / IBAN</div>
+            <div class="label">${country === 'Mozambique' ? 'NIB' : 'Account Number'}</div>
             <div class="value">${accountNumber}</div>
           </div>
           
