@@ -649,7 +649,11 @@ export default function ProfileClient() {
                 </h1>
               </div>
 
-              <div className="profile-stats-card profile-stats-card--compliance">
+              <button
+                type="button"
+                className="profile-stats-card profile-stats-card--compliance"
+                onClick={() => void startDiditVerification()}
+              >
                 <div className="network-pill">
                   <div className="network-track">
                     <div
@@ -657,12 +661,12 @@ export default function ProfileClient() {
                       style={{ width: `${complianceFill}%` }}
                     />
                   </div>
-                  <div className="network-label" onClick={() => void startDiditVerification()}>
+                  <div className="network-label">
                     <span>{complianceLabel}</span>
                     <ChevronRight className="network-chevron" size={16} strokeWidth={2.5} />
                   </div>
                 </div>
-              </div>
+              </button>
 
               {/* Buttons */}
               <div className="profile-actions">

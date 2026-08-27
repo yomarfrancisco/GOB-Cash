@@ -1145,6 +1145,10 @@ body {
   padding: 20px 16px 22px;
   background: transparent;
   backdrop-filter: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 
 .stats-row {
@@ -1223,7 +1227,6 @@ body {
   gap: 4px;
   font-weight: 300;
   color: #000;
-  cursor: pointer;
   padding: 4px 8px 2px;
 }
 
