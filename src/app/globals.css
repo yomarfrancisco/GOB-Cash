@@ -1140,6 +1140,11 @@ body {
   gap: 22px;
 }
 
+.profile-stats-card--compliance {
+  gap: 0;
+  padding: 20px 16px 22px;
+}
+
 .stats-row {
   display: flex;
   align-items: center;
