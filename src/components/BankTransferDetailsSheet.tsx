@@ -5,7 +5,6 @@ import { Copy } from 'lucide-react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { CountryCode, DEPOSIT_BANK_ACCOUNTS, MOZAMBIQUE_BANK_ACCOUNTS, SOUTH_AFRICA_BANK_ACCOUNTS, type SelectedBank, type BankAccountDetails } from '@/config/depositBankAccounts'
-import { DEPOSIT_PROOF_MAX_BYTES, assertDepositProofPdf } from '@/lib/depositProof'
 import '@/styles/bank-transfer-details-sheet.css'
 import '@/styles/send-details-sheet.css'
 
@@ -40,7 +39,6 @@ export default function BankTransferDetailsSheet({
   const showBackButton = !!onBack
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [copied, setCopied] = useState(false)
-  const [attachError, setAttachError] = useState<string | null>(null)
 
   const DETAILS = {
     recipient: config.recipient,
@@ -63,7 +61,6 @@ export default function BankTransferDetailsSheet({
 
   const handlePickProof = () => {
     if (isSubmitting) return
-    setAttachError(null)
     fileInputRef.current?.click()
   }
 
@@ -71,13 +68,7 @@ export default function BankTransferDetailsSheet({
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file || !onAttachProof) return
-
-    try {
-      assertDepositProofPdf(file)
-      await onAttachProof(file)
-    } catch (error: any) {
-      setAttachError(String(error?.message || 'Unable to attach that PDF.'))
-    }
+    await onAttachProof(file)
   }
 
   return (
@@ -136,11 +127,9 @@ export default function BankTransferDetailsSheet({
           </div>
 
           <p className="bank-transfer-footer">
-            Deposits may take up to 72 hours to clear. Use the exact reference above.
-            Attach a PDF proof of payment (max {Math.round(DEPOSIT_PROOF_MAX_BYTES / (1024 * 1024))} MB).
+            Deposits may take up to 72 hours to clear. Use the exact reference above. Attach a PDF proof of payment.
           </p>
           {copied ? <p className="bank-transfer-footer">Reference copied.</p> : null}
-          {attachError ? <p className="bank-transfer-footer" style={{ color: '#c41e3a' }}>{attachError}</p> : null}
 
           <input
             ref={fileInputRef}

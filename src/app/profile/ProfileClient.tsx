@@ -16,7 +16,7 @@ import DepositChatSheet from '@/components/DepositChatSheet'
 import AgentInboxSheet from '@/components/AgentInboxSheet'
 import { CountryCode } from '@/config/depositBankAccounts'
 import { resolveAssignedDepositBank, completeAssignedDepositBank } from '@/lib/depositBankCycle'
-import { uploadDepositProof } from '@/lib/depositProof'
+import { uploadDepositProof, assertDepositProofPdf } from '@/lib/depositProof'
 import { AGENT_UID } from '@/types/transactions'
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'
 import AmountSheet from '@/components/AmountSheet'
@@ -495,6 +495,8 @@ export default function ProfileClient() {
   const [openSendDetails, setOpenSendDetails] = useState(false)
   const [openSendSuccess, setOpenSendSuccess] = useState(false)
   const [openDepositSuccess, setOpenDepositSuccess] = useState(false)
+  const [openDepositFailure, setOpenDepositFailure] = useState(false)
+  const depositProofInputRef = useRef<HTMLInputElement>(null)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
   const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | 'conversionKeypad' | undefined>(undefined)
@@ -588,6 +590,31 @@ export default function ProfileClient() {
     kycPercent == null ? DEFAULT_COMPLIANCE_PERCENT : Math.max(0, Math.min(100, kycPercent))
   const complianceLabel =
     kycStatus || kycPercent != null ? `${Math.round(complianceFill)}% compliant` : 'Compliance'
+
+  const handleDepositProofFile = useCallback(async (file: File) => {
+    setIsSubmittingDeposit(true)
+    try {
+      assertDepositProofPdf(file)
+      if (!selectedBank) {
+        throw new Error('No deposit account is assigned yet.')
+      }
+      await uploadDepositProof({
+        file,
+        country: bankTransferCountry === 'ZA' ? 'ZA' : 'MZ',
+        bankId: selectedBank,
+      })
+      await completeAssignedDepositBank(bankTransferCountry === 'ZA' ? 'ZA' : 'MZ')
+      setOpenBankTransferDetails(false)
+      setOpenDepositFailure(false)
+      setTimeout(() => setOpenDepositSuccess(true), 220)
+    } catch {
+      setOpenBankTransferDetails(false)
+      setOpenDepositSuccess(false)
+      setTimeout(() => setOpenDepositFailure(true), 220)
+    } finally {
+      setIsSubmittingDeposit(false)
+    }
+  }, [selectedBank, bankTransferCountry])
 
   return (
     <div className="app-shell profile-page">
@@ -1473,6 +1500,36 @@ export default function ProfileClient() {
         subtitleOverride="We'll match your deposit using the reference you transferred with."
         receiptOverride="You can close this and continue."
       />
+      <SuccessSheet
+        open={openDepositFailure}
+        onClose={() => setOpenDepositFailure(false)}
+        kind="deposit"
+        amountZAR=""
+        autoDownloadReceipt={false}
+        suppressNotification
+        variant="failure"
+        headlineOverride="Attachment failed"
+        subtitleOverride="Make sure you're uploading a PDF format, max 10 mb"
+        receiptOverride="You can try again."
+        buttonLabel="Upload Proof"
+        onButtonClick={() => {
+          if (isSubmittingDeposit) return
+          depositProofInputRef.current?.click()
+        }}
+        isSubmitting={isSubmittingDeposit}
+      />
+      <input
+        ref={depositProofInputRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+          if (!file) return
+          void handleDepositProofFile(file)
+        }}
+        style={{ display: 'none' }}
+      />
       {/* Crypto deposit sheets removed - crypto wallet option no longer available */}
       {/* NOTE: FinancialInboxSheet is now accessible from Settings → Inbox */}
       <FinancialInboxSheet />
@@ -1524,24 +1581,7 @@ export default function ProfileClient() {
           setOpenBankTransferDetails(false)
           setTimeout(() => openBankDepositAccount(), 220)
         }}
-        onAttachProof={async (file) => {
-          if (!selectedBank) {
-            throw new Error('No deposit account is assigned yet.')
-          }
-          setIsSubmittingDeposit(true)
-          try {
-            await uploadDepositProof({
-              file,
-              country: bankTransferCountry === 'ZA' ? 'ZA' : 'MZ',
-              bankId: selectedBank,
-            })
-            await completeAssignedDepositBank(bankTransferCountry === 'ZA' ? 'ZA' : 'MZ')
-            setOpenBankTransferDetails(false)
-            setTimeout(() => setOpenDepositSuccess(true), 220)
-          } finally {
-            setIsSubmittingDeposit(false)
-          }
-        }}
+        onAttachProof={handleDepositProofFile}
         isSubmitting={isSubmittingDeposit}
         countryCode={bankTransferCountry}
         bank={selectedBank}

@@ -19,6 +19,10 @@ type SuccessSheetProps = {
   headlineOverride?: string // Optional override for deposit headline
   subtitleOverride?: string // Optional override for deposit subtitle
   receiptOverride?: string // Optional override for receipt line
+  variant?: 'success' | 'failure'
+  buttonLabel?: string
+  onButtonClick?: () => void
+  isSubmitting?: boolean
 }
 
 export default function SuccessSheet({
@@ -34,11 +38,15 @@ export default function SuccessSheet({
   subtitleOverride,
   receiptOverride,
   suppressNotification = false,
+  variant = 'success',
+  buttonLabel,
+  onButtonClick,
+  isSubmitting = false,
 }: SuccessSheetProps) {
   const pushNotification = useNotificationStore((state) => state.pushNotification)
 
   useEffect(() => {
-    if (!open || !autoDownloadReceipt) return
+    if (!open || !autoDownloadReceipt || variant === 'failure') return
 
     // TODO: replace with real receipt URL once backend available
     try {
@@ -50,11 +58,11 @@ export default function SuccessSheet({
     } catch {
       // Ignore errors
     }
-  }, [open, autoDownloadReceipt])
+  }, [open, autoDownloadReceipt, variant])
 
   // Emit payment/transfer notification when success sheet opens
   useEffect(() => {
-    if (!open || suppressNotification) return
+    if (!open || suppressNotification || variant === 'failure') return
 
     if (kind === 'send' && recipient) {
       // Extract amount from formatted string (e.g., "R 100.00" or "303.464 USDT")
@@ -171,21 +179,27 @@ export default function SuccessSheet({
         routeOnTap: '/transactions',
       })
     }
-  }, [open, kind, recipient, amountZAR, flowType, pushNotification, suppressNotification])
+  }, [open, kind, recipient, amountZAR, flowType, pushNotification, suppressNotification, variant])
 
   return (
     <ActionSheet open={open} onClose={onClose} title="" className="send-success" size="tall">
-      <div className="success-sheet" role="dialog" aria-labelledby="success-title">
+      <div className={`success-sheet${variant === 'failure' ? ' success-sheet--failure' : ''}`} role="dialog" aria-labelledby="success-title">
         <div className="success-header">
-          <Image
-            src="/assets/checkmark_circle.svg"
-            alt="success"
-            className="success-icon"
-            width={56}
-            height={56}
-            priority
-            unoptimized
-          />
+          {variant === 'failure' ? (
+            <span className="success-icon success-warn" role="img" aria-label="Warning">
+              ⚠️
+            </span>
+          ) : (
+            <Image
+              src="/assets/checkmark_circle.svg"
+              alt="success"
+              className="success-icon"
+              width={56}
+              height={56}
+              priority
+              unoptimized
+            />
+          )}
           {kind === 'deposit' ? (
             <>
               <p id="success-title" className="success-headline" aria-live="polite">
@@ -221,8 +235,13 @@ export default function SuccessSheet({
         <p className="success-receipt">
           {receiptOverride ?? 'Proof of payment will be emailed to you.'}
         </p>
-        <button className="success-btn" onClick={onClose}>
-          Got it
+        <button
+          className="success-btn"
+          onClick={onButtonClick ?? onClose}
+          disabled={isSubmitting}
+          type="button"
+        >
+          {isSubmitting ? 'Uploading...' : (buttonLabel ?? 'Got it')}
         </button>
       </div>
     </ActionSheet>
