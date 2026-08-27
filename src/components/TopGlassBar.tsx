@@ -6,8 +6,8 @@ import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { useUserProfileStore } from '@/store/userProfile'
 
-// Scan + share stay wired, but the top bar does not show them for now.
-const SHOW_TOP_BAR_ACTIONS = false
+// Scan + share on the top-right of the glass bar.
+const SHOW_TOP_BAR_ACTIONS = true
 
 type TopGlassBarProps = {
   onScanClick?: () => void
