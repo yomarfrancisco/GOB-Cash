@@ -13,10 +13,27 @@ import { exceedsAvailableMzn, exceedsAvailableZar } from '@/lib/money'
 import { mznToZar, zarToMzn } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useNotificationStore } from '@/store/notifications'
-import { findPayoutBank, getPayoutBanks } from '@/config/payoutBanks'
+import { findPayoutBank, getPayoutBanks, type PayoutBank } from '@/config/payoutBanks'
 import styles from './BankingDetailsSheet.module.css'
 
 type PayoutCountry = 'Mozambique' | 'South Africa'
+
+function BankMark({ bank }: { bank?: PayoutBank }) {
+  if (!bank) return null
+  if (bank.logo) {
+    return (
+      <Image
+        src={bank.logo}
+        alt=""
+        width={28}
+        height={28}
+        className={styles.bankLogo}
+        unoptimized
+      />
+    )
+  }
+  return <span className={styles.bankLogoFallback}>{bank.name.charAt(0)}</span>
+}
 
 export default function BankingDetailsSheet() {
   const {
@@ -33,6 +50,7 @@ export default function BankingDetailsSheet() {
   const { profile, addOrUpdateLinkedBank, removeLinkedBank } = useUserProfileStore()
   const { alloc } = useWalletAlloc()
   const accountHolderRef = useRef<HTMLInputElement>(null)
+  const bankSelectRef = useRef<HTMLDivElement>(null)
   const submittingRef = useRef(false)
   const isWithdraw = mode === 'withdraw'
   const payoutCountry: PayoutCountry = sourceCurrency === 'MZN' ? 'Mozambique' : 'South Africa'
@@ -47,11 +65,13 @@ export default function BankingDetailsSheet() {
   const [accountNumber, setAccountNumber] = useState('')
   const [hasSavedBank, setHasSavedBank] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [bankMenuOpen, setBankMenuOpen] = useState(false)
 
   // Initialize form when sheet opens
   useEffect(() => {
     if (!isOpen) return
     setFormError(null)
+    setBankMenuOpen(false)
 
     // Load existing bank data if editing
     if (editingBankId) {
@@ -66,7 +86,7 @@ export default function BankingDetailsSheet() {
       }
     } else if (mode === 'create' || mode === 'withdraw') {
       setCountry(isWithdraw ? payoutCountry : 'South Africa')
-      setBankName('')
+      setBankName(isWithdraw ? (getPayoutBanks(payoutCountry)[0]?.name ?? '') : '')
       setAccountHolderName('')
       setSwiftBic('')
       setAccountNumber('')
@@ -76,6 +96,21 @@ export default function BankingDetailsSheet() {
     // Removed auto-focus to prevent iOS Safari layout gap on first render
     // Keyboard will open only when user taps an input field
   }, [isOpen, mode, editingBankId, profile.linkedBanks, isWithdraw, payoutCountry])
+
+  useEffect(() => {
+    if (!bankMenuOpen) return
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null
+      if (target && bankSelectRef.current?.contains(target)) return
+      setBankMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
+    }
+  }, [bankMenuOpen])
 
   const validateForm = () => {
     const hasAccountHolder = accountHolderName.trim() !== ''
@@ -91,6 +126,11 @@ export default function BankingDetailsSheet() {
   }
 
   const isValid = validateForm()
+  const selectedBank = findPayoutBank(payoutCountry, bankName)
+  const accountNamePlaceholder = payoutCountry === 'Mozambique' ? 'Empresa Lda' : 'Company (Pty) Ltd'
+  const accountNumberPlaceholder = payoutCountry === 'Mozambique'
+    ? '0000 0000 0000 0000 000 00'
+    : '00000000000'
 
   const resolvePayoutAmounts = () => {
     if (isFullCashOut) {
@@ -336,20 +376,38 @@ export default function BankingDetailsSheet() {
                 <>
                   <div className={styles.fieldGroup}>
                     <label className={styles.fieldLabel}>Bank</label>
-                    <div className={styles.field}>
-                      <select
-                        value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                        className={`${styles.input} ${styles.select}`}
+                    <div className={`${styles.field} ${styles.bankSelectWrap}`} ref={bankSelectRef}>
+                      <button
+                        type="button"
+                        className={styles.bankTrigger}
+                        onClick={() => setBankMenuOpen((open) => !open)}
+                        aria-haspopup="listbox"
+                        aria-expanded={bankMenuOpen}
                       >
-                        <option value="">Bank</option>
-                        {payoutBanks.map((bank) => (
-                          <option key={bank.name} value={bank.name}>
-                            {bank.name}
-                          </option>
-                        ))}
-                      </select>
+                        <BankMark bank={selectedBank} />
+                        <span className={styles.bankName}>{bankName || 'Bank'}</span>
+                      </button>
                       <ChevronDown size={20} strokeWidth={2} className={styles.chevronIcon} />
+                      {bankMenuOpen && (
+                        <div className={styles.bankMenu} role="listbox">
+                          {payoutBanks.map((bank) => (
+                            <button
+                              key={bank.name}
+                              type="button"
+                              className={`${styles.bankOption} ${bank.name === bankName ? styles.bankOptionSelected : ''}`}
+                              onClick={() => {
+                                setBankName(bank.name)
+                                setBankMenuOpen(false)
+                              }}
+                              role="option"
+                              aria-selected={bank.name === bankName}
+                            >
+                              <BankMark bank={bank} />
+                              <span className={styles.bankName}>{bank.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -360,7 +418,7 @@ export default function BankingDetailsSheet() {
                         ref={accountHolderRef}
                         type="text"
                         inputMode="text"
-                        placeholder="Account name"
+                        placeholder={accountNamePlaceholder}
                         value={accountHolderName}
                         onChange={(e) => setAccountHolderName(e.target.value)}
                         className={styles.input}
@@ -376,7 +434,7 @@ export default function BankingDetailsSheet() {
                       <input
                         type="text"
                         inputMode="numeric"
-                        placeholder={payoutCountry === 'Mozambique' ? 'NIB' : 'Account number'}
+                        placeholder={accountNumberPlaceholder}
                         value={accountNumber}
                         onChange={(e) => setAccountNumber(e.target.value)}
                         className={styles.input}
@@ -456,10 +514,10 @@ export default function BankingDetailsSheet() {
         <div className={styles.footer}>
           <div className={styles.actions}>
             <button
-              className={styles.doneButton}
-              disabled={!isValid}
+              className={`${styles.doneButton} ${isValid ? styles.doneButtonReady : ''}`}
               onClick={handleDone}
               type="button"
+              aria-disabled={!isValid}
             >
               {isValid && <Check size={18} strokeWidth={2.5} />}
               Done
