@@ -1143,6 +1143,8 @@ body {
 .profile-stats-card--compliance {
   gap: 0;
   padding: 20px 16px 22px;
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .stats-row {
