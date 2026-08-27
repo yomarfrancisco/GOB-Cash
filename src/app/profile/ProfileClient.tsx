@@ -753,9 +753,9 @@ export default function ProfileClient() {
                       style={{ width: `${complianceFill}%` }}
                     />
                   </div>
-                  <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => void startDiditVerification()}>
+                  <div className="network-label" onClick={() => void startDiditVerification()}>
                     <span>{complianceLabel}</span>
-                    <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
+                    <ChevronRight className="network-chevron" size={16} strokeWidth={2.5} />
                   </div>
                 </div>
               </div>

@@ -1134,10 +1134,10 @@ body {
   border-radius: 32px;
   background: rgba(127, 127, 127, 0.1);
   backdrop-filter: blur(50px);
-  padding: 16px;
+  padding: 16px 16px 22px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 22px;
 }
 
 .stats-row {
@@ -1186,8 +1186,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 15px;
+  padding: 4px 0 2px;
 }
 
 .network-track {
@@ -1210,9 +1211,22 @@ body {
 }
 
 .network-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-weight: 300;
-  opacity: 0.5;
   color: #000;
+  cursor: pointer;
+  padding: 4px 8px 2px;
+}
+
+.network-label > span {
+  opacity: 0.5;
+}
+
+.network-chevron {
+  color: #FF2D55;
+  flex-shrink: 0;
 }
 
 .profile-social {

@@ -238,9 +238,9 @@ function ProfileHandlePageContent({ fromSearch }: { fromSearch: boolean }) {
                       style={{ width: `${profile.socialCredit || 0}%` }}
                     />
                   </div>
-                  <div className="network-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
+                  <div className="network-label" onClick={() => setIsProductivityHelperOpen(true)}>
                     <span>Compliance</span>
-                    <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
+                    <ChevronRight className="network-chevron" size={16} strokeWidth={2.5} />
                   </div>
                 </div>
               </div>
