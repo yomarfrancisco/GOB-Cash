@@ -186,11 +186,11 @@ export default function SuccessSheet({
       <div className={`success-sheet${kind === 'deposit' || kind === 'card' ? ' success-sheet--titled' : ''}`} role="dialog" aria-labelledby="success-title">
         <div className="success-header">
           <Image
-            src={variant === 'failure' ? '/assets/hazard.png' : '/assets/robot.png'}
+            src={variant === 'failure' ? '/assets/hazard.png' : '/assets/launch.png'}
             alt={variant === 'failure' ? 'failed' : 'success'}
             className="success-icon"
-            width={96}
-            height={96}
+            width={115}
+            height={115}
             priority
             unoptimized
           />

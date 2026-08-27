@@ -1497,7 +1497,7 @@ export default function ProfileClient() {
         autoDownloadReceipt={false}
         suppressNotification
         headlineOverride="Proof attached"
-        subtitleOverride="We'll match your deposit using the reference on your Proof."
+        subtitleOverride="We'll match your deposit using the reference on your Proof. Contact help@mozapaga.xyz if you have any queries."
         receiptOverride="You can close this and continue."
       />
       <SuccessSheet
@@ -1509,7 +1509,7 @@ export default function ProfileClient() {
         suppressNotification
         variant="failure"
         headlineOverride="Attachment failed"
-        subtitleOverride="Make sure you're uploading a PDF format, max 10 mb."
+        subtitleOverride="Make sure you're uploading a PDF format, max 10 mb. Contact help@mozapaga.xyz if you have any queries."
         receiptOverride="You can try again."
         buttonLabel="Upload Proof"
         onButtonClick={() => {
