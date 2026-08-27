@@ -186,7 +186,7 @@ export default function SuccessSheet({
       <div className="success-sheet" role="dialog" aria-labelledby="success-title">
         <div className="success-header">
           <Image
-            src={variant === 'failure' ? '/assets/cross_illustrated.png' : '/assets/tick_illustrated.png'}
+            src={variant === 'failure' ? '/assets/hazard.png' : '/assets/robot.png'}
             alt={variant === 'failure' ? 'failed' : 'success'}
             className="success-icon"
             width={96}
