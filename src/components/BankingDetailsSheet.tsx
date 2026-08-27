@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { Check, ChevronDown } from 'lucide-react'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
@@ -313,7 +314,19 @@ export default function BankingDetailsSheet() {
         <div className={styles.scrollableContent}>
           {/* Header */}
           <div className={styles.header}>
-            <h2 className={styles.title}>Banking details</h2>
+            {isWithdraw ? (
+              <Image
+                src="/assets/Recipient.png"
+                alt="Recipient"
+                className={styles.titleMark}
+                width={200}
+                height={100}
+                priority
+                unoptimized
+              />
+            ) : (
+              <h2 className={styles.title}>Banking details</h2>
+            )}
           </div>
 
           {/* Banking Input Tile */}
