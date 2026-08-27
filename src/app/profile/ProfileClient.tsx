@@ -513,6 +513,10 @@ export default function ProfileClient() {
   const openPaymentsSheet = useCallback(() => setOpenPayments(true), [])
   const closePaymentsSheet = useCallback(() => setOpenPayments(false), [])
   const openDepositSheet = useCallback(() => setOpenDeposit(true), [])
+  const openBankDepositCountry = useCallback(() => {
+    setDepositMethod('bank')
+    setOpenCountrySelect(true)
+  }, [])
   const openDirectPaymentSheet = useCallback(() => setOpenDirectPayment(true), [])
   const closeDirectPayment = useCallback(() => setOpenDirectPayment(false), [])
   const openWithdrawSheet = useCallback(() => setOpenWithdraw(true), [])
@@ -558,7 +562,7 @@ export default function ProfileClient() {
   useEffect(() => {
     setOnSelect((action) => {
       if (action === 'deposit') {
-        setTimeout(() => setOpenDeposit(true), 220)
+        setTimeout(() => openBankDepositCountry(), 220)
       } else if (action === 'withdraw') {
         setTimeout(() => setOpenWithdraw(true), 220)
       } else if (action === 'payment') {
@@ -575,7 +579,7 @@ export default function ProfileClient() {
     return () => {
       setOnSelect(null) // Cleanup on unmount
     }
-  }, [setOnSelect])
+  }, [openBankDepositCountry, setOnSelect])
 
   const complianceFill =
     kycPercent == null ? DEFAULT_COMPLIANCE_PERCENT : Math.max(0, Math.min(100, kycPercent))
@@ -690,11 +694,7 @@ export default function ProfileClient() {
                   onClick={() => {
                     if (isRestricted) return
                     guardAuthed(() => {
-                      setAmountMode('deposit')
-                      setAmountEntryPoint('depositKeypad')
-                      setTimeout(() => {
-                        setOpenAmount(true)
-                      }, 220)
+                      openBankDepositCountry()
                     })
                   }}
                   style={{ 
@@ -914,7 +914,7 @@ export default function ProfileClient() {
           setTimeout(() => setOpenAmount(true), 220)
         }}
         onDeposit={() => {
-          setTimeout(() => setOpenDeposit(true), 220)
+          setTimeout(() => openBankDepositCountry(), 220)
         }}
       />
       <DepositSheet
@@ -1461,10 +1461,6 @@ export default function ProfileClient() {
       <CountrySelectSheet
         isOpen={openCountrySelect}
         onClose={() => setOpenCountrySelect(false)}
-        onBack={() => {
-          setOpenCountrySelect(false)
-          setTimeout(() => setOpenDeposit(true), 220)
-        }}
         onSelect={(countryCode) => {
           setBankTransferCountry(countryCode)
           setOpenCountrySelect(false)
@@ -1513,12 +1509,6 @@ export default function ProfileClient() {
             if (!user) {
               setIsSubmittingDeposit(false)
               alert('You must be signed in to create a deposit. Please sign in and try again.')
-              return
-            }
-
-            if (depositAmountMZN <= 0 || depositAmountZAR <= 0) {
-              setIsSubmittingDeposit(false)
-              alert('Please enter a valid deposit amount.')
               return
             }
 

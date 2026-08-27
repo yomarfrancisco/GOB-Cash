@@ -39,7 +39,6 @@ export const tx_createBankDepositRequest = functions
     // Extract and validate inputs
     const {
       receiverId,
-      amountMzn,
       bankCountry,
       bankId,
       depositCurrency,
@@ -47,14 +46,12 @@ export const tx_createBankDepositRequest = functions
       depositDetails,
       chatStep,
     } = data || {}
+    const amountMzn =
+      typeof data?.amountMzn === 'number' && data.amountMzn > 0 ? data.amountMzn : 0
 
     if (!receiverId || typeof receiverId !== 'string') {
       console.error('[tx_createBankDepositRequest] Invalid receiverId', { receiverId, type: typeof receiverId })
       throw new functions.https.HttpsError('invalid-argument', 'receiverId is required')
-    }
-    if (!amountMzn || typeof amountMzn !== 'number' || amountMzn <= 0) {
-      console.error('[tx_createBankDepositRequest] Invalid amountMzn', { amountMzn, type: typeof amountMzn })
-      throw new functions.https.HttpsError('invalid-argument', 'amountMzn must be a positive number')
     }
     if (bankCountry && typeof bankCountry !== 'string') {
       throw new functions.https.HttpsError('invalid-argument', 'bankCountry must be a string')
@@ -115,12 +112,16 @@ export const tx_createBankDepositRequest = functions
     const msgRef = txRef.collection('messages').doc()
     const requestCurrency = depositCurrency || (bankCountry === 'MZ' ? 'MZN' : 'ZAR')
     const requestAmount = requestCurrency === 'MZN' ? amountMzn : amountZar
+    const amountLabel =
+      requestAmount > 0
+        ? ` for ${requestCurrency} ${requestAmount.toFixed(2)}`
+        : ''
     const message = {
       id: msgRef.id,
       txId,
       createdAt: now,
       senderType: 'SYSTEM' as const,
-      text: `Bank deposit request created for ${requestCurrency} ${requestAmount.toFixed(2)}. Please deposit the funds and mark as sent.`,
+      text: `Bank deposit request created${amountLabel}. Please deposit the funds and mark as sent.`,
       metadata: {
         status: 'AWAITING_DEPOSIT',
       },
@@ -178,7 +179,8 @@ export const tx_createBankDepositRequest = functions
           // Use single \n only - will be rendered as single block with white-space: pre-line
           // Three compact paragraphs with line gaps between them
           const walletCurrency = currency === 'MZN' ? 'MZN balance' : 'ZAR balance'
-          const introText = `Hi ${handleCustomer} — I'm Ama from GoBankless.\n\nTo confirm:\n• Deposit amount: **${amountDisplay}**\n• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: ${walletCurrency}\n• Next step: After you send the bank transfer, confirm by tapping the button below **"I've deposited"** and upload proof of payment (screenshot, PDF or reference).\n\nWhen you're ready, **tap the button below**.`
+          const amountLine = depositAmount > 0 ? `• Deposit amount: **${amountDisplay}**\n` : ''
+          const introText = `Hi ${handleCustomer} — I'm Ama from GoBankless.\n\nTo confirm:\n${amountLine}• Deposit method: Direct bank transfer\n• Country: ${countryName}\n• Bank: ${bankName}\n• You will receive: ${walletCurrency}\n• Next step: After you send the bank transfer, confirm by tapping the button below **"I've deposited"** and upload proof of payment (screenshot, PDF or reference).\n\nWhen you're ready, **tap the button below**.`
 
           const introMsgRef = txRef.collection('messages').doc()
           const introMessage = {
