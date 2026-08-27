@@ -5,7 +5,6 @@ import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { Check, ChevronDown } from 'lucide-react'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
-import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { useWhatsAppClaimStore } from '@/store/useWhatsAppClaim'
 import { useUserProfileStore } from '@/store/userProfile'
 import { COUNTRIES } from '@/constants/countries'
@@ -46,7 +45,6 @@ export default function BankingDetailsSheet() {
     onDismiss,
     close,
   } = useBankingDetailsSheet()
-  const { open: openLinkedAccounts } = useLinkedAccountsSheet()
   const { profile, addOrUpdateLinkedBank, removeLinkedBank } = useUserProfileStore()
   const { alloc } = useWalletAlloc()
   const accountHolderRef = useRef<HTMLInputElement>(null)
@@ -167,16 +165,6 @@ export default function BankingDetailsSheet() {
     }
 
     close()
-    // Poll until BankingDetailsSheet is closed, then reopen LinkedAccountsSheet
-    const checkAndOpen = () => {
-      const { isOpen: bankingDetailsOpen } = useBankingDetailsSheet.getState()
-      if (!bankingDetailsOpen) {
-        openLinkedAccounts('settings')
-      } else {
-        setTimeout(checkAndOpen, 50)
-      }
-    }
-    setTimeout(checkAndOpen, 100)
   }
 
   const handleDone = async () => {

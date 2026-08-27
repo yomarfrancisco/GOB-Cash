@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import ActionSheet from './ActionSheet'
 import { Check, ChevronDown } from 'lucide-react'
 import { useUsdtWalletAddressSheet } from '@/store/useUsdtWalletAddressSheet'
-import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import styles from './UsdtWalletAddressSheet.module.css'
 
@@ -16,7 +15,6 @@ const NETWORKS = [
 
 export default function UsdtWalletAddressSheet() {
   const { isOpen, mode, editingWalletId, close } = useUsdtWalletAddressSheet()
-  const { open: openLinkedAccounts } = useLinkedAccountsSheet()
   const { profile, addOrUpdateUsdtWallet, removeUsdtWallet } = useUserProfileStore()
   const addressRef = useRef<HTMLInputElement>(null)
 
@@ -60,16 +58,6 @@ export default function UsdtWalletAddressSheet() {
 
   const handleClose = () => {
     close()
-    // Poll until UsdtWalletAddressSheet is closed, then reopen LinkedAccountsSheet
-    const checkAndOpen = () => {
-      const { isOpen: usdtWalletOpen } = useUsdtWalletAddressSheet.getState()
-      if (!usdtWalletOpen) {
-        openLinkedAccounts('settings')
-      } else {
-        setTimeout(checkAndOpen, 50)
-      }
-    }
-    setTimeout(checkAndOpen, 100)
   }
 
   const handleDone = () => {

@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import ActionSheet from './ActionSheet'
 import { Check, ChevronDown, CreditCard } from 'lucide-react'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
-import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
 import { usePendingDeposit } from '@/store/usePendingDeposit'
 import { useUserProfileStore, type CardBrand } from '@/store/userProfile'
@@ -38,7 +37,6 @@ const detectCardBrand = (digits: string): CardBrandNullable => {
 
 export default function CardDetailsSheet() {
   const { isOpen, mode, editingCardId, origin, close, setOrigin } = useCardDetailsSheet()
-  const { open: openLinkedAccounts, close: closeLinkedAccounts } = useLinkedAccountsSheet()
   const { open: openCardDepositAccount } = useCardDepositAccountSheet()
   const { profile, addOrUpdateCard, removeCard } = useUserProfileStore()
   const cardNumberRef = useRef<HTMLInputElement>(null)
@@ -142,14 +140,6 @@ export default function CardDetailsSheet() {
       }
       // If reason === 'cancel', do nothing – user just closes the sheet
       return
-    }
-    
-    // For the normal "settings" origin (and any other legacy origins),
-    // keep the existing behavior: return to LinkedAccountsSheet.
-    if (currentOrigin === 'settings') {
-      setTimeout(() => {
-        openLinkedAccounts('settings')
-      }, 220)
     }
   }
 

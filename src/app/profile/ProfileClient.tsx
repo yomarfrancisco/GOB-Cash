@@ -31,8 +31,7 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useWalletStore } from '@/store/wallets'
 import { useSupportSheet } from '@/store/useSupportSheet'
-import { useLinkedAccountsSheet } from '@/store/useLinkedAccountsSheet'
-import { CreditCard, WalletCards, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
+import { CreditCard, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
 import LockOverlay from '@/components/LockOverlay'
 // Crypto deposit removed - no longer needed
 import PaymentsSheet from '@/components/PaymentsSheet'
@@ -395,7 +394,6 @@ export default function ProfileClient() {
   const { setOnSelect, open } = useTransactSheet()
   const { profile, setProfile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
-  const { open: openLinkedAccounts } = useLinkedAccountsSheet()
   const { open: openBankingDetails } = useBankingDetailsSheet()
   const { openNotifications } = useNotificationsStore()
   const { guardAuthed } = useRequireAuth()
@@ -807,23 +805,6 @@ export default function ProfileClient() {
                         <Edit3 size={22} strokeWidth={2} style={{ color: '#111' }} />
                       </div>
                       <span className="profile-settings-label">Edit profile</span>
-                    </div>
-                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                  </button>
-                  <button
-                    className="profile-settings-row"
-                    onClick={() => {
-                      guardAuthed(() => {
-                        openLinkedAccounts()
-                      })
-                    }}
-                    type="button"
-                  >
-                    <div className="profile-settings-left">
-                      <div className="profile-settings-icon">
-                        <WalletCards size={22} strokeWidth={2} style={{ color: '#111' }} />
-                      </div>
-                      <span className="profile-settings-label">Linked accounts</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
