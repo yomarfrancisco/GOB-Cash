@@ -65,6 +65,7 @@
   align-items: center;
   justify-content: center;
   flex: 1;
+  min-width: 0;
   text-align: center;
   margin: 0 auto;
   /* Ensure it doesn't overlap with scan/close buttons */
@@ -76,6 +77,13 @@
   font-weight: 400;
   color: #666;
   text-align: center;
+}
+
+.amount-sheet__balance--cash-handle {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .amount-sheet__balance-label {

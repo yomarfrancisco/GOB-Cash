@@ -23,3 +23,10 @@ export function parseAgentCashQr(raw: string): string | null {
     return null
   }
 }
+
+/** Keypad title after scanning a Cash ID, e.g. Cash@ama */
+export function formatAgentCashTitle(handle?: string | null): string {
+  if (!handle) return 'Cash'
+  const name = handle.replace(/^@/, '').trim()
+  return name ? `Cash@${name}` : 'Cash'
+}

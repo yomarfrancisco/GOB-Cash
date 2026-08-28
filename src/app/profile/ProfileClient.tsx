@@ -449,6 +449,7 @@ export default function ProfileClient() {
   const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | 'conversionKeypad' | 'withdrawKeypad' | undefined>(undefined)
   const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
   const [agentCashKeypad, setAgentCashKeypad] = useState(false)
+  const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
   const [withdrawFrom, setWithdrawFrom] = useState<ConversionDestination>('MZN')
   const [depositMethod, setDepositMethod] = useState<'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null>(null)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
@@ -601,6 +602,7 @@ export default function ProfileClient() {
                 onDollarClick={() => {
                   guardAuthed(() => {
                     setAgentCashKeypad(false)
+                    setAgentCashHandle(null)
                     setConversionDestination('ZAR')
                     setAmountMode('convert')
                     setAmountEntryPoint('conversionKeypad')
@@ -621,10 +623,12 @@ export default function ProfileClient() {
               isOpen={isScannerOpen}
               onClose={() => setIsScannerOpen(false)}
               onScan={(text) => {
-                if (!parseAgentCashQr(text)) return
+                const handle = parseAgentCashQr(text)
+                if (!handle) return
                 setIsScannerOpen(false)
                 guardAuthed(() => {
                   setAgentCashKeypad(true)
+                  setAgentCashHandle(handle)
                   setConversionDestination('ZAR')
                   setAmountMode('convert')
                   setAmountEntryPoint('conversionKeypad')
@@ -1156,6 +1160,7 @@ export default function ProfileClient() {
         open={openAmount}
         onClose={() => {
           setAgentCashKeypad(false)
+          setAgentCashHandle(null)
           // Special handling for card deposit flow: return to DepositSheet
           if (amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card') {
             setOpenAmount(false)
@@ -1180,6 +1185,7 @@ export default function ProfileClient() {
         flowType={flowType}
         balanceMZN={0}
         agentCash={agentCashKeypad}
+        agentCashHandle={agentCashHandle}
         ctaLabel={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'Next' : amountMode === 'deposit' ? 'Continue' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
@@ -1502,6 +1508,7 @@ export default function ProfileClient() {
       <PayIntoSheet
         onConfirm={(destination) => {
           setAgentCashKeypad(false)
+          setAgentCashHandle(null)
           setConversionDestination(destination)
           setAmountMode('convert')
           setAmountEntryPoint('conversionKeypad')

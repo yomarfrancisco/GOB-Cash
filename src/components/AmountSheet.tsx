@@ -7,6 +7,7 @@ import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
 import { exceedsAvailableMzn, exceedsAvailableZar, formatMZN, formatMZNWithDot, formatZAR, formatZARWithDot } from '@/lib/money'
 import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsdt } from '@/lib/mznZar'
+import { formatAgentCashTitle } from '@/lib/agentCashQr'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import '@/styles/amount-sheet.css'
@@ -42,6 +43,7 @@ type AmountSheetProps = {
   depositMethod?: 'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null // deposit method for card deposit flow customization
   customFeeText?: string // custom fee text override (for card deposit: "excl. 3% transaction fee")
   agentCash?: boolean // agent QR conversion: header says "Cash" instead of wallet balance
+  agentCashHandle?: string | null // scanned Cash ID handle, shown as Cash@[handle]
 }
 
 export default function AmountSheet({
@@ -70,6 +72,7 @@ export default function AmountSheet({
   depositMethod,
   customFeeText,
   agentCash = false,
+  agentCashHandle = null,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
   const [conversionBusy, setConversionBusy] = useState(false)
@@ -307,9 +310,12 @@ export default function AmountSheet({
             </button>
           )}
           <div className="amount-sheet__header-content">
-            <div className="amount-sheet__balance">
+            <div
+              className={`amount-sheet__balance${agentCash ? ' amount-sheet__balance--cash-handle' : ''}`}
+              title={agentCash ? formatAgentCashTitle(agentCashHandle) : undefined}
+            >
               {agentCash ? (
-                'Cash'
+                formatAgentCashTitle(agentCashHandle)
               ) : (
                 <>
                   {isZarPrimaryKeypad ? formatZARWithDot(displayBalanceZAR) : formatMZN(displayBalanceMZN)}{' '}

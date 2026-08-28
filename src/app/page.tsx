@@ -126,11 +126,13 @@ function HomeContent() {
   const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'conversionKeypad' | undefined>(undefined)
   const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
   const [agentCashKeypad, setAgentCashKeypad] = useState(false)
+  const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
   const openedCashFromUrl = useRef(false)
 
-  const openConversionKeypad = useCallback((agentCash = false) => {
+  const openConversionKeypad = useCallback((agentCash = false, handle?: string | null) => {
     playDollarSound()
     setAgentCashKeypad(agentCash)
+    setAgentCashHandle(agentCash && handle ? handle.replace(/^@/, '') : null)
     setConversionDestination(conversionDestinationFromTopCard(topCardType))
     setAmountMode('convert')
     setAmountEntryPoint('conversionKeypad')
@@ -147,7 +149,7 @@ function HomeContent() {
       const url = new URL(window.location.href)
       url.searchParams.delete('cash')
       window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
-      openConversionKeypad(true)
+      openConversionKeypad(true, cash)
     }
 
     if (!isAuthed) {
@@ -643,9 +645,10 @@ function HomeContent() {
               isOpen={isScannerOpen}
               onClose={() => setIsScannerOpen(false)}
               onScan={(text) => {
-                if (!parseAgentCashQr(text)) return
+                const handle = parseAgentCashQr(text)
+                if (!handle) return
                 setIsScannerOpen(false)
-                openConversionKeypad(true)
+                openConversionKeypad(true, handle)
               }}
             />
           )}
@@ -885,8 +888,10 @@ function HomeContent() {
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           setAgentCashKeypad(false)
+          setAgentCashHandle(null)
         }}
         agentCash={agentCashKeypad}
+        agentCashHandle={agentCashHandle}
         mode={amountMode}
         withdrawOnly={amountMode === 'withdraw'}
         flowType={flowType}
@@ -1134,6 +1139,7 @@ function HomeContent() {
       <PayIntoSheet
         onConfirm={(destination) => {
           setAgentCashKeypad(false)
+          setAgentCashHandle(null)
           setConversionDestination(destination)
           setAmountMode('convert')
           setAmountEntryPoint('conversionKeypad')
