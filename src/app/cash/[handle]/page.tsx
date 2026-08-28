@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
-import CashPayLanding from './CashPayLanding'
+import { redirect } from 'next/navigation'
+import { normalizeCashHandle } from '@/lib/agentCashQr'
 
 type Props = {
   params: { handle: string }
 }
 
 export function generateMetadata({ params }: Props): Metadata {
-  const handle = decodeURIComponent(params.handle || '').replace(/^[@$]+/, '')
+  const handle = normalizeCashHandle(params.handle)
   const titleHandle = handle ? `@${handle}` : 'Cash ID'
   return {
     title: `Pay ${titleHandle} — GoBankless`,
@@ -15,5 +16,7 @@ export function generateMetadata({ params }: Props): Metadata {
 }
 
 export default function CashPayPage({ params }: Props) {
-  return <CashPayLanding handleParam={params.handle} />
+  const handle = normalizeCashHandle(params.handle)
+  if (!handle) redirect('/')
+  redirect(`/?cash=${encodeURIComponent(handle)}`)
 }

@@ -76,8 +76,12 @@ export default function AmountSheet({
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
   const [conversionBusy, setConversionBusy] = useState(false)
-  const { isAuthed } = useAuthStore()
+  const { isAuthed, requireAuth } = useAuthStore()
   const { alloc } = useWalletAlloc()
+  const gateGuestPay = agentCash && !isAuthed
+  const blockGuestPay = () => {
+    requireAuth(() => {})
+  }
   
   const isWithdrawKeypad = entryPoint === 'withdrawKeypad'
   const isZarPrimaryKeypad =
@@ -296,12 +300,25 @@ export default function AmountSheet({
     (isConversionKeypad && isZarPrimaryKeypad) || (isWithdrawKeypad && isZarPrimaryKeypad)
 
   return (
-    <ActionSheet open={open} onClose={onClose} title="" className={`amount ${useLimeGreenBackground ? 'cash-keypad' : ''} ${usePinkKeypad ? 'pink-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`} size="tall">
+    <ActionSheet
+      open={open}
+      onClose={onClose}
+      onOverlayClick={gateGuestPay ? blockGuestPay : undefined}
+      title=""
+      className={`amount ${useLimeGreenBackground ? 'cash-keypad' : ''} ${usePinkKeypad ? 'pink-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`}
+      size="tall"
+    >
       <div className={`amount-sheet amount-sheet-wrapper ${isHelicopterConvert ? 'amount-sheet--cash-transactions' : ''}`}>
         <div className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''}`} style={{ height: 'var(--hdr-h, 118px)' }}>
           {showScanIcon && (
             <button
-              onClick={onScanClick}
+              onClick={() => {
+                if (gateGuestPay) {
+                  blockGuestPay()
+                  return
+                }
+                onScanClick?.()
+              }}
               className="amount-sheet__scan-button"
               aria-label="Scan QR code"
               type="button"
@@ -339,7 +356,13 @@ export default function AmountSheet({
               <button
                 type="button"
                 className="amount-sheet__usdt-chip amount-sheet__usdt-chip--swap"
-                onClick={onToggleConversion}
+                onClick={() => {
+                  if (gateGuestPay) {
+                    blockGuestPay()
+                    return
+                  }
+                  onToggleConversion?.()
+                }}
                 aria-label={isZarPrimaryKeypad ? 'Switch to Metical keypad' : 'Switch to Rand keypad'}
               >
                 {isZarPrimaryKeypad ? formatMZN(amountMZN) : formatZAR(amountZAR)}
@@ -352,10 +375,34 @@ export default function AmountSheet({
           </div>
           <AmountKeypad
             value={displayAmount}
-            onChange={handleNumberChange}
-            onBackspace={handleBackspace}
-            onDot={handleDot}
-            onSubmit={handleSubmit}
+            onChange={(next) => {
+              if (gateGuestPay) {
+                blockGuestPay()
+                return
+              }
+              handleNumberChange(next)
+            }}
+            onBackspace={() => {
+              if (gateGuestPay) {
+                blockGuestPay()
+                return
+              }
+              handleBackspace()
+            }}
+            onDot={() => {
+              if (gateGuestPay) {
+                blockGuestPay()
+                return
+              }
+              handleDot()
+            }}
+            onSubmit={() => {
+              if (gateGuestPay) {
+                blockGuestPay()
+                return
+              }
+              handleSubmit()
+            }}
             ctaLabel={finalCtaLabel}
             hideCTA
             currencySymbol={isZarPrimaryKeypad ? 'R' : 'Mt'}
@@ -443,6 +490,10 @@ export default function AmountSheet({
             <button
               className="amount-keypad__cta"
               onClick={() => {
+                if (gateGuestPay) {
+                  blockGuestPay()
+                  return
+                }
                 if (!isPositive || exceedsZarBalance || exceedsMznBalance || conversionBusy) return
                 setConversionBusy(true)
                 onClose()

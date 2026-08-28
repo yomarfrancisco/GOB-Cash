@@ -79,7 +79,6 @@ function HomeContent() {
   const { setOnSelect, open } = useTransactSheet()
   const { guardAuthed, isAuthed, requireAuth } = useRequireAuth()
   const authReady = useAuthStore((state) => state.authReady)
-  const openAuthEntryLogin = useAuthStore((state) => state.openAuthEntryLogin)
   const { profile } = useUserProfileStore()
   const { startCashDepositScenario, startCashWithdrawalScenario } = useFinancialInboxStore()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
@@ -134,8 +133,8 @@ function HomeContent() {
   const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
   const [agentCashKeypad, setAgentCashKeypad] = useState(false)
   const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
-  const openedCashFromUrl = useRef(false)
-  const promptedCashAuthRef = useRef(false)
+  const openedGuestCashKeypadRef = useRef(false)
+  const resumedAuthedCashKeypadRef = useRef(false)
 
   const openConversionKeypad = useCallback((agentCash = false, handle?: string | null) => {
     playDollarSound()
@@ -154,24 +153,24 @@ function HomeContent() {
     if (!handle) return
     saveCashPayIntent(handle)
 
-    if (!isAuthed) {
-      if (!promptedCashAuthRef.current) {
-        promptedCashAuthRef.current = true
-        openAuthEntryLogin()
-      }
-      return
-    }
-
-    if (openedCashFromUrl.current) return
-    openedCashFromUrl.current = true
-    clearCashPayIntent()
     const url = new URL(window.location.href)
     if (url.searchParams.has('cash')) {
       url.searchParams.delete('cash')
       window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
     }
+
+    if (isAuthed) {
+      if (resumedAuthedCashKeypadRef.current) return
+      resumedAuthedCashKeypadRef.current = true
+      clearCashPayIntent()
+      openConversionKeypad(true, handle)
+      return
+    }
+
+    if (openedGuestCashKeypadRef.current) return
+    openedGuestCashKeypadRef.current = true
     openConversionKeypad(true, handle)
-  }, [authReady, isAuthed, openConversionKeypad, openAuthEntryLogin])
+  }, [authReady, isAuthed, openConversionKeypad])
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
   const [depositAmountUSDT, setDepositAmountUSDT] = useState(0)
@@ -903,6 +902,7 @@ function HomeContent() {
           setAmountEntryPoint(undefined)
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
+          if (isAuthed) clearCashPayIntent()
         }}
         agentCash={agentCashKeypad}
         agentCashHandle={agentCashHandle}
