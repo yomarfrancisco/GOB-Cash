@@ -1,5 +1,6 @@
 const CASH_OR_PAY_PATH = /^\/(cash|pay)\/([^/]+)\/?$/i
 const CASH_PAY_INTENT_KEY = 'gb.cashPayIntent'
+const CASH_PAY_RESUME_KEY = 'gb.cashPayResume'
 
 /** Canonical origin encoded in every Cash ID so phone cameras open production. */
 export const CASH_ID_PUBLIC_ORIGIN = 'https://www.gobankless.app'
@@ -43,35 +44,51 @@ export function formatAgentCashTitle(handle?: string | null): string {
   return name ? `Cash@${name}` : 'Cash'
 }
 
-export function saveCashPayIntent(handle: string): void {
-  const slug = normalizeCashHandle(handle)
-  if (!slug || typeof window === 'undefined') return
+function writeSession(key: string, value: string): void {
+  if (typeof window === 'undefined') return
   try {
-    sessionStorage.setItem(CASH_PAY_INTENT_KEY, slug)
+    sessionStorage.setItem(key, value)
   } catch {
-    // Private mode / blocked storage — URL ?cash= is the fallback.
+    // Private mode / blocked storage.
   }
 }
 
-export function readCashPayIntent(): string | null {
+function readSession(key: string): string | null {
   if (typeof window === 'undefined') return null
   try {
-    return normalizeCashHandle(sessionStorage.getItem(CASH_PAY_INTENT_KEY)) || null
+    return sessionStorage.getItem(key)
   } catch {
     return null
   }
 }
 
-export function clearCashPayIntent(): void {
+function removeSession(key: string): void {
   if (typeof window === 'undefined') return
   try {
-    sessionStorage.removeItem(CASH_PAY_INTENT_KEY)
+    sessionStorage.removeItem(key)
   } catch {
     // ignore
   }
 }
 
-export function resolveCashPayIntent(search: string = typeof window === 'undefined' ? '' : window.location.search): string | null {
-  const fromQuery = new URLSearchParams(search).get('cash')
-  return normalizeCashHandle(fromQuery) || readCashPayIntent() || null
+export function cashHandleFromQuery(
+  search: string = typeof window === 'undefined' ? '' : window.location.search
+): string | null {
+  return normalizeCashHandle(new URLSearchParams(search).get('cash')) || null
+}
+
+/** Set only when a signed-out user starts auth from the Cash ID keypad. */
+export function saveCashPayResume(handle: string): void {
+  const slug = normalizeCashHandle(handle)
+  if (!slug) return
+  writeSession(CASH_PAY_RESUME_KEY, slug)
+}
+
+export function readCashPayResume(): string | null {
+  return normalizeCashHandle(readSession(CASH_PAY_RESUME_KEY)) || null
+}
+
+export function clearCashPaySession(): void {
+  removeSession(CASH_PAY_INTENT_KEY)
+  removeSession(CASH_PAY_RESUME_KEY)
 }

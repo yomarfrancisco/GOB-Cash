@@ -20,8 +20,9 @@ import styles from './AuthModal.module.css'
 export default function PhoneSignupSheet() {
   const { 
     phoneSignupOpen, 
-    closePhoneSignup, 
-    closeAllAuth, 
+    closePhoneSignup,
+    closeAllAuth,
+    dismissAuth,
     openAuthEntrySignup,
     phoneSignupPhone,
     phoneConfirmationResult,
@@ -100,7 +101,7 @@ export default function PhoneSignupSheet() {
 
   const handleCloseAll = () => {
     clearPhoneAuth()
-    closeAllAuth()
+    dismissAuth()
   }
 
   if (!phoneSignupOpen) return null

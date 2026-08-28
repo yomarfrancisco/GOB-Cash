@@ -25,7 +25,8 @@ type AuthMode = 'loginEntry' | 'signup'
 export default function AuthEntrySheet() {
   const { 
     authEntryOpen, 
-    closeAuthEntry, 
+    closeAuthEntry,
+    dismissAuth, 
     openAuthPassword, 
     openPhoneSignup, 
     setAuthIdentifier,
@@ -252,7 +253,7 @@ export default function AuthEntrySheet() {
   if (!authEntryOpen) return null
 
   return (
-    <ActionSheet open={authEntryOpen} onClose={closeAuthEntry} title="" size="tall" className="handAuthSheet">
+    <ActionSheet open={authEntryOpen} onClose={dismissAuth} title="" size="tall" className="handAuthSheet">
       <div className={styles.handAuthWrapper}>
         <div className={styles.handAuthRoot}>
           <Image

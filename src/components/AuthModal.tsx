@@ -18,7 +18,7 @@ import styles from './AuthModal.module.css'
 const MEMBER_PASSWORD = 'brics2025'
 
 export default function AuthModal() {
-  const { authPasswordOpen, closeAuthPassword, closeAllAuth, completeAuth } = useAuthStore()
+  const { authPasswordOpen, closeAuthPassword, dismissAuth, completeAuth } = useAuthStore()
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -59,7 +59,7 @@ export default function AuthModal() {
   }
 
   const handleCloseAll = () => {
-    closeAllAuth()
+    dismissAuth()
   }
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -7,7 +7,7 @@ import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
 import { exceedsAvailableMzn, exceedsAvailableZar, formatMZN, formatMZNWithDot, formatZAR, formatZARWithDot } from '@/lib/money'
 import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsdt } from '@/lib/mznZar'
-import { formatAgentCashTitle } from '@/lib/agentCashQr'
+import { formatAgentCashTitle, saveCashPayResume } from '@/lib/agentCashQr'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import '@/styles/amount-sheet.css'
@@ -81,6 +81,7 @@ export default function AmountSheet({
   const gateGuestPay = agentCash && !isAuthed
   const blockGuestPay = () => {
     requireAuth(() => {})
+    if (agentCashHandle) saveCashPayResume(agentCashHandle)
   }
   
   const isWithdrawKeypad = entryPoint === 'withdrawKeypad'

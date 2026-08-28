@@ -57,9 +57,9 @@ import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { prefetchActionSheetIcons } from '@/lib/prefetchActionSheetIcons'
 import {
   parseAgentCashQr,
-  saveCashPayIntent,
-  clearCashPayIntent,
-  resolveCashPayIntent,
+  cashHandleFromQuery,
+  readCashPayResume,
+  clearCashPaySession,
 } from '@/lib/agentCashQr'
 
 // Toggle flag to compare both scanner implementations
@@ -149,27 +149,32 @@ function HomeContent() {
   useEffect(() => {
     if (!authReady) return
 
-    const handle = resolveCashPayIntent()
-    if (!handle) return
-    saveCashPayIntent(handle)
-
-    const url = new URL(window.location.href)
-    if (url.searchParams.has('cash')) {
+    const fromQuery = cashHandleFromQuery()
+    if (fromQuery) {
+      const url = new URL(window.location.href)
       url.searchParams.delete('cash')
       window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
     }
 
     if (isAuthed) {
+      const handle = fromQuery || readCashPayResume()
+      if (!handle) {
+        clearCashPaySession()
+        return
+      }
       if (resumedAuthedCashKeypadRef.current) return
       resumedAuthedCashKeypadRef.current = true
-      clearCashPayIntent()
+      clearCashPaySession()
+      // Guest already has this keypad open from the handle URL; keep it.
+      if (openedGuestCashKeypadRef.current) return
       openConversionKeypad(true, handle)
       return
     }
 
+    if (!fromQuery) return
     if (openedGuestCashKeypadRef.current) return
     openedGuestCashKeypadRef.current = true
-    openConversionKeypad(true, handle)
+    openConversionKeypad(true, fromQuery)
   }, [authReady, isAuthed, openConversionKeypad])
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
@@ -638,7 +643,7 @@ function HomeContent() {
                 currentPath="/" 
                 onDollarClick={() => {
                   if (!isAuthed) {
-                    requireAuth(() => openConversionKeypad(false))
+                    requireAuth(() => {})
                     return
                   }
 
@@ -902,7 +907,7 @@ function HomeContent() {
           setAmountEntryPoint(undefined)
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
-          if (isAuthed) clearCashPayIntent()
+          clearCashPaySession()
         }}
         agentCash={agentCashKeypad}
         agentCashHandle={agentCashHandle}

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { useNotificationStore } from './notifications'
 import { stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
+import { clearCashPaySession } from '@/lib/agentCashQr'
 import { type ConfirmationResult } from 'firebase/auth'
 
 type AuthView = 'provider-list' | 'whatsapp-signin' | 'whatsapp-signup'
@@ -36,6 +37,7 @@ interface AuthState {
   openAuth: () => void // Opens entry sheet
   closeAuth: () => void // Closes entry sheet
   closeAllAuth: () => void // Closes all auth sheets and returns to home
+  dismissAuth: () => void // User cancelled auth: close sheets and drop pending/resume state
   openAuthEntry: () => void // Opens entry sheet in signup mode (default)
   openAuthEntryLogin: () => void // Opens entry sheet in login mode
   openAuthEntrySignup: () => void // Open entry sheet in signup mode
@@ -87,7 +89,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ authOpen: true, authEntryOpen: true, authView: 'provider-list' })
   },
   closeAuth: () => set({ authOpen: false, authEntryOpen: false }),
-  closeAllAuth: () => set({ authOpen: false, authEntryOpen: false, authPasswordOpen: false, phoneSignupOpen: false }),
+  closeAllAuth: () => set({
+    authOpen: false,
+    authEntryOpen: false,
+    authPasswordOpen: false,
+    phoneSignupOpen: false,
+    pendingAuthAction: null,
+  }),
+  dismissAuth: () => {
+    if (!get().isAuthed) clearCashPaySession()
+    set({
+      authOpen: false,
+      authEntryOpen: false,
+      authPasswordOpen: false,
+      phoneSignupOpen: false,
+      pendingAuthAction: null,
+    })
+  },
   openAuthEntry: () => {
     prefetchAuthImages() // Prefetch auth backgrounds before opening
     set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signup' }) // Default to signup
@@ -98,7 +116,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   openAuthEntrySignup: () => {
     prefetchAuthImages() // Prefetch auth backgrounds before opening
-    set({ authEntryOpen: true, authOpen: true, authView: 'whatsapp-signup' })
+    set({
+      authEntryOpen: true,
+      authOpen: true,
+      authView: 'whatsapp-signup',
+      pendingAuthAction: null,
+    })
   },
   closeAuthEntry: () => set({ authEntryOpen: false, authOpen: false }),
   openAuthPassword: () => set({ authPasswordOpen: true }),
@@ -130,6 +153,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (pending) queueMicrotask(pending)
     } else {
       // User signed out
+      clearCashPaySession()
       set({ isAuthed: false, authReady: true }) // Mark auth as ready even on sign-out
     }
   },
@@ -152,6 +176,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       onAuthed()
       return
     }
+    // Drop any leftover Cash ID resume unless the caller re-saves it (keypad guest tap).
+    clearCashPaySession()
     set({ pendingAuthAction: onAuthed })
     prefetchAuthImages()
     openAuthEntry()
