@@ -1,6 +1,8 @@
 'use client'
 
 import QRCode from 'qrcode'
+// qrcode's public types only cover toDataURL/toCanvas; the matrix encoder has no declarations.
+// @ts-expect-error
 import QRCore from 'qrcode/lib/core/qrcode'
 
 type QrSymbol = { modules: { size: number; get: (row: number, col: number) => number } }
