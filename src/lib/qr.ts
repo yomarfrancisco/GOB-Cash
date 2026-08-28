@@ -174,3 +174,57 @@ export function downloadQRCode(dataURL: string, filename: string = 'qr-code.png'
   document.body.removeChild(link)
 }
 
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Failed to load image'))
+    img.src = src
+  })
+}
+
+/**
+ * Save the on-screen Cash ID (QR + center avatar) as a PNG.
+ */
+export async function downloadCashIdPng(options: {
+  qrDataURL: string
+  avatarUrl?: string | null
+  filename?: string
+}): Promise<void> {
+  const size = 880
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Could not create download canvas')
+
+  const qrImg = await loadImage(options.qrDataURL)
+  ctx.drawImage(qrImg, 0, 0, size, size)
+
+  const avatarSize = Math.round(size * (40 / 220))
+  const ring = Math.round(size * (6 / 220))
+  const cx = size / 2
+  const cy = size / 2
+
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.arc(cx, cy, avatarSize / 2 + ring, 0, Math.PI * 2)
+  ctx.fill()
+
+  try {
+    const avatarSrc = options.avatarUrl || '/assets/avatar-profile.png'
+    const avatarImg = await loadImage(avatarSrc)
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(cx, cy, avatarSize / 2, 0, Math.PI * 2)
+    ctx.clip()
+    ctx.drawImage(avatarImg, cx - avatarSize / 2, cy - avatarSize / 2, avatarSize, avatarSize)
+    ctx.restore()
+  } catch {
+    // Avatar may be cross-origin; QR alone is still a valid Cash ID.
+  }
+
+  downloadQRCode(canvas.toDataURL('image/png'), options.filename || 'cash-id.png')
+}
+
