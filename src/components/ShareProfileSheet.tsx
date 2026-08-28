@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { generateQRCode } from '@/lib/qr'
@@ -52,6 +53,16 @@ export default function ShareProfileSheet() {
   return (
     <ActionSheet open={isOpen} onClose={close} title="" size="tall" className="share-sheet">
       <div className={styles.content}>
+        <Image
+          src="/assets/Cash_ID.png"
+          alt="Cash ID"
+          className={styles.titleMark}
+          width={200}
+          height={100}
+          priority
+          unoptimized
+        />
+
         <div className={styles.qrContainer}>
           {qrDataURL ? (
             <img src={qrDataURL} alt="QR Code" className={styles.qrImage} />
@@ -62,8 +73,14 @@ export default function ShareProfileSheet() {
 
         <div className={styles.handleText}>{displayHandle}</div>
 
-        <div className={styles.avatarWrap}>
-          <Avatar avatarUrl={avatarUrl} name={avatarName} email={undefined} size={72} />
+        <div className={styles.divider} />
+
+        <div className={styles.avatarRow}>
+          <div className="asi-icon">
+            <div className={styles.avatarIcon}>
+              <Avatar avatarUrl={avatarUrl} name={avatarName} email={undefined} size={40} />
+            </div>
+          </div>
         </div>
       </div>
     </ActionSheet>
