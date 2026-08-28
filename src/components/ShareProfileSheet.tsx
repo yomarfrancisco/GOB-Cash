@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { downloadCashIdPng, generateStyledCashIdQr } from '@/lib/qr'
@@ -78,15 +77,7 @@ export default function ShareProfileSheet() {
   return (
     <ActionSheet open={isOpen} onClose={close} title="" size="tall" className="share-sheet">
       <div className={styles.content}>
-        <Image
-          src="/assets/Cash_ID.png"
-          alt="Cash ID"
-          className={styles.titleMark}
-          width={200}
-          height={100}
-          priority
-          unoptimized
-        />
+        <h2 className={styles.title}>My Cash ID</h2>
 
         <div className={styles.qrContainer}>
           <div className={styles.qrStage}>
