@@ -1,11 +1,11 @@
 /**
  * Quoted MZN per ZAR = ExchangeRate-API mid-market × corridor markup.
- * Receive ZAR (MZN→ZAR): 15%. Receive MZN (ZAR→MZN): 5%.
+ * Receive ZAR (MZN→ZAR): 14.3%. Receive MZN (ZAR→MZN): 5%.
  */
 
 import * as functions from 'firebase-functions'
 
-export const MZN_ZAR_MARKUP = 1.15
+export const MZN_ZAR_MARKUP = 1.143
 export const MZN_ZAR_MARKUP_RECEIVE_MZN = 1.05
 export const MZN_ZAR_API_RATE_AT_CALIBRATION = 3.98793
 export const MZN_PER_ZAR_FALLBACK = MZN_ZAR_API_RATE_AT_CALIBRATION * MZN_ZAR_MARKUP
