@@ -536,10 +536,17 @@ export default function CardStackCard({
       }
     }
 
-    if (card.type === 'savings' || card.type === 'mzn') {
+    if (card.type === 'mzn') {
       return {
-        strong: `${quotedMznPerZar.toFixed(2)} MZN`,
-        label: '= 1 ZAR',
+        strong: 'SELL',
+        label: `${quotedMznPerZar.toFixed(2)} MZN/ZAR`,
+      }
+    }
+
+    if (card.type === 'savings') {
+      return {
+        strong: 'BUY',
+        label: `${quotedMznPerZar.toFixed(2)} MZN/ZAR`,
       }
     }
 
