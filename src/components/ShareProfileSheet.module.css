@@ -19,24 +19,34 @@
   object-fit: contain;
 }
 
-/* QR Block */
+/* QR Block — lime brand frame around the white code */
 .qrContainer {
   width: 260px;
   height: 260px;
   border-radius: 24px;
-  background: #ffffff;
+  background: #E5FF63;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 12px;
   margin-bottom: 16px;
+}
+
+.qrStage {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  border-radius: 16px;
+  background: #ffffff;
+  overflow: hidden;
 }
 
 .qrImage {
   width: 220px;
   height: 220px;
   object-fit: contain;
+  display: block;
 }
 
 .qrPlaceholder {
@@ -50,6 +60,18 @@
   font-weight: 400;
 }
 
+.avatarOnQr {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 3px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px #ffffff;
+  line-height: 0;
+}
+
 /* User Handle Text */
 .handleText {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -61,32 +83,4 @@
   margin: 16px 0 16px;
   letter-spacing: -0.02em;
   user-select: none;
-}
-
-/* Divider */
-.divider {
-  width: 100%;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.08);
-  margin: 8px 0 4px;
-}
-
-.avatarRow {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 8px;
-}
-
-/* Avatar icon wrapper for the original 40px circular clip */
-.avatarIcon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
 }

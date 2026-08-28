@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
-import { generateQRCode } from '@/lib/qr'
+import { generateStyledCashIdQr } from '@/lib/qr'
 import { buildAgentCashUrl } from '@/lib/agentCashQr'
 import { useNotificationStore } from '@/store/notifications'
 import Avatar from './Avatar'
 import styles from './ShareProfileSheet.module.css'
+
+const QR_AVATAR_SIZE = 40
 
 export default function ShareProfileSheet() {
   const { isOpen, close, subject } = useShareProfileSheet()
@@ -28,7 +30,7 @@ export default function ShareProfileSheet() {
 
     const generateQR = async () => {
       try {
-        const qr = await generateQRCode(cashUrl, 512)
+        const qr = await generateStyledCashIdQr(cashUrl)
         setQrDataURL(qr)
       } catch (error) {
         console.error('Failed to generate QR code:', error)
@@ -64,24 +66,27 @@ export default function ShareProfileSheet() {
         />
 
         <div className={styles.qrContainer}>
-          {qrDataURL ? (
-            <img src={qrDataURL} alt="QR Code" className={styles.qrImage} />
-          ) : (
-            <div className={styles.qrPlaceholder}>Generating QR code...</div>
-          )}
+          <div className={styles.qrStage}>
+            {qrDataURL ? (
+              <img src={qrDataURL} alt="Cash ID QR code" className={styles.qrImage} />
+            ) : (
+              <div className={styles.qrPlaceholder}>Generating QR code...</div>
+            )}
+            {qrDataURL && (
+              <div className={styles.avatarOnQr}>
+                <Avatar
+                  avatarUrl={avatarUrl}
+                  name={avatarName}
+                  email={undefined}
+                  size={QR_AVATAR_SIZE}
+                  rounded={QR_AVATAR_SIZE / 2}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className={styles.handleText}>{displayHandle}</div>
-
-        <div className={styles.divider} />
-
-        <div className={styles.avatarRow}>
-          <div className="asi-icon">
-            <div className={styles.avatarIcon}>
-              <Avatar avatarUrl={avatarUrl} name={avatarName} email={undefined} size={40} />
-            </div>
-          </div>
-        </div>
       </div>
     </ActionSheet>
   )
