@@ -50,6 +50,7 @@ interface AuthState {
   setAuthReady: () => void // Mark auth as ready (after Firebase has checked state)
   completeAuth: () => void // Legacy: Kept for backward compatibility, but Firebase Auth now drives isAuthed
   requireAuth: (onAuthed: () => void) => void
+  pendingAuthAction: (() => void) | null
   setPhoneSignupPhone: (phone: string) => void
   setPhoneConfirmationResult: (result: ConfirmationResult | null) => void
   setPhoneResolutionMetadata: (metadata: AuthState['phoneResolutionMetadata']) => void
@@ -77,6 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   phoneSignupOpen: false,
   authView: 'provider-list',
   authIdentifier: null,
+  pendingAuthAction: null,
   phoneSignupPhone: null,
   phoneConfirmationResult: null,
   phoneResolutionMetadata: null,
@@ -115,14 +117,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       clearNotifications()
       
       // Close all auth sheets
+      const pending = get().pendingAuthAction
       set({ 
         isAuthed: true,
         authReady: true, // Mark auth as ready when state is set
         authOpen: false, 
         authEntryOpen: false, 
         authPasswordOpen: false, 
-        phoneSignupOpen: false 
+        phoneSignupOpen: false,
+        pendingAuthAction: null,
       })
+      if (pending) queueMicrotask(pending)
     } else {
       // User signed out
       set({ isAuthed: false, authReady: true }) // Mark auth as ready even on sign-out
@@ -143,12 +148,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   requireAuth: (onAuthed) => {
     const { isAuthed, openAuthEntry } = get()
-    if (!isAuthed) {
-      prefetchAuthImages() // Prefetch auth backgrounds before opening
-      openAuthEntry()
-    } else {
+    if (isAuthed) {
       onAuthed()
+      return
     }
+    set({ pendingAuthAction: onAuthed })
+    prefetchAuthImages()
+    openAuthEntry()
   },
   setPhoneSignupPhone: (phone) => set({ phoneSignupPhone: phone }),
   setPhoneConfirmationResult: (result) => set({ phoneConfirmationResult: result }),

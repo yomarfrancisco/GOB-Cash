@@ -55,7 +55,12 @@ import { submitInternalConversion } from '@/lib/transactions/submitInternalConve
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { prefetchActionSheetIcons } from '@/lib/prefetchActionSheetIcons'
-import { parseAgentCashQr } from '@/lib/agentCashQr'
+import {
+  parseAgentCashQr,
+  saveCashPayIntent,
+  clearCashPayIntent,
+  resolveCashPayIntent,
+} from '@/lib/agentCashQr'
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
@@ -73,6 +78,8 @@ function HomeContent() {
   const scrollContentRef = useRef<HTMLDivElement | null>(null)
   const { setOnSelect, open } = useTransactSheet()
   const { guardAuthed, isAuthed, requireAuth } = useRequireAuth()
+  const authReady = useAuthStore((state) => state.authReady)
+  const openAuthEntryLogin = useAuthStore((state) => state.openAuthEntryLogin)
   const { profile } = useUserProfileStore()
   const { startCashDepositScenario, startCashWithdrawalScenario } = useFinancialInboxStore()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
@@ -128,11 +135,12 @@ function HomeContent() {
   const [agentCashKeypad, setAgentCashKeypad] = useState(false)
   const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
   const openedCashFromUrl = useRef(false)
+  const promptedCashAuthRef = useRef(false)
 
   const openConversionKeypad = useCallback((agentCash = false, handle?: string | null) => {
     playDollarSound()
     setAgentCashKeypad(agentCash)
-    setAgentCashHandle(agentCash && handle ? handle.replace(/^@/, '') : null)
+    setAgentCashHandle(agentCash && handle ? handle.replace(/^[@$]/, '') : null)
     setConversionDestination(conversionDestinationFromTopCard(topCardType))
     setAmountMode('convert')
     setAmountEntryPoint('conversionKeypad')
@@ -140,24 +148,30 @@ function HomeContent() {
   }, [playDollarSound, topCardType])
 
   useEffect(() => {
-    const cash = new URLSearchParams(window.location.search).get('cash')
-    if (!cash) return
+    if (!authReady) return
 
-    const open = () => {
-      if (openedCashFromUrl.current) return
-      openedCashFromUrl.current = true
-      const url = new URL(window.location.href)
-      url.searchParams.delete('cash')
-      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
-      openConversionKeypad(true, cash)
-    }
+    const handle = resolveCashPayIntent()
+    if (!handle) return
+    saveCashPayIntent(handle)
 
     if (!isAuthed) {
-      requireAuth(open)
+      if (!promptedCashAuthRef.current) {
+        promptedCashAuthRef.current = true
+        openAuthEntryLogin()
+      }
       return
     }
-    open()
-  }, [isAuthed, openConversionKeypad, requireAuth])
+
+    if (openedCashFromUrl.current) return
+    openedCashFromUrl.current = true
+    clearCashPayIntent()
+    const url = new URL(window.location.href)
+    if (url.searchParams.has('cash')) {
+      url.searchParams.delete('cash')
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    }
+    openConversionKeypad(true, handle)
+  }, [authReady, isAuthed, openConversionKeypad, openAuthEntryLogin])
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
   const [depositAmountUSDT, setDepositAmountUSDT] = useState(0)

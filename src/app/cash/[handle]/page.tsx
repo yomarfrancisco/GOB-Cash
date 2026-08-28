@@ -1,17 +1,19 @@
-'use client'
+import type { Metadata } from 'next'
+import CashPayLanding from './CashPayLanding'
 
-import { useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+type Props = {
+  params: { handle: string }
+}
 
-/** Native-camera scans of an agent QR land here, then open the Cash keypad on home. */
-export default function AgentCashQrLandingPage() {
-  const params = useParams<{ handle: string }>()
-  const router = useRouter()
+export function generateMetadata({ params }: Props): Metadata {
+  const handle = decodeURIComponent(params.handle || '').replace(/^[@$]+/, '')
+  const titleHandle = handle ? `@${handle}` : 'Cash ID'
+  return {
+    title: `Pay ${titleHandle} — GoBankless`,
+    description: `Send cash to ${titleHandle} with GoBankless.`,
+  }
+}
 
-  useEffect(() => {
-    const handle = typeof params.handle === 'string' ? params.handle : ''
-    router.replace(`/?cash=${encodeURIComponent(handle)}`)
-  }, [params.handle, router])
-
-  return null
+export default function CashPayPage({ params }: Props) {
+  return <CashPayLanding handleParam={params.handle} />
 }

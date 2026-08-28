@@ -17,24 +17,6 @@ function createQrSymbol(text: string, options: { errorCorrectionLevel: 'H' }): Q
 const CASH_ID_PINK = '#FF2D55'
 const CASH_ID_DARK = '#111111'
 
-function roundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-) {
-  const radius = Math.min(r, w / 2, h / 2)
-  ctx.beginPath()
-  ctx.moveTo(x + radius, y)
-  ctx.arcTo(x + w, y, x + w, y + h, radius)
-  ctx.arcTo(x + w, y + h, x, y + h, radius)
-  ctx.arcTo(x, y + h, x, y, radius)
-  ctx.arcTo(x, y, x + w, y, radius)
-  ctx.closePath()
-}
-
 function inFinder(row: number, col: number, n: number): boolean {
   return (row < 7 && col < 7) || (row < 7 && col >= n - 7) || (row >= n - 7 && col < 7)
 }
@@ -45,18 +27,14 @@ function drawFinder(
   originY: number,
   cell: number
 ) {
+  // Square finders (1:1:3:1:1) so stock phone cameras can lock on the code.
   const size = cell * 7
   ctx.fillStyle = CASH_ID_PINK
-  roundedRect(ctx, originX, originY, size, size, cell * 1.2)
-  ctx.fill()
-
+  ctx.fillRect(originX, originY, size, size)
   ctx.fillStyle = '#ffffff'
-  roundedRect(ctx, originX + cell, originY + cell, cell * 5, cell * 5, cell * 0.85)
-  ctx.fill()
-
+  ctx.fillRect(originX + cell, originY + cell, cell * 5, cell * 5)
   ctx.fillStyle = CASH_ID_PINK
-  roundedRect(ctx, originX + cell * 2, originY + cell * 2, cell * 3, cell * 3, cell * 0.7)
-  ctx.fill()
+  ctx.fillRect(originX + cell * 2, originY + cell * 2, cell * 3, cell * 3)
 }
 
 /**
@@ -65,7 +43,7 @@ function drawFinder(
 export async function generateStyledCashIdQr(text: string, size: number = 880): Promise<string> {
   const qr = createQrSymbol(text, { errorCorrectionLevel: 'H' })
   const n = qr.modules.size
-  const quiet = 2
+  const quiet = 4
   const cell = size / (n + quiet * 2)
 
   const canvas = document.createElement('canvas')
