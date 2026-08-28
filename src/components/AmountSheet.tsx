@@ -35,7 +35,7 @@ type AmountSheetProps = {
   sponsorHandle?: string // profile handle for sponsor flow (e.g. '@ama')
   onWeeklySubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Weekly button (sponsor flow)
   onMonthlySubmit?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number; mode?: string }) => void // callback for Monthly button (sponsor flow)
-  onScanClick?: () => void // callback for scan icon (only shown for cashButton entryPoint)
+  onScanClick?: () => void // scan icon on lime / pink conversion keypads
   initialAmount?: number // optional initial amount to pre-fill (for back navigation)
   withdrawOnly?: boolean // if true, force single CTA button and skip dual-button logic
   onHelicopterWithdraw?: (payload: { amountMZN: number; amountZAR: number; amountUSDT?: number }) => void // callback for helicopter "Withdraw Cash" button
@@ -278,8 +278,7 @@ export default function AmountSheet({
   // Format amount for display (remove leading zeros except "0.")
   const displayAmount = amount === '0' ? '0' : amount.replace(/^0+(?=\d)/, '')
 
-  // Show scan icon only for cashButton entryPoint
-  const showScanIcon = entryPoint === 'cashButton' && onScanClick
+  const showScanIcon = Boolean(onScanClick) && (isConversionKeypad || entryPoint === 'cashButton')
   const hideModeLabel = entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || isConversionKeypad || isWithdrawKeypad
 
   // Lime when converting from Metical; light pink when converting from Rand.

@@ -618,11 +618,7 @@ function HomeContent() {
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
             <div className="overlay-glass-inner">
-              <TopGlassBar onScanClick={() => {
-                guardAuthed(() => {
-                  setIsScannerOpen(true)
-                })
-              }} />
+              <TopGlassBar />
               <BottomGlassBar 
                 currentPath="/" 
                 onDollarClick={() => {
@@ -942,19 +938,19 @@ function HomeContent() {
               ? fxRates.rates.MZN
               : undefined
         }
-        onScanClick={amountEntryPoint === 'cashButton' ? () => {
-          guardAuthed(() => {
-            // 1) Close the keypad sheet first
-            setOpenAmount(false)
-            setAmountEntryPoint(undefined)
-            
-            // 2) After the close animation starts, open the scanner
-            //    Small timeout (~220ms) to match other sheet transitions
-            setTimeout(() => {
-              setIsScannerOpen(true)
-            }, 220)
-          })
-        } : undefined}
+        onScanClick={
+          amountEntryPoint === 'cashButton' || amountEntryPoint === 'conversionKeypad'
+            ? () => {
+                guardAuthed(() => {
+                  setOpenAmount(false)
+                  setAmountEntryPoint(undefined)
+                  setTimeout(() => {
+                    setIsScannerOpen(true)
+                  }, 220)
+                })
+              }
+            : undefined
+        }
         onCashSubmit={amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountMZN, amountZAR }) => {
           // Cash button flow ("Request"): open PaymentDetailsSheet
           setOpenAmount(false)

@@ -595,11 +595,7 @@ export default function ProfileClient() {
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
             <div className="overlay-glass-inner">
-              <TopGlassBar onScanClick={() => {
-                guardAuthed(() => {
-                  setIsScannerOpen(true)
-                })
-              }} />
+              <TopGlassBar />
               <BottomGlassBar 
                 currentPath="/profile" 
                 onDollarClick={() => {
@@ -1210,19 +1206,19 @@ export default function ProfileClient() {
         }
         depositMethod={depositMethod}
         customFeeText={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'excl. 3% transaction fee' : undefined}
-        onScanClick={amountEntryPoint === 'cashButton' ? () => {
-          guardAuthed(() => {
-            // 1) Close the keypad sheet first
-            setOpenAmount(false)
-            setAmountEntryPoint(undefined)
-            
-            // 2) After the close animation starts, open the scanner
-            //    Small timeout (~220ms) to match other sheet transitions
-            setTimeout(() => {
-              setIsScannerOpen(true)
-            }, 220)
-          })
-        } : undefined}
+        onScanClick={
+          amountEntryPoint === 'cashButton' || amountEntryPoint === 'conversionKeypad'
+            ? () => {
+                guardAuthed(() => {
+                  setOpenAmount(false)
+                  setAmountEntryPoint(undefined)
+                  setTimeout(() => {
+                    setIsScannerOpen(true)
+                  }, 220)
+                })
+              }
+            : undefined
+        }
         onCashSubmit={amountMode === 'convert' ? ({ amountMZN, amountZAR }) => {
           // Cash convert flow ("Request" button): open PaymentDetailsSheet
           setOpenAmount(false)
