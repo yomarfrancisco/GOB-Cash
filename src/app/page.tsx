@@ -658,28 +658,6 @@ function HomeContent() {
                 <div className="frame-parent">
                   <div className="wallet-header">
                     <h1 className="wallet-title">{title}</h1>
-                    <div
-                      className="help-icon"
-                      onClick={() => {
-                        // ? info chips remain accessible without auth (read-only information)
-                        if (!topCardType) return
-                        setHelperWalletKey(topCardType)
-                        setIsHelperOpen(true)
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          if (!topCardType) return
-                          setHelperWalletKey(topCardType)
-                          setIsHelperOpen(true)
-                        }
-                      }}
-                      aria-label="Help"
-                    >
-                      ?
-                    </div>
                   </div>
                   <div className="wallet-subtitle-container">
                     <span className="wallet-subtitle">{subtitleText}</span>
