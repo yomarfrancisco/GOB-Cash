@@ -538,14 +538,14 @@ export default function CardStackCard({
 
     if (card.type === 'mzn') {
       return {
-        strong: 'SELL@',
+        strong: 'SELL',
         label: `${quotedMznPerZar.toFixed(2)}Mt/R`,
       }
     }
 
     if (card.type === 'savings') {
       return {
-        strong: 'BUY@',
+        strong: 'BUY',
         label: `${quotedMznPerZar.toFixed(2)}Mt/R`,
       }
     }
