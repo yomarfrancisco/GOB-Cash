@@ -185,13 +185,12 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Save the on-screen Cash ID (QR + center avatar) as a PNG.
+ * Render the on-screen Cash ID (QR + center avatar) as a PNG data URL.
  */
-export async function downloadCashIdPng(options: {
+export async function renderCashIdPngDataUrl(options: {
   qrDataURL: string
   avatarUrl?: string | null
-  filename?: string
-}): Promise<void> {
+}): Promise<string> {
   const size = 880
   const canvas = document.createElement('canvas')
   canvas.width = size
@@ -225,6 +224,18 @@ export async function downloadCashIdPng(options: {
     // Avatar may be cross-origin; QR alone is still a valid Cash ID.
   }
 
-  downloadQRCode(canvas.toDataURL('image/png'), options.filename || 'cash-id.png')
+  return canvas.toDataURL('image/png')
+}
+
+/**
+ * Save the on-screen Cash ID (QR + center avatar) as a PNG.
+ */
+export async function downloadCashIdPng(options: {
+  qrDataURL: string
+  avatarUrl?: string | null
+  filename?: string
+}): Promise<void> {
+  const dataUrl = await renderCashIdPngDataUrl(options)
+  downloadQRCode(dataUrl, options.filename || 'cash-id.png')
 }
 

@@ -4,16 +4,19 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
-import { downloadCashIdPng, generateStyledCashIdQr } from '@/lib/qr'
+import { downloadCashIdZip } from '@/lib/cashIdPack'
+import { generateStyledCashIdQr } from '@/lib/qr'
 import { buildAgentCashUrl } from '@/lib/agentCashQr'
 import { useNotificationStore } from '@/store/notifications'
+import { useUserProfileStore } from '@/store/userProfile'
 import Avatar from './Avatar'
 import styles from './ShareProfileSheet.module.css'
 
 const QR_AVATAR_SIZE = 40
 
 export default function ShareProfileSheet() {
-  const { isOpen, close, subject } = useShareProfileSheet()
+  const { isOpen, close, subject, mode } = useShareProfileSheet()
+  const { profile } = useUserProfileStore()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
   const [qrDataURL, setQrDataURL] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
@@ -53,15 +56,26 @@ export default function ShareProfileSheet() {
   const avatarUrl = subject?.avatarUrl || undefined
   const avatarName = subject?.fullName || undefined
   const fileHandle = subjectHandle.replace(/^@/, '') || 'cash-id'
+  const isSelf =
+    mode === 'self' ||
+    profile.userHandle.replace(/^@/, '').toLowerCase() === fileHandle.toLowerCase()
+  const packFullName = (subject.fullName || (isSelf ? profile.fullName : '') || '').trim()
+  const packEmail = isSelf ? profile.email?.trim() : undefined
+  const packWhatsapp = isSelf ? profile.whatsappUrl?.trim() : undefined
 
   const handleDownload = async () => {
     if (!qrDataURL || downloading) return
     setDownloading(true)
     try {
-      await downloadCashIdPng({
+      await downloadCashIdZip({
         qrDataURL,
-        avatarUrl,
-        filename: `cash-id-${fileHandle}.png`,
+        profile: {
+          handle: subjectHandle,
+          avatarUrl,
+          fullName: packFullName || undefined,
+          email: packEmail || undefined,
+          whatsapp: packWhatsapp || undefined,
+        },
       })
     } catch (error) {
       console.error('Failed to download Cash ID:', error)
