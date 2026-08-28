@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { downloadCashIdPng, generateStyledCashIdQr } from '@/lib/qr'
@@ -22,6 +23,7 @@ export default function ShareProfileSheet() {
     : subject?.handle
       ? `@${subject.handle}`
       : '@samakoyo'
+  const displayHandle = subjectHandle
   const cashUrl = buildAgentCashUrl(subjectHandle)
 
   useEffect(() => {
@@ -76,6 +78,16 @@ export default function ShareProfileSheet() {
   return (
     <ActionSheet open={isOpen} onClose={close} title="" size="tall" className="share-sheet">
       <div className={styles.content}>
+        <Image
+          src="/assets/Cash_ID.png"
+          alt="Cash ID"
+          className={styles.titleMark}
+          width={200}
+          height={100}
+          priority
+          unoptimized
+        />
+
         <div className={styles.qrContainer}>
           <div className={styles.qrStage}>
             {qrDataURL ? (
@@ -96,6 +108,8 @@ export default function ShareProfileSheet() {
             )}
           </div>
         </div>
+
+        <div className={styles.handleText}>{displayHandle}</div>
 
         <button
           type="button"

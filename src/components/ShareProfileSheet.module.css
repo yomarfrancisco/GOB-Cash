@@ -10,6 +10,15 @@
   gap: 0;
 }
 
+.titleMark {
+  display: block;
+  width: 200px;
+  height: auto;
+  max-width: 72%;
+  margin: 0 auto 12px;
+  object-fit: contain;
+}
+
 /* QR Block — lime brand frame around the white code */
 .qrContainer {
   width: 260px;
@@ -21,7 +30,7 @@
   align-items: center;
   justify-content: center;
   padding: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .qrStage {
@@ -61,6 +70,18 @@
   border-radius: 50%;
   box-shadow: 0 0 0 3px #ffffff;
   line-height: 0;
+}
+
+.handleText {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.25;
+  color: #000000;
+  text-align: center;
+  margin: 16px 0 24px;
+  letter-spacing: -0.02em;
+  user-select: none;
 }
 
 .downloadButton {
