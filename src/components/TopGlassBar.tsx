@@ -2,26 +2,16 @@
 
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { QrCode } from 'lucide-react'
-import { useShareProfileSheet } from '@/store/useShareProfileSheet'
-import { useRequireAuth } from '@/hooks/useRequireAuth'
-import { useUserProfileStore } from '@/store/userProfile'
-
-// QR on the top-right of the glass bar.
-const SHOW_TOP_BAR_ACTIONS = true
 
 type TopGlassBarProps = {
   hideLogo?: boolean // Hide logo for third-party profiles
   glassShardSrc?: string // Custom glass shard image path
-  hideIcons?: boolean // Hide icons for third-party profiles (to use separate white icons)
+  hideIcons?: boolean // Kept for third-party profiles that used to overlay their own icons
 }
 
-export default function TopGlassBar({ hideLogo = false, glassShardSrc, hideIcons = false }: TopGlassBarProps = {}) {
+export default function TopGlassBar({ hideLogo = false, glassShardSrc }: TopGlassBarProps = {}) {
   const pathname = usePathname()
   const isActivityPage = pathname === '/activity'
-  const { open } = useShareProfileSheet()
-  const { guardAuthed } = useRequireAuth()
-  const { profile } = useUserProfileStore()
 
   const defaultGlassShard = '/assets/core/glass-top-4.png'
   const glassShard = glassShardSrc || defaultGlassShard
@@ -74,33 +64,6 @@ export default function TopGlassBar({ hideLogo = false, glassShardSrc, hideIcons
           />
         )
       )}
-      {SHOW_TOP_BAR_ACTIONS && !hideIcons && (
-        <div className="icons">
-          <div className="icon-group">
-            <button
-              onClick={() => {
-                guardAuthed(() => {
-                  open({
-                    subject: {
-                      handle: profile.userHandle || '@samakoyo',
-                      avatarUrl: profile.avatarUrl,
-                      fullName: profile.fullName,
-                    },
-                    mode: 'self',
-                  })
-                })
-              }}
-              className="icon-button"
-              aria-label="Show QR code"
-              type="button"
-              style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
-            >
-              <QrCode className="icon" size={24} strokeWidth={2} color="#242424" />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
-

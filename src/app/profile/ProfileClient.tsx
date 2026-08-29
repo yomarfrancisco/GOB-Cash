@@ -27,12 +27,12 @@ import { ScanOverlay } from '@/components/ScanOverlay'
 import { ScanQrSheet } from '@/components/ScanQrSheet'
 import { parseAgentCashQr } from '@/lib/agentCashQr'
 import { formatUSDT } from '@/lib/money'
-import { useProfileEditSheet } from '@/store/useProfileEditSheet'
+import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useWalletStore } from '@/store/wallets'
 import { useSupportSheet } from '@/store/useSupportSheet'
-import { CreditCard, Phone, LogOut, PiggyBank, Receipt, Edit3, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
+import { CreditCard, Phone, LogOut, PiggyBank, Receipt, QrCode, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
 import LockOverlay from '@/components/LockOverlay'
 // Crypto deposit removed - no longer needed
 import PaymentsSheet from '@/components/PaymentsSheet'
@@ -391,7 +391,7 @@ export default function ProfileClient() {
     }
   }, [searchParams, isAuthed, authReady, router])
 
-  const { open: openProfileEdit } = useProfileEditSheet()
+  const { open: openShareProfile } = useShareProfileSheet()
   const { setOnSelect, open } = useTransactSheet()
   const { profile, setProfile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
@@ -804,16 +804,23 @@ export default function ProfileClient() {
                     className="profile-settings-row"
                     onClick={() => {
                       guardAuthed(() => {
-                        openProfileEdit()
+                        openShareProfile({
+                          subject: {
+                            handle: profile.userHandle || '@samakoyo',
+                            avatarUrl: profile.avatarUrl,
+                            fullName: profile.fullName,
+                          },
+                          mode: 'self',
+                        })
                       })
                     }}
                     type="button"
                   >
                     <div className="profile-settings-left">
                       <div className="profile-settings-icon">
-                        <Edit3 size={22} strokeWidth={2} style={{ color: '#111' }} />
+                        <QrCode size={22} strokeWidth={2} style={{ color: '#111' }} />
                       </div>
-                      <span className="profile-settings-label">Edit profile</span>
+                      <span className="profile-settings-label">Cash ID</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
