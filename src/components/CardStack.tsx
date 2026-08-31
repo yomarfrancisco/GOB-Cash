@@ -84,8 +84,8 @@ const allCardsData: CardData[] = [
   },
 ]
 
-// Only the Mozambique and South Africa cash cards are visible.
-const HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd', 'yieldSurprise']
+// Mozambique and South Africa cash cards plus the Rewards card.
+const HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd']
 const cardsData: CardData[] = allCardsData.filter((card) => !HIDDEN_CARD_TYPES.includes(card.type))
 
 // Card labels mapping
