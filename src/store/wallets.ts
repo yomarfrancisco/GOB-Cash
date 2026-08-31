@@ -66,7 +66,7 @@ const demoWallets: Partial<WalletMap> = {
   earnings: {
     walletId: 'earnings',
     kind: 'earnings',
-    displayCurrency: 'ZAR',
+    displayCurrency: 'MZN',
     fiatBalance: 0,
     usdtBalance: 0,
     apy: 9.38,

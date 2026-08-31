@@ -70,13 +70,13 @@ const CARD_LABELS: Record<CardType, string> = {
   yieldSurprise: 'REWARDS', // Agent rewards card
 }
 
-const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents'> = {
+const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents' | 'earningsCents'> = {
   savings: 'cashCents',
   zwd: 'zwdCents',
   yield: 'ethCents',
   mzn: 'mznCents',
   btc: 'btcCents',
-  yieldSurprise: 'ethCents', // Reuse yield card allocation (ethCents)
+  yieldSurprise: 'earningsCents',
 }
 
 const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC' | 'USD'> = {
@@ -85,7 +85,7 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC' | 
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
-  yieldSurprise: 'ETH', // Reuse yield card symbol (ETH)
+  yieldSurprise: 'MZN',
 }
 
 // Flag mapping by currency
@@ -103,15 +103,14 @@ const COIN_BY_CARD: Record<CardType, { src: string; id: string; label: string } 
   yield: { src: '/assets/eth_coin.png', id: 'coin-eth', label: 'ETH' },
   mzn: null, // Uses flag
   btc: { src: '/assets/Bitcoin-Logo.png', id: 'coin-btc', label: 'BTC' },
-  yieldSurprise: null, // Uses flag (ZAR) instead of coin
+  yieldSurprise: null, // Uses Mozambique flag
 }
 
 // Determine currency for card type (for flags)
 const getCardCurrency = (cardType: CardType): string | null => {
   if (cardType === 'savings') return 'ZAR'
-  if (cardType === 'mzn') return 'MZN'
+  if (cardType === 'mzn' || cardType === 'yieldSurprise') return 'MZN'
   if (cardType === 'zwd') return 'USD'
-  if (cardType === 'yieldSurprise') return 'ZAR' // CREDIT CARD uses ZAR flag
   return null // yield and btc use coin badges instead
 }
 
@@ -269,7 +268,7 @@ export default function CardStackCard({
     if (currency) {
       const flagInfo = FLAG_BY_CCY[currency]
       if (flagInfo) {
-        const el = document.getElementById(flagInfo.id)
+        const el = document.getElementById(`${flagInfo.id}-${card.type}`)
         if (el) {
           const r = el.getBoundingClientRect()
           // eslint-disable-next-line no-console
@@ -344,6 +343,7 @@ export default function CardStackCard({
   }
   
   const zar = cents / 100
+  const isMeticalAmount = card.type === 'mzn' || card.type === 'yieldSurprise'
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
@@ -352,7 +352,7 @@ export default function CardStackCard({
     liveMzn,
     card.type === 'savings' ? 'MZN' : 'ZAR'
   )
-  const convertedAmount = card.type === 'mzn'
+  const convertedAmount = isMeticalAmount
     ? mznToZar(zar, quotedMznPerZar)
     : card.type === 'savings'
       ? zarToMzn(zar, quotedMznPerZar)
@@ -681,7 +681,7 @@ export default function CardStackCard({
               <div className="card-currency-chip" aria-hidden>
                 <span className="flag-wrap">
                   <img
-                    id={flagInfo.id}
+                    id={`${flagInfo.id}-${card.type}`}
                     src={flagInfo.src}
                     alt={currency === 'ZAR' ? 'South Africa flag' : currency === 'MZN' ? 'Mozambique flag' : currency === 'USD' ? 'United States flag' : 'Flag'}
                     className="flag-icon"
@@ -726,12 +726,12 @@ export default function CardStackCard({
             // Placeholder/skeleton while auth state is loading
             <>
               <div className="card-amounts__zar amount-headline" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span className="amt-int card-amounts__whole">{card.type === 'mzn' ? 'Mt 0' : 'R 0'}</span>
+                <span className="amt-int card-amounts__whole">{isMeticalAmount ? 'Mt 0' : 'R 0'}</span>
                 <span className="amt-dot card-amounts__dot">.</span>
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span>0.00 {card.type === 'mzn' ? 'ZAR' : 'MZN'}</span>
+                <span>0.00 {isMeticalAmount ? 'ZAR' : 'MZN'}</span>
               </div>
             </>
           ) : (
@@ -742,7 +742,7 @@ export default function CardStackCard({
                   'flash-down': flashDirection === 'down',
                   'amount-topline--compact': shouldUseCompactSizing,
                 })}
-                aria-label={`${zar.toFixed(2)} ${card.type === 'mzn' ? 'meticais' : 'rand'}`}
+                aria-label={`${zar.toFixed(2)} ${isMeticalAmount ? 'meticais' : 'rand'}`}
                 onAnimationEnd={onFlashEnd}
                 suppressHydrationWarning
               >
@@ -757,7 +757,7 @@ export default function CardStackCard({
                   }}
                   renderMajor={(major) => (
                     <span className="amt-int card-amounts__whole" suppressHydrationWarning>
-                      {card.type === 'mzn' ? `Mt ${major}` : card.type === 'savings' ? `R ${major}` : major}
+                      {isMeticalAmount ? `Mt ${major}` : card.type === 'savings' ? `R ${major}` : major}
                     </span>
                   )}
                   renderCents={(cents) => (
@@ -770,7 +770,7 @@ export default function CardStackCard({
               </div>
               <div
                 className="card-amounts__usdt"
-                aria-label={`${convertedAmount.toFixed(2)} ${card.type === 'mzn' ? 'ZAR' : 'MZN'}`}
+                aria-label={`${convertedAmount.toFixed(2)} ${isMeticalAmount ? 'ZAR' : 'MZN'}`}
                 suppressHydrationWarning
               >
                 <SlotCounter 
@@ -780,7 +780,7 @@ export default function CardStackCard({
                   durationMs={isBalanceReady ? 700 : 0} 
                   className="card-amounts__usdt-value" 
                 />
-                <span style={{ marginLeft: '4px' }}>{card.type === 'mzn' ? 'ZAR' : 'MZN'}</span>
+                <span style={{ marginLeft: '4px' }}>{isMeticalAmount ? 'ZAR' : 'MZN'}</span>
               </div>
             </>
           )}

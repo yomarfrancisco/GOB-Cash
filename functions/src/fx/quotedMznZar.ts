@@ -37,6 +37,11 @@ export function quoteMznPerZar(apiMznPerZar: number, markup = MZN_ZAR_MARKUP): n
   return apiMznPerZar * markup
 }
 
+export function mznRewardsFromZar(amountZar: number, sellRate: number, buyRate: number): number {
+  if (!Number.isFinite(amountZar) || amountZar <= 0) return 0
+  return Math.round(amountZar * Math.max(0, sellRate - buyRate) * 100) / 100
+}
+
 export async function fetchQuotedMznPerZar(markup = MZN_ZAR_MARKUP): Promise<number> {
   const now = Date.now()
   if (cached && now - cached.at < CACHE_MS) {

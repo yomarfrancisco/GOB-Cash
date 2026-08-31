@@ -33,3 +33,16 @@ export const zarToMzn = (amountZAR: number, rateMZNperZAR = MZN_PER_ZAR) =>
   amountZAR * rateMZNperZAR
 
 export const zarToUsdt = (amountZAR: number) => amountZAR / ZAR_PER_USDT
+
+/** Sell Mt/R (receive ZAR) minus buy Mt/R (receive MZN). */
+export function mznBuySellSpreadPerZar(quotedReceiveZar: number): number {
+  const sell = quotedMznPerZarForDestination(quotedReceiveZar, 'ZAR')
+  const buy = quotedMznPerZarForDestination(quotedReceiveZar, 'MZN')
+  return Math.max(0, sell - buy)
+}
+
+/** Rewards in MZN when selling rands into metical. */
+export function mznRewardsFromZar(amountZAR: number, quotedReceiveZar: number): number {
+  if (!Number.isFinite(amountZAR) || amountZAR <= 0) return 0
+  return Math.round(amountZAR * mznBuySellSpreadPerZar(quotedReceiveZar) * 100) / 100
+}

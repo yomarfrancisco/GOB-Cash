@@ -115,7 +115,7 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC'> =
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
-  yieldSurprise: 'ETH', // Reuse yield card symbol (ETH)
+  yieldSurprise: 'MZN',
 }
 
 interface CardStackProps {
