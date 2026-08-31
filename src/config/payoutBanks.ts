@@ -10,12 +10,13 @@ export const MOZAMBIQUE_PAYOUT_BANKS: PayoutBank[] = [
   { name: 'FNB Mozambique', swift: 'FIRNMZMX', logo: '/assets/fnb_logo.png' },
   { name: 'Millennium BIM', swift: 'BIMOMZMXXXX', logo: '/assets/BIM_LOGO.png' },
   { name: 'Moza Banco', swift: 'MOZAMZMA', logo: '/assets/moza_logo.png' },
+  { name: 'Nedbank', swift: 'UNICMZMX', logo: '/assets/Nedbank.png' },
+  { name: 'Standard Bank', swift: 'SBICMZMX', logo: '/assets/standardBank.png' },
   { name: 'Vista Bank', swift: 'VSTBMZMA', logo: '/assets/vista_logo.png' },
 ]
 
 export const SOUTH_AFRICA_PAYOUT_BANKS: PayoutBank[] = [
   { name: 'Absa', swift: 'ABSAZAJJ', logo: '/assets/ABSA_logo.png' },
-  { name: 'African Bank', swift: 'AFRCZAJJ', logo: '/assets/African-Bank-Logo.png' },
   { name: 'Capitec', swift: 'CABLZAJJ', logo: '/assets/capitec.png' },
   { name: 'Discovery Bank', swift: 'DISCZAJJ', logo: '/assets/Discoverybank.png' },
   { name: 'FNB', swift: 'FIRNZAJJ', logo: '/assets/fnb_logo.png' },
