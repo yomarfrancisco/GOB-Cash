@@ -67,7 +67,7 @@ export const ScanQrSheet: React.FC<ScanQrSheetProps> = ({ isOpen, onClose }) => 
   return (
     <ActionSheet
       open={isOpen}
-      title="Pay a Cash ID"
+      title="Scan Agent QR to Exchange in Cash"
       onClose={onClose}
       size="tall"
       className={styles.sheet}

@@ -95,7 +95,7 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({ isOpen, onClose, onSca
       </div>
 
       {/* Label */}
-      <div className={styles.label}>Pay a Cash ID</div>
+      <div className={styles.label}>Scan Agent QR to Exchange in Cash</div>
 
       {/* Close button */}
       <button
