@@ -15,14 +15,14 @@ export const MOZAMBIQUE_PAYOUT_BANKS: PayoutBank[] = [
 
 export const SOUTH_AFRICA_PAYOUT_BANKS: PayoutBank[] = [
   { name: 'Absa', swift: 'ABSAZAJJ', logo: '/assets/ABSA_logo.png' },
-  { name: 'African Bank', swift: 'AFRCZAJJ' },
-  { name: 'Capitec', swift: 'CABLZAJJ' },
-  { name: 'Discovery Bank', swift: 'DISCZAJJ' },
+  { name: 'African Bank', swift: 'AFRCZAJJ', logo: '/assets/African-Bank-Logo.png' },
+  { name: 'Capitec', swift: 'CABLZAJJ', logo: '/assets/capitec.png' },
+  { name: 'Discovery Bank', swift: 'DISCZAJJ', logo: '/assets/Discoverybank.png' },
   { name: 'FNB', swift: 'FIRNZAJJ', logo: '/assets/fnb_logo.png' },
-  { name: 'Investec', swift: 'IVESZAJJ' },
-  { name: 'Nedbank', swift: 'NEDSZAJJ' },
-  { name: 'Standard Bank', swift: 'SBZAZAJJ' },
-  { name: 'TymeBank', swift: 'TYMBZAJJ' },
+  { name: 'Investec', swift: 'IVESZAJJ', logo: '/assets/Investec.png' },
+  { name: 'Nedbank', swift: 'NEDSZAJJ', logo: '/assets/Nedbank.png' },
+  { name: 'Standard Bank', swift: 'SBZAZAJJ', logo: '/assets/standardBank.png' },
+  { name: 'TymeBank', swift: 'TYMBZAJJ', logo: '/assets/tymebank.png' },
 ]
 
 export function getPayoutBanks(country: 'Mozambique' | 'South Africa'): PayoutBank[] {
