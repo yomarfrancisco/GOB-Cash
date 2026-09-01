@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import type { StaticImageData } from 'next/image'
-import { useRef, useEffect, useState, useMemo } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import SlotCounter from './SlotCounter'
 import { formatZAR, formatUSDT as formatConvertedAmount } from '@/lib/formatCurrency'
 import { mznToZar, zarToMzn, quotedMznPerZarForDestination } from '@/lib/mznZar'
@@ -21,16 +21,6 @@ import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { applyFeeToRate } from '@/lib/exchangeRates/applyFeeToRate'
 
 const FX_USD_ZAR_DEFAULT = 18.1
-
-function getSecondsUntil17hReset(): number {
-  const now = new Date()
-  const next = new Date(now)
-  next.setHours(17, 0, 0, 0)
-  if (now.getTime() >= next.getTime()) {
-    next.setDate(next.getDate() + 1)
-  }
-  return Math.max(0, Math.floor((next.getTime() - now.getTime()) / 1000))
-}
 
 type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
@@ -59,15 +49,6 @@ const HEALTH_STATUS: Record<HealthLevel, string> = {
   moderate: 'Watching closely',
   caution: 'Moved to safety',
   fragile: 'High risk',
-}
-
-const CARD_LABELS: Record<CardType, string> = {
-  savings: 'CASH CARD', // ZAR fiat card
-  mzn: 'CASH CARD', // MZN fiat card
-  zwd: 'CASH CARD', // ZWD fiat card
-  yield: 'CRYPTO CARD', // ETH crypto card
-  btc: 'CRYPTO CARD', // BTC crypto card
-  yieldSurprise: 'EARNINGS', // Agent earnings card
 }
 
 const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents' | 'earningsCents'> = {
@@ -495,7 +476,7 @@ export default function CardStackCard({
     mzn: 'MZN', // Show MZN = 1 ZAR
     yield: null, // Crypto card, keep APY
     btc: null, // Crypto card, keep APY
-    yieldSurprise: null, // Countdown timer, skip exchange rate
+    yieldSurprise: null, // Rewards pill, skip exchange rate
   }
 
   // Get card definition for annual yield (fallback)
@@ -504,35 +485,12 @@ export default function CardStackCard({
   const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
   const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
 
-  // Rewards card countdown: 24h cycle that resets at 17:00 local time
-  // MUST be declared BEFORE getPillContent() to avoid TDZ error
-  const [countdown, setCountdown] = useState(getSecondsUntil17hReset)
-  
-  useEffect(() => {
-    if (card.type !== 'yieldSurprise') return
-
-    setCountdown(getSecondsUntil17hReset())
-    const id = setInterval(() => {
-      setCountdown(getSecondsUntil17hReset())
-    }, 1000)
-    
-    return () => clearInterval(id)
-  }, [card.type])
-  
-  const formattedCountdown = useMemo(() => {
-    if (card.type !== 'yieldSurprise') return null
-    const hours = Math.floor(countdown / 3600)
-    const minutes = Math.floor((countdown % 3600) / 60)
-    return `${hours}h${minutes.toString().padStart(2, '0')}`
-  }, [countdown, card.type])
-
   // Determine what to display in the pill
   const getPillContent = (): { strong: string; label: string } => {
-    // Special case: yieldSurprise shows countdown
-    if (card.type === 'yieldSurprise' && formattedCountdown) {
+    if (card.type === 'yieldSurprise') {
       return {
-        strong: formattedCountdown,
-        label: 'left',
+        strong: 'REWARDS',
+        label: '',
       }
     }
 
@@ -787,11 +745,7 @@ export default function CardStackCard({
         </div>
       )}
 
-      {card.type === 'yieldSurprise' && (
-        <div className="card-label">{CARD_LABELS[card.type]}</div>
-      )}
-
-      {/* Bottom-left annual yield pill or countdown timer */}
+      {/* Bottom-left annual yield pill or Rewards label */}
       <div
         className={pillClassName}
         onClick={handlePillDoubleTap}
@@ -800,10 +754,15 @@ export default function CardStackCard({
         <span className="card-allocation-pill__text">
           <span className="card-allocation-pill__yield-strong">
             {pillContent.strong}
-          </span>{' '}
-          <span className="card-allocation-pill__yield-label">
-            {pillContent.label}
           </span>
+          {pillContent.label ? (
+            <>
+              {' '}
+              <span className="card-allocation-pill__yield-label">
+                {pillContent.label}
+              </span>
+            </>
+          ) : null}
         </span>
       </div>
 
