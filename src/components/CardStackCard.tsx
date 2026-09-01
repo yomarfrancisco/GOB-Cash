@@ -67,7 +67,7 @@ const CARD_LABELS: Record<CardType, string> = {
   zwd: 'CASH CARD', // ZWD fiat card
   yield: 'CRYPTO CARD', // ETH crypto card
   btc: 'CRYPTO CARD', // BTC crypto card
-  yieldSurprise: 'REWARDS', // Agent rewards card
+  yieldSurprise: 'EARNINGS', // Agent earnings card
 }
 
 const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents' | 'earningsCents'> = {
@@ -787,7 +787,9 @@ export default function CardStackCard({
         </div>
       )}
 
-      {/* Top-right card label - removed in both auth and non-auth states */}
+      {card.type === 'yieldSurprise' && (
+        <div className="card-label">{CARD_LABELS[card.type]}</div>
+      )}
 
       {/* Bottom-left annual yield pill or countdown timer */}
       <div
