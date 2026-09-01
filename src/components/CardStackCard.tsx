@@ -489,8 +489,8 @@ export default function CardStackCard({
   const getPillContent = (): { strong: string; label: string } => {
     if (card.type === 'yieldSurprise') {
       return {
-        strong: 'REWARDS',
-        label: '',
+        strong: '',
+        label: 'REWARDS',
       }
     }
 
@@ -752,12 +752,14 @@ export default function CardStackCard({
         style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
       >
         <span className="card-allocation-pill__text">
-          <span className="card-allocation-pill__yield-strong">
-            {pillContent.strong}
-          </span>
+          {pillContent.strong ? (
+            <span className="card-allocation-pill__yield-strong">
+              {pillContent.strong}
+            </span>
+          ) : null}
           {pillContent.label ? (
             <>
-              {' '}
+              {pillContent.strong ? ' ' : null}
               <span className="card-allocation-pill__yield-label">
                 {pillContent.label}
               </span>
