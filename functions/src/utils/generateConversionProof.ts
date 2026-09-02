@@ -14,7 +14,7 @@ const DISCLAIMER =
   'This confirmation records an FX conversion facilitated through MozPay. It is not a bank proof of payment.'
 
 const SELLER = 'MozPay'
-const BUYER = 'Mahomed'
+const BUYER = 'Moz Corridor Trader'
 
 function mozLogoPath(): string | null {
   const candidates = [
@@ -158,8 +158,8 @@ export function generateConversionProofPdf(data: ConversionProofData): Promise<B
       doc.moveDown(0.8)
 
       const headline = isZarSale
-        ? `${formatZar(zarSold)} ZAR to ${formatMzn(mznReceived)} MZN`
-        : `${formatMzn(data.sourceAmount)} MZN to ${formatZar(data.destinationAmount)} ZAR`
+        ? `${formatZar(zarSold)} to ${formatMzn(mznReceived)}`
+        : `${formatMzn(data.sourceAmount)} to ${formatZar(data.destinationAmount)}`
       doc.fontSize(14).font('Helvetica-Bold').text(headline, { align: 'center' })
       doc.moveDown(1)
 

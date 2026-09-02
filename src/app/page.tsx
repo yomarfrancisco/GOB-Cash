@@ -616,11 +616,14 @@ function HomeContent() {
     isAuthed && isBalanceReady ? ((wallets as any)?.cashMZN?.fiatBalance ?? 0) : 0
   const cashZARBalance =
     isAuthed && isBalanceReady ? ((wallets as any)?.cashZAR?.fiatBalance ?? 0) : 0
+  const profitMZNBalance =
+    isAuthed && isBalanceReady ? ((wallets as any)?.earnings?.fiatBalance ?? 0) : 0
   const quotedMznPerZar =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
       : undefined
-  const totalBalanceMZN = cashMZNBalance + zarToMzn(cashZARBalance, quotedMznPerZar)
+  const totalBalanceMZN =
+    cashMZNBalance + profitMZNBalance + zarToMzn(cashZARBalance, quotedMznPerZar)
   const formattedBalance = formatMZN(totalBalanceMZN)
   const subtitleText = `Total balance: ${formattedBalance}`
 
