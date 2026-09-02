@@ -778,7 +778,7 @@ export default function CardStackCard({
       )}
 
       {card.type === 'yieldSurprise' && (
-        <div className="card-label card-label--faded">REWARDS</div>
+        <div className="card-label card-label--faded card-label--cropped">REWARDS</div>
       )}
 
       {/* Bottom-left annual yield pill or countdown timer */}
