@@ -47,7 +47,7 @@ import { type ConversionDestination } from '@/store/usePayIntoSheet'
 import PayIntoSheet from '@/components/PayIntoSheet'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
-import { quotedMznPerZarForDestination } from '@/lib/mznZar'
+import { costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
@@ -1209,10 +1209,9 @@ export default function ProfileClient() {
         } : undefined}
         fxRateMZNperZAR={
           amountEntryPoint === 'conversionKeypad'
-            ? quotedMznPerZarForDestination(
-                typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0,
-                conversionDestination
-              )
+            ? (conversionDestination === 'MZN'
+                ? sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
+                : costMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0))
             : typeof fxRates?.rates?.MZN === 'number'
               ? fxRates.rates.MZN
               : undefined

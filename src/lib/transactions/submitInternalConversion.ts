@@ -27,12 +27,13 @@ export async function submitInternalConversion(params: {
 
     const sourceLabel = sourceCurrency === 'MZN' ? formatMZN(sourceAmount) : formatZARWithDot(sourceAmount)
     const destLabel = params.destination === 'MZN' ? formatMZN(destAmount) : formatZARWithDot(destAmount)
+    const isZarSale = sourceCurrency === 'ZAR'
 
     useNotificationStore.getState().pushNotification({
       id: result.txId,
       kind: 'proof_of_payment',
-      title: 'Conversion instructed',
-      body: `${sourceLabel} → ${destLabel} · pending confirmation`,
+      title: isZarSale ? 'ZAR sold' : 'ZAR sourced',
+      body: `${sourceLabel} → ${destLabel}`,
       amount: {
         currency: sourceCurrency,
         value: -sourceAmount,

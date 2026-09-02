@@ -1,5 +1,5 @@
-// Quoted MZN per ZAR = ExchangeRate-API free mid-market × corridor markup.
-// Receive ZAR (MZN→ZAR): 14.3%. Receive MZN (ZAR→MZN): 5%.
+// Quoted MZN per ZAR = ExchangeRate-API mid × corridor markup.
+// COST (source ZAR): 5%. SELL (client offer): 14.3%.
 export const MZN_ZAR_MARKUP = 1.143
 export const MZN_ZAR_MARKUP_RECEIVE_MZN = 1.05
 export const MZN_ZAR_API_RATE_AT_CALIBRATION = 3.98793
@@ -13,7 +13,7 @@ export function quoteMznPerZar(apiMznPerZar: number, markup = MZN_ZAR_MARKUP): n
   return apiMznPerZar * markup
 }
 
-/** `quotedReceiveZar` is the 14.3% marked-up MZN rate from `/api/fx/latest`. */
+/** `quotedReceiveZar` is the 14.3% marked-up SELL rate from `/api/fx/latest`. */
 export function quotedMznPerZarForDestination(
   quotedReceiveZar: number,
   destination: 'ZAR' | 'MZN'
@@ -26,6 +26,14 @@ export function quotedMznPerZarForDestination(
   return (receiveZar / MZN_ZAR_MARKUP) * MZN_ZAR_MARKUP_RECEIVE_MZN
 }
 
+export function sellMznPerZar(quotedReceiveZar: number): number {
+  return quotedMznPerZarForDestination(quotedReceiveZar, 'ZAR')
+}
+
+export function costMznPerZar(quotedReceiveZar: number): number {
+  return quotedMznPerZarForDestination(quotedReceiveZar, 'MZN')
+}
+
 export const mznToZar = (amountMZN: number, rateMZNperZAR = MZN_PER_ZAR) =>
   Math.round((amountMZN / rateMZNperZAR) * 100) / 100
 
@@ -34,11 +42,9 @@ export const zarToMzn = (amountZAR: number, rateMZNperZAR = MZN_PER_ZAR) =>
 
 export const zarToUsdt = (amountZAR: number) => amountZAR / ZAR_PER_USDT
 
-/** Sell Mt/R (receive ZAR) minus buy Mt/R (receive MZN). */
+/** Sell Mt/R minus cost Mt/R. */
 export function mznBuySellSpreadPerZar(quotedReceiveZar: number): number {
-  const sell = quotedMznPerZarForDestination(quotedReceiveZar, 'ZAR')
-  const buy = quotedMznPerZarForDestination(quotedReceiveZar, 'MZN')
-  return Math.max(0, sell - buy)
+  return Math.max(0, sellMznPerZar(quotedReceiveZar) - costMznPerZar(quotedReceiveZar))
 }
 
 /** Rewards in MZN when selling rands into metical. */

@@ -1,5 +1,5 @@
 /**
- * Generate MozPay confirmation PDF for an internal MZN↔ZAR exchange.
+ * FX Conversion Confirmation for MozPay wholesale ZAR flow.
  * App confirmation, not an external bank proof of payment.
  */
 
@@ -9,7 +9,10 @@ import PDFDocument from 'pdfkit'
 const db = admin.firestore()
 
 const DISCLAIMER =
-  'MozPay transaction confirmation — this document is not an external bank proof of payment.'
+  'This confirmation records an FX conversion facilitated through MozPay. It is not a bank proof of payment.'
+
+const SELLER = 'MozPay / Wolf & Sons'
+const BUYER = 'Mahomed'
 
 export interface ConversionProofData {
   txId: string
@@ -20,8 +23,8 @@ export interface ConversionProofData {
   sourceAmount: number
   destinationAmount: number
   quotedRate: number
-  buyRate: number | null
-  sellRate: number | null
+  costRate: number
+  sellRate: number
   rewardsMzn: number
   status: string
   timestamp: admin.firestore.Timestamp
@@ -39,15 +42,22 @@ function formatTimestamp(timestamp: admin.firestore.Timestamp): string {
   })
 }
 
-function formatAmount(currency: 'MZN' | 'ZAR', amount: number): string {
-  const value = Number(amount || 0).toFixed(2)
-  return currency === 'MZN' ? `Mt ${value}` : `R${value}`
+function formatMzn(amount: number): string {
+  return `MT${Number(amount || 0).toFixed(2)}`
+}
+
+function formatZar(amount: number): string {
+  return `R${Number(amount || 0).toFixed(2)}`
 }
 
 function majorFromMinor(minor: unknown): number {
   const n = Number(minor)
   if (!Number.isFinite(n)) return 0
   return Math.round(n) / 100
+}
+
+function roundMajor(value: number): number {
+  return Math.round(value * 100) / 100
 }
 
 export async function getConversionData(txId: string): Promise<ConversionProofData | null> {
@@ -64,10 +74,15 @@ export async function getConversionData(txId: string): Promise<ConversionProofDa
     majorFromMinor(data.sourceAmountMinor) ||
     Number(sourceCurrency === 'MZN' ? data.amountMzn : data.amountZar) ||
     0
+  const sellRate = Number(data.sellRateMZNperZAR || 0)
+  const costRate = Number(data.costRateMZNperZAR || data.buyRateMZNperZAR || 0)
+  const clientDest = majorFromMinor(data.clientDestinationAmountMinor)
   const destinationAmount =
-    majorFromMinor(data.expectedDestinationAmountMinor) ||
-    Number(destinationCurrency === 'MZN' ? data.amountMzn : data.amountZar) ||
-    0
+    sourceCurrency === 'ZAR' && sellRate > 0
+      ? clientDest || roundMajor(sourceAmount * sellRate) || Number(data.amountMzn || 0)
+      : majorFromMinor(data.expectedDestinationAmountMinor) ||
+        Number(destinationCurrency === 'MZN' ? data.amountMzn : data.amountZar) ||
+        0
 
   const userSnap = await db.collection('users').doc(String(data.userId || '')).get()
   const userData = userSnap.exists ? userSnap.data()! : {}
@@ -81,8 +96,8 @@ export async function getConversionData(txId: string): Promise<ConversionProofDa
     sourceAmount,
     destinationAmount,
     quotedRate: Number(data.quotedRate || data.fxRateMZNperZAR || 0),
-    buyRate: Number.isFinite(Number(data.buyRateMZNperZAR)) ? Number(data.buyRateMZNperZAR) : null,
-    sellRate: Number.isFinite(Number(data.sellRateMZNperZAR)) ? Number(data.sellRateMZNperZAR) : null,
+    costRate,
+    sellRate,
     rewardsMzn: majorFromMinor(data.rewardsMznMinor),
     status: String(data.instructionStatus || data.status || 'INITIATED'),
     timestamp: data.createdAt || admin.firestore.Timestamp.now(),
@@ -102,49 +117,87 @@ export function generateConversionProofPdf(data: ConversionProofData): Promise<B
       doc.on('end', () => resolve(Buffer.concat(buffers)))
       doc.on('error', reject)
 
-      doc.fontSize(24).font('Helvetica-Bold').text('MozPay', 50, 50, { align: 'center' })
-      doc.fontSize(18).font('Helvetica-Bold').text('Proof of Payment', 50, 90, { align: 'center' })
+      const isZarSale = data.sourceCurrency === 'ZAR'
+      const costRate = data.costRate > 0 ? data.costRate : data.quotedRate
+      const sellRate = data.sellRate > 0 ? data.sellRate : data.quotedRate
+      const spread = Math.max(0, sellRate - costRate)
+      const marginPct = costRate > 0 ? (spread / costRate) * 100 : 0
+      const zarSold = isZarSale ? data.sourceAmount : data.destinationAmount
+      const mznReceived = isZarSale
+        ? data.destinationAmount || roundMajor(zarSold * sellRate)
+        : data.sourceAmount
+      const costValue = roundMajor(zarSold * costRate)
+      const reward = isZarSale
+        ? data.rewardsMzn || roundMajor(zarSold * spread)
+        : 0
 
-      doc.moveTo(50, 130).lineTo(550, 130).stroke()
+      doc.fontSize(22).font('Helvetica-Bold').text('MozPay', { align: 'center' })
+      doc.moveDown(0.3)
+      doc.fontSize(16).font('Helvetica-Bold').text('FX Conversion Confirmation', { align: 'center' })
+      doc.moveDown(0.8)
 
-      let yPos = 160
-      const lineHeight = 25
+      const headline = isZarSale
+        ? `${formatZar(zarSold)} ZAR  →  ${formatMzn(mznReceived)} MZN`
+        : `${formatMzn(data.sourceAmount)} MZN  →  ${formatZar(data.destinationAmount)} ZAR`
+      doc.fontSize(14).font('Helvetica-Bold').text(headline, { align: 'center' })
+      doc.moveDown(1)
+
+      const lineHeight = 22
       const leftMargin = 50
-      const labelWidth = 200
-      const status = data.status.toUpperCase() === 'INITIATED' ? 'Instructed' : data.status
+      const labelWidth = 220
+      let yPos = doc.y
 
-      doc.fontSize(12).font('Helvetica')
-
-      const rows: Array<[string, string]> = [
-        ['Document type:', 'APP_CONFIRMATION'],
-        ['Issuer:', 'MozPay'],
-        ['Transaction ID:', data.txId],
-        ['Status:', status],
-        ['From:', formatAmount(data.sourceCurrency, data.sourceAmount)],
-        ['To:', formatAmount(data.destinationCurrency, data.destinationAmount)],
-        ['Rate:', data.quotedRate > 0 ? `${data.quotedRate.toFixed(2)} Mt/R` : '—'],
-      ]
-
-      if (data.sellRate && data.buyRate && data.sellRate !== data.buyRate) {
-        rows.push(['Sell:', `${data.sellRate.toFixed(2)} Mt/R`])
-        rows.push(['Buy:', `${data.buyRate.toFixed(2)} Mt/R`])
-      }
-
-      if (data.rewardsMzn > 0) {
-        rows.push(['Rewards:', formatAmount('MZN', data.rewardsMzn)])
-      }
-      rows.push(['User:', data.userHandle || data.userId])
-      rows.push(['Instructed at:', formatTimestamp(data.timestamp)])
-
-      for (const [label, value] of rows) {
-        doc.font('Helvetica-Bold').text(label, leftMargin, yPos, { width: labelWidth })
-        doc.font('Helvetica').text(value || '—', leftMargin + labelWidth, yPos, { width: 300 })
+      const addRow = (label: string, value: string, boldValue = false) => {
+        doc.font('Helvetica-Bold').fontSize(11).text(label, leftMargin, yPos, { width: labelWidth })
+        doc.font(boldValue ? 'Helvetica-Bold' : 'Helvetica').text(value, leftMargin + labelWidth, yPos, {
+          width: 280,
+        })
         yPos += lineHeight
       }
 
+      addRow('Direction:', `${data.sourceCurrency} → ${data.destinationCurrency}`)
+      addRow(
+        'Conversion type:',
+        isZarSale ? 'Client sale' : 'Own-position / ZAR sourced'
+      )
+      if (isZarSale) {
+        addRow('ZAR sold:', formatZar(zarSold))
+        addRow('MZN received:', formatMzn(mznReceived), true)
+        addRow('Client rate:', `${sellRate.toFixed(2)} MZN/ZAR`, true)
+        addRow('Seller:', SELLER)
+        addRow('Buyer:', BUYER)
+        addRow('Asset sold:', 'ZAR')
+        addRow('Settlement currency:', 'MZN')
+      } else {
+        addRow('MZN spent:', formatMzn(data.sourceAmount))
+        addRow('ZAR sourced:', formatZar(data.destinationAmount), true)
+        addRow('Cost rate:', `${costRate.toFixed(2)} MZN/ZAR`, true)
+        addRow('Seller:', 'Your MZN balance')
+        addRow('Buyer:', 'Your ZAR balance')
+      }
+
+      yPos += 8
+      doc.font('Helvetica-Bold').fontSize(12).text('Rate & margin', leftMargin, yPos)
+      yPos += lineHeight
+
+      addRow('Source / cost rate:', `${costRate.toFixed(2)} MZN/ZAR`)
+      addRow('Client sell rate:', `${sellRate.toFixed(2)} MZN/ZAR`)
+      addRow('Spread:', `${spread.toFixed(2)} MZN/ZAR`)
+      addRow('Margin on cost:', `${marginPct.toFixed(2)}%`, true)
+      addRow('Reward / gross spread:', formatMzn(reward), true)
+      if (isZarSale) {
+        addRow('Underlying cost value:', formatMzn(costValue))
+      }
+
+      yPos += 8
+      addRow('Status:', 'Completed')
+      addRow('Transaction ID:', data.txId)
+      addRow('Date:', formatTimestamp(data.timestamp))
+      if (data.userHandle) addRow('Account:', data.userHandle)
+
       yPos += lineHeight
       doc.fontSize(10).font('Helvetica').text(DISCLAIMER, leftMargin, yPos, { width: 500 })
-      yPos += lineHeight + 8
+      yPos += lineHeight + 6
       doc.text('Generated by MozPay', leftMargin, yPos, { width: 500 })
 
       doc.end()

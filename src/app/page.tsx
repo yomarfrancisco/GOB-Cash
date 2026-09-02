@@ -13,7 +13,7 @@ import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
 import { formatMZN, formatUSDT, formatZAR } from '@/lib/money'
-import { zarToMzn, quotedMznPerZarForDestination } from '@/lib/mznZar'
+import { zarToMzn, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
@@ -932,10 +932,9 @@ function HomeContent() {
         } : undefined}
         fxRateMZNperZAR={
           amountEntryPoint === 'conversionKeypad'
-            ? quotedMznPerZarForDestination(
-                typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0,
-                conversionDestination
-              )
+            ? (conversionDestination === 'MZN'
+                ? sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
+                : costMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0))
             : typeof fxRates?.rates?.MZN === 'number'
               ? fxRates.rates.MZN
               : undefined

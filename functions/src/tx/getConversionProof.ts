@@ -36,7 +36,7 @@ export const getConversionProof = functions
 
     return {
       pdfBase64: pdfBuffer.toString('base64'),
-      filename: `mozpay-exchange-${txId}.pdf`,
+      filename: `mozpay-fx-${txId}.pdf`,
       mimeType: 'application/pdf',
     }
   })

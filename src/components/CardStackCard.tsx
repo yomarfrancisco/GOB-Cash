@@ -5,7 +5,7 @@ import type { StaticImageData } from 'next/image'
 import { useRef, useEffect, useState } from 'react'
 import SlotCounter from './SlotCounter'
 import { formatZAR, formatUSDT as formatConvertedAmount } from '@/lib/formatCurrency'
-import { mznToZar, zarToMzn, quotedMznPerZarForDestination } from '@/lib/mznZar'
+import { mznToZar, zarToMzn, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAuthStore } from '@/store/auth'
@@ -329,10 +329,9 @@ export default function CardStackCard({
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
       : 0
-  const quotedMznPerZar = quotedMznPerZarForDestination(
-    liveMzn,
-    card.type === 'savings' ? 'MZN' : 'ZAR'
-  )
+  const sellRate = sellMznPerZar(liveMzn)
+  const costRate = costMznPerZar(liveMzn)
+  const quotedMznPerZar = card.type === 'savings' ? sellRate : costRate
   const convertedAmount = isMeticalAmount
     ? mznToZar(zar, quotedMznPerZar)
     : card.type === 'savings'
@@ -496,15 +495,15 @@ export default function CardStackCard({
 
     if (card.type === 'mzn') {
       return {
-        strong: 'SELL',
-        label: `${quotedMznPerZar.toFixed(2)}Mt/R`,
+        strong: 'COST',
+        label: `${costRate.toFixed(2)}Mt/R`,
       }
     }
 
     if (card.type === 'savings') {
       return {
-        strong: 'BUY',
-        label: `${quotedMznPerZar.toFixed(2)}Mt/R`,
+        strong: 'SELL',
+        label: `${sellRate.toFixed(2)}Mt/R`,
       }
     }
 

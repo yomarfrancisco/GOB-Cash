@@ -43,17 +43,21 @@ export const tx_createInternalConversion = functions
     const sourceAmountMajor = roundMajor(sourceAmount)
     const sourceAmountMinor = Math.round(sourceAmountMajor * 100)
     const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
-    const buyRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
-    const fxRateMZNperZAR = destinationCurrency === 'MZN' ? buyRate : sellRate
-    const expectedDestinationMajor =
+    const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
+    const isZarSale = sourceCurrency === 'ZAR' && destinationCurrency === 'MZN'
+    const settlementMajor =
       sourceCurrency === 'MZN'
-        ? roundMajor(sourceAmountMajor / fxRateMZNperZAR)
-        : roundMajor(sourceAmountMajor * fxRateMZNperZAR)
+        ? roundMajor(sourceAmountMajor / costRate)
+        : roundMajor(sourceAmountMajor * costRate)
+    const reportedDestMajor = isZarSale
+      ? roundMajor(sourceAmountMajor * sellRate)
+      : settlementMajor
+    const fxRateMZNperZAR = isZarSale ? sellRate : costRate
+    const expectedDestinationMajor = settlementMajor
     const expectedDestinationMinor = Math.round(expectedDestinationMajor * 100)
-    const rewardsMznMajor =
-      sourceCurrency === 'ZAR' && destinationCurrency === 'MZN'
-        ? mznRewardsFromZar(sourceAmountMajor, sellRate, buyRate)
-        : 0
+    const rewardsMznMajor = isZarSale
+      ? mznRewardsFromZar(sourceAmountMajor, sellRate, costRate)
+      : 0
     const rewardsMznMinor = Math.round(rewardsMznMajor * 100)
 
     const sourceWalletId = sourceCurrency === 'MZN' ? 'cashMZN' : 'cashZAR'
@@ -67,9 +71,11 @@ export const tx_createInternalConversion = functions
     const groupId = typeof data?.groupId === 'string' && data.groupId.trim() ? data.groupId.trim() : txId
 
     const sourceLabel = sourceCurrency === 'MZN' ? `Mt ${sourceAmountMajor.toFixed(2)}` : `R${sourceAmountMajor.toFixed(2)}`
-    const destLabel = destinationCurrency === 'MZN' ? `Mt ${expectedDestinationMajor.toFixed(2)}` : `R${expectedDestinationMajor.toFixed(2)}`
-    const activityTitle = 'Conversion instructed'
-    const activityBody = `${sourceLabel} → ${destLabel} · pending confirmation`
+    const destLabel = destinationCurrency === 'MZN' ? `Mt ${reportedDestMajor.toFixed(2)}` : `R${reportedDestMajor.toFixed(2)}`
+    const activityTitle = isZarSale ? 'ZAR sold' : 'ZAR sourced'
+    const activityBody = isZarSale
+      ? `${sourceLabel} → ${destLabel} · sold at ${sellRate.toFixed(2)} Mt/R`
+      : `${sourceLabel} → ${destLabel} · cost ${costRate.toFixed(2)} Mt/R`
 
     await db.runTransaction(async (t) => {
       const sourceSnap = await t.get(sourceWalletRef)
@@ -146,10 +152,12 @@ export const tx_createInternalConversion = functions
         expectedDestinationAmountMinor: expectedDestinationMinor,
         actualDestinationAmountMinor: null,
         quotedRate: fxRateMZNperZAR,
-        buyRateMZNperZAR: buyRate,
+        buyRateMZNperZAR: costRate,
+        costRateMZNperZAR: costRate,
         sellRateMZNperZAR: sellRate,
         rewardsMznMinor: rewardsMznMinor || null,
-        amountMzn: sourceCurrency === 'MZN' ? sourceAmountMajor : expectedDestinationMajor,
+        clientDestinationAmountMinor: Math.round(reportedDestMajor * 100),
+        amountMzn: sourceCurrency === 'MZN' ? sourceAmountMajor : reportedDestMajor,
         amountZar: sourceCurrency === 'ZAR' ? sourceAmountMajor : expectedDestinationMajor,
         fxRateMZNperZAR,
         groupId,

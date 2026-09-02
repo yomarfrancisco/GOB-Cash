@@ -1,6 +1,6 @@
 /**
- * Quoted MZN per ZAR = ExchangeRate-API mid-market × corridor markup.
- * Receive ZAR (MZN→ZAR): 14.3%. Receive MZN (ZAR→MZN): 5%.
+ * Quoted MZN per ZAR = ExchangeRate-API mid × corridor markup.
+ * COST (source ZAR): 5%. SELL (client offer): 14.3%.
  */
 
 import * as functions from 'firebase-functions'
