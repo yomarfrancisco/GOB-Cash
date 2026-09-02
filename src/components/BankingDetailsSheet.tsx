@@ -260,7 +260,7 @@ export default function BankingDetailsSheet() {
               direction: 'down',
               actor: {
                 type: 'ai_manager',
-                avatar: '/assets/Brics-girl-blue.png',
+                avatar: '/assets/avatar - profile (2).png',
                 name: 'Ama',
               },
               routeOnTap: '/profile?activity=1',

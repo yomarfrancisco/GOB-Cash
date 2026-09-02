@@ -9,7 +9,7 @@ export const DEPOSIT_PROOF_PENDING_KIND = 'DEPOSIT_PROOF_PENDING'
 export const DEPOSIT_PROOF_FAILED_KIND = 'DEPOSIT_PROOF_FAILED'
 export const DEPOSIT_CREDITED_KIND = 'DEPOSIT_CREDITED'
 
-const AMA_AVATAR = '/assets/Brics-girl-blue.png'
+const DEPOSIT_AVATAR = '/assets/avatar - profile (4).png'
 
 export function depositGroupId(country: 'MZ' | 'ZA', reference: string): string {
   return `deposit:${country}:${reference}`
@@ -49,7 +49,7 @@ export async function recordDepositProofPending(params: {
     title,
     body,
     actorType: 'ai_manager',
-    avatarKind: 'proof_of_payment',
+    avatarKind: 'mzn_deposited',
     amountCurrency: currency,
     amountSign: 'credit',
     txId: groupId,
@@ -69,7 +69,7 @@ export async function recordDepositProofPending(params: {
     direction: 'up',
     actor: {
       type: 'ai_manager',
-      avatar: AMA_AVATAR,
+      avatar: DEPOSIT_AVATAR,
       name: 'Ama',
     },
     routeOnTap: '/profile?activity=1',

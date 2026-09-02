@@ -35,6 +35,9 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     data.kind === 'WITHDRAWAL_INSTRUCTED' ||
     data.kind === 'EXTERNAL_DEPOSIT_CONFIRMED' ||
     data.kind === 'CONVERSION_INSTRUCTED' ||
+    data.avatarKind === 'convert_mzn' ||
+    data.avatarKind === 'convert_zar' ||
+    data.avatarKind === 'cash_agent_exchange' ||
     data.kind === 'DEPOSIT_PROOF_PENDING' ||
     data.kind === 'DEPOSIT_PROOF_FAILED' ||
     data.kind === 'DEPOSIT_CREDITED'
@@ -62,6 +65,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     createdAt: createdAtMs(data.createdAt),
     txId: data.txId,
     hasDownloadButton: data.hasDownloadButton === true,
+    avatarKind: data.avatarKind,
   }
 }
 

@@ -164,7 +164,7 @@ export const tx_createInternalConversion = functions
         title: activityTitle,
         body: activityBody,
         actorType: 'ai_manager',
-        avatarKind: 'proof_of_payment',
+        avatarKind: sourceCurrency === 'ZAR' ? 'convert_zar' : 'convert_mzn',
         amountCurrency: sourceCurrency,
         amountValue: sourceAmountMajor,
         amountSign: 'debit',

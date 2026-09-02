@@ -8,17 +8,10 @@ import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import { downloadConversionProof } from '@/lib/transactions/clientFunctions'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
+import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
 import styles from '@/app/activity/activity.module.css'
 
 const GOB_AVATAR_PATH = '/assets/aa2b32f2dc3e3a159949cb59284abddef5683b05.png'
-const TASK_AVATARS = {
-  paymentSent: '/assets/avatar - profile (1).png',
-  paymentDelivered: '/assets/avatar - profile (2).png',
-  paymentReceived: '/assets/avatar - profile (3).png',
-  proofOfPayment: '/assets/Brics-girl-blue.png',
-  mznDeposited: '/assets/avatar - profile (4).png',
-  zarWithdrawn: '/assets/Brics-girl-blue.png',
-} as const
 
 function groupByTimePeriod(items: ActivityItem[]) {
   const startOfToday = new Date()
@@ -94,39 +87,43 @@ function isPaymentActivity(item: ActivityItem): boolean {
 }
 
 function resolveTaskAvatar(item: ActivityItem): string {
+  if (item.avatarKind === 'convert_zar') return TASK_AVATARS.convertZar
+  if (item.avatarKind === 'convert_mzn') return TASK_AVATARS.convertMzn
+  if (item.avatarKind === 'cash_agent_exchange') return TASK_AVATARS.cashAgent
+
+  if (item.kind === 'CONVERSION_INSTRUCTED') {
+    return conversionAvatar(item.amount?.currency)
+  }
+
   if (
     item.kind === 'proof_of_payment' ||
-    item.kind === 'CONVERSION_INSTRUCTED' ||
     item.kind === 'DEPOSIT_PROOF_PENDING' ||
-    item.kind === 'DEPOSIT_PROOF_FAILED'
-  ) {
-    return TASK_AVATARS.proofOfPayment
-  }
-  if (
+    item.kind === 'DEPOSIT_PROOF_FAILED' ||
     item.kind === 'mzn_deposited' ||
     item.kind === 'EXTERNAL_DEPOSIT_CONFIRMED' ||
     item.kind === 'DEPOSIT_CREDITED'
   ) {
-    return TASK_AVATARS.mznDeposited
+    return TASK_AVATARS.deposit
   }
+
   if (
     item.kind === 'zar_withdrawn' ||
     item.kind === 'WITHDRAWAL_INSTRUCTED' ||
     item.kind === 'BANK_TRANSFER_CONFIRMED'
   ) {
-    return TASK_AVATARS.zarWithdrawn
+    return TASK_AVATARS.withdraw
   }
+
   if (item.kind === 'payment_delivered') return TASK_AVATARS.paymentDelivered
   if (item.kind === 'payment_received') return TASK_AVATARS.paymentReceived
   if (item.kind === 'payment_sent') return TASK_AVATARS.paymentSent
 
   const text = searchableText(item)
-  if (text.includes('proof')) return TASK_AVATARS.proofOfPayment
   if (text.includes('mzn') && (text.includes('deposit') || text.includes('deposited'))) {
-    return TASK_AVATARS.mznDeposited
+    return TASK_AVATARS.deposit
   }
   if (text.includes('zar') && (text.includes('withdraw') || text.includes('withdrawn'))) {
-    return TASK_AVATARS.zarWithdrawn
+    return TASK_AVATARS.withdraw
   }
   if (text.includes('delivered')) return TASK_AVATARS.paymentDelivered
   if (text.includes('received')) return TASK_AVATARS.paymentReceived

@@ -1,4 +1,5 @@
 import { formatMZN, formatZARWithDot } from '@/lib/money'
+import { conversionAvatar } from '@/lib/activity/taskAvatars'
 import { useNotificationStore } from '@/store/notifications'
 import { tx_createInternalConversion } from '@/lib/transactions/clientFunctions'
 import type { ConversionDestination } from '@/store/usePayIntoSheet'
@@ -39,7 +40,7 @@ export async function submitInternalConversion(params: {
       direction: 'down',
       actor: {
         type: 'ai_manager',
-        avatar: '/assets/Brics-girl-blue.png',
+        avatar: conversionAvatar(sourceCurrency),
         name: 'Ama',
       },
       routeOnTap: '/profile?activity=1',
