@@ -172,23 +172,21 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
       <div className={styles.activityContent}>
         <div className={styles.activityHeader}>
           <div className={styles.activityTitle}>{item.title}</div>
-          <div className={styles.activityMeta}>
-            <div className={styles.activityTime}>{formatRelativeShort(item.createdAt)}</div>
-            {showDownload && (
-              <button
-                type="button"
-                className={styles.downloadButton}
-                aria-label="Download proof of payment"
-                disabled={downloading}
-                onClick={handleDownload}
-              >
-                <Download size={18} strokeWidth={2} />
-              </button>
-            )}
-          </div>
+          <div className={styles.activityTime}>{formatRelativeShort(item.createdAt)}</div>
         </div>
         {item.body && (
           <div className={styles.activityBody}>{item.body}</div>
+        )}
+        {showDownload && (
+          <button
+            type="button"
+            className={styles.downloadButton}
+            aria-label="Download proof of payment"
+            disabled={downloading}
+            onClick={handleDownload}
+          >
+            <Download size={18} strokeWidth={2} />
+          </button>
         )}
       </div>
     </article>

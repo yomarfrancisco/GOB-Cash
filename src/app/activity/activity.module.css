@@ -136,33 +136,6 @@
   flex-shrink: 0;
 }
 
-.activityMeta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.downloadButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin: -7px -8px -7px 0;
-  padding: 0;
-  border: 0;
-  border-radius: 16px;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.55);
-  cursor: pointer;
-}
-
-.downloadButton:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 .activityBody {
   font-weight: 400;
   font-size: 13px;
@@ -173,6 +146,27 @@
   overflow-wrap: anywhere;
   margin: 0;
   padding: 0;
+}
+
+.downloadButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 4px 0 0 -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.downloadButton:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .emptyState {
