@@ -41,16 +41,16 @@ interface CardData {
 
 const allCardsData: CardData[] = [
   {
-    type: 'mzn',
-    image: '/assets/cards/card-MZN2X-1 copy.jpg',
-    alt: 'MZN Cash Card',
+    type: 'savings',
+    image: '/assets/cards/card-savings.jpg',
+    alt: 'Cash Card',
     width: 342,
     height: 213,
   },
   {
-    type: 'savings',
-    image: '/assets/cards/card-savings.jpg',
-    alt: 'Cash Card',
+    type: 'mzn',
+    image: '/assets/cards/card-MZN2X-1 copy.jpg',
+    alt: 'MZN Cash Card',
     width: 342,
     height: 213,
   },

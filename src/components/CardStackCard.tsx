@@ -487,9 +487,10 @@ export default function CardStackCard({
   // Determine what to display in the pill
   const getPillContent = (): { strong: string; label: string } => {
     if (card.type === 'yieldSurprise') {
+      const profitPerZar = Math.max(0, sellRate - costRate)
       return {
-        strong: 'REWARDS',
-        label: '',
+        strong: 'PROFIT =',
+        label: `${profitPerZar.toFixed(2)}Mt/R`,
       }
     }
 

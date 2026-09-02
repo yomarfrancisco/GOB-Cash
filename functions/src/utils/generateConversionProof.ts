@@ -4,6 +4,8 @@
  */
 
 import * as admin from 'firebase-admin'
+import * as fs from 'fs'
+import * as path from 'path'
 import PDFDocument from 'pdfkit'
 
 const db = admin.firestore()
@@ -11,8 +13,16 @@ const db = admin.firestore()
 const DISCLAIMER =
   'This confirmation records an FX conversion facilitated through MozPay. It is not a bank proof of payment.'
 
-const SELLER = 'MozPay / Wolf & Sons'
+const SELLER = 'MozPay'
 const BUYER = 'Mahomed'
+
+function mozLogoPath(): string | null {
+  const candidates = [
+    path.join(__dirname, '../../assets/MoZ-logo.png'),
+    path.join(process.cwd(), 'assets/MoZ-logo.png'),
+  ]
+  return candidates.find((candidate) => fs.existsSync(candidate)) || null
+}
 
 export interface ConversionProofData {
   txId: string
@@ -42,12 +52,19 @@ function formatTimestamp(timestamp: admin.firestore.Timestamp): string {
   })
 }
 
+function formatNumber(amount: number): string {
+  return Number(amount || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
 function formatMzn(amount: number): string {
-  return `MT${Number(amount || 0).toFixed(2)}`
+  return `MT ${formatNumber(amount)}`
 }
 
 function formatZar(amount: number): string {
-  return `R${Number(amount || 0).toFixed(2)}`
+  return `R ${formatNumber(amount)}`
 }
 
 function majorFromMinor(minor: unknown): number {
@@ -131,14 +148,18 @@ export function generateConversionProofPdf(data: ConversionProofData): Promise<B
         ? data.rewardsMzn || roundMajor(zarSold * spread)
         : 0
 
-      doc.fontSize(22).font('Helvetica-Bold').text('MozPay', { align: 'center' })
-      doc.moveDown(0.3)
+      const logoPath = mozLogoPath()
+      if (logoPath) {
+        const logoWidth = 88
+        doc.image(logoPath, (doc.page.width - logoWidth) / 2, 48, { width: logoWidth })
+        doc.y = 48 + 52
+      }
       doc.fontSize(16).font('Helvetica-Bold').text('FX Conversion Confirmation', { align: 'center' })
       doc.moveDown(0.8)
 
       const headline = isZarSale
-        ? `${formatZar(zarSold)} ZAR  →  ${formatMzn(mznReceived)} MZN`
-        : `${formatMzn(data.sourceAmount)} MZN  →  ${formatZar(data.destinationAmount)} ZAR`
+        ? `${formatZar(zarSold)} ZAR to ${formatMzn(mznReceived)} MZN`
+        : `${formatMzn(data.sourceAmount)} MZN to ${formatZar(data.destinationAmount)} ZAR`
       doc.fontSize(14).font('Helvetica-Bold').text(headline, { align: 'center' })
       doc.moveDown(1)
 
@@ -155,7 +176,7 @@ export function generateConversionProofPdf(data: ConversionProofData): Promise<B
         yPos += lineHeight
       }
 
-      addRow('Direction:', `${data.sourceCurrency} → ${data.destinationCurrency}`)
+      addRow('Direction:', `${data.sourceCurrency} to ${data.destinationCurrency}`)
       addRow(
         'Conversion type:',
         isZarSale ? 'Client sale' : 'Own-position / ZAR sourced'

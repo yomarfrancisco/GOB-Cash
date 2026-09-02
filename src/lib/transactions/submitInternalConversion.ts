@@ -32,8 +32,8 @@ export async function submitInternalConversion(params: {
     useNotificationStore.getState().pushNotification({
       id: result.txId,
       kind: 'proof_of_payment',
-      title: isZarSale ? 'ZAR sold' : 'ZAR sourced',
-      body: `${sourceLabel} → ${destLabel}`,
+      title: isZarSale ? 'ZAR sold at SELL' : 'ZAR sourced at COST',
+      body: `${sourceLabel} to ${destLabel}`,
       amount: {
         currency: sourceCurrency,
         value: -sourceAmount,

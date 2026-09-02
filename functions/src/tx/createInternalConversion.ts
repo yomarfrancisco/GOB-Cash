@@ -72,10 +72,10 @@ export const tx_createInternalConversion = functions
 
     const sourceLabel = sourceCurrency === 'MZN' ? `Mt ${sourceAmountMajor.toFixed(2)}` : `R${sourceAmountMajor.toFixed(2)}`
     const destLabel = destinationCurrency === 'MZN' ? `Mt ${reportedDestMajor.toFixed(2)}` : `R${reportedDestMajor.toFixed(2)}`
-    const activityTitle = isZarSale ? 'ZAR sold' : 'ZAR sourced'
+    const activityTitle = isZarSale ? 'ZAR sold at SELL' : 'ZAR sourced at COST'
     const activityBody = isZarSale
-      ? `${sourceLabel} → ${destLabel} · sold at ${sellRate.toFixed(2)} Mt/R`
-      : `${sourceLabel} → ${destLabel} · cost ${costRate.toFixed(2)} Mt/R`
+      ? `${sourceLabel} to ${destLabel} · SELL ${sellRate.toFixed(2)} Mt/R`
+      : `${sourceLabel} to ${destLabel} · COST ${costRate.toFixed(2)} Mt/R`
 
     await db.runTransaction(async (t) => {
       const sourceSnap = await t.get(sourceWalletRef)
