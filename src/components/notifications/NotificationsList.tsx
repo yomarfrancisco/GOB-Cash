@@ -2,8 +2,10 @@
 
 import { useMemo, useEffect, useState } from 'react'
 import Image from 'next/image'
+import { Download } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
+import { downloadConversionProof } from '@/lib/transactions/clientFunctions'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import styles from '@/app/activity/activity.module.css'
@@ -132,8 +134,28 @@ function resolveTaskAvatar(item: ActivityItem): string {
   return item.actor.avatarUrl || GOB_AVATAR_PATH
 }
 
+function canDownloadProof(item: ActivityItem): boolean {
+  if (!item.txId) return false
+  return item.hasDownloadButton === true || item.kind === 'CONVERSION_INSTRUCTED'
+}
+
 function ActivityItemCard({ item }: { item: ActivityItem }) {
   const avatarUrl = resolveTaskAvatar(item)
+  const [downloading, setDownloading] = useState(false)
+  const showDownload = canDownloadProof(item)
+
+  const handleDownload = async (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (!item.txId || downloading) return
+    setDownloading(true)
+    try {
+      await downloadConversionProof(item.txId)
+    } catch (error) {
+      console.error('[Activity] Failed to download proof of payment:', error)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <article className={styles.activityItem}>
@@ -150,7 +172,20 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
       <div className={styles.activityContent}>
         <div className={styles.activityHeader}>
           <div className={styles.activityTitle}>{item.title}</div>
-          <div className={styles.activityTime}>{formatRelativeShort(item.createdAt)}</div>
+          <div className={styles.activityMeta}>
+            <div className={styles.activityTime}>{formatRelativeShort(item.createdAt)}</div>
+            {showDownload && (
+              <button
+                type="button"
+                className={styles.downloadButton}
+                aria-label="Download proof of payment"
+                disabled={downloading}
+                onClick={handleDownload}
+              >
+                <Download size={18} strokeWidth={2} />
+              </button>
+            )}
+          </div>
         </div>
         {item.body && (
           <div className={styles.activityBody}>{item.body}</div>

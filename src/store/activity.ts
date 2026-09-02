@@ -22,6 +22,7 @@ export type ActivityItem = {
   createdAt: number
   routeOnTap?: string
   txId?: string
+  hasDownloadButton?: boolean
 }
 
 const MAX_ACTIVITY_ITEMS = 80

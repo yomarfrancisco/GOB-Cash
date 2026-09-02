@@ -169,6 +169,7 @@ export const tx_createInternalConversion = functions
         amountValue: sourceAmountMajor,
         amountSign: 'debit',
         txId,
+        hasDownloadButton: true,
         createdAt: now,
         recordingSource: 'USER_UI',
       })

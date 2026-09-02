@@ -14,6 +14,7 @@ export type ActivityEventDoc = {
   amountSign?: 'credit' | 'debit'
   createdAt?: Timestamp | { toMillis?: () => number }
   txId?: string
+  hasDownloadButton?: boolean
 }
 
 function createdAtMs(value: ActivityEventDoc['createdAt']): number {
@@ -60,6 +61,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       : undefined,
     createdAt: createdAtMs(data.createdAt),
     txId: data.txId,
+    hasDownloadButton: data.hasDownloadButton === true,
   }
 }
 

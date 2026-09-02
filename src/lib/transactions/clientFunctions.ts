@@ -732,6 +732,39 @@ export async function downloadBankWithdrawalProof(bankWithdrawalId: string): Pro
 }
 
 /**
+ * Download MozPay proof-of-payment PDF for an internal exchange.
+ */
+export async function downloadConversionProof(txId: string): Promise<void> {
+  const app = getFirebaseApp()
+  const functions = getFunctionsInstance()
+
+  if (!app || !functions) {
+    throw new Error('Firebase not initialized')
+  }
+
+  const fn = httpsCallable(functions, 'getConversionProof')
+  const result = await fn({ txId })
+  const data = result.data as { pdfBase64: string; filename: string; mimeType: string }
+
+  const byteCharacters = atob(data.pdfBase64)
+  const byteNumbers = new Array(byteCharacters.length)
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i)
+  }
+  const byteArray = new Uint8Array(byteNumbers)
+  const blob = new Blob([byteArray], { type: data.mimeType })
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = data.filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+/**
  * Download withdrawal proof PDF
  */
 export async function downloadWithdrawalProof(withdrawalId: string): Promise<void> {
