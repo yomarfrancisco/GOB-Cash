@@ -325,7 +325,6 @@ export default function CardStackCard({
   
   const zar = cents / 100
   const isMeticalAmount = card.type === 'mzn' || card.type === 'yieldSurprise'
-  const convertedCurrency = card.type === 'yieldSurprise' ? 'PAGA' : isMeticalAmount ? 'ZAR' : 'MZN'
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
@@ -477,7 +476,7 @@ export default function CardStackCard({
     mzn: 'MZN', // Show MZN = 1 ZAR
     yield: null, // Crypto card, keep APY
     btc: null, // Crypto card, keep APY
-    yieldSurprise: null, // Pegged pill, skip exchange rate
+    yieldSurprise: null, // Rewards pill, skip exchange rate
   }
 
   // Get card definition for annual yield (fallback)
@@ -490,8 +489,8 @@ export default function CardStackCard({
   const getPillContent = (): { strong: string; label: string } => {
     if (card.type === 'yieldSurprise') {
       return {
-        strong: '1 ZAR',
-        label: '= 1 PAGA',
+        strong: 'REWARDS',
+        label: '',
       }
     }
 
@@ -690,7 +689,7 @@ export default function CardStackCard({
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span>0.00 {convertedCurrency}</span>
+                <span>0.00 {isMeticalAmount ? 'ZAR' : 'MZN'}</span>
               </div>
             </>
           ) : (
@@ -729,7 +728,7 @@ export default function CardStackCard({
               </div>
               <div
                 className="card-amounts__usdt"
-                aria-label={`${convertedAmount.toFixed(2)} ${convertedCurrency}`}
+                aria-label={`${convertedAmount.toFixed(2)} ${isMeticalAmount ? 'ZAR' : 'MZN'}`}
                 suppressHydrationWarning
               >
                 <SlotCounter 
@@ -739,14 +738,14 @@ export default function CardStackCard({
                   durationMs={isBalanceReady ? 700 : 0} 
                   className="card-amounts__usdt-value" 
                 />
-                <span style={{ marginLeft: '4px' }}>{convertedCurrency}</span>
+                <span style={{ marginLeft: '4px' }}>{isMeticalAmount ? 'ZAR' : 'MZN'}</span>
               </div>
             </>
           )}
         </div>
       )}
 
-      {/* Bottom-left annual yield pill or pegged rate */}
+      {/* Bottom-left annual yield pill or Rewards label */}
       <div
         className={pillClassName}
         onClick={handlePillDoubleTap}
@@ -755,15 +754,20 @@ export default function CardStackCard({
         <span className="card-allocation-pill__text">
           <span className="card-allocation-pill__yield-strong">
             {pillContent.strong}
-          </span>{' '}
-          <span className="card-allocation-pill__yield-label">
-            {pillContent.label}
           </span>
+          {pillContent.label ? (
+            <>
+              {' '}
+              <span className="card-allocation-pill__yield-label">
+                {pillContent.label}
+              </span>
+            </>
+          ) : null}
         </span>
       </div>
 
       {/* Bottom-right health bar */}
-      {card.type !== 'savings' && (
+      {card.type !== 'savings' && card.type !== 'yieldSurprise' && (
         <div className="card-health-group">
           <div className="card-health-bar-container">
             <div
