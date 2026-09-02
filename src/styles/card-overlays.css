@@ -16,20 +16,6 @@
   z-index: 3;
 }
 
-.card-label--faded {
-  color: rgba(255, 255, 255, 0.42);
-}
-
-/* Position 2: oversized word clipped by the card edge — only the lower half shows */
-.card-label--cropped {
-  top: 0;
-  right: 14px;
-  font-size: 39px;
-  line-height: 1;
-  white-space: nowrap;
-  transform: translateY(-50%);
-}
-
 /* Bottom-left annual yield pill */
 .card-allocation-pill {
   position: absolute;
