@@ -1,7 +1,7 @@
 /**
  * Cloud Function: getConversionProof
  *
- * Returns a MozPay proof-of-payment PDF for an internal exchange.
+ * Returns a MozPaga proof-of-payment PDF for an internal exchange.
  * Requires authentication and verifies the conversion belongs to the caller.
  */
 
@@ -36,7 +36,7 @@ export const getConversionProof = functions
 
     return {
       pdfBase64: pdfBuffer.toString('base64'),
-      filename: `mozpay-fx-${txId}.pdf`,
+      filename: `mozpaga-fx-${txId}.pdf`,
       mimeType: 'application/pdf',
     }
   })

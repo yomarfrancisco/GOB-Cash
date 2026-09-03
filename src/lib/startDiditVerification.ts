@@ -24,7 +24,7 @@ async function run() {
       kind: 'payment_failed',
       title: 'Sign in required',
       body: 'Sign in to complete identity verification.',
-      actor: { type: 'system', name: 'MozPay' },
+      actor: { type: 'system', name: 'MozPaga' },
     })
     return
   }
@@ -53,7 +53,7 @@ async function run() {
           kind: 'proof_of_payment',
           title: 'Verification submitted',
           body: 'We’ll update Compliance when Didit returns a decision.',
-          actor: { type: 'system', name: 'MozPay' },
+          actor: { type: 'system', name: 'MozPaga' },
         })
       }
     }
@@ -63,7 +63,7 @@ async function run() {
       kind: 'payment_failed',
       title: 'Verification unavailable',
       body: String(error?.message || 'Unable to start verification.'),
-      actor: { type: 'system', name: 'MozPay' },
+      actor: { type: 'system', name: 'MozPaga' },
     })
   }
 }

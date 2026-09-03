@@ -142,7 +142,7 @@ export const tx_createBankWithdrawalRequest = functions
       destinationAccountMasked,
       instructionStatus: 'INITIATED',
       documentType: 'APP_CONFIRMATION',
-      issuer: 'MOZPAY',
+      issuer: 'MOZPAGA',
       groupId: groupId || txId,
     }
 
@@ -329,7 +329,7 @@ function generateBankWithdrawalEmailContent(
   })
   const isoDate = timestamp.toDate().toISOString()
 
-  // Note: MozPay confirmation PDF is available via getBankWithdrawalProof
+  // Note: MozPaga confirmation PDF is available via getBankWithdrawalProof
 
   return `
     <!DOCTYPE html>

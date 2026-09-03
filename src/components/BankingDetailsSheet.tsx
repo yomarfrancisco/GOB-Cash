@@ -285,7 +285,7 @@ export default function BankingDetailsSheet() {
               : 'Unable to create withdrawal.',
             actor: {
               type: 'system',
-              name: 'MozPay',
+              name: 'MozPaga',
             },
           })
         } finally {

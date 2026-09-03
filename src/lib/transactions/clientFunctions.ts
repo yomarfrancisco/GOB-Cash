@@ -692,7 +692,7 @@ export async function tx_createInternalConversion(params: {
 }
 
 /**
- * Download MozPay confirmation PDF for a recorded bank withdrawal.
+ * Download MozPaga confirmation PDF for a recorded bank withdrawal.
  */
 export async function downloadBankWithdrawalProof(bankWithdrawalId: string): Promise<void> {
   const app = getFirebaseApp()
@@ -732,7 +732,7 @@ export async function downloadBankWithdrawalProof(bankWithdrawalId: string): Pro
 }
 
 /**
- * Download MozPay proof-of-payment PDF for an internal exchange.
+ * Download MozPaga proof-of-payment PDF for an internal exchange.
  */
 export async function downloadConversionProof(txId: string): Promise<void> {
   const app = getFirebaseApp()

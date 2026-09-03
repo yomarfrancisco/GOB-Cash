@@ -993,7 +993,7 @@ function HomeContent() {
                   ? 'Insufficient MZN balance.'
                   : 'Insufficient ZAR balance.'
                 : 'Unable to convert.',
-              actor: { type: 'system', name: 'MozPay' },
+              actor: { type: 'system', name: 'MozPaga' },
             })
           })
         } : amountMode === 'convert' && amountEntryPoint === 'cashButton' ? ({ amountMZN, amountZAR }) => {

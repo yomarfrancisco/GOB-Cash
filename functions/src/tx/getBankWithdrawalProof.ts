@@ -1,7 +1,7 @@
 /**
  * Cloud Function: getBankWithdrawalProof
  *
- * Returns a MozPay confirmation PDF for a recorded bank withdrawal.
+ * Returns a MozPaga confirmation PDF for a recorded bank withdrawal.
  * This is an app confirmation, not an external bank proof of payment.
  * Requires authentication and verifies the withdrawal belongs to the caller.
  */
@@ -48,7 +48,7 @@ export const getBankWithdrawalProof = functions
 
     return {
       pdfBase64,
-      filename: `mozpay-confirmation-${bankWithdrawalId}.pdf`,
+      filename: `mozpaga-confirmation-${bankWithdrawalId}.pdf`,
       mimeType: 'application/pdf',
     }
   })
