@@ -56,7 +56,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             'is-autonomous': !isAuthed,
             'fab-highlighted': isHighlighted,
           })}
-          aria-label="Exchange"
+          aria-label={isHighlighted ? 'Exchanging' : 'Exchange'}
           onClick={handleCenterButtonClick}
           onMouseEnter={() => {
             // Prefetch auth images on hover (if not authed, button may trigger auth)
@@ -99,7 +99,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             </div>
           </div>
         </button>
-        <div className="nav-label">Exchange</div>
+        <div className="nav-label">{isHighlighted ? 'Exchanging' : 'Exchange'}</div>
       </div>
       <div className="nav-item" style={{ position: 'relative' }}>
         <Link 
