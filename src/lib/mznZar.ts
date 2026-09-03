@@ -1,7 +1,7 @@
 // Quoted MZN per ZAR = ExchangeRate-API mid × corridor markup.
-// COST is 5% above mid. SELL is a 9% spread on that cost (change MARGIN_ON_COST to retune).
+// COST is 5% above mid. SELL is a 10% spread on that cost (change MARGIN_ON_COST to retune).
 export const MZN_ZAR_MARKUP_RECEIVE_MZN = 1.05
-export const MARGIN_ON_COST = 0.09
+export const MARGIN_ON_COST = 0.10
 export const MZN_ZAR_MARKUP = MZN_ZAR_MARKUP_RECEIVE_MZN * (1 + MARGIN_ON_COST)
 export const MZN_ZAR_API_RATE_AT_CALIBRATION = 3.98793
 export const MZN_PER_ZAR = MZN_ZAR_API_RATE_AT_CALIBRATION * MZN_ZAR_MARKUP
