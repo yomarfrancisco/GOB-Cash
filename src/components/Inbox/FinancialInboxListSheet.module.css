@@ -13,19 +13,9 @@
   overflow: hidden;
 }
 
-.activityIllustrationHeader {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  padding: 20px 56px 0;
-  margin-bottom: 42px;
-}
-
-.activityIllustration {
-  display: block;
-  width: min(100%, 190px);
-  height: auto;
+/* Clear the close control (16px + 32px) plus a gap so search does not sit under it. */
+.activityContent {
+  padding-top: 64px;
 }
 
 .subtitle {
