@@ -164,13 +164,13 @@
   color: rgba(0, 0, 0, 0.62);
   cursor: pointer;
   align-self: flex-start;
-  transition: transform 160ms ease-out, color 160ms ease-out;
+  transition: transform 160ms ease-out;
 }
 
 .downloadFill {
   position: absolute;
   inset: 0;
-  background: #111;
+  background: rgba(0, 0, 0, 0.16);
   transform: scaleY(0);
   transform-origin: bottom center;
   pointer-events: none;
@@ -183,7 +183,6 @@
 }
 
 .downloadButtonLoading {
-  color: #c8c8c8;
   cursor: default;
 }
 
@@ -192,7 +191,6 @@
 }
 
 .downloadButtonPressed {
-  color: #c8c8c8;
   transform: scale(0.92);
 }
 
