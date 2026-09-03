@@ -183,13 +183,8 @@
 }
 
 .downloadButtonLoading {
-  color: #fff;
+  color: #c8c8c8;
   cursor: default;
-}
-
-.downloadButtonLoading svg,
-.downloadButtonPressed svg {
-  mix-blend-mode: difference;
 }
 
 .downloadButtonLoading .downloadFill {
@@ -197,7 +192,7 @@
 }
 
 .downloadButtonPressed {
-  color: #fff;
+  color: #c8c8c8;
   transform: scale(0.92);
 }
 
