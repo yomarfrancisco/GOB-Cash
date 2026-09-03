@@ -160,12 +160,11 @@
   border: 0;
   border-radius: 12px;
   overflow: hidden;
-  isolation: isolate;
   background: transparent;
-  color: #fff;
+  color: rgba(0, 0, 0, 0.62);
   cursor: pointer;
   align-self: flex-start;
-  transition: transform 160ms ease-out;
+  transition: transform 160ms ease-out, color 160ms ease-out;
 }
 
 .downloadFill {
@@ -181,7 +180,6 @@
 .downloadButton svg {
   position: relative;
   z-index: 1;
-  mix-blend-mode: difference;
 }
 
 .downloadButtonLoading .downloadFill {
@@ -189,6 +187,7 @@
 }
 
 .downloadButtonPressed {
+  color: #fff;
   transform: scale(0.92);
 }
 
