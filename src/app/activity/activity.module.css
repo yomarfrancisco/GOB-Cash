@@ -149,6 +149,7 @@
 }
 
 .downloadButton {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -158,15 +159,56 @@
   padding: 0;
   border: 0;
   border-radius: 12px;
+  overflow: hidden;
+  isolation: isolate;
   background: transparent;
-  color: rgba(0, 0, 0, 0.55);
+  color: #fff;
   cursor: pointer;
   align-self: flex-start;
+  transition: transform 160ms ease-out;
 }
 
+.downloadFill {
+  position: absolute;
+  inset: 0;
+  background: #111;
+  transform: scaleY(0);
+  transform-origin: bottom center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.downloadButton svg {
+  position: relative;
+  z-index: 1;
+  mix-blend-mode: difference;
+}
+
+.downloadButtonLoading .downloadFill {
+  animation: downloadFillUp 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.downloadButtonPressed {
+  transform: scale(0.92);
+}
+
+.downloadButtonPressed .downloadFill {
+  transform: scaleY(1);
+  animation: none;
+}
+
+.downloadButtonLoading,
 .downloadButton:disabled {
-  opacity: 0.4;
   cursor: default;
+}
+
+@keyframes downloadFillUp {
+  0% {
+    transform: scaleY(0);
+  }
+  100% {
+    transform: scaleY(0.88);
+  }
 }
 
 .emptyState {

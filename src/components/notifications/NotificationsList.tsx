@@ -138,19 +138,26 @@ function canDownloadProof(item: ActivityItem): boolean {
 
 function ActivityItemCard({ item }: { item: ActivityItem }) {
   const avatarUrl = resolveTaskAvatar(item)
-  const [downloading, setDownloading] = useState(false)
+  const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const showDownload = canDownloadProof(item)
 
   const handleDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
-    if (!item.txId || downloading) return
-    setDownloading(true)
+    if (!item.txId || downloadState !== 'idle') return
+    setDownloadState('loading')
+    const startedAt = Date.now()
     try {
       await downloadConversionProof(item.txId)
+      const remaining = 700 - (Date.now() - startedAt)
+      if (remaining > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remaining))
+      }
+      setDownloadState('pressed')
+      await new Promise((resolve) => setTimeout(resolve, 480))
     } catch (error) {
       console.error('[Activity] Failed to download proof of payment:', error)
     } finally {
-      setDownloading(false)
+      setDownloadState('idle')
     }
   }
 
@@ -177,11 +184,19 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
         {showDownload && (
           <button
             type="button"
-            className={styles.downloadButton}
+            className={[
+              styles.downloadButton,
+              downloadState === 'loading' ? styles.downloadButtonLoading : '',
+              downloadState === 'pressed' ? styles.downloadButtonPressed : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             aria-label="Download proof of payment"
-            disabled={downloading}
+            aria-busy={downloadState !== 'idle'}
+            disabled={downloadState !== 'idle'}
             onClick={handleDownload}
           >
+            <span className={styles.downloadFill} aria-hidden />
             <Download size={18} strokeWidth={2} />
           </button>
         )}

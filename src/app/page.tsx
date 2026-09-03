@@ -982,6 +982,7 @@ function HomeContent() {
             destination: conversionDestination,
             amountMZN,
             amountZAR,
+            agentCash: agentCashKeypad,
           }).catch((error: any) => {
             const message = String(error?.message || '')
             useNotificationStore.getState().pushNotification({

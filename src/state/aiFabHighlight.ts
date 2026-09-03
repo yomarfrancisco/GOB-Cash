@@ -13,10 +13,24 @@ export type AiFabHighlightState = {
   lastReason?: string
   lastAmountZar?: number
   lastAvatar?: string // Avatar path for the actor that triggered the highlight
-  triggerAiFabHighlight: (meta?: { reason?: string; amountZar?: number; avatar?: string }) => void
+  triggerAiFabHighlight: (meta?: {
+    reason?: string
+    amountZar?: number
+    avatar?: string
+    durationMs?: number
+  }) => void
+  clearAiFabHighlight: () => void
 }
 
 const HIGHLIGHT_DURATION_MS = 3500 // 3.5 seconds
+let highlightTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearHighlightTimer() {
+  if (highlightTimer) {
+    clearTimeout(highlightTimer)
+    highlightTimer = null
+  }
+}
 
 export const useAiFabHighlightStore = create<AiFabHighlightState>((set) => ({
   isHighlighted: false,
@@ -24,26 +38,22 @@ export const useAiFabHighlightStore = create<AiFabHighlightState>((set) => ({
   lastAmountZar: undefined,
   lastAvatar: undefined,
   triggerAiFabHighlight: (meta) => {
-    set({
+    clearHighlightTimer()
+    set((state) => ({
       isHighlighted: true,
-      lastReason: meta?.reason,
-      lastAmountZar: meta?.amountZar,
-      lastAvatar: meta?.avatar ?? DEFAULT_AMA_AVATAR, // default to $ama
-    })
+      lastReason: meta?.reason ?? state.lastReason,
+      lastAmountZar: meta?.amountZar ?? state.lastAmountZar,
+      lastAvatar: meta?.avatar ?? state.lastAvatar ?? DEFAULT_AMA_AVATAR,
+    }))
 
-    // Auto-reset after duration
-    setTimeout(() => {
-      set((state) => {
-        // Only reset if this is still the current highlight
-        if (state.isHighlighted) {
-          return {
-            isHighlighted: false,
-            // Keep lastReason and lastAmountZar for potential future use
-          }
-        }
-        return state
-      })
-    }, HIGHLIGHT_DURATION_MS)
+    highlightTimer = setTimeout(() => {
+      highlightTimer = null
+      set({ isHighlighted: false })
+    }, meta?.durationMs ?? HIGHLIGHT_DURATION_MS)
+  },
+  clearAiFabHighlight: () => {
+    clearHighlightTimer()
+    set({ isHighlighted: false })
   },
 }))
 
