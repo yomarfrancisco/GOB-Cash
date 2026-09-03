@@ -1,12 +1,13 @@
 /**
  * Quoted MZN per ZAR = ExchangeRate-API mid × corridor markup.
- * COST (source ZAR): 5%. SELL (client offer): 14.3%.
+ * COST is 5% above mid. SELL is a 9% spread on that cost (change MARGIN_ON_COST to retune).
  */
 
 import * as functions from 'firebase-functions'
 
-export const MZN_ZAR_MARKUP = 1.143
 export const MZN_ZAR_MARKUP_RECEIVE_MZN = 1.05
+export const MARGIN_ON_COST = 0.09
+export const MZN_ZAR_MARKUP = MZN_ZAR_MARKUP_RECEIVE_MZN * (1 + MARGIN_ON_COST)
 export const MZN_ZAR_API_RATE_AT_CALIBRATION = 3.98793
 export const MZN_PER_ZAR_FALLBACK = MZN_ZAR_API_RATE_AT_CALIBRATION * MZN_ZAR_MARKUP
 

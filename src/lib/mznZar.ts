@@ -1,7 +1,8 @@
 // Quoted MZN per ZAR = ExchangeRate-API mid × corridor markup.
-// COST (source ZAR): 5%. SELL (client offer): 14.3%.
-export const MZN_ZAR_MARKUP = 1.143
+// COST is 5% above mid. SELL is a 9% spread on that cost (change MARGIN_ON_COST to retune).
 export const MZN_ZAR_MARKUP_RECEIVE_MZN = 1.05
+export const MARGIN_ON_COST = 0.09
+export const MZN_ZAR_MARKUP = MZN_ZAR_MARKUP_RECEIVE_MZN * (1 + MARGIN_ON_COST)
 export const MZN_ZAR_API_RATE_AT_CALIBRATION = 3.98793
 export const MZN_PER_ZAR = MZN_ZAR_API_RATE_AT_CALIBRATION * MZN_ZAR_MARKUP
 export const ZAR_PER_USDT = 18.1
@@ -13,7 +14,7 @@ export function quoteMznPerZar(apiMznPerZar: number, markup = MZN_ZAR_MARKUP): n
   return apiMznPerZar * markup
 }
 
-/** `quotedReceiveZar` is the 14.3% marked-up SELL rate from `/api/fx/latest`. */
+/** `quotedReceiveZar` is the SELL rate from `/api/fx/latest` (cost × (1 + MARGIN_ON_COST)). */
 export function quotedMznPerZarForDestination(
   quotedReceiveZar: number,
   destination: 'ZAR' | 'MZN'
