@@ -220,3 +220,23 @@
   text-align: center;
 }
 
+.moreButton {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 14px 16px 14px 67px;
+  border: 0;
+  background: #fff;
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 18px;
+  letter-spacing: -0.2px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.moreButton:active {
+  opacity: 0.55;
+}
+

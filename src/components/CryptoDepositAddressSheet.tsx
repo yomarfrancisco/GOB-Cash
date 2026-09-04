@@ -7,6 +7,7 @@ import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 import { generateQRCode } from '@/lib/qr'
 import { useNotificationStore } from '@/store/notifications'
+import { TASK_AVATARS } from '@/lib/activity/taskAvatars'
 import { type DepositCryptoWallet } from './DepositCryptoWalletSheet'
 import styles from './CryptoDepositAddressSheet.module.css'
 
@@ -63,6 +64,7 @@ export default function CryptoDepositAddressSheet({ open, onClose, wallet }: Pro
         kind: 'payment_sent',
         title: 'Copied!',
         body: `${coinLabelMap[wallet.coin]} address copied`,
+        actor: { type: 'system', avatar: TASK_AVATARS.copied, name: 'Copy' },
       })
     } catch (error) {
       console.error('Failed to copy address:', error)

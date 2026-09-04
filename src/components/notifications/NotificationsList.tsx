@@ -12,6 +12,11 @@ import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
 import styles from '@/app/activity/activity.module.css'
 
 const GOB_AVATAR_PATH = '/assets/aa2b32f2dc3e3a159949cb59284abddef5683b05.png'
+const PERIOD_PREVIEW_LIMIT = 4
+
+function isCopiedActivity(item: ActivityItem): boolean {
+  return searchableText(item).includes('copied')
+}
 
 function groupByTimePeriod(items: ActivityItem[]) {
   const startOfToday = new Date()
@@ -87,6 +92,7 @@ function isPaymentActivity(item: ActivityItem): boolean {
 }
 
 function resolveTaskAvatar(item: ActivityItem): string {
+  if (isCopiedActivity(item) || item.avatarKind === 'copied') return TASK_AVATARS.copied
   if (item.avatarKind === 'convert_zar') return TASK_AVATARS.convertZar
   if (item.avatarKind === 'convert_mzn') return TASK_AVATARS.convertMzn
   if (item.avatarKind === 'cash_agent_exchange') return TASK_AVATARS.cashAgent
@@ -206,15 +212,28 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
 }
 
 function ActivitySection({ title, items }: { title: string; items: ActivityItem[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const hasMore = items.length > PERIOD_PREVIEW_LIMIT
+  const visibleItems = expanded || !hasMore ? items : items.slice(0, PERIOD_PREVIEW_LIMIT)
+
   if (items.length === 0) return null
 
   return (
     <div className={styles.activitySection}>
       <h2 className={styles.sectionTitle}>{title}</h2>
       <div className={styles.activityList}>
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <ActivityItemCard key={item.id} item={item} />
         ))}
+        {hasMore && !expanded && (
+          <button
+            type="button"
+            className={styles.moreButton}
+            onClick={() => setExpanded(true)}
+          >
+            More...
+          </button>
+        )}
       </div>
     </div>
   )

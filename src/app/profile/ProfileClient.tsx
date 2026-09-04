@@ -64,6 +64,7 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import { generateStyledCashIdQr } from '@/lib/qr'
 import Avatar from '@/components/Avatar'
 import cashIdStyles from '@/components/ShareProfileSheet.module.css'
+import { TASK_AVATARS } from '@/lib/activity/taskAvatars'
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 const PROFILE_QR_AVATAR_SIZE = 40
@@ -720,6 +721,7 @@ export default function ProfileClient() {
                             kind: 'payment_sent',
                             title: 'Handle copied',
                             body: `${handle} copied to clipboard`,
+                            actor: { type: 'system', avatar: TASK_AVATARS.copied, name: 'Copy' },
                           })
                         } catch (error) {
                           console.error('Failed to copy handle:', error)
