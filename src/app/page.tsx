@@ -13,7 +13,7 @@ import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
 import { formatMZN, formatUSDT, formatZAR } from '@/lib/money'
-import { zarToMzn, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
+import { zarToMzn, mznToZar, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
@@ -131,6 +131,7 @@ function HomeContent() {
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('deposit')
   const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'conversionKeypad' | undefined>(undefined)
   const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
+  const [conversionPrefill, setConversionPrefill] = useState<number | undefined>(undefined)
   const [agentCashKeypad, setAgentCashKeypad] = useState(false)
   const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
   const openedGuestCashKeypadRef = useRef(false)
@@ -140,6 +141,7 @@ function HomeContent() {
     playDollarSound()
     setAgentCashKeypad(agentCash)
     setAgentCashHandle(agentCash && handle ? handle.replace(/^[@$]/, '') : null)
+    setConversionPrefill(undefined)
     setConversionDestination('MZN')
     setAmountMode('convert')
     setAmountEntryPoint('conversionKeypad')
@@ -702,7 +704,20 @@ function HomeContent() {
                   flipControllerRef={flipControllerRef}
                   aiCycleControllerRef={aiCycleControllerRef}
                   onCreditSurprise={handleCreditSurprise}
-                  onApyPillClick={(cardType: CardType) => {
+                  onApyPillClick={(cardType: CardType, amount: number) => {
+                    if (cardType === 'savings' || cardType === 'mzn' || cardType === 'yieldSurprise') {
+                      guardAuthed(() => {
+                        playDollarSound()
+                        setAgentCashKeypad(false)
+                        setAgentCashHandle(null)
+                        setConversionPrefill(amount)
+                        setConversionDestination(cardType === 'savings' ? 'MZN' : 'ZAR')
+                        setAmountMode('convert')
+                        setAmountEntryPoint('conversionKeypad')
+                        setOpenAmount(true)
+                      })
+                      return
+                    }
                     setHelperWalletKey(cardType)
                     setIsHelperOpen(true)
                   }}
@@ -908,6 +923,7 @@ function HomeContent() {
         onClose={() => {
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
+          setConversionPrefill(undefined)
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
           clearCashPaySession()
@@ -918,13 +934,26 @@ function HomeContent() {
         withdrawOnly={amountMode === 'withdraw'}
         flowType={flowType}
         balanceMZN={0}
-        initialAmount={sendAmountZAR > 0 ? sendAmountZAR : undefined} // Pre-fill amount when returning from SendDetailsSheet
+        initialAmount={
+          conversionPrefill !== undefined && conversionPrefill > 0
+            ? conversionPrefill
+            : sendAmountZAR > 0
+              ? sendAmountZAR
+              : undefined
+        }
         ctaLabel={amountMode === 'depositCard' ? 'Deposit' : amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
         entryPoint={amountEntryPoint}
         conversionDestination={conversionDestination}
         onToggleConversion={amountEntryPoint === 'conversionKeypad' ? () => {
           const next = conversionDestination === 'ZAR' ? 'MZN' : 'ZAR'
+          if (conversionPrefill !== undefined && conversionPrefill > 0) {
+            const mid = typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0
+            const rate = conversionDestination === 'MZN' ? sellMznPerZar(mid) : costMznPerZar(mid)
+            setConversionPrefill(
+              next === 'ZAR' ? zarToMzn(conversionPrefill, rate) : mznToZar(conversionPrefill, rate)
+            )
+          }
           setOpenAmount(false)
           setTimeout(() => {
             setConversionDestination(next)

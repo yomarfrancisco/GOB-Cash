@@ -124,7 +124,7 @@ interface CardStackProps {
   aiCycleControllerRef?: React.MutableRefObject<{ pause: () => void; resume: () => void } | null>
   onCardClick?: () => void // Optional auth guard wrapper for card clicks
   onCreditSurprise?: (amountZAR: number) => void // Callback for credit surprise animation
-  onApyPillClick?: (cardType: CardType) => void // Callback for APY pill clicks (opens helper)
+  onApyPillClick?: (cardType: CardType, amount: number) => void
   fxRates?: FxRates | null // Exchange rates from server
 }
 

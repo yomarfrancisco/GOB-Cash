@@ -102,7 +102,7 @@ type CardStackCardProps = {
   onFlashEnd: () => void
   isSpecialMode?: boolean
   isSpecialCard?: boolean
-  onApyPillClick?: (cardType: CardType) => void
+  onApyPillClick?: (cardType: CardType, amount: number) => void
   fxRates?: FxRates | null // Exchange rates from server
 }
 
@@ -515,29 +515,10 @@ export default function CardStackCard({
 
   const pillContent = getPillContent()
 
-  // Double-tap detection for APY/timer pill clicks
-  const DOUBLE_TAP_DELAY = 300 // ms
-  const lastPillTapRef = useRef<number>(0)
-
-  // Handler for APY/timer pill double-tap
-  const handlePillDoubleTap = (e: React.MouseEvent | React.TouchEvent) => {
-    // Prevent card's onClick (which opens signup) from firing on pill taps
+  const handlePillClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation()
     e.preventDefault()
-
-    if (!onApyPillClick) return
-
-    const now = Date.now()
-    const timeSinceLastTap = now - lastPillTapRef.current
-
-    if (timeSinceLastTap < DOUBLE_TAP_DELAY) {
-      // Second tap within delay window → open helper sheet
-      onApyPillClick(card.type)
-      lastPillTapRef.current = 0 // Reset to prevent triple-tap
-    } else {
-      // First tap or tap after delay → just record timestamp
-      lastPillTapRef.current = now
-    }
+    onApyPillClick?.(card.type, zar)
   }
 
   // Conditionally add clickable class when handler is provided
@@ -696,7 +677,9 @@ export default function CardStackCard({
       {/* Bottom-left annual yield pill or Rewards label */}
       <div
         className={pillClassName}
-        onClick={handlePillDoubleTap}
+        onClick={handlePillClick}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
         style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
       >
         <span className="card-allocation-pill__text">
