@@ -85,12 +85,19 @@
   min-height: 85vh !important;
 }
 
-/* Inbox tall sheet - matches auth sheet height (85vh) without background image styles */
+/* Inbox tall sheet - matches keypad / auth popup height (85vh) */
 .as-sheet.inboxTallSheet {
   border-radius: 32px 32px 0 0;
   height: 85vh;
   max-height: 85vh;
+  min-height: 85vh;
   padding-bottom: 0; /* Flush with bottom, same as handAuthSheet */
+}
+
+.as-sheet.inboxTallSheet.as-sheet-tall {
+  height: 85vh !important;
+  max-height: 85vh !important;
+  min-height: 85vh !important;
 }
 
 /* Remove default as-body padding for financial inbox sheet - let internal container control spacing */

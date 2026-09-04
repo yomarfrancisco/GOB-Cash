@@ -33,6 +33,18 @@
   margin-bottom: 16px;
 }
 
+.qrContainerOnProfile {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  width: 220px;
+  height: 220px;
+}
+
+.qrContainerOnProfile .qrStage {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+}
+
 .qrStage {
   position: relative;
   width: 220px;

@@ -1085,6 +1085,33 @@ body {
   font-weight: 600;
   letter-spacing: -0.2px;
   color: #000;
+  margin: 0;
+}
+
+.profile-handle-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.profile-share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: #000;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.profile-share-btn:active {
+  opacity: 0.55;
 }
 
 .profile-handle {
