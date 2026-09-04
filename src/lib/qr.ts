@@ -14,7 +14,7 @@ function createQrSymbol(text: string, options: { errorCorrectionLevel: 'H' }): Q
   return create(text, options)
 }
 
-const CASH_ID_PINK = '#FF2D55'
+const CASH_ID_LIME = '#E5FF63'
 const CASH_ID_DARK = '#111111'
 
 function inFinder(row: number, col: number, n: number): boolean {
@@ -29,16 +29,16 @@ function drawFinder(
 ) {
   // Square finders (1:1:3:1:1) so stock phone cameras can lock on the code.
   const size = cell * 7
-  ctx.fillStyle = CASH_ID_PINK
+  ctx.fillStyle = CASH_ID_LIME
   ctx.fillRect(originX, originY, size, size)
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(originX + cell, originY + cell, cell * 5, cell * 5)
-  ctx.fillStyle = CASH_ID_PINK
+  ctx.fillStyle = CASH_ID_LIME
   ctx.fillRect(originX + cell * 2, originY + cell * 2, cell * 3, cell * 3)
 }
 
 /**
- * Cash ID QR: high error correction, pink finder marks, dark round data dots.
+ * Cash ID QR: high error correction, lime finder marks, dark round data dots.
  */
 export async function generateStyledCashIdQr(text: string, size: number = 880): Promise<string> {
   const qr = createQrSymbol(text, { errorCorrectionLevel: 'H' })
