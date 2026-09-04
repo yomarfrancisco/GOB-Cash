@@ -12,6 +12,11 @@ import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import '@/styles/amount-sheet.css'
 
+const CURRENCY_FLAG = {
+  ZAR: { src: '/assets/south%20africa.svg', alt: 'South Africa' },
+  MZN: { src: '/assets/mozambique.svg', alt: 'Mozambique' },
+} as const
+
 type AmountSheetProps = {
   open: boolean
   onClose: () => void
@@ -300,6 +305,10 @@ export default function AmountSheet({
   const usePinkKeypad =
     (isConversionKeypad && isZarPrimaryKeypad) || (isWithdrawKeypad && isZarPrimaryKeypad)
 
+  const primaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.ZAR : CURRENCY_FLAG.MZN
+  const secondaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.MZN : CURRENCY_FLAG.ZAR
+  const secondaryAmount = isZarPrimaryKeypad ? formatMZN(amountMZN) : formatZAR(amountZAR)
+
   return (
     <ActionSheet
       open={open}
@@ -347,12 +356,22 @@ export default function AmountSheet({
         </div>
         <div className="amount-body">
           <div className="amount-sheet__amount-display">
-            <FitAmount
-              text={isZarPrimaryKeypad ? formatZARWithDot(amountZAR) : formatMZNWithDot(amountMZN)}
-              maxPx={72}
-              minPx={28}
-              className="amount-sheet__zar amount-fit"
-            />
+            <div className="amount-sheet__primary-row">
+              <img
+                src={primaryFlag.src}
+                alt={primaryFlag.alt}
+                className="amount-sheet__flag amount-sheet__flag--lg"
+                draggable={false}
+              />
+              <div className="amount-sheet__primary-amount">
+                <FitAmount
+                  text={isZarPrimaryKeypad ? formatZARWithDot(amountZAR) : formatMZNWithDot(amountMZN)}
+                  maxPx={72}
+                  minPx={28}
+                  className="amount-sheet__zar amount-fit"
+                />
+              </div>
+            </div>
             {isConversionKeypad && onToggleConversion ? (
               <button
                 type="button"
@@ -366,11 +385,23 @@ export default function AmountSheet({
                 }}
                 aria-label={isZarPrimaryKeypad ? 'Switch to Metical keypad' : 'Switch to Rand keypad'}
               >
-                {isZarPrimaryKeypad ? formatMZN(amountMZN) : formatZAR(amountZAR)}
+                <img
+                  src={secondaryFlag.src}
+                  alt=""
+                  className="amount-sheet__flag amount-sheet__flag--sm"
+                  draggable={false}
+                />
+                {secondaryAmount}
               </button>
             ) : (
               <div className="amount-sheet__usdt-chip">
-                {isZarPrimaryKeypad ? formatMZN(amountMZN) : formatZAR(amountZAR)}
+                <img
+                  src={secondaryFlag.src}
+                  alt=""
+                  className="amount-sheet__flag amount-sheet__flag--sm"
+                  draggable={false}
+                />
+                {secondaryAmount}
               </div>
             )}
           </div>

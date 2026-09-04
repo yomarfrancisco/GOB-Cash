@@ -114,6 +114,45 @@
   padding: 24px 24px 20px 24px;
 }
 
+.amount-sheet__primary-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.amount-sheet__primary-amount {
+  min-width: 0;
+  max-width: calc(100% - 42px);
+  flex: 0 1 auto;
+}
+
+.amount-sheet__primary-amount .amount-fit,
+.amount-sheet__primary-amount .amount-sheet__zar {
+  margin-top: 0;
+  margin-bottom: 0;
+  text-align: left;
+}
+
+.amount-sheet__flag {
+  display: block;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+}
+
+.amount-sheet__flag--lg {
+  width: 32px;
+  height: 32px;
+}
+
+.amount-sheet__flag--sm {
+  width: 16px;
+  height: 16px;
+}
+
 .amount-sheet__zar {
   /* Font size is now controlled by FitAmount component */
   font-weight: 500; /* Reduced from 700 for lighter appearance */
@@ -139,6 +178,7 @@
 .amount-sheet__usdt-chip {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   padding: 8px 16px;
   background: rgba(255, 255, 255, 0.78); /* Translucent white */
   backdrop-filter: blur(6px);
