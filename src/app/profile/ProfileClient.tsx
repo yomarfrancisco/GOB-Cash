@@ -25,7 +25,7 @@ import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
 import { ScanOverlay } from '@/components/ScanOverlay'
 import { ScanQrSheet } from '@/components/ScanQrSheet'
-import { parseAgentCashQr } from '@/lib/agentCashQr'
+import { parseAgentCashQr, buildAgentCashUrl } from '@/lib/agentCashQr'
 import { formatUSDT } from '@/lib/money'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
@@ -62,8 +62,12 @@ import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { isRestrictedUser } from '@/lib/restrictions'
 import { DEFAULT_COMPLIANCE_PERCENT } from '@/lib/didit'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
+import { generateStyledCashIdQr } from '@/lib/qr'
+import Avatar from '@/components/Avatar'
+import cashIdStyles from '@/components/ShareProfileSheet.module.css'
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
+const PROFILE_QR_AVATAR_SIZE = 40
 
 export default function ProfileClient() {
   const router = useRouter()
@@ -72,6 +76,7 @@ export default function ProfileClient() {
   const { hasCompletedAgentOnboarding } = useAgentOnboardingStore()
   const [kycStatus, setKycStatus] = useState<string | null>(null)
   const [kycPercent, setKycPercent] = useState<number | null>(null)
+  const [cashIdQr, setCashIdQr] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isAuthed) {
@@ -403,6 +408,25 @@ export default function ProfileClient() {
   const { open: openDepositAccountSheet } = useCardDepositAccountSheet()
 
   useEffect(() => {
+    const handle = profile.userHandle
+    if (!handle || handle === '@' || handle.length <= 1) {
+      setCashIdQr(null)
+      return
+    }
+    let cancelled = false
+    generateStyledCashIdQr(buildAgentCashUrl(handle))
+      .then((qr) => {
+        if (!cancelled) setCashIdQr(qr)
+      })
+      .catch((error) => {
+        console.error('Failed to generate profile Cash ID QR:', error)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [profile.userHandle])
+
+  useEffect(() => {
     if (searchParams.get('activity') !== '1' || !authReady) return
 
     if (isAuthed) {
@@ -653,6 +677,31 @@ export default function ProfileClient() {
             <div className="content profile-content">
               {/* Handle (avatar lives on the bottom menu bar) */}
               <div className="profile-header">
+                <div className={cashIdStyles.qrContainer}>
+                  <div className={cashIdStyles.qrStage}>
+                    {cashIdQr ? (
+                      <img
+                        src={cashIdQr}
+                        alt="Cash ID QR code"
+                        className={cashIdStyles.qrImage}
+                      />
+                    ) : (
+                      <div className={cashIdStyles.qrPlaceholder}>Generating QR code...</div>
+                    )}
+                    {cashIdQr && (
+                      <div className={cashIdStyles.avatarOnQr}>
+                        <Avatar
+                          avatarUrl={profile.avatarUrl || undefined}
+                          name={profile.fullName || undefined}
+                          handle={profile.userHandle || undefined}
+                          email={undefined}
+                          size={PROFILE_QR_AVATAR_SIZE}
+                          rounded={PROFILE_QR_AVATAR_SIZE / 2}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <h1 className="profile-name">
                   {profile.userHandle && profile.userHandle !== '@' && profile.userHandle.length > 1
                     ? profile.userHandle
