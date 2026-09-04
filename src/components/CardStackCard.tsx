@@ -70,30 +70,14 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC' | 
   yieldSurprise: 'MZN',
 }
 
-// Flag mapping by currency
-const FLAG_BY_CCY: Record<string, { src: string; id: string }> = {
-  ZAR: { src: '/assets/south%20africa.svg', id: 'flag-za' },
-  MZN: { src: '/assets/mozambique.svg', id: 'flag-mz' },
-  ZWD: { src: '/assets/zimbabwe.png', id: 'flag-zw' },
-  USD: { src: '/assets/united_states.png', id: 'flag-us' },
-}
-
 // Coin mapping for crypto cards
 const COIN_BY_CARD: Record<CardType, { src: string; id: string; label: string } | null> = {
-  savings: null, // Uses flag
-  zwd: null, // Uses flag (ZWD)
+  savings: null,
+  zwd: null,
   yield: { src: '/assets/eth_coin.png', id: 'coin-eth', label: 'ETH' },
-  mzn: null, // Uses flag
+  mzn: null,
   btc: { src: '/assets/Bitcoin-Logo.png', id: 'coin-btc', label: 'BTC' },
-  yieldSurprise: null, // Uses Mozambique flag
-}
-
-// Determine currency for card type (for flags)
-const getCardCurrency = (cardType: CardType): string | null => {
-  if (cardType === 'savings') return 'ZAR'
-  if (cardType === 'mzn' || cardType === 'yieldSurprise') return 'MZN'
-  if (cardType === 'zwd') return 'USD'
-  return null // yield and btc use coin badges instead
+  yieldSurprise: null,
 }
 
 type CardStackCardProps = {
@@ -249,22 +233,6 @@ export default function CardStackCard({
       cancelLongPress()
     }
   }, [])
-
-  // Debug: verify flag size after mount (for both ZAR and MZN)
-  useEffect(() => {
-    const currency = getCardCurrency(card.type)
-    if (currency) {
-      const flagInfo = FLAG_BY_CCY[currency]
-      if (flagInfo) {
-        const el = document.getElementById(`${flagInfo.id}-${card.type}`)
-        if (el) {
-          const r = el.getBoundingClientRect()
-          // eslint-disable-next-line no-console
-          console.log(`[FLAG ${currency} SIZE]`, Math.round(r.width), 'x', Math.round(r.height))
-        }
-      }
-    }
-  }, [card.type])
 
   // Get allocation cents for this card
   // For authed users: read directly from Firestore wallets to avoid demo values
@@ -635,53 +603,26 @@ export default function CardStackCard({
         />
       </div>
 
-      {/* Currency/Coin badge at top-left - flags for ZAR/MZN, coins for ETH/PEPE */}
+      {/* Coin badge at top-left for ETH/BTC */}
       {(() => {
-        // Check for currency (flags) first
-        const currency = getCardCurrency(card.type)
-        if (currency) {
-          const flagInfo = FLAG_BY_CCY[currency]
-          if (flagInfo) {
-            return (
-              <div className="card-currency-chip" aria-hidden>
-                <span className="flag-wrap">
-                  <img
-                    id={`${flagInfo.id}-${card.type}`}
-                    src={flagInfo.src}
-                    alt={currency === 'ZAR' ? 'South Africa flag' : currency === 'MZN' ? 'Mozambique flag' : currency === 'USD' ? 'United States flag' : 'Flag'}
-                    className="flag-icon"
-                    draggable={false}
-                    decoding="async"
-                    loading="eager"
-                  />
-                </span>
-              </div>
-            )
-          }
-        }
-        
-        // Check for coin badge (ETH/BTC)
         const coinInfo = COIN_BY_CARD[card.type]
-        if (coinInfo) {
-          return (
-            <div className="card-currency-chip" aria-hidden>
-              <span className="flag-wrap">
-                <img
-                  id={coinInfo.id}
-                  src={coinInfo.src}
-                  alt={card.type === 'yield' ? 'ETH coin' : card.type === 'btc' ? 'BTC coin' : 'Crypto coin'}
-                  className="flag-icon"
-                  draggable={false}
-                  decoding="async"
-                  loading="eager"
-                />
-                <span className="currency-code">{coinInfo.label}</span>
-              </span>
-            </div>
-          )
-        }
-        
-        return null
+        if (!coinInfo) return null
+        return (
+          <div className="card-currency-chip" aria-hidden>
+            <span className="flag-wrap">
+              <img
+                id={coinInfo.id}
+                src={coinInfo.src}
+                alt={card.type === 'yield' ? 'ETH coin' : card.type === 'btc' ? 'BTC coin' : 'Crypto coin'}
+                className="flag-icon"
+                draggable={false}
+                decoding="async"
+                loading="eager"
+              />
+              <span className="currency-code">{coinInfo.label}</span>
+            </span>
+          </div>
+        )
       })()}
 
       {/* Amount display with SlotCounter (shifted down) - only show for top card */}
