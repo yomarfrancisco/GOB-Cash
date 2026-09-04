@@ -5,7 +5,7 @@ import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
-import { exceedsAvailableMzn, exceedsAvailableZar, formatMZN, formatMZNWithDot, formatZAR, formatZARWithDot } from '@/lib/money'
+import { exceedsAvailableMzn, exceedsAvailableZar, formatAmountWithDot, formatMZN, formatZARWithDot } from '@/lib/money'
 import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsdt } from '@/lib/mznZar'
 import { formatAgentCashTitle, saveCashPayResume } from '@/lib/agentCashQr'
 import { useAuthStore } from '@/store/auth'
@@ -307,7 +307,7 @@ export default function AmountSheet({
 
   const primaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.ZAR : CURRENCY_FLAG.MZN
   const secondaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.MZN : CURRENCY_FLAG.ZAR
-  const secondaryAmount = isZarPrimaryKeypad ? formatMZN(amountMZN) : formatZAR(amountZAR)
+  const secondaryAmount = formatAmountWithDot(isZarPrimaryKeypad ? amountMZN : amountZAR)
 
   return (
     <ActionSheet
@@ -365,7 +365,7 @@ export default function AmountSheet({
               />
               <div className="amount-sheet__primary-amount">
                 <FitAmount
-                  text={isZarPrimaryKeypad ? formatZARWithDot(amountZAR) : formatMZNWithDot(amountMZN)}
+                  text={formatAmountWithDot(isZarPrimaryKeypad ? amountZAR : amountMZN)}
                   maxPx={72}
                   minPx={28}
                   className="amount-sheet__zar amount-fit"
