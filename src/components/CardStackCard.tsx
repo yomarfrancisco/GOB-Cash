@@ -4,7 +4,7 @@ import Image from 'next/image'
 import type { StaticImageData } from 'next/image'
 import { useRef, useEffect, useState } from 'react'
 import SlotCounter from './SlotCounter'
-import { formatZAR, formatUSDT as formatConvertedAmount } from '@/lib/formatCurrency'
+import { formatCardTopline, formatUSDT as formatConvertedAmount } from '@/lib/formatCurrency'
 import { mznToZar, zarToMzn, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
@@ -714,7 +714,7 @@ export default function CardStackCard({
                 <SlotCounter
                   key={balanceKey}
                   value={zar}
-                  format={formatZAR}
+                  format={formatCardTopline}
                   durationMs={isBalanceReady ? 700 : 0}
                   className="card-amounts__zar-value"
                   onStart={() => {
