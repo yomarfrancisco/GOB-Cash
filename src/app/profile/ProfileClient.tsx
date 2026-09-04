@@ -27,11 +27,12 @@ import { ScanOverlay } from '@/components/ScanOverlay'
 import { ScanQrSheet } from '@/components/ScanQrSheet'
 import { parseAgentCashQr, buildAgentCashUrl } from '@/lib/agentCashQr'
 import { formatUSDT } from '@/lib/money'
+import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useWalletStore } from '@/store/wallets'
 import { useSupportSheet } from '@/store/useSupportSheet'
-import { CreditCard, Phone, LogOut, PiggyBank, Receipt, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
+import { CreditCard, Phone, LogOut, PiggyBank, Receipt, QrCode, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
 import LockOverlay from '@/components/LockOverlay'
 // Crypto deposit removed - no longer needed
 import PaymentsSheet from '@/components/PaymentsSheet'
@@ -395,6 +396,7 @@ export default function ProfileClient() {
     }
   }, [searchParams, isAuthed, authReady, router])
 
+  const { open: openShareProfile } = useShareProfileSheet()
   const { setOnSelect, open } = useTransactSheet()
   const { profile, setProfile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
@@ -675,7 +677,7 @@ export default function ProfileClient() {
             <div className="content profile-content">
               {/* Handle (avatar lives on the bottom menu bar) */}
               <div className="profile-header">
-                <div className={`${cashIdStyles.qrContainer} ${cashIdStyles.qrContainerOnProfile}`}>
+                <div className={cashIdStyles.qrContainer}>
                   <div className={cashIdStyles.qrStage}>
                     {cashIdQr ? (
                       <img
@@ -798,27 +800,7 @@ export default function ProfileClient() {
               </div>
               )}
               <div className="profile-settings">
-                <div className="profile-settings-card">
-                  {/* Notifications row - hidden for minimal UI */}
-                  {false && (
-                    <button
-                      className="profile-settings-row"
-                      onClick={() => {
-                        guardAuthed(() => {
-                          openNotifications()
-                        })
-                      }}
-                      type="button"
-                    >
-                      <div className="profile-settings-left">
-                        <div className="profile-settings-icon">
-                          <Bell size={22} strokeWidth={2} style={{ color: '#111' }} />
-                        </div>
-                        <span className="profile-settings-label">Notifications</span>
-                      </div>
-                      <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                    </button>
-                  )}
+                <div className="profile-settings-card profile-settings-card--solo">
                   <button
                     className="profile-settings-row"
                     disabled={isRestricted}
@@ -843,6 +825,53 @@ export default function ProfileClient() {
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                     <LockOverlay show={isRestricted} />
+                  </button>
+                </div>
+                <h2 className="profile-settings-heading">Settings</h2>
+                <div className="profile-settings-card">
+                  {/* Notifications row - hidden for minimal UI */}
+                  {false && (
+                    <button
+                      className="profile-settings-row"
+                      onClick={() => {
+                        guardAuthed(() => {
+                          openNotifications()
+                        })
+                      }}
+                      type="button"
+                    >
+                      <div className="profile-settings-left">
+                        <div className="profile-settings-icon">
+                          <Bell size={22} strokeWidth={2} style={{ color: '#111' }} />
+                        </div>
+                        <span className="profile-settings-label">Notifications</span>
+                      </div>
+                      <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                    </button>
+                  )}
+                  <button
+                    className="profile-settings-row"
+                    onClick={() => {
+                      guardAuthed(() => {
+                        openShareProfile({
+                          subject: {
+                            handle: profile.userHandle || '@samakoyo',
+                            avatarUrl: profile.avatarUrl,
+                            fullName: profile.fullName,
+                          },
+                          mode: 'self',
+                        })
+                      })
+                    }}
+                    type="button"
+                  >
+                    <div className="profile-settings-left">
+                      <div className="profile-settings-icon">
+                        <QrCode size={22} strokeWidth={2} style={{ color: '#111' }} />
+                      </div>
+                      <span className="profile-settings-label">Cash ID</span>
+                    </div>
+                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
                   {/* Help and support row - hidden for minimal UI */}
                   {false && (
