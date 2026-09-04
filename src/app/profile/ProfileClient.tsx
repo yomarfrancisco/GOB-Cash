@@ -27,12 +27,11 @@ import { ScanOverlay } from '@/components/ScanOverlay'
 import { ScanQrSheet } from '@/components/ScanQrSheet'
 import { parseAgentCashQr, buildAgentCashUrl } from '@/lib/agentCashQr'
 import { formatUSDT } from '@/lib/money'
-import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useWalletStore } from '@/store/wallets'
 import { useSupportSheet } from '@/store/useSupportSheet'
-import { CreditCard, Phone, LogOut, PiggyBank, Receipt, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell, Share } from 'lucide-react'
+import { CreditCard, Phone, LogOut, PiggyBank, Receipt, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell, Copy } from 'lucide-react'
 import LockOverlay from '@/components/LockOverlay'
 // Crypto deposit removed - no longer needed
 import PaymentsSheet from '@/components/PaymentsSheet'
@@ -396,7 +395,6 @@ export default function ProfileClient() {
     }
   }, [searchParams, isAuthed, authReady, router])
 
-  const { open: openShareProfile } = useShareProfileSheet()
   const { setOnSelect, open } = useTransactSheet()
   const { profile, setProfile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
@@ -710,22 +708,31 @@ export default function ProfileClient() {
                   </h1>
                   <button
                     type="button"
-                    className="profile-share-btn"
-                    aria-label="Share Cash ID"
+                    className="profile-copy-btn"
+                    aria-label="Copy handle"
                     onClick={() => {
-                      guardAuthed(() => {
-                        openShareProfile({
-                          subject: {
-                            handle: profile.userHandle || '@samakoyo',
-                            avatarUrl: profile.avatarUrl,
-                            fullName: profile.fullName,
-                          },
-                          mode: 'self',
-                        })
-                      })
+                      const handle = profile.userHandle
+                      if (!handle || handle === '@' || handle.length <= 1) return
+                      void (async () => {
+                        try {
+                          await navigator.clipboard.writeText(handle)
+                          useNotificationStore.getState().pushNotification({
+                            kind: 'payment_sent',
+                            title: 'Handle copied',
+                            body: `${handle} copied to clipboard`,
+                          })
+                        } catch (error) {
+                          console.error('Failed to copy handle:', error)
+                          useNotificationStore.getState().pushNotification({
+                            kind: 'payment_failed',
+                            title: 'Failed to copy handle',
+                            body: 'Unable to copy handle, please try again',
+                          })
+                        }
+                      })()
                     }}
                   >
-                    <Share size={18} strokeWidth={2.25} />
+                    <Copy size={18} strokeWidth={2.25} />
                   </button>
                 </div>
               </div>

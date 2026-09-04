@@ -1095,7 +1095,7 @@ body {
   gap: 8px;
 }
 
-.profile-share-btn {
+.profile-copy-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1110,7 +1110,7 @@ body {
   flex-shrink: 0;
 }
 
-.profile-share-btn:active {
+.profile-copy-btn:active {
   opacity: 0.55;
 }
 
