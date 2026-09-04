@@ -10,6 +10,8 @@ import { handleMapFromNotification } from '@/lib/notifications/mapNotificationRo
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
+import { useUserProfileStore } from '@/store/userProfile'
+import Avatar from '@/components/Avatar'
 import '@/styles/notifications.css'
 
 const MAX_VISIBLE = 2
@@ -21,6 +23,7 @@ export default function TopNotifications() {
   const { notifications, dismissNotification } = useNotificationStore()
   const { isInboxOpen } = useFinancialInboxStore() // Check if financial inbox is open
   const { isAuthed, requireAuth } = useAuthStore()
+  const profile = useUserProfileStore((s) => s.profile)
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set())
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
   const dismissTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
@@ -146,6 +149,7 @@ export default function TopNotifications() {
       {visibleNotifications.map((notification, index) => {
         // Migrate legacy actor and resolve avatar
         const actor = migrateLegacyActor(notification.actor)
+        const isCopied = `${notification.title} ${notification.body ?? ''}`.toLowerCase().includes('copied')
         const avatarUrl = resolveAvatarForActor(actor)
 
         // Get alt text based on identity
@@ -201,15 +205,26 @@ export default function TopNotifications() {
             <div className={clsx('notification-avatar', {
               'notification-avatar--ai': isAiManager(actor),
             })}>
-              <Image
-                src={avatarUrl}
-                alt={getAltText()}
-                width={38}
-                height={38}
-                className="notification-avatar-img"
-                sizes="38px"
-                quality={92}
-              />
+              {isCopied ? (
+                <Avatar
+                  avatarUrl={profile.avatarUrl}
+                  name={profile.fullName}
+                  handle={profile.userHandle}
+                  email={profile.email}
+                  size={38}
+                  rounded={19}
+                />
+              ) : (
+                <Image
+                  src={avatarUrl}
+                  alt={getAltText()}
+                  width={38}
+                  height={38}
+                  className="notification-avatar-img"
+                  sizes="38px"
+                  quality={92}
+                />
+              )}
             </div>
             <div className="notification-content">
               <div className="notification-head">

@@ -9,6 +9,8 @@ import { downloadConversionProof } from '@/lib/transactions/clientFunctions'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
+import { useUserProfileStore } from '@/store/userProfile'
+import Avatar from '@/components/Avatar'
 import styles from '@/app/activity/activity.module.css'
 
 const GOB_AVATAR_PATH = '/assets/aa2b32f2dc3e3a159949cb59284abddef5683b05.png'
@@ -92,7 +94,6 @@ function isPaymentActivity(item: ActivityItem): boolean {
 }
 
 function resolveTaskAvatar(item: ActivityItem): string {
-  if (isCopiedActivity(item) || item.avatarKind === 'copied') return TASK_AVATARS.copied
   if (item.avatarKind === 'convert_zar') return TASK_AVATARS.convertZar
   if (item.avatarKind === 'convert_mzn') return TASK_AVATARS.convertMzn
   if (item.avatarKind === 'cash_agent_exchange') return TASK_AVATARS.cashAgent
@@ -143,7 +144,9 @@ function canDownloadProof(item: ActivityItem): boolean {
 }
 
 function ActivityItemCard({ item }: { item: ActivityItem }) {
-  const avatarUrl = resolveTaskAvatar(item)
+  const profile = useUserProfileStore((s) => s.profile)
+  const isCopied = isCopiedActivity(item)
+  const avatarUrl = isCopied ? null : resolveTaskAvatar(item)
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const showDownload = canDownloadProof(item)
 
@@ -170,14 +173,25 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
   return (
     <article className={styles.activityItem}>
       <div className={styles.activityAvatar}>
-        <Image
-          src={avatarUrl}
-          alt={item.actor.name || 'Payment agent'}
-          width={40}
-          height={40}
-          className={styles.avatarImg}
-          unoptimized
-        />
+        {isCopied ? (
+          <Avatar
+            avatarUrl={profile.avatarUrl}
+            name={profile.fullName}
+            handle={profile.userHandle}
+            email={profile.email}
+            size={40}
+            rounded={20}
+          />
+        ) : (
+          <Image
+            src={avatarUrl ?? GOB_AVATAR_PATH}
+            alt={item.actor.name || 'Payment agent'}
+            width={40}
+            height={40}
+            className={styles.avatarImg}
+            unoptimized
+          />
+        )}
       </div>
       <div className={styles.activityContent}>
         <div className={styles.activityHeader}>

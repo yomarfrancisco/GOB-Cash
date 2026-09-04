@@ -17,7 +17,7 @@ import clsx from 'clsx'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import { BASE_USDT_ADDRESS } from '@/config/addresses'
 import { useNotificationStore } from '@/store/notifications'
-import { TASK_AVATARS } from '@/lib/activity/taskAvatars'
+import { useUserProfileStore } from '@/store/userProfile'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { applyFeeToRate } from '@/lib/exchangeRates/applyFeeToRate'
 
@@ -220,11 +220,16 @@ export default function CardStackCard({
 
     try {
       await navigator.clipboard.writeText(BASE_USDT_ADDRESS)
+      const { profile } = useUserProfileStore.getState()
       pushNotification({
         kind: 'payment_sent',
         title: 'USDT address copied',
         body: 'Base USDT address copied to clipboard',
-        actor: { type: 'system', avatar: TASK_AVATARS.copied, name: 'Copy' },
+        actor: {
+          type: 'user',
+          avatar: profile.avatarUrl || undefined,
+          name: profile.fullName,
+        },
       })
     } catch (err) {
       console.error('[CARD LONGPRESS] Failed to copy USDT address', err)
