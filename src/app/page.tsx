@@ -49,7 +49,7 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { openAmaChatWithScenario } from '@/lib/cashDeposit/chatOrchestration'
 import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
-import { conversionDestinationFromTopCard, type ConversionDestination } from '@/store/usePayIntoSheet'
+import { type ConversionDestination } from '@/store/usePayIntoSheet'
 import PayIntoSheet from '@/components/PayIntoSheet'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
@@ -140,11 +140,11 @@ function HomeContent() {
     playDollarSound()
     setAgentCashKeypad(agentCash)
     setAgentCashHandle(agentCash && handle ? handle.replace(/^[@$]/, '') : null)
-    setConversionDestination(conversionDestinationFromTopCard(topCardType))
+    setConversionDestination('MZN')
     setAmountMode('convert')
     setAmountEntryPoint('conversionKeypad')
     setOpenAmount(true)
-  }, [playDollarSound, topCardType])
+  }, [playDollarSound])
 
   useEffect(() => {
     if (!authReady) return

@@ -625,7 +625,7 @@ export default function ProfileClient() {
                   guardAuthed(() => {
                     setAgentCashKeypad(false)
                     setAgentCashHandle(null)
-                    setConversionDestination('ZAR')
+                    setConversionDestination('MZN')
                     setAmountMode('convert')
                     setAmountEntryPoint('conversionKeypad')
                     setOpenAmount(true)

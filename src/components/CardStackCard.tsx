@@ -464,14 +464,14 @@ export default function CardStackCard({
     if (card.type === 'yieldSurprise') {
       const profitPerZar = Math.max(0, sellRate - costRate)
       return {
-        strong: 'PROFIT =',
+        strong: 'PROFIT@',
         label: `${profitPerZar.toFixed(2)}Mt/R`,
       }
     }
 
     if (card.type === 'mzn') {
       return {
-        strong: 'COST =',
+        strong: 'COST@',
         label: `${costRate.toFixed(2)}Mt/R`,
       }
     }

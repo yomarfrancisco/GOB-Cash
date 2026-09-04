@@ -294,16 +294,16 @@ export default function AmountSheet({
   const showScanIcon = Boolean(onScanClick) && (isConversionKeypad || entryPoint === 'cashButton')
   const hideModeLabel = entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || isConversionKeypad || isWithdrawKeypad
 
-  // Lime when converting from Metical; light pink when converting from Rand.
+  // Lime when Rand is large; pink when Metical is large.
   const isSponsorButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'sponsorButton'
-  const useLimeGreenBackground =
+  const isTintedKeypad =
     isHelicopterConvert ||
     isCashButtonConvert ||
     isSponsorButtonConvert ||
-    (isConversionKeypad && !isZarPrimaryKeypad) ||
-    (isWithdrawKeypad && !isZarPrimaryKeypad)
-  const usePinkKeypad =
-    (isConversionKeypad && isZarPrimaryKeypad) || (isWithdrawKeypad && isZarPrimaryKeypad)
+    isConversionKeypad ||
+    isWithdrawKeypad
+  const useLimeGreenBackground = isTintedKeypad && isZarPrimaryKeypad
+  const usePinkKeypad = isTintedKeypad && !isZarPrimaryKeypad
 
   const primaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.ZAR : CURRENCY_FLAG.MZN
   const secondaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.MZN : CURRENCY_FLAG.ZAR
