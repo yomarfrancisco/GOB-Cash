@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import CardStack, { type CardStackHandle, type CardType } from '@/components/CardStack'
 import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
@@ -67,6 +68,7 @@ const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false
 
 // Main home page content
 function HomeContent() {
+  const router = useRouter()
   const [topCardType, setTopCardType] = useState<CardType>('mzn')
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const [helperWalletKey, setHelperWalletKey] = useState<CardType | null>(null)
@@ -167,9 +169,7 @@ function HomeContent() {
       if (resumedAuthedCashKeypadRef.current) return
       resumedAuthedCashKeypadRef.current = true
       clearCashPaySession()
-      // Guest already has this keypad open from the handle URL; keep it.
-      if (openedGuestCashKeypadRef.current) return
-      openConversionKeypad(true, handle)
+      router.replace(`/profile?cash=${encodeURIComponent(handle)}`)
       return
     }
 
@@ -177,7 +177,7 @@ function HomeContent() {
     if (openedGuestCashKeypadRef.current) return
     openedGuestCashKeypadRef.current = true
     openConversionKeypad(true, fromQuery)
-  }, [authReady, isAuthed, openConversionKeypad])
+  }, [authReady, isAuthed, openConversionKeypad, router])
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
   const [depositAmountUSDT, setDepositAmountUSDT] = useState(0)

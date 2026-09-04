@@ -85,8 +85,9 @@ export default function AmountSheet({
   const { alloc } = useWalletAlloc()
   const gateGuestPay = agentCash && !isAuthed
   const blockGuestPay = () => {
-    requireAuth(() => {})
     if (agentCashHandle) saveCashPayResume(agentCashHandle)
+    onClose()
+    requireAuth(() => {})
   }
   
   const isWithdrawKeypad = entryPoint === 'withdrawKeypad'

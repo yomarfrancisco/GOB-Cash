@@ -38,10 +38,10 @@ export function parseAgentCashQr(raw: string): string | null {
   }
 }
 
-/** Keypad title after scanning a Cash ID, e.g. Cash@ama */
+/** Keypad title for a payment link, e.g. @ama */
 export function formatAgentCashTitle(handle?: string | null): string {
   const name = normalizeCashHandle(handle)
-  return name ? `Cash@${name}` : 'Cash'
+  return name ? `@${name}` : '@'
 }
 
 function writeSession(key: string, value: string): void {

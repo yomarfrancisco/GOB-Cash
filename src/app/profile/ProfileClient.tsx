@@ -25,7 +25,7 @@ import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
 import { ScanOverlay } from '@/components/ScanOverlay'
 import { ScanQrSheet } from '@/components/ScanQrSheet'
-import { parseAgentCashQr, buildAgentCashUrl } from '@/lib/agentCashQr'
+import { parseAgentCashQr, buildAgentCashUrl, normalizeCashHandle, readCashPayResume, clearCashPaySession } from '@/lib/agentCashQr'
 import { formatUSDT } from '@/lib/money'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
@@ -472,6 +472,33 @@ export default function ProfileClient() {
   const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
   const [agentCashKeypad, setAgentCashKeypad] = useState(false)
   const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
+  const openedCashLinkRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!authReady) return
+    const fromQuery = normalizeCashHandle(searchParams.get('cash'))
+    const handle = fromQuery || (isAuthed ? readCashPayResume() : '')
+    if (!handle) return
+
+    if (!isAuthed) {
+      router.replace(`/?cash=${encodeURIComponent(handle)}`)
+      return
+    }
+
+    if (openedCashLinkRef.current === handle) return
+    openedCashLinkRef.current = handle
+    clearCashPaySession()
+    if (fromQuery) {
+      router.replace('/profile', { scroll: false })
+    }
+    setAgentCashKeypad(true)
+    setAgentCashHandle(handle)
+    setConversionDestination('MZN')
+    setAmountMode('convert')
+    setAmountEntryPoint('conversionKeypad')
+    setOpenAmount(true)
+  }, [authReady, isAuthed, router, searchParams])
+
   const [withdrawFrom, setWithdrawFrom] = useState<ConversionDestination>('MZN')
   const [depositMethod, setDepositMethod] = useState<'bank' | 'card' | 'crypto' | 'atm' | 'agent' | null>(null)
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
@@ -709,17 +736,18 @@ export default function ProfileClient() {
                   <button
                     type="button"
                     className="profile-copy-btn"
-                    aria-label="Copy handle"
+                    aria-label="Copy payment link"
                     onClick={() => {
                       const handle = profile.userHandle
                       if (!handle || handle === '@' || handle.length <= 1) return
+                      const paymentUrl = buildAgentCashUrl(handle)
                       void (async () => {
                         try {
-                          await navigator.clipboard.writeText(handle)
+                          await navigator.clipboard.writeText(paymentUrl)
                           useNotificationStore.getState().pushNotification({
                             kind: 'payment_sent',
-                            title: 'Handle copied',
-                            body: `${handle} copied to clipboard`,
+                            title: 'Payment link copied',
+                            body: `${handle} payment link copied to clipboard`,
                             actor: {
                               type: 'user',
                               avatar: profile.avatarUrl || undefined,
@@ -727,11 +755,11 @@ export default function ProfileClient() {
                             },
                           })
                         } catch (error) {
-                          console.error('Failed to copy handle:', error)
+                          console.error('Failed to copy payment link:', error)
                           useNotificationStore.getState().pushNotification({
                             kind: 'payment_failed',
-                            title: 'Failed to copy handle',
-                            body: 'Unable to copy handle, please try again',
+                            title: 'Failed to copy payment link',
+                            body: 'Unable to copy payment link, please try again',
                           })
                         }
                       })()
