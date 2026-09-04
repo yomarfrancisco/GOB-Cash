@@ -176,8 +176,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       onAuthed()
       return
     }
-    // Drop any leftover Cash ID resume unless the caller re-saves it (keypad guest tap).
-    clearCashPaySession()
     set({ pendingAuthAction: onAuthed })
     prefetchAuthImages()
     openAuthEntry()

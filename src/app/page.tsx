@@ -60,6 +60,7 @@ import {
   parseAgentCashQr,
   cashHandleFromQuery,
   readCashPayResume,
+  saveCashPayResume,
   clearCashPaySession,
 } from '@/lib/agentCashQr'
 
@@ -176,6 +177,7 @@ function HomeContent() {
     if (!fromQuery) return
     if (openedGuestCashKeypadRef.current) return
     openedGuestCashKeypadRef.current = true
+    saveCashPayResume(fromQuery)
     openConversionKeypad(true, fromQuery)
   }, [authReady, isAuthed, openConversionKeypad, router])
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
@@ -926,7 +928,6 @@ function HomeContent() {
           setConversionPrefill(undefined)
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
-          clearCashPaySession()
         }}
         agentCash={agentCashKeypad}
         agentCashHandle={agentCashHandle}
