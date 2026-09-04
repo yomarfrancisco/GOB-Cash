@@ -27,12 +27,11 @@ import { ScanOverlay } from '@/components/ScanOverlay'
 import { ScanQrSheet } from '@/components/ScanQrSheet'
 import { parseAgentCashQr, buildAgentCashUrl } from '@/lib/agentCashQr'
 import { formatUSDT } from '@/lib/money'
-import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useWalletStore } from '@/store/wallets'
 import { useSupportSheet } from '@/store/useSupportSheet'
-import { CreditCard, Phone, LogOut, PiggyBank, Receipt, QrCode, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
+import { CreditCard, Phone, LogOut, PiggyBank, Receipt, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell } from 'lucide-react'
 import LockOverlay from '@/components/LockOverlay'
 // Crypto deposit removed - no longer needed
 import PaymentsSheet from '@/components/PaymentsSheet'
@@ -396,7 +395,6 @@ export default function ProfileClient() {
     }
   }, [searchParams, isAuthed, authReady, router])
 
-  const { open: openShareProfile } = useShareProfileSheet()
   const { setOnSelect, open } = useTransactSheet()
   const { profile, setProfile } = useUserProfileStore()
   const { open: openSupport } = useSupportSheet()
@@ -823,27 +821,28 @@ export default function ProfileClient() {
                   )}
                   <button
                     className="profile-settings-row"
+                    disabled={isRestricted}
                     onClick={() => {
+                      if (isRestricted) return
                       guardAuthed(() => {
-                        openShareProfile({
-                          subject: {
-                            handle: profile.userHandle || '@samakoyo',
-                            avatarUrl: profile.avatarUrl,
-                            fullName: profile.fullName,
-                          },
-                          mode: 'self',
-                        })
+                        openNotifications()
                       })
                     }}
                     type="button"
+                    style={{
+                      position: 'relative',
+                      ...(isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
+                    }}
+                    aria-disabled={isRestricted}
                   >
                     <div className="profile-settings-left">
                       <div className="profile-settings-icon">
-                        <QrCode size={22} strokeWidth={2} style={{ color: '#111' }} />
+                        <Inbox size={22} strokeWidth={2} style={{ color: '#111' }} />
                       </div>
-                      <span className="profile-settings-label">Cash ID</span>
+                      <span className="profile-settings-label">Activity</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                    <LockOverlay show={isRestricted} />
                   </button>
                   {/* Help and support row - hidden for minimal UI */}
                   {false && (
