@@ -677,7 +677,7 @@ export default function ProfileClient() {
             <div className="content profile-content">
               {/* Handle (avatar lives on the bottom menu bar) */}
               <div className="profile-header">
-                <div className={cashIdStyles.qrContainer}>
+                <div className={`${cashIdStyles.qrContainer} ${cashIdStyles.qrContainerOnProfile}`}>
                   <div className={cashIdStyles.qrStage}>
                     {cashIdQr ? (
                       <img
@@ -800,34 +800,6 @@ export default function ProfileClient() {
               </div>
               )}
               <div className="profile-settings">
-                <div className="profile-settings-card profile-settings-card--solo">
-                  <button
-                    className="profile-settings-row"
-                    disabled={isRestricted}
-                    onClick={() => {
-                      if (isRestricted) return
-                      guardAuthed(() => {
-                        openNotifications()
-                      })
-                    }}
-                    type="button"
-                    style={{
-                      position: 'relative',
-                      ...(isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
-                    }}
-                    aria-disabled={isRestricted}
-                  >
-                    <div className="profile-settings-left">
-                      <div className="profile-settings-icon">
-                        <Inbox size={22} strokeWidth={2} style={{ color: '#111' }} />
-                      </div>
-                      <span className="profile-settings-label">Activity</span>
-                    </div>
-                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                    <LockOverlay show={isRestricted} />
-                  </button>
-                </div>
-                <h2 className="profile-settings-heading">Settings</h2>
                 <div className="profile-settings-card">
                   {/* Notifications row - hidden for minimal UI */}
                   {false && (
