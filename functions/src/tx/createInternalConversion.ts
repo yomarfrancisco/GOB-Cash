@@ -14,6 +14,7 @@ import {
   MZN_ZAR_MARKUP_RECEIVE_MZN,
 } from '../fx/quotedMznZar'
 import { normalizeHandle } from '../utils/handleNormalization'
+import { sendAgentConversionProofEmail } from './sendConversionProofEmail'
 
 const db = admin.firestore()
 
@@ -224,6 +225,15 @@ export const tx_createInternalConversion = functions
         recordingSource: 'USER_UI',
       })
     })
+
+    try {
+      await sendAgentConversionProofEmail(txId)
+    } catch (error) {
+      console.error('[tx_createInternalConversion] Agent proof email failed (non-blocking)', {
+        txId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
 
     return { txId }
   })

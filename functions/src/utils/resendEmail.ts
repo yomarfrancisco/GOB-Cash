@@ -16,13 +16,19 @@ export function getCoreAgentEmail(): string {
   return configEmail || CORE_AGENT_EMAIL
 }
 
+export type ResendAttachment = {
+  filename: string
+  content: string
+}
+
 /**
  * Send email using Resend API
  */
 export async function sendEmailViaResend(
   to: string,
   subject: string,
-  html: string
+  html: string,
+  attachments?: ResendAttachment[]
 ): Promise<void> {
   const apiKey = functions.config().resend?.api_key
   if (!apiKey) {
@@ -30,7 +36,8 @@ export async function sendEmailViaResend(
     throw new Error('Email service not configured')
   }
 
-  const emailFrom = functions.config().email?.from || 'noreply@gobankless.com'
+  const configuredFrom = functions.config().email?.from || 'onboarding@resend.dev'
+  const emailFrom = configuredFrom.includes('<') ? configuredFrom : `MozPaga <${configuredFrom}>`
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -43,6 +50,7 @@ export async function sendEmailViaResend(
       to: [to],
       subject,
       html,
+      ...(attachments && attachments.length ? { attachments } : {}),
     }),
   })
 

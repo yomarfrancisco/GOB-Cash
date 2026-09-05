@@ -57,10 +57,60 @@ export interface ConversionProofData {
   timestamp: admin.firestore.Timestamp
 }
 
-function formatBuyer(data: ConversionProofData): string {
+export function formatBuyer(data: ConversionProofData): string {
   const named = (data.counterpartyHandle || '').trim().replace(/^[@$]+/, '')
   if (named) return `@${named}`
   return data.sourceCurrency === 'ZAR' ? 'Moz Client' : 'SA Client'
+}
+
+export function conversionProofHeadline(data: ConversionProofData): string {
+  const isZarSale = data.sourceCurrency === 'ZAR'
+  const sellRate = data.sellRate > 0 ? data.sellRate : data.quotedRate
+  const zarSold = isZarSale ? data.sourceAmount : data.destinationAmount
+  const mznReceived = isZarSale
+    ? data.destinationAmount || roundMajor(zarSold * sellRate)
+    : data.sourceAmount
+  return isZarSale
+    ? `${formatZar(zarSold)} to ${formatMzn(mznReceived)}`
+    : `${formatMzn(data.sourceAmount)} to ${formatZar(data.destinationAmount)}`
+}
+
+export function conversionProofFilename(txId: string): string {
+  return `mozpaga-fx-${txId}.pdf`
+}
+
+export function generateConversionProofEmailHtml(data: ConversionProofData): string {
+  const buyer = formatBuyer(data)
+  const headline = conversionProofHeadline(data)
+  const account = data.userHandle || 'MozPaga Agent'
+  const when = formatTimestamp(data.timestamp)
+  const filename = conversionProofFilename(data.txId)
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+    </head>
+    <body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;color:#111;">
+      <div style="max-width:560px;margin:24px auto;background:#fff;padding:28px 24px;border-radius:8px;">
+        <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#666;">MozPaga</p>
+        <h1 style="margin:0 0 8px;font-size:22px;">FX Conversion Request</h1>
+        <p style="margin:0 0 20px;font-size:18px;font-weight:bold;">${headline}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <tr><td style="padding:8px 0;color:#666;width:160px;">Buyer</td><td style="padding:8px 0;font-weight:bold;">${buyer}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Direction</td><td style="padding:8px 0;">${data.sourceCurrency} to ${data.destinationCurrency}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Conversion type</td><td style="padding:8px 0;">Client sale</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Account</td><td style="padding:8px 0;">${account}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Transaction ID</td><td style="padding:8px 0;">${data.txId}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Date</td><td style="padding:8px 0;">${when}</td></tr>
+        </table>
+        <p style="margin:20px 0 0;font-size:14px;">The same notification is attached as <strong>${filename}</strong>.</p>
+        <p style="margin:16px 0 0;font-size:12px;line-height:1.5;color:#666;">${DISCLAIMER}</p>
+      </div>
+    </body>
+    </html>
+  `
 }
 
 function formatTimestamp(timestamp: admin.firestore.Timestamp): string {
