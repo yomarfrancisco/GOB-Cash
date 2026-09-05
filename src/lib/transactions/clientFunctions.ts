@@ -680,6 +680,7 @@ export async function tx_createInternalConversion(params: {
   destinationCurrency: 'ZAR' | 'MZN'
   sourceAmount: number
   groupId?: string | null
+  agentCashHandle?: string | null
 }): Promise<{ txId: string }> {
   const app = getFirebaseApp()
   const functions = getFunctionsInstance()

@@ -1013,6 +1013,7 @@ function HomeContent() {
             amountMZN,
             amountZAR,
             agentCash: agentCashKeypad,
+            agentCashHandle: agentCashHandle,
           }).catch((error: any) => {
             const message = String(error?.message || '')
             useNotificationStore.getState().pushNotification({

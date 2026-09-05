@@ -13,11 +13,50 @@ import {
   MZN_ZAR_MARKUP,
   MZN_ZAR_MARKUP_RECEIVE_MZN,
 } from '../fx/quotedMznZar'
+import { normalizeHandle } from '../utils/handleNormalization'
 
 const db = admin.firestore()
 
 function roundMajor(value: number): number {
   return Math.round(value * 100) / 100
+}
+
+function displayUserHandle(raw?: string | null, fallbackSlug = ''): string {
+  const fromUser = (raw || '').trim()
+  if (fromUser) {
+    const slug = fromUser.replace(/^[@$]+/, '')
+    return slug ? `@${slug}` : ''
+  }
+  const slug = fallbackSlug.replace(/^[@$]+/, '')
+  return slug ? `@${slug}` : ''
+}
+
+/** Named client only when the payment-link handle is a different existing user. */
+async function resolveNamedClient(
+  rawHandle: unknown,
+  payerUid: string
+): Promise<{ handle: string; userId: string } | null> {
+  if (typeof rawHandle !== 'string') return null
+  const slug = rawHandle.trim().replace(/^[@$]+/, '').toLowerCase()
+  if (!slug) return null
+
+  const candidates = Array.from(
+    new Set([normalizeHandle(slug), `$${slug}`, slug].filter(Boolean) as string[])
+  )
+
+  for (const id of candidates) {
+    const snap = await db.collection('publicDirectory').doc(id).get()
+    if (!snap.exists) continue
+    const ownerUserId = snap.data()?.ownerUserId
+    if (typeof ownerUserId !== 'string' || !ownerUserId || ownerUserId === payerUid) {
+      return null
+    }
+    const userSnap = await db.collection('users').doc(ownerUserId).get()
+    const userData = userSnap.exists ? userSnap.data() : undefined
+    const handle = displayUserHandle(userData?.userHandle || userData?.handle, slug)
+    return handle ? { handle, userId: ownerUserId } : null
+  }
+  return null
 }
 
 export const tx_createInternalConversion = functions
@@ -40,6 +79,7 @@ export const tx_createInternalConversion = functions
       throw new functions.https.HttpsError('invalid-argument', 'sourceAmount must be a positive number')
     }
 
+    const namedClient = await resolveNamedClient(data?.agentCashHandle, userId)
     const sourceAmountMajor = roundMajor(sourceAmount)
     const sourceAmountMinor = Math.round(sourceAmountMajor * 100)
     const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
@@ -160,6 +200,8 @@ export const tx_createInternalConversion = functions
         amountMzn: sourceCurrency === 'MZN' ? sourceAmountMajor : reportedDestMajor,
         amountZar: sourceCurrency === 'ZAR' ? sourceAmountMajor : expectedDestinationMajor,
         fxRateMZNperZAR,
+        counterpartyHandle: namedClient?.handle || null,
+        counterpartyUserId: namedClient?.userId || null,
         groupId,
         createdAt: now,
         statusUpdatedAt: now,
