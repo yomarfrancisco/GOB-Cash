@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start -p 4173",
     "lint": "next lint",
+    "test": "tsx --test functions/src/fx/mznZarRepricingRisk.test.ts src/lib/fx/repricingRiskBar.test.ts",
     "generate:avatars": "node scripts/generate-avatars.js",
     "generate:initial-avatars": "node scripts/generate-initial-avatars.js",
     "add-ring-to-initials": "node scripts/add-ring-to-initial-avatars.js",

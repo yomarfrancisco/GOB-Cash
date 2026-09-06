@@ -20,6 +20,7 @@ import { useNotificationStore } from '@/store/notifications'
 import { useUserProfileStore } from '@/store/userProfile'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { applyFeeToRate } from '@/lib/exchangeRates/applyFeeToRate'
+import { useMznRepricingRiskBar } from '@/lib/fx/useMznRepricingRisk'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -359,12 +360,13 @@ export default function CardStackCard({
   const mznCapacityPercent = usePortfolioStore(
     (s) => s.holdings.MZN?.health ?? HEALTH_CONFIG.mzn.percent
   )
+  const { barPercent: mznRepricingBar, ariaLevel: mznRepricingAria } = useMznRepricingRiskBar()
   const portfolioAllocationPct = holding?.allocationPct ?? pct
   const portfolioDisplayPct = holding?.displayPct ?? Math.round(pct)
   const portfolioHealth = holding?.health ?? HEALTH_CONFIG[card.type].percent
   const operationalBarPercent =
     card.type === 'mzn'
-      ? mznCapacityPercent
+      ? mznRepricingBar
       : card.type === 'savings'
         ? 100 - mznCapacityPercent
         : portfolioHealth
@@ -700,7 +702,18 @@ export default function CardStackCard({
       {/* Bottom-right health bar */}
       {card.type !== 'savings' && card.type !== 'yieldSurprise' && (
         <div className="card-health-group">
-          <div className="card-health-bar-container">
+          <div
+            className="card-health-bar-container"
+            {...(card.type === 'mzn'
+              ? {
+                  role: 'progressbar',
+                  'aria-valuemin': 0,
+                  'aria-valuemax': 100,
+                  'aria-valuenow': Math.round(Math.max(0, Math.min(100, operationalBarPercent))),
+                  'aria-label': `One-hour repricing risk: ${mznRepricingAria}`,
+                }
+              : {})}
+          >
             <div
               className={clsx(
                 'card-health-bar-fill',
