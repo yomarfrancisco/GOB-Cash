@@ -20,7 +20,8 @@ import { useNotificationStore } from '@/store/notifications'
 import { useUserProfileStore } from '@/store/userProfile'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { applyFeeToRate } from '@/lib/exchangeRates/applyFeeToRate'
-import { useMznRepricingRiskBar } from '@/lib/fx/useMznRepricingRisk'
+import { useZarPayoutRiskBar } from '@/lib/fx/useMznRepricingRisk'
+import { isZarPayoutRiskCard } from '@/lib/fx/repricingRiskBar'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -64,6 +65,15 @@ const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' 
 
 const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC' | 'USD'> = {
   savings: 'CASH',
+  zwd: 'USD',
+  yield: 'ETH',
+  mzn: 'MZN',
+  btc: 'BTC',
+  yieldSurprise: 'MZN',
+}
+
+const CARD_CURRENCY_CODE: Record<CardType, string> = {
+  savings: 'ZAR',
   zwd: 'USD',
   yield: 'ETH',
   mzn: 'MZN',
@@ -360,20 +370,21 @@ export default function CardStackCard({
   const mznCapacityPercent = usePortfolioStore(
     (s) => s.holdings.MZN?.health ?? HEALTH_CONFIG.mzn.percent
   )
-  const { barPercent: mznRepricingBar, ariaLevel: mznRepricingAria } = useMznRepricingRiskBar()
+  const { barPercent: zarPayoutBar, ariaLevel: zarPayoutAria } = useZarPayoutRiskBar()
+  const currencyCode = CARD_CURRENCY_CODE[card.type]
+  const isZarPayoutCard = isZarPayoutRiskCard(currencyCode)
   const portfolioAllocationPct = holding?.allocationPct ?? pct
   const portfolioDisplayPct = holding?.displayPct ?? Math.round(pct)
   const portfolioHealth = holding?.health ?? HEALTH_CONFIG[card.type].percent
-  const operationalBarPercent =
-    card.type === 'mzn'
-      ? mznRepricingBar
-      : card.type === 'savings'
-        ? 100 - mznCapacityPercent
-        : portfolioHealth
+  const operationalBarPercent = isZarPayoutCard
+    ? zarPayoutBar
+    : card.type === 'savings'
+      ? 100 - mznCapacityPercent
+      : portfolioHealth
   
   // Cash-card bars represent capacity/volume, so keep their progress fill green.
   const healthLevel =
-    card.type === 'mzn' || card.type === 'savings'
+    isZarPayoutCard || card.type === 'mzn' || card.type === 'savings'
       ? 'good'
       : getHealthLevel(operationalBarPercent)
 
@@ -699,18 +710,18 @@ export default function CardStackCard({
         </span>
       </div>
 
-      {/* Bottom-right health bar */}
-      {card.type !== 'savings' && card.type !== 'yieldSurprise' && (
+      {/* Bottom-right health bar. MZN has no bar; ZAR binds payout risk by currency code. */}
+      {card.type !== 'mzn' && card.type !== 'yieldSurprise' && (
         <div className="card-health-group">
           <div
             className="card-health-bar-container"
-            {...(card.type === 'mzn'
+            {...(isZarPayoutCard
               ? {
                   role: 'progressbar',
                   'aria-valuemin': 0,
                   'aria-valuemax': 100,
                   'aria-valuenow': Math.round(Math.max(0, Math.min(100, operationalBarPercent))),
-                  'aria-label': `One-hour repricing risk: ${mznRepricingAria}`,
+                  'aria-label': `One-hour ZAR payout repricing risk: ${zarPayoutAria}`,
                 }
               : {})}
           >

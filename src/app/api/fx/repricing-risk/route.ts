@@ -19,10 +19,14 @@ export async function GET() {
     const data = snap.data() || {}
     const dataStatus = typeof data.dataStatus === 'string' ? data.dataStatus : 'unavailable'
     const riskScore = dataStatus === 'ready' && typeof data.riskScore === 'number' ? data.riskScore : null
+    const zarPayoutRiskScore =
+      dataStatus === 'ready' && typeof data.zarPayoutRiskScore === 'number' ? data.zarPayoutRiskScore : null
 
     return NextResponse.json({
       dataStatus,
       riskScore,
+      zarPayoutRiskScore,
+      zarPayoutBreachCount: data.zarPayoutBreachCount ?? 0,
       thresholdBps: data.thresholdBps ?? null,
       sampleCount: data.sampleCount ?? 0,
       breachCount: data.breachCount ?? 0,
@@ -30,7 +34,7 @@ export async function GET() {
       windowEnd: data.windowEnd ?? null,
       calculatedAt: data.calculatedAt ?? null,
       providerUpdatedAt: data.providerUpdatedAt ?? null,
-      barPercent: repricingRiskBarPercent({ dataStatus, riskScore }),
+      barPercent: repricingRiskBarPercent({ dataStatus, riskScore: zarPayoutRiskScore }),
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unavailable'

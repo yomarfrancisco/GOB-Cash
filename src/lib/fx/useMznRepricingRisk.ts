@@ -29,11 +29,12 @@ async function loadSnapshot(): Promise<void> {
     const response = await fetch('/api/fx/repricing-risk')
     const data = (await response.json().catch(() => null)) as {
       dataStatus?: string
+      zarPayoutRiskScore?: number | null
       riskScore?: number | null
     } | null
     const next = {
       dataStatus: data?.dataStatus || 'unavailable',
-      riskScore: typeof data?.riskScore === 'number' ? data.riskScore : null,
+      riskScore: typeof data?.zarPayoutRiskScore === 'number' ? data.zarPayoutRiskScore : null,
     }
     useStore.setState({
       ...next,
@@ -52,7 +53,7 @@ async function loadSnapshot(): Promise<void> {
   }
 }
 
-export function useMznRepricingRiskBar(): { barPercent: number; ariaLevel: RiskState['ariaLevel'] } {
+export function useZarPayoutRiskBar(): { barPercent: number; ariaLevel: RiskState['ariaLevel'] } {
   const barPercent = useStore((state) => state.barPercent)
   const ariaLevel = useStore((state) => state.ariaLevel)
 

@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { clampRiskScore, repricingRiskAriaLevel, repricingRiskBarPercent } from './repricingRiskBar'
+import {
+  clampRiskScore,
+  cardDisplaysBottomBar,
+  isZarPayoutRiskCard,
+  repricingRiskAriaLevel,
+  repricingRiskBarPercent,
+  riskBarPercentForCard,
+} from './repricingRiskBar'
 
 describe('score-to-bar mapping', () => {
   it('clamps the visual value between 0 and 100', () => {
@@ -27,5 +34,30 @@ describe('score-to-bar mapping', () => {
     assert.equal(repricingRiskAriaLevel({ dataStatus: 'ready', riskScore: 40 }), 'moderate')
     assert.equal(repricingRiskAriaLevel({ dataStatus: 'ready', riskScore: 70 }), 'high')
     assert.equal(repricingRiskAriaLevel({ dataStatus: 'stale', riskScore: 70 }), 'unavailable')
+  })
+})
+
+describe('ZAR card binding', () => {
+  const ready = { dataStatus: 'ready' as const, riskScore: 80 }
+
+  it('does not give the MZN card the dynamic risk value', () => {
+    assert.equal(isZarPayoutRiskCard('MZN'), false)
+    assert.equal(riskBarPercentForCard('MZN', ready, 0), null)
+    assert.equal(cardDisplaysBottomBar({ currencyCode: 'MZN', cardType: 'mzn' }), false)
+  })
+
+  it('gives the ZAR card the risk value regardless of stack position', () => {
+    for (const stackIndex of [0, 1, 2, 5]) {
+      assert.equal(isZarPayoutRiskCard('ZAR'), true)
+      assert.equal(riskBarPercentForCard('ZAR', ready, stackIndex), 80)
+    }
+    assert.equal(cardDisplaysBottomBar({ currencyCode: 'ZAR', cardType: 'savings' }), true)
+  })
+
+  it('does not change unrelated card bar visibility', () => {
+    assert.equal(cardDisplaysBottomBar({ currencyCode: 'USD', cardType: 'zwd' }), true)
+    assert.equal(cardDisplaysBottomBar({ currencyCode: 'ETH', cardType: 'yield' }), true)
+    assert.equal(cardDisplaysBottomBar({ currencyCode: 'BTC', cardType: 'btc' }), true)
+    assert.equal(cardDisplaysBottomBar({ currencyCode: 'MZN', cardType: 'yieldSurprise' }), false)
   })
 })

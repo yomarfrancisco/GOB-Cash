@@ -26,6 +26,8 @@ export type HourlyMznZarObservation = {
 
 export type RepricingRiskSnapshot = {
   riskScore: number
+  zarPayoutRiskScore: number
+  zarPayoutBreachCount: number
   thresholdBps: number
   sampleCount: number
   breachCount: number
@@ -60,6 +62,12 @@ export function deriveMznPerZar(usdMzn: number, usdZar: number): number | null {
 }
 
 export function hourlyPercentageChange(previousMznZar: number, currentMznZar: number): number | null {
+  const signed = hourlySignedChange(previousMznZar, currentMznZar)
+  return signed == null ? null : Math.abs(signed)
+}
+
+/** Signed hourly move. Positive means MZN-per-ZAR rose (ZAR payout got more expensive). */
+export function hourlySignedChange(previousMznZar: number, currentMznZar: number): number | null {
   if (
     !Number.isFinite(previousMznZar) ||
     !Number.isFinite(currentMznZar) ||
@@ -68,10 +76,14 @@ export function hourlyPercentageChange(previousMznZar: number, currentMznZar: nu
   ) {
     return null
   }
-  return Math.abs(currentMznZar / previousMznZar - 1)
+  return currentMznZar / previousMznZar - 1
 }
 
 export function isThresholdBreach(hourlyChange: number, thresholdBps = REPRICING_THRESHOLD_BPS): boolean {
+  return hourlyChange >= thresholdBps / 10_000
+}
+
+export function isZarPayoutBreach(hourlyChange: number, thresholdBps = REPRICING_THRESHOLD_BPS): boolean {
   return hourlyChange >= thresholdBps / 10_000
 }
 
@@ -132,6 +144,8 @@ export function redactSecret(text: string, secret?: string | null): string {
 export function unavailableSnapshot(calculatedAt: number, thresholdBps = REPRICING_THRESHOLD_BPS): RepricingRiskSnapshot {
   return {
     riskScore: 0,
+    zarPayoutRiskScore: 0,
+    zarPayoutBreachCount: 0,
     thresholdBps,
     sampleCount: 0,
     breachCount: 0,
@@ -178,17 +192,20 @@ export function buildRiskSnapshot(
 
   let sampleCount = 0
   let breachCount = 0
+  let zarPayoutBreachCount = 0
   for (let i = 1; i < windowed.length; i += 1) {
     const previous = windowed[i - 1]
     const current = windowed[i]
     if (!isRegularHourlyGap(previous.providerUpdatedAt, current.providerUpdatedAt)) continue
-    const change = hourlyPercentageChange(previous.mznZar, current.mznZar)
-    if (change == null) continue
+    const signedChange = hourlySignedChange(previous.mznZar, current.mznZar)
+    if (signedChange == null) continue
     sampleCount += 1
-    if (isThresholdBreach(change, thresholdBps)) breachCount += 1
+    if (isThresholdBreach(Math.abs(signedChange), thresholdBps)) breachCount += 1
+    if (isZarPayoutBreach(signedChange, thresholdBps)) zarPayoutBreachCount += 1
   }
 
   const riskScore = sampleCount === 0 ? 0 : (100 * breachCount) / sampleCount
+  const zarPayoutRiskScore = sampleCount === 0 ? 0 : (100 * zarPayoutBreachCount) / sampleCount
   const latestStale = isStaleObservation(windowEnd, calculatedAt)
   let dataStatus: RepricingDataStatus = 'ready'
   if (latestStale) dataStatus = 'stale'
@@ -196,6 +213,8 @@ export function buildRiskSnapshot(
 
   return {
     riskScore,
+    zarPayoutRiskScore,
+    zarPayoutBreachCount,
     thresholdBps,
     sampleCount,
     breachCount,

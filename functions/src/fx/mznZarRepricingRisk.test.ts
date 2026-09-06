@@ -6,7 +6,9 @@ import {
   buildRiskSnapshot,
   deriveMznPerZar,
   hourlyPercentageChange,
+  hourlySignedChange,
   isThresholdBreach,
+  isZarPayoutBreach,
   observationPersistDecision,
   parseUsdLatestPayload,
   redactSecret,
@@ -50,6 +52,34 @@ describe('isThresholdBreach', () => {
   it('classifies a 50 bps move as a breach and 49 bps as not', () => {
     assert.equal(isThresholdBreach(0.005, 50), true)
     assert.equal(isThresholdBreach(0.0049, 50), false)
+  })
+})
+
+describe('ZAR payout one-sided breaches', () => {
+  it('counts only upward MZN-per-ZAR moves as payout-risk breaches', () => {
+    assert.equal(hourlySignedChange(4.0, 4.02), 4.02 / 4.0 - 1)
+    assert.equal(isZarPayoutBreach(0.005, 50), true)
+    assert.equal(isZarPayoutBreach(-0.005, 50), false)
+    assert.equal(isZarPayoutBreach(0, 50), false)
+  })
+
+  it('does not count downward or flat moves on zarPayoutRiskScore', () => {
+    const start = Date.UTC(2026, 0, 1)
+    const snapshot = buildRiskSnapshot(
+      [
+        obs(start, 4.0),
+        obs(start + HOUR, 3.98), // down 50 bps — two-sided breach, not ZAR payout
+        obs(start + 2 * HOUR, 3.98), // flat
+        obs(start + 3 * HOUR, 4.02), // up from 3.98 — ZAR payout breach
+      ],
+      start + 3 * HOUR + 60_000,
+      { minSampleCount: 1 }
+    )
+    assert.equal(snapshot.sampleCount, 3)
+    assert.equal(snapshot.breachCount, 2)
+    assert.equal(snapshot.zarPayoutBreachCount, 1)
+    assert.equal(snapshot.zarPayoutRiskScore, (100 * 1) / 3)
+    assert.ok(snapshot.riskScore > snapshot.zarPayoutRiskScore)
   })
 })
 
@@ -138,6 +168,7 @@ describe('API failure handling', () => {
     const snapshot = unavailableSnapshot(1_700_000_000_000)
     assert.equal(snapshot.dataStatus, 'unavailable')
     assert.equal(snapshot.riskScore, 0)
+    assert.equal(snapshot.zarPayoutRiskScore, 0)
     assert.equal(snapshot.providerUpdatedAt, null)
 
     const key = 're_secret_test_key'
