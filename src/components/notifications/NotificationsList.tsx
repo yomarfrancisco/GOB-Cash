@@ -9,14 +9,14 @@ import { downloadConversionProof } from '@/lib/transactions/clientFunctions'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
-import { GOB_ADMIN_AVATAR } from '@/lib/notifications/identityResolver'
+import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
 import Avatar from '@/components/Avatar'
 import { useNotificationsStore } from '@/state/notifications'
 import { useRouter } from 'next/navigation'
 import styles from '@/app/activity/activity.module.css'
 
-const GOB_AVATAR_PATH = GOB_ADMIN_AVATAR
+const ADMIN_AVATAR_PATH = MOZPAGA_ADMIN_AVATAR
 const PERIOD_PREVIEW_LIMIT = 4
 
 function isCopiedActivity(item: ActivityItem): boolean {
@@ -101,8 +101,10 @@ function isWelcomeSignIn(item: ActivityItem): boolean {
 }
 
 function resolveTaskAvatar(item: ActivityItem): string {
-  if (item.actor.avatarUrl) return item.actor.avatarUrl
-  if (isWelcomeSignIn(item)) return GOB_AVATAR_PATH
+  if (item.actor.avatarUrl && !isUserPlaceholderAvatar(item.actor.avatarUrl)) {
+    return item.actor.avatarUrl
+  }
+  if (isWelcomeSignIn(item)) return ADMIN_AVATAR_PATH
   if (item.avatarKind === 'convert_zar') return TASK_AVATARS.convertZar
   if (item.avatarKind === 'convert_mzn') return TASK_AVATARS.convertMzn
   if (item.avatarKind === 'cash_agent_exchange') return TASK_AVATARS.cashAgent
@@ -130,9 +132,13 @@ function resolveTaskAvatar(item: ActivityItem): string {
     return TASK_AVATARS.withdraw
   }
 
-  if (item.kind === 'payment_delivered') return TASK_AVATARS.paymentDelivered
-  if (item.kind === 'payment_received') return TASK_AVATARS.paymentReceived
-  if (item.kind === 'payment_sent') return TASK_AVATARS.paymentSent
+  if (
+    item.kind === 'payment_delivered' ||
+    item.kind === 'payment_received' ||
+    item.kind === 'payment_sent'
+  ) {
+    return USER_PLACEHOLDER_AVATAR
+  }
 
   const text = searchableText(item)
   if (text.includes('mzn') && (text.includes('deposit') || text.includes('deposited'))) {
@@ -141,10 +147,10 @@ function resolveTaskAvatar(item: ActivityItem): string {
   if (text.includes('zar') && (text.includes('withdraw') || text.includes('withdrawn'))) {
     return TASK_AVATARS.withdraw
   }
-  if (text.includes('delivered')) return TASK_AVATARS.paymentDelivered
-  if (text.includes('received')) return TASK_AVATARS.paymentReceived
-  if (text.includes('sent') || text.includes('paid')) return TASK_AVATARS.paymentSent
-  return item.actor.avatarUrl || GOB_AVATAR_PATH
+  if (text.includes('delivered') || text.includes('received') || text.includes('sent') || text.includes('paid')) {
+    return USER_PLACEHOLDER_AVATAR
+  }
+  return item.actor.avatarUrl || USER_PLACEHOLDER_AVATAR
 }
 
 function canDownloadProof(item: ActivityItem): boolean {
@@ -158,6 +164,7 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
   const profile = useUserProfileStore((s) => s.profile)
   const isCopied = isCopiedActivity(item)
   const avatarUrl = isCopied ? null : resolveTaskAvatar(item)
+  const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const showDownload = canDownloadProof(item)
   const showKycLink = item.hasKycLink === true
@@ -191,10 +198,10 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
   return (
     <article className={styles.activityItem}>
       <div className={styles.activityAvatar}>
-        {isCopied ? (
+        {showUserPlaceholder ? (
           <Avatar
-            avatarUrl={profile.avatarUrl}
-            name={profile.fullName}
+            avatarUrl={isCopied ? profile.avatarUrl : null}
+            name={item.actor.name || profile.fullName}
             handle={profile.userHandle}
             email={profile.email}
             size={40}
@@ -202,7 +209,7 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
           />
         ) : (
           <Image
-            src={avatarUrl ?? GOB_AVATAR_PATH}
+            src={avatarUrl ?? ADMIN_AVATAR_PATH}
             alt={item.actor.name || 'Payment agent'}
             width={40}
             height={40}

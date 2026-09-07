@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Camera, Trash2 } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import { useAvatarEditSheet } from '@/store/useAvatarEditSheet'
+import { USER_PLACEHOLDER_AVATAR } from '@/lib/avatarAssets'
 import '@/styles/send-details-sheet.css'
 import styles from './AvatarEditSheet.module.css'
 
@@ -81,7 +82,7 @@ export default function AvatarEditSheet() {
               {showDefault ? (
                 <>
                   <Image
-                    src="/assets/avatar-profile.png"
+                    src={USER_PLACEHOLDER_AVATAR}
                     alt="Default avatar"
                     fill
                     className={styles.avatarImg}

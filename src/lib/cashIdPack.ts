@@ -140,6 +140,7 @@ export async function downloadCashIdZip(options: {
     renderCashIdPngDataUrl({
       qrDataURL: options.qrDataURL,
       avatarUrl: options.profile.avatarUrl,
+      name: fullName,
     }),
     loadImageDataUrl(TITLE_SRC).catch(() => ''),
   ])
