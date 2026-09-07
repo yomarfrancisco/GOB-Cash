@@ -3,6 +3,12 @@ export const DIDIT_KYC_WORKFLOW_ID = 'ddbab46a-d544-4907-9cfe-997a18245e6a'
 /** Visual default on the profile bar before KYC starts. */
 export const DEFAULT_COMPLIANCE_PERCENT = 22.4
 
+export function formatCompliancePercent(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+  const label = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+  return `${label}% compliant`
+}
+
 /** KYC + AML workflow modules, in typical completion order. */
 export const KYC_PROGRESS_MODULE_KEYS = [
   'id_verifications',

@@ -58,8 +58,8 @@ import { ChevronRight } from 'lucide-react'
 import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
 import { logout } from '@/lib/logout'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
-import { isRestrictedUser } from '@/lib/restrictions'
-import { DEFAULT_COMPLIANCE_PERCENT } from '@/lib/didit'
+import { useProfileAccess } from '@/lib/restrictions'
+import { DEFAULT_COMPLIANCE_PERCENT, formatCompliancePercent } from '@/lib/didit'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import { generateStyledCashIdQr } from '@/lib/qr'
 import Avatar from '@/components/Avatar'
@@ -74,26 +74,31 @@ export default function ProfileClient() {
   const { isAuthed, authReady, openAuthEntry } = useAuthStore()
   const { hasCompletedAgentOnboarding } = useAgentOnboardingStore()
   const [kycStatus, setKycStatus] = useState<string | null>(null)
+  const [kycSessionStatus, setKycSessionStatus] = useState<string | null>(null)
   const [kycPercent, setKycPercent] = useState<number | null>(null)
   const [cashIdQr, setCashIdQr] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isAuthed) {
       setKycStatus(null)
+      setKycSessionStatus(null)
       setKycPercent(null)
       return
     }
     const uid = getFirebaseAuth().currentUser?.uid
     if (!uid) {
       setKycStatus(null)
+      setKycSessionStatus(null)
       setKycPercent(null)
       return
     }
     return onSnapshot(doc(getFirestoreDb(), 'users', uid), (snap) => {
       const data = snap.data()
       const status = data?.kycStatus
+      const sessionStatus = data?.kycSessionStatus
       const percent = data?.kycPercent
       setKycStatus(typeof status === 'string' ? status : null)
+      setKycSessionStatus(typeof sessionStatus === 'string' ? sessionStatus : null)
       setKycPercent(typeof percent === 'number' && Number.isFinite(percent) ? percent : null)
     })
   }, [isAuthed])
@@ -458,7 +463,9 @@ export default function ProfileClient() {
   const auth = getFirebaseAuth()
   const isAgent = auth.currentUser?.uid === AGENT_UID
   const currentUserId = auth.currentUser?.uid
-  const isRestricted = isRestrictedUser(currentUserId)
+  const access = useProfileAccess(currentUserId, kycStatus, kycSessionStatus)
+  const depositLocked = !access.canDeposit
+  const withdrawLocked = !access.canWithdraw
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
@@ -590,8 +597,7 @@ export default function ProfileClient() {
 
   const complianceFill =
     kycPercent == null ? DEFAULT_COMPLIANCE_PERCENT : Math.max(0, Math.min(100, kycPercent))
-  const complianceLabel =
-    kycStatus || kycPercent != null ? `${Math.round(complianceFill)}% compliant` : 'Compliance'
+  const complianceLabel = formatCompliancePercent(complianceFill)
 
   const handleDepositProofFile = useCallback(async (file: File) => {
     const country = bankTransferCountry === 'ZA' ? 'ZA' : 'MZ'
@@ -793,39 +799,39 @@ export default function ProfileClient() {
               <div className="profile-actions">
                 <button 
                   className="btn profile-edit" 
-                  disabled={isRestricted}
+                  disabled={depositLocked}
                   onClick={() => {
-                    if (isRestricted) return
+                    if (depositLocked) return
                     guardAuthed(() => {
                       openBankDepositAccount()
                     })
                   }}
                   style={{ 
                     position: 'relative',
-                    ...(isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {})
+                    ...(depositLocked ? { opacity: 0.6, cursor: 'not-allowed' } : {})
                   }}
-                  aria-disabled={isRestricted}
+                  aria-disabled={depositLocked}
                 >
                   Deposit
-                  <LockOverlay show={isRestricted} />
+                  <LockOverlay show={depositLocked} />
                 </button>
                 <button
                   className="btn profile-inbox"
-                  disabled={isRestricted}
+                  disabled={withdrawLocked}
                   onClick={() => {
-                    if (isRestricted) return
+                    if (withdrawLocked) return
                     guardAuthed(() => {
                       openBankWithdrawAccount()
                     })
                   }}
                   style={{ 
                     position: 'relative',
-                    ...(isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {})
+                    ...(withdrawLocked ? { opacity: 0.6, cursor: 'not-allowed' } : {})
                   }}
-                  aria-disabled={isRestricted}
+                  aria-disabled={withdrawLocked}
                 >
                   Withdraw
-                  <LockOverlay show={isRestricted} />
+                  <LockOverlay show={withdrawLocked} />
                 </button>
               </div>
 
@@ -884,19 +890,12 @@ export default function ProfileClient() {
                   )}
                   <button
                     className="profile-settings-row"
-                    disabled={isRestricted}
                     onClick={() => {
-                      if (isRestricted) return
                       guardAuthed(() => {
                         openNotifications()
                       })
                     }}
                     type="button"
-                    style={{
-                      position: 'relative',
-                      ...(isRestricted ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
-                    }}
-                    aria-disabled={isRestricted}
                   >
                     <div className="profile-settings-left">
                       <div className="profile-settings-icon">
@@ -905,7 +904,6 @@ export default function ProfileClient() {
                       <span className="profile-settings-label">Activity</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                    <LockOverlay show={isRestricted} />
                   </button>
                   <button
                     className="profile-settings-row"
