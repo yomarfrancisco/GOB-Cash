@@ -778,6 +778,51 @@ export async function tx_sendMyWeeklySettlementStatement(
 }
 
 /**
+ * Download MozPaga monthly settlement statement PDF.
+ */
+export async function downloadMonthlySettlementProof(periodId: string): Promise<void> {
+  const app = getFirebaseApp()
+  const functions = getFunctionsInstance()
+
+  if (!app || !functions) {
+    throw new Error('Firebase not initialized')
+  }
+
+  const fn = httpsCallable(functions, 'getMonthlySettlementProof')
+  const result = await fn({ periodId, txId: periodId })
+  const data = result.data as { pdfBase64: string; filename: string; mimeType: string }
+
+  const byteCharacters = atob(data.pdfBase64)
+  const byteNumbers = new Array(byteCharacters.length)
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i)
+  }
+  const byteArray = new Uint8Array(byteNumbers)
+  const blob = new Blob([byteArray], { type: data.mimeType })
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = data.filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+/**
+ * Post this month's ZAR settlement statement into activity (no email).
+ */
+export async function tx_sendMyMonthlySettlementStatement(
+  month: 'current' | 'previous' | 'auto' = 'auto'
+): Promise<{ posted: boolean; periodId: string; conversionCount: number }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'tx_sendMyMonthlySettlementStatement')
+  const result = await fn({ month })
+  return result.data as { posted: boolean; periodId: string; conversionCount: number }
+}
+
+/**
  * Download MozPaga proof-of-payment PDF for an internal exchange.
  */
 export async function downloadConversionProof(txId: string): Promise<void> {

@@ -35,7 +35,12 @@ function avatarUrlForEvent(data: ActivityEventDoc): string | undefined {
     return TASK_AVATARS.deposit
   }
   if (data.kind === 'CONVERSION_INSTRUCTED') return conversionAvatar(data.amountCurrency)
-  if (data.kind === 'WEEKLY_SETTLEMENT_STATEMENT') return TASK_AVATARS.convertZar
+  if (
+    data.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
+    data.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+  ) {
+    return TASK_AVATARS.convertZar
+  }
   if (
     data.kind === 'DEPOSIT_PROOF_PENDING' ||
     data.kind === 'DEPOSIT_PROOF_FAILED' ||
@@ -61,6 +66,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     data.kind === 'EXTERNAL_DEPOSIT_CONFIRMED' ||
     data.kind === 'CONVERSION_INSTRUCTED' ||
     data.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
+    data.kind === 'MONTHLY_SETTLEMENT_STATEMENT' ||
     data.avatarKind === 'convert_mzn' ||
     data.avatarKind === 'convert_zar' ||
     data.avatarKind === 'cash_agent_exchange' ||
@@ -78,7 +84,8 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     actor: {
       type: actorType,
       name:
-        data.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
+        data.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
+        data.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
           ? '$ariel'
           : actorType === 'ai'
             ? 'Ama'
