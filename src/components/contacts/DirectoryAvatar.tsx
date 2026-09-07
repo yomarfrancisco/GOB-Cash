@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { memo, useMemo } from 'react'
 import { getAvatarColorForHandle, getContactInitial } from '@/lib/contactAvatarColors'
+import { USER_PLACEHOLDER_AVATAR } from '@/lib/avatarAssets'
 import styles from './DirectoryAvatar.module.css'
 
 type DirectoryAvatarProps = {
@@ -55,7 +56,7 @@ const DirectoryAvatar = ({
     >
       {/* Benjamin base image - always present */}
       <Image
-        src="/assets/avatar-profile.png"
+        src={USER_PLACEHOLDER_AVATAR}
         alt=""
         width={size}
         height={size}

@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { memo, useMemo } from 'react'
 import clsx from 'clsx'
+import { USER_PLACEHOLDER_AVATAR } from '@/lib/avatarAssets'
 
 type Props = {
   name?: string
@@ -58,7 +59,7 @@ const Avatar = ({ name, email, handle, avatarUrl, size = 96, rounded = 24, class
       {showDefault ? (
         <>
           <Image
-            src="/assets/avatar-profile.png"
+            src={USER_PLACEHOLDER_AVATAR}
             alt=""
             fill
             priority={false}

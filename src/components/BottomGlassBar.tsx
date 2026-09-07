@@ -9,6 +9,7 @@ import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useUserProfileStore } from '@/store/userProfile'
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
+import { USER_PLACEHOLDER_AVATAR } from '@/lib/avatarAssets'
 import '@/styles/bottom-glass.css'
 
 interface BottomGlassBarProps {
@@ -145,7 +146,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             <div className="nav-avatar-container nav-avatar-fallback">
               <div className="nav-avatar-image-wrapper">
                 <Image 
-                  src="/assets/avatar-profile.png"
+                  src={USER_PLACEHOLDER_AVATAR}
                   alt="Default avatar"
                   fill
                   className="nav-avatar-image nav-avatar-fallback-image"
@@ -153,7 +154,9 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 />
                 <span className="nav-avatar-initial">
                   {(() => {
-                    // Derive initial from handle, displayName, or fallback
+                    if (profile.fullName) {
+                      return profile.fullName.charAt(0).toUpperCase()
+                    }
                     if (profile.userHandle && profile.userHandle.startsWith('@')) {
                       const handleClean = profile.userHandle.substring(1)
                       if (handleClean.toLowerCase().startsWith('goblin')) {
@@ -161,9 +164,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                       } else if (handleClean.length > 0) {
                         return handleClean.charAt(0).toUpperCase()
                       }
-                    }
-                    if (profile.fullName) {
-                      return profile.fullName.charAt(0).toUpperCase()
                     }
                     return '?'
                   })()}

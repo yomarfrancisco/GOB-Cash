@@ -3,7 +3,7 @@
 import { doc, getDoc } from 'firebase/firestore'
 import { DEFAULT_COMPLIANCE_PERCENT } from '@/lib/didit'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
-import { GOB_ADMIN_AVATAR } from '@/lib/notifications/identityResolver'
+import { MOZPAGA_ADMIN_AVATAR } from '@/lib/notifications/identityResolver'
 import { useNotificationStore } from '@/store/notifications'
 
 export const KYC_NUDGE_THRESHOLD = 30
@@ -32,7 +32,7 @@ export async function pushWelcomeSignInNotification(title: string) {
     kind: 'payment_received',
     title,
     body: needsKyc ? WELCOME_KYC_BODY : WELCOME_BODY,
-    actor: { type: 'system', avatar: GOB_ADMIN_AVATAR, name: 'MozPaga' },
+    actor: { type: 'system', avatar: MOZPAGA_ADMIN_AVATAR, name: 'MozPaga' },
     routeOnTap: needsKyc ? '/profile' : undefined,
     hasKycLink: needsKyc,
   })

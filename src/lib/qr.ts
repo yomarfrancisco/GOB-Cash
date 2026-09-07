@@ -168,6 +168,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 export async function renderCashIdPngDataUrl(options: {
   qrDataURL: string
   avatarUrl?: string | null
+  name?: string | null
 }): Promise<string> {
   const size = 880
   const canvas = document.createElement('canvas')
@@ -190,13 +191,21 @@ export async function renderCashIdPngDataUrl(options: {
   ctx.fill()
 
   try {
-    const avatarSrc = options.avatarUrl || '/assets/avatar-profile.png'
+    const avatarSrc = options.avatarUrl || '/assets/avatar-profile 2.png'
     const avatarImg = await loadImage(avatarSrc)
     ctx.save()
     ctx.beginPath()
     ctx.arc(cx, cy, avatarSize / 2, 0, Math.PI * 2)
     ctx.clip()
     ctx.drawImage(avatarImg, cx - avatarSize / 2, cy - avatarSize / 2, avatarSize, avatarSize)
+    if (!options.avatarUrl) {
+      const initial = (options.name ?? '').trim().charAt(0).toUpperCase() || '?'
+      ctx.fillStyle = 'rgba(245, 245, 245, 0.96)'
+      ctx.font = `400 ${Math.round(avatarSize * 0.48)}px ui-sans-serif, -apple-system, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(initial, cx, cy)
+    }
     ctx.restore()
   } catch {
     // Avatar may be cross-origin; QR alone is still a valid Cash ID.
