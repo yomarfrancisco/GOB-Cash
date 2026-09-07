@@ -49,4 +49,9 @@ export { tx_createInternalConversion } from './tx/createInternalConversion'
 export { getConversionProof } from './tx/getConversionProof'
 export { collectHourlyMznZar } from './fx/collectHourlyMznZar'
 export { onDepositProofWrite, tx_confirmDepositProof } from './tx/onDepositProofWrite'
+export {
+  sendWeeklySettlementStatements,
+  tx_sendMyWeeklySettlementStatement,
+  getWeeklySettlementProof,
+} from './tx/sendWeeklySettlementStatement'
 
