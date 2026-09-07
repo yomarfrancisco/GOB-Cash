@@ -191,13 +191,28 @@ export function weeklySettlementBody(data: WeeklySettlementData): string {
   return `${formatZar(data.zarSold)} sold · ${formatMzn(data.mznReceived)} received · ${data.period.label}`
 }
 
+function isZarSaleActivity(data: FirebaseFirestore.DocumentData): boolean {
+  if (String(data.kind || '') !== 'CONVERSION_INSTRUCTED') return false
+  if (data.amountCurrency === 'ZAR' || data.avatarKind === 'convert_zar') return true
+  return String(data.title || '').includes('ZAR sold')
+}
+
+function parseActivityBody(body: string): { mznReceived: number; sellRate: number } {
+  const mzn = /Mt\s*([\d,.]+)/i.exec(body)
+  const rate = /SELL\s*([\d.]+)/i.exec(body)
+  return {
+    mznReceived: mzn ? Number(mzn[1].replace(/,/g, '')) : 0,
+    sellRate: rate ? Number(rate[1]) : 0,
+  }
+}
+
 function rowFromTx(
   txId: string,
   data: FirebaseFirestore.DocumentData
 ): WeeklyConversionRow | null {
   const type = String(data.type || data.transactionType || '')
-  if (type !== 'CONVERSION') return null
-  if (data.sourceCurrency !== 'ZAR') return null
+  if (type && type !== 'CONVERSION') return null
+  if (data.sourceCurrency && data.sourceCurrency !== 'ZAR') return null
 
   const zarSold =
     majorFromMinor(data.sourceAmountMinor) || Number(data.amountZar) || 0
@@ -223,23 +238,52 @@ function rowFromTx(
   }
 }
 
+function rowFromActivity(
+  eventId: string,
+  data: FirebaseFirestore.DocumentData
+): WeeklyConversionRow {
+  const parsed = parseActivityBody(String(data.body || ''))
+  const zarSold = Number(data.amountValue) || 0
+  return {
+    txId: String(data.txId || eventId),
+    timestamp: data.createdAt || admin.firestore.Timestamp.now(),
+    zarSold,
+    mznReceived: parsed.mznReceived,
+    sellRate: parsed.sellRate,
+    costRate: 0,
+    spreadEarned: 0,
+  }
+}
+
 export async function loadWeeklySettlementData(
   userId: string,
   period: WeeklyPeriod
 ): Promise<WeeklySettlementData | null> {
   const start = admin.firestore.Timestamp.fromDate(period.start)
   const end = admin.firestore.Timestamp.fromDate(period.end)
-  const snap = await db
-    .collection('transactions')
+  const eventsSnap = await db
+    .collection('users')
+    .doc(userId)
+    .collection('activityEvents')
     .where('createdAt', '>=', start)
     .where('createdAt', '<', end)
     .get()
 
-  const rows = snap.docs
-    .filter((docSnap) => String(docSnap.data().userId || '') === userId)
-    .map((docSnap) => rowFromTx(docSnap.id, docSnap.data()))
-    .filter((row): row is WeeklyConversionRow => Boolean(row))
-    .sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis())
+  const conversionEvents = eventsSnap.docs.filter((docSnap) => isZarSaleActivity(docSnap.data()))
+  const rows: WeeklyConversionRow[] = []
+
+  for (const eventDoc of conversionEvents) {
+    const eventData = eventDoc.data()
+    const txId = String(eventData.txId || eventDoc.id)
+    let row: WeeklyConversionRow | null = null
+    const txSnap = await db.collection('transactions').doc(txId).get()
+    if (txSnap.exists) {
+      row = rowFromTx(txId, txSnap.data()!)
+    }
+    rows.push(row || rowFromActivity(eventDoc.id, eventData))
+  }
+
+  rows.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis())
 
   if (rows.length === 0) return null
 

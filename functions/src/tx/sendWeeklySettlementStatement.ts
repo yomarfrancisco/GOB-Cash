@@ -97,13 +97,21 @@ export const tx_sendMyWeeklySettlementStatement = functions
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Login required')
     }
-    const which: WeekWhich = data?.week === 'previous' ? 'previous' : 'current'
-    const period = weeklyPeriod(which)
-    const result = await postWeeklySettlementForUser(context.auth.uid, period)
+    const uid = context.auth.uid
+    const which: WeekWhich | 'auto' =
+      data?.week === 'previous' || data?.week === 'current' ? data.week : 'auto'
+
+    const tryWeek = async (week: WeekWhich) => postWeeklySettlementForUser(uid, weeklyPeriod(week))
+
+    let result =
+      which === 'current' ? await tryWeek('current') : await tryWeek('previous')
+    if (which === 'auto' && result.conversionCount === 0) {
+      result = await tryWeek('current')
+    }
     if (result.conversionCount === 0) {
       throw new functions.https.HttpsError(
         'not-found',
-        `No ZAR sales in ${period.label}.`
+        `No ZAR sales in ${weeklyPeriod(which === 'current' ? 'current' : 'previous').label}.`
       )
     }
     return result

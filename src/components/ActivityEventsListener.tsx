@@ -16,6 +16,24 @@ const DROPDOWN_KINDS = new Set([
 const DEPOSIT_AVATAR = '/assets/avatar - profile (4).png'
 const WITHDRAW_AVATAR = '/assets/avatar - profile (2).png'
 const ARIEL_AVATAR = '/assets/avatar-ariel.png'
+const toastedWeeklyIds = new Set<string>()
+
+function toastWeeklyStatement(id: string, title: string, body?: string) {
+  if (!id || toastedWeeklyIds.has(id)) return
+  toastedWeeklyIds.add(id)
+  useNotificationStore.getState().pushNotification({
+    id,
+    kind: 'proof_of_payment',
+    title,
+    body,
+    actor: {
+      type: 'ai_manager',
+      avatar: ARIEL_AVATAR,
+      name: '$ariel',
+    },
+    routeOnTap: '/profile?activity=1',
+  })
+}
 
 export default function ActivityEventsListener() {
   const isAuthed = useAuthStore((s) => s.isAuthed)
@@ -30,17 +48,20 @@ export default function ActivityEventsListener() {
           const pushNotification = useNotificationStore.getState().pushNotification
           for (const item of items) {
             if (!item.kind || !DROPDOWN_KINDS.has(item.kind)) continue
-            const isWeekly = item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
+            if (item.kind === 'WEEKLY_SETTLEMENT_STATEMENT') {
+              toastWeeklyStatement(item.id, item.title, item.body)
+              continue
+            }
             const isWithdraw = item.kind === 'BANK_TRANSFER_CONFIRMED'
             pushNotification({
               id: item.id,
-              kind: isWeekly ? 'proof_of_payment' : isWithdraw ? 'zar_withdrawn' : 'mzn_deposited',
+              kind: isWithdraw ? 'zar_withdrawn' : 'mzn_deposited',
               title: item.title,
               body: item.body,
               actor: {
                 type: 'ai_manager',
-                avatar: isWeekly ? ARIEL_AVATAR : isWithdraw ? WITHDRAW_AVATAR : DEPOSIT_AVATAR,
-                name: isWeekly ? '$ariel' : 'Ama',
+                avatar: isWithdraw ? WITHDRAW_AVATAR : DEPOSIT_AVATAR,
+                name: 'Ama',
               },
               routeOnTap: '/profile?activity=1',
             })
@@ -50,17 +71,19 @@ export default function ActivityEventsListener() {
     )
 
     const timer = window.setTimeout(() => {
-      const key = 'gb.weeklySettlement.attempted'
-      try {
-        if (sessionStorage.getItem(key)) return
-        sessionStorage.setItem(key, '1')
-      } catch {
-        // ignore
-      }
-      void tx_sendMyWeeklySettlementStatement('previous')
-        .catch(() => tx_sendMyWeeklySettlementStatement('current'))
-        .catch(() => {})
-    }, 1600)
+      void tx_sendMyWeeklySettlementStatement()
+        .then((result) => {
+          if (!result.posted) return
+          toastWeeklyStatement(
+            result.periodId,
+            'Weekly settlement statement',
+            `${result.conversionCount} conversion${result.conversionCount === 1 ? '' : 's'}`
+          )
+        })
+        .catch((error) => {
+          console.warn('[WeeklySettlement] Statement not posted', error)
+        })
+    }, 800)
 
     return () => {
       unsubscribe()
