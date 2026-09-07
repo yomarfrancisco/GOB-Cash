@@ -15,6 +15,8 @@ import { getFirebaseAuth } from './firebase'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useWalletStore } from '@/store/wallets'
+import { useActivityStore } from '@/store/activity'
+import { useNotificationStore } from '@/store/notifications'
 import { clearContactSyncState } from './contactSyncState'
 
 export async function logout(): Promise<void> {
@@ -64,6 +66,14 @@ export async function logout(): Promise<void> {
     // Clear wallet store
     const walletStore = useWalletStore.getState()
     walletStore.clear()
+
+    useActivityStore.getState().clear()
+    useNotificationStore.getState().clearNotifications()
+    try {
+      localStorage.removeItem('activity-store-v2')
+    } catch {
+      // private mode
+    }
 
     // Clear contact sync state (if exists)
     try {
