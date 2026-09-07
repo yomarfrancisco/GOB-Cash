@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { useActivityStore } from './activity'
 import { joinActionAndReason } from '@/lib/notifications/formatReason'
+import { resolveAvatarForActor } from '@/lib/notifications/identityResolver'
 
 export type NotificationKind =
   | 'payment_sent'
@@ -84,6 +85,7 @@ export type NotificationItem = {
   }
   timestamp: number // ms since epoch
   routeOnTap?: string // e.g., '/transactions' or deep link
+  hasKycLink?: boolean
 }
 
 type NotificationState = {
@@ -98,10 +100,14 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   pushNotification: (item) => {
     // Migrate legacy actor to new identity format
     const migratedActor = migrateLegacyActor(item.actor)
-    
+    const avatarUrl = resolveAvatarForActor(migratedActor)
+    const actorWithAvatar = migratedActor
+      ? { ...migratedActor, avatar: migratedActor.avatar || avatarUrl }
+      : migratedActor
+
     const notification: NotificationItem = {
       ...item,
-      actor: migratedActor,
+      actor: actorWithAvatar,
       id: item.id || crypto.randomUUID(),
       timestamp: Date.now(),
     }
@@ -113,14 +119,12 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     const activityStore = useActivityStore.getState()
     // Get detail text using the same formatter as notifications
     const detail = getNotificationDetail(notification)
-    // Activity store still uses legacy format for now, convert back if needed
-    const activityActor = migratedActor
-      ? migratedActor.type === 'ai_manager'
-        ? { type: 'ai' as const, avatarUrl: migratedActor.avatar }
-        : migratedActor.type === 'user'
-        ? { type: 'user' as const, avatarUrl: migratedActor.avatar }
-        : { type: 'user' as const, avatarUrl: migratedActor.avatar }
-      : { type: 'user' as const }
+    const activityActor = actorWithAvatar
+      ? {
+          type: actorWithAvatar.type === 'ai_manager' ? ('ai' as const) : ('user' as const),
+          avatarUrl,
+        }
+      : { type: 'user' as const, avatarUrl }
     
     try {
       activityStore.add({
@@ -138,6 +142,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
           : undefined,
         createdAt: notification.timestamp,
         routeOnTap: notification.routeOnTap,
+        ...(notification.hasKycLink ? { hasKycLink: true } : {}),
       })
     } catch (error) {
       console.warn('[Notification] Activity persist failed; drop-down still shown.', error)

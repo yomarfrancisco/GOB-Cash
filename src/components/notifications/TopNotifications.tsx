@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import clsx from 'clsx'
+import { ExternalLink } from 'lucide-react'
 import { useNotificationStore, type NotificationItem, getNotificationDetail, migrateLegacyActor } from '@/store/notifications'
 import { resolveAvatarForActor, isAiManager } from '@/lib/notifications/identityResolver'
 import { handleMapFromNotification } from '@/lib/notifications/mapNotificationRouter'
@@ -239,6 +240,21 @@ export default function TopNotifications() {
                   <div className="notif__detail">{detail}</div>
                 ) : null
               })()}
+              {notification.hasKycLink && (
+                <button
+                  type="button"
+                  className="notification-kyc-link"
+                  aria-label="Update KYC documents"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    triggerHaptic()
+                    router.push(notification.routeOnTap || '/profile')
+                    handleDismiss(notification.id)
+                  }}
+                >
+                  <ExternalLink size={18} strokeWidth={2} />
+                </button>
+              )}
             </div>
           </div>
         )

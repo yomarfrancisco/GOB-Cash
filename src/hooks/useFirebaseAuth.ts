@@ -4,6 +4,7 @@ import { signInWithPopup, signInWithRedirect, signOut as firebaseSignOut, Google
 import { getFirebaseAuth, getGoogleAuthProvider } from '@/lib/firebase'
 import { useAuthStore } from '@/store/auth'
 import { useNotificationStore } from '@/store/notifications'
+import { pushWelcomeSignInNotification } from '@/lib/notifications/welcomeSignIn'
 
 /**
  * Hook for Firebase Auth with Google provider
@@ -35,13 +36,7 @@ export function useFirebaseAuth() {
         // Close auth sheets - FirebaseAuthListener will update isAuthed
         closeAllAuth()
 
-        // Show success notification
-        pushNotification({
-          kind: 'payment_received',
-          title: 'Signed in with Google',
-          body: 'Welcome!',
-          actor: { type: 'system' },
-        })
+        void pushWelcomeSignInNotification('Signed in with Google')
       } catch (popupErr: any) {
         // If popup is blocked, fall back to redirect
         if (popupErr?.code === 'auth/popup-blocked') {

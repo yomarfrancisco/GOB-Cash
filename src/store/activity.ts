@@ -24,6 +24,7 @@ export type ActivityItem = {
   txId?: string
   hasDownloadButton?: boolean
   avatarKind?: string
+  hasKycLink?: boolean
 }
 
 const MAX_ACTIVITY_ITEMS = 80
