@@ -353,7 +353,8 @@ export default function AuthEntrySheet() {
 
               {/* Legal text */}
               <p className={styles.legal}>
-                PAGA is a <strong>ZAR settlement and liquidity network</strong> for businesses in Mozambique.
+                PAGA is a <strong>fully-reserved ZAR settlement and liquidity network</strong> for licensed FX operators across Mozambique and the wider SADC corridor.
+                <br /><br />
                 Authorised Financial Services Provider (FSP 52815) and Co-operative bank (<a
                   href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
                   target="_blank"
@@ -395,7 +396,8 @@ export default function AuthEntrySheet() {
 
               {/* Legal text */}
               <p className={styles.legal}>
-                PAGA is a <strong>ZAR settlement and liquidity network</strong> for businesses in Mozambique.
+                PAGA is a <strong>fully-reserved ZAR settlement and liquidity network</strong> for licensed FX operators across Mozambique and the wider SADC corridor.
+                <br /><br />
                 Authorised Financial Services Provider (FSP 52815) and Co-operative bank (<a
                   href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
                   target="_blank"
