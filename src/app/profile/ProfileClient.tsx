@@ -918,7 +918,7 @@ export default function ProfileClient() {
                     <div className="profile-settings-left">
                       <div className="profile-settings-icon">
                         <Image
-                          src="/assets/WhatsApp_Green 2.png"
+                          src="/assets/WhatsApp_Black 2.png"
                           alt=""
                           width={22}
                           height={22}

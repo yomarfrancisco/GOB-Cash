@@ -615,7 +615,7 @@ export default function ProfileEditSheet() {
                   >
                     <div className={styles.linkRowLeft}>
                       <div className={styles.linkIcon}>
-                        <Image src="/assets/WhatsApp_Balck 2.png" alt="WhatsApp" width={22} height={22} />
+                        <Image src="/assets/WhatsApp_Black 2.png" alt="WhatsApp" width={22} height={22} />
                       </div>
                       <span className={styles.linkRowLabel}>WhatsApp</span>
                     </div>
