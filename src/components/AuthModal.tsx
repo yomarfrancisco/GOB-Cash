@@ -165,15 +165,11 @@ export default function AuthModal() {
             )}
             <p className={styles.legal}>
               PAGA is a <strong>ZAR settlement and liquidity network</strong> for businesses in Mozambique.
-              Authorised Financial Services Provider (FSP 52815) and Co-operative bank (Certificate no.{' '}
-              <a
+              Authorised Financial Services Provider (FSP 52815) and Co-operative bank (<a
                 href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
                 target="_blank"
                 rel="noopener noreferrer"
-              >
-                CFI0024
-              </a>
-              ).
+              >CFI0024</a>).
             </p>
           </form>
         </div>
