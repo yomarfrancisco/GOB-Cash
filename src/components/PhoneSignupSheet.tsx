@@ -188,7 +188,7 @@ export default function PhoneSignupSheet() {
               </div>
             </label>
             <p className={styles.legal}>
-              PAGA is a cross-border settlement and liquidity network for businesses across Southern Africa.
+              PAGA is a <strong>cross-border settlement and liquidity network</strong> for businesses across Southern Africa.
               Authorised Financial Services Provider (FSP 52815) and Co-operative bank (Certificate no.{' '}
               <a
                 href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
