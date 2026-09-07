@@ -355,8 +355,6 @@ export function generateWeeklySettlementPdf(data: WeeklySettlementData): Promise
         y += 58
       }
 
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#666666').text('MOZPAGA', left, y)
-      y = doc.y + 4
       doc.font('Helvetica-Bold').fontSize(18).fillColor('#111111').text('Weekly Settlement Statement', left, y)
       y = doc.y + 6
       const account = data.userHandle || 'MozPaga account'
