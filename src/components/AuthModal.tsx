@@ -164,13 +164,15 @@ export default function AuthModal() {
               </p>
             )}
             <p className={styles.legal}>
-              PAGA is a <strong>fully-reserved ZAR settlement and liquidity network</strong> for licensed FX operators across Mozambique and the wider SADC corridor.
-              <br /><br />
-              Authorised Financial Services Provider (FSP 52815) and Co-operative bank (<a
-                href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
-                target="_blank"
-                rel="noopener noreferrer"
-              >CFI0024</a>).
+              PAGA is a fully-reserved <strong>ZAR settlement and liquidity network</strong> for licensed FX operators across Mozambique and the wider SADC corridor.{' '}
+              <em>
+                Authorised FSP 52815 and Co-operative bank{' '}
+                <a
+                  href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >CFI0024</a>.
+              </em>
             </p>
           </form>
         </div>
