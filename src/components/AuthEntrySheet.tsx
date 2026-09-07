@@ -265,9 +265,8 @@ export default function AuthEntrySheet() {
             style={{ objectFit: 'cover', objectPosition: 'center 15%' }}
           />
         </div>
-        {/* Logo in top-left - conditionally render based on mode */}
-        <div className={styles.authEntryHeader}>
-          {authMode === 'signup' ? (
+        {authMode === 'signup' ? (
+          <div className={styles.authEntryHeader}>
             <Image
               src="/assets/sign up black2.png"
               alt="Sign Up"
@@ -277,18 +276,8 @@ export default function AuthEntrySheet() {
               sizes="120px"
               quality={92}
             />
-          ) : (
-            <Image
-              src="/assets/bankless pink2.png"
-              alt="GoBankless"
-              className={styles.authEntryLogo}
-              width={120}
-              height={120}
-              sizes="120px"
-              quality={92}
-            />
-          )}
-        </div>
+          </div>
+        ) : null}
         <div className={clsx(styles.content, styles.authEntryContent)}>
           {authMode === 'loginEntry' ? (
             <form className={clsx(styles.form, styles.authEntryForm)} onSubmit={handleSubmit}>
