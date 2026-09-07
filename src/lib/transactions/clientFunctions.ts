@@ -769,7 +769,7 @@ export async function downloadWeeklySettlementProof(periodId: string): Promise<v
  * Post this week's ZAR settlement statement into activity (no email).
  */
 export async function tx_sendMyWeeklySettlementStatement(
-  week: 'current' | 'previous' = 'current'
+  week: 'current' | 'previous' | 'auto' = 'auto'
 ): Promise<{ posted: boolean; periodId: string; conversionCount: number }> {
   const functions = getFunctionsInstance()
   const fn = httpsCallable(functions, 'tx_sendMyWeeklySettlementStatement')
