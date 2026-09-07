@@ -2,18 +2,21 @@
 
 import { useMemo, useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Download } from 'lucide-react'
+import { Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import { downloadConversionProof } from '@/lib/transactions/clientFunctions'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
+import { GOB_ADMIN_AVATAR } from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
 import Avatar from '@/components/Avatar'
+import { useNotificationsStore } from '@/state/notifications'
+import { useRouter } from 'next/navigation'
 import styles from '@/app/activity/activity.module.css'
 
-const GOB_AVATAR_PATH = '/assets/aa2b32f2dc3e3a159949cb59284abddef5683b05.png'
+const GOB_AVATAR_PATH = GOB_ADMIN_AVATAR
 const PERIOD_PREVIEW_LIMIT = 4
 
 function isCopiedActivity(item: ActivityItem): boolean {
@@ -93,7 +96,13 @@ function isPaymentActivity(item: ActivityItem): boolean {
   ].some((keyword) => text.includes(keyword))
 }
 
+function isWelcomeSignIn(item: ActivityItem): boolean {
+  return /^signed in with (google|phone)$/i.test(item.title.trim())
+}
+
 function resolveTaskAvatar(item: ActivityItem): string {
+  if (item.actor.avatarUrl) return item.actor.avatarUrl
+  if (isWelcomeSignIn(item)) return GOB_AVATAR_PATH
   if (item.avatarKind === 'convert_zar') return TASK_AVATARS.convertZar
   if (item.avatarKind === 'convert_mzn') return TASK_AVATARS.convertMzn
   if (item.avatarKind === 'cash_agent_exchange') return TASK_AVATARS.cashAgent
@@ -144,11 +153,14 @@ function canDownloadProof(item: ActivityItem): boolean {
 }
 
 function ActivityItemCard({ item }: { item: ActivityItem }) {
+  const router = useRouter()
+  const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
   const profile = useUserProfileStore((s) => s.profile)
   const isCopied = isCopiedActivity(item)
   const avatarUrl = isCopied ? null : resolveTaskAvatar(item)
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const showDownload = canDownloadProof(item)
+  const showKycLink = item.hasKycLink === true
 
   const handleDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
@@ -168,6 +180,12 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
     } finally {
       setDownloadState('idle')
     }
+  }
+
+  const handleKycLink = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    closeNotifications()
+    router.push(item.routeOnTap || '/profile')
   }
 
   return (
@@ -218,6 +236,16 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
           >
             <span className={styles.downloadFill} aria-hidden />
             <Download size={18} strokeWidth={2} />
+          </button>
+        )}
+        {showKycLink && (
+          <button
+            type="button"
+            className={styles.downloadButton}
+            aria-label="Update KYC documents"
+            onClick={handleKycLink}
+          >
+            <ExternalLink size={18} strokeWidth={2} />
           </button>
         )}
       </div>

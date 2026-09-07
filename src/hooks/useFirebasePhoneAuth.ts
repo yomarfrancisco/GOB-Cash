@@ -13,7 +13,7 @@ import {
 import { getFirebaseAuth } from '@/lib/firebase'
 import { getRecaptchaVerifier, resetRecaptchaVerifier } from '@/lib/recaptcha'
 import { useAuthStore } from '@/store/auth'
-import { useNotificationStore } from '@/store/notifications'
+import { pushWelcomeSignInNotification } from '@/lib/notifications/welcomeSignIn'
 
 export function normalizePhoneNumber(phone: string): string {
   let normalized = phone.replace(/[^\d+]/g, '')
@@ -35,7 +35,6 @@ export function isValidPhoneNumber(phone: string): boolean {
 
 export function useFirebasePhoneAuth() {
   const { closeAllAuth } = useAuthStore()
-  const { pushNotification } = useNotificationStore()
   const [isSendingCode, setIsSendingCode] = useState(false)
   const [isVerifyingCode, setIsVerifyingCode] = useState(false)
 
@@ -111,12 +110,7 @@ export function useFirebasePhoneAuth() {
 
       closeAllAuth()
 
-      pushNotification({
-        kind: 'payment_received',
-        title: 'Signed in with phone',
-        body: 'Welcome!',
-        actor: { type: 'system' },
-      })
+      void pushWelcomeSignInNotification('Signed in with phone')
 
       setIsVerifyingCode(false)
       return user

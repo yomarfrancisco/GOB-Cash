@@ -2,7 +2,7 @@ import type { ActorIdentity } from '@/store/notifications'
 import { useUserProfileStore } from '@/store/userProfile'
 
 // High-quality GoB admin avatar (pink + white logo)
-const GOB_ADMIN_AVATAR = '/assets/aa2b32f2dc3e3a159949cb59284abddef5683b05.png'
+export const GOB_ADMIN_AVATAR = '/assets/aa2b32f2dc3e3a159949cb59284abddef5683b05.png'
 // Co-op uses the same high-quality logo (can be recolored later if needed)
 const CO_OP_AVATAR = GOB_ADMIN_AVATAR
 const AI_MANAGER_AVATAR = '/assets/Brics-girl-blue.png'

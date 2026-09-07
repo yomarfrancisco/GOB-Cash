@@ -907,6 +907,29 @@ export default function ProfileClient() {
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                     <LockOverlay show={isRestricted} />
                   </button>
+                  <button
+                    className="profile-settings-row"
+                    type="button"
+                    onClick={() => {
+                      if (typeof window === 'undefined') return
+                      window.location.href = 'https://wa.me/27823306256'
+                    }}
+                  >
+                    <div className="profile-settings-left">
+                      <div className="profile-settings-icon">
+                        <Image
+                          src="/assets/WhatsApp_Green 2.png"
+                          alt=""
+                          width={22}
+                          height={22}
+                          className="profile-settings-whatsapp"
+                          unoptimized
+                        />
+                      </div>
+                      <span className="profile-settings-label">Contact us</span>
+                    </div>
+                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
+                  </button>
                   {/* Help and support row - hidden for minimal UI */}
                   {false && (
                     <button

@@ -1925,6 +1925,13 @@ body {
   flex-shrink: 0;
 }
 
+.profile-settings-whatsapp {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+}
+
 .profile-settings-label {
   font-weight: 400;
   font-size: 16px;

@@ -1,6 +1,7 @@
 import { collection, onSnapshot, type Timestamp, type Unsubscribe } from 'firebase/firestore'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import type { ActivityItem } from '@/store/activity'
+import { conversionAvatar, TASK_AVATARS } from './taskAvatars'
 
 export type ActivityEventDoc = {
   id?: string
@@ -23,6 +24,29 @@ function createdAtMs(value: ActivityEventDoc['createdAt']): number {
     return (value as Timestamp).toMillis()
   }
   return Date.now()
+}
+
+function avatarUrlForEvent(data: ActivityEventDoc): string | undefined {
+  if (data.avatarKind === 'convert_zar') return TASK_AVATARS.convertZar
+  if (data.avatarKind === 'convert_mzn') return TASK_AVATARS.convertMzn
+  if (data.avatarKind === 'cash_agent_exchange') return TASK_AVATARS.cashAgent
+  if (data.avatarKind === 'zar_withdrawn') return TASK_AVATARS.withdraw
+  if (data.avatarKind === 'mzn_deposited' || data.avatarKind === 'proof_of_payment') {
+    return TASK_AVATARS.deposit
+  }
+  if (data.kind === 'CONVERSION_INSTRUCTED') return conversionAvatar(data.amountCurrency)
+  if (
+    data.kind === 'DEPOSIT_PROOF_PENDING' ||
+    data.kind === 'DEPOSIT_PROOF_FAILED' ||
+    data.kind === 'EXTERNAL_DEPOSIT_CONFIRMED' ||
+    data.kind === 'DEPOSIT_CREDITED'
+  ) {
+    return TASK_AVATARS.deposit
+  }
+  if (data.kind === 'WITHDRAWAL_INSTRUCTED' || data.kind === 'BANK_TRANSFER_CONFIRMED') {
+    return TASK_AVATARS.withdraw
+  }
+  return undefined
 }
 
 export function activityEventToItem(eventId: string, data: ActivityEventDoc): ActivityItem {
@@ -52,6 +76,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     actor: {
       type: actorType,
       name: actorType === 'ai' ? 'Ama' : undefined,
+      avatarUrl: avatarUrlForEvent(data),
     },
     title: data.title || 'Activity',
     body: data.body || undefined,
