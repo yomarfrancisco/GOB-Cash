@@ -9,6 +9,8 @@ import { useUserProfileStore } from '@/store/userProfile'
 import { generateHandleFromEmail } from '@/lib/profile/generateHandle'
 import { ensureDefaultWallets, subscribeToWallets } from '@/lib/wallets'
 import { useWalletStore } from '@/store/wallets'
+import { useActivityStore } from '@/store/activity'
+import { useNotificationStore } from '@/store/notifications'
 import { useAppModeStore } from '@/store/appMode'
 import type { WalletMap } from '@/types/wallet'
 import { setCoreAgentBalance } from '@/lib/transactions/clientFunctions'
@@ -29,6 +31,7 @@ export default function FirebaseAuthListener() {
   console.log('[BUILD]', '8156e9c')
   
   const checkedRedirectRef = useRef(false)
+  const lastUidRef = useRef<string | null>(null)
   const unsubscribeDocRef = useRef<(() => void) | null>(null)
   const unsubscribeWalletsRef = useRef<(() => void) | null>(null)
 
@@ -58,6 +61,16 @@ export default function FirebaseAuthListener() {
     // Set up auth state listener - this is the single source of truth for isAuthed
     let hasCheckedAuth = false
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (lastUidRef.current && lastUidRef.current !== (user?.uid || null)) {
+        useActivityStore.getState().clear()
+        useNotificationStore.getState().clearNotifications()
+        try {
+          localStorage.removeItem('activity-store-v2')
+        } catch {
+          // private mode
+        }
+      }
+      lastUidRef.current = user?.uid || null
       // Log Firebase config and user for diagnostics
       if (user && typeof window !== 'undefined') {
         const app = getFirebaseApp()
@@ -268,6 +281,13 @@ export default function FirebaseAuthListener() {
         // For now, we'll keep the profile data even after sign-out
         const walletStore = useWalletStore.getState()
         walletStore.clear() // This resets walletsHydrated to false
+        useActivityStore.getState().clear()
+        useNotificationStore.getState().clearNotifications()
+        try {
+          localStorage.removeItem('activity-store-v2')
+        } catch {
+          // private mode
+        }
         console.log('[HYDRATION] 🔄 User signed out -> walletsHydrated=false')
       }
     })
