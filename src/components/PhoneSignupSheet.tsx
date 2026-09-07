@@ -188,9 +188,8 @@ export default function PhoneSignupSheet() {
               </div>
             </label>
             <p className={styles.legal}>
-              Gobankless is a <strong>cash mobility</strong> network and service provider of the National
-              Stokvel Association of South Africa, an authorised Financial Services Provider (FSP 52815) and
-              Co-operative bank (Certificate no.{' '}
+              PAGA is a cross-border settlement and liquidity network for businesses across Southern Africa.
+              Authorised Financial Services Provider (FSP 52815) and Co-operative bank (Certificate no.{' '}
               <a
                 href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
                 target="_blank"
