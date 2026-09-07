@@ -54,4 +54,9 @@ export {
   tx_sendMyWeeklySettlementStatement,
   getWeeklySettlementProof,
 } from './tx/sendWeeklySettlementStatement'
+export {
+  sendMonthlySettlementStatements,
+  tx_sendMyMonthlySettlementStatement,
+  getMonthlySettlementProof,
+} from './tx/sendMonthlySettlementStatement'
 

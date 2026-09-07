@@ -12,6 +12,7 @@ const db = admin.firestore()
 const TZ = 'Africa/Johannesburg'
 
 export const WEEKLY_SETTLEMENT_KIND = 'WEEKLY_SETTLEMENT_STATEMENT'
+export const MONTHLY_SETTLEMENT_KIND = 'MONTHLY_SETTLEMENT_STATEMENT'
 
 const DISCLAIMER =
   'How to read this statement: ZAR sold is the rand amount supplied during each conversion. MZN received is the corresponding metical settlement value at the client sell rate. Spread earned is the difference between the source / cost rate and the client sell rate, applied to the ZAR amount. Instructed conversions are shown as completed. This statement is a MozPaga account record and is not a bank proof of payment.'
@@ -112,9 +113,48 @@ export function weeklyPeriod(which: WeekWhich, now = new Date()): WeeklyPeriod {
 }
 
 export function periodFromId(periodId: string): WeeklyPeriod | null {
-  const match = /^weekly-(\d{4})(\d{2})(\d{2})$/.exec(periodId)
-  if (!match) return null
-  return periodFromMonday(Number(match[1]), Number(match[2]), Number(match[3]))
+  const weekly = /^weekly-(\d{4})(\d{2})(\d{2})$/.exec(periodId)
+  if (weekly) {
+    return periodFromMonday(Number(weekly[1]), Number(weekly[2]), Number(weekly[3]))
+  }
+  const monthly = /^monthly-(\d{4})(\d{2})$/.exec(periodId)
+  if (monthly) {
+    return periodFromMonth(Number(monthly[1]), Number(monthly[2]))
+  }
+  return null
+}
+
+export function monthlyPeriod(which: WeekWhich, now = new Date()): WeeklyPeriod {
+  const today = johannesburgYmd(now)
+  let y = today.y
+  let m = today.m
+  if (which === 'previous') {
+    m -= 1
+    if (m < 1) {
+      m = 12
+      y -= 1
+    }
+  }
+  return periodFromMonth(y, m, now)
+}
+
+function periodFromMonth(y: number, m: number, now = new Date()): WeeklyPeriod {
+  const nextM = m === 12 ? 1 : m + 1
+  const nextY = m === 12 ? y + 1 : y
+  const lastDay = addDays(nextY, nextM, 1, -1)
+  const today = johannesburgYmd(now)
+  const monthYear = new Intl.DateTimeFormat('en-GB', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: TZ,
+  }).format(utcFromJohannesburg(y, m, 1))
+  const inThisMonth = today.y === y && today.m === m && today.d < lastDay.d
+  return {
+    id: `monthly-${String(y)}${String(m).padStart(2, '0')}`,
+    start: utcFromJohannesburg(y, m, 1),
+    end: utcFromJohannesburg(nextY, nextM, 1),
+    label: inThisMonth ? `1–${today.d} ${monthYear}` : monthYear,
+  }
 }
 
 function periodFromMonday(y: number, m: number, d: number): WeeklyPeriod {
@@ -182,9 +222,14 @@ export type WeeklySettlementData = {
   avgMarginPct: number
 }
 
+function isMonthlyPeriod(period: WeeklyPeriod): boolean {
+  return period.id.startsWith('monthly-')
+}
+
 export function weeklySettlementFilename(data: WeeklySettlementData): string {
   const handle = (data.userHandle || 'account').replace(/^@/, '')
-  return `MozPaga_Weekly_Settlement_${handle}_${data.period.id}.pdf`
+  const cadence = isMonthlyPeriod(data.period) ? 'Monthly' : 'Weekly'
+  return `MozPaga_${cadence}_Settlement_${handle}_${data.period.id}.pdf`
 }
 
 export function weeklySettlementBody(data: WeeklySettlementData): string {
@@ -355,7 +400,12 @@ export function generateWeeklySettlementPdf(data: WeeklySettlementData): Promise
         y += 58
       }
 
-      doc.font('Helvetica-Bold').fontSize(18).fillColor('#111111').text('Weekly Settlement Statement', left, y)
+      const monthly = isMonthlyPeriod(data.period)
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(18)
+        .fillColor('#111111')
+        .text(monthly ? 'Monthly Settlement Statement' : 'Weekly Settlement Statement', left, y)
       y = doc.y + 6
       const account = data.userHandle || 'MozPaga account'
       doc.font('Helvetica').fontSize(10).fillColor('#333333')
@@ -436,7 +486,11 @@ export function generateWeeklySettlementPdf(data: WeeklySettlementData): Promise
       )
 
       y += 10
-      doc.font('Helvetica-Bold').fontSize(12).fillColor('#111111').text('Weekly rate summary', left, y)
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(12)
+        .fillColor('#111111')
+        .text(monthly ? 'Monthly rate summary' : 'Weekly rate summary', left, y)
       y = doc.y + 8
       const summary = [
         ['Average source / cost rate', `${data.avgCostRate.toFixed(4)} MZN/ZAR`],

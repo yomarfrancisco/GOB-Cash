@@ -5,7 +5,11 @@ import Image from 'next/image'
 import { Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
-import { downloadConversionProof, downloadWeeklySettlementProof } from '@/lib/transactions/clientFunctions'
+import {
+  downloadConversionProof,
+  downloadMonthlySettlementProof,
+  downloadWeeklySettlementProof,
+} from '@/lib/transactions/clientFunctions'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
@@ -74,6 +78,7 @@ function isPaymentActivity(item: ActivityItem): boolean {
       'EXTERNAL_DEPOSIT_CONFIRMED',
       'CONVERSION_INSTRUCTED',
       'WEEKLY_SETTLEMENT_STATEMENT',
+      'MONTHLY_SETTLEMENT_STATEMENT',
       'DEPOSIT_PROOF_PENDING',
       'DEPOSIT_PROOF_FAILED',
       'DEPOSIT_CREDITED',
@@ -112,8 +117,13 @@ function resolveTaskAvatar(item: ActivityItem): string {
   if (item.avatarKind === 'convert_mzn') return TASK_AVATARS.convertMzn
   if (item.avatarKind === 'cash_agent_exchange') return TASK_AVATARS.cashAgent
 
-  if (item.kind === 'CONVERSION_INSTRUCTED' || item.kind === 'WEEKLY_SETTLEMENT_STATEMENT') {
-    return item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
+  if (
+    item.kind === 'CONVERSION_INSTRUCTED' ||
+    item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
+    item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+  ) {
+    return item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
+      item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
       ? TASK_AVATARS.convertZar
       : conversionAvatar(item.amount?.currency)
   }
@@ -163,7 +173,8 @@ function canDownloadProof(item: ActivityItem): boolean {
   return (
     item.hasDownloadButton === true ||
     item.kind === 'CONVERSION_INSTRUCTED' ||
-    item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
+    item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
+    item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
   )
 }
 
@@ -184,7 +195,9 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
     setDownloadState('loading')
     const startedAt = Date.now()
     try {
-      if (item.kind === 'WEEKLY_SETTLEMENT_STATEMENT') {
+      if (item.kind === 'MONTHLY_SETTLEMENT_STATEMENT') {
+        await downloadMonthlySettlementProof(item.txId)
+      } else if (item.kind === 'WEEKLY_SETTLEMENT_STATEMENT') {
         await downloadWeeklySettlementProof(item.txId)
       } else {
         await downloadConversionProof(item.txId)
@@ -250,9 +263,11 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
               .filter(Boolean)
               .join(' ')}
             aria-label={
-              item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
-                ? 'Download weekly settlement statement'
-                : 'Download proof of payment'
+              item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+                ? 'Download monthly settlement statement'
+                : item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
+                  ? 'Download weekly settlement statement'
+                  : 'Download proof of payment'
             }
             aria-busy={downloadState !== 'idle'}
             disabled={downloadState !== 'idle'}

@@ -5,13 +5,17 @@ import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import { DEPOSIT_CREDITED_KIND } from '@/lib/depositProofActivity'
 import { useAuthStore } from '@/store/auth'
 import { useNotificationStore } from '@/store/notifications'
-import { tx_sendMyWeeklySettlementStatement } from '@/lib/transactions/clientFunctions'
+import {
+  tx_sendMyMonthlySettlementStatement,
+  tx_sendMyWeeklySettlementStatement,
+} from '@/lib/transactions/clientFunctions'
 
 const DROPDOWN_KINDS = new Set([
   'BANK_TRANSFER_CONFIRMED',
   'EXTERNAL_DEPOSIT_CONFIRMED',
   DEPOSIT_CREDITED_KIND,
   'WEEKLY_SETTLEMENT_STATEMENT',
+  'MONTHLY_SETTLEMENT_STATEMENT',
 ])
 const DEPOSIT_AVATAR = '/assets/avatar - profile (4).png'
 const WITHDRAW_AVATAR = '/assets/avatar - profile (2).png'
@@ -48,7 +52,10 @@ export default function ActivityEventsListener() {
           const pushNotification = useNotificationStore.getState().pushNotification
           for (const item of items) {
             if (!item.kind || !DROPDOWN_KINDS.has(item.kind)) continue
-            if (item.kind === 'WEEKLY_SETTLEMENT_STATEMENT') {
+            if (
+              item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
+              item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+            ) {
               toastWeeklyStatement(item.id, item.title, item.body)
               continue
             }
@@ -82,6 +89,18 @@ export default function ActivityEventsListener() {
         })
         .catch((error) => {
           console.warn('[WeeklySettlement] Statement not posted', error)
+        })
+      void tx_sendMyMonthlySettlementStatement()
+        .then((result) => {
+          if (!result.posted) return
+          toastWeeklyStatement(
+            result.periodId,
+            'Monthly settlement statement',
+            `${result.conversionCount} conversion${result.conversionCount === 1 ? '' : 's'}`
+          )
+        })
+        .catch((error) => {
+          console.warn('[MonthlySettlement] Statement not posted', error)
         })
     }, 800)
 
