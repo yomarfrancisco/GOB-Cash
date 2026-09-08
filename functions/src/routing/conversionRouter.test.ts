@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   DEFAULT_TEST_CONFIG,
+  buildNotificationCopy,
   completeCycle,
   createInitialState,
   largestValidDeployment,
@@ -60,7 +61,7 @@ describe('splitAcrossCards', () => {
 
 describe('20-cycle default test', () => {
   it('compounds only on completion and stays inside validation ranges', () => {
-    const { state, cycles } = simulateRun()
+    const { state, cycles } = simulateRun({ ...DEFAULT_TEST_CONFIG, spread: 0.095 })
     assert.equal(cycles.length, 20)
     assert.equal(cycles[0].deployedAmount, 10_000)
     assert.equal(cycles[0].cardCountUsed, 1)
@@ -99,6 +100,12 @@ describe('20-cycle default test', () => {
     assert.equal(stillFirst.cycleNumber, 1)
     const after = completeCycle(state, first)
     assert.equal(planCycle(after).cycleNumber, 2)
+  })
+
+  it('keeps the dropdown to a title plus two body lines', () => {
+    const plan = planCycle(createInitialState())
+    const copy = buildNotificationCopy(plan, 20)
+    assert.equal(copy.body.split('\n').length, 2)
   })
 })
 

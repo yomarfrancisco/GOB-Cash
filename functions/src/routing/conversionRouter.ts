@@ -25,7 +25,7 @@ export const DEFAULT_TEST_CONFIG: RoutingConfig = {
   minCardAmount: 10_000,
   maxCardAmount: 15_000,
   startingCapital: 10_000,
-  spread: 0.095,
+  spread: 0.10,
   recycleRate: 1,
   bufferAmount: 50_000,
   bufferTriggerRatio: 0.9,
@@ -470,20 +470,16 @@ export function buildNotificationCopy(
   plan: CyclePlan,
   cycleCount: number
 ): { title: string; body: string } {
-  const lines: string[] = []
-  if (plan.bufferActionRequired) {
-    lines.push(LIQUIDITY_HEADING, LIQUIDITY_BODY, '')
-  }
-  lines.push(`Convert ${formatZar(plan.deployedAmount)} ZAR → MZN`, '', 'Use:', '')
-  for (const row of plan.cardAssignments) {
-    lines.push(assignmentLine(row, 'notification'))
-  }
-  lines.push('', `Cards resting: ${restingLabel(plan.restingCardIds)}`)
-  lines.push(`Expected gross spread: ${formatZar(plan.expectedProfit)}`)
-  lines.push('', `Cycle ${plan.cycleNumber} of ${cycleCount}`)
+  void cycleCount
+  const route = plan.cardAssignments
+    .map((row) => `${row.cardId}→M${row.machineId}`)
+    .join(' · ')
+  const body = plan.bufferActionRequired
+    ? `Replenish MZN→ZAR first\nThen ${formatZar(plan.deployedAmount)} on ${plan.cardCountUsed} card${plan.cardCountUsed === 1 ? '' : 's'}`
+    : `Convert ${formatZar(plan.deployedAmount)} ZAR → MZN\n${route}`
   return {
     title: `Conversion Cycle ${plan.cycleNumber}`,
-    body: lines.join('\n'),
+    body,
   }
 }
 
@@ -491,9 +487,10 @@ export function buildActivityCopy(
   plan: CyclePlan,
   cycleCount: number,
   status: 'awaiting_execution' | 'completed',
-  spread: number
+  spread: number,
+  quotes?: { sellRate: number; costRate: number }
 ): { title: string; body: string } {
-  const statusLabel = status === 'completed' ? 'Completed' : 'Awaiting execution'
+  const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
   const lines = [`${formatZar(plan.deployedAmount)} ZAR → MZN`, '']
   if (plan.bufferActionRequired) {
     lines.push(LIQUIDITY_HEADING, LIQUIDITY_BODY, '')
@@ -504,6 +501,10 @@ export function buildActivityCopy(
   lines.push('')
   lines.push(`Expected spread: ${formatSpreadPercent(spread)}`)
   lines.push(`Expected gross spread: ${formatZar(plan.expectedProfit)}`)
+  if (quotes && quotes.sellRate > 0 && quotes.costRate > 0) {
+    const profitPerZar = roundMoney(Math.max(0, quotes.sellRate - quotes.costRate))
+    lines.push(`Live spread: ${profitPerZar.toFixed(2)} Mt/R`)
+  }
   lines.push(`Cards resting: ${restingLabel(plan.restingCardIds)}`)
   lines.push(`Status: ${statusLabel}`)
   return {

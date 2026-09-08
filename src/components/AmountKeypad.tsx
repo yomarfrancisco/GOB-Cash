@@ -14,6 +14,7 @@ type AmountKeypadProps = {
   isHelicopterConvert?: boolean // if true, show custom fee note for helicopter/map flow
   amountMZN?: number // current amount in MZN for dynamic fee note
   customFeeText?: string // custom fee text override (e.g. "excl. 3% transaction fee")
+  pressedKey?: string | null
 }
 
 export default function AmountKeypad({
@@ -28,6 +29,7 @@ export default function AmountKeypad({
   isHelicopterConvert = false,
   amountMZN = 0,
   customFeeText,
+  pressedKey,
 }: AmountKeypadProps) {
   const feeNote = customFeeText
     ?? (isHelicopterConvert
@@ -72,17 +74,17 @@ export default function AmountKeypad({
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
           <button
             key={num}
-            className="amount-keypad__key"
+            className={`amount-keypad__key${pressedKey === num ? ' amount-keypad__key--pressed' : ''}`}
             onClick={() => handleKeyClick(num)}
             type="button"
           >
             {num}
           </button>
         ))}
-        <button className="amount-keypad__key" onClick={onDot} type="button">
+        <button className={`amount-keypad__key${pressedKey === '.' ? ' amount-keypad__key--pressed' : ''}`} onClick={onDot} type="button">
           .
         </button>
-        <button className="amount-keypad__key" onClick={() => handleKeyClick('0')} type="button">
+        <button className={`amount-keypad__key${pressedKey === '0' ? ' amount-keypad__key--pressed' : ''}`} onClick={() => handleKeyClick('0')} type="button">
           0
         </button>
         <button className="amount-keypad__key" onClick={onBackspace} type="button">

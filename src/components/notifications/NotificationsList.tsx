@@ -2,15 +2,15 @@
 
 import { useMemo, useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Check, Download, ExternalLink } from 'lucide-react'
+import { Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
-  admin_confirmConversionRoutingCycle,
   downloadConversionProof,
   downloadMonthlySettlementProof,
   downloadWeeklySettlementProof,
 } from '@/lib/transactions/clientFunctions'
+import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
@@ -229,20 +229,18 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
     router.push(item.routeOnTap || '/profile')
   }
 
-  const handleConfirmRouting = async (event: React.MouseEvent) => {
+  const handleExecuteRouting = (event: React.MouseEvent) => {
     event.stopPropagation()
     if (confirmState !== 'idle') return
+    const amountZAR = item.amount?.value
+    if (!(typeof amountZAR === 'number') || amountZAR <= 0) return
     setConfirmState('loading')
-    try {
-      await admin_confirmConversionRoutingCycle({
-        testRunId: item.testRunId,
-        cycleNumber: item.cycleNumber,
-      })
-      setConfirmState('pressed')
-    } catch (error) {
-      console.error('[Activity] Failed to confirm conversion routing cycle:', error)
-      setConfirmState('idle')
-    }
+    closeNotifications()
+    useRoutingPlaybackStore.getState().requestPlay({
+      amountZAR,
+      testRunId: item.testRunId,
+      cycleNumber: item.cycleNumber,
+    })
   }
 
   return (
@@ -307,18 +305,19 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
             className={[
               styles.confirmButton,
               confirmState === 'loading' ? styles.confirmButtonLoading : '',
-              confirmState === 'pressed' ? styles.confirmButtonPressed : '',
             ]
               .filter(Boolean)
               .join(' ')}
-            aria-label="Mark conversion cycle executed"
+            aria-label="Execute conversion cycle"
             aria-busy={confirmState !== 'idle'}
             disabled={confirmState !== 'idle'}
-            onClick={handleConfirmRouting}
+            onClick={handleExecuteRouting}
           >
-            <Check size={16} strokeWidth={2.4} />
-            Mark executed
+            Execute
           </button>
+        )}
+        {item.kind === 'CONVERSION_ROUTING_INSTRUCTION' && item.status === 'completed' && (
+          <span className={styles.executedLabel}>Executed</span>
         )}
         {showKycLink && (
           <button

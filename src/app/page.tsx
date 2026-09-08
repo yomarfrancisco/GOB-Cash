@@ -53,6 +53,8 @@ import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { type ConversionDestination } from '@/store/usePayIntoSheet'
 import PayIntoSheet from '@/components/PayIntoSheet'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
+import { submitRoutingConversion } from '@/lib/transactions/submitRoutingConversion'
+import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { prefetchActionSheetIcons } from '@/lib/prefetchActionSheetIcons'
@@ -139,6 +141,18 @@ function HomeContent() {
   const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
   const openedGuestCashKeypadRef = useRef(false)
   const resumedAuthedCashKeypadRef = useRef(false)
+
+  const routingPlay = useRoutingPlaybackStore((s) => s.play)
+  useEffect(() => {
+    if (!routingPlay) return
+    setAgentCashKeypad(false)
+    setAgentCashHandle(null)
+    setConversionPrefill(undefined)
+    setConversionDestination('MZN')
+    setAmountMode('convert')
+    setAmountEntryPoint('conversionKeypad')
+    setOpenAmount(true)
+  }, [routingPlay])
 
   const openConversionKeypad = useCallback((agentCash = false, handle?: string | null) => {
     playDollarSound()
@@ -935,12 +949,17 @@ function HomeContent() {
         withdrawOnly={amountMode === 'withdraw'}
         flowType={flowType}
         balanceMZN={0}
+        autoPlayAmount={
+          routingPlay && amountEntryPoint === 'conversionKeypad' ? routingPlay.amountZAR : undefined
+        }
         initialAmount={
-          conversionPrefill !== undefined && conversionPrefill > 0
-            ? conversionPrefill
-            : sendAmountZAR > 0
-              ? sendAmountZAR
-              : undefined
+          routingPlay && amountEntryPoint === 'conversionKeypad'
+            ? undefined
+            : conversionPrefill !== undefined && conversionPrefill > 0
+              ? conversionPrefill
+              : sendAmountZAR > 0
+                ? sendAmountZAR
+                : undefined
         }
         ctaLabel={amountMode === 'depositCard' ? 'Deposit' : amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
         showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
@@ -1008,13 +1027,18 @@ function HomeContent() {
           }, 220) // Match other modal transitions
         } : undefined}
         onCardSubmit={amountEntryPoint === 'conversionKeypad' ? ({ amountMZN, amountZAR }) => {
-          void submitInternalConversion({
-            destination: conversionDestination,
-            amountMZN,
-            amountZAR,
-            agentCash: agentCashKeypad,
-            agentCashHandle: agentCashHandle,
-          }).catch((error: any) => {
+          const play = useRoutingPlaybackStore.getState().play
+          const run = play
+            ? submitRoutingConversion({ amountZAR, amountMZN })
+            : submitInternalConversion({
+                destination: conversionDestination,
+                amountMZN,
+                amountZAR,
+                agentCash: agentCashKeypad,
+                agentCashHandle: agentCashHandle,
+              })
+          void run.catch((error: any) => {
+            useRoutingPlaybackStore.getState().clear()
             const message = String(error?.message || '')
             useNotificationStore.getState().pushNotification({
               kind: 'payment_failed',
