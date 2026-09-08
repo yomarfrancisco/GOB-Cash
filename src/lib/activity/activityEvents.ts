@@ -16,6 +16,12 @@ export type ActivityEventDoc = {
   createdAt?: Timestamp | { toMillis?: () => number }
   txId?: string
   hasDownloadButton?: boolean
+  dropdownTitle?: string
+  dropdownBody?: string
+  status?: string
+  awaitingConfirm?: boolean
+  testRunId?: string
+  cycleNumber?: number
 }
 
 function createdAtMs(value: ActivityEventDoc['createdAt']): number {
@@ -37,7 +43,8 @@ function avatarUrlForEvent(data: ActivityEventDoc): string | undefined {
   if (data.kind === 'CONVERSION_INSTRUCTED') return conversionAvatar(data.amountCurrency)
   if (
     data.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
-    data.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+    data.kind === 'MONTHLY_SETTLEMENT_STATEMENT' ||
+    data.kind === 'CONVERSION_ROUTING_INSTRUCTION'
   ) {
     return TASK_AVATARS.convertZar
   }
@@ -65,6 +72,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     data.kind === 'WITHDRAWAL_INSTRUCTED' ||
     data.kind === 'EXTERNAL_DEPOSIT_CONFIRMED' ||
     data.kind === 'CONVERSION_INSTRUCTED' ||
+    data.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
     data.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
     data.kind === 'MONTHLY_SETTLEMENT_STATEMENT' ||
     data.avatarKind === 'convert_mzn' ||
@@ -85,7 +93,8 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       type: actorType,
       name:
         data.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
-        data.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+        data.kind === 'MONTHLY_SETTLEMENT_STATEMENT' ||
+        data.kind === 'CONVERSION_ROUTING_INSTRUCTION'
           ? '$ariel'
           : actorType === 'ai'
             ? 'Ama'
@@ -105,6 +114,12 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     txId: data.txId,
     hasDownloadButton: data.hasDownloadButton === true,
     avatarKind: data.avatarKind,
+    status: data.status,
+    dropdownTitle: data.dropdownTitle,
+    dropdownBody: data.dropdownBody,
+    testRunId: data.testRunId,
+    cycleNumber: data.cycleNumber,
+    awaitingConfirm: data.awaitingConfirm === true || data.status === 'awaiting_execution',
   }
 }
 

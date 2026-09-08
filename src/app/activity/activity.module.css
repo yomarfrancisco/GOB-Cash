@@ -142,7 +142,7 @@
   line-height: 18px;
   color: rgba(0, 0, 0, 0.72);
   letter-spacing: -0.2px;
-  white-space: normal;
+  white-space: pre-line;
   overflow-wrap: anywhere;
   margin: 0;
   padding: 0;
@@ -200,6 +200,30 @@
 }
 
 .downloadButton:disabled {
+  cursor: default;
+}
+
+.confirmButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.08);
+  color: #111;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.confirmButtonLoading,
+.confirmButtonPressed,
+.confirmButton:disabled {
+  opacity: 0.7;
   cursor: default;
 }
 

@@ -25,6 +25,12 @@ export type ActivityItem = {
   hasDownloadButton?: boolean
   avatarKind?: string
   hasKycLink?: boolean
+  status?: string
+  dropdownTitle?: string
+  dropdownBody?: string
+  testRunId?: string
+  cycleNumber?: number
+  awaitingConfirm?: boolean
 }
 
 const MAX_ACTIVITY_ITEMS = 80

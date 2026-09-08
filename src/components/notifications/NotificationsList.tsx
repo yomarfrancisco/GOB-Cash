@@ -2,10 +2,11 @@
 
 import { useMemo, useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Download, ExternalLink } from 'lucide-react'
+import { Check, Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
+  admin_confirmConversionRoutingCycle,
   downloadConversionProof,
   downloadMonthlySettlementProof,
   downloadWeeklySettlementProof,
@@ -77,6 +78,7 @@ function isPaymentActivity(item: ActivityItem): boolean {
       'BANK_TRANSFER_CONFIRMED',
       'EXTERNAL_DEPOSIT_CONFIRMED',
       'CONVERSION_INSTRUCTED',
+      'CONVERSION_ROUTING_INSTRUCTION',
       'WEEKLY_SETTLEMENT_STATEMENT',
       'MONTHLY_SETTLEMENT_STATEMENT',
       'DEPOSIT_PROOF_PENDING',
@@ -119,11 +121,13 @@ function resolveTaskAvatar(item: ActivityItem): string {
 
   if (
     item.kind === 'CONVERSION_INSTRUCTED' ||
+    item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
     item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
     item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
   ) {
     return item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
-      item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+      item.kind === 'MONTHLY_SETTLEMENT_STATEMENT' ||
+      item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
       ? TASK_AVATARS.convertZar
       : conversionAvatar(item.amount?.currency)
   }
@@ -186,8 +190,12 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
   const avatarUrl = isCopied ? null : resolveTaskAvatar(item)
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
+  const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const showDownload = canDownloadProof(item)
   const showKycLink = item.hasKycLink === true
+  const showConfirm =
+    item.kind === 'CONVERSION_ROUTING_INSTRUCTION' &&
+    (item.awaitingConfirm === true || item.status === 'awaiting_execution')
 
   const handleDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
@@ -219,6 +227,22 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
     event.stopPropagation()
     closeNotifications()
     router.push(item.routeOnTap || '/profile')
+  }
+
+  const handleConfirmRouting = async (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (confirmState !== 'idle') return
+    setConfirmState('loading')
+    try {
+      await admin_confirmConversionRoutingCycle({
+        testRunId: item.testRunId,
+        cycleNumber: item.cycleNumber,
+      })
+      setConfirmState('pressed')
+    } catch (error) {
+      console.error('[Activity] Failed to confirm conversion routing cycle:', error)
+      setConfirmState('idle')
+    }
   }
 
   return (
@@ -275,6 +299,25 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
           >
             <span className={styles.downloadFill} aria-hidden />
             <Download size={18} strokeWidth={2} />
+          </button>
+        )}
+        {showConfirm && (
+          <button
+            type="button"
+            className={[
+              styles.confirmButton,
+              confirmState === 'loading' ? styles.confirmButtonLoading : '',
+              confirmState === 'pressed' ? styles.confirmButtonPressed : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            aria-label="Mark conversion cycle executed"
+            aria-busy={confirmState !== 'idle'}
+            disabled={confirmState !== 'idle'}
+            onClick={handleConfirmRouting}
+          >
+            <Check size={16} strokeWidth={2.4} />
+            Mark executed
           </button>
         )}
         {showKycLink && (

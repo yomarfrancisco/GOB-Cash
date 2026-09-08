@@ -95,7 +95,7 @@ export default function TopNotifications() {
 
       const timer = setTimeout(() => {
         handleDismiss(notification.id)
-      }, AUTO_DISMISS_MS)
+      }, notification.autoDismissMs ?? AUTO_DISMISS_MS)
 
       dismissTimersRef.current.set(notification.id, timer)
     })
@@ -238,7 +238,7 @@ export default function TopNotifications() {
               {(() => {
                 const detail = getNotificationDetail(notification)
                 return detail ? (
-                  <div className="notif__detail">{detail}</div>
+                  <div className={clsx('notif__detail', detail.includes('\n') && 'notif__detail--multiline')}>{detail}</div>
                 ) : null
               })()}
               {notification.hasKycLink && (
