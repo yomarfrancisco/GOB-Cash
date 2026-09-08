@@ -14,7 +14,8 @@
 
 import { useEffect, useState } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
-import { getFirestoreDb } from '@/lib/firebase'
+import { getFirestoreDb, getFirebaseAuth } from '@/lib/firebase'
+import { useAuthStore } from '@/store/auth'
 
 export const ACCESS_CONFIG_COLLECTION = 'config'
 export const ACCESS_CONFIG_DOC = 'access'
@@ -75,6 +76,26 @@ export function useFullAccessUids(): string[] {
   }, [])
 
   return uids
+}
+
+export function useIsAdminUser(): boolean {
+  const isAuthed = useAuthStore((s) => s.isAuthed)
+  const fullAccessUids = useFullAccessUids()
+  const [uid, setUid] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isAuthed) {
+      setUid(null)
+      return
+    }
+    try {
+      setUid(getFirebaseAuth().currentUser?.uid ?? null)
+    } catch {
+      setUid(null)
+    }
+  }, [isAuthed])
+
+  return isFullAccessUid(uid, fullAccessUids)
 }
 
 export function useProfileAccess(
