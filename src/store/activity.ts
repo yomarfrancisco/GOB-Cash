@@ -31,6 +31,8 @@ export type ActivityItem = {
   testRunId?: string
   cycleNumber?: number
   awaitingConfirm?: boolean
+  routingAction?: string
+  pairedAmountValue?: number
 }
 
 const MAX_ACTIVITY_ITEMS = 80

@@ -22,6 +22,8 @@ export type ActivityEventDoc = {
   awaitingConfirm?: boolean
   testRunId?: string
   cycleNumber?: number
+  routingAction?: 'replenish' | 'deploy' | string
+  pairedAmountValue?: number
 }
 
 function createdAtMs(value: ActivityEventDoc['createdAt']): number {
@@ -43,10 +45,12 @@ function avatarUrlForEvent(data: ActivityEventDoc): string | undefined {
   if (data.kind === 'CONVERSION_INSTRUCTED') return conversionAvatar(data.amountCurrency)
   if (
     data.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
-    data.kind === 'MONTHLY_SETTLEMENT_STATEMENT' ||
-    data.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+    data.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
   ) {
     return TASK_AVATARS.convertZar
+  }
+  if (data.kind === 'CONVERSION_ROUTING_INSTRUCTION') {
+    return data.avatarKind === 'convert_mzn' ? TASK_AVATARS.convertMzn : TASK_AVATARS.convertZar
   }
   if (
     data.kind === 'DEPOSIT_PROOF_PENDING' ||
@@ -94,7 +98,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       name:
         data.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
         data.kind === 'MONTHLY_SETTLEMENT_STATEMENT' ||
-        data.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+        (data.kind === 'CONVERSION_ROUTING_INSTRUCTION' && data.routingAction !== 'replenish')
           ? '$ariel'
           : actorType === 'ai'
             ? 'Ama'
@@ -119,6 +123,8 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     dropdownBody: data.dropdownBody,
     testRunId: data.testRunId,
     cycleNumber: data.cycleNumber,
+    routingAction: data.routingAction,
+    pairedAmountValue: data.pairedAmountValue,
     awaitingConfirm: data.awaitingConfirm === true || data.status === 'awaiting_execution',
   }
 }

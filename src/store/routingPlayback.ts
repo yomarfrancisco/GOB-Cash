@@ -1,9 +1,13 @@
 import { create } from 'zustand'
+import type { ConversionDestination } from '@/store/usePayIntoSheet'
 
 export type RoutingPlayback = {
+  destination: ConversionDestination
   amountZAR: number
+  amountMZN: number
   testRunId?: string
   cycleNumber?: number
+  routingAction?: 'replenish' | 'deploy'
 }
 
 type RoutingPlaybackState = {

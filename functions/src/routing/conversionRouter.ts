@@ -336,7 +336,7 @@ export function planCycle(state: RoutingState): CyclePlan {
     .filter((id) => !usedMachineIds.has(id))
   const bufferTriggerAmount = roundMoney(config.bufferAmount * config.bufferTriggerRatio)
   const bufferUsedProjected = roundMoney(state.bufferUsed + deployedAmount)
-  const bufferActionRequired = bufferUsedProjected > bufferTriggerAmount
+  const bufferActionRequired = state.bufferUsed > 0 && bufferUsedProjected > bufferTriggerAmount
 
   const selectionReason = [
     `Need ${cardCount} card${cardCount === 1 ? '' : 's'} for ${formatZar(deployedAmount)} within ${formatZar(config.minCardAmount)}–${formatZar(config.maxCardAmount)}.`,
@@ -416,9 +416,7 @@ export function completeCycle(
     pairings[key] = (pairings[key] || 0) + 1
   }
 
-  const bufferUsed = plan.bufferActionRequired
-    ? plan.deployedAmount
-    : roundMoney(state.bufferUsed + plan.deployedAmount)
+  const bufferUsed = roundMoney(state.bufferUsed + plan.deployedAmount)
 
   return {
     ...state,
@@ -466,6 +464,35 @@ function restingLabel(ids: number[]): string {
   return ids.length ? ids.join(', ') : 'none'
 }
 
+export function formatMznAmount(amount: number): string {
+  const rounded = roundMoney(amount)
+  const nearestInt = Math.round(rounded)
+  const useInt = Math.abs(rounded - nearestInt) < 0.005
+  const formatted = (useInt ? nearestInt : rounded).toLocaleString('en-US', {
+    minimumFractionDigits: useInt ? 0 : 2,
+    maximumFractionDigits: useInt ? 0 : 2,
+  })
+  return `${formatted} MZN`
+}
+
+export type ReplenishPlan = {
+  cycleNumber: number
+  amountZar: number
+  amountMzn: number
+  costRate: number
+}
+
+export function planReplenish(state: RoutingState, costRate: number): ReplenishPlan | null {
+  const plan = planCycle(state)
+  if (!plan.bufferActionRequired || state.bufferUsed <= 0 || !(costRate > 0)) return null
+  return {
+    cycleNumber: plan.cycleNumber,
+    amountZar: state.bufferUsed,
+    amountMzn: roundMoney(state.bufferUsed * costRate),
+    costRate,
+  }
+}
+
 export function buildNotificationCopy(
   plan: CyclePlan,
   cycleCount: number
@@ -474,12 +501,18 @@ export function buildNotificationCopy(
   const route = plan.cardAssignments
     .map((row) => `${row.cardId}→M${row.machineId}`)
     .join(' · ')
-  const body = plan.bufferActionRequired
-    ? `Replenish MZN→ZAR first\nThen ${formatZar(plan.deployedAmount)} on ${plan.cardCountUsed} card${plan.cardCountUsed === 1 ? '' : 's'}`
-    : `Convert ${formatZar(plan.deployedAmount)} ZAR → MZN\n${route}`
   return {
     title: `Conversion Cycle ${plan.cycleNumber}`,
-    body,
+    body: `Convert ${formatZar(plan.deployedAmount)} ZAR → MZN\n${route}`,
+  }
+}
+
+export function buildReplenishNotificationCopy(
+  replenish: ReplenishPlan
+): { title: string; body: string } {
+  return {
+    title: 'Liquidity replenishment',
+    body: `Convert ${formatMznAmount(replenish.amountMzn)} → ZAR at COST\nThen Cycle ${replenish.cycleNumber}`,
   }
 }
 
@@ -492,9 +525,6 @@ export function buildActivityCopy(
 ): { title: string; body: string } {
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
   const lines = [`${formatZar(plan.deployedAmount)} ZAR → MZN`, '']
-  if (plan.bufferActionRequired) {
-    lines.push(LIQUIDITY_HEADING, LIQUIDITY_BODY, '')
-  }
   for (const row of plan.cardAssignments) {
     lines.push(assignmentLine(row, 'activity'))
   }
@@ -510,6 +540,27 @@ export function buildActivityCopy(
   return {
     title: `Conversion instruction · Cycle ${plan.cycleNumber}/${cycleCount}`,
     body: lines.join('\n'),
+  }
+}
+
+export function buildReplenishActivityCopy(
+  replenish: ReplenishPlan,
+  cycleCount: number,
+  status: 'awaiting_execution' | 'completed'
+): { title: string; body: string } {
+  const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
+  return {
+    title: `Liquidity replenishment · before Cycle ${replenish.cycleNumber}/${cycleCount}`,
+    body: [
+      `${formatMznAmount(replenish.amountMzn)} → ${formatZar(replenish.amountZar)}`,
+      '',
+      LIQUIDITY_HEADING,
+      LIQUIDITY_BODY,
+      `Rate: COST @ ${replenish.costRate.toFixed(2)} Mt/R`,
+      `Frees ${formatZar(replenish.amountZar)} of the R50,000 conversion buffer`,
+      `Then: Cycle ${replenish.cycleNumber} of ${cycleCount}`,
+      `Status: ${statusLabel}`,
+    ].join('\n'),
   }
 }
 
