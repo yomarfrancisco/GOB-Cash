@@ -43,6 +43,22 @@ export function mznRewardsFromZar(amountZar: number, sellRate: number, buyRate: 
   return Math.round(amountZar * Math.max(0, sellRate - buyRate) * 100) / 100
 }
 
+/** COST is SELL discounted by the live margin-on-cost. */
+export function costMznPerZarFromSell(sellRate: number): number {
+  if (!Number.isFinite(sellRate) || sellRate <= 0) {
+    return MZN_ZAR_API_RATE_AT_CALIBRATION * MZN_ZAR_MARKUP_RECEIVE_MZN
+  }
+  return sellRate / (1 + MARGIN_ON_COST)
+}
+
+/** Rewards-card spread as a fraction of cost: (sell − cost) / cost. */
+export function liveGrossSpreadRate(sellRate: number, costRate = costMznPerZarFromSell(sellRate)): number {
+  if (!Number.isFinite(sellRate) || !Number.isFinite(costRate) || costRate <= 0) {
+    return MARGIN_ON_COST
+  }
+  return Math.max(0, (sellRate - costRate) / costRate)
+}
+
 export async function fetchQuotedMznPerZar(markup = MZN_ZAR_MARKUP): Promise<number> {
   const now = Date.now()
   if (cached && now - cached.at < CACHE_MS) {

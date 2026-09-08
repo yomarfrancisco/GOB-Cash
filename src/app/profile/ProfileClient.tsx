@@ -45,6 +45,8 @@ import { usePaymentDetailsSheet } from '@/store/usePaymentDetailsSheet'
 import { type ConversionDestination } from '@/store/usePayIntoSheet'
 import PayIntoSheet from '@/components/PayIntoSheet'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
+import { submitRoutingConversion } from '@/lib/transactions/submitRoutingConversion'
+import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
 import { costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
@@ -480,6 +482,17 @@ export default function ProfileClient() {
   const [agentCashKeypad, setAgentCashKeypad] = useState(false)
   const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
   const openedCashLinkRef = useRef<string | null>(null)
+  const routingPlay = useRoutingPlaybackStore((s) => s.play)
+
+  useEffect(() => {
+    if (!routingPlay) return
+    setAgentCashKeypad(false)
+    setAgentCashHandle(null)
+    setConversionDestination('MZN')
+    setAmountMode('convert')
+    setAmountEntryPoint('conversionKeypad')
+    setOpenAmount(true)
+  }, [routingPlay])
 
   useEffect(() => {
     if (!authReady) return
@@ -1356,13 +1369,18 @@ export default function ProfileClient() {
           }, 220)
         } : undefined}
         onCardSubmit={amountEntryPoint === 'conversionKeypad' ? ({ amountMZN, amountZAR }) => {
-          void submitInternalConversion({
-            destination: conversionDestination,
-            amountMZN,
-            amountZAR,
-            agentCash: agentCashKeypad,
-            agentCashHandle: agentCashHandle,
-          }).catch((error: any) => {
+          const play = useRoutingPlaybackStore.getState().play
+          const run = play
+            ? submitRoutingConversion({ amountZAR, amountMZN })
+            : submitInternalConversion({
+                destination: conversionDestination,
+                amountMZN,
+                amountZAR,
+                agentCash: agentCashKeypad,
+                agentCashHandle: agentCashHandle,
+              })
+          void run.catch((error: any) => {
+            useRoutingPlaybackStore.getState().clear()
             const message = String(error?.message || '')
             useNotificationStore.getState().pushNotification({
               kind: 'payment_failed',
@@ -1490,14 +1508,19 @@ export default function ProfileClient() {
           }
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
+        autoPlayAmount={
+          routingPlay && amountEntryPoint === 'conversionKeypad' ? routingPlay.amountZAR : undefined
+        }
         initialAmount={
-          amountMode === 'withdraw' && amountEntryPoint === 'withdrawKeypad' && withdrawFrom === 'ZAR' && withdrawAmountZAR > 0
-            ? withdrawAmountZAR
-            : amountMode === 'withdraw' && amountEntryPoint === 'withdrawKeypad' && withdrawAmountMZN > 0
-              ? withdrawAmountMZN
-              : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountMZN > 0
-                ? depositAmountMZN
-                : undefined
+          routingPlay && amountEntryPoint === 'conversionKeypad'
+            ? undefined
+            : amountMode === 'withdraw' && amountEntryPoint === 'withdrawKeypad' && withdrawFrom === 'ZAR' && withdrawAmountZAR > 0
+              ? withdrawAmountZAR
+              : amountMode === 'withdraw' && amountEntryPoint === 'withdrawKeypad' && withdrawAmountMZN > 0
+                ? withdrawAmountMZN
+                : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' && depositAmountMZN > 0
+                  ? depositAmountMZN
+                  : undefined
         }
       />
       <SendDetailsSheet

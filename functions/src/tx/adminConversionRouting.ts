@@ -15,10 +15,16 @@ import {
   completeCycle,
   createInitialState,
   planCycle,
+  roundMoney,
   type CyclePlan,
   type RoutingConfig,
   type RoutingState,
 } from '../routing/conversionRouter'
+import {
+  costMznPerZarFromSell,
+  fetchQuotedMznPerZar,
+  liveGrossSpreadRate,
+} from '../fx/quotedMznZar'
 
 const db = admin.firestore()
 const TESTS = 'adminConversionTests'
@@ -99,12 +105,31 @@ async function currentTestId(adminUid: string): Promise<string | null> {
   return typeof testRunId === 'string' && testRunId ? testRunId : null
 }
 
+async function applyLiveQuotes(state: RoutingState): Promise<{
+  state: RoutingState
+  sellRate: number
+  costRate: number
+}> {
+  const sellRate = await fetchQuotedMznPerZar()
+  const costRate = costMznPerZarFromSell(sellRate)
+  const spread = liveGrossSpreadRate(sellRate, costRate)
+  return {
+    state: {
+      ...state,
+      config: { ...state.config, spread },
+    },
+    sellRate,
+    costRate,
+  }
+}
+
 function writeIssuedCycle(
   tx: admin.firestore.Transaction,
   adminUid: string,
   testRunId: string,
   state: RoutingState,
-  now: admin.firestore.Timestamp
+  now: admin.firestore.Timestamp,
+  quotes: { sellRate: number; costRate: number }
 ): { plan: CyclePlan; activityEventId: string } {
   const plan = planCycle(state)
   if (plan.deployedAmount <= 0 || plan.cardCountUsed <= 0) {
@@ -119,7 +144,8 @@ function writeIssuedCycle(
     plan,
     state.config.cycleCount,
     'awaiting_execution',
-    state.config.spread
+    state.config.spread,
+    quotes
   )
   const activityEventId = eventId(testRunId, plan.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
@@ -167,6 +193,9 @@ function writeIssuedCycle(
     bufferUsed: plan.bufferUsedBefore,
     bufferUsedProjected: plan.bufferUsedProjected,
     bufferActionRequired: plan.bufferActionRequired,
+    sellRate: quotes.sellRate,
+    costRate: quotes.costRate,
+    spreadRate: state.config.spread,
     selectionReason: plan.selectionReason,
     status: 'awaiting_execution' as CycleStatus,
     createdAt: now,
@@ -203,7 +232,10 @@ async function issueCycle(
   state: RoutingState,
   now: admin.firestore.Timestamp
 ): Promise<{ plan: CyclePlan; activityEventId: string }> {
-  return db.runTransaction(async (tx) => writeIssuedCycle(tx, adminUid, testRunId, state, now))
+  const quoted = await applyLiveQuotes(state)
+  return db.runTransaction(async (tx) =>
+    writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted)
+  )
 }
 
 async function cancelAwaitingCycle(
@@ -357,6 +389,8 @@ export const admin_confirmConversionRoutingCycle = functions
       throw new functions.https.HttpsError('not-found', 'No conversion routing test is active')
     }
 
+    const quotes = await applyLiveQuotes(createInitialState())
+    const liveSpread = quotes.state.config.spread
     const testRef = db.collection(TESTS).doc(testRunId)
 
     const result = await db.runTransaction(async (tx) => {
@@ -399,13 +433,14 @@ export const admin_confirmConversionRoutingCycle = functions
         throw new functions.https.HttpsError('internal', 'Stored cycle does not match routing engine state')
       }
 
-      const actualProfit = suppliedProfit ?? plan.expectedProfit
+      const actualProfit = suppliedProfit ?? roundMoney(plan.deployedAmount * liveSpread)
       const nextState = completeCycle(state, plan, actualProfit)
       const completedCopy = buildActivityCopy(
         plan,
         state.config.cycleCount,
         'completed',
-        state.config.spread
+        liveSpread,
+        { sellRate: quotes.sellRate, costRate: quotes.costRate }
       )
       const eventRef = db
         .collection('users')
@@ -447,7 +482,14 @@ export const admin_confirmConversionRoutingCycle = functions
           { merge: true }
         )
       } else {
-        nextCycle = writeIssuedCycle(tx, adminUid, testRunId, nextState, now).plan
+        nextCycle = writeIssuedCycle(
+          tx,
+          adminUid,
+          testRunId,
+          { ...nextState, config: { ...nextState.config, spread: liveSpread } },
+          now,
+          quotes
+        ).plan
       }
 
       return {

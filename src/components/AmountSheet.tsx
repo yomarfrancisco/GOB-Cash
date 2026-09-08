@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import AmountKeypad from './AmountKeypad'
@@ -11,6 +11,28 @@ import { formatAgentCashTitle, saveCashPayResume } from '@/lib/agentCashQr'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import '@/styles/amount-sheet.css'
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
+function amountToKeys(amount: number): string[] {
+  const rounded = Math.round(amount * 100) / 100
+  const nearestInt = Math.round(rounded)
+  const text =
+    Math.abs(rounded - nearestInt) < 0.005
+      ? String(nearestInt)
+      : rounded.toFixed(2)
+  return text.split('')
+}
+
+function applyKey(current: string, key: string): string {
+  if (key === '.') {
+    return current.includes('.') ? current : `${current}.`
+  }
+  if (current === '0') return key
+  return current + key
+}
 
 const CURRENCY_FLAG = {
   ZAR: { src: '/assets/south%20africa.svg', alt: 'South Africa' },
@@ -49,6 +71,7 @@ type AmountSheetProps = {
   customFeeText?: string // custom fee text override (for card deposit: "excl. 3% transaction fee")
   agentCash?: boolean // agent QR conversion: header says "Cash" instead of wallet balance
   agentCashHandle?: string | null // scanned Cash ID handle, shown as Cash@[handle]
+  autoPlayAmount?: number
 }
 
 export default function AmountSheet({
@@ -78,9 +101,12 @@ export default function AmountSheet({
   customFeeText,
   agentCash = false,
   agentCashHandle = null,
+  autoPlayAmount,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
   const [conversionBusy, setConversionBusy] = useState(false)
+  const [pressedKey, setPressedKey] = useState<string | null>(null)
+  const autoPlayRef = useRef(false)
   const { isAuthed, requireAuth } = useAuthStore()
   const { alloc } = useWalletAlloc()
   const gateGuestPay = agentCash && !isAuthed
@@ -104,18 +130,71 @@ export default function AmountSheet({
   // Reset amount when sheet opens, or use initialAmount if provided
   useEffect(() => {
     if (open) {
-      if (initialAmount !== undefined && initialAmount > 0) {
-        // Format initial amount (remove trailing zeros, but keep decimals if needed)
-        const formatted = initialAmount % 1 === 0 
-          ? initialAmount.toString() 
+      if (autoPlayAmount && autoPlayAmount > 0) {
+        setAmount('0')
+      } else if (initialAmount !== undefined && initialAmount > 0) {
+        const formatted = initialAmount % 1 === 0
+          ? initialAmount.toString()
           : initialAmount.toFixed(2).replace(/\.?0+$/, '')
         setAmount(formatted)
       } else {
         setAmount('0')
       }
       setConversionBusy(false)
+      setPressedKey(null)
+    } else {
+      autoPlayRef.current = false
     }
-  }, [open, initialAmount])
+  }, [open, initialAmount, autoPlayAmount])
+
+  const runConversionExchange = (typed = parseFloat(amount) || 0) => {
+    if (!(typed > 0) || conversionBusy) return
+    const nextZAR = isZarPrimaryKeypad ? typed : mznToZar(typed, fxRateMZNperZAR)
+    const nextMZN = isZarPrimaryKeypad
+      ? Math.round(zarToMzn(typed, fxRateMZNperZAR) * 100) / 100
+      : typed
+    if (exceedsAvailableZar(nextZAR, displayBalanceZAR) || exceedsAvailableMzn(nextMZN, displayBalanceMZN)) {
+      return
+    }
+    setConversionBusy(true)
+    onClose()
+    void Promise.resolve(
+      onCardSubmit?.({
+        amountMZN: nextMZN,
+        amountZAR: nextZAR,
+        amountUSDT: zarToUsdt(nextZAR),
+        mode: 'convert',
+      })
+    )
+  }
+
+  useEffect(() => {
+    if (!open || !autoPlayAmount || autoPlayAmount <= 0 || autoPlayRef.current) return
+    autoPlayRef.current = true
+    let cancelled = false
+    const keys = amountToKeys(autoPlayAmount)
+    const play = async () => {
+      await wait(320)
+      let current = '0'
+      for (const key of keys) {
+        if (cancelled) return
+        setPressedKey(key)
+        current = applyKey(current, key)
+        setAmount(current)
+        await wait(150)
+        if (cancelled) return
+        setPressedKey(null)
+        await wait(40)
+      }
+      await wait(420)
+      if (cancelled) return
+      runConversionExchange(parseFloat(current) || 0)
+    }
+    void play()
+    return () => {
+      cancelled = true
+    }
+  }, [open, autoPlayAmount])
 
   const typedAmount = parseFloat(amount) || 0
   const amountZAR = isZarPrimaryKeypad
@@ -410,6 +489,7 @@ export default function AmountSheet({
           </div>
           <AmountKeypad
             value={displayAmount}
+            pressedKey={pressedKey}
             onChange={(next) => {
               if (gateGuestPay) {
                 blockGuestPay()
@@ -529,17 +609,7 @@ export default function AmountSheet({
                   blockGuestPay()
                   return
                 }
-                if (!isPositive || exceedsZarBalance || exceedsMznBalance || conversionBusy) return
-                setConversionBusy(true)
-                onClose()
-                void Promise.resolve(
-                  onCardSubmit?.({
-                    amountMZN,
-                    amountZAR,
-                    amountUSDT,
-                    mode: 'convert',
-                  })
-                )
+                runConversionExchange()
               }}
               type="button"
               disabled={!isPositive || exceedsZarBalance || exceedsMznBalance || conversionBusy}

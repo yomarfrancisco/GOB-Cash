@@ -227,6 +227,20 @@
   cursor: default;
 }
 
+.executedLabel {
+  display: inline-flex;
+  align-items: center;
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  align-self: flex-start;
+}
+
 @keyframes downloadFillUp {
   0% {
     transform: scaleY(0);
