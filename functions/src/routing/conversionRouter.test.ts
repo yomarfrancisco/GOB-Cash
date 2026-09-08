@@ -3,10 +3,12 @@ import { describe, it } from 'node:test'
 import {
   DEFAULT_TEST_CONFIG,
   buildNotificationCopy,
+  buildReplenishNotificationCopy,
   completeCycle,
   createInitialState,
   largestValidDeployment,
   planCycle,
+  planReplenish,
   simulateRun,
   splitAcrossCards,
 } from './conversionRouter'
@@ -105,6 +107,20 @@ describe('20-cycle default test', () => {
   it('keeps the dropdown to a title plus two body lines', () => {
     const plan = planCycle(createInitialState())
     const copy = buildNotificationCopy(plan, 20)
+    assert.equal(copy.body.split('\n').length, 2)
+    assert.equal(copy.body.includes('Replenish'), false)
+  })
+
+  it('plans a COST replenish when the buffer would exceed the working threshold', () => {
+    const state = createInitialState()
+    state.bufferUsed = 40_000
+    state.availableCapital = 13_129
+    const replenish = planReplenish(state, 4.32)
+    assert.ok(replenish)
+    assert.equal(replenish?.amountZar, 40_000)
+    assert.equal(replenish?.amountMzn, 172_800)
+    const copy = buildReplenishNotificationCopy(replenish!)
+    assert.equal(copy.title, 'Liquidity replenishment')
     assert.equal(copy.body.split('\n').length, 2)
   })
 })

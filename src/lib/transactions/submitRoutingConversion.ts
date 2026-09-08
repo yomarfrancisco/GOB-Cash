@@ -6,16 +6,18 @@ export async function submitRoutingConversion(params: {
   amountZAR: number
   amountMZN: number
 }): Promise<void> {
-  await submitInternalConversion({
-    destination: 'MZN',
+  const play = useRoutingPlaybackStore.getState().play
+  const destination = play?.destination || 'MZN'
+  const result = await submitInternalConversion({
+    destination,
     amountMZN: params.amountMZN,
     amountZAR: params.amountZAR,
   })
-  const play = useRoutingPlaybackStore.getState().play
   if (play) {
     await admin_confirmConversionRoutingCycle({
       testRunId: play.testRunId,
       cycleNumber: play.cycleNumber,
+      conversionTxId: result.txId,
     })
     useRoutingPlaybackStore.getState().clear()
   }

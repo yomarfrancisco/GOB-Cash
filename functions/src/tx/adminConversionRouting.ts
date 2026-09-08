@@ -12,11 +12,15 @@ import {
   ROUTING_ADMIN_UID,
   buildActivityCopy,
   buildNotificationCopy,
+  buildReplenishActivityCopy,
+  buildReplenishNotificationCopy,
   completeCycle,
   createInitialState,
   planCycle,
+  planReplenish,
   roundMoney,
   type CyclePlan,
+  type ReplenishPlan,
   type RoutingConfig,
   type RoutingState,
 } from '../routing/conversionRouter'
@@ -47,6 +51,10 @@ function assertRoutingAdmin(context: functions.https.CallableContext): string {
 
 function eventId(testRunId: string, cycleNumber: number): string {
   return `routing-${testRunId}-c${cycleNumber}`
+}
+
+function replenishEventId(testRunId: string, cycleNumber: number): string {
+  return `routing-${testRunId}-c${cycleNumber}-liq`
 }
 
 function parseConfig(raw: unknown): RoutingConfig {
@@ -123,6 +131,72 @@ async function applyLiveQuotes(state: RoutingState): Promise<{
   }
 }
 
+function writeIssuedReplenish(
+  tx: admin.firestore.Transaction,
+  adminUid: string,
+  testRunId: string,
+  state: RoutingState,
+  replenish: ReplenishPlan,
+  now: admin.firestore.Timestamp
+): { plan: CyclePlan; activityEventId: string; kind: 'replenish' } {
+  const plan = planCycle(state)
+  const notification = buildReplenishNotificationCopy(replenish)
+  const activity = buildReplenishActivityCopy(replenish, state.config.cycleCount, 'awaiting_execution')
+  const activityEventId = replenishEventId(testRunId, replenish.cycleNumber)
+  const testRef = db.collection(TESTS).doc(testRunId)
+  const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
+
+  tx.set(eventRef, {
+    id: activityEventId,
+    kind: CONVERSION_ROUTING_KIND,
+    title: activity.title,
+    body: activity.body,
+    dropdownTitle: notification.title,
+    dropdownBody: notification.body,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_mzn',
+    amountCurrency: 'MZN',
+    amountValue: replenish.amountMzn,
+    amountSign: 'debit',
+    pairedAmountValue: replenish.amountZar,
+    pairedAmountCurrency: 'ZAR',
+    txId: activityEventId,
+    hasDownloadButton: false,
+    awaitingConfirm: true,
+    status: 'awaiting_execution',
+    routingAction: 'replenish',
+    testRunId,
+    cycleNumber: replenish.cycleNumber,
+    createdAt: now,
+    recordingSource: 'SYSTEM',
+  })
+  tx.set(
+    testRef,
+    {
+      testRunId,
+      adminUid,
+      status: 'active',
+      config: state.config,
+      availableCapital: state.availableCapital,
+      bufferUsed: state.bufferUsed,
+      completedCycles: state.completedCycles,
+      cumulativeDeployed: state.cumulativeDeployed,
+      cumulativeSpread: state.cumulativeSpread,
+      cards: state.cards,
+      machines: state.machines,
+      pairings: state.pairings,
+      awaitingCycleNumber: replenish.cycleNumber,
+      awaitingKind: 'replenish',
+      replenishAmountMzn: replenish.amountMzn,
+      replenishAmountZar: replenish.amountZar,
+      replenishCostRate: replenish.costRate,
+      updatedAt: now,
+    },
+    { merge: true }
+  )
+  return { plan, activityEventId, kind: 'replenish' }
+}
+
 function writeIssuedCycle(
   tx: admin.firestore.Transaction,
   adminUid: string,
@@ -130,7 +204,12 @@ function writeIssuedCycle(
   state: RoutingState,
   now: admin.firestore.Timestamp,
   quotes: { sellRate: number; costRate: number }
-): { plan: CyclePlan; activityEventId: string } {
+): { plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' } {
+  const replenish = planReplenish(state, quotes.costRate)
+  if (replenish) {
+    return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now)
+  }
+
   const plan = planCycle(state)
   if (plan.deployedAmount <= 0 || plan.cardCountUsed <= 0) {
     throw new functions.https.HttpsError(
@@ -168,6 +247,7 @@ function writeIssuedCycle(
     hasDownloadButton: false,
     awaitingConfirm: true,
     status: 'awaiting_execution',
+    routingAction: 'deploy',
     testRunId,
     cycleNumber: plan.cycleNumber,
     createdAt: now,
@@ -218,12 +298,13 @@ function writeIssuedCycle(
       machines: state.machines,
       pairings: state.pairings,
       awaitingCycleNumber: plan.cycleNumber,
+      awaitingKind: 'deploy',
       updatedAt: now,
     },
     { merge: true }
   )
 
-  return { plan, activityEventId }
+  return { plan, activityEventId, kind: 'deploy' }
 }
 
 async function issueCycle(
@@ -231,7 +312,7 @@ async function issueCycle(
   testRunId: string,
   state: RoutingState,
   now: admin.firestore.Timestamp
-): Promise<{ plan: CyclePlan; activityEventId: string }> {
+): Promise<{ plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' }> {
   const quoted = await applyLiveQuotes(state)
   return db.runTransaction(async (tx) =>
     writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted)
@@ -254,6 +335,21 @@ async function cancelAwaitingCycle(
   if (eventSnap.exists) {
     const prev = eventSnap.data() || {}
     await eventRef.update({
+      status: 'cancelled',
+      awaitingConfirm: false,
+      body: `${prev.body || ''}\nStatus: Cancelled`.replace(/\nStatus: Awaiting execution/, '\nStatus: Cancelled'),
+      completedAt: now,
+    })
+  }
+  const liqRef = db
+    .collection('users')
+    .doc(adminUid)
+    .collection('activityEvents')
+    .doc(replenishEventId(testRunId, cycleNumber))
+  const liqSnap = await liqRef.get()
+  if (liqSnap.exists && liqSnap.data()?.status === 'awaiting_execution') {
+    const prev = liqSnap.data() || {}
+    await liqRef.update({
       status: 'cancelled',
       awaitingConfirm: false,
       body: `${prev.body || ''}\nStatus: Cancelled`.replace(/\nStatus: Awaiting execution/, '\nStatus: Cancelled'),
@@ -319,7 +415,15 @@ async function startNewTest(adminUid: string, forceNew: boolean) {
     updatedAt: now,
   })
   const issued = await issueCycle(adminUid, testRunId, state, now)
-  const notification = buildNotificationCopy(issued.plan, state.config.cycleCount)
+  const notification =
+    issued.kind === 'replenish'
+      ? buildReplenishNotificationCopy({
+          cycleNumber: issued.plan.cycleNumber,
+          amountZar: state.bufferUsed,
+          amountMzn: 0,
+          costRate: 0,
+        })
+      : buildNotificationCopy(issued.plan, state.config.cycleCount)
   return publicSummary(state, {
     testRunId,
     status: 'active',
@@ -379,6 +483,7 @@ export const admin_confirmConversionRoutingCycle = functions
     const requestedCycle =
       typeof data?.cycleNumber === 'number' ? data.cycleNumber : undefined
     const requestedRun = typeof data?.testRunId === 'string' ? data.testRunId : undefined
+    const conversionTxId = typeof data?.conversionTxId === 'string' ? data.conversionTxId : undefined
     const suppliedProfit =
       typeof data?.actualProfit === 'number' && Number.isFinite(data.actualProfit)
         ? data.actualProfit
@@ -414,6 +519,56 @@ export const admin_confirmConversionRoutingCycle = functions
         )
       }
 
+      const state = stateFromDoc(testData)
+      const awaitingKind = testData.awaitingKind === 'replenish' ? 'replenish' : 'deploy'
+
+      if (awaitingKind === 'replenish') {
+        const replenish = planReplenish(state, num(testData.replenishCostRate, quotes.costRate))
+        if (!replenish) {
+          throw new functions.https.HttpsError('failed-precondition', 'No liquidity replenishment is awaiting')
+        }
+        const completedCopy = buildReplenishActivityCopy(
+          replenish,
+          state.config.cycleCount,
+          'completed'
+        )
+        const eventRef = db
+          .collection('users')
+          .doc(adminUid)
+          .collection('activityEvents')
+          .doc(replenishEventId(testRunId, cycleNumber))
+        const eventSnap = await tx.get(eventRef)
+        if (!eventSnap.exists || eventSnap.data()?.status !== 'awaiting_execution') {
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            'Liquidity replenishment is not awaiting execution'
+          )
+        }
+        const cleared: RoutingState = {
+          ...state,
+          bufferUsed: 0,
+          config: { ...state.config, spread: liveSpread },
+        }
+        tx.update(eventRef, {
+          title: completedCopy.title,
+          body: completedCopy.body,
+          status: 'completed',
+          awaitingConfirm: false,
+          completedAt: now,
+          ...(conversionTxId
+            ? { txId: conversionTxId, hasDownloadButton: true }
+            : {}),
+        })
+        const next = writeIssuedCycle(tx, adminUid, testRunId, cleared, now, quotes)
+        return {
+          nextState: cleared,
+          nextCycle: next.plan,
+          testComplete: false,
+          cycleNumber,
+          confirmedKind: 'replenish',
+        }
+      }
+
       const cycleRef = testRef.collection('cycles').doc(String(cycleNumber))
       const cycleSnap = await tx.get(cycleRef)
       if (!cycleSnap.exists) {
@@ -427,7 +582,6 @@ export const admin_confirmConversionRoutingCycle = functions
         )
       }
 
-      const state = stateFromDoc(testData)
       const plan = planCycle(state)
       if (plan.cycleNumber !== cycleNumber) {
         throw new functions.https.HttpsError('internal', 'Stored cycle does not match routing engine state')
@@ -464,6 +618,9 @@ export const admin_confirmConversionRoutingCycle = functions
         status: 'completed',
         awaitingConfirm: false,
         completedAt: now,
+        ...(conversionTxId
+          ? { txId: conversionTxId, hasDownloadButton: true }
+          : {}),
       })
 
       let nextCycle: CyclePlan | null = null
@@ -476,6 +633,7 @@ export const admin_confirmConversionRoutingCycle = functions
             adminUid,
             status: 'completed',
             awaitingCycleNumber: null,
+            awaitingKind: null,
             completedAt: now,
             updatedAt: now,
           },
@@ -497,6 +655,7 @@ export const admin_confirmConversionRoutingCycle = functions
         nextCycle,
         testComplete,
         cycleNumber,
+        confirmedKind: 'deploy',
       }
     })
 

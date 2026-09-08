@@ -24,6 +24,7 @@ const DROPDOWN_KINDS = new Set([
 const DEPOSIT_AVATAR = '/assets/avatar - profile (4).png'
 const WITHDRAW_AVATAR = '/assets/avatar - profile (2).png'
 const ARIEL_AVATAR = '/assets/avatar-ariel.png'
+const CONVERT_MZN_AVATAR = '/assets/Brics-girl-blue.png'
 const toastedWeeklyIds = new Set<string>()
 const toastedRoutingIds = new Set<string>()
 
@@ -44,9 +45,15 @@ function toastWeeklyStatement(id: string, title: string, body?: string) {
   })
 }
 
-function toastRoutingInstruction(id: string, title: string, body?: string) {
+function toastRoutingInstruction(
+  id: string,
+  title: string,
+  body?: string,
+  options?: { replenish?: boolean }
+) {
   if (!id || toastedRoutingIds.has(id)) return
   toastedRoutingIds.add(id)
+  const replenish = options?.replenish === true
   useNotificationStore.getState().pushNotification({
     id,
     kind: 'ai_trade',
@@ -54,8 +61,8 @@ function toastRoutingInstruction(id: string, title: string, body?: string) {
     body,
     actor: {
       type: 'ai_manager',
-      avatar: ARIEL_AVATAR,
-      name: '$ariel',
+      avatar: replenish ? CONVERT_MZN_AVATAR : ARIEL_AVATAR,
+      name: replenish ? 'Ama' : '$ariel',
     },
     routeOnTap: '/profile?activity=1',
     autoDismissMs: 15000,
@@ -86,7 +93,8 @@ export default function ActivityEventsListener() {
               toastRoutingInstruction(
                 item.id,
                 item.dropdownTitle || item.title,
-                item.dropdownBody || item.body
+                item.dropdownBody || item.body,
+                { replenish: item.routingAction === 'replenish' }
               )
               continue
             }

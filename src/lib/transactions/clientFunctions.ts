@@ -942,6 +942,7 @@ export async function admin_confirmConversionRoutingCycle(params?: {
   testRunId?: string
   cycleNumber?: number
   actualProfit?: number
+  conversionTxId?: string
 }): Promise<ConversionRoutingSummary> {
   const functions = getFunctionsInstance()
   const fn = httpsCallable(functions, 'admin_confirmConversionRoutingCycle')

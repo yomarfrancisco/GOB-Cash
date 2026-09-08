@@ -148,7 +148,7 @@ function HomeContent() {
     setAgentCashKeypad(false)
     setAgentCashHandle(null)
     setConversionPrefill(undefined)
-    setConversionDestination('MZN')
+    setConversionDestination(routingPlay.destination || 'MZN')
     setAmountMode('convert')
     setAmountEntryPoint('conversionKeypad')
     setOpenAmount(true)
@@ -950,7 +950,11 @@ function HomeContent() {
         flowType={flowType}
         balanceMZN={0}
         autoPlayAmount={
-          routingPlay && amountEntryPoint === 'conversionKeypad' ? routingPlay.amountZAR : undefined
+          routingPlay && amountEntryPoint === 'conversionKeypad'
+            ? routingPlay.destination === 'ZAR'
+              ? routingPlay.amountMZN
+              : routingPlay.amountZAR
+            : undefined
         }
         initialAmount={
           routingPlay && amountEntryPoint === 'conversionKeypad'

@@ -125,9 +125,13 @@ function resolveTaskAvatar(item: ActivityItem): string {
     item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
     item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
   ) {
+    if (item.kind === 'CONVERSION_ROUTING_INSTRUCTION') {
+      return item.avatarKind === 'convert_mzn' || item.routingAction === 'replenish'
+        ? TASK_AVATARS.convertMzn
+        : TASK_AVATARS.convertZar
+    }
     return item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
-      item.kind === 'MONTHLY_SETTLEMENT_STATEMENT' ||
-      item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+      item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
       ? TASK_AVATARS.convertZar
       : conversionAvatar(item.amount?.currency)
   }
@@ -232,14 +236,23 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
   const handleExecuteRouting = (event: React.MouseEvent) => {
     event.stopPropagation()
     if (confirmState !== 'idle') return
-    const amountZAR = item.amount?.value
-    if (!(typeof amountZAR === 'number') || amountZAR <= 0) return
+    const isReplenish = item.routingAction === 'replenish'
+    const amountZAR = isReplenish ? item.pairedAmountValue : item.amount?.value
+    const amountMZN = isReplenish ? item.amount?.value : item.pairedAmountValue
+    if (isReplenish) {
+      if (!(typeof amountMZN === 'number') || amountMZN <= 0) return
+    } else if (!(typeof amountZAR === 'number') || amountZAR <= 0) {
+      return
+    }
     setConfirmState('loading')
     closeNotifications()
     useRoutingPlaybackStore.getState().requestPlay({
-      amountZAR,
+      destination: isReplenish ? 'ZAR' : 'MZN',
+      amountZAR: amountZAR || 0,
+      amountMZN: amountMZN || 0,
       testRunId: item.testRunId,
       cycleNumber: item.cycleNumber,
+      routingAction: isReplenish ? 'replenish' : 'deploy',
     })
   }
 

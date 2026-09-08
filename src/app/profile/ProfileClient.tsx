@@ -488,7 +488,7 @@ export default function ProfileClient() {
     if (!routingPlay) return
     setAgentCashKeypad(false)
     setAgentCashHandle(null)
-    setConversionDestination('MZN')
+    setConversionDestination(routingPlay.destination || 'MZN')
     setAmountMode('convert')
     setAmountEntryPoint('conversionKeypad')
     setOpenAmount(true)
@@ -1509,7 +1509,11 @@ export default function ProfileClient() {
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
         autoPlayAmount={
-          routingPlay && amountEntryPoint === 'conversionKeypad' ? routingPlay.amountZAR : undefined
+          routingPlay && amountEntryPoint === 'conversionKeypad'
+            ? routingPlay.destination === 'ZAR'
+              ? routingPlay.amountMZN
+              : routingPlay.amountZAR
+            : undefined
         }
         initialAmount={
           routingPlay && amountEntryPoint === 'conversionKeypad'
