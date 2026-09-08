@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react'
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react'
 import type React from 'react'
 import type { StaticImageData } from 'next/image'
 import { CARD_FLIP_CLASSES } from '@/lib/animations/cardFlipClassNames'
@@ -11,6 +11,7 @@ import { useWalletAlloc } from '@/state/walletAlloc'
 import { getStackStyle } from '@/lib/stack/getStackStyle'
 import CardStackCard from './CardStackCard'
 import { useAuthStore } from '@/store/auth'
+import { useIsAdminUser } from '@/lib/restrictions'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 
 // Temporary FX rate (will be wired to real API later)
@@ -84,9 +85,15 @@ const allCardsData: CardData[] = [
   },
 ]
 
-// Mozambique and South Africa cash cards plus the Rewards card.
-const HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd']
-const cardsData: CardData[] = allCardsData.filter((card) => !HIDDEN_CARD_TYPES.includes(card.type))
+// Mozambique and South Africa cash cards. Rewards stays admin-only.
+const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd']
+
+function homeCardsForAdmin(isAdmin: boolean): CardData[] {
+  const visible = allCardsData.filter((card) => !ALWAYS_HIDDEN_CARD_TYPES.includes(card.type))
+  if (isAdmin) return visible
+  const withoutRewards = visible.filter((card) => card.type !== 'yieldSurprise')
+  return [...withoutRewards].sort((a, b) => Number(b.type === 'mzn') - Number(a.type === 'mzn'))
+}
 
 // Card labels mapping
 const CARD_LABELS: Record<CardType, string> = {
@@ -136,12 +143,10 @@ export type CardStackHandle = {
 
 const FLIP_DURATION_MS = FLIP_MS
 
-// Number of cards visible in the stack at any time
-const VISIBLE_COUNT = Math.min(5, cardsData.length)
-
 const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, aiCycleControllerRef, onCardClick, onCreditSurprise, onApyPillClick, fxRates }, ref) {
-  // Dynamic order initialization based on cards.length
-  // Note: order.length === 6 (includes hidden card), but only first VISIBLE_COUNT are rendered
+  const isAdmin = useIsAdminUser()
+  const cardsData = useMemo(() => homeCardsForAdmin(isAdmin), [isAdmin])
+  const VISIBLE_COUNT = Math.min(5, cardsData.length)
   const initialOrder = Array.from({ length: cardsData.length }, (_, i) => i)
   const [order, setOrder] = useState<number[]>(initialOrder)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -160,6 +165,10 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   // Note: alloc values are now read in CardStackCard component
   const { alloc } = useWalletAlloc()
   const isAuthed = useAuthStore((state) => state.isAuthed)
+
+  useEffect(() => {
+    setOrder(Array.from({ length: cardsData.length }, (_, i) => i))
+  }, [cardsData])
   const [flashDirection, setFlashDirection] = useState<Record<CardType, 'up' | 'down' | null>>({
     savings: null,
     zwd: null,
@@ -286,7 +295,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   // Get card index by type
   const getCardIndex = useCallback((cardType: CardType): number => {
     return cardsData.findIndex((c) => c.type === cardType)
-  }, [])
+  }, [cardsData])
 
   // Flip to a specific card type
   const flipToCard = useCallback(
@@ -583,6 +592,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             onTouchEnd={(e) => handleTouchEnd(e, cardIdx)}
             onApyPillClick={onApyPillClick}
             fxRates={fxRates}
+            showRatePill={!(card.type === 'mzn' && !isAdmin)}
             style={{
               position: 'absolute',
               width: effectiveStyle.width,

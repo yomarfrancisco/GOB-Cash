@@ -115,6 +115,7 @@ type CardStackCardProps = {
   isSpecialCard?: boolean
   onApyPillClick?: (cardType: CardType, amount: number) => void
   fxRates?: FxRates | null // Exchange rates from server
+  showRatePill?: boolean
 }
 
 export default function CardStackCard({
@@ -135,6 +136,7 @@ export default function CardStackCard({
   isSpecialCard = false,
   onApyPillClick,
   fxRates,
+  showRatePill = true,
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
   const pushNotification = useNotificationStore((state) => state.pushNotification)
@@ -687,7 +689,7 @@ export default function CardStackCard({
         </div>
       )}
 
-      {/* Bottom-left annual yield pill or Rewards label */}
+      {showRatePill && (
       <div
         className={pillClassName}
         onClick={handlePillClick}
@@ -709,6 +711,7 @@ export default function CardStackCard({
           ) : null}
         </span>
       </div>
+      )}
 
       {/* Bottom-right health bar. MZN has no bar; ZAR binds payout risk by currency code. */}
       {card.type !== 'mzn' && card.type !== 'yieldSurprise' && (
