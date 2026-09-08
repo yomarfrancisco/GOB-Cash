@@ -86,6 +86,7 @@ export type NotificationItem = {
   timestamp: number // ms since epoch
   routeOnTap?: string // e.g., '/transactions' or deep link
   hasKycLink?: boolean
+  autoDismissMs?: number
 }
 
 type NotificationState = {

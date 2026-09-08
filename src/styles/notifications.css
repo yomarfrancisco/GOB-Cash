@@ -167,6 +167,11 @@
   padding: 0;
 }
 
+.notif__detail--multiline {
+  -webkit-line-clamp: 12;
+  white-space: pre-line;
+}
+
 .notification-kyc-link {
   display: inline-flex;
   align-items: center;

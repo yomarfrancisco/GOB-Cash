@@ -59,4 +59,10 @@ export {
   tx_sendMyMonthlySettlementStatement,
   getMonthlySettlementProof,
 } from './tx/sendMonthlySettlementStatement'
+export {
+  admin_startConversionRoutingTest,
+  admin_ensureConversionRoutingTest,
+  admin_confirmConversionRoutingCycle,
+  admin_getConversionRoutingStatus,
+} from './tx/adminConversionRouting'
 

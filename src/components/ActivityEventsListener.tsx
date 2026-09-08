@@ -8,7 +8,10 @@ import { useNotificationStore } from '@/store/notifications'
 import {
   tx_sendMyMonthlySettlementStatement,
   tx_sendMyWeeklySettlementStatement,
+  admin_ensureConversionRoutingTest,
 } from '@/lib/transactions/clientFunctions'
+import { AGENT_UID } from '@/types/transactions'
+import { getFirebaseAuth } from '@/lib/firebase'
 
 const DROPDOWN_KINDS = new Set([
   'BANK_TRANSFER_CONFIRMED',
@@ -16,11 +19,13 @@ const DROPDOWN_KINDS = new Set([
   DEPOSIT_CREDITED_KIND,
   'WEEKLY_SETTLEMENT_STATEMENT',
   'MONTHLY_SETTLEMENT_STATEMENT',
+  'CONVERSION_ROUTING_INSTRUCTION',
 ])
 const DEPOSIT_AVATAR = '/assets/avatar - profile (4).png'
 const WITHDRAW_AVATAR = '/assets/avatar - profile (2).png'
 const ARIEL_AVATAR = '/assets/avatar-ariel.png'
 const toastedWeeklyIds = new Set<string>()
+const toastedRoutingIds = new Set<string>()
 
 function toastWeeklyStatement(id: string, title: string, body?: string) {
   if (!id || toastedWeeklyIds.has(id)) return
@@ -36,6 +41,24 @@ function toastWeeklyStatement(id: string, title: string, body?: string) {
       name: '$ariel',
     },
     routeOnTap: '/profile?activity=1',
+  })
+}
+
+function toastRoutingInstruction(id: string, title: string, body?: string) {
+  if (!id || toastedRoutingIds.has(id)) return
+  toastedRoutingIds.add(id)
+  useNotificationStore.getState().pushNotification({
+    id,
+    kind: 'ai_trade',
+    title,
+    body,
+    actor: {
+      type: 'ai_manager',
+      avatar: ARIEL_AVATAR,
+      name: '$ariel',
+    },
+    routeOnTap: '/profile?activity=1',
+    autoDismissMs: 15000,
   })
 }
 
@@ -59,6 +82,14 @@ export default function ActivityEventsListener() {
               toastWeeklyStatement(item.id, item.title, item.body)
               continue
             }
+            if (item.kind === 'CONVERSION_ROUTING_INSTRUCTION') {
+              toastRoutingInstruction(
+                item.id,
+                item.dropdownTitle || item.title,
+                item.dropdownBody || item.body
+              )
+              continue
+            }
             const isWithdraw = item.kind === 'BANK_TRANSFER_CONFIRMED'
             pushNotification({
               id: item.id,
@@ -78,6 +109,21 @@ export default function ActivityEventsListener() {
     )
 
     const timer = window.setTimeout(() => {
+      const uid = getFirebaseAuth().currentUser?.uid
+      if (uid === AGENT_UID) {
+        void admin_ensureConversionRoutingTest()
+          .then((result) => {
+            if (!result.started || !result.activityEventId) return
+            toastRoutingInstruction(
+              result.activityEventId,
+              result.dropdownTitle || `Conversion Cycle ${result.cycleNumber}`,
+              result.dropdownBody
+            )
+          })
+          .catch((error) => {
+            console.warn('[ConversionRouting] Test not started', error)
+          })
+      }
       void tx_sendMyWeeklySettlementStatement()
         .then((result) => {
           if (!result.posted) return

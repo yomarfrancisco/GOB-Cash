@@ -13,7 +13,7 @@ import { useActivityStore } from '@/store/activity'
 import { useNotificationStore } from '@/store/notifications'
 import { useAppModeStore } from '@/store/appMode'
 import type { WalletMap } from '@/types/wallet'
-import { setCoreAgentBalance } from '@/lib/transactions/clientFunctions'
+import { setCoreAgentBalance, admin_startConversionRoutingTest, admin_confirmConversionRoutingCycle, admin_getConversionRoutingStatus } from '@/lib/transactions/clientFunctions'
 import { AGENT_UID } from '@/types/transactions'
 
 /**
@@ -261,10 +261,29 @@ export default function FirebaseAuthListener() {
               }
             }
             
-            console.log('[gbkAdmin] Admin helper available: await window.gbkAdmin.setCoreAgentBalance(amountZAR)')
+            ;(window as any).gbkAdmin.startConversionRoutingTest = async (forceNew = false) => {
+              const result = await admin_startConversionRoutingTest(forceNew)
+              console.log('[gbkAdmin] Conversion routing test:', result)
+              return result
+            }
+            ;(window as any).gbkAdmin.confirmConversionRoutingCycle = async () => {
+              const result = await admin_confirmConversionRoutingCycle()
+              console.log('[gbkAdmin] Conversion routing confirmed:', result)
+              return result
+            }
+            ;(window as any).gbkAdmin.conversionRoutingStatus = async () => {
+              const result = await admin_getConversionRoutingStatus()
+              console.log('[gbkAdmin] Conversion routing status:', result)
+              return result
+            }
+
+            console.log('[gbkAdmin] Admin helpers: setCoreAgentBalance, startConversionRoutingTest, confirmConversionRoutingCycle, conversionRoutingStatus')
           } else if (typeof window !== 'undefined' && (window as any).gbkAdmin) {
             // Remove admin helper if user is not CoreAgent
             delete (window as any).gbkAdmin.setCoreAgentBalance
+            delete (window as any).gbkAdmin.startConversionRoutingTest
+            delete (window as any).gbkAdmin.confirmConversionRoutingCycle
+            delete (window as any).gbkAdmin.conversionRoutingStatus
           }
         } catch (walletErr) {
           console.error('[Firebase] Failed to ensure/subscribe wallets', walletErr)
@@ -275,6 +294,9 @@ export default function FirebaseAuthListener() {
         // User signed out - clean up admin helper
         if ((window as any).gbkAdmin) {
           delete (window as any).gbkAdmin.setCoreAgentBalance
+          delete (window as any).gbkAdmin.startConversionRoutingTest
+          delete (window as any).gbkAdmin.confirmConversionRoutingCycle
+          delete (window as any).gbkAdmin.conversionRoutingStatus
         }
         
         // User signed out - reset profile to default (optional, or keep last profile)

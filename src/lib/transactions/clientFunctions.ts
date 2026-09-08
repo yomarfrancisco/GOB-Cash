@@ -895,3 +895,57 @@ export async function downloadWithdrawalProof(withdrawalId: string): Promise<voi
   }
 }
 
+export type ConversionRoutingSummary = {
+  testRunId?: string
+  status?: string
+  cycleNumber?: number
+  availableCapital?: number
+  bufferUsed?: number
+  cumulativeDeployed?: number
+  cumulativeSpread?: number
+  completedCycles?: number
+  cycleCount?: number
+  started?: boolean
+  completed?: boolean
+  confirmedCycle?: number
+  deployedAmount?: number
+  nextDeployedAmount?: number | null
+  activityEventId?: string
+  dropdownTitle?: string
+  dropdownBody?: string
+}
+
+export async function admin_startConversionRoutingTest(
+  forceNew = false
+): Promise<ConversionRoutingSummary> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'admin_startConversionRoutingTest')
+  const result = await fn({ forceNew })
+  return result.data as ConversionRoutingSummary
+}
+
+export async function admin_ensureConversionRoutingTest(): Promise<ConversionRoutingSummary> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'admin_ensureConversionRoutingTest')
+  const result = await fn({})
+  return result.data as ConversionRoutingSummary
+}
+
+export async function admin_getConversionRoutingStatus(): Promise<ConversionRoutingSummary> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'admin_getConversionRoutingStatus')
+  const result = await fn({})
+  return result.data as ConversionRoutingSummary
+}
+
+export async function admin_confirmConversionRoutingCycle(params?: {
+  testRunId?: string
+  cycleNumber?: number
+  actualProfit?: number
+}): Promise<ConversionRoutingSummary> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'admin_confirmConversionRoutingCycle')
+  const result = await fn(params || {})
+  return result.data as ConversionRoutingSummary
+}
+
