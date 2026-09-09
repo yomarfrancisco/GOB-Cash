@@ -26,12 +26,17 @@ export const DEFAULT_FORBIDDEN_PAIRS: Array<{ cardId: number; machineId: number 
   { cardId: 5, machineId: 4 },
 ]
 
+export const CARD_FLAG = '🇲🇿'
+export const MACHINE_FLAG = '🇿🇦'
+
 export function cardLabel(id: number): string {
-  return DEFAULT_CARDS.find((row) => row.id === id)?.shortName || `Card ${id}`
+  const name = DEFAULT_CARDS.find((row) => row.id === id)?.shortName || `Card ${id}`
+  return `${CARD_FLAG} ${name}`
 }
 
 export function machineLabel(id: number): string {
-  return DEFAULT_MACHINES.find((row) => row.id === id)?.shortName || `Machine ${id}`
+  const name = DEFAULT_MACHINES.find((row) => row.id === id)?.shortName || `Machine ${id}`
+  return `${MACHINE_FLAG} ${name}`
 }
 
 export function isForbiddenPair(cardId: number, machineId: number): boolean {
@@ -103,5 +108,5 @@ export function inventoryPromptList(): string {
   const banned = DEFAULT_FORBIDDEN_PAIRS.map(
     (row) => `${cardLabel(row.cardId)} cannot use ${machineLabel(row.machineId)}`
   ).join('; ')
-  return `Cards: ${cards}.\nMachines: ${machines}.\nPermanent pairing bans: ${banned}. Never assign a banned pair.`
+  return `Cards are Mozambique ${CARD_FLAG}: ${cards}.\nMachines are South Africa ${MACHINE_FLAG}: ${machines}.\nPermanent pairing bans: ${banned}. Never assign a banned pair. Use the flags in summaries.`
 }
