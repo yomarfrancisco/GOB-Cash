@@ -37,6 +37,7 @@ export type ActivityItem = {
   routingBlocked?: boolean
   routingRevision?: boolean
   thinking?: boolean
+  userReply?: string
 }
 
 const MAX_ACTIVITY_ITEMS = 80

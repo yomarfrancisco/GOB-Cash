@@ -63,7 +63,7 @@ function groupByTimePeriod(items: ActivityItem[]) {
 }
 
 function searchableText(item: ActivityItem): string {
-  return `${item.title} ${item.body ?? ''} ${item.actor.name ?? ''}`.toLowerCase()
+  return `${item.title} ${item.body ?? ''} ${item.userReply ?? ''} ${item.actor.name ?? ''}`.toLowerCase()
 }
 
 function isPaymentActivity(item: ActivityItem): boolean {
@@ -345,9 +345,17 @@ function ActivityItemCard({
             <span />
             <span />
           </div>
-        ) : item.body ? (
-          <div className={styles.activityBody}>{item.body}</div>
-        ) : null}
+        ) : (
+          <>
+            {item.body ? <div className={styles.activityBody}>{item.body}</div> : null}
+            {item.userReply ? (
+              <div className={styles.activityUserReply}>
+                <div className={styles.activityUserReplyLabel}>You</div>
+                <div className={styles.activityUserReplyBody}>{item.userReply}</div>
+              </div>
+            ) : null}
+          </>
+        )}
         {showDownload && (
           <button
             type="button"
@@ -510,6 +518,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
+  const [pendingReplies, setPendingReplies] = useState<Record<string, string>>({})
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -547,6 +556,20 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     )
     if (arrived) setThinkingItem(null)
   }, [remoteItems, thinkingItem])
+
+  useEffect(() => {
+    setPendingReplies((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const item of remoteItems) {
+        if (item.userReply && next[item.id]) {
+          delete next[item.id]
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [remoteItems])
   
   const localItems = useActivityStore((s) => s.all())
   const allItems = useMemo(() => {
@@ -556,8 +579,12 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       ...remoteItems,
       ...localItems.filter((item) => !remoteIds.has(item.id) && item.id !== thinkingItem?.id),
     ]
-    return merged.sort((a, b) => b.createdAt - a.createdAt)
-  }, [localItems, remoteItems, thinkingItem])
+    return merged
+      .map((item) =>
+        pendingReplies[item.id] && !item.userReply ? { ...item, userReply: pendingReplies[item.id] } : item
+      )
+      .sort((a, b) => b.createdAt - a.createdAt)
+  }, [localItems, remoteItems, thinkingItem, pendingReplies])
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
     return allItems.filter((item) => {
@@ -576,6 +603,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   )
 
   const handleRoutingReply = async (source: ActivityItem, message: string) => {
+    setPendingReplies((prev) => ({ ...prev, [source.id]: message }))
     setThinkingItem({
       id: `thinking-${source.cycleNumber || source.id}-${Date.now()}`,
       kind: 'CONVERSION_ROUTING_INSTRUCTION',
@@ -602,6 +630,11 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
         assignments: parseRoutingAssignmentsFromBody(source.body),
       })
     } catch (error) {
+      setPendingReplies((prev) => {
+        const next = { ...prev }
+        delete next[source.id]
+        return next
+      })
       setThinkingItem(null)
       throw error
     }

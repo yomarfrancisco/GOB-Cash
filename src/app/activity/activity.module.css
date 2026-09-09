@@ -148,6 +148,31 @@
   padding: 0;
 }
 
+.activityUserReply {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.activityUserReplyLabel {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  color: rgba(0, 0, 0, 0.45);
+  margin: 0 0 2px;
+}
+
+.activityUserReplyBody {
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 18px;
+  color: #111;
+  letter-spacing: -0.2px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 .downloadButton {
   position: relative;
   display: inline-flex;
