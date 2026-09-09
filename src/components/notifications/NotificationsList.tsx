@@ -442,7 +442,7 @@ function ActivityItemCard({
                 className={styles.replyInput}
                 value={replyText}
                 onChange={(event) => setReplyText(event.target.value)}
-                placeholder="Card 5 is unavailable for this cycle."
+                placeholder="Wolf is lost"
                 rows={3}
                 disabled={replyState !== 'idle'}
               />
@@ -638,7 +638,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
         testRunId: source.testRunId,
         cycleNumber: source.cycleNumber,
         cardCount: 5,
-        machineCount: 3,
+        machineCount: 4,
         assignments: parseRoutingAssignmentsFromBody(source.body),
       })
     } catch (error) {

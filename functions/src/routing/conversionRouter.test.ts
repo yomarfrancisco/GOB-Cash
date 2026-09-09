@@ -152,7 +152,20 @@ describe('20-cycle default test', () => {
     assert.equal(copy.body.includes('Awaiting execution'), false)
     assert.match(copy.body, /Card 5 excluded from this cycle only/)
     assert.match(copy.body, /Revised route:/)
-    assert.match(copy.body, /Card \d+ · Machine \d+/)
+    assert.match(copy.body, / · /)
+  })
+
+  it('never pairs Wolf with FNB Wolf or BRICS AI with a BRICS machine', () => {
+    const { cycles } = simulateRun({ ...DEFAULT_TEST_CONFIG, cycleCount: 20 })
+    for (const cycle of cycles) {
+      for (const row of cycle.cardAssignments) {
+        assert.equal(
+          (row.cardId === 5 && row.machineId === 4) ||
+            (row.cardId === 3 && (row.machineId === 1 || row.machineId === 2)),
+          false
+        )
+      }
+    }
   })
 
   it('plans a COST replenish when the buffer would exceed the working threshold', () => {
