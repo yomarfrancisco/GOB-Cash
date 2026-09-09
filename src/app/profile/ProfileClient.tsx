@@ -825,7 +825,7 @@ export default function ProfileClient() {
                   }}
                   aria-disabled={depositLocked}
                 >
-                  Deposit
+                  Add liquidity
                   <LockOverlay show={depositLocked} />
                 </button>
                 <button
