@@ -20,7 +20,6 @@ export type ActivityItem = {
   body?: string
   amount?: { currency: 'MZN' | 'ZAR' | 'USDT'; value: number; sign: 'credit' | 'debit' }
   createdAt: number
-  completedAt?: number
   routeOnTap?: string
   txId?: string
   hasDownloadButton?: boolean

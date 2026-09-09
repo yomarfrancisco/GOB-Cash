@@ -23,26 +23,6 @@ import styles from '@/app/activity/activity.module.css'
 
 const ADMIN_AVATAR_PATH = MOZPAGA_ADMIN_AVATAR
 const PERIOD_PREVIEW_LIMIT = 4
-const EXECUTION_WAIT_MS = 60_000
-const EXECUTION_BAR_RECENT_MS = 3 * 60_000
-
-function ExecutionWaitBar({ startedAt }: { startedAt: number }) {
-  const [done, setDone] = useState(
-    () => !Number.isFinite(startedAt) || Date.now() - startedAt > EXECUTION_BAR_RECENT_MS
-  )
-
-  if (done) return null
-
-  return (
-    <div className={styles.executionWaitBar} aria-hidden>
-      <div
-        className={styles.executionWaitFill}
-        style={{ animationDuration: `${EXECUTION_WAIT_MS}ms` }}
-        onAnimationEnd={() => setDone(true)}
-      />
-    </div>
-  )
-}
 
 function isCopiedActivity(item: ActivityItem): boolean {
   return searchableText(item).includes('copied')
@@ -220,8 +200,6 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
   const showConfirm =
     item.kind === 'CONVERSION_ROUTING_INSTRUCTION' &&
     (item.awaitingConfirm === true || item.status === 'awaiting_execution')
-  const showExecuted =
-    item.kind === 'CONVERSION_ROUTING_INSTRUCTION' && item.status === 'completed'
 
   const handleDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
@@ -334,36 +312,29 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
             <Download size={18} strokeWidth={2} />
           </button>
         )}
-        {(showConfirm || showExecuted) && (
-          <div className={styles.activityActionRow}>
-            {showConfirm && (
-              <button
-                type="button"
-                className={[
-                  styles.confirmButton,
-                  confirmState === 'loading' ? styles.confirmButtonLoading : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Execute conversion cycle"
-                aria-busy={confirmState !== 'idle'}
-                disabled={confirmState !== 'idle'}
-                onClick={handleExecuteRouting}
-              >
-                <Check size={16} strokeWidth={2.4} />
-                Execute
-              </button>
-            )}
-            {showExecuted && (
-              <span className={styles.executedLabel}>
-                <Check size={16} strokeWidth={2.4} />
-                Executed
-              </span>
-            )}
-            {showExecuted && item.completedAt ? (
-              <ExecutionWaitBar startedAt={item.completedAt} />
-            ) : null}
-          </div>
+        {showConfirm && (
+          <button
+            type="button"
+            className={[
+              styles.confirmButton,
+              confirmState === 'loading' ? styles.confirmButtonLoading : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            aria-label="Execute conversion cycle"
+            aria-busy={confirmState !== 'idle'}
+            disabled={confirmState !== 'idle'}
+            onClick={handleExecuteRouting}
+          >
+            <Check size={16} strokeWidth={2.4} />
+            Execute
+          </button>
+        )}
+        {item.kind === 'CONVERSION_ROUTING_INSTRUCTION' && item.status === 'completed' && (
+          <span className={styles.executedLabel}>
+            <Check size={16} strokeWidth={2.4} />
+            Executed
+          </span>
         )}
         {showKycLink && (
           <button
