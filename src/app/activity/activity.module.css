@@ -211,8 +211,8 @@
   padding: 6px 10px;
   border: 0;
   border-radius: 14px;
-  background: rgba(0, 0, 0, 0.08);
-  color: #111;
+  background: #111;
+  color: #fff;
   font-size: 12px;
   font-weight: 600;
   line-height: 16px;
@@ -235,11 +235,15 @@
   padding: 6px 10px;
   border-radius: 14px;
   background: rgba(0, 0, 0, 0.05);
-  color: rgba(0, 0, 0, 0.55);
+  color: rgba(0, 0, 0, 0.45);
   font-size: 12px;
   font-weight: 600;
   line-height: 16px;
   align-self: flex-start;
+}
+
+.executedLabel svg {
+  color: #1f8a4c;
 }
 
 @keyframes downloadFillUp {
