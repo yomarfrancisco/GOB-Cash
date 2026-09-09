@@ -4,10 +4,13 @@ import { createInitialState } from './conversionRouter'
 import {
   applyIntentsToState,
   contextualClarify,
+  expireConstraints,
+  expireConstraintsByTime,
   overlayFromConstraints,
   parseFastPath,
   usefulClarification,
 } from './constraints'
+import { sastToUtcMs } from './routingTime'
 
 describe('parseFastPath', () => {
   it('reads an obvious card exclusion', () => {
@@ -27,6 +30,37 @@ describe('parseFastPath', () => {
 
   it('leaves free-form language to the LLM', () => {
     assert.equal(parseFastPath('Keep the last pairing off until lunch, then rotate.'), null)
+  })
+
+  it('leaves calendar time windows to the LLM instead of assuming this cycle', () => {
+    assert.equal(parseFastPath('Card 5 is unavailable until Monday'), null)
+  })
+})
+
+describe('time-bounded constraints', () => {
+  const monday = sastToUtcMs(2026, 9, 14, 0, 0)
+  const thursday = sastToUtcMs(2026, 9, 10, 0, 15)
+
+  it('expires until_date rows when Now passes expiresAt, not on Execute', () => {
+    const row = {
+      id: 'c1',
+      feedbackId: 'fb',
+      action: 'exclude_card' as const,
+      resourceId: 5,
+      value: null,
+      scope: 'until_date' as const,
+      remainingCycles: null,
+      expiresAt: monday,
+      status: 'active' as const,
+      summary: 'Card 5 excluded until Monday.',
+      createdAtCycle: 9,
+    }
+    const afterExecute = expireConstraints([row], 9, thursday)
+    assert.equal(afterExecute[0]?.status, 'active')
+    const afterMonday = expireConstraintsByTime([row], monday)
+    assert.equal(afterMonday[0]?.status, 'expired')
+    assert.deepEqual(overlayFromConstraints([row], monday).excludedCardIds, [])
+    assert.deepEqual(overlayFromConstraints([row], thursday).excludedCardIds, [5])
   })
 })
 

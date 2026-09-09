@@ -29,6 +29,8 @@ import {
   EMPTY_OVERLAY,
   applyIntentsToState,
   expireConstraints,
+  expireConstraintsByTime,
+  normalizeStoredConstraint,
   overlayFromConstraints,
   parseFastPath,
   sanitizeIntent,
@@ -38,7 +40,19 @@ import {
   type RoutingIntent,
   type StoredConstraint,
 } from '../routing/constraints'
-import { interpretAdminFeedback } from '../routing/interpretFeedback'
+import { interpretAdminFeedback, llmApiKey } from '../routing/interpretFeedback'
+import {
+  attachResolvedExpiry,
+  buildRoutingLedgerBrief,
+  ledgerFromRoutingState,
+  type RecentCycleBrief,
+  type RecentFeedbackBrief,
+} from '../routing/interpretContext'
+import {
+  firestoreTimestampMs,
+  hasCalendarTimeReference,
+  hasFutureTimeConstraint,
+} from '../routing/routingTime'
 import {
   costMznPerZarFromSell,
   fetchQuotedMznPerZar,
@@ -109,7 +123,10 @@ function num(value: unknown, fallback: number): number {
 }
 
 function constraintsFromDoc(data: admin.firestore.DocumentData): StoredConstraint[] {
-  return Array.isArray(data.constraints) ? (data.constraints as StoredConstraint[]) : []
+  if (!Array.isArray(data.constraints)) return []
+  return data.constraints
+    .map((row) => normalizeStoredConstraint(row))
+    .filter((row): row is StoredConstraint => Boolean(row))
 }
 
 function storedPlanFromCycle(
@@ -138,6 +155,69 @@ function storedPlanFromCycle(
 
 function overlayForDoc(data: admin.firestore.DocumentData) {
   return overlayFromConstraints(constraintsFromDoc(data))
+}
+
+async function loadRecentCycleBriefs(testRunId: string): Promise<RecentCycleBrief[]> {
+  const snap = await db
+    .collection(TESTS)
+    .doc(testRunId)
+    .collection('cycles')
+    .orderBy('cycleNumber', 'desc')
+    .limit(6)
+    .get()
+  return snap.docs.map((docSnap) => {
+    const data = docSnap.data()
+    const assignments = Array.isArray(data.cardAssignments)
+      ? data.cardAssignments
+          .map((row: unknown) => {
+            if (!row || typeof row !== 'object') return null
+            const item = row as { cardId?: unknown; machineId?: unknown; amount?: unknown }
+            if (typeof item.cardId !== 'number' || typeof item.machineId !== 'number') return null
+            return {
+              cardId: item.cardId,
+              machineId: item.machineId,
+              amount: typeof item.amount === 'number' ? item.amount : 0,
+            }
+          })
+          .filter(
+            (row: { cardId: number; machineId: number; amount: number } | null): row is {
+              cardId: number
+              machineId: number
+              amount: number
+            } => Boolean(row)
+          )
+      : []
+    return {
+      cycleNumber: num(data.cycleNumber, 0),
+      status: typeof data.status === 'string' ? data.status : '',
+      createdAtMs: firestoreTimestampMs(data.createdAt),
+      completedAtMs: firestoreTimestampMs(data.completedAt),
+      assignments,
+    }
+  })
+}
+
+async function loadRecentFeedbackBriefs(testRunId: string): Promise<RecentFeedbackBrief[]> {
+  try {
+    const snap = await db
+      .collection(TESTS)
+      .doc(testRunId)
+      .collection('feedback')
+      .orderBy('createdAt', 'desc')
+      .limit(5)
+      .get()
+    return snap.docs.map((docSnap) => {
+      const data = docSnap.data()
+      return {
+        rawMessage: typeof data.rawMessage === 'string' ? data.rawMessage : '',
+        summary: typeof data.interpretationSummary === 'string' ? data.interpretationSummary : null,
+        createdAtMs: firestoreTimestampMs(data.createdAt),
+        status: typeof data.status === 'string' ? data.status : '',
+      }
+    })
+  } catch {
+    return []
+  }
 }
 
 function publishAgentRevision(
@@ -857,7 +937,8 @@ export const admin_submitConversionRoutingFeedback = functions
     }
 
     const state = stateFromDoc(testData)
-    const constraints = constraintsFromDoc(testData)
+    const nowMs = Date.now()
+    const constraints = expireConstraintsByTime(constraintsFromDoc(testData), nowMs)
     const cycleRef = testRef.collection('cycles').doc(String(cycleNumber))
     const cycleSnap = await cycleRef.get()
     if (!cycleSnap.exists || cycleSnap.data()?.status !== 'awaiting_execution') {
@@ -866,35 +947,79 @@ export const admin_submitConversionRoutingFeedback = functions
     const stored = storedPlanFromCycle(cycleSnap.data() || {}, cycleNumber)
     const quotes = await applyLiveQuotes(state)
     const liveState = { ...state, config: { ...state.config, spread: quotes.state.config.spread } }
+    const [recentCycles, recentFeedback] = await Promise.all([
+      loadRecentCycleBriefs(testRunId),
+      loadRecentFeedbackBriefs(testRunId),
+    ])
+    const issuedAtMs = firestoreTimestampMs(cycleSnap.data()?.createdAt)
+    const historyBrief = buildRoutingLedgerBrief({
+      ledger: ledgerFromRoutingState(liveState),
+      constraints,
+      recentCycles,
+      recentFeedback,
+      awaiting: {
+        cycleNumber,
+        kind: typeof testData.awaitingKind === 'string' ? testData.awaitingKind : 'deploy',
+        issuedAtMs,
+      },
+      nowMs,
+    })
+    const interpretContext = {
+      cycleNumber,
+      assignments: stored.cardAssignments,
+      state: liveState,
+      constraints,
+      nowMs,
+      historyBrief,
+      issuedAtMs,
+    }
 
     const clientSentIntents = Array.isArray(data?.intents)
-    const providedIntents = clientSentIntents
-      ? (data.intents as unknown[]).map((row) => sanitizeIntent(row)).filter((row): row is RoutingIntent => Boolean(row))
-      : []
+    const providedIntents = attachResolvedExpiry(
+      clientSentIntents
+        ? (data.intents as unknown[])
+            .map((row) => sanitizeIntent(row))
+            .filter((row): row is RoutingIntent => Boolean(row))
+        : [],
+      rawMessage,
+      nowMs
+    )
     const clientClarification = usefulClarification(
       typeof data?.clarification === 'string' ? data.clarification : null
     )
     const recoveredFastPath = providedIntents.length ? null : parseFastPath(rawMessage)
-    const interpreted = providedIntents.length
+    const looksLikeHistoryQuestion =
+      /\b(when|what time|how long|which day|did we|last used|expect)\b/i.test(rawMessage) ||
+      hasCalendarTimeReference(rawMessage)
+    const missingResolvedTime =
+      hasFutureTimeConstraint(rawMessage) &&
+      !providedIntents.some(
+        (row) => row.scope === 'until_date' || (typeof row.expiresAt === 'number' && row.expiresAt > nowMs)
+      )
+    const shouldReinterpret =
+      Boolean(llmApiKey()) &&
+      ((providedIntents.length === 0 && looksLikeHistoryQuestion) || missingResolvedTime)
+    const interpreted = providedIntents.length && !shouldReinterpret
       ? {
           intents: providedIntents,
           clarification: clientClarification,
           interpreter: 'llm' as const,
         }
       : recoveredFastPath?.intents.length
-        ? recoveredFastPath
-        : clientSentIntents
-          ? {
+        ? {
+            ...recoveredFastPath,
+            intents: attachResolvedExpiry(recoveredFastPath.intents, rawMessage, nowMs),
+          }
+        : shouldReinterpret || !clientSentIntents
+          ? await interpretAdminFeedback(rawMessage, interpretContext).then((result) => ({
+              ...result,
+              intents: attachResolvedExpiry(result.intents, rawMessage, nowMs),
+            }))
+          : {
               intents: [] as RoutingIntent[],
               clarification: clientClarification || contextualClarify(stored.cardAssignments),
               interpreter: 'llm' as const,
             }
-          : await interpretAdminFeedback(rawMessage, {
-              cycleNumber,
-              assignments: stored.cardAssignments,
-              state: liveState,
-              constraints,
-            })
 
     const validIntents: RoutingIntent[] = []
     const intentErrors: string[] = []
@@ -949,6 +1074,7 @@ export const admin_submitConversionRoutingFeedback = functions
           revisionCount: published.revisionCount,
           updatedAt: now,
         })
+        tx.set(testRef, { constraints, updatedAt: now }, { merge: true })
       })
       return {
         testRunId,

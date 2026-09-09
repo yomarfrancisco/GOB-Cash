@@ -14,6 +14,10 @@ describe('parseObviousFeedback', () => {
     assert.equal(parsed?.intents[0]?.resourceId, 5)
     assert.equal(parsed?.clarification, null)
   })
+
+  it('does not assume this cycle when the admin named a weekday', () => {
+    assert.equal(parseObviousFeedback('Card 5 is unavailable until Monday'), null)
+  })
 })
 
 describe('parseRoutingAssignmentsFromBody', () => {
