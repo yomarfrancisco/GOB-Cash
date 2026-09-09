@@ -1,8 +1,7 @@
 /**
  * Currency formatting utilities
- * - Dot decimals (not comma)
- * - Thin spaces (U+2009) for thousands grouping
- * - No commas
+ * - Topline amounts: space grouping, dot decimals
+ * - Card equivalence line: comma grouping, whole units
  */
 
 export function formatMoneyFixed(n: number, decimals = 2): { groups: string; dot: string; cents: string } {
@@ -27,9 +26,11 @@ export function formatCardTopline(amount: number): { major: string; cents?: stri
 }
 
 export function formatUSDT(units: number): string {
-  // No decimals for display unless we ever specify otherwise.
-  // Round to nearest integer
-  const rounded = Math.round(units)
-  return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+  return formatEquivalenceAmount(units)
+}
+
+/** Small card equivalence line: rounded whole units with comma grouping. */
+export function formatEquivalenceAmount(units: number): string {
+  return Math.round(units).toLocaleString('en-US')
 }
 

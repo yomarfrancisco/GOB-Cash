@@ -31,7 +31,7 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useWalletStore } from '@/store/wallets'
 import { useSupportSheet } from '@/store/useSupportSheet'
-import { CreditCard, Phone, LogOut, PiggyBank, Receipt, Inbox, BanknoteArrowDown, SmartphoneNfc, Bell, Copy } from 'lucide-react'
+import { CreditCard, Phone, LogOut, PiggyBank, Receipt, Brain, BanknoteArrowDown, SmartphoneNfc, Bell, Copy } from 'lucide-react'
 import LockOverlay from '@/components/LockOverlay'
 // Crypto deposit removed - no longer needed
 import PaymentsSheet from '@/components/PaymentsSheet'
@@ -912,9 +912,9 @@ export default function ProfileClient() {
                   >
                     <div className="profile-settings-left">
                       <div className="profile-settings-icon">
-                        <Inbox size={22} strokeWidth={2} style={{ color: '#111' }} />
+                        <Brain size={22} strokeWidth={2} style={{ color: '#111' }} />
                       </div>
-                      <span className="profile-settings-label">Activity</span>
+                      <span className="profile-settings-label">AI Liquidity Manager</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
