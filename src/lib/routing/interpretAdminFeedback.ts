@@ -249,7 +249,9 @@ expiresAt is unix milliseconds for the SAST instant when the constraint should l
 Resolve relative dates against Now in the ledger. Named weekdays without a time expire at 00:00 SAST on that day if it is still ahead, otherwise the next occurrence. "for the rest of today" expires at tomorrow 00:00 SAST.
 Never invent expiresAt unless the admin gave a time or date phrase.
 Past remarks ("yesterday we used card 5") are ledger context, not new intents, unless the admin also gives a change.
-If the message only asks when something happened or when something is expected, emit no intents and put one factual sentence in clarification using Now and the ledger.
+If the message only asks when something happened, whether you remember a prior change, or when something is expected, emit no intents and put one factual sentence in clarification that names the clock time from the ledger.
+Example: Admin: "Do you remember that it was lost?"
+{"intents":[],"clarification":"Yes. At Thursday 10 September 2026, 00:23 SAST you took Card 4 off Cycle 12 because it was lost."}
 If ambiguous, use this_cycle and say so in summary. Never silently choose permanent.
 Never put placeholder text in clarification. Do not write "short question", "null", or a generic "I am not sure" message.
 If the admin names a card or machine and a change (unavailable, down, restore, rest, cap, prefer), you MUST emit an intent.

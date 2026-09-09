@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { createInitialState } from './conversionRouter'
-import { attachResolvedExpiry, buildRoutingLedgerBrief, ledgerFromRoutingState } from './interpretContext'
+import {
+  answerMemoryQuestion,
+  attachResolvedExpiry,
+  buildRoutingLedgerBrief,
+  ledgerFromRoutingState,
+} from './interpretContext'
 import { sastToUtcMs } from './routingTime'
 
 const THURSDAY_0015_SAST = sastToUtcMs(2026, 9, 10, 0, 15)
@@ -56,6 +61,45 @@ describe('buildRoutingLedgerBrief', () => {
     assert.match(brief, /#5 last used cycle 8 \(2 ago\)/)
     assert.match(brief, /C9 executed Wednesday 9 September 2026, 23:40 SAST/)
     assert.match(brief, /expires Monday 14 September 2026, 00:00 SAST/)
+  })
+})
+
+describe('answerMemoryQuestion', () => {
+  it('answers a remember question with the time the card was taken off', () => {
+    const state = createInitialState()
+    const answer = answerMemoryQuestion({
+      message: 'Do you remember that it was lost?',
+      nowMs: THURSDAY_0015_SAST,
+      constraints: [
+        {
+          id: 'c1',
+          feedbackId: 'fb',
+          action: 'exclude_card',
+          resourceId: 4,
+          value: null,
+          scope: 'this_cycle',
+          remainingCycles: 1,
+          expiresAt: null,
+          status: 'active',
+          summary: 'Card 4 excluded from this cycle only due to being lost.',
+          createdAtCycle: 12,
+        },
+      ],
+      recentFeedback: [
+        {
+          rawMessage: 'Card 4 was lost.',
+          summary: 'Card 4 excluded from this cycle only due to being lost.',
+          createdAtMs: sastToUtcMs(2026, 9, 10, 0, 23),
+          status: 'applied',
+        },
+      ],
+      ledger: ledgerFromRoutingState(state),
+      awaiting: { cycleNumber: 12 },
+    })
+    assert.equal(
+      answer,
+      'Yes. At Thursday 10 September 2026, 00:23 SAST you took Card 4 off Cycle 12 because it was lost.'
+    )
   })
 })
 

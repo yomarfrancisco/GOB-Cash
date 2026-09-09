@@ -193,3 +193,73 @@ export function attachResolvedExpiry<
     }
   })
 }
+
+function mentionedCardId(message: string): number | null {
+  const match = message.match(/\b(?:card|c)\s*(\d+)\b/i)
+  return match ? Number(match[1]) : null
+}
+
+export function answerMemoryQuestion(params: {
+  message: string
+  nowMs: number
+  constraints: Array<{
+    status: string
+    action: string
+    resourceId: number
+    expiresAt?: number | null
+    summary?: string
+  }>
+  recentFeedback?: RecentFeedbackBrief[]
+  recentCycles?: RecentCycleBrief[]
+  ledger: LedgerSnapshot
+  awaiting: { cycleNumber: number }
+}): string | null {
+  const lower = params.message.trim().toLowerCase()
+  if (!lower) return null
+  const cardId = mentionedCardId(params.message)
+  const feedback = (params.recentFeedback || []).find((row) => {
+    const blob = `${row.rawMessage} ${row.summary || ''}`.toLowerCase()
+    if (/\b(lost|exclud|unavailable|down)\b/.test(blob)) {
+      if (cardId == null) return true
+      return blob.includes(`card ${cardId}`)
+    }
+    return false
+  })
+  const excluded = params.constraints.filter(
+    (row) =>
+      row.status === 'active' &&
+      (row.action === 'exclude_card' || row.action === 'rest_card') &&
+      (cardId == null || row.resourceId === cardId)
+  )
+
+  if (/\b(remember|recall|lost|already|told you|was it)\b/.test(lower)) {
+    const resourceId =
+      cardId ||
+      excluded[0]?.resourceId ||
+      Number(feedback?.summary?.match(/card\s+(\d+)/i)?.[1] || feedback?.rawMessage.match(/card\s+(\d+)/i)?.[1] || 0)
+    if (feedback?.createdAtMs && resourceId) {
+      return `Yes. At ${formatSast(feedback.createdAtMs)} you took Card ${resourceId} off Cycle ${params.awaiting.cycleNumber} because it was lost.`
+    }
+    if (excluded[0]) {
+      const until =
+        typeof excluded[0].expiresAt === 'number' ? ` until ${formatSast(excluded[0].expiresAt)}` : ''
+      return `Yes. Card ${excluded[0].resourceId} is off Cycle ${params.awaiting.cycleNumber}${until}.`
+    }
+  }
+
+  if (cardId && /\b(last used|when|did we use)\b/.test(lower)) {
+    const cycle = (params.recentCycles || []).find(
+      (row) => row.status === 'completed' && row.assignments.some((assignment) => assignment.cardId === cardId)
+    )
+    if (cycle?.completedAtMs) {
+      return `Card ${cardId} was last used on Cycle ${cycle.cycleNumber}, executed ${formatSast(cycle.completedAtMs)}.`
+    }
+    const card = params.ledger.cards.find((row) => row.id === cardId)
+    if (card?.lastCycleUsed) {
+      return `Card ${cardId} was last used on Cycle ${card.lastCycleUsed}.`
+    }
+    return `Card ${cardId} has not been used in this test yet.`
+  }
+
+  return null
+}

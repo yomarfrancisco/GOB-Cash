@@ -4,12 +4,13 @@ import { extractBearerToken } from '@/lib/ama/auth'
 import { AGENT_UID } from '@/types/transactions'
 import { interpretRoutingFeedbackWithOpenAI } from '@/lib/routing/interpretAdminFeedback'
 import {
+  answerMemoryQuestion,
   buildRoutingLedgerBrief,
   type LedgerSnapshot,
   type RecentCycleBrief,
   type RecentFeedbackBrief,
 } from '@/lib/routing/interpretContext'
-import { firestoreTimestampMs } from '@/lib/routing/routingTime'
+import { firestoreTimestampMs, isMemoryOrHistoryQuestion } from '@/lib/routing/routingTime'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -61,7 +62,14 @@ function constraintLines(data: Record<string, unknown>) {
 async function loadInterpretHistory(
   testRunId: string | undefined,
   cycleNumber: number
-): Promise<{ historyBrief: string; nowMs: number } | null> {
+): Promise<{
+  historyBrief: string
+  nowMs: number
+  ledger: LedgerSnapshot
+  constraints: ReturnType<typeof constraintLines>
+  recentCycles: RecentCycleBrief[]
+  recentFeedback: RecentFeedbackBrief[]
+} | null> {
   const nowMs = Date.now()
   try {
     const db = getAdminDb()
@@ -135,11 +143,17 @@ async function loadInterpretHistory(
         })
       : []
 
+    const ledger = ledgerFromTestDoc(data)
+    const constraints = constraintLines(data)
     return {
       nowMs,
+      ledger,
+      constraints,
+      recentCycles,
+      recentFeedback,
       historyBrief: buildRoutingLedgerBrief({
-        ledger: ledgerFromTestDoc(data),
-        constraints: constraintLines(data),
+        ledger,
+        constraints,
         recentCycles,
         recentFeedback,
         awaiting: {
@@ -200,17 +214,31 @@ export async function POST(request: NextRequest) {
       cycleNumber
     )
 
-    const interpreted = await interpretRoutingFeedbackWithOpenAI(message, {
-      cycleNumber,
-      cardCount: typeof body?.cardCount === 'number' ? body.cardCount : 5,
-      machineCount: typeof body?.machineCount === 'number' ? body.machineCount : 3,
-      assignments,
-      activeConstraints: Array.isArray(body?.activeConstraints)
-        ? body.activeConstraints.filter((row: unknown) => typeof row === 'string')
-        : [],
-      nowMs: history?.nowMs,
-      historyBrief: history?.historyBrief,
-    })
+    const memoryAnswer =
+      history && isMemoryOrHistoryQuestion(message)
+        ? answerMemoryQuestion({
+            message,
+            nowMs: history.nowMs,
+            constraints: history.constraints,
+            recentFeedback: history.recentFeedback,
+            recentCycles: history.recentCycles,
+            ledger: history.ledger,
+            awaiting: { cycleNumber },
+          })
+        : null
+    const interpreted = memoryAnswer
+      ? { intents: [], clarification: memoryAnswer, interpreter: 'fast_path' as const }
+      : await interpretRoutingFeedbackWithOpenAI(message, {
+          cycleNumber,
+          cardCount: typeof body?.cardCount === 'number' ? body.cardCount : 5,
+          machineCount: typeof body?.machineCount === 'number' ? body.machineCount : 3,
+          assignments,
+          activeConstraints: Array.isArray(body?.activeConstraints)
+            ? body.activeConstraints.filter((row: unknown) => typeof row === 'string')
+            : [],
+          nowMs: history?.nowMs,
+          historyBrief: history?.historyBrief,
+        })
 
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'gobankless-dev'
     const response = await fetch(

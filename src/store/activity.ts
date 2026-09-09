@@ -38,6 +38,7 @@ export type ActivityItem = {
   routingRevision?: boolean
   thinking?: boolean
   userReply?: string
+  userRepliedAt?: number
 }
 
 const MAX_ACTIVITY_ITEMS = 80

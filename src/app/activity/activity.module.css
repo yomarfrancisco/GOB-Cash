@@ -156,11 +156,21 @@
 }
 
 .activityUserReplyLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 11px;
   font-weight: 600;
   line-height: 14px;
   color: rgba(0, 0, 0, 0.45);
   margin: 0 0 2px;
+}
+
+.activityUserReplyTime {
+  font-weight: 400;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .activityUserReplyBody {

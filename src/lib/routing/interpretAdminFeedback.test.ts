@@ -18,6 +18,10 @@ describe('parseObviousFeedback', () => {
   it('does not assume this cycle when the admin named a weekday', () => {
     assert.equal(parseObviousFeedback('Card 5 is unavailable until Monday'), null)
   })
+
+  it('does not treat a remember question as an exclusion', () => {
+    assert.equal(parseObviousFeedback('Do you remember that it was lost?'), null)
+  })
 })
 
 describe('parseRoutingAssignmentsFromBody', () => {
