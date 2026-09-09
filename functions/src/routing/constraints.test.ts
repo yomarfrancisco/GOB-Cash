@@ -85,7 +85,7 @@ describe('placeholder copy is not a valid answer', () => {
     assert.equal(usefulClarification('short question'), null)
     assert.match(
       contextualClarify([{ cardId: 4, machineId: 3 }, { cardId: 5, machineId: 1 }]),
-      /Goblin on FNB IMANI/
+      /🇲🇿 Goblin on 🇿🇦 FNB IMANI/
     )
   })
 })

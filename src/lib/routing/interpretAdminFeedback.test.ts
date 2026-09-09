@@ -43,7 +43,7 @@ describe('parseRoutingAssignmentsFromBody', () => {
 
   it('reads named assignment lines', () => {
     const rows = parseRoutingAssignmentsFromBody(
-      'Wolf · FNB IMANI · R10,229.52\nGoblin · Capitec BRICS · R10,000'
+      '🇲🇿 Wolf · 🇿🇦 FNB IMANI · R10,229.52\n🇲🇿 Goblin · 🇿🇦 Capitec BRICS · R10,000'
     )
     assert.deepEqual(rows, [
       { cardId: 5, machineId: 3, amount: 10229.52 },
