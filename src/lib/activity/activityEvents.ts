@@ -24,6 +24,8 @@ export type ActivityEventDoc = {
   cycleNumber?: number
   routingAction?: 'replenish' | 'deploy' | string
   pairedAmountValue?: number
+  feedbackAck?: string
+  routingBlocked?: boolean
 }
 
 function createdAtMs(value: ActivityEventDoc['createdAt']): number {
@@ -125,6 +127,8 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     cycleNumber: data.cycleNumber,
     routingAction: data.routingAction,
     pairedAmountValue: data.pairedAmountValue,
+    feedbackAck: typeof data.feedbackAck === 'string' ? data.feedbackAck : undefined,
+    routingBlocked: data.routingBlocked === true,
     awaitingConfirm: data.awaitingConfirm === true || data.status === 'awaiting_execution',
   }
 }
