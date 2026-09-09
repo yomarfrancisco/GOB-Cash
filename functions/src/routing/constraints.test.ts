@@ -3,8 +3,10 @@ import { describe, it } from 'node:test'
 import { createInitialState } from './conversionRouter'
 import {
   applyIntentsToState,
+  contextualClarify,
   overlayFromConstraints,
   parseFastPath,
+  usefulClarification,
 } from './constraints'
 
 describe('parseFastPath', () => {
@@ -25,6 +27,20 @@ describe('parseFastPath', () => {
 
   it('leaves free-form language to the LLM', () => {
     assert.equal(parseFastPath('Keep the last pairing off until lunch, then rotate.'), null)
+  })
+})
+
+describe('placeholder copy is not a valid answer', () => {
+  it('does not treat the old fallback as useful clarification', () => {
+    assert.equal(
+      usefulClarification('I am not sure how to apply that. Name a card or machine and whether it is unavailable, restored, capped, or resting.'),
+      null
+    )
+    assert.equal(usefulClarification('short question'), null)
+    assert.match(
+      contextualClarify([{ cardId: 4, machineId: 3 }, { cardId: 5, machineId: 1 }]),
+      /Card 4 on Machine 3/
+    )
   })
 })
 

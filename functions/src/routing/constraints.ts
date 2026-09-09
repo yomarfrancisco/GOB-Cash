@@ -485,6 +485,28 @@ export function parseFastPath(message: string): InterpretResult | null {
   return { intents, clarification: null, interpreter: 'fast_path' }
 }
 
+export function usefulClarification(text: string | null | undefined): string | null {
+  if (!text) return null
+  const t = text.trim().toLowerCase()
+  if (!t || t === 'null' || t === 'none' || t === 'short question' || t === 'clarification') return null
+  if (t.includes('i am not sure how to apply that')) return null
+  if (t.includes('name a card or machine and whether')) return null
+  if (t.length < 16) return null
+  return text.trim()
+}
+
+export function contextualClarify(
+  assignments: Array<{ cardId: number; machineId: number }>
+): string {
+  const named = assignments
+    .map((row) => `Card ${row.cardId} on Machine ${row.machineId}`)
+    .join(', ')
+  if (named) {
+    return `This cycle currently uses ${named}. Tell me which card or machine to change, and whether it is unavailable, restored, capped, or resting.`
+  }
+  return 'Tell me which card or machine to change, and whether it is unavailable, restored, capped, or resting.'
+}
+
 function uniqueIds(text: string, pattern: RegExp): number[] {
   const ids: number[] = []
   let match: RegExpExecArray | null

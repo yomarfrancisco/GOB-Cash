@@ -14,6 +14,7 @@ import {
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
+import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
 import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
@@ -187,7 +188,30 @@ function canDownloadProof(item: ActivityItem): boolean {
   )
 }
 
-function ActivityItemCard({ item }: { item: ActivityItem }) {
+function isAwaitingRoutingItem(item: ActivityItem): boolean {
+  return (
+    item.kind === 'CONVERSION_ROUTING_INSTRUCTION' &&
+    item.thinking !== true &&
+    item.awaitingConfirm === true &&
+    item.status !== 'completed' &&
+    item.status !== 'superseded' &&
+    item.status !== 'cancelled'
+  )
+}
+
+function latestAwaitingRoutingId(items: ActivityItem[]): string | null {
+  return items.find(isAwaitingRoutingItem)?.id ?? null
+}
+
+function ActivityItemCard({
+  item,
+  showRoutingActions,
+  onRoutingReply,
+}: {
+  item: ActivityItem
+  showRoutingActions: boolean
+  onRoutingReply: (item: ActivityItem, message: string) => Promise<void>
+}) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
   const profile = useUserProfileStore((s) => s.profile)
@@ -203,12 +227,7 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
   const showDownload = canDownloadProof(item)
   const showKycLink = item.hasKycLink === true
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-  const isAwaitingRouting =
-    isRoutingInstruction &&
-    item.awaitingConfirm === true &&
-    item.status !== 'completed' &&
-    item.status !== 'superseded' &&
-    item.status !== 'cancelled'
+  const isAwaitingRouting = showRoutingActions && isAwaitingRoutingItem(item)
   const showConfirm = isAwaitingRouting && item.routingBlocked !== true
   const showReply = isAwaitingRouting && item.routingAction !== 'replenish'
 
@@ -280,18 +299,12 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
     if (!message || replyState !== 'idle') return
     setReplyState('loading')
     setReplyError('')
+    setReplyOpen(false)
     try {
-      const result = await admin_submitConversionRoutingFeedback({
-        message,
-        testRunId: item.testRunId,
-        cycleNumber: item.cycleNumber,
-      })
+      await onRoutingReply(item, message)
       setReplyText('')
-      setReplyOpen(false)
-      if (result.acknowledgement) {
-        // Activity snapshot will replace the row body; keep composer closed.
-      }
     } catch (error) {
+      setReplyOpen(true)
       setReplyError(error instanceof Error ? error.message : 'Could not apply that reply')
     } finally {
       setReplyState('idle')
@@ -326,9 +339,15 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
           <div className={styles.activityTitle}>{item.title}</div>
           <div className={styles.activityTime}>{formatRelativeShort(item.createdAt)}</div>
         </div>
-        {item.body && (
+        {item.thinking ? (
+          <div className={styles.thinkingDots} aria-label="Thinking" aria-live="polite">
+            <span />
+            <span />
+            <span />
+          </div>
+        ) : item.body ? (
           <div className={styles.activityBody}>{item.body}</div>
-        )}
+        ) : null}
         {showDownload && (
           <button
             type="button"
@@ -421,7 +440,7 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
             {replyError ? <div className={styles.replyError}>{replyError}</div> : null}
           </form>
         )}
-        {isRoutingInstruction && item.status === 'completed' && (
+        {isRoutingInstruction && item.status === 'completed' && !item.thinking && (
           <span className={styles.executedLabel}>
             <Check size={16} strokeWidth={2.4} />
             Executed
@@ -442,7 +461,17 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
   )
 }
 
-function ActivitySection({ title, items }: { title: string; items: ActivityItem[] }) {
+function ActivitySection({
+  title,
+  items,
+  latestAwaitingId,
+  onRoutingReply,
+}: {
+  title: string
+  items: ActivityItem[]
+  latestAwaitingId: string | null
+  onRoutingReply: (item: ActivityItem, message: string) => Promise<void>
+}) {
   const [expanded, setExpanded] = useState(false)
   const hasMore = items.length > PERIOD_PREVIEW_LIMIT
   const visibleItems = expanded || !hasMore ? items : items.slice(0, PERIOD_PREVIEW_LIMIT)
@@ -454,7 +483,12 @@ function ActivitySection({ title, items }: { title: string; items: ActivityItem[
       <h2 className={styles.sectionTitle}>{title}</h2>
       <div className={styles.activityList}>
         {visibleItems.map((item) => (
-          <ActivityItemCard key={item.id} item={item} />
+          <ActivityItemCard
+            key={item.id}
+            item={item}
+            showRoutingActions={item.id === latestAwaitingId}
+            onRoutingReply={onRoutingReply}
+          />
         ))}
         {hasMore && !expanded && (
           <button
@@ -475,6 +509,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const all = useActivityStore((s) => s.all)
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
+  const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -491,6 +526,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   useEffect(() => {
     if (!isAuthed) {
       setRemoteItems([])
+      setThinkingItem(null)
       return
     }
     const unsubscribe = subscribeToActivityEvents(setRemoteItems)
@@ -498,35 +534,111 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       unsubscribe()
     }
   }, [isAuthed])
+
+  useEffect(() => {
+    if (!thinkingItem) return
+    const arrived = remoteItems.some(
+      (item) =>
+        item.kind === 'CONVERSION_ROUTING_INSTRUCTION' &&
+        item.thinking !== true &&
+        item.testRunId === thinkingItem.testRunId &&
+        item.cycleNumber === thinkingItem.cycleNumber &&
+        item.createdAt >= thinkingItem.createdAt - 2500
+    )
+    if (arrived) setThinkingItem(null)
+  }, [remoteItems, thinkingItem])
   
   const localItems = useActivityStore((s) => s.all())
   const allItems = useMemo(() => {
     const remoteIds = new Set(remoteItems.map((item) => item.id))
     const merged = [
+      ...(thinkingItem ? [thinkingItem] : []),
       ...remoteItems,
-      ...localItems.filter((item) => !remoteIds.has(item.id)),
+      ...localItems.filter((item) => !remoteIds.has(item.id) && item.id !== thinkingItem?.id),
     ]
     return merged.sort((a, b) => b.createdAt - a.createdAt)
-  }, [localItems, remoteItems])
+  }, [localItems, remoteItems, thinkingItem])
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
     return allItems.filter((item) => {
+      if (item.thinking) return !normalizedQuery || searchableText(item).includes(normalizedQuery)
       if (!isPaymentActivity(item)) return false
       return !normalizedQuery || searchableText(item).includes(normalizedQuery)
     })
   }, [allItems, searchQuery])
+  const latestAwaitingId = useMemo(
+    () => (thinkingItem ? null : latestAwaitingRoutingId(allItems)),
+    [allItems, thinkingItem]
+  )
   const { today, yesterday, last7Days, last30Days, older } = useMemo(
     () => groupByTimePeriod(filteredItems),
     [filteredItems]
   )
 
+  const handleRoutingReply = async (source: ActivityItem, message: string) => {
+    setThinkingItem({
+      id: `thinking-${source.cycleNumber || source.id}-${Date.now()}`,
+      kind: 'CONVERSION_ROUTING_INSTRUCTION',
+      actor: {
+        type: 'ai',
+        name: '$ariel',
+        avatarUrl: TASK_AVATARS.convertZar,
+      },
+      title: source.title,
+      thinking: true,
+      createdAt: Date.now(),
+      cycleNumber: source.cycleNumber,
+      testRunId: source.testRunId,
+      awaitingConfirm: false,
+      avatarKind: 'convert_zar',
+    })
+    try {
+      await admin_submitConversionRoutingFeedback({
+        message,
+        testRunId: source.testRunId,
+        cycleNumber: source.cycleNumber,
+        cardCount: 5,
+        machineCount: 3,
+        assignments: parseRoutingAssignmentsFromBody(source.body),
+      })
+    } catch (error) {
+      setThinkingItem(null)
+      throw error
+    }
+  }
+
   return (
     <div className={styles.activityContainer}>
-      <ActivitySection title="Today" items={today} />
-      <ActivitySection title="Yesterday" items={yesterday} />
-      <ActivitySection title="Last 7 days" items={last7Days} />
-      <ActivitySection title="Last 30 days" items={last30Days} />
-      <ActivitySection title="Older" items={older} />
+      <ActivitySection
+        title="Today"
+        items={today}
+        latestAwaitingId={latestAwaitingId}
+        onRoutingReply={handleRoutingReply}
+      />
+      <ActivitySection
+        title="Yesterday"
+        items={yesterday}
+        latestAwaitingId={latestAwaitingId}
+        onRoutingReply={handleRoutingReply}
+      />
+      <ActivitySection
+        title="Last 7 days"
+        items={last7Days}
+        latestAwaitingId={latestAwaitingId}
+        onRoutingReply={handleRoutingReply}
+      />
+      <ActivitySection
+        title="Last 30 days"
+        items={last30Days}
+        latestAwaitingId={latestAwaitingId}
+        onRoutingReply={handleRoutingReply}
+      />
+      <ActivitySection
+        title="Older"
+        items={older}
+        latestAwaitingId={latestAwaitingId}
+        onRoutingReply={handleRoutingReply}
+      />
       {filteredItems.length === 0 && (
         <p className={styles.emptyState}>
           {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}

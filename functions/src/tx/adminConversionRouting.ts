@@ -11,6 +11,7 @@ import {
   DEFAULT_TEST_CONFIG,
   ROUTING_ADMIN_UID,
   buildActivityCopy,
+  buildAgentReplyCopy,
   buildNotificationCopy,
   buildReplenishActivityCopy,
   buildReplenishNotificationCopy,
@@ -29,7 +30,10 @@ import {
   applyIntentsToState,
   expireConstraints,
   overlayFromConstraints,
+  parseFastPath,
   sanitizeIntent,
+  usefulClarification,
+  contextualClarify,
   validateIntent,
   type RoutingIntent,
   type StoredConstraint,
@@ -856,22 +860,34 @@ export const admin_submitConversionRoutingFeedback = functions
     const quotes = await applyLiveQuotes(state)
     const liveState = { ...state, config: { ...state.config, spread: quotes.state.config.spread } }
 
-    const hasProvidedInterpretation = Array.isArray(data?.intents)
-    const providedIntents = hasProvidedInterpretation
+    const clientSentIntents = Array.isArray(data?.intents)
+    const providedIntents = clientSentIntents
       ? (data.intents as unknown[]).map((row) => sanitizeIntent(row)).filter((row): row is RoutingIntent => Boolean(row))
       : []
-    const interpreted = hasProvidedInterpretation
+    const clientClarification = usefulClarification(
+      typeof data?.clarification === 'string' ? data.clarification : null
+    )
+    const recoveredFastPath = providedIntents.length ? null : parseFastPath(rawMessage)
+    const interpreted = providedIntents.length
       ? {
           intents: providedIntents,
-          clarification: typeof data?.clarification === 'string' ? data.clarification : null,
+          clarification: clientClarification,
           interpreter: 'llm' as const,
         }
-      : await interpretAdminFeedback(rawMessage, {
-          cycleNumber,
-          assignments: stored.cardAssignments,
-          state: liveState,
-          constraints,
-        })
+      : recoveredFastPath?.intents.length
+        ? recoveredFastPath
+        : clientSentIntents
+          ? {
+              intents: [] as RoutingIntent[],
+              clarification: clientClarification || contextualClarify(stored.cardAssignments),
+              interpreter: 'llm' as const,
+            }
+          : await interpretAdminFeedback(rawMessage, {
+              cycleNumber,
+              assignments: stored.cardAssignments,
+              state: liveState,
+              constraints,
+            })
 
     const validIntents: RoutingIntent[] = []
     const intentErrors: string[] = []
@@ -889,16 +905,10 @@ export const admin_submitConversionRoutingFeedback = functions
 
     if (!validIntents.length) {
       const clarification =
-        interpreted.clarification ||
+        usefulClarification(interpreted.clarification) ||
         intentErrors[0] ||
-        'I am not sure how to apply that. Name a card or machine and whether it is unavailable, restored, capped, or resting.'
-      const current = buildActivityCopy(
-        stored,
-        liveState.config.cycleCount,
-        'awaiting_execution',
-        liveState.config.spread,
-        quotes
-      )
+        contextualClarify(stored.cardAssignments)
+      const title = `Conversion instruction · Cycle ${cycleNumber}/${liveState.config.cycleCount}`
       await db.runTransaction(async (tx) => {
         const published = publishAgentRevision(tx, {
           adminUid,
@@ -907,9 +917,9 @@ export const admin_submitConversionRoutingFeedback = functions
           previousEventId,
           revisionCount,
           now,
-          title: current.title,
-          body: `You: ${rawMessage}\n\n${clarification}\n\n${current.body}`,
-          dropdownTitle: current.title,
+          title,
+          body: clarification,
+          dropdownTitle: title,
           dropdownBody: clarification,
           amountValue: stored.deployedAmount,
           awaitingConfirm: stored.deployedAmount > 0,
@@ -946,13 +956,11 @@ export const admin_submitConversionRoutingFeedback = functions
     const plan = planCycle(applied.state, overlay)
     const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
     const acknowledgement = applied.summaries.join(' ')
-    const activity = buildActivityCopy(
+    const activity = buildAgentReplyCopy(
       plan,
       applied.state.config.cycleCount,
-      'awaiting_execution',
-      applied.state.config.spread,
-      quotes,
-      { revisionReason: acknowledgement }
+      acknowledgement,
+      blocked
     )
     const notification = blocked
       ? {
@@ -979,7 +987,7 @@ export const admin_submitConversionRoutingFeedback = functions
         revisionCount: num(freshCycle.data()?.revisionCount, revisionCount),
         now,
         title: activity.title,
-        body: `You: ${rawMessage}\n\n${activity.body}`,
+        body: activity.body,
         dropdownTitle: notification.title,
         dropdownBody: notification.body,
         amountValue: plan.deployedAmount,

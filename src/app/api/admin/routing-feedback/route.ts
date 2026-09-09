@@ -25,12 +25,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Conversion routing is limited to the designated admin' }, { status: 403 })
     }
 
+    const assignments = Array.isArray(body?.assignments)
+      ? body.assignments
+          .map((row: unknown) => {
+            if (!row || typeof row !== 'object') return null
+            const data = row as { cardId?: unknown; machineId?: unknown; amount?: unknown }
+            if (typeof data.cardId !== 'number' || typeof data.machineId !== 'number') return null
+            return {
+              cardId: data.cardId,
+              machineId: data.machineId,
+              amount: typeof data.amount === 'number' ? data.amount : 0,
+            }
+          })
+          .filter(
+            (row: { cardId: number; machineId: number; amount: number } | null): row is {
+              cardId: number
+              machineId: number
+              amount: number
+            } => Boolean(row)
+          )
+      : []
+
     const interpreted = await interpretRoutingFeedbackWithOpenAI(message, {
       cycleNumber: typeof body?.cycleNumber === 'number' ? body.cycleNumber : 0,
       cardCount: typeof body?.cardCount === 'number' ? body.cardCount : 5,
       machineCount: typeof body?.machineCount === 'number' ? body.machineCount : 3,
-      assignments: Array.isArray(body?.assignments) ? body.assignments : [],
-      activeConstraints: Array.isArray(body?.activeConstraints) ? body.activeConstraints : [],
+      assignments,
+      activeConstraints: Array.isArray(body?.activeConstraints)
+        ? body.activeConstraints.filter((row: unknown) => typeof row === 'string')
+        : [],
     })
 
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'gobankless-dev'

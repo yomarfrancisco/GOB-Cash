@@ -650,6 +650,30 @@ export function buildReplenishNotificationCopy(
   }
 }
 
+export function buildAgentReplyCopy(
+  plan: CyclePlan,
+  cycleCount: number,
+  acknowledgement: string,
+  blocked: boolean
+): { title: string; body: string } {
+  const title = `Conversion instruction · Cycle ${plan.cycleNumber}/${cycleCount}`
+  if (blocked) {
+    return {
+      title,
+      body: [acknowledgement, '', plan.selectionReason || 'No valid route under current constraints.'].filter(Boolean).join('\n'),
+    }
+  }
+  const lines = [acknowledgement]
+  if (plan.cardAssignments.length) {
+    lines.push('')
+    lines.push('Revised route:')
+    for (const row of plan.cardAssignments) {
+      lines.push(assignmentLine(row, 'activity'))
+    }
+  }
+  return { title, body: lines.join('\n') }
+}
+
 export function buildActivityCopy(
   plan: CyclePlan,
   cycleCount: number,
