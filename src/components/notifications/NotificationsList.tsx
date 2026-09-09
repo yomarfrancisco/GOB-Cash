@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Download, ExternalLink } from 'lucide-react'
+import { Check, Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -326,11 +326,15 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
             disabled={confirmState !== 'idle'}
             onClick={handleExecuteRouting}
           >
+            <Check size={16} strokeWidth={2.4} />
             Execute
           </button>
         )}
         {item.kind === 'CONVERSION_ROUTING_INSTRUCTION' && item.status === 'completed' && (
-          <span className={styles.executedLabel}>Executed</span>
+          <span className={styles.executedLabel}>
+            <Check size={16} strokeWidth={2.4} />
+            Executed
+          </span>
         )}
         {showKycLink && (
           <button

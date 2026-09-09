@@ -230,6 +230,7 @@
 .executedLabel {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   margin: 6px 0 0;
   padding: 6px 10px;
   border-radius: 14px;
