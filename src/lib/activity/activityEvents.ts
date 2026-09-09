@@ -14,6 +14,7 @@ export type ActivityEventDoc = {
   amountValue?: number
   amountSign?: 'credit' | 'debit'
   createdAt?: Timestamp | { toMillis?: () => number }
+  completedAt?: Timestamp | { toMillis?: () => number }
   txId?: string
   hasDownloadButton?: boolean
   dropdownTitle?: string
@@ -115,6 +116,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
         }
       : undefined,
     createdAt: createdAtMs(data.createdAt),
+    completedAt: data.completedAt ? createdAtMs(data.completedAt) : undefined,
     txId: data.txId,
     hasDownloadButton: data.hasDownloadButton === true,
     avatarKind: data.avatarKind,
