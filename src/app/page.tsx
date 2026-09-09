@@ -627,7 +627,7 @@ function HomeContent() {
   // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
   const cardDef = getCardDefinition(topCardType === 'yieldSurprise' ? 'yield' : topCardType)
   // Title - conditional based on auth status
-  const title = 'Wallet'
+  const title = 'Inventory'
   
   // Show the same total-balance summary before and after sign-in.
   const cashMZNBalance =
@@ -643,7 +643,7 @@ function HomeContent() {
   const totalBalanceMZN =
     cashMZNBalance + profitMZNBalance + zarToMzn(cashZARBalance, quotedMznPerZar)
   const formattedBalance = formatMZN(totalBalanceMZN)
-  const subtitleText = `Total balance: ${formattedBalance}`
+  const subtitleText = `Available: ${formattedBalance}`
 
 
   return (

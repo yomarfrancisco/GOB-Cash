@@ -4,7 +4,7 @@ import Image from 'next/image'
 import type { StaticImageData } from 'next/image'
 import { useRef, useEffect, useState } from 'react'
 import SlotCounter from './SlotCounter'
-import { formatCardTopline, formatUSDT as formatConvertedAmount } from '@/lib/formatCurrency'
+import { formatCardTopline, formatEquivalenceAmount } from '@/lib/formatCurrency'
 import { mznToZar, zarToMzn, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
@@ -633,7 +633,7 @@ export default function CardStackCard({
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span>0.00 {isMeticalAmount ? 'ZAR' : 'MZN'}</span>
+                <span>≈ 0 {isMeticalAmount ? 'ZAR' : 'MZN'}</span>
               </div>
             </>
           ) : (
@@ -672,15 +672,16 @@ export default function CardStackCard({
               </div>
               <div
                 className="card-amounts__usdt"
-                aria-label={`${convertedAmount.toFixed(2)} ${isMeticalAmount ? 'ZAR' : 'MZN'}`}
+                aria-label={`approximately ${convertedAmount.toFixed(2)} ${isMeticalAmount ? 'ZAR' : 'MZN'}`}
                 suppressHydrationWarning
               >
-                <SlotCounter 
+                <span aria-hidden>≈ </span>
+                <SlotCounter
                   key={`${balanceKey}-converted`}
                   value={convertedAmount}
-                  format={formatConvertedAmount}
-                  durationMs={isBalanceReady ? 700 : 0} 
-                  className="card-amounts__usdt-value" 
+                  format={formatEquivalenceAmount}
+                  durationMs={isBalanceReady ? 700 : 0}
+                  className="card-amounts__usdt-value"
                 />
                 <span style={{ marginLeft: '4px' }}>{isMeticalAmount ? 'ZAR' : 'MZN'}</span>
               </div>
