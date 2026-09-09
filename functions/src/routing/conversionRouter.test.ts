@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   DEFAULT_TEST_CONFIG,
+  buildAgentReplyCopy,
   buildNotificationCopy,
   buildReplenishNotificationCopy,
   completeCycle,
@@ -141,6 +142,17 @@ describe('20-cycle default test', () => {
     const copy = buildNotificationCopy(plan, 20)
     assert.equal(copy.body.split('\n').length, 2)
     assert.equal(copy.body.includes('Replenish'), false)
+  })
+
+  it('answers a revision with the change and route only', () => {
+    const plan = planCycle(createInitialState())
+    const copy = buildAgentReplyCopy(plan, 20, 'Card 5 excluded from this cycle only.', false)
+    assert.equal(copy.body.includes('You:'), false)
+    assert.equal(copy.body.includes('Expected spread'), false)
+    assert.equal(copy.body.includes('Awaiting execution'), false)
+    assert.match(copy.body, /Card 5 excluded from this cycle only/)
+    assert.match(copy.body, /Revised route:/)
+    assert.match(copy.body, /Card \d+ · Machine \d+/)
   })
 
   it('plans a COST replenish when the buffer would exceed the working threshold', () => {

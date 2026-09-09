@@ -1,7 +1,9 @@
 import * as functions from 'firebase-functions'
 import {
+  contextualClarify,
   parseFastPath,
   sanitizeIntent,
+  usefulClarification,
   type InterpretResult,
   type RoutingIntent,
   type StoredConstraint,
@@ -58,7 +60,14 @@ Scope rules:
 - "until I say" / "blocked" / "down" / "don't use anymore" → until_cleared
 - "from now on" / "permanently" / "we now have another machine" → permanent
 If ambiguous, use this_cycle and say so in summary. Never silently choose permanent.
-If the message is unclear, return {"intents":[],"clarification":"short question"}.
+Never put placeholder text in clarification. Do not write "short question", "null", or a generic "I am not sure" message.
+If the admin names a card or machine and a change (unavailable, down, restore, rest, cap, prefer), you MUST emit an intent.
+clarification is either null or one specific sentence that names the missing fact.
+
+Example:
+Admin: "Card 5 is unavailable for this cycle."
+{"intents":[{"action":"exclude_card","resourceType":"card","resourceId":5,"value":null,"scope":"this_cycle","nCycles":null,"summary":"Card 5 excluded from this cycle only.","confidence":0.95}],"clarification":null}
+
 Amounts are ZAR. "R12k" is 12000.
 Cards are numbered 1..${context.state.cards.length}. Machines are numbered 1..${context.state.machines.length}.`
 
@@ -109,18 +118,18 @@ async function interpretWithLlm(message: string, context: InterpretContext): Pro
   } catch {
     return {
       intents: [],
-      clarification: 'I could not parse that. Try naming a card or machine and what to change.',
+      clarification: contextualClarify(context.assignments),
       interpreter: 'llm',
     }
   }
   const intents = Array.isArray(parsed.intents)
     ? parsed.intents.map((row) => sanitizeIntent(row)).filter((row): row is RoutingIntent => Boolean(row))
     : []
-  const clarification =
+  const rawClarification =
     typeof parsed.clarification === 'string' && parsed.clarification.trim()
       ? parsed.clarification.trim()
       : null
-  return { intents, clarification, interpreter: 'llm' }
+  return { intents, clarification: usefulClarification(rawClarification), interpreter: 'llm' }
 }
 
 export async function interpretAdminFeedback(
@@ -128,8 +137,22 @@ export async function interpretAdminFeedback(
   context: InterpretContext
 ): Promise<InterpretResult> {
   const fast = parseFastPath(message)
-  if (fast && fast.intents.length) return fast
-  return interpretWithLlm(message, context)
+  if (fast?.intents.length) return fast
+  try {
+    const llm = await interpretWithLlm(message, context)
+    if (llm.intents.length) return llm
+    const recovered = parseFastPath(message)
+    if (recovered?.intents.length) return recovered
+    return {
+      intents: [],
+      clarification: usefulClarification(llm.clarification) || contextualClarify(context.assignments),
+      interpreter: 'llm',
+    }
+  } catch (error) {
+    const recovered = parseFastPath(message)
+    if (recovered?.intents.length) return recovered
+    throw error
+  }
 }
 
 export { llmApiKey }

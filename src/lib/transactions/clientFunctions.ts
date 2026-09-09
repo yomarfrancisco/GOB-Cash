@@ -963,6 +963,8 @@ export async function admin_submitConversionRoutingFeedback(params: {
   message: string
   testRunId?: string
   cycleNumber?: number
+  cardCount?: number
+  machineCount?: number
   assignments?: Array<{ cardId: number; machineId: number; amount: number }>
 }): Promise<ConversionRoutingFeedbackResult> {
   const { getFirebaseAuth } = await import('@/lib/firebase')
