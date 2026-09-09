@@ -206,9 +206,12 @@
 .confirmButton {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  margin: 6px 0 0;
-  padding: 6px 10px;
+  margin: 0;
+  padding: 0 10px;
+  height: 28px;
+  box-sizing: border-box;
   border: 0;
   border-radius: 14px;
   background: #111;
@@ -217,7 +220,7 @@
   font-weight: 600;
   line-height: 16px;
   cursor: pointer;
-  align-self: flex-start;
+  flex-shrink: 0;
 }
 
 .confirmButtonLoading,
@@ -238,9 +241,12 @@
 .replyButton {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   margin: 0;
-  padding: 6px 10px;
+  padding: 0 10px;
+  height: 28px;
+  box-sizing: border-box;
   border: 0;
   border-radius: 14px;
   background: rgba(0, 0, 0, 0.08);
@@ -249,53 +255,63 @@
   font-weight: 600;
   line-height: 16px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .replyComposer {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   margin: 8px 0 0;
 }
 
+.replyFrame {
+  position: relative;
+  min-height: 72px;
+  padding: 10px 44px 10px 12px;
+  border-radius: 18px;
+  background: #e5e5ea;
+  box-sizing: border-box;
+}
+
 .replyInput {
+  display: block;
   width: 100%;
-  resize: none;
+  min-height: 52px;
+  margin: 0;
+  padding: 0;
   border: 0;
-  border-radius: 12px;
-  padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.05);
+  resize: none;
+  background: transparent;
   color: #111;
   font: 400 13px/18px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   outline: none;
 }
 
 .replySend {
-  align-self: flex-start;
-  padding: 6px 10px;
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
   border: 0;
-  border-radius: 14px;
+  border-radius: 50%;
   background: #111;
   color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 
 .replySend:disabled {
-  opacity: 0.55;
+  opacity: 0.35;
   cursor: default;
 }
 
-.replyError,
-.replyAck {
+.replyError {
+  margin: 6px 0 0;
   font-size: 12px;
   line-height: 16px;
-  color: rgba(0, 0, 0, 0.5);
-}
-
-.replyError {
   color: #b42318;
 }
 

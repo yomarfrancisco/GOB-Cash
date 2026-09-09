@@ -26,6 +26,7 @@ export type ActivityEventDoc = {
   pairedAmountValue?: number
   feedbackAck?: string
   routingBlocked?: boolean
+  routingRevision?: boolean
 }
 
 function createdAtMs(value: ActivityEventDoc['createdAt']): number {
@@ -129,7 +130,10 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     pairedAmountValue: data.pairedAmountValue,
     feedbackAck: typeof data.feedbackAck === 'string' ? data.feedbackAck : undefined,
     routingBlocked: data.routingBlocked === true,
-    awaitingConfirm: data.awaitingConfirm === true || data.status === 'awaiting_execution',
+    awaitingConfirm: data.status === 'superseded' || data.status === 'completed' || data.status === 'cancelled'
+      ? false
+      : data.awaitingConfirm === true || data.status === 'awaiting_execution',
+    routingRevision: data.routingRevision === true,
   }
 }
 

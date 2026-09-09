@@ -35,6 +35,7 @@ export type ActivityItem = {
   pairedAmountValue?: number
   feedbackAck?: string
   routingBlocked?: boolean
+  routingRevision?: boolean
 }
 
 const MAX_ACTIVITY_ITEMS = 80

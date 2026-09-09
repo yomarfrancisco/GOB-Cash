@@ -90,6 +90,7 @@ export default function ActivityEventsListener() {
               continue
             }
             if (item.kind === 'CONVERSION_ROUTING_INSTRUCTION') {
+              if (item.routingRevision) continue
               toastRoutingInstruction(
                 item.id,
                 item.dropdownTitle || item.title,
