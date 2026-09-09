@@ -1,0 +1,195 @@
+import { formatRoutingClock, formatSast, resolveExpiryFromMessage } from './routingTime'
+
+export type RecentCycleBrief = {
+  cycleNumber: number
+  status: string
+  createdAtMs: number | null
+  completedAtMs: number | null
+  assignments: Array<{ cardId: number; machineId: number; amount: number }>
+}
+
+export type RecentFeedbackBrief = {
+  rawMessage: string
+  summary: string | null
+  createdAtMs: number | null
+  status: string
+}
+
+export type LedgerSnapshot = {
+  availableCapital: number
+  bufferUsed: number
+  completedCycles: number
+  cycleCount: number
+  bufferAmount: number
+  cards: Array<{
+    id: number
+    activeCycles: number
+    restCycles: number
+    volume: number
+    lastCycleUsed: number
+    machineHistory?: number[]
+  }>
+  machines: Array<{
+    id: number
+    activeCycles: number
+    restCycles: number
+    volume: number
+    lastCycleUsed: number
+  }>
+  pairings: Record<string, number>
+}
+
+function formatZar(amount: number): string {
+  const rounded = Math.round(amount * 100) / 100
+  const nearestInt = Math.round(rounded)
+  const useInt = Math.abs(rounded - nearestInt) < 0.005
+  return `R${(useInt ? nearestInt : rounded).toLocaleString('en-US', {
+    minimumFractionDigits: useInt ? 0 : 2,
+    maximumFractionDigits: useInt ? 0 : 2,
+  })}`
+}
+
+function machineCounts(history: number[] | undefined): string {
+  if (!history?.length) return 'none'
+  const counts = new Map<number, number>()
+  for (const id of history) counts.set(id, (counts.get(id) || 0) + 1)
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+    .map(([id, count]) => `${id}×${count}`)
+    .join(', ')
+}
+
+function formatAssignments(
+  assignments: Array<{ cardId: number; machineId: number; amount: number }>
+): string {
+  if (!assignments.length) return '(none)'
+  return assignments
+    .map((row) => `Card ${row.cardId} · Machine ${row.machineId} · ${formatZar(row.amount)}`)
+    .join('; ')
+}
+
+function lastUsedLabel(lastCycleUsed: number, currentCycle: number): string {
+  if (!lastCycleUsed) return 'never used'
+  const ago = currentCycle - lastCycleUsed
+  if (ago <= 0) return `last used cycle ${lastCycleUsed}`
+  return `last used cycle ${lastCycleUsed} (${ago} ago)`
+}
+
+type ConstraintLine = {
+  status: string
+  action: string
+  resourceId: number
+  scope: string
+  remainingCycles?: number | null
+  expiresAt?: number | null
+  summary?: string
+  createdAtCycle?: number
+}
+
+function constraintLine(row: ConstraintLine, nowMs: number): string {
+  const expiry =
+    typeof row.expiresAt === 'number' ? `; expires ${formatSast(row.expiresAt)}` : ''
+  const remaining =
+    row.scope === 'n_cycles' && row.remainingCycles != null
+      ? `; ${row.remainingCycles} cycle${row.remainingCycles === 1 ? '' : 's'} left`
+      : ''
+  const issued = row.createdAtCycle ? `; issued on cycle ${row.createdAtCycle}` : ''
+  const stale =
+    typeof row.expiresAt === 'number' && row.expiresAt <= nowMs ? ' [already past Now]' : ''
+  return `- ${row.summary || `${row.action} ${row.resourceId} ${row.scope}`}${issued}${remaining}${expiry}${stale}`
+}
+
+export function buildRoutingLedgerBrief(params: {
+  ledger: LedgerSnapshot
+  constraints: ConstraintLine[]
+  recentCycles?: RecentCycleBrief[]
+  recentFeedback?: RecentFeedbackBrief[]
+  awaiting: { cycleNumber: number; kind?: string; issuedAtMs: number | null }
+  nowMs: number
+}): string {
+  const clock = formatRoutingClock(params.nowMs)
+  const { ledger, awaiting } = params
+  const active = params.constraints.filter((row) => row.status === 'active')
+  const pairingEntries = Object.entries(ledger.pairings || {})
+    .sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0]))
+    .slice(0, 12)
+    .map(([key, count]) => `${key.replace(':', '-')}×${count}`)
+
+  const cards = ledger.cards
+    .map((card) => {
+      return `#${card.id} ${lastUsedLabel(card.lastCycleUsed, awaiting.cycleNumber)} rest ${card.restCycles} active ${card.activeCycles} volume ${formatZar(card.volume)} machines ${machineCounts(card.machineHistory)}`
+    })
+    .join('\n')
+
+  const machines = ledger.machines
+    .map((machine) => {
+      return `#${machine.id} ${lastUsedLabel(machine.lastCycleUsed, awaiting.cycleNumber)} rest ${machine.restCycles} volume ${formatZar(machine.volume)}`
+    })
+    .join('\n')
+
+  const executed = (params.recentCycles || [])
+    .filter((row) => row.status === 'completed')
+    .slice(0, 5)
+    .map((row) => {
+      const when = row.completedAtMs ? formatSast(row.completedAtMs) : 'unknown time'
+      return `C${row.cycleNumber} executed ${when} — ${formatAssignments(row.assignments)}`
+    })
+
+  const replies = (params.recentFeedback || []).slice(0, 5).map((row) => {
+    const when = row.createdAtMs ? formatSast(row.createdAtMs) : 'unknown time'
+    const summary = row.summary ? ` → ${row.summary}` : ''
+    return `${when} [${row.status}] "${row.rawMessage}"${summary}`
+  })
+
+  const issued =
+    awaiting.issuedAtMs != null
+      ? ` since ${formatSast(awaiting.issuedAtMs)}`
+      : ''
+  const nextAction =
+    awaiting.kind === 'replenish'
+      ? 'Next action: Execute the liquidity replenishment.'
+      : `Next action: Execute Cycle ${awaiting.cycleNumber}, or Reply to revise it.`
+
+  return [
+    clock.promptLine,
+    `Test progress: ${ledger.completedCycles} of ${ledger.cycleCount} cycles completed. Cycle ${awaiting.cycleNumber} is awaiting ${awaiting.kind === 'replenish' ? 'replenish Execute' : 'Execute'}${issued}.`,
+    `Capital: ${formatZar(ledger.availableCapital)} available. Buffer: ${formatZar(ledger.bufferUsed)} / ${formatZar(ledger.bufferAmount)}.`,
+    nextAction,
+    'Cards:',
+    cards || '(none)',
+    'Machines:',
+    machines || '(none)',
+    `Pairings (card-machine counts): ${pairingEntries.length ? pairingEntries.join(', ') : '(none)'}`,
+    'Recent executed cycles:',
+    executed.length ? executed.join('\n') : '(none yet)',
+    'Recent admin replies:',
+    replies.length ? replies.join('\n') : '(none)',
+    'Active constraints:',
+    active.length ? active.map((row) => constraintLine(row, params.nowMs)).join('\n') : '(none)',
+  ].join('\n')
+}
+
+const CONFIG_ACTIONS = new Set(['restore_card', 'restore_machine', 'add_card', 'add_machine'])
+
+export function attachResolvedExpiry<
+  T extends { action: string; scope: string; expiresAt?: number | null; summary: string },
+>(intents: T[], message: string, nowMs: number): T[] {
+  const resolved = resolveExpiryFromMessage(message, nowMs)
+  if (!resolved) return intents
+  return intents.map((intent) => {
+    if (intent.expiresAt && intent.expiresAt > nowMs) return intent
+    if (CONFIG_ACTIONS.has(intent.action)) return intent
+    if (intent.scope === 'permanent' || intent.scope === 'until_cleared') return intent
+    const labelled = formatSast(resolved)
+    const summary =
+      intent.summary && !/\buntil\b/i.test(intent.summary)
+        ? `${intent.summary.replace(/\.$/, '')} until ${labelled}.`
+        : intent.summary
+    return {
+      ...intent,
+      scope: 'until_date',
+      expiresAt: resolved,
+      summary,
+    }
+  })
+}
