@@ -35,6 +35,18 @@ describe('parseFastPath', () => {
   it('leaves calendar time windows to the LLM instead of assuming this cycle', () => {
     assert.equal(parseFastPath('Card 5 is unavailable until Monday'), null)
   })
+
+  it('reads named cards and machines', () => {
+    const lost = parseFastPath('Wolf is lost')
+    assert.equal(lost?.intents[0]?.action, 'exclude_card')
+    assert.equal(lost?.intents[0]?.resourceId, 5)
+    const down = parseFastPath('Capitec is down')
+    assert.equal(down?.intents[0]?.action, 'exclude_machine')
+    assert.equal(down?.intents[0]?.resourceId, 2)
+    const machine = parseFastPath('FNB Wolf is down')
+    assert.equal(machine?.intents[0]?.action, 'exclude_machine')
+    assert.equal(machine?.intents[0]?.resourceId, 4)
+  })
 })
 
 describe('time-bounded constraints', () => {
@@ -73,7 +85,7 @@ describe('placeholder copy is not a valid answer', () => {
     assert.equal(usefulClarification('short question'), null)
     assert.match(
       contextualClarify([{ cardId: 4, machineId: 3 }, { cardId: 5, machineId: 1 }]),
-      /Card 4 on Machine 3/
+      /Goblin on FNB IMANI/
     )
   })
 })

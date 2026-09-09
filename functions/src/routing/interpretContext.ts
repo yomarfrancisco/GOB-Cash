@@ -1,5 +1,6 @@
 import { formatZar, type RoutingState } from './conversionRouter'
 import type { RoutingIntent, StoredConstraint } from './constraints'
+import { cardLabel, machineLabel, resolveNamedCardIds } from './inventory'
 import { formatRoutingClock, formatSast, resolveExpiryFromMessage } from './routingTime'
 
 export type RecentCycleBrief = {
@@ -60,7 +61,7 @@ function machineCounts(history: number[] | undefined): string {
   for (const id of history) counts.set(id, (counts.get(id) || 0) + 1)
   return Array.from(counts.entries())
     .sort((a, b) => b[1] - a[1] || a[0] - b[0])
-    .map(([id, count]) => `${id}×${count}`)
+    .map(([id, count]) => `${machineLabel(id)}×${count}`)
     .join(', ')
 }
 
@@ -69,7 +70,7 @@ function formatAssignments(
 ): string {
   if (!assignments.length) return '(none)'
   return assignments
-    .map((row) => `Card ${row.cardId} · Machine ${row.machineId} · ${formatZar(row.amount)}`)
+    .map((row) => `${cardLabel(row.cardId)} · ${machineLabel(row.machineId)} · ${formatZar(row.amount)}`)
     .join('; ')
 }
 
@@ -111,13 +112,13 @@ export function buildRoutingLedgerBrief(params: {
 
   const cards = ledger.cards
     .map((card) => {
-      return `#${card.id} ${lastUsedLabel(card.lastCycleUsed, awaiting.cycleNumber)} rest ${card.restCycles} active ${card.activeCycles} volume ${formatZar(card.volume)} machines ${machineCounts(card.machineHistory)}`
+      return `${cardLabel(card.id)} ${lastUsedLabel(card.lastCycleUsed, awaiting.cycleNumber)} rest ${card.restCycles} active ${card.activeCycles} volume ${formatZar(card.volume)} machines ${machineCounts(card.machineHistory)}`
     })
     .join('\n')
 
   const machines = ledger.machines
     .map((machine) => {
-      return `#${machine.id} ${lastUsedLabel(machine.lastCycleUsed, awaiting.cycleNumber)} rest ${machine.restCycles} volume ${formatZar(machine.volume)}`
+      return `${machineLabel(machine.id)} ${lastUsedLabel(machine.lastCycleUsed, awaiting.cycleNumber)} rest ${machine.restCycles} volume ${formatZar(machine.volume)}`
     })
     .join('\n')
 
@@ -191,8 +192,7 @@ export function attachResolvedExpiry(
 }
 
 function mentionedCardId(message: string): number | null {
-  const match = message.match(/\b(?:card|c)\s*(\d+)\b/i)
-  return match ? Number(match[1]) : null
+  return resolveNamedCardIds(message)[0] ?? null
 }
 
 export function answerMemoryQuestion(params: {
@@ -228,12 +228,12 @@ export function answerMemoryQuestion(params: {
       excluded[0]?.resourceId ||
       Number(feedback?.summary?.match(/card\s+(\d+)/i)?.[1] || feedback?.rawMessage.match(/card\s+(\d+)/i)?.[1] || 0)
     if (feedback?.createdAtMs && resourceId) {
-      return `Yes. At ${formatSast(feedback.createdAtMs)} you took Card ${resourceId} off Cycle ${params.awaiting.cycleNumber} because it was lost.`
+      return `Yes. At ${formatSast(feedback.createdAtMs)} you took ${cardLabel(resourceId)} off Cycle ${params.awaiting.cycleNumber} because it was lost.`
     }
     if (excluded[0]) {
       const until =
         typeof excluded[0].expiresAt === 'number' ? ` until ${formatSast(excluded[0].expiresAt)}` : ''
-      return `Yes. Card ${excluded[0].resourceId} is off Cycle ${params.awaiting.cycleNumber}${until}.`
+      return `Yes. ${cardLabel(excluded[0].resourceId)} is off Cycle ${params.awaiting.cycleNumber}${until}.`
     }
   }
 
@@ -242,13 +242,13 @@ export function answerMemoryQuestion(params: {
       (row) => row.status === 'completed' && row.assignments.some((assignment) => assignment.cardId === cardId)
     )
     if (cycle?.completedAtMs) {
-      return `Card ${cardId} was last used on Cycle ${cycle.cycleNumber}, executed ${formatSast(cycle.completedAtMs)}.`
+      return `${cardLabel(cardId)} was last used on Cycle ${cycle.cycleNumber}, executed ${formatSast(cycle.completedAtMs)}.`
     }
     const card = params.ledger.cards.find((row) => row.id === cardId)
     if (card?.lastCycleUsed) {
-      return `Card ${cardId} was last used on Cycle ${card.lastCycleUsed}.`
+      return `${cardLabel(cardId)} was last used on Cycle ${card.lastCycleUsed}.`
     }
-    return `Card ${cardId} has not been used in this test yet.`
+    return `${cardLabel(cardId)} has not been used in this test yet.`
   }
 
   return null

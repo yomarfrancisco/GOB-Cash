@@ -7,6 +7,7 @@
  */
 
 import { EMPTY_OVERLAY, type RoutingOverlay } from './constraints'
+import { cardLabel, isForbiddenPair, machineLabel } from './inventory'
 
 export type RoutingConfig = {
   cardCount: number
@@ -23,7 +24,7 @@ export type RoutingConfig = {
 
 export const DEFAULT_TEST_CONFIG: RoutingConfig = {
   cardCount: 5,
-  machineCount: 3,
+  machineCount: 4,
   minCardAmount: 10_000,
   maxCardAmount: 15_000,
   startingCapital: 10_000,
@@ -302,7 +303,7 @@ function machineLoadTargets(
 
   if (!ranked.length) return loads
   if (cardCount <= ranked.length) {
-    ranked.slice(0, cardCount).forEach((machine) => loads.set(machine.id, 1))
+    ranked.forEach((machine) => loads.set(machine.id, 1))
     return loads
   }
 
@@ -334,7 +335,10 @@ export function assignMachines(
   }))
 
   for (const item of cardsWithAmounts) {
-    const candidates = state.machines.filter((machine) => (remaining.get(machine.id) || 0) > 0)
+    const candidates = state.machines.filter(
+      (machine) =>
+        (remaining.get(machine.id) || 0) > 0 && !isForbiddenPair(item.cardId, machine.id)
+    )
     candidates.sort((a, b) => {
       const aPreferred = preferred.has(a.id) ? 0 : 1
       const bPreferred = preferred.has(b.id) ? 0 : 1
@@ -356,9 +360,7 @@ export function assignMachines(
     })
 
     const chosen = candidates[0]
-    if (!chosen) {
-      throw new Error(`No machine available for card ${item.cardId}`)
-    }
+    if (!chosen) continue
     assignments.push({
       cardId: item.cardId,
       machineId: chosen.id,
@@ -369,6 +371,17 @@ export function assignMachines(
   }
 
   return assignments
+}
+
+function cardHasLegalMachine(
+  state: RoutingState,
+  cardId: number,
+  overlay: RoutingOverlay
+): boolean {
+  const excluded = new Set(overlay.excludedMachineIds)
+  return state.machines.some(
+    (machine) => !excluded.has(machine.id) && !isForbiddenPair(cardId, machine.id)
+  )
 }
 
 export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_OVERLAY): CyclePlan {
@@ -420,33 +433,59 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
     )
   }
 
-  const idleCapital = roundMoney(Math.max(0, state.availableCapital - deployedAmount))
-  const expectedProfit = roundMoney(deployedAmount * config.spread)
-  const selectedCardIds = selectCards(state, cardCount, cycleNumber, eligibleIds)
-  const mins = selectedCardIds.map((id) => overlay.cardMinById[id] ?? config.minCardAmount)
-  const maxes = selectedCardIds.map((id) => overlay.cardMaxById[id] ?? config.maxCardAmount)
-  let amounts: number[]
-  try {
-    amounts = splitAcrossCardsWithCaps(deployedAmount, mins, maxes)
-  } catch {
+  const rankedCardIds = selectCards(state, eligibleIds.size, cycleNumber, eligibleIds).filter((id) =>
+    cardHasLegalMachine(state, id, overlay)
+  )
+  if (!rankedCardIds.length) {
+    return blocked('No valid route available. No eligible card has a legal machine under current pairing bans.')
+  }
+
+  let selectedCardIds: number[] = []
+  let cardAssignments: CardAssignment[] = []
+  let usedDeployed = 0
+  for (let n = Math.min(cardCount, rankedCardIds.length); n >= 1; n--) {
+    const candidateIds = rankedCardIds.slice(0, n)
+    const sized = largestValidDeployment(state.availableCapital, {
+      ...config,
+      cardCount: candidateIds.length,
+    })
+    if (sized.deployedAmount <= 0 || sized.cardCount <= 0) continue
+    const pickCount = Math.min(sized.cardCount, candidateIds.length)
+    const picked = candidateIds.slice(0, pickCount)
+    const mins = picked.map((id) => overlay.cardMinById[id] ?? config.minCardAmount)
+    const maxes = picked.map((id) => overlay.cardMaxById[id] ?? config.maxCardAmount)
+    let nextAmounts: number[]
     try {
-      amounts = splitAcrossCards(deployedAmount, cardCount, config.minCardAmount, config.maxCardAmount)
+      nextAmounts = splitAcrossCardsWithCaps(sized.deployedAmount, mins, maxes)
     } catch {
-      return blocked(
-        `No valid route available. ${formatZar(deployedAmount)} cannot be split across the eligible cards under current limits.`
-      )
+      try {
+        nextAmounts = splitAcrossCards(
+          sized.deployedAmount,
+          pickCount,
+          config.minCardAmount,
+          config.maxCardAmount
+        )
+      } catch {
+        continue
+      }
     }
+    const assigned = assignMachines(state, picked, nextAmounts, cycleNumber, overlay)
+    if (!assigned.length) continue
+    if (assigned.length !== picked.length) {
+      n = assigned.length + 1
+      continue
+    }
+    selectedCardIds = picked
+    cardAssignments = assigned
+    usedDeployed = sized.deployedAmount
+    break
   }
-  let cardAssignments: CardAssignment[]
-  try {
-    cardAssignments = assignMachines(state, selectedCardIds, amounts, cycleNumber, overlay)
-  } catch (error) {
-    return blocked(
-      error instanceof Error
-        ? `No valid route available. ${error.message}`
-        : 'No valid route available under current machine constraints.'
-    )
+  if (!cardAssignments.length) {
+    return blocked('No valid route available under current machine pairing bans.')
   }
+  const deployedForPlan = usedDeployed
+  const idleCapital = roundMoney(Math.max(0, state.availableCapital - deployedForPlan))
+  const expectedProfit = roundMoney(deployedForPlan * config.spread)
   const usedCardIds = new Set(cardAssignments.map((row) => row.cardId))
   const usedMachineIds = new Set(cardAssignments.map((row) => row.machineId))
   const restingCardIds = state.cards.map((card) => card.id).filter((id) => !usedCardIds.has(id))
@@ -454,24 +493,26 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
     .map((machine) => machine.id)
     .filter((id) => !usedMachineIds.has(id))
   const bufferTriggerAmount = roundMoney(config.bufferAmount * config.bufferTriggerRatio)
-  const bufferUsedProjected = roundMoney(state.bufferUsed + deployedAmount)
+  const bufferUsedProjected = roundMoney(state.bufferUsed + deployedForPlan)
   const bufferActionRequired = state.bufferUsed > 0 && bufferUsedProjected > bufferTriggerAmount
   const overlayNotes = [
-    overlay.excludedCardIds.length ? `Cards ${overlay.excludedCardIds.join(', ')} excluded by admin feedback.` : '',
+    overlay.excludedCardIds.length
+      ? `${overlay.excludedCardIds.map((id) => cardLabel(id)).join(', ')} excluded by admin feedback.`
+      : '',
     overlay.excludedMachineIds.length
-      ? `Machines ${overlay.excludedMachineIds.join(', ')} unavailable by admin feedback.`
+      ? `${overlay.excludedMachineIds.map((id) => machineLabel(id)).join(', ')} unavailable by admin feedback.`
       : '',
   ]
     .filter(Boolean)
     .join(' ')
 
   const selectionReason = [
-    `Need ${cardCount} card${cardCount === 1 ? '' : 's'} for ${formatZar(deployedAmount)} within ${formatZar(config.minCardAmount)}–${formatZar(config.maxCardAmount)}.`,
+    `Need ${cardAssignments.length} card${cardAssignments.length === 1 ? '' : 's'} for ${formatZar(deployedForPlan)} within ${formatZar(config.minCardAmount)}–${formatZar(config.maxCardAmount)}.`,
     idleCapital > 0
       ? `${formatZar(idleCapital)} idle: available capital sits in a capacity gap.`
       : 'Full available capital is routable.',
-    `Cards ${selectedCardIds.join(', ')} chosen for fewest active cycles, then longest rest.`,
-    `Machines ${cardAssignments.map((row) => row.machineId).join(', ')} assigned for volume balance, then least-used pairings.`,
+    `${selectedCardIds.map((id) => cardLabel(id)).join(', ')} chosen for fewest active cycles, then longest rest.`,
+    `${cardAssignments.map((row) => machineLabel(row.machineId)).join(', ')} assigned for volume balance, then least-used pairings. Same-name pairs are never used.`,
     overlayNotes,
     bufferActionRequired
       ? `Projected buffer ${formatZar(bufferUsedProjected)} exceeds ${formatZar(bufferTriggerAmount)} working threshold.`
@@ -484,10 +525,10 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
     cycleNumber,
     startingCapital: config.startingCapital,
     availableCapital: state.availableCapital,
-    deployedAmount,
+    deployedAmount: deployedForPlan,
     idleCapital,
     expectedProfit,
-    cardCountUsed: cardCount,
+    cardCountUsed: cardAssignments.length,
     cardAssignments,
     restingCardIds,
     restingMachineIds,
@@ -585,9 +626,9 @@ const LIQUIDITY_BODY =
 
 function assignmentLine(row: CardAssignment, style: 'notification' | 'activity'): string {
   if (style === 'notification') {
-    return `Card ${row.cardId} → Machine ${row.machineId} — ${formatZar(row.amount)}`
+    return `${cardLabel(row.cardId)} → ${machineLabel(row.machineId)} — ${formatZar(row.amount)}`
   }
-  return `Card ${row.cardId} · Machine ${row.machineId} · ${formatZar(row.amount)}`
+  return `${cardLabel(row.cardId)} · ${machineLabel(row.machineId)} · ${formatZar(row.amount)}`
 }
 
 function restingLabel(ids: number[]): string {
@@ -633,7 +674,7 @@ export function buildNotificationCopy(
 ): { title: string; body: string } {
   void cycleCount
   const route = plan.cardAssignments
-    .map((row) => `${row.cardId}→M${row.machineId}`)
+    .map((row) => `${cardLabel(row.cardId)}→${machineLabel(row.machineId)}`)
     .join(' · ')
   return {
     title: `Conversion Cycle ${plan.cycleNumber}`,

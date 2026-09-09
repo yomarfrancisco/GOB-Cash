@@ -1,4 +1,11 @@
 import { attachResolvedExpiry } from './interpretContext'
+import {
+  cardLabel,
+  inventoryPromptList,
+  machineLabel,
+  resolveNamedCardIds,
+  resolveNamedMachineIds,
+} from './inventory'
 import { formatRoutingClock, hasCalendarTimeReference, parseExpiresAt } from './routingTime'
 
 type ConstraintAction =
@@ -96,7 +103,7 @@ export function contextualClarify(
   assignments: Array<{ cardId: number; machineId: number }>
 ): string {
   const named = assignments
-    .map((row) => `Card ${row.cardId} on Machine ${row.machineId}`)
+    .map((row) => `${cardLabel(row.cardId)} on ${machineLabel(row.machineId)}`)
     .join(', ')
   if (named) {
     return `This cycle currently uses ${named}. Tell me which card or machine to change, and whether it is unavailable, restored, capped, or resting.`
@@ -109,27 +116,28 @@ export function parseRoutingAssignmentsFromBody(
 ): Array<{ cardId: number; machineId: number; amount: number }> {
   if (!body) return []
   const assignments: Array<{ cardId: number; machineId: number; amount: number }> = []
-  const pattern = /Card\s+(\d+)\s*[·•]\s*Machine\s+(\d+)\s*[·•]\s*R([\d,]+(?:\.\d+)?)/gi
+  const numbered = /Card\s+(\d+)\s*[·•]\s*Machine\s+(\d+)\s*[·•]\s*R([\d,]+(?:\.\d+)?)/gi
   let match: RegExpExecArray | null
-  while ((match = pattern.exec(body))) {
+  while ((match = numbered.exec(body))) {
     assignments.push({
       cardId: Number(match[1]),
       machineId: Number(match[2]),
       amount: Number(match[3].replace(/,/g, '')),
     })
   }
-  return assignments
-}
-
-function uniqueIds(text: string, pattern: RegExp): number[] {
-  const ids: number[] = []
-  const cloned = new RegExp(pattern.source, pattern.flags)
-  let match: RegExpExecArray | null
-  while ((match = cloned.exec(text))) {
-    const id = Number(match[1])
-    if (Number.isFinite(id) && !ids.includes(id)) ids.push(id)
+  if (assignments.length) return assignments
+  const named = /^(.+?)\s*[·•]\s*(.+?)\s*[·•]\s*R([\d,]+(?:\.\d+)?)\s*$/gim
+  while ((match = named.exec(body))) {
+    const cardId = resolveNamedCardIds(match[1])[0]
+    const machineId = resolveNamedMachineIds(match[2])[0]
+    if (!cardId || !machineId) continue
+    assignments.push({
+      cardId,
+      machineId,
+      amount: Number(match[3].replace(/,/g, '')),
+    })
   }
-  return ids
+  return assignments
 }
 
 export function parseObviousFeedback(message: string): InterpretResult | null {
@@ -138,8 +146,8 @@ export function parseObviousFeedback(message: string): InterpretResult | null {
   if (hasCalendarTimeReference(text)) return null
   const lower = text.toLowerCase()
   const intents: RoutingIntent[] = []
-  const cardIds = uniqueIds(text, /\b(?:card|c)\s*(\d+)\b/gi)
-  const machineIds = uniqueIds(text, /\b(?:machine|m)\s*(\d+)\b/gi)
+  const cardIds = resolveNamedCardIds(text)
+  const machineIds = resolveNamedMachineIds(text)
   const scope: RoutingIntent['scope'] = /\buntil (i |you )?(say|tell|restore)|from now on|permanently|anymore\b/.test(
     lower
   )
@@ -152,7 +160,7 @@ export function parseObviousFeedback(message: string): InterpretResult | null {
   const nMatch = lower.match(/\b(\d+)\s+cycles?\b/)
   const nCycles = nMatch ? Number(nMatch[1]) : scope === 'n_cycles' ? 1 : null
   const restore = /\b(back|available again|restore|is up|online again)\b/.test(lower)
-  const exclude = /\b(unavailable|blocked|down|don'?t use|do not use|off|out|exclude|skip|resting|rest)\b/.test(
+  const exclude = /\b(unavailable|blocked|down|lost|don'?t use|do not use|off|out|exclude|skip|resting|rest)\b/.test(
     lower
   )
 
@@ -165,7 +173,7 @@ export function parseObviousFeedback(message: string): InterpretResult | null {
         value: null,
         scope: 'this_cycle',
         nCycles: null,
-        summary: `Card ${id} restored.`,
+        summary: `${cardLabel(id)} restored.`,
         confidence: 0.75,
       })
     }
@@ -177,7 +185,7 @@ export function parseObviousFeedback(message: string): InterpretResult | null {
         value: null,
         scope: 'this_cycle',
         nCycles: null,
-        summary: `Machine ${id} restored.`,
+        summary: `${machineLabel(id)} restored.`,
         confidence: 0.75,
       })
     }
@@ -192,8 +200,8 @@ export function parseObviousFeedback(message: string): InterpretResult | null {
         scope: rest && nCycles ? 'n_cycles' : scope,
         nCycles: rest ? nCycles || 1 : nCycles,
         summary: rest
-          ? `Card ${id} resting for the next ${nCycles || 1} cycle${(nCycles || 1) === 1 ? '' : 's'}.`
-          : `Card ${id} excluded for ${scope === 'this_cycle' ? 'this cycle only' : 'the requested window'}.`,
+          ? `${cardLabel(id)} resting for the next ${nCycles || 1} cycle${(nCycles || 1) === 1 ? '' : 's'}.`
+          : `${cardLabel(id)} excluded for ${scope === 'this_cycle' ? 'this cycle only' : 'the requested window'}.`,
         confidence: 0.72,
       })
     }
@@ -206,7 +214,7 @@ export function parseObviousFeedback(message: string): InterpretResult | null {
         value: null,
         scope,
         nCycles,
-        summary: `Machine ${id} unavailable for ${scope === 'this_cycle' ? 'this cycle only' : 'the requested window'}.`,
+        summary: `${machineLabel(id)} unavailable for ${scope === 'this_cycle' ? 'this cycle only' : 'the requested window'}.`,
         confidence: 0.72,
       })
     }
@@ -262,13 +270,14 @@ Admin: "Card 5 is unavailable for this cycle."
 {"intents":[{"action":"exclude_card","resourceType":"card","resourceId":5,"value":null,"scope":"this_cycle","nCycles":null,"expiresAt":null,"summary":"Card 5 excluded from this cycle only.","confidence":0.95}],"clarification":null}
 
 Amounts are ZAR. "R12k" is 12000.
-Cards are numbered 1..${context.cardCount}. Machines are numbered 1..${context.machineCount}.`
+${inventoryPromptList()}
+You may still accept "card 5" or "machine 3", but prefer names in summaries.`
 
   const user = `${historyBrief}
 
 Current awaiting cycle: ${context.cycleNumber}
 Current route:
-${context.assignments.map((row) => `Card ${row.cardId} → Machine ${row.machineId} — R${row.amount}`).join('\n') || '(none)'}
+${context.assignments.map((row) => `${cardLabel(row.cardId)} → ${machineLabel(row.machineId)} — R${row.amount}`).join('\n') || '(none)'}
 Active constraints:
 ${context.activeConstraints.length ? context.activeConstraints.join('\n') : '(none)'}
 

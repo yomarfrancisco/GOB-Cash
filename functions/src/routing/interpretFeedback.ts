@@ -10,6 +10,7 @@ import {
 } from './constraints'
 import type { RoutingState } from './conversionRouter'
 import { attachResolvedExpiry, buildRoutingLedgerBrief, ledgerFromRoutingState } from './interpretContext'
+import { cardLabel, inventoryPromptList, machineLabel } from './inventory'
 
 type InterpretContext = {
   cycleNumber: number
@@ -95,13 +96,14 @@ Admin: "Card 5 is unavailable for this cycle."
 {"intents":[{"action":"exclude_card","resourceType":"card","resourceId":5,"value":null,"scope":"this_cycle","nCycles":null,"expiresAt":null,"summary":"Card 5 excluded from this cycle only.","confidence":0.95}],"clarification":null}
 
 Amounts are ZAR. "R12k" is 12000.
-Cards are numbered 1..${context.state.cards.length}. Machines are numbered 1..${context.state.machines.length}.`
+${inventoryPromptList()}
+You may still accept "card 5" or "machine 3", but prefer names in summaries.`
 
   const user = `${historyBrief}
 
 Current awaiting cycle: ${context.cycleNumber}
 Current route:
-${context.assignments.map((row) => `Card ${row.cardId} → Machine ${row.machineId} — R${row.amount}`).join('\n') || '(none)'}
+${context.assignments.map((row) => `${cardLabel(row.cardId)} → ${machineLabel(row.machineId)} — R${row.amount}`).join('\n') || '(none)'}
 
 Admin message:
 ${message}`

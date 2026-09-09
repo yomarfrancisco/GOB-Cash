@@ -58,7 +58,7 @@ describe('buildRoutingLedgerBrief', () => {
     })
     assert.match(brief, /Thursday 10 September 2026, 00:15 SAST/)
     assert.match(brief, /9 of 20 cycles completed/)
-    assert.match(brief, /#5 last used cycle 8 \(2 ago\)/)
+    assert.match(brief, /Wolf last used cycle 8 \(2 ago\)/)
     assert.match(brief, /C9 executed Wednesday 9 September 2026, 23:40 SAST/)
     assert.match(brief, /expires Monday 14 September 2026, 00:00 SAST/)
   })
@@ -98,7 +98,7 @@ describe('answerMemoryQuestion', () => {
     })
     assert.equal(
       answer,
-      'Yes. At Thursday 10 September 2026, 00:23 SAST you took Card 4 off Cycle 12 because it was lost.'
+      'Yes. At Thursday 10 September 2026, 00:23 SAST you took Goblin off Cycle 12 because it was lost.'
     )
   })
 })

@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
       : await interpretRoutingFeedbackWithOpenAI(message, {
           cycleNumber,
           cardCount: typeof body?.cardCount === 'number' ? body.cardCount : 5,
-          machineCount: typeof body?.machineCount === 'number' ? body.machineCount : 3,
+          machineCount: typeof body?.machineCount === 'number' ? body.machineCount : 4,
           assignments,
           activeConstraints: Array.isArray(body?.activeConstraints)
             ? body.activeConstraints.filter((row: unknown) => typeof row === 'string')

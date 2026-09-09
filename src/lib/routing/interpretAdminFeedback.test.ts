@@ -22,6 +22,12 @@ describe('parseObviousFeedback', () => {
   it('does not treat a remember question as an exclusion', () => {
     assert.equal(parseObviousFeedback('Do you remember that it was lost?'), null)
   })
+
+  it('reads Wolf is lost as an exclusion of the Wolf card', () => {
+    const parsed = parseObviousFeedback('Wolf is lost')
+    assert.equal(parsed?.intents[0]?.action, 'exclude_card')
+    assert.equal(parsed?.intents[0]?.resourceId, 5)
+  })
 })
 
 describe('parseRoutingAssignmentsFromBody', () => {
@@ -32,6 +38,16 @@ describe('parseRoutingAssignmentsFromBody', () => {
     assert.deepEqual(rows, [
       { cardId: 4, machineId: 3, amount: 10229.52 },
       { cardId: 5, machineId: 1, amount: 10229.51 },
+    ])
+  })
+
+  it('reads named assignment lines', () => {
+    const rows = parseRoutingAssignmentsFromBody(
+      'Wolf · FNB IMANI · R10,229.52\nGoblin · Capitec BRICS · R10,000'
+    )
+    assert.deepEqual(rows, [
+      { cardId: 5, machineId: 3, amount: 10229.52 },
+      { cardId: 4, machineId: 2, amount: 10_000 },
     ])
   })
 })

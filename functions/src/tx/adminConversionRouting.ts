@@ -296,8 +296,25 @@ function publishAgentRevision(
   return { activityEventId, revisionCount: nextRevision }
 }
 
+function mergeById<T extends { id: number }>(stored: unknown, fallback: T[]): T[] {
+  if (!Array.isArray(stored) || !stored.length) return fallback
+  const byId = new Map<number, T>()
+  for (const row of stored) {
+    if (row && typeof row === 'object' && typeof (row as T).id === 'number') {
+      byId.set((row as T).id, row as T)
+    }
+  }
+  const merged = fallback.map((row) => byId.get(row.id) || row)
+  for (const [id, row] of byId) {
+    if (!fallback.some((item) => item.id === id)) merged.push(row)
+  }
+  return merged
+}
+
 function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
   const base = createInitialState(parseConfig(data.config))
+  const cards = mergeById(data.cards, base.cards)
+  const machines = mergeById(data.machines, base.machines)
   return {
     ...base,
     availableCapital: num(data.availableCapital, base.availableCapital),
@@ -305,9 +322,14 @@ function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
     completedCycles: num(data.completedCycles, 0),
     cumulativeDeployed: num(data.cumulativeDeployed, 0),
     cumulativeSpread: num(data.cumulativeSpread, 0),
-    cards: Array.isArray(data.cards) && data.cards.length ? data.cards : base.cards,
-    machines: Array.isArray(data.machines) && data.machines.length ? data.machines : base.machines,
+    cards,
+    machines,
     pairings: data.pairings && typeof data.pairings === 'object' ? data.pairings : {},
+    config: {
+      ...base.config,
+      cardCount: cards.length,
+      machineCount: machines.length,
+    },
   }
 }
 

@@ -5,6 +5,7 @@
 
 import type { RoutingState } from './conversionRouter'
 import { formatSast, hasCalendarTimeReference, parseExpiresAt } from './routingTime'
+import { cardLabel, machineLabel, resolveNamedCardIds, resolveNamedMachineIds } from './inventory'
 
 export type ConstraintAction =
   | 'exclude_card'
@@ -218,12 +219,12 @@ export function validateIntent(intent: RoutingIntent, state: RoutingState): stri
   const machineCount = state.machines.length
   if (intent.action === 'exclude_card' || intent.action === 'restore_card' || intent.action === 'set_card_max' || intent.action === 'set_card_min' || intent.action === 'rest_card') {
     if (!intent.resourceId || intent.resourceId < 1 || intent.resourceId > cardCount) {
-      return `Card ${intent.resourceId} is not in the current inventory (1–${cardCount})`
+      return `${cardLabel(intent.resourceId ?? 0)} is not in the current inventory`
     }
   }
   if (intent.action === 'exclude_machine' || intent.action === 'restore_machine' || intent.action === 'prefer_machine') {
     if (!intent.resourceId || intent.resourceId < 1 || intent.resourceId > machineCount) {
-      return `Machine ${intent.resourceId} is not in the current inventory (1–${machineCount})`
+      return `${machineLabel(intent.resourceId ?? 0)} is not in the current inventory`
     }
   }
   if ((intent.action === 'set_card_max' || intent.action === 'set_card_min' || intent.action === 'set_global_max') && !(typeof intent.value === 'number' && intent.value > 0)) {
@@ -299,14 +300,14 @@ function defaultSummary(
         : scope === 'until_cleared'
           ? 'until manually restored'
           : 'from now on'
-  if (action === 'exclude_card') return `Card ${resourceId} excluded for ${scopeText}.`
-  if (action === 'exclude_machine') return `Machine ${resourceId} unavailable for ${scopeText}.`
-  if (action === 'restore_card') return `Card ${resourceId} restored.`
-  if (action === 'restore_machine') return `Machine ${resourceId} restored.`
-  if (action === 'set_card_max') return `Card ${resourceId} max set to R${value} for ${scopeText}.`
+  if (action === 'exclude_card') return `${cardLabel(resourceId ?? 0)} excluded for ${scopeText}.`
+  if (action === 'exclude_machine') return `${machineLabel(resourceId ?? 0)} unavailable for ${scopeText}.`
+  if (action === 'restore_card') return `${cardLabel(resourceId ?? 0)} restored.`
+  if (action === 'restore_machine') return `${machineLabel(resourceId ?? 0)} restored.`
+  if (action === 'set_card_max') return `${cardLabel(resourceId ?? 0)} max set to R${value} for ${scopeText}.`
   if (action === 'set_global_max') return `Default max card size set to R${value}.`
-  if (action === 'rest_card') return `Card ${resourceId} resting for ${scopeText}.`
-  if (action === 'prefer_machine') return `Prefer Machine ${resourceId} for ${scopeText}.`
+  if (action === 'rest_card') return `${cardLabel(resourceId ?? 0)} resting for ${scopeText}.`
+  if (action === 'prefer_machine') return `Prefer ${machineLabel(resourceId ?? 0)} for ${scopeText}.`
   if (action === 'add_machine') return 'Added a new machine to inventory.'
   if (action === 'add_card') return 'Added a new card to inventory.'
   return `${action} recorded for ${scopeText}.`
@@ -445,11 +446,11 @@ export function parseFastPath(message: string): InterpretResult | null {
   const nCycles = nMatch ? Number(nMatch[1]) : scope === 'n_cycles' ? 1 : null
 
   const restore = /\b(back|available again|restore|is up|online again)\b/.test(lower)
-  const exclude = /\b(unavailable|blocked|down|don'?t use|do not use|off|out|exclude|skip|resting|rest)\b/.test(lower)
-  const prefer = /\b(use|prefer|instead)\b/.test(lower) && /\bmachine\b|\bm\s*\d/.test(lower)
+  const exclude = /\b(unavailable|blocked|down|lost|don'?t use|do not use|off|out|exclude|skip|resting|rest)\b/.test(lower)
+  const prefer = /\b(use|prefer|instead)\b/.test(lower) && /\b(machine|fnb|capitec|imani)\b|\bm\s*\d/.test(lower)
 
-  const cardIds = uniqueIds(text, /\b(?:card|c)\s*(\d+)\b/gi)
-  const machineIds = uniqueIds(text, /\b(?:machine|m)\s*(\d+)\b/gi)
+  const cardIds = resolveNamedCardIds(text)
+  const machineIds = resolveNamedMachineIds(text)
   const amountMatch = text.match(/\bR?\s*([\d,]+(?:\.\d+)?)\s*(k)?\b/i)
   let amount: number | null = null
   if (amountMatch && /\bmax\b|\bcap\b|\bonly handle\b|\blimit\b/.test(lower)) {
@@ -479,7 +480,7 @@ export function parseFastPath(message: string): InterpretResult | null {
         value: null,
         scope: 'this_cycle',
         nCycles: null,
-        summary: `Card ${id} restored.`,
+        summary: `${cardLabel(id)} restored.`,
         confidence: 0.75,
       })
     }
@@ -491,7 +492,7 @@ export function parseFastPath(message: string): InterpretResult | null {
         value: null,
         scope: 'this_cycle',
         nCycles: null,
-        summary: `Machine ${id} restored.`,
+        summary: `${machineLabel(id)} restored.`,
         confidence: 0.75,
       })
     }
@@ -580,21 +581,10 @@ export function contextualClarify(
   assignments: Array<{ cardId: number; machineId: number }>
 ): string {
   const named = assignments
-    .map((row) => `Card ${row.cardId} on Machine ${row.machineId}`)
+    .map((row) => `${cardLabel(row.cardId)} on ${machineLabel(row.machineId)}`)
     .join(', ')
   if (named) {
     return `This cycle currently uses ${named}. Tell me which card or machine to change, and whether it is unavailable, restored, capped, or resting.`
   }
   return 'Tell me which card or machine to change, and whether it is unavailable, restored, capped, or resting.'
-}
-
-function uniqueIds(text: string, pattern: RegExp): number[] {
-  const ids: number[] = []
-  let match: RegExpExecArray | null
-  const cloned = new RegExp(pattern.source, pattern.flags)
-  while ((match = cloned.exec(text))) {
-    const id = Number(match[1])
-    if (Number.isFinite(id) && !ids.includes(id)) ids.push(id)
-  }
-  return ids
 }
