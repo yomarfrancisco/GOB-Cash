@@ -1,14 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ActionSheet from '../ActionSheet'
 import { useNotificationsStore } from '@/state/notifications'
+import { useActivityUnreadStore } from '@/store/activityUnread'
 import { NotificationsList } from './NotificationsList'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
 export default function NotificationsSheet() {
   const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
   const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return
+    useActivityUnreadStore.getState().markSeen()
+  }, [isNotificationsOpen])
 
   return (
     <ActionSheet

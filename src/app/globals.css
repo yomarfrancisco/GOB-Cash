@@ -1923,6 +1923,20 @@ body {
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  position: relative;
+}
+
+.profile-settings-unread-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background-color: #FF3B30;
+  border: 2px solid #E9E9EB;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .profile-settings-whatsapp {

@@ -38,6 +38,7 @@ import PaymentsSheet from '@/components/PaymentsSheet'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
 import NotificationsSheet from '@/components/notifications/NotificationsSheet'
 import { useNotificationsStore } from '@/state/notifications'
+import { selectHasUnseenLiquidityActivity, useActivityUnreadStore } from '@/store/activityUnread'
 import { useNotificationStore } from '@/store/notifications'
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
@@ -407,6 +408,7 @@ export default function ProfileClient() {
   const { open: openSupport } = useSupportSheet()
   const { open: openBankingDetails } = useBankingDetailsSheet()
   const { openNotifications } = useNotificationsStore()
+  const hasUnseenActivity = useActivityUnreadStore(selectHasUnseenLiquidityActivity)
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
   const { rates: fxRates } = useFxRates(['MZN'])
@@ -912,32 +914,12 @@ export default function ProfileClient() {
                   >
                     <div className="profile-settings-left">
                       <div className="profile-settings-icon">
+                        {hasUnseenActivity ? (
+                          <span className="profile-settings-unread-dot" aria-label="New liquidity manager activity" />
+                        ) : null}
                         <Brain size={22} strokeWidth={2} style={{ color: '#111' }} />
                       </div>
                       <span className="profile-settings-label">AI Liquidity Manager</span>
-                    </div>
-                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                  </button>
-                  <button
-                    className="profile-settings-row"
-                    type="button"
-                    onClick={() => {
-                      if (typeof window === 'undefined') return
-                      window.location.href = 'https://wa.me/27823306256'
-                    }}
-                  >
-                    <div className="profile-settings-left">
-                      <div className="profile-settings-icon">
-                        <Image
-                          src="/assets/WhatsApp_Black 2.png"
-                          alt=""
-                          width={22}
-                          height={22}
-                          className="profile-settings-whatsapp"
-                          unoptimized
-                        />
-                      </div>
-                      <span className="profile-settings-label">Contact us</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>

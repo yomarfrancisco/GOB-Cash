@@ -17,6 +17,7 @@ import { useUserProfileStore } from '@/store/userProfile'
 import { useWalletStore } from '@/store/wallets'
 import { useActivityStore } from '@/store/activity'
 import { useNotificationStore } from '@/store/notifications'
+import { useActivityUnreadStore } from '@/store/activityUnread'
 import { clearContactSyncState } from './contactSyncState'
 
 export async function logout(): Promise<void> {
@@ -69,8 +70,10 @@ export async function logout(): Promise<void> {
 
     useActivityStore.getState().clear()
     useNotificationStore.getState().clearNotifications()
+    useActivityUnreadStore.getState().reset()
     try {
       localStorage.removeItem('activity-store-v2')
+      localStorage.removeItem('activity-unread-v1')
     } catch {
       // private mode
     }
