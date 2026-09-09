@@ -157,6 +157,7 @@ function publishAgentRevision(
     awaitingConfirm: boolean
     routingBlocked: boolean
     avatarKind?: string
+    userReply?: string
   }
 ): { activityEventId: string; revisionCount: number } {
   const nextRevision = params.revisionCount + 1
@@ -177,6 +178,12 @@ function publishAgentRevision(
       awaitingConfirm: false,
       status: 'superseded',
       routingBlocked: false,
+      ...(params.userReply
+        ? {
+            userReply: params.userReply,
+            userRepliedAt: params.now,
+          }
+        : {}),
       updatedAt: params.now,
     },
     { merge: true }
@@ -924,6 +931,7 @@ export const admin_submitConversionRoutingFeedback = functions
           amountValue: stored.deployedAmount,
           awaitingConfirm: stored.deployedAmount > 0,
           routingBlocked: stored.deployedAmount <= 0,
+          userReply: rawMessage,
         })
         tx.set(testRef.collection('feedback').doc(feedbackId), {
           id: feedbackId,
@@ -993,6 +1001,7 @@ export const admin_submitConversionRoutingFeedback = functions
         amountValue: plan.deployedAmount,
         awaitingConfirm: !blocked,
         routingBlocked: blocked,
+        userReply: rawMessage,
       })
       tx.set(testRef.collection('feedback').doc(feedbackId), {
         id: feedbackId,

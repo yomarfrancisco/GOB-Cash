@@ -27,6 +27,7 @@ export type ActivityEventDoc = {
   feedbackAck?: string
   routingBlocked?: boolean
   routingRevision?: boolean
+  userReply?: string
 }
 
 function createdAtMs(value: ActivityEventDoc['createdAt']): number {
@@ -134,6 +135,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       ? false
       : data.awaitingConfirm === true || data.status === 'awaiting_execution',
     routingRevision: data.routingRevision === true,
+    userReply: typeof data.userReply === 'string' && data.userReply.trim() ? data.userReply.trim() : undefined,
   }
 }
 

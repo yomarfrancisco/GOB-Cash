@@ -919,7 +919,7 @@ export default function ProfileClient() {
                         ) : null}
                         <Brain size={22} strokeWidth={2} style={{ color: '#111' }} />
                       </div>
-                      <span className="profile-settings-label">AI Liquidity Manager</span>
+                      <span className="profile-settings-label">Liquidity Manager</span>
                     </div>
                     <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                   </button>
