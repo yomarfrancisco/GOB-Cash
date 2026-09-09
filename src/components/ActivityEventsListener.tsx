@@ -5,6 +5,7 @@ import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import { DEPOSIT_CREDITED_KIND } from '@/lib/depositProofActivity'
 import { useAuthStore } from '@/store/auth'
 import { useNotificationStore } from '@/store/notifications'
+import { latestLiquidityActivityAt, useActivityUnreadStore } from '@/store/activityUnread'
 import {
   tx_sendMyMonthlySettlementStatement,
   tx_sendMyWeeklySettlementStatement,
@@ -76,7 +77,9 @@ export default function ActivityEventsListener() {
     if (!isAuthed) return
 
     const unsubscribe = subscribeToActivityEvents(
-      () => {},
+      (items) => {
+        useActivityUnreadStore.getState().syncLatest(latestLiquidityActivityAt(items))
+      },
       {
         onNew: (items) => {
           const pushNotification = useNotificationStore.getState().pushNotification

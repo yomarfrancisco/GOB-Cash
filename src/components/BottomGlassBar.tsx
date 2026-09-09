@@ -5,8 +5,8 @@ import Link from 'next/link'
 import clsx from 'clsx'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
-import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useUserProfileStore } from '@/store/userProfile'
+import { selectHasUnseenLiquidityActivity, useActivityUnreadStore } from '@/store/activityUnread'
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import { USER_PLACEHOLDER_AVATAR } from '@/lib/avatarAssets'
@@ -25,7 +25,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   // Select values separately to prevent infinite re-renders from object creation in selector
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
-  const { hasUnreadNotification } = useFinancialInboxStore()
+  const hasUnseenActivity = useActivityUnreadStore(selectHasUnseenLiquidityActivity)
   const { profile } = useUserProfileStore()
   
   const handleCenterButtonClick = () => {
@@ -138,8 +138,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                   sizes="28px"
                 />
               </div>
-              {hasUnreadNotification && (
-                <span className="nav-notification-dot" aria-label="Unread messages" />
+              {hasUnseenActivity && (
+                <span className="nav-notification-dot" aria-label="New liquidity manager activity" />
               )}
             </div>
           ) : isAuthed && !profile.avatarUrl ? (
@@ -169,8 +169,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                   })()}
                 </span>
               </div>
-              {hasUnreadNotification && (
-                <span className="nav-notification-dot" aria-label="Unread messages" />
+              {hasUnseenActivity && (
+                <span className="nav-notification-dot" aria-label="New liquidity manager activity" />
               )}
             </div>
           ) : (
@@ -182,9 +182,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 width={28} 
                 height={28} 
               />
-              {hasUnreadNotification && (
-                <span className="nav-notification-dot" aria-label="Unread messages" />
-              )}
             </>
           )}
         </Link>
