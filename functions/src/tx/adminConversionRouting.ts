@@ -42,6 +42,7 @@ import {
 } from '../routing/constraints'
 import { interpretAdminFeedback, llmApiKey } from '../routing/interpretFeedback'
 import {
+  answerMemoryQuestion,
   attachResolvedExpiry,
   buildRoutingLedgerBrief,
   ledgerFromRoutingState,
@@ -50,8 +51,8 @@ import {
 } from '../routing/interpretContext'
 import {
   firestoreTimestampMs,
-  hasCalendarTimeReference,
   hasFutureTimeConstraint,
+  isMemoryOrHistoryQuestion,
 } from '../routing/routingTime'
 import {
   costMznPerZarFromSell,
@@ -974,6 +975,17 @@ export const admin_submitConversionRoutingFeedback = functions
       issuedAtMs,
     }
 
+    const memoryAnswer = isMemoryOrHistoryQuestion(rawMessage)
+      ? answerMemoryQuestion({
+          message: rawMessage,
+          nowMs,
+          constraints,
+          recentFeedback,
+          recentCycles,
+          ledger: ledgerFromRoutingState(liveState),
+          awaiting: { cycleNumber },
+        })
+      : null
     const clientSentIntents = Array.isArray(data?.intents)
     const providedIntents = attachResolvedExpiry(
       clientSentIntents
@@ -988,9 +1000,7 @@ export const admin_submitConversionRoutingFeedback = functions
       typeof data?.clarification === 'string' ? data.clarification : null
     )
     const recoveredFastPath = providedIntents.length ? null : parseFastPath(rawMessage)
-    const looksLikeHistoryQuestion =
-      /\b(when|what time|how long|which day|did we|last used|expect)\b/i.test(rawMessage) ||
-      hasCalendarTimeReference(rawMessage)
+    const looksLikeHistoryQuestion = isMemoryOrHistoryQuestion(rawMessage)
     const missingResolvedTime =
       hasFutureTimeConstraint(rawMessage) &&
       !providedIntents.some(
@@ -999,7 +1009,13 @@ export const admin_submitConversionRoutingFeedback = functions
     const shouldReinterpret =
       Boolean(llmApiKey()) &&
       ((providedIntents.length === 0 && looksLikeHistoryQuestion) || missingResolvedTime)
-    const interpreted = providedIntents.length && !shouldReinterpret
+    const interpreted = memoryAnswer
+      ? {
+          intents: [] as RoutingIntent[],
+          clarification: memoryAnswer,
+          interpreter: 'fast_path' as const,
+        }
+      : providedIntents.length && !shouldReinterpret
       ? {
           intents: providedIntents,
           clarification: clientClarification,

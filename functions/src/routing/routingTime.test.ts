@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   formatRoutingClock,
+  formatVisibleSast,
   hasCalendarTimeReference,
   hasFutureTimeConstraint,
+  isMemoryOrHistoryQuestion,
   resolveExpiryFromMessage,
   sastToUtcMs,
 } from './routingTime'
@@ -36,6 +38,16 @@ describe('time phrases', () => {
       resolveExpiryFromMessage('Card 5 is unavailable until Monday', THURSDAY_0015_SAST),
       sastToUtcMs(2026, 9, 14, 0, 0)
     )
+  })
+
+  it('treats remember/when questions as history, not new constraints', () => {
+    assert.equal(isMemoryOrHistoryQuestion('Do you remember that it was lost?'), true)
+    assert.equal(isMemoryOrHistoryQuestion('Card 5 is unavailable until Monday'), false)
+    assert.equal(isMemoryOrHistoryQuestion('Card 5 is unavailable for this cycle.'), false)
+  })
+
+  it('shows a clock time for same-day activity', () => {
+    assert.equal(formatVisibleSast(THURSDAY_0015_SAST, sastToUtcMs(2026, 9, 10, 0, 24)), '00:15')
   })
 
   it('resolves rest of today and a clock time', () => {

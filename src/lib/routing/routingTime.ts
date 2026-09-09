@@ -85,6 +85,18 @@ export function formatSast(ms: number): string {
   return `${WEEKDAYS[p.weekday]} ${p.day} ${MONTHS[p.month - 1]} ${p.year}, ${hh}:${mm} SAST`
 }
 
+export function formatVisibleSast(ms: number, nowMs = Date.now()): string {
+  const p = sastParts(ms)
+  const n = sastParts(nowMs)
+  const hhmm = `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`
+  if (p.year === n.year && p.month === n.month && p.day === n.day) return hhmm
+  const yesterday = sastParts(nowMs - 86_400_000)
+  if (p.year === yesterday.year && p.month === yesterday.month && p.day === yesterday.day) {
+    return `Yesterday ${hhmm}`
+  }
+  return `${p.day} ${MONTHS[p.month - 1].slice(0, 3)} ${hhmm}`
+}
+
 export function formatRoutingClock(nowMs: number): RoutingClock {
   const p = sastParts(nowMs)
   const hh = String(p.hour).padStart(2, '0')
@@ -125,6 +137,19 @@ export function hasCalendarTimeReference(message: string): boolean {
 export function hasFutureTimeConstraint(message: string): boolean {
   const text = stripManualUntil(message)
   return /\b(until|by|before|for the rest)\b/i.test(text) && hasCalendarTimeReference(text)
+}
+
+export function isMemoryOrHistoryQuestion(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  if (!text) return false
+  if (hasFutureTimeConstraint(message)) return false
+  const namesAChange =
+    /\b(unavailable|blocked|don'?t use|do not use|restore|cap|limit|prefer|resting|exclude)\b/.test(text) &&
+    /\b(?:card|machine|c|m)\s*\d+/.test(text)
+  if (namesAChange) return false
+  return /\b(remember|recall|remind|when|what time|how long|which day|did we|did i|did you|last used|already|told you|you know|was it|still lost|expect)\b/.test(
+    text
+  )
 }
 
 function parseClockTime(lower: string): { hour: number; minute: number } | null {

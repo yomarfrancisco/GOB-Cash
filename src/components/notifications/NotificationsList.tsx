@@ -14,6 +14,7 @@ import {
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
+import { formatVisibleSast } from '@/lib/routing/routingTime'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
 import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
@@ -337,7 +338,11 @@ function ActivityItemCard({
       <div className={styles.activityContent}>
         <div className={styles.activityHeader}>
           <div className={styles.activityTitle}>{item.title}</div>
-          <div className={styles.activityTime}>{formatRelativeShort(item.createdAt)}</div>
+          <div className={styles.activityTime}>
+            {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+              ? formatVisibleSast(item.createdAt)
+              : formatRelativeShort(item.createdAt)}
+          </div>
         </div>
         {item.thinking ? (
           <div className={styles.thinkingDots} aria-label="Thinking" aria-live="polite">
@@ -350,7 +355,12 @@ function ActivityItemCard({
             {item.body ? <div className={styles.activityBody}>{item.body}</div> : null}
             {item.userReply ? (
               <div className={styles.activityUserReply}>
-                <div className={styles.activityUserReplyLabel}>You</div>
+                <div className={styles.activityUserReplyLabel}>
+                  <span>You</span>
+                  {item.userRepliedAt ? (
+                    <span className={styles.activityUserReplyTime}>{formatVisibleSast(item.userRepliedAt)}</span>
+                  ) : null}
+                </div>
                 <div className={styles.activityUserReplyBody}>{item.userReply}</div>
               </div>
             ) : null}
@@ -581,7 +591,9 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     ]
     return merged
       .map((item) =>
-        pendingReplies[item.id] && !item.userReply ? { ...item, userReply: pendingReplies[item.id] } : item
+        pendingReplies[item.id] && !item.userReply
+          ? { ...item, userReply: pendingReplies[item.id], userRepliedAt: item.userRepliedAt || Date.now() }
+          : item
       )
       .sort((a, b) => b.createdAt - a.createdAt)
   }, [localItems, remoteItems, thinkingItem, pendingReplies])
