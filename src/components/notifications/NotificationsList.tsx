@@ -9,6 +9,7 @@ import {
   downloadConversionProof,
   downloadMonthlySettlementProof,
   downloadWeeklySettlementProof,
+  admin_submitConversionRoutingFeedback,
 } from '@/lib/transactions/clientFunctions'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
@@ -195,11 +196,18 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
+  const [replyOpen, setReplyOpen] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [replyState, setReplyState] = useState<'idle' | 'loading'>('idle')
+  const [replyError, setReplyError] = useState('')
   const showDownload = canDownloadProof(item)
   const showKycLink = item.hasKycLink === true
-  const showConfirm =
-    item.kind === 'CONVERSION_ROUTING_INSTRUCTION' &&
+  const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+  const isAwaitingRouting =
+    isRoutingInstruction &&
     (item.awaitingConfirm === true || item.status === 'awaiting_execution')
+  const showConfirm = isAwaitingRouting && item.routingBlocked !== true
+  const showReply = isAwaitingRouting && item.routingAction !== 'replenish'
 
   const handleDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
@@ -254,6 +262,37 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
       cycleNumber: item.cycleNumber,
       routingAction: isReplenish ? 'replenish' : 'deploy',
     })
+  }
+
+  const handleToggleReply = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    setReplyError('')
+    setReplyOpen((open) => !open)
+  }
+
+  const handleSubmitReply = async (event: React.FormEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const message = replyText.trim()
+    if (!message || replyState !== 'idle') return
+    setReplyState('loading')
+    setReplyError('')
+    try {
+      const result = await admin_submitConversionRoutingFeedback({
+        message,
+        testRunId: item.testRunId,
+        cycleNumber: item.cycleNumber,
+      })
+      setReplyText('')
+      setReplyOpen(false)
+      if (result.acknowledgement) {
+        // Activity snapshot will replace the row body; keep composer closed.
+      }
+    } catch (error) {
+      setReplyError(error instanceof Error ? error.message : 'Could not apply that reply')
+    } finally {
+      setReplyState('idle')
+    }
   }
 
   return (
@@ -313,24 +352,73 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
           </button>
         )}
         {showConfirm && (
-          <button
-            type="button"
-            className={[
-              styles.confirmButton,
-              confirmState === 'loading' ? styles.confirmButtonLoading : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            aria-label="Execute conversion cycle"
-            aria-busy={confirmState !== 'idle'}
-            disabled={confirmState !== 'idle'}
-            onClick={handleExecuteRouting}
-          >
-            <Check size={16} strokeWidth={2.4} />
-            Execute
-          </button>
+          <div className={styles.activityActionRow}>
+            <button
+              type="button"
+              className={[
+                styles.confirmButton,
+                confirmState === 'loading' ? styles.confirmButtonLoading : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-label="Execute conversion cycle"
+              aria-busy={confirmState !== 'idle'}
+              disabled={confirmState !== 'idle'}
+              onClick={handleExecuteRouting}
+            >
+              <Check size={16} strokeWidth={2.4} />
+              Execute
+            </button>
+            {showReply && (
+              <button
+                type="button"
+                className={styles.replyButton}
+                aria-label="Reply to conversion instruction"
+                aria-expanded={replyOpen}
+                onClick={handleToggleReply}
+              >
+                Reply
+              </button>
+            )}
+          </div>
         )}
-        {item.kind === 'CONVERSION_ROUTING_INSTRUCTION' && item.status === 'completed' && (
+        {!showConfirm && showReply && (
+          <div className={styles.activityActionRow}>
+            <button
+              type="button"
+              className={styles.replyButton}
+              aria-label="Reply to conversion instruction"
+              aria-expanded={replyOpen}
+              onClick={handleToggleReply}
+            >
+              Reply
+            </button>
+          </div>
+        )}
+        {showReply && replyOpen && (
+          <form className={styles.replyComposer} onSubmit={handleSubmitReply} onClick={(event) => event.stopPropagation()}>
+            <textarea
+              className={styles.replyInput}
+              value={replyText}
+              onChange={(event) => setReplyText(event.target.value)}
+              placeholder="Card 5 is unavailable for this cycle."
+              rows={3}
+              disabled={replyState !== 'idle'}
+            />
+            {replyError ? <div className={styles.replyError}>{replyError}</div> : null}
+            <button
+              type="submit"
+              className={styles.replySend}
+              disabled={replyState !== 'idle' || !replyText.trim()}
+            >
+              {replyState === 'loading' ? 'Reading…' : 'Send'}
+            </button>
+          </form>
+        )}
+        {isRoutingInstruction && item.feedbackAck && !replyOpen && (
+          <div className={styles.replyAck}>{item.feedbackAck}</div>
+        )}
+        {isRoutingInstruction && item.status === 'completed' && (
           <span className={styles.executedLabel}>
             <Check size={16} strokeWidth={2.4} />
             Executed

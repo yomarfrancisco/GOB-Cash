@@ -64,5 +64,6 @@ export {
   admin_ensureConversionRoutingTest,
   admin_confirmConversionRoutingCycle,
   admin_getConversionRoutingStatus,
+  admin_submitConversionRoutingFeedback,
 } from './tx/adminConversionRouting'
 

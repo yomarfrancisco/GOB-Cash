@@ -25,6 +25,17 @@ import {
   type RoutingState,
 } from '../routing/conversionRouter'
 import {
+  EMPTY_OVERLAY,
+  applyIntentsToState,
+  expireConstraints,
+  overlayFromConstraints,
+  sanitizeIntent,
+  validateIntent,
+  type RoutingIntent,
+  type StoredConstraint,
+} from '../routing/constraints'
+import { interpretAdminFeedback } from '../routing/interpretFeedback'
+import {
   costMznPerZarFromSell,
   fetchQuotedMznPerZar,
   liveGrossSpreadRate,
@@ -75,6 +86,38 @@ function parseConfig(raw: unknown): RoutingConfig {
 
 function num(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function constraintsFromDoc(data: admin.firestore.DocumentData): StoredConstraint[] {
+  return Array.isArray(data.constraints) ? (data.constraints as StoredConstraint[]) : []
+}
+
+function storedPlanFromCycle(
+  data: admin.firestore.DocumentData,
+  cycleNumber: number
+): CyclePlan {
+  const assignments = Array.isArray(data.cardAssignments) ? data.cardAssignments : []
+  return {
+    cycleNumber: num(data.cycleNumber, cycleNumber),
+    startingCapital: num(data.startingCapital, 0),
+    availableCapital: num(data.availableCapital, 0),
+    deployedAmount: num(data.deployedAmount, 0),
+    idleCapital: num(data.idleCapital, 0),
+    expectedProfit: num(data.expectedProfit, 0),
+    cardCountUsed: assignments.length,
+    cardAssignments: assignments,
+    restingCardIds: Array.isArray(data.restingCardIds) ? data.restingCardIds : [],
+    restingMachineIds: Array.isArray(data.restingMachineIds) ? data.restingMachineIds : [],
+    bufferUsedBefore: num(data.bufferUsed, 0),
+    bufferUsedProjected: num(data.bufferUsedProjected, 0),
+    bufferTriggerAmount: 0,
+    bufferActionRequired: data.bufferActionRequired === true,
+    selectionReason: typeof data.selectionReason === 'string' ? data.selectionReason : '',
+  }
+}
+
+function overlayForDoc(data: admin.firestore.DocumentData) {
+  return overlayFromConstraints(constraintsFromDoc(data))
 }
 
 function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
@@ -203,22 +246,19 @@ function writeIssuedCycle(
   testRunId: string,
   state: RoutingState,
   now: admin.firestore.Timestamp,
-  quotes: { sellRate: number; costRate: number }
+  quotes: { sellRate: number; costRate: number },
+  overlay = EMPTY_OVERLAY
 ): { plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' } {
-  const replenish = planReplenish(state, quotes.costRate)
+  const replenish = planReplenish(state, quotes.costRate, overlay)
   if (replenish) {
     return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now)
   }
 
-  const plan = planCycle(state)
-  if (plan.deployedAmount <= 0 || plan.cardCountUsed <= 0) {
-    throw new functions.https.HttpsError(
-      'failed-precondition',
-      'No valid card routing exists for the current available capital'
-    )
-  }
-
-  const notification = buildNotificationCopy(plan, state.config.cycleCount)
+  const plan = planCycle(state, overlay)
+  const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
+  const notification = blocked
+    ? { title: `Conversion Cycle ${plan.cycleNumber}`, body: 'No valid route under current constraints\nReply to restore a card or machine' }
+    : buildNotificationCopy(plan, state.config.cycleCount)
   const activity = buildActivityCopy(
     plan,
     state.config.cycleCount,
@@ -245,7 +285,8 @@ function writeIssuedCycle(
     amountSign: 'debit',
     txId: activityEventId,
     hasDownloadButton: false,
-    awaitingConfirm: true,
+    awaitingConfirm: !blocked,
+    routingBlocked: blocked,
     status: 'awaiting_execution',
     routingAction: 'deploy',
     testRunId,
@@ -406,6 +447,7 @@ async function startNewTest(adminUid: string, forceNew: boolean) {
     cards: state.cards,
     machines: state.machines,
     pairings: {},
+    constraints: [],
     createdAt: now,
     updatedAt: now,
   })
@@ -559,7 +601,7 @@ export const admin_confirmConversionRoutingCycle = functions
             ? { txId: conversionTxId, hasDownloadButton: true }
             : {}),
         })
-        const next = writeIssuedCycle(tx, adminUid, testRunId, cleared, now, quotes)
+        const next = writeIssuedCycle(tx, adminUid, testRunId, cleared, now, quotes, overlayForDoc(testData))
         return {
           nextState: cleared,
           nextCycle: next.plan,
@@ -582,13 +624,20 @@ export const admin_confirmConversionRoutingCycle = functions
         )
       }
 
-      const plan = planCycle(state)
+      const plan = storedPlanFromCycle(cycleData, cycleNumber)
       if (plan.cycleNumber !== cycleNumber) {
         throw new functions.https.HttpsError('internal', 'Stored cycle does not match routing engine state')
+      }
+      if (plan.deployedAmount <= 0 || plan.cardCountUsed <= 0) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'No executable route is available. Reply to restore a card or machine first.'
+        )
       }
 
       const actualProfit = suppliedProfit ?? roundMoney(plan.deployedAmount * liveSpread)
       const nextState = completeCycle(state, plan, actualProfit)
+      const remainingConstraints = expireConstraints(constraintsFromDoc(testData), cycleNumber)
       const completedCopy = buildActivityCopy(
         plan,
         state.config.cycleCount,
@@ -634,6 +683,7 @@ export const admin_confirmConversionRoutingCycle = functions
             status: 'completed',
             awaitingCycleNumber: null,
             awaitingKind: null,
+            constraints: remainingConstraints,
             completedAt: now,
             updatedAt: now,
           },
@@ -646,8 +696,10 @@ export const admin_confirmConversionRoutingCycle = functions
           testRunId,
           { ...nextState, config: { ...nextState.config, spread: liveSpread } },
           now,
-          quotes
+          quotes,
+          overlayFromConstraints(remainingConstraints)
         ).plan
+        tx.set(testRef, { constraints: remainingConstraints, updatedAt: now }, { merge: true })
       }
 
       return {
@@ -667,4 +719,208 @@ export const admin_confirmConversionRoutingCycle = functions
       nextDeployedAmount: result.nextCycle?.deployedAmount ?? null,
       completed: result.testComplete,
     })
+  })
+
+export const admin_submitConversionRoutingFeedback = functions
+  .region('us-central1')
+  .https.onCall(async (data, context) => {
+    const adminUid = assertRoutingAdmin(context)
+    const rawMessage = typeof data?.message === 'string' ? data.message.trim() : ''
+    if (!rawMessage) {
+      throw new functions.https.HttpsError('invalid-argument', 'Reply text is required')
+    }
+
+    const requestedRun = typeof data?.testRunId === 'string' ? data.testRunId : undefined
+    const requestedCycle = typeof data?.cycleNumber === 'number' ? data.cycleNumber : undefined
+    const testRunId = requestedRun || (await currentTestId(adminUid))
+    if (!testRunId) {
+      throw new functions.https.HttpsError('not-found', 'No conversion routing test is active')
+    }
+
+    const testRef = db.collection(TESTS).doc(testRunId)
+    const testSnap = await testRef.get()
+    if (!testSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Conversion routing test not found')
+    }
+    const testData = testSnap.data() || {}
+    if (testData.status !== 'active') {
+      throw new functions.https.HttpsError('failed-precondition', 'Conversion routing test is not active')
+    }
+    if (testData.awaitingKind === 'replenish') {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'Reply is available on conversion instructions, not liquidity replenishment'
+      )
+    }
+
+    const cycleNumber = requestedCycle || num(testData.awaitingCycleNumber, 0)
+    if (cycleNumber <= 0 || num(testData.awaitingCycleNumber, 0) !== cycleNumber) {
+      throw new functions.https.HttpsError('failed-precondition', 'No awaiting conversion instruction to revise')
+    }
+
+    const state = stateFromDoc(testData)
+    const constraints = constraintsFromDoc(testData)
+    const cycleRef = testRef.collection('cycles').doc(String(cycleNumber))
+    const cycleSnap = await cycleRef.get()
+    if (!cycleSnap.exists || cycleSnap.data()?.status !== 'awaiting_execution') {
+      throw new functions.https.HttpsError('failed-precondition', 'This cycle is no longer awaiting execution')
+    }
+    const stored = storedPlanFromCycle(cycleSnap.data() || {}, cycleNumber)
+    const quotes = await applyLiveQuotes(state)
+    const liveState = { ...state, config: { ...state.config, spread: quotes.state.config.spread } }
+
+    const hasProvidedInterpretation = Array.isArray(data?.intents)
+    const providedIntents = hasProvidedInterpretation
+      ? (data.intents as unknown[]).map((row) => sanitizeIntent(row)).filter((row): row is RoutingIntent => Boolean(row))
+      : []
+    const interpreted = hasProvidedInterpretation
+      ? {
+          intents: providedIntents,
+          clarification: typeof data?.clarification === 'string' ? data.clarification : null,
+          interpreter: 'llm' as const,
+        }
+      : await interpretAdminFeedback(rawMessage, {
+          cycleNumber,
+          assignments: stored.cardAssignments,
+          state: liveState,
+          constraints,
+        })
+
+    const validIntents: RoutingIntent[] = []
+    const intentErrors: string[] = []
+    for (const intent of interpreted.intents) {
+      const error = validateIntent(intent, liveState)
+      if (error) intentErrors.push(error)
+      else validIntents.push(intent)
+    }
+
+    const now = admin.firestore.Timestamp.now()
+    const feedbackId = testRef.collection('feedback').doc().id
+    const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(eventId(testRunId, cycleNumber))
+
+    if (!validIntents.length) {
+      const clarification =
+        interpreted.clarification ||
+        intentErrors[0] ||
+        'I am not sure how to apply that. Name a card or machine and whether it is unavailable, restored, capped, or resting.'
+      await eventRef.update({
+        feedbackAck: clarification,
+        updatedAt: now,
+      })
+      await testRef.collection('feedback').doc(feedbackId).set({
+        id: feedbackId,
+        adminUserId: adminUid,
+        cycleNumber,
+        rawMessage,
+        interpretedIntent: interpreted,
+        status: 'clarification',
+        createdAt: now,
+      })
+      await cycleRef.collection('thread').add({ role: 'admin', text: rawMessage, createdAt: now })
+      await cycleRef.collection('thread').add({ role: 'system', text: clarification, createdAt: now })
+      return {
+        testRunId,
+        cycleNumber,
+        status: 'clarification',
+        acknowledgement: clarification,
+        interpreter: interpreted.interpreter,
+      }
+    }
+
+    const applied = applyIntentsToState(liveState, constraints, validIntents, cycleNumber, feedbackId)
+    const overlay = overlayFromConstraints(applied.constraints)
+    const plan = planCycle(applied.state, overlay)
+    const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
+    const acknowledgement = applied.summaries.join(' ')
+    const activity = buildActivityCopy(
+      plan,
+      applied.state.config.cycleCount,
+      'awaiting_execution',
+      applied.state.config.spread,
+      quotes,
+      { revisionReason: acknowledgement }
+    )
+    const notification = blocked
+      ? {
+          title: `Conversion Cycle ${plan.cycleNumber}`,
+          body: 'No valid route under current constraints\nReply to restore a card or machine',
+        }
+      : buildNotificationCopy(plan, applied.state.config.cycleCount)
+
+    await db.runTransaction(async (tx) => {
+      const freshTest = await tx.get(testRef)
+      const freshCycle = await tx.get(cycleRef)
+      if (!freshTest.exists || freshTest.data()?.awaitingCycleNumber !== cycleNumber) {
+        throw new functions.https.HttpsError('aborted', 'Cycle changed while feedback was being interpreted')
+      }
+      if (!freshCycle.exists || freshCycle.data()?.status !== 'awaiting_execution') {
+        throw new functions.https.HttpsError('aborted', 'Cycle is no longer awaiting execution')
+      }
+      const previousAssignments = freshCycle.data()?.cardAssignments || stored.cardAssignments
+      tx.set(testRef.collection('feedback').doc(feedbackId), {
+        id: feedbackId,
+        adminUserId: adminUid,
+        cycleNumber,
+        rawMessage,
+        interpretedIntent: validIntents,
+        interpreter: interpreted.interpreter,
+        interpretationSummary: acknowledgement,
+        status: 'applied',
+        createdAt: now,
+      })
+      tx.set(cycleRef.collection('thread').doc(), { role: 'admin', text: rawMessage, createdAt: now })
+      tx.set(cycleRef.collection('thread').doc(), { role: 'system', text: acknowledgement, createdAt: now })
+      tx.update(cycleRef, {
+        previousAssignments,
+        cardAssignments: plan.cardAssignments,
+        machineAssignments: plan.cardAssignments.map((row) => ({
+          machineId: row.machineId,
+          cardId: row.cardId,
+          amount: row.amount,
+        })),
+        deployedAmount: plan.deployedAmount,
+        idleCapital: plan.idleCapital,
+        expectedProfit: plan.expectedProfit,
+        restingCardIds: plan.restingCardIds,
+        restingMachineIds: plan.restingMachineIds,
+        selectionReason: plan.selectionReason,
+        revisionReason: acknowledgement,
+        sellRate: quotes.sellRate,
+        costRate: quotes.costRate,
+        spreadRate: applied.state.config.spread,
+        updatedAt: now,
+      })
+      tx.update(eventRef, {
+        title: activity.title,
+        body: activity.body,
+        dropdownTitle: notification.title,
+        dropdownBody: notification.body,
+        amountValue: plan.deployedAmount,
+        awaitingConfirm: !blocked,
+        routingBlocked: blocked,
+        feedbackAck: acknowledgement,
+        updatedAt: now,
+      })
+      tx.set(
+        testRef,
+        {
+          config: applied.state.config,
+          cards: applied.state.cards,
+          machines: applied.state.machines,
+          constraints: applied.constraints,
+          updatedAt: now,
+        },
+        { merge: true }
+      )
+    })
+
+    return {
+      testRunId,
+      cycleNumber,
+      status: blocked ? 'blocked' : 'revised',
+      acknowledgement,
+      interpreter: interpreted.interpreter,
+      deployedAmount: plan.deployedAmount,
+      cardAssignments: plan.cardAssignments,
+    }
   })

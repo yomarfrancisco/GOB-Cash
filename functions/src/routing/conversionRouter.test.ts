@@ -104,6 +104,38 @@ describe('20-cycle default test', () => {
     assert.equal(planCycle(after).cycleNumber, 2)
   })
 
+  it('recalculates the current cycle when a card is excluded by overlay', () => {
+    const state = createInitialState()
+    state.availableCapital = 20_017
+    const original = planCycle(state)
+    assert.ok(original.cardAssignments.length >= 2)
+    const excluded = original.cardAssignments[original.cardAssignments.length - 1].cardId
+    const revised = planCycle(state, {
+      excludedCardIds: [excluded],
+      excludedMachineIds: [],
+      cardMaxById: {},
+      cardMinById: {},
+      preferredMachineIds: [],
+    })
+    assert.equal(revised.cycleNumber, original.cycleNumber)
+    assert.ok(revised.cardAssignments.every((row) => row.cardId !== excluded))
+    assert.ok(revised.deployedAmount > 0)
+  })
+
+  it('does not invent a route when every card is excluded', () => {
+    const state = createInitialState()
+    const blocked = planCycle(state, {
+      excludedCardIds: [1, 2, 3, 4, 5],
+      excludedMachineIds: [],
+      cardMaxById: {},
+      cardMinById: {},
+      preferredMachineIds: [],
+    })
+    assert.equal(blocked.deployedAmount, 0)
+    assert.equal(blocked.cardAssignments.length, 0)
+    assert.match(blocked.selectionReason, /No valid route/)
+  })
+
   it('keeps the dropdown to a title plus two body lines', () => {
     const plan = planCycle(createInitialState())
     const copy = buildNotificationCopy(plan, 20)

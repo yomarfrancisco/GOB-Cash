@@ -950,3 +950,48 @@ export async function admin_confirmConversionRoutingCycle(params?: {
   return result.data as ConversionRoutingSummary
 }
 
+export type ConversionRoutingFeedbackResult = {
+  testRunId?: string
+  cycleNumber?: number
+  status?: string
+  acknowledgement?: string
+  interpreter?: string
+  deployedAmount?: number
+}
+
+export async function admin_submitConversionRoutingFeedback(params: {
+  message: string
+  testRunId?: string
+  cycleNumber?: number
+  assignments?: Array<{ cardId: number; machineId: number; amount: number }>
+}): Promise<ConversionRoutingFeedbackResult> {
+  const { getFirebaseAuth } = await import('@/lib/firebase')
+  const token = await getFirebaseAuth().currentUser?.getIdToken()
+  if (token) {
+    try {
+      const response = await fetch('/api/admin/routing-feedback', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (response.ok) return payload as ConversionRoutingFeedbackResult
+      const errorText = typeof payload.error === 'string' ? payload.error : ''
+      if (!errorText.includes('LLM_API_KEY')) {
+        throw new Error(errorText || 'Failed to submit routing feedback')
+      }
+    } catch (error) {
+      if (error instanceof Error && !error.message.includes('LLM_API_KEY') && error.message !== 'Failed to fetch') {
+        throw error
+      }
+    }
+  }
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'admin_submitConversionRoutingFeedback')
+  const result = await fn(params)
+  return result.data as ConversionRoutingFeedbackResult
+}
+
