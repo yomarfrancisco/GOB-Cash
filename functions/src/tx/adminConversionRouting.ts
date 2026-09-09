@@ -64,6 +64,22 @@ function eventId(testRunId: string, cycleNumber: number): string {
   return `routing-${testRunId}-c${cycleNumber}`
 }
 
+function revisionEventId(testRunId: string, cycleNumber: number, revision: number): string {
+  return `routing-${testRunId}-c${cycleNumber}-r${revision}`
+}
+
+function currentRoutingEventId(
+  testRunId: string,
+  cycleNumber: number,
+  data: admin.firestore.DocumentData
+): string {
+  if (typeof data.activityEventId === 'string' && data.activityEventId) return data.activityEventId
+  const revisionCount = num(data.revisionCount, 0)
+  return revisionCount > 0
+    ? revisionEventId(testRunId, cycleNumber, revisionCount)
+    : eventId(testRunId, cycleNumber)
+}
+
 function replenishEventId(testRunId: string, cycleNumber: number): string {
   return `routing-${testRunId}-c${cycleNumber}-liq`
 }
@@ -118,6 +134,74 @@ function storedPlanFromCycle(
 
 function overlayForDoc(data: admin.firestore.DocumentData) {
   return overlayFromConstraints(constraintsFromDoc(data))
+}
+
+function publishAgentRevision(
+  tx: admin.firestore.Transaction,
+  params: {
+    adminUid: string
+    testRunId: string
+    cycleNumber: number
+    previousEventId: string
+    revisionCount: number
+    now: admin.firestore.Timestamp
+    title: string
+    body: string
+    dropdownTitle: string
+    dropdownBody: string
+    amountValue: number
+    awaitingConfirm: boolean
+    routingBlocked: boolean
+    avatarKind?: string
+  }
+): { activityEventId: string; revisionCount: number } {
+  const nextRevision = params.revisionCount + 1
+  const activityEventId = revisionEventId(params.testRunId, params.cycleNumber, nextRevision)
+  const previousRef = db
+    .collection('users')
+    .doc(params.adminUid)
+    .collection('activityEvents')
+    .doc(params.previousEventId)
+  const nextRef = db
+    .collection('users')
+    .doc(params.adminUid)
+    .collection('activityEvents')
+    .doc(activityEventId)
+  tx.set(
+    previousRef,
+    {
+      awaitingConfirm: false,
+      status: 'superseded',
+      routingBlocked: false,
+      updatedAt: params.now,
+    },
+    { merge: true }
+  )
+  tx.set(nextRef, {
+    id: activityEventId,
+    kind: CONVERSION_ROUTING_KIND,
+    title: params.title,
+    body: params.body,
+    dropdownTitle: params.dropdownTitle,
+    dropdownBody: params.dropdownBody,
+    actorType: 'ai_manager',
+    avatarKind: params.avatarKind || 'convert_zar',
+    amountCurrency: 'ZAR',
+    amountValue: params.amountValue,
+    amountSign: 'debit',
+    txId: activityEventId,
+    hasDownloadButton: false,
+    awaitingConfirm: params.awaitingConfirm,
+    routingBlocked: params.routingBlocked,
+    status: 'awaiting_execution',
+    routingAction: 'deploy',
+    routingRevision: true,
+    testRunId: params.testRunId,
+    cycleNumber: params.cycleNumber,
+    createdAt: params.now,
+    recordingSource: 'SYSTEM',
+  })
+  return { activityEventId, revisionCount: nextRevision }
 }
 
 function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
@@ -367,20 +451,23 @@ async function cancelAwaitingCycle(
   now: admin.firestore.Timestamp
 ): Promise<void> {
   const cycleRef = db.collection(TESTS).doc(testRunId).collection('cycles').doc(String(cycleNumber))
-  const eventRef = db
-    .collection('users')
-    .doc(adminUid)
-    .collection('activityEvents')
-    .doc(eventId(testRunId, cycleNumber))
-  const eventSnap = await eventRef.get()
-  if (eventSnap.exists) {
-    const prev = eventSnap.data() || {}
-    await eventRef.update({
-      status: 'cancelled',
-      awaitingConfirm: false,
-      body: `${prev.body || ''}\nStatus: Cancelled`.replace(/\nStatus: Awaiting execution/, '\nStatus: Cancelled'),
-      completedAt: now,
-    })
+  const cycleSnapForCancel = await cycleRef.get()
+  const latestId = cycleSnapForCancel.exists
+    ? currentRoutingEventId(testRunId, cycleNumber, cycleSnapForCancel.data() || {})
+    : eventId(testRunId, cycleNumber)
+  const ids = Array.from(new Set([eventId(testRunId, cycleNumber), latestId]))
+  for (const id of ids) {
+    const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(id)
+    const eventSnap = await eventRef.get()
+    if (eventSnap.exists && eventSnap.data()?.status === 'awaiting_execution') {
+      const prev = eventSnap.data() || {}
+      await eventRef.update({
+        status: 'cancelled',
+        awaitingConfirm: false,
+        body: `${prev.body || ''}\nStatus: Cancelled`.replace(/\nStatus: Awaiting execution/, '\nStatus: Cancelled'),
+        completedAt: now,
+      })
+    }
   }
   const liqRef = db
     .collection('users')
@@ -649,7 +736,7 @@ export const admin_confirmConversionRoutingCycle = functions
         .collection('users')
         .doc(adminUid)
         .collection('activityEvents')
-        .doc(eventId(testRunId, cycleNumber))
+        .doc(currentRoutingEventId(testRunId, cycleNumber, cycleData))
       const testComplete = nextState.completedCycles >= nextState.config.cycleCount
 
       tx.update(cycleRef, {
@@ -796,28 +883,55 @@ export const admin_submitConversionRoutingFeedback = functions
 
     const now = admin.firestore.Timestamp.now()
     const feedbackId = testRef.collection('feedback').doc().id
-    const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(eventId(testRunId, cycleNumber))
+    const cycleData = cycleSnap.data() || {}
+    const previousEventId = currentRoutingEventId(testRunId, cycleNumber, cycleData)
+    const revisionCount = num(cycleData.revisionCount, 0)
 
     if (!validIntents.length) {
       const clarification =
         interpreted.clarification ||
         intentErrors[0] ||
         'I am not sure how to apply that. Name a card or machine and whether it is unavailable, restored, capped, or resting.'
-      await eventRef.update({
-        feedbackAck: clarification,
-        updatedAt: now,
+      const current = buildActivityCopy(
+        stored,
+        liveState.config.cycleCount,
+        'awaiting_execution',
+        liveState.config.spread,
+        quotes
+      )
+      await db.runTransaction(async (tx) => {
+        const published = publishAgentRevision(tx, {
+          adminUid,
+          testRunId,
+          cycleNumber,
+          previousEventId,
+          revisionCount,
+          now,
+          title: current.title,
+          body: `You: ${rawMessage}\n\n${clarification}\n\n${current.body}`,
+          dropdownTitle: current.title,
+          dropdownBody: clarification,
+          amountValue: stored.deployedAmount,
+          awaitingConfirm: stored.deployedAmount > 0,
+          routingBlocked: stored.deployedAmount <= 0,
+        })
+        tx.set(testRef.collection('feedback').doc(feedbackId), {
+          id: feedbackId,
+          adminUserId: adminUid,
+          cycleNumber,
+          rawMessage,
+          interpretedIntent: interpreted,
+          status: 'clarification',
+          createdAt: now,
+        })
+        tx.set(cycleRef.collection('thread').doc(), { role: 'admin', text: rawMessage, createdAt: now })
+        tx.set(cycleRef.collection('thread').doc(), { role: 'system', text: clarification, createdAt: now })
+        tx.update(cycleRef, {
+          activityEventId: published.activityEventId,
+          revisionCount: published.revisionCount,
+          updatedAt: now,
+        })
       })
-      await testRef.collection('feedback').doc(feedbackId).set({
-        id: feedbackId,
-        adminUserId: adminUid,
-        cycleNumber,
-        rawMessage,
-        interpretedIntent: interpreted,
-        status: 'clarification',
-        createdAt: now,
-      })
-      await cycleRef.collection('thread').add({ role: 'admin', text: rawMessage, createdAt: now })
-      await cycleRef.collection('thread').add({ role: 'system', text: clarification, createdAt: now })
       return {
         testRunId,
         cycleNumber,
@@ -857,6 +971,21 @@ export const admin_submitConversionRoutingFeedback = functions
         throw new functions.https.HttpsError('aborted', 'Cycle is no longer awaiting execution')
       }
       const previousAssignments = freshCycle.data()?.cardAssignments || stored.cardAssignments
+      const published = publishAgentRevision(tx, {
+        adminUid,
+        testRunId,
+        cycleNumber,
+        previousEventId,
+        revisionCount: num(freshCycle.data()?.revisionCount, revisionCount),
+        now,
+        title: activity.title,
+        body: `You: ${rawMessage}\n\n${activity.body}`,
+        dropdownTitle: notification.title,
+        dropdownBody: notification.body,
+        amountValue: plan.deployedAmount,
+        awaitingConfirm: !blocked,
+        routingBlocked: blocked,
+      })
       tx.set(testRef.collection('feedback').doc(feedbackId), {
         id: feedbackId,
         adminUserId: adminUid,
@@ -885,20 +1014,11 @@ export const admin_submitConversionRoutingFeedback = functions
         restingMachineIds: plan.restingMachineIds,
         selectionReason: plan.selectionReason,
         revisionReason: acknowledgement,
+        activityEventId: published.activityEventId,
+        revisionCount: published.revisionCount,
         sellRate: quotes.sellRate,
         costRate: quotes.costRate,
         spreadRate: applied.state.config.spread,
-        updatedAt: now,
-      })
-      tx.update(eventRef, {
-        title: activity.title,
-        body: activity.body,
-        dropdownTitle: notification.title,
-        dropdownBody: notification.body,
-        amountValue: plan.deployedAmount,
-        awaitingConfirm: !blocked,
-        routingBlocked: blocked,
-        feedbackAck: acknowledgement,
         updatedAt: now,
       })
       tx.set(

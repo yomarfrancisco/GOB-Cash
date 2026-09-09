@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Check, Download, ExternalLink } from 'lucide-react'
+import { Check, Download, ExternalLink, ArrowUp } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -205,7 +205,10 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
   const isAwaitingRouting =
     isRoutingInstruction &&
-    (item.awaitingConfirm === true || item.status === 'awaiting_execution')
+    item.awaitingConfirm === true &&
+    item.status !== 'completed' &&
+    item.status !== 'superseded' &&
+    item.status !== 'cancelled'
   const showConfirm = isAwaitingRouting && item.routingBlocked !== true
   const showReply = isAwaitingRouting && item.routingAction !== 'replenish'
 
@@ -397,26 +400,26 @@ function ActivityItemCard({ item }: { item: ActivityItem }) {
         )}
         {showReply && replyOpen && (
           <form className={styles.replyComposer} onSubmit={handleSubmitReply} onClick={(event) => event.stopPropagation()}>
-            <textarea
-              className={styles.replyInput}
-              value={replyText}
-              onChange={(event) => setReplyText(event.target.value)}
-              placeholder="Card 5 is unavailable for this cycle."
-              rows={3}
-              disabled={replyState !== 'idle'}
-            />
+            <div className={styles.replyFrame}>
+              <textarea
+                className={styles.replyInput}
+                value={replyText}
+                onChange={(event) => setReplyText(event.target.value)}
+                placeholder="Card 5 is unavailable for this cycle."
+                rows={3}
+                disabled={replyState !== 'idle'}
+              />
+              <button
+                type="submit"
+                className={styles.replySend}
+                aria-label="Send reply"
+                disabled={replyState !== 'idle' || !replyText.trim()}
+              >
+                <ArrowUp size={16} strokeWidth={2.4} />
+              </button>
+            </div>
             {replyError ? <div className={styles.replyError}>{replyError}</div> : null}
-            <button
-              type="submit"
-              className={styles.replySend}
-              disabled={replyState !== 'idle' || !replyText.trim()}
-            >
-              {replyState === 'loading' ? 'Reading…' : 'Send'}
-            </button>
           </form>
-        )}
-        {isRoutingInstruction && item.feedbackAck && !replyOpen && (
-          <div className={styles.replyAck}>{item.feedbackAck}</div>
         )}
         {isRoutingInstruction && item.status === 'completed' && (
           <span className={styles.executedLabel}>
