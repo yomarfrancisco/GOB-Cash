@@ -164,9 +164,20 @@ export function isWhatIfAsk(message: string): boolean {
   )
 }
 
+export function isPaceAsk(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  if (!text || namesConstraintChange(message)) return false
+  return (
+    /\btoo (?:much|soon|many|fast|big|heavy|aggressive)\b/.test(text) ||
+    /\bwhy (?:so many|four|4) (?:cards?|pairs?|swipes?)\b/.test(text) ||
+    /\b(?:same (?:night|evening)|back[- ]to[- ]back)\b/.test(text)
+  )
+}
+
 export function isBankerQuestion(message: string): boolean {
   if (isWhatIfAsk(message)) return false
   if (isMemoryOrHistoryQuestion(message)) return true
+  if (isPaceAsk(message)) return true
   const text = message.trim().toLowerCase()
   if (!text) return false
   if (
@@ -176,8 +187,9 @@ export function isBankerQuestion(message: string): boolean {
     return false
   }
   return (
-    /^(why|how|explain|tell me|what happens|is this|should we|does this|can you explain)\b/.test(text) ||
-    (text.includes('?') && /^(why|how|what|who|when|where|is |are |should|does|do |can |could |would )\b/.test(text))
+    /^(why|how|explain|tell me|what happens|is this|isn'?t|aren'?t|should we|does this|can you explain)\b/.test(text) ||
+    (text.includes('?') &&
+      /^(why|how|what|who|when|where|is |isn'?t |are |aren'?t |should|does|do |can |could |would )\b/.test(text))
   )
 }
 

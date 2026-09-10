@@ -32,7 +32,15 @@ import {
 } from './friction'
 import type { RecentCycleBrief, RecentFeedbackBrief } from './interpretContext'
 import { cardLabel, cardShortName, formatReceiveAccount, resolveNamedCardIds } from './inventory'
-import { formatSast, isDeskStrategyAsk, isWhatIfAsk, namesConstraintChange } from './routingTime'
+import {
+  formatSast,
+  formatVisibleSast,
+  isBankerQuestion,
+  isDeskStrategyAsk,
+  isPaceAsk,
+  isWhatIfAsk,
+  namesConstraintChange,
+} from './routingTime'
 
 export type DeskOption = {
   id: string
@@ -406,6 +414,46 @@ function safestSwipeAdvice(
   )
 }
 
+function agoLabel(gapMs: number): string {
+  const minutes = Math.max(1, Math.round(gapMs / 60_000))
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`
+  const hours = Math.max(1, Math.round(minutes / 60))
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const days = Math.max(1, Math.round(hours / 24))
+  return `${days} day${days === 1 ? '' : 's'} ago`
+}
+
+function restockPaceAdvice(
+  route: { assignments: CardAssignment[]; amountZar: number },
+  state: RoutingState,
+  swipes: SwipeRecord[],
+  nowMs: number
+): DeskAdvice {
+  const n = route.assignments.length
+  const min = formatZar(state.config.minCardAmount)
+  const max = formatZar(state.config.maxCardAmount)
+  const last = [...swipes].sort((a, b) => b.atMs - a.atMs)[0]
+  const gapMs = last ? nowMs - last.atMs : null
+  const sameEvening = gapMs != null && gapMs < 8 * 60 * 60 * 1000
+  const whySize = `The ${formatZar(route.amountZar)} sale emptied that much SA float. This restock replaces it`
+  const whyCount =
+    n <= 1
+      ? `, in one swipe because it fits ${min}–${max}.`
+      : `, split into ${n} swipes so each stays in ${min}–${max}.`
+  const timing =
+    last && gapMs != null
+      ? ` Last swipe in the log was ${formatVisibleSast(last.atMs, nowMs)} — ${agoLabel(gapMs)}.`
+      : ''
+  const action = sameEvening
+    ? ' If those earlier swipes can settle, wait. If the next sale needs the float tonight, execute the named pairs — do not add another card.'
+    : ' Execute the named pairs on the restock card. Do not add another card.'
+  return {
+    kind: 'next_step',
+    title: sameEvening ? 'Same-evening restock' : 'Why this restock size',
+    body: `${whySize}${whyCount}${timing}${action}`.replace(/\s+/g, ' ').trim(),
+  }
+}
+
 function nextStepAdvice(
   route: {
     kind: 'replenish' | 'deploy'
@@ -419,10 +467,15 @@ function nextStepAdvice(
   const swipe = assignmentLine(route.assignments)
   if (route.kind === 'replenish') {
     const why = posWhy(route.assignments, state, cycleNumber)
+    const n = route.assignments.length
+    const lead =
+      n <= 1
+        ? `The open restock is ${swipe}.`
+        : `The open restock is these ${n} pairs: ${swipe}.`
     return {
       kind: 'next_step',
       title: 'Next: restock ZAR',
-      body: `The open restock is one swipe: ${swipe}. ${why} Execute that. There is no second route to offer.`,
+      body: `${lead} ${why} Execute that list. There is no second route to offer.`,
     }
   }
   const sell = planCycle(state)
@@ -570,10 +623,20 @@ export function adviseDesk(params: {
   if (isFreezeOutlookAsk(message)) return freezeOutlookAdvice(state, message, nowMs)
   if (askedRetire) return retireAdvice(state)
 
+  if (isPaceAsk(message)) {
+    if (open?.kind === 'replenish') return restockPaceAdvice(open, state, swipes, nowMs)
+    return {
+      kind: 'next_step',
+      title: 'No restock to size',
+      body: 'There is no COST restock on the desk. A restock matches ZAR that just left South Africa; it is not extra volume on top.',
+    }
+  }
+
   if (
     pending &&
     (pending === 'swipe_outcome' || pending === 'declared_month' || pending === 'decline_followup') &&
-    !isFrictionNoteReply(message)
+    !isFrictionNoteReply(message) &&
+    !isBankerQuestion(message)
   ) {
     const prior = recentFeedback.find((row) => row.questionKind === pending)
     return {
@@ -650,7 +713,7 @@ export function adviseDesk(params: {
     return safestSwipeAdvice(state, constraints, costRate, cycleNumber, recentCycles, nowMs)
   }
 
-  if (waitingOnCard && !namedCardIds.length && !askedRetire) {
+  if (waitingOnCard && !open && !namedCardIds.length && !askedRetire) {
     if (holds.length) return blockedQuestion(holds, nowMs)
     return {
       kind: 'question',

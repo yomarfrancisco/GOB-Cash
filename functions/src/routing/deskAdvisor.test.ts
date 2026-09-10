@@ -215,4 +215,56 @@ describe('adviseDesk', () => {
     assert.doesNotMatch(advice.body, /Retire every Moz card/)
     assert.equal(advice.options, undefined)
   })
+
+  it('answers too-much-too-soon from the open restock, not a card-name nag', () => {
+    const state = createInitialState()
+    state.bufferUsed = 49_891.33
+    state.availableCapital = 108.67
+    const lastSwipe = sastToUtcMs(2026, 9, 10, 21, 54)
+    const nowMs = sastToUtcMs(2026, 9, 10, 22, 41)
+    const advice = adviseDesk({
+      message: "Isn't this too much too soon?",
+      state,
+      constraints: [],
+      current: {
+        kind: 'replenish',
+        assignments: [
+          { cardId: 3, machineId: 3, amount: 12_472.84 },
+          { cardId: 5, machineId: 2, amount: 12_472.83 },
+          { cardId: 1, machineId: 1, amount: 12_472.83 },
+          { cardId: 2, machineId: 2, amount: 12_472.83 },
+        ],
+        amountZar: 49_891.33,
+      },
+      recentFeedback: [
+        {
+          rawMessage: "what's next?",
+          summary: 'Need a card',
+          createdAtMs: nowMs - 120_000,
+          status: 'question',
+          questionKind: 'which_card_safe',
+        },
+      ],
+      swipes: [
+        {
+          id: '19-5-1',
+          atMs: lastSwipe,
+          cardId: 5,
+          machineId: 1,
+          amount: 11_339,
+          cycleNumber: 19,
+        },
+      ],
+      cycleNumber: 20,
+      costRate: 4.15,
+      nowMs,
+    })
+    assert.equal(advice.kind, 'next_step')
+    assert.doesNotMatch(advice.body, /card name|none \/ new card|Which card is actually safe/i)
+    assert.match(advice.body, /R49,891/)
+    assert.match(advice.body, /4 swipes/)
+    assert.match(advice.body, /R10,000/)
+    assert.match(advice.body, /21:54/)
+    assert.match(advice.body, /do not add another card/i)
+  })
 })

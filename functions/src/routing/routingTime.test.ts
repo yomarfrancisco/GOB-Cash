@@ -53,6 +53,8 @@ describe('time phrases', () => {
   it('treats why/what-if as banker asks, not silent applies', () => {
     assert.equal(isBankerQuestion('Why is Wolf on Capitec BRICS?'), true)
     assert.equal(isBankerQuestion('Wolf is lost'), false)
+    assert.equal(isBankerQuestion("Isn't this too much too soon?"), true)
+    assert.equal(shouldNotApplyAskIntents("Isn't this too much too soon?"), true)
     assert.equal(isWhatIfAsk('what if we rest Wolf for 3 cycles'), true)
     assert.equal(isWhatIfAsk('Wolf is lost'), false)
   })
