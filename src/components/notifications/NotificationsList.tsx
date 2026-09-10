@@ -460,7 +460,7 @@ function ActivityItemCard({
             {showAsk && (
               <button
                 type="button"
-                className={styles.replyButton}
+                className={`${styles.replyButton} ${styles.askButton}`}
                 aria-label="Ask about conversion instruction"
                 aria-expanded={askOpen}
                 onClick={handleToggleAsk}
@@ -474,7 +474,7 @@ function ActivityItemCard({
           <div className={styles.activityActionRow}>
             <button
               type="button"
-              className={styles.replyButton}
+              className={`${styles.replyButton} ${styles.askButton}`}
               aria-label="Ask about conversion instruction"
               aria-expanded={askOpen}
               onClick={handleToggleAsk}
