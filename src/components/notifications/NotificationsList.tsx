@@ -235,10 +235,25 @@ function latestAwaitingRoutingId(items: ActivityItem[]): string | null {
   return items.find(isAwaitingRoutingItem)?.id ?? null
 }
 
+function confirmTargetForCard(
+  item: ActivityItem,
+  pending: ActivityItem | null,
+  showAsk: boolean
+): ActivityItem | null {
+  const actionable =
+    pending && isAwaitingRoutingItem(pending) && pending.routingBlocked !== true ? pending : null
+  if (isAwaitingRoutingItem(item) && item.routingBlocked !== true) return item
+  if (showAsk && item.routingAction === 'advice' && actionable && actionable.id !== item.id) {
+    return actionable
+  }
+  return null
+}
+
 function ActivityItemCard({
   item,
   showRoutingActions,
   showAsk,
+  pendingAction,
   onRoutingAsk,
   onAcceptProposal,
   onDiscardProposal,
@@ -247,6 +262,7 @@ function ActivityItemCard({
   item: ActivityItem
   showRoutingActions: boolean
   showAsk: boolean
+  pendingAction: ActivityItem | null
   onRoutingAsk: (item: ActivityItem, message: string) => Promise<void>
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
@@ -270,8 +286,9 @@ function ActivityItemCard({
   const isKycGate = isKycGateItem(item)
   const kycCta = item.kycAction === 'update' ? 'Update KYC' : 'Start KYC'
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-  const isAwaitingRouting = showRoutingActions && isAwaitingRoutingItem(item)
-  const showConfirm = isAwaitingRouting && item.routingBlocked !== true
+  const confirmItem =
+    showRoutingActions || showAsk ? confirmTargetForCard(item, pendingAction, showAsk) : null
+  const showConfirm = Boolean(confirmItem) && !lockDeskActions
   const showProposalActions =
     !lockDeskActions &&
     item.routingAction === 'proposal' &&
@@ -318,10 +335,10 @@ function ActivityItemCard({
 
   const handleExecuteRouting = (event: React.MouseEvent) => {
     event.stopPropagation()
-    if (confirmState !== 'idle') return
-    const isReplenish = item.routingAction === 'replenish'
-    const amountZAR = isReplenish ? item.pairedAmountValue : item.amount?.value
-    const amountMZN = isReplenish ? item.amount?.value : item.pairedAmountValue
+    if (confirmState !== 'idle' || !confirmItem) return
+    const isReplenish = confirmItem.routingAction === 'replenish'
+    const amountZAR = isReplenish ? confirmItem.pairedAmountValue : confirmItem.amount?.value
+    const amountMZN = isReplenish ? confirmItem.amount?.value : confirmItem.pairedAmountValue
     if (isReplenish) {
       if (!(typeof amountMZN === 'number') || amountMZN <= 0) return
     } else if (!(typeof amountZAR === 'number') || amountZAR <= 0) {
@@ -333,8 +350,8 @@ function ActivityItemCard({
       destination: isReplenish ? 'ZAR' : 'MZN',
       amountZAR: amountZAR || 0,
       amountMZN: amountMZN || 0,
-      testRunId: item.testRunId,
-      cycleNumber: item.cycleNumber,
+      testRunId: confirmItem.testRunId,
+      cycleNumber: confirmItem.cycleNumber,
       routingAction: isReplenish ? 'replenish' : 'deploy',
     })
   }
@@ -499,7 +516,7 @@ function ActivityItemCard({
                 .filter(Boolean)
                 .join(' ')}
               aria-label={
-                item.routingAction === 'replenish'
+                confirmItem?.routingAction === 'replenish'
                   ? 'Confirm the Moz card was swiped on a SA POS'
                   : 'Confirm ZAR was sent after MZN reflected'
               }
@@ -508,7 +525,7 @@ function ActivityItemCard({
               onClick={handleExecuteRouting}
             >
               <Check size={16} strokeWidth={2.4} />
-              {item.routingAction === 'replenish' ? "I've swiped" : "I've sent ZAR"}
+              {confirmItem?.routingAction === 'replenish' ? "I've swiped" : "I've sent ZAR"}
             </button>
             {showAsk && (
               <button
@@ -613,6 +630,7 @@ function ActivitySection({
   items,
   latestAwaitingId,
   latestActivityId,
+  pendingAction,
   onRoutingAsk,
   onAcceptProposal,
   onDiscardProposal,
@@ -622,6 +640,7 @@ function ActivitySection({
   items: ActivityItem[]
   latestAwaitingId: string | null
   latestActivityId: string | null
+  pendingAction: ActivityItem | null
   onRoutingAsk: (item: ActivityItem, message: string) => Promise<void>
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
@@ -639,6 +658,7 @@ function ActivitySection({
             item={item}
             showRoutingActions={!lockDeskActions && item.id === latestAwaitingId}
             showAsk={!lockDeskActions && item.id === latestActivityId && !isKycGateItem(item)}
+            pendingAction={pendingAction}
             onRoutingAsk={onRoutingAsk}
             onAcceptProposal={onAcceptProposal}
             onDiscardProposal={onDiscardProposal}
@@ -739,6 +759,10 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     if (deskBlocked) return KYC_GATE_ID
     return filteredItems.find((item) => item.thinking !== true)?.id ?? null
   }, [filteredItems, deskBlocked])
+  const pendingAction = useMemo(
+    () => (deskBlocked ? null : allItems.find(isAwaitingRoutingItem) ?? null),
+    [allItems, deskBlocked]
+  )
   const { today, yesterday, last7Days, last30Days, older } = useMemo(
     () => groupByTimePeriod(pagedItems),
     [pagedItems]
@@ -829,6 +853,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const sectionProps = {
     latestAwaitingId,
     latestActivityId,
+    pendingAction,
     onRoutingAsk: handleRoutingAsk,
     onAcceptProposal: handleAcceptProposal,
     onDiscardProposal: handleDiscardProposal,
