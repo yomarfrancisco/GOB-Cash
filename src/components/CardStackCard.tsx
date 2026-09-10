@@ -738,7 +738,12 @@ export default function CardStackCard({
                   'card-health-bar-fill--minimum': operationalBarPercent <= 0,
                 }
               )}
-              style={{ width: `${Math.max(5, Math.min(100, animatedHealth))}%` }}
+              style={{
+                width: `${Math.max(
+                  isZarPayoutCard ? 0 : 5,
+                  Math.min(100, animatedHealth)
+                )}%`,
+              }}
             />
           </div>
         </div>

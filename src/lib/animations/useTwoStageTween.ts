@@ -17,7 +17,6 @@ const STAGE_A_DURATION = 880
 const STAGE_B_DURATION = 480
 const STAGE_B_DELAY = 160
 
-// Easing function: easeOutCubic
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3)
 }
@@ -34,6 +33,9 @@ export function useTwoStageTween(
     stageBDelay = STAGE_B_DELAY,
     round = (n) => Math.round(n * 10) / 10,
   } = options
+
+  const roundRef = useRef(round)
+  roundRef.current = round
 
   const [value, setValue] = useState(to)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -55,7 +57,6 @@ export function useTwoStageTween(
     const next = to
     const delta = Math.abs(next - prev)
 
-    // Clear any existing animation
     if (animationFrameRef.current !== null) {
       cancelAnimationFrame(animationFrameRef.current)
     }
@@ -63,17 +64,20 @@ export function useTwoStageTween(
       clearTimeout(stageTimeoutRef.current)
     }
 
-    // Determine if we need two-stage animation
     const needsTwoStage = delta < minVisualDelta && delta > 0
+    let settled = false
+    const settle = () => {
+      settled = true
+      prevValueRef.current = next
+    }
 
     if (needsTwoStage) {
-      // Two-stage: first to preview, then to actual
       const direction = next > prev ? 1 : -1
       const previewDelta = Math.min(minVisualDelta, previewCap)
       const preview = prev + direction * previewDelta
       previewValueRef.current = preview
       targetValueRef.current = next
-      startValueRef.current = value
+      startValueRef.current = prev
       currentStageRef.current = 'A'
       setIsAnimating(true)
 
@@ -85,15 +89,13 @@ export function useTwoStageTween(
         const elapsed = currentTime - startTimeRef.current
         const progress = Math.min(elapsed / stageADuration, 1)
         const easedProgress = easeOutCubic(progress)
-
         const currentValue = startValueRef.current + (preview - startValueRef.current) * easedProgress
-        setValue(round(currentValue))
+        setValue(roundRef.current(currentValue))
 
         if (progress < 1) {
           animationFrameRef.current = requestAnimationFrame(animateStageA)
         } else {
-          // Stage A complete, start Stage B after delay
-          setValue(round(preview))
+          setValue(roundRef.current(preview))
           startTimeRef.current = null
           currentStageRef.current = 'B'
 
@@ -112,28 +114,26 @@ export function useTwoStageTween(
         const elapsed = currentTime - startTimeRef.current
         const progress = Math.min(elapsed / stageBDuration, 1)
         const easedProgress = easeOutCubic(progress)
-
         const currentValue = preview + (next - preview) * easedProgress
-        setValue(round(currentValue))
+        setValue(roundRef.current(currentValue))
 
         if (progress < 1) {
           animationFrameRef.current = requestAnimationFrame(animateStageB)
         } else {
-          // Animation complete
-          setValue(round(next))
+          setValue(roundRef.current(next))
           setIsAnimating(false)
           animationFrameRef.current = null
           startTimeRef.current = null
           currentStageRef.current = null
           previewValueRef.current = null
+          settle()
         }
       }
 
       startTimeRef.current = null
       animationFrameRef.current = requestAnimationFrame(animateStageA)
     } else {
-      // Single-stage: direct to target
-      startValueRef.current = value
+      startValueRef.current = prev
       targetValueRef.current = next
       currentStageRef.current = 'A'
       setIsAnimating(true)
@@ -146,26 +146,24 @@ export function useTwoStageTween(
         const elapsed = currentTime - startTimeRef.current
         const progress = Math.min(elapsed / stageADuration, 1)
         const easedProgress = easeOutCubic(progress)
-
         const currentValue = startValueRef.current + (next - startValueRef.current) * easedProgress
-        setValue(round(currentValue))
+        setValue(roundRef.current(currentValue))
 
         if (progress < 1) {
           animationFrameRef.current = requestAnimationFrame(animate)
         } else {
-          setValue(round(next))
+          setValue(roundRef.current(next))
           setIsAnimating(false)
           animationFrameRef.current = null
           startTimeRef.current = null
           currentStageRef.current = null
+          settle()
         }
       }
 
       startTimeRef.current = null
       animationFrameRef.current = requestAnimationFrame(animate)
     }
-
-    prevValueRef.current = to
 
     return () => {
       if (animationFrameRef.current !== null) {
@@ -174,9 +172,11 @@ export function useTwoStageTween(
       if (stageTimeoutRef.current !== null) {
         clearTimeout(stageTimeoutRef.current)
       }
+      if (!settled) {
+        prevValueRef.current = prev
+      }
     }
-  }, [to, minVisualDelta, previewCap, stageADuration, stageBDuration, stageBDelay, round, value])
+  }, [to, minVisualDelta, previewCap, stageADuration, stageBDuration, stageBDelay])
 
   return { value, isAnimating }
 }
-
