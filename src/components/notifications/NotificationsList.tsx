@@ -498,7 +498,11 @@ function ActivityItemCard({
               ]
                 .filter(Boolean)
                 .join(' ')}
-              aria-label="Execute conversion cycle"
+              aria-label={
+                item.routingAction === 'replenish'
+                  ? 'Execute ZAR restock at COST'
+                  : 'Execute ZAR sale after MZN has reflected'
+              }
               aria-busy={confirmState !== 'idle'}
               disabled={confirmState !== 'idle'}
               onClick={handleExecuteRouting}
@@ -510,7 +514,7 @@ function ActivityItemCard({
               <button
                 type="button"
                 className={`${styles.replyButton} ${styles.askButton}`}
-                aria-label="Ask about conversion instruction"
+                aria-label="Ask about this instruction"
                 aria-expanded={askOpen}
                 onClick={handleToggleAsk}
               >
@@ -524,7 +528,7 @@ function ActivityItemCard({
             <button
               type="button"
               className={`${styles.replyButton} ${styles.askButton}`}
-              aria-label="Ask about conversion instruction"
+              aria-label="Ask about this instruction"
               aria-expanded={askOpen}
               onClick={handleToggleAsk}
             >

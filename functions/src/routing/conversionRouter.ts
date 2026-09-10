@@ -540,16 +540,15 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
   }
 }
 
-export function completeCycle(
+export function applyCardPosContact(
   state: RoutingState,
-  plan: CyclePlan,
-  actualProfit?: number
+  assignments: CardAssignment[],
+  cycleNumber: number
 ): RoutingState {
-  const profit = roundMoney(actualProfit ?? plan.expectedProfit)
   const pairings = { ...state.pairings }
 
   const cards = state.cards.map((card) => {
-    const assignment = plan.cardAssignments.find((row) => row.cardId === card.id)
+    const assignment = assignments.find((row) => row.cardId === card.id)
     if (!assignment) {
       return {
         ...card,
@@ -560,13 +559,13 @@ export function completeCycle(
       ...card,
       activeCycles: card.activeCycles + 1,
       volume: roundMoney(card.volume + assignment.amount),
-      lastCycleUsed: plan.cycleNumber,
+      lastCycleUsed: cycleNumber,
       machineHistory: [...card.machineHistory, assignment.machineId],
     }
   })
 
   const machines = state.machines.map((machine) => {
-    const assigned = plan.cardAssignments.filter((row) => row.machineId === machine.id)
+    const assigned = assignments.filter((row) => row.machineId === machine.id)
     if (assigned.length === 0) {
       return {
         ...machine,
@@ -578,17 +577,30 @@ export function completeCycle(
       ...machine,
       activeCycles: machine.activeCycles + 1,
       volume: roundMoney(machine.volume + volume),
-      lastCycleUsed: plan.cycleNumber,
+      lastCycleUsed: cycleNumber,
     }
   })
 
-  for (const row of plan.cardAssignments) {
+  for (const row of assignments) {
     const key = pairingKey(row.cardId, row.machineId)
     pairings[key] = (pairings[key] || 0) + 1
   }
 
-  const bufferUsed = roundMoney(state.bufferUsed + plan.deployedAmount)
+  return {
+    ...state,
+    cards,
+    machines,
+    pairings,
+  }
+}
 
+export function applySell(
+  state: RoutingState,
+  plan: CyclePlan,
+  actualProfit?: number
+): RoutingState {
+  const profit = roundMoney(actualProfit ?? plan.expectedProfit)
+  const bufferUsed = roundMoney(state.bufferUsed + plan.deployedAmount)
   return {
     ...state,
     availableCapital: roundMoney(state.availableCapital + profit * state.config.recycleRate),
@@ -596,10 +608,15 @@ export function completeCycle(
     completedCycles: plan.cycleNumber,
     cumulativeDeployed: roundMoney(state.cumulativeDeployed + plan.deployedAmount),
     cumulativeSpread: roundMoney(state.cumulativeSpread + profit),
-    cards,
-    machines,
-    pairings,
   }
+}
+
+export function completeCycle(
+  state: RoutingState,
+  plan: CyclePlan,
+  actualProfit?: number
+): RoutingState {
+  return applyCardPosContact(applySell(state, plan, actualProfit), plan.cardAssignments, plan.cycleNumber)
 }
 
 export function simulateRun(config: RoutingConfig = DEFAULT_TEST_CONFIG): {
@@ -620,9 +637,8 @@ export function simulateRun(config: RoutingConfig = DEFAULT_TEST_CONFIG): {
   return { state, cycles }
 }
 
-const LIQUIDITY_HEADING = 'Liquidity action required'
-const LIQUIDITY_BODY =
-  'Convert accumulated MZN back into ZAR before proceeding with the next cycle.'
+const MOZ_RECEIVE_ACCOUNTS =
+  'BCI, FNB Mozambique, BIM, Moza Banco, or Vista Mozambique'
 
 function assignmentLine(row: CardAssignment, style: 'notification' | 'activity'): string {
   if (style === 'notification') {
@@ -651,6 +667,9 @@ export type ReplenishPlan = {
   amountZar: number
   amountMzn: number
   costRate: number
+  cardAssignments: CardAssignment[]
+  restingCardIds: number[]
+  restingMachineIds: number[]
 }
 
 export function planReplenish(
@@ -658,13 +677,22 @@ export function planReplenish(
   costRate: number,
   overlay: RoutingOverlay = EMPTY_OVERLAY
 ): ReplenishPlan | null {
-  const plan = planCycle(state, overlay)
-  if (!plan.bufferActionRequired || state.bufferUsed <= 0 || !(costRate > 0)) return null
+  const nextSell = planCycle(state, overlay)
+  if (!nextSell.bufferActionRequired || state.bufferUsed <= 0 || !(costRate > 0)) return null
+  const restockState: RoutingState = {
+    ...state,
+    availableCapital: state.bufferUsed,
+    bufferUsed: 0,
+  }
+  const swipe = planCycle(restockState, overlay)
   return {
-    cycleNumber: plan.cycleNumber,
+    cycleNumber: nextSell.cycleNumber,
     amountZar: state.bufferUsed,
     amountMzn: roundMoney(state.bufferUsed * costRate),
     costRate,
+    cardAssignments: swipe.cardAssignments,
+    restingCardIds: swipe.restingCardIds,
+    restingMachineIds: swipe.restingMachineIds,
   }
 }
 
@@ -688,33 +716,24 @@ export function formatAskImpactBody(params: {
   const replenish = params.preview.replenishFirst
   const plan = params.preview.nextPlan
   if (replenish) {
-    lines.push(
-      `Replenish still first: ${formatMznAmount(replenish.amountMzn)} → ${formatZar(replenish.amountZar)}`
-    )
-    lines.push(`Then Cycle ${replenish.cycleNumber}`)
-  } else if (plan && plan.cardAssignments.length) {
-    lines.push('Next:')
-    for (const row of plan.cardAssignments) {
-      lines.push(assignmentLine(row, 'activity'))
+    lines.push(`Restock ZAR @ COST still first: ${formatZar(replenish.amountZar)}`)
+    if (replenish.cardAssignments.length) {
+      lines.push('Swipe:')
+      for (const row of replenish.cardAssignments) {
+        lines.push(assignmentLine(row, 'activity'))
+      }
     }
-    lines.push('')
-    lines.push(`Idle: ${plan.idleCapital > 0 ? formatZar(plan.idleCapital) : 'none'}`)
-    lines.push(`Expected spread this cycle: ${formatZar(plan.expectedProfit)}`)
-    if (params.currentPlan) {
-      const sameRoute =
-        params.currentPlan.cardAssignments.length === plan.cardAssignments.length &&
-        params.currentPlan.cardAssignments.every(
-          (row, index) =>
-            row.cardId === plan.cardAssignments[index]?.cardId &&
-            row.machineId === plan.cardAssignments[index]?.machineId
-        )
-      if (sameRoute) lines.push('Route unchanged from the current instruction.')
-    }
+    lines.push(`Then sell ZAR, Cycle ${replenish.cycleNumber}`)
+  } else if (plan && plan.deployedAmount > 0) {
+    lines.push(`Next: receive MZN, then pay ${formatZar(plan.deployedAmount)}.`)
+    lines.push(`Expected spread this sale: ${formatZar(plan.expectedProfit)}`)
     lines.push(
-      plan.bufferActionRequired ? 'Replenish would follow this cycle.' : 'Replenish: not required after this cycle'
+      plan.bufferActionRequired
+        ? 'Restock ZAR @ COST would follow this sale.'
+        : 'ZAR buffer still covers the next order after this sale.'
     )
   } else if (plan) {
-    lines.push(plan.selectionReason || 'No valid route under that rule.')
+    lines.push(plan.selectionReason || 'No valid restock route under that rule.')
   }
   if (params.proposal) {
     lines.push('')
@@ -728,21 +747,23 @@ export function buildNotificationCopy(
   cycleCount: number
 ): { title: string; body: string } {
   void cycleCount
-  const route = plan.cardAssignments
-    .map((row) => `${cardLabel(row.cardId)}→${machineLabel(row.machineId)}`)
-    .join(' · ')
   return {
-    title: `Conversion Cycle ${plan.cycleNumber}`,
-    body: `Convert ${formatZar(plan.deployedAmount)} ZAR → MZN\n${route}`,
+    title: `Sell ZAR · Cycle ${plan.cycleNumber}`,
+    body: `Pay ${formatZar(plan.deployedAmount)} after MZN reflects`,
   }
 }
 
 export function buildReplenishNotificationCopy(
   replenish: ReplenishPlan
 ): { title: string; body: string } {
+  const route = replenish.cardAssignments
+    .map((row) => `${cardLabel(row.cardId)}→${machineLabel(row.machineId)}`)
+    .join(' · ')
   return {
-    title: 'Liquidity replenishment',
-    body: `Convert ${formatMznAmount(replenish.amountMzn)} → ZAR at COST\nThen Cycle ${replenish.cycleNumber}`,
+    title: 'Restock ZAR @ COST',
+    body: route
+      ? `Swipe to restock ${formatZar(replenish.amountZar)}\n${route}`
+      : `Restock ${formatZar(replenish.amountZar)} at COST\nThen Cycle ${replenish.cycleNumber}`,
   }
 }
 
@@ -752,21 +773,18 @@ export function buildAgentReplyCopy(
   acknowledgement: string,
   blocked: boolean
 ): { title: string; body: string } {
-  const title = `Conversion instruction · Cycle ${plan.cycleNumber}/${cycleCount}`
+  const title = `Sell ZAR · Cycle ${plan.cycleNumber}/${cycleCount}`
   if (blocked) {
     return {
       title,
       body: [acknowledgement, '', plan.selectionReason || 'No valid route under current constraints.'].filter(Boolean).join('\n'),
     }
   }
-  const lines = [acknowledgement]
-  if (plan.cardAssignments.length) {
-    lines.push('')
-    lines.push('Revised route:')
-    for (const row of plan.cardAssignments) {
-      lines.push(assignmentLine(row, 'activity'))
-    }
-  }
+  const lines = [
+    acknowledgement,
+    '',
+    `Next: receive MZN, then pay ${formatZar(plan.deployedAmount)}.`,
+  ]
   return { title, body: lines.join('\n') }
 }
 
@@ -781,36 +799,46 @@ export function buildActivityCopy(
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
   if (plan.deployedAmount <= 0) {
     return {
-      title: `Conversion instruction · Cycle ${plan.cycleNumber}/${cycleCount}`,
+      title: `Sell ZAR · Cycle ${plan.cycleNumber}/${cycleCount}`,
       body: [
         extra?.revisionReason || 'Routing adjustment recorded',
         '',
         plan.selectionReason || 'No valid route available under current constraints.',
         '',
-        'Modify a constraint or restore a card/machine, then reply again.',
+        'Modify a constraint or restore a card/POS, then Ask again.',
         `Status: ${statusLabel}`,
       ].join('\n'),
     }
   }
-  const lines = [`${formatZar(plan.deployedAmount)} ZAR → MZN`, '']
-  for (const row of plan.cardAssignments) {
-    lines.push(assignmentLine(row, 'activity'))
-  }
-  lines.push('')
+  const bufferAmount = plan.bufferTriggerAmount > 0 ? roundMoney(plan.bufferTriggerAmount / 0.9) : 50_000
+  const bufferKept = roundMoney(Math.max(0, bufferAmount - plan.bufferUsedProjected))
+  const lines = [
+    `Pay ${formatZar(plan.deployedAmount)} after MZN has reflected.`,
+    '',
+    `1. Receive MZN into a Moz account (${MOZ_RECEIVE_ACCOUNTS}).`,
+    '2. Wait for proof of payment and the credit.',
+    '3. Only then send ZAR to the operator’s South African account.',
+    '',
+  ]
   if (extra?.revisionReason) {
     lines.push(`Reason for revision: ${extra.revisionReason}`)
     lines.push('')
   }
+  lines.push('Rand carries the premium. Do not pay ZAR first.')
   lines.push(`Expected spread: ${formatSpreadPercent(spread)}`)
   lines.push(`Expected gross spread: ${formatZar(plan.expectedProfit)}`)
   if (quotes && quotes.sellRate > 0 && quotes.costRate > 0) {
     const profitPerZar = roundMoney(Math.max(0, quotes.sellRate - quotes.costRate))
+    lines.push(`SELL ${quotes.sellRate.toFixed(2)} Mt/R · COST ${quotes.costRate.toFixed(2)} Mt/R`)
     lines.push(`Live spread: ${profitPerZar.toFixed(2)} Mt/R`)
   }
-  lines.push(`Cards resting: ${restingLabel(plan.restingCardIds)}`)
+  lines.push(`ZAR kept in South Africa after this payout: ${formatZar(bufferKept)} of ${formatZar(bufferAmount)}.`)
+  if (plan.bufferActionRequired) {
+    lines.push('Restock ZAR @ COST before the next sale so the buffer is not emptied.')
+  }
   lines.push(`Status: ${statusLabel}`)
   return {
-    title: `Conversion instruction · Cycle ${plan.cycleNumber}/${cycleCount}`,
+    title: `Sell ZAR · Cycle ${plan.cycleNumber}/${cycleCount}`,
     body: lines.join('\n'),
   }
 }
@@ -821,18 +849,27 @@ export function buildReplenishActivityCopy(
   status: 'awaiting_execution' | 'completed'
 ): { title: string; body: string } {
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
+  const lines = [
+    `Restock ${formatZar(replenish.amountZar)} in South Africa at COST.`,
+    '',
+    `Swipe each Moz debit card on a SA POS. Repeating the same card–POS pair burns restock capacity; resting pairs keep throughput open for the next ZAR sale.`,
+    '',
+  ]
+  if (replenish.cardAssignments.length) {
+    for (const row of replenish.cardAssignments) {
+      lines.push(assignmentLine(row, 'activity'))
+    }
+    lines.push('')
+    lines.push(`Cards resting: ${restingLabel(replenish.restingCardIds)}`)
+    lines.push(`POS resting: ${restingLabel(replenish.restingMachineIds)}`)
+  }
+  lines.push(`Rate: COST @ ${replenish.costRate.toFixed(2)} Mt/R`)
+  lines.push(`Spends ${formatMznAmount(replenish.amountMzn)} from Moz accounts`)
+  lines.push(`Then: Sell ZAR · Cycle ${replenish.cycleNumber} of ${cycleCount}`)
+  lines.push(`Status: ${statusLabel}`)
   return {
-    title: `Liquidity replenishment · before Cycle ${replenish.cycleNumber}/${cycleCount}`,
-    body: [
-      `${formatMznAmount(replenish.amountMzn)} → ${formatZar(replenish.amountZar)}`,
-      '',
-      LIQUIDITY_HEADING,
-      LIQUIDITY_BODY,
-      `Rate: COST @ ${replenish.costRate.toFixed(2)} Mt/R`,
-      `Frees ${formatZar(replenish.amountZar)} of the R50,000 conversion buffer`,
-      `Then: Cycle ${replenish.cycleNumber} of ${cycleCount}`,
-      `Status: ${statusLabel}`,
-    ].join('\n'),
+    title: `Restock ZAR @ COST · before Cycle ${replenish.cycleNumber}/${cycleCount}`,
+    body: lines.join('\n'),
   }
 }
 

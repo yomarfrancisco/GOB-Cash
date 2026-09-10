@@ -15,7 +15,8 @@ import {
   buildNotificationCopy,
   buildReplenishActivityCopy,
   buildReplenishNotificationCopy,
-  completeCycle,
+  applySell,
+  applyCardPosContact,
   createInitialState,
   formatAskImpactBody,
   planCycle,
@@ -500,6 +501,9 @@ function writeIssuedReplenish(
       replenishAmountMzn: replenish.amountMzn,
       replenishAmountZar: replenish.amountZar,
       replenishCostRate: replenish.costRate,
+      replenishAssignments: replenish.cardAssignments,
+      replenishRestingCardIds: replenish.restingCardIds,
+      replenishRestingMachineIds: replenish.restingMachineIds,
       updatedAt: now,
     },
     { merge: true }
@@ -524,7 +528,7 @@ function writeIssuedCycle(
   const plan = planCycle(state, overlay)
   const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
   const notification = blocked
-    ? { title: `Conversion Cycle ${plan.cycleNumber}`, body: 'No valid route under current constraints\nReply to restore a card or machine' }
+    ? { title: `Sell ZAR · Cycle ${plan.cycleNumber}`, body: 'No valid route under current constraints\nAsk to restore a card or POS' }
     : buildNotificationCopy(plan, state.config.cycleCount)
   const activity = buildActivityCopy(
     plan,
@@ -734,6 +738,9 @@ async function startNewTest(adminUid: string, forceNew: boolean) {
           amountZar: state.bufferUsed,
           amountMzn: 0,
           costRate: 0,
+          cardAssignments: [],
+          restingCardIds: [],
+          restingMachineIds: [],
         })
       : buildNotificationCopy(issued.plan, state.config.cycleCount)
   return publicSummary(state, {
@@ -837,10 +844,22 @@ export const admin_confirmConversionRoutingCycle = functions
       if (awaitingKind === 'replenish') {
         const replenish = planReplenish(state, num(testData.replenishCostRate, quotes.costRate))
         if (!replenish) {
-          throw new functions.https.HttpsError('failed-precondition', 'No liquidity replenishment is awaiting')
+          throw new functions.https.HttpsError('failed-precondition', 'No ZAR restock is awaiting')
         }
+        const assignments = Array.isArray(testData.replenishAssignments)
+          ? (testData.replenishAssignments as ReplenishPlan['cardAssignments'])
+          : replenish.cardAssignments
         const completedCopy = buildReplenishActivityCopy(
-          replenish,
+          {
+            ...replenish,
+            cardAssignments: assignments,
+            restingCardIds: Array.isArray(testData.replenishRestingCardIds)
+              ? testData.replenishRestingCardIds
+              : replenish.restingCardIds,
+            restingMachineIds: Array.isArray(testData.replenishRestingMachineIds)
+              ? testData.replenishRestingMachineIds
+              : replenish.restingMachineIds,
+          },
           state.config.cycleCount,
           'completed'
         )
@@ -853,13 +872,14 @@ export const admin_confirmConversionRoutingCycle = functions
         if (!eventSnap.exists || eventSnap.data()?.status !== 'awaiting_execution') {
           throw new functions.https.HttpsError(
             'failed-precondition',
-            'Liquidity replenishment is not awaiting execution'
+            'Restock ZAR @ COST is not awaiting execution'
           )
         }
+        const contacted = applyCardPosContact(state, assignments, cycleNumber)
         const cleared: RoutingState = {
-          ...state,
+          ...contacted,
           bufferUsed: 0,
-          config: { ...state.config, spread: liveSpread },
+          config: { ...contacted.config, spread: liveSpread },
         }
         tx.update(eventRef, {
           title: completedCopy.title,
@@ -906,7 +926,7 @@ export const admin_confirmConversionRoutingCycle = functions
       }
 
       const actualProfit = suppliedProfit ?? roundMoney(plan.deployedAmount * liveSpread)
-      const nextState = completeCycle(state, plan, actualProfit)
+      const nextState = applySell(state, plan, actualProfit)
       const remainingConstraints = expireConstraints(constraintsFromDoc(testData), cycleNumber)
       const completedCopy = buildActivityCopy(
         plan,
@@ -1210,8 +1230,8 @@ export const admin_submitConversionRoutingFeedback = functions
           : 'Ask why this instruction, what happens next, or name a card or machine to change.')
       const title =
         awaitingKind === 'replenish'
-          ? `Before Cycle ${cycleNumber}/${liveState.config.cycleCount}`
-          : `Cycle ${cycleNumber}/${liveState.config.cycleCount}`
+          ? `Restock ZAR @ COST · before Cycle ${cycleNumber}/${liveState.config.cycleCount}`
+          : `Sell ZAR · Cycle ${cycleNumber}/${liveState.config.cycleCount}`
       await db.runTransaction(async (tx) => {
         publishAdviceCard(tx, {
           adminUid,
