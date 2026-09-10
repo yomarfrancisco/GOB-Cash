@@ -2,7 +2,8 @@
  * Cloud Function: tx_createInternalConversion
  *
  * Immediately converts the caller's own MZN↔ZAR wallets at the quoted rate.
- * Status stays INITIATED until an operator confirms evidence. Cards move now.
+ * ZAR→MZN credits COST plus SELL−COST spread onto cashMZN. rewardsMzn stays on the tx
+ * for activity. Status stays INITIATED until an operator confirms evidence. Cards move now.
  */
 
 import * as functions from 'firebase-functions'
@@ -121,11 +122,14 @@ export const tx_createInternalConversion = functions
     await db.runTransaction(async (t) => {
       const sourceSnap = await t.get(sourceWalletRef)
       const destSnap = await t.get(destinationWalletRef)
-      const earningsSnap = rewardsMznMinor > 0 ? await t.get(earningsWalletRef) : null
+      const earningsSnap = await t.get(earningsWalletRef)
       const sourceData = sourceSnap.exists ? sourceSnap.data()! : { fiatBalance: 0 }
       const destData = destSnap.exists ? destSnap.data()! : { fiatBalance: 0 }
       const available = Number(sourceData.fiatBalance || 0)
       const availableMinor = Math.round(available * 100)
+      const leftoverEarningsMinor = Math.round(
+        Number(earningsSnap.exists ? earningsSnap.data()?.fiatBalance || 0 : 0) * 100
+      )
 
       if (!sourceSnap.exists || sourceAmountMinor > availableMinor) {
         throw new functions.https.HttpsError(
@@ -134,8 +138,16 @@ export const tx_createInternalConversion = functions
         )
       }
 
+      const destExistingMinor = destSnap.exists ? Math.round(Number(destData.fiatBalance || 0) * 100) : 0
+      const spreadIntoMznMinor = destinationWalletId === 'cashMZN' ? rewardsMznMinor : 0
+      const foldIntoMznMinor = leftoverEarningsMinor > 0 ? leftoverEarningsMinor : 0
+      let sourceNextMinor = availableMinor - sourceAmountMinor
+      let destNextMinor = destExistingMinor + expectedDestinationMinor
+      if (sourceWalletId === 'cashMZN') sourceNextMinor += foldIntoMznMinor
+      if (destinationWalletId === 'cashMZN') destNextMinor += spreadIntoMznMinor + foldIntoMznMinor
+
       t.update(sourceWalletRef, {
-        fiatBalance: (availableMinor - sourceAmountMinor) / 100,
+        fiatBalance: sourceNextMinor / 100,
         updatedAt: now,
       })
       if (!destSnap.exists) {
@@ -143,36 +155,22 @@ export const tx_createInternalConversion = functions
           walletId: destinationWalletId,
           kind: 'cash',
           displayCurrency: destinationCurrency,
-          fiatBalance: expectedDestinationMinor / 100,
+          fiatBalance: destNextMinor / 100,
           usdtBalance: 0,
           updatedAt: now,
         })
       } else {
         t.update(destinationWalletRef, {
-          fiatBalance: (Math.round(Number(destData.fiatBalance || 0) * 100) + expectedDestinationMinor) / 100,
+          fiatBalance: destNextMinor / 100,
           updatedAt: now,
         })
       }
 
-      if (rewardsMznMinor > 0) {
-        const earningsData = earningsSnap?.exists ? earningsSnap.data()! : { fiatBalance: 0 }
-        const nextEarnings = (Math.round(Number(earningsData.fiatBalance || 0) * 100) + rewardsMznMinor) / 100
-        if (!earningsSnap?.exists) {
-          t.set(earningsWalletRef, {
-            walletId: 'earnings',
-            kind: 'earnings',
-            displayCurrency: 'MZN',
-            fiatBalance: nextEarnings,
-            usdtBalance: 0,
-            updatedAt: now,
-          })
-        } else {
-          t.update(earningsWalletRef, {
-            fiatBalance: nextEarnings,
-            displayCurrency: 'MZN',
-            updatedAt: now,
-          })
-        }
+      if (earningsSnap.exists && leftoverEarningsMinor > 0) {
+        t.update(earningsWalletRef, {
+          fiatBalance: 0,
+          updatedAt: now,
+        })
       }
 
       t.set(txRef, {

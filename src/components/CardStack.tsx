@@ -85,14 +85,13 @@ const allCardsData: CardData[] = [
   },
 ]
 
-// Mozambique and South Africa cash cards. Rewards stays admin-only.
-const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd']
+// Mozambique and South Africa cash cards. Spread credits cashMZN, not a Rewards card.
+const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd', 'yieldSurprise']
 
 function homeCardsForAdmin(isAdmin: boolean): CardData[] {
   const visible = allCardsData.filter((card) => !ALWAYS_HIDDEN_CARD_TYPES.includes(card.type))
   if (isAdmin) return visible
-  const withoutRewards = visible.filter((card) => card.type !== 'yieldSurprise')
-  return [...withoutRewards].sort((a, b) => Number(b.type === 'mzn') - Number(a.type === 'mzn'))
+  return [...visible].sort((a, b) => Number(b.type === 'mzn') - Number(a.type === 'mzn'))
 }
 
 // Card labels mapping
