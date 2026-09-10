@@ -114,10 +114,66 @@ function pendingQuestion(recentFeedback: RecentFeedbackBrief[]): string | null {
 function wantsRetire(message: string): boolean {
   const text = message.trim().toLowerCase()
   return (
-    /\b(none|no card|no cards|new card|new consortium|retire|park (?:them|everything|all)|wait for a new)\b/.test(
+    /\b(none of them|none are|none is safe|new consortium|new card is coming|retire|park (?:them|everything|all)|wait for a new card)\b/.test(
+      text
+    ) || /^\s*none\s*[.,!]?\s*$/.test(text)
+  )
+}
+
+function mustSwipeAnyway(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  return (
+    /\b(have to swipe|must swipe|need to swipe|i have to swipe|assume i (?:have to|must)|just (?:pick|choose|use) (?:a |one )?card|use the safest|i have to use)\b/.test(
       text
     )
   )
+}
+
+function parseFreezeHorizonMs(message: string): number | null {
+  const text = message.trim().toLowerCase()
+  const months = text.match(/\b(\d+)\s*months?\b/)
+  if (months) return Number(months[1]) * 30 * 86_400_000
+  if (/\b(two months|a couple of months)\b/.test(text)) return 60 * 86_400_000
+  const weeks = text.match(/\b(\d+)\s*weeks?\b/)
+  if (weeks) return Number(weeks[1]) * 7 * 86_400_000
+  const days = text.match(/\b(\d+)\s*days?\b/)
+  if (days) return Number(days[1]) * 86_400_000
+  return null
+}
+
+function isFreezeOutlookAsk(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  if (!parseFreezeHorizonMs(message)) return false
+  return (
+    /\bwhat happens\b/.test(text) ||
+    /\bif no cards?\b/.test(text) ||
+    /\bnothing is coming\b/.test(text) ||
+    /\bno cards? (?:are|is) possible\b/.test(text)
+  )
+}
+
+function holdLabel(row: StoredConstraint, nowMs: number): string {
+  if (row.scope === 'n_cycles' && row.remainingCycles != null) {
+    return `${row.remainingCycles} conversion${row.remainingCycles === 1 ? '' : 's'} left`
+  }
+  if (row.scope === 'until_date' && typeof row.expiresAt === 'number' && row.expiresAt > nowMs) {
+    return `until ${formatSast(row.expiresAt)}`
+  }
+  if (row.scope === 'this_cycle') return 'held off this restock'
+  if (row.scope === 'until_cleared' || row.scope === 'permanent') return 'until you restore it'
+  return 'parked'
+}
+
+function parkedSummary(holds: StoredConstraint[], nowMs: number): string {
+  if (!holds.length) return 'every Moz card is parked'
+  const scopes = new Set(holds.map((row) => row.scope))
+  if (scopes.size === 1 && (holds[0].scope === 'this_cycle' || holds[0].scope === 'until_cleared')) {
+    return `All ${holds.length} Moz cards are parked`
+  }
+  if (scopes.size === 1 && holds[0].scope === 'n_cycles') {
+    return `All ${holds.length} Moz cards are parked, and those holds only lift after a conversion actually completes`
+  }
+  return holds.map((row) => `${cardLabel(row.resourceId)} (${holdLabel(row, nowMs)})`).join('; ')
 }
 
 function previewAfterRestoring(
@@ -272,6 +328,62 @@ function retireAdvice(state: RoutingState): DeskAdvice {
   }
 }
 
+function freezeOutlookAdvice(state: RoutingState, message: string, nowMs: number): DeskAdvice {
+  const horizonMs = parseFreezeHorizonMs(message) || 60 * 86_400_000
+  const days = Math.max(1, Math.round(horizonMs / 86_400_000))
+  const horizon =
+    days >= 28
+      ? `about ${Math.round(days / 30)} month${Math.round(days / 30) === 1 ? '' : 's'}`
+      : `${days} day${days === 1 ? '' : 's'}`
+  const float = formatZar(state.availableCapital)
+  const waiting = formatZar(state.bufferUsed)
+  return {
+    kind: 'next_step',
+    title: `No swipe for ${horizon}`,
+    body: [
+      `If no Moz card can be swiped for ${horizon}, COST restock stops.`,
+      `You can still sell ZAR after MZN lands, but only until the South African float is gone.`,
+      `Right now that is ${float} available` +
+        (state.bufferUsed > 0 ? `, with ${waiting} already waiting to be restocked.` : '.'),
+      `After the float is gone you cannot pay the next operator at COST. This is not a card–POS list — it is a cash-position limit.`,
+      `Name a card if a swipe still has to happen. Say “park them” if you want the desk locked until a new card exists.`,
+    ].join(' '),
+  }
+}
+
+function safestSwipeAdvice(
+  state: RoutingState,
+  constraints: StoredConstraint[],
+  costRate: number,
+  cycleNumber: number,
+  recentCycles: RecentCycleBrief[],
+  nowMs: number
+): DeskAdvice {
+  const restorableIds = [...new Set(activeCardHolds(constraints).map((row) => row.resourceId))]
+  const cardIds = restorableIds.length ? restorableIds : state.cards.map((card) => card.id)
+  const recoveries = recoveriesForCards(
+    state,
+    constraints,
+    cardIds,
+    costRate,
+    cycleNumber,
+    recentCycles,
+    nowMs
+  )
+  if (!recoveries.length) {
+    return {
+      kind: 'question',
+      title: 'Need a workable card',
+      body: 'A swipe still cannot be issued: no parked card produces a legal card–POS pair. Name a card that is actually usable, or say if a new card is coming.',
+      questionKind: 'which_card_safe',
+    }
+  }
+  return adviceFromRecoveries(
+    'You said a swipe still has to happen. This is the single safest pair the ledger can issue right now.',
+    [recoveries[0]]
+  )
+}
+
 function nextStepAdvice(route: {
   kind: 'replenish' | 'deploy'
   assignments: CardAssignment[]
@@ -310,30 +422,11 @@ function blockedQuestion(holds: StoredConstraint[], nowMs: number): DeskAdvice {
     }
   }
 
-  const nCycleHolds = holds.filter((row) => row.scope === 'n_cycles' && (row.remainingCycles ?? 0) > 0)
-  const parked = holds.length
-    ? holds
-        .map((row) => {
-          const left =
-            row.scope === 'n_cycles' && row.remainingCycles != null
-              ? `${row.remainingCycles} cycles left`
-              : row.scope === 'until_date' && row.expiresAt
-                ? `until ${formatSast(row.expiresAt)}`
-                : row.scope === 'until_cleared' || row.scope === 'permanent'
-                  ? 'until restored'
-                  : row.scope
-          return `${cardLabel(row.resourceId)} (${left})`
-        })
-        .join('; ')
-    : 'every Moz card'
-  const cycleNote =
-    nCycleHolds.length === holds.length && holds.length > 0
-      ? ' Those cycle counts only drop after a conversion actually completes, so waiting does not unblock the desk.'
-      : ''
+  const parked = parkedSummary(holds, nowMs)
   return {
     kind: 'question',
     title: 'Need a card to continue',
-    body: `No swipe is possible: ${parked} are parked.${cycleNote}\n\nWhich card is actually safe to use this week? If none are, say that a new card is coming.`,
+    body: `${parked}. Which card is actually safe to swipe now? If none are, say a new card is coming.`,
     questionKind: 'which_card_safe',
   }
 }
@@ -386,7 +479,7 @@ function adviceFromRecoveries(lead: string, recoveries: RankedRecovery[]): DeskA
 
 export function isDeskChoiceReply(message: string): boolean {
   if (namesConstraintChange(message) || isWhatIfAsk(message)) return false
-  if (wantsRetire(message)) return true
+  if (wantsRetire(message) || mustSwipeAnyway(message) || isFreezeOutlookAsk(message)) return true
   const named = resolveNamedCardIds(message)
   if (!named.length) return false
   return message.trim().split(/\s+/).length <= 12
@@ -420,6 +513,7 @@ export function adviseDesk(params: {
   const askedRetire = wantsRetire(message)
   const waitingOnCard = pendingQuestion(recentFeedback) === 'which_card_safe'
 
+  if (isFreezeOutlookAsk(message)) return freezeOutlookAdvice(state, message, nowMs)
   if (askedRetire) return retireAdvice(state)
 
   if (namedCardIds.length) {
@@ -434,6 +528,10 @@ export function adviseDesk(params: {
     )
     const names = namedCardIds.map((id) => cardLabel(id)).join(', ')
     return adviceFromRecoveries(`You named ${names}. I only offer a route the planner can actually issue.`, recoveries)
+  }
+
+  if (mustSwipeAnyway(message) && !open) {
+    return safestSwipeAdvice(state, constraints, costRate, cycleNumber, recentCycles, nowMs)
   }
 
   if (waitingOnCard && !namedCardIds.length && !askedRetire) {

@@ -801,17 +801,15 @@ export default function ProfileClient() {
               {/* Buttons */}
               <div className="profile-actions">
                 <button
-                  className="btn profile-edit"
+                  className={`btn profile-edit${hasUnseenActivity ? ' profile-edit--alert' : ''}`}
                   type="button"
+                  aria-label={hasUnseenActivity ? 'Ask, new activity' : 'Ask'}
                   onClick={() => {
                     guardAuthed(() => {
                       openNotifications()
                     })
                   }}
                 >
-                  {hasUnseenActivity ? (
-                    <span className="profile-action-unread-dot" aria-label="New Ask activity" />
-                  ) : null}
                   Ask
                 </button>
                 <button

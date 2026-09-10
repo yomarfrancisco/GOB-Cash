@@ -61,6 +61,8 @@ describe('time phrases', () => {
     assert.equal(isDeskStrategyAsk("Ok, what's next?"), true)
     assert.equal(shouldNotApplyAskIntents("what's next"), true)
     assert.equal(isDeskStrategyAsk('rest Wolf for 3 cycles'), false)
+    assert.equal(isDeskStrategyAsk("Let's assume i have to swipe. what should i do?"), true)
+    assert.equal(isDeskStrategyAsk('what happens if no cards are possible for at least 2 months?'), true)
   })
 
   it('shows a clock time for same-day activity', () => {

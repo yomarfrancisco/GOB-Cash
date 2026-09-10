@@ -292,7 +292,7 @@ ${message}`
 function looksLikeDeskChoice(message: string): boolean {
   if (shouldNotApplyAskIntents(message)) return true
   const lower = message.trim().toLowerCase()
-  if (/\b(none|no card|no cards|new card|new consortium|retire)\b/.test(lower)) {
+  if (/\b(none of them|none are|new card|new consortium|retire|park them)\b/.test(lower)) {
     return !namesConstraintChange(message)
   }
   const named = resolveNamedCardIds(message)
