@@ -569,12 +569,12 @@ function ActivityItemCard({
               ]
                 .filter(Boolean)
                 .join(' ')}
-              aria-label="Accept routing proposal"
+              aria-label={item.pursueLabel || 'Accept routing proposal'}
               disabled={proposalState !== 'idle'}
               onClick={handleAcceptProposal}
             >
               <Check size={16} strokeWidth={2.4} />
-              Accept
+              {item.pursueLabel || 'Accept'}
             </button>
             <button
               type="button"

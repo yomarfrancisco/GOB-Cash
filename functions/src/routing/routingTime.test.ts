@@ -6,10 +6,12 @@ import {
   hasCalendarTimeReference,
   hasFutureTimeConstraint,
   isBankerQuestion,
+  isDeskStrategyAsk,
   isMemoryOrHistoryQuestion,
   isWhatIfAsk,
   resolveExpiryFromMessage,
   sastToUtcMs,
+  shouldNotApplyAskIntents,
 } from './routingTime'
 
 const THURSDAY_0015_SAST = sastToUtcMs(2026, 9, 10, 0, 15)
@@ -53,6 +55,12 @@ describe('time phrases', () => {
     assert.equal(isBankerQuestion('Wolf is lost'), false)
     assert.equal(isWhatIfAsk('what if we rest Wolf for 3 cycles'), true)
     assert.equal(isWhatIfAsk('Wolf is lost'), false)
+  })
+
+  it('treats whats next as a strategy ask', () => {
+    assert.equal(isDeskStrategyAsk("Ok, what's next?"), true)
+    assert.equal(shouldNotApplyAskIntents("what's next"), true)
+    assert.equal(isDeskStrategyAsk('rest Wolf for 3 cycles'), false)
   })
 
   it('shows a clock time for same-day activity', () => {

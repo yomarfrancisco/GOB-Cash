@@ -31,6 +31,9 @@ export type ActivityEventDoc = {
   userRepliedAt?: Timestamp | { toMillis?: () => number }
   proposalId?: string
   awaitingProposalAccept?: boolean
+  pursueLabel?: string
+  optionCount?: number
+  recommendedOptionId?: string
 }
 
 function createdAtMs(value: ActivityEventDoc['createdAt']): number {
@@ -142,6 +145,12 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     userRepliedAt: data.userRepliedAt ? createdAtMs(data.userRepliedAt) : undefined,
     proposalId: typeof data.proposalId === 'string' && data.proposalId.trim() ? data.proposalId.trim() : undefined,
     awaitingProposalAccept: data.awaitingProposalAccept === true && data.status !== 'cancelled' && data.status !== 'accepted',
+    pursueLabel: typeof data.pursueLabel === 'string' && data.pursueLabel.trim() ? data.pursueLabel.trim() : undefined,
+    optionCount: typeof data.optionCount === 'number' ? data.optionCount : undefined,
+    recommendedOptionId:
+      typeof data.recommendedOptionId === 'string' && data.recommendedOptionId.trim()
+        ? data.recommendedOptionId.trim()
+        : undefined,
   }
 }
 

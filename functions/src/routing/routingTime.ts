@@ -181,6 +181,35 @@ export function isBankerQuestion(message: string): boolean {
   )
 }
 
+export function namesConstraintChange(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  return (
+    /\b(unavailable|blocked|don'?t use|do not use|restore|cap|limit|prefer|exclude|lost|down|resting)\b/.test(text) ||
+    /\brest\b/.test(text)
+  )
+}
+
+export function isDeskStrategyAsk(message: string): boolean {
+  if (isWhatIfAsk(message)) return false
+  if (namesConstraintChange(message)) return false
+  const text = message.trim().toLowerCase()
+  if (!text) return false
+  return (
+    /\bwhat'?s next\b/.test(text) ||
+    /\bwhat is next\b/.test(text) ||
+    /\bwhat now\b/.test(text) ||
+    /\bwhat (?:do we|should we|can we) do\b/.test(text) ||
+    /\bhow do we (?:continue|proceed|keep going)\b/.test(text) ||
+    /\bbest (?:option|route|move|advice)\b/.test(text) ||
+    /\badvise (?:me|us)\b/.test(text) ||
+    /^(?:ok|okay|alright)[,.]?\s*(?:what'?s next|what now|what do we do)/.test(text)
+  )
+}
+
+export function shouldNotApplyAskIntents(message: string): boolean {
+  return isBankerQuestion(message) || isDeskStrategyAsk(message)
+}
+
 function parseClockTime(lower: string): { hour: number; minute: number } | null {
   const colon = lower.match(/\b(\d{1,2}):(\d{2})\b/)
   if (colon) {
