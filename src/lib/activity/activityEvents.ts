@@ -34,6 +34,8 @@ export type ActivityEventDoc = {
   pursueLabel?: string
   optionCount?: number
   recommendedOptionId?: string
+  startNextRun?: boolean
+  questionKind?: string
 }
 
 function createdAtMs(value: ActivityEventDoc['createdAt']): number {
@@ -151,6 +153,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       typeof data.recommendedOptionId === 'string' && data.recommendedOptionId.trim()
         ? data.recommendedOptionId.trim()
         : undefined,
+    startNextRun: data.startNextRun === true,
   }
 }
 

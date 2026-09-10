@@ -45,6 +45,7 @@ export type ActivityItem = {
   pursueLabel?: string
   optionCount?: number
   recommendedOptionId?: string
+  startNextRun?: boolean
   kycAction?: 'start' | 'update'
 }
 

@@ -281,7 +281,9 @@ function ActivityItemCard({
   const [askText, setAskText] = useState('')
   const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
   const [askError, setAskError] = useState('')
+  const [startNextState, setStartNextState] = useState<'idle' | 'loading'>('idle')
   const showDownload = canDownloadProof(item)
+  const showStartNextRun = !lockDeskActions && item.startNextRun === true
   const showKycLink = item.hasKycLink === true
   const isKycGate = isKycGateItem(item)
   const kycCta = item.kycAction === 'update' ? 'Update KYC' : 'Start KYC'
@@ -384,6 +386,19 @@ function ActivityItemCard({
     setAskOpen((open) => !open)
   }
 
+  const handleStartNextRun = async (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (startNextState !== 'idle') return
+    setStartNextState('loading')
+    try {
+      await onRoutingAsk(item, 'start the next run')
+    } catch (error) {
+      setAskError(error instanceof Error ? error.message : 'Could not start the next run')
+    } finally {
+      setStartNextState('idle')
+    }
+  }
+
   const handleSubmitAsk = async (event: React.FormEvent) => {
     event.preventDefault()
     event.stopPropagation()
@@ -468,65 +483,81 @@ function ActivityItemCard({
             ) : null}
           </>
         )}
-        {showDownload && (
-          <button
-            type="button"
-            className={[
-              styles.downloadButton,
-              downloadState === 'loading' ? styles.downloadButtonLoading : '',
-              downloadState === 'pressed' ? styles.downloadButtonPressed : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            aria-label={
-              item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
-                ? 'Download monthly settlement statement'
-                : item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
-                  ? 'Download weekly settlement statement'
-                  : 'Download proof of payment'
-            }
-            aria-busy={downloadState !== 'idle'}
-            disabled={downloadState !== 'idle'}
-            onClick={handleDownload}
-          >
-            <span className={styles.downloadFill} aria-hidden />
-            <Download size={18} strokeWidth={2} />
-          </button>
-        )}
-        {isKycGate && (
+        {(isKycGate || showConfirm || showStartNextRun || showDownload || showAsk) && (
           <div className={styles.activityActionRow}>
-            <button
-              type="button"
-              className={styles.confirmButton}
-              aria-label={kycCta}
-              onClick={handleKycCta}
-            >
-              {kycCta}
-            </button>
-          </div>
-        )}
-        {showConfirm && (
-          <div className={styles.activityActionRow}>
-            <button
-              type="button"
-              className={[
-                styles.confirmButton,
-                confirmState === 'loading' ? styles.confirmButtonLoading : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-label={
-                confirmItem?.routingAction === 'replenish'
-                  ? 'Confirm the Moz card was swiped on a SA POS'
-                  : 'Confirm ZAR was sent after MZN reflected'
-              }
-              aria-busy={confirmState !== 'idle'}
-              disabled={confirmState !== 'idle'}
-              onClick={handleExecuteRouting}
-            >
-              <Check size={16} strokeWidth={2.4} />
-              {confirmItem?.routingAction === 'replenish' ? "I've swiped" : "I've sent ZAR"}
-            </button>
+            {isKycGate && (
+              <button
+                type="button"
+                className={styles.confirmButton}
+                aria-label={kycCta}
+                onClick={handleKycCta}
+              >
+                {kycCta}
+              </button>
+            )}
+            {showConfirm && (
+              <button
+                type="button"
+                className={[
+                  styles.confirmButton,
+                  confirmState === 'loading' ? styles.confirmButtonLoading : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label={
+                  confirmItem?.routingAction === 'replenish'
+                    ? 'Confirm the Moz card was swiped on a SA POS'
+                    : 'Confirm ZAR was sent after MZN reflected'
+                }
+                aria-busy={confirmState !== 'idle'}
+                disabled={confirmState !== 'idle'}
+                onClick={handleExecuteRouting}
+              >
+                <Check size={16} strokeWidth={2.4} />
+                {confirmItem?.routingAction === 'replenish' ? "I've swiped" : "I've sent ZAR"}
+              </button>
+            )}
+            {showStartNextRun && (
+              <button
+                type="button"
+                className={[
+                  styles.confirmButton,
+                  startNextState === 'loading' ? styles.confirmButtonLoading : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Start the next run"
+                aria-busy={startNextState !== 'idle'}
+                disabled={startNextState !== 'idle'}
+                onClick={handleStartNextRun}
+              >
+                Start the next run
+              </button>
+            )}
+            {showDownload && (
+              <button
+                type="button"
+                className={[
+                  styles.replyButton,
+                  downloadState === 'loading' ? styles.confirmButtonLoading : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label={
+                  item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+                    ? 'Download monthly settlement statement'
+                    : item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
+                      ? 'Download weekly settlement statement'
+                      : 'Download proof of payment'
+                }
+                aria-busy={downloadState !== 'idle'}
+                disabled={downloadState !== 'idle'}
+                onClick={handleDownload}
+              >
+                <Download size={14} strokeWidth={2.4} />
+                Download POP
+              </button>
+            )}
             {showAsk && (
               <button
                 type="button"
@@ -538,19 +569,6 @@ function ActivityItemCard({
                 Ask
               </button>
             )}
-          </div>
-        )}
-        {!showConfirm && showAsk && (
-          <div className={styles.activityActionRow}>
-            <button
-              type="button"
-              className={`${styles.replyButton} ${styles.askButton}`}
-              aria-label="Ask about this instruction"
-              aria-expanded={askOpen}
-              onClick={handleToggleAsk}
-            >
-              Ask
-            </button>
           </div>
         )}
         {showAsk && askOpen && (

@@ -108,6 +108,7 @@ export default function AmountSheet({
   const [conversionBusy, setConversionBusy] = useState(false)
   const [pressedKey, setPressedKey] = useState<string | null>(null)
   const autoPlayRef = useRef(false)
+  const conversionBusyRef = useRef(false)
   const { isAuthed, requireAuth } = useAuthStore()
   const { alloc } = useWalletAlloc()
   const wallets = useWalletStore((state) => state.wallets)
@@ -152,21 +153,26 @@ export default function AmountSheet({
         setAmount('0')
       }
       setConversionBusy(false)
+      conversionBusyRef.current = false
       setPressedKey(null)
     } else {
       autoPlayRef.current = false
     }
   }, [open, initialAmount, autoPlayAmount])
 
-  const runConversionExchange = (typed = parseFloat(amount) || 0) => {
-    if (!(typed > 0) || conversionBusy) return
+  const runConversionExchange = (typed = parseFloat(amount) || 0, fromAutoPlay = false) => {
+    if (!(typed > 0) || conversionBusyRef.current) return
     const nextZAR = isZarPrimaryKeypad ? typed : mznToZar(typed, fxRateMZNperZAR)
     const nextMZN = isZarPrimaryKeypad
       ? Math.round(zarToMzn(typed, fxRateMZNperZAR) * 100) / 100
       : typed
-    if (exceedsAvailableZar(nextZAR, displayBalanceZAR) || exceedsAvailableMzn(nextMZN, displayBalanceMZN)) {
+    if (
+      !fromAutoPlay &&
+      (exceedsAvailableZar(nextZAR, displayBalanceZAR) || exceedsAvailableMzn(nextMZN, displayBalanceMZN))
+    ) {
       return
     }
+    conversionBusyRef.current = true
     setConversionBusy(true)
     onClose()
     void Promise.resolve(
@@ -181,8 +187,10 @@ export default function AmountSheet({
 
   useEffect(() => {
     if (!open || !autoPlayAmount || autoPlayAmount <= 0 || autoPlayRef.current) return
+    if (isAuthed && !walletsHydrated) return
     autoPlayRef.current = true
     let cancelled = false
+    let submitted = false
     const keys = amountToKeys(autoPlayAmount)
     const play = async () => {
       await wait(320)
@@ -197,15 +205,17 @@ export default function AmountSheet({
         setPressedKey(null)
         await wait(40)
       }
-      await wait(420)
+      await wait(180)
       if (cancelled) return
-      runConversionExchange(parseFloat(current) || 0)
+      submitted = true
+      runConversionExchange(parseFloat(current) || 0, true)
     }
     void play()
     return () => {
       cancelled = true
+      if (!submitted) autoPlayRef.current = false
     }
-  }, [open, autoPlayAmount])
+  }, [open, autoPlayAmount, isAuthed, walletsHydrated])
 
   const typedAmount = parseFloat(amount) || 0
   const amountZAR = isZarPrimaryKeypad

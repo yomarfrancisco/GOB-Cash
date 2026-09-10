@@ -446,6 +446,7 @@ function publishAdviceCard(
     optionCount?: number
     recommendedOptionId?: string | null
     questionKind?: string | null
+    startNextRun?: boolean
   }
 ): string {
   const activityEventId = adviceEventId(params.testRunId, params.feedbackId)
@@ -479,6 +480,7 @@ function publishAdviceCard(
     optionCount: params.optionCount || 0,
     recommendedOptionId: params.recommendedOptionId || null,
     questionKind: params.questionKind || null,
+    startNextRun: params.startNextRun === true,
     testRunId: params.testRunId,
     cycleNumber: params.cycleNumber,
     userReply: params.userReply,
@@ -1273,6 +1275,7 @@ export const admin_submitConversionRoutingFeedback = functions
           body,
           userReply: rawMessage,
           routingAction: 'advice',
+          startNextRun: true,
         })
         tx.set(testRef.collection('feedback').doc(feedbackId), {
           id: feedbackId,
