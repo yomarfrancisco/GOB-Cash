@@ -779,6 +779,8 @@ export default function ProfileClient() {
                 </div>
               </div>
 
+              {/* Compliance pill hidden so handle sits above Ask / Log out. Set true to restore. */}
+              {false && (
               <button
                 type="button"
                 className="profile-stats-card profile-stats-card--compliance"
@@ -797,6 +799,7 @@ export default function ProfileClient() {
                   </div>
                 </div>
               </button>
+              )}
 
               {/* Buttons */}
               <div className="profile-actions">
