@@ -148,12 +148,12 @@ export function buildRoutingLedgerBrief(params: {
       : ''
   const nextAction =
     awaiting.kind === 'replenish'
-      ? 'Next action: Execute the liquidity replenishment.'
-      : `Next action: Execute Cycle ${awaiting.cycleNumber}, or Reply to revise it.`
+      ? 'Next action: Execute restock — swipe Moz cards on SA POS at COST. Repeat pairs burn throughput.'
+      : `Next action: Execute the ZAR sale only after MZN has reflected, or Ask to revise it.`
 
   return [
     clock.promptLine,
-    `Test progress: ${ledger.completedCycles} of ${ledger.cycleCount} cycles completed. Cycle ${awaiting.cycleNumber} is awaiting ${awaiting.kind === 'replenish' ? 'replenish Execute' : 'Execute'}${issued}.`,
+    `Test progress: ${ledger.completedCycles} of ${ledger.cycleCount} cycles completed. Cycle ${awaiting.cycleNumber} is awaiting ${awaiting.kind === 'replenish' ? 'ZAR restock @ COST' : 'ZAR sale'}${issued}.`,
     `Capital: ${formatZar(ledger.availableCapital)} available. Buffer: ${formatZar(ledger.bufferUsed)} / ${formatZar(ledger.bufferAmount)}.`,
     nextAction,
     'Cards:',

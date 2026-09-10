@@ -140,22 +140,22 @@ describe('20-cycle default test', () => {
     assert.match(blocked.selectionReason, /No valid route/)
   })
 
-  it('keeps the dropdown to a title plus two body lines', () => {
+  it('keeps the dropdown to a title plus one body line', () => {
     const plan = planCycle(createInitialState())
     const copy = buildNotificationCopy(plan, 20)
-    assert.equal(copy.body.split('\n').length, 2)
-    assert.equal(copy.body.includes('Replenish'), false)
+    assert.equal(copy.body.split('\n').length, 1)
+    assert.match(copy.body, /after MZN reflects/)
+    assert.equal(copy.body.includes('Restock'), false)
   })
 
-  it('answers a revision with the change and route only', () => {
+  it('answers a revision with the change and next payout only', () => {
     const plan = planCycle(createInitialState())
     const copy = buildAgentReplyCopy(plan, 20, 'Card 5 excluded from this cycle only.', false)
     assert.equal(copy.body.includes('You:'), false)
     assert.equal(copy.body.includes('Expected spread'), false)
     assert.equal(copy.body.includes('Awaiting execution'), false)
     assert.match(copy.body, /Card 5 excluded from this cycle only/)
-    assert.match(copy.body, /Revised route:/)
-    assert.match(copy.body, / · /)
+    assert.match(copy.body, /Next: receive MZN, then pay/)
   })
 
   it('never pairs Wolf with FNB Wolf or BRICS AI with a BRICS machine', () => {
@@ -180,8 +180,9 @@ describe('20-cycle default test', () => {
     assert.equal(replenish?.amountZar, 40_000)
     assert.equal(replenish?.amountMzn, 172_800)
     const copy = buildReplenishNotificationCopy(replenish!)
-    assert.equal(copy.title, 'Liquidity replenishment')
-    assert.equal(copy.body.split('\n').length, 2)
+    assert.equal(copy.title, 'Restock ZAR @ COST')
+    assert.match(copy.body, /R40,000/)
+    assert.ok((replenish?.cardAssignments.length || 0) > 0)
   })
 })
 
@@ -209,7 +210,7 @@ describe('ask preview', () => {
       proposal: true,
     })
     assert.match(body, /Accept applies this rule/)
-    assert.match(body, /Next:/)
+    assert.match(body, /Next: receive MZN/)
   })
 })
 
