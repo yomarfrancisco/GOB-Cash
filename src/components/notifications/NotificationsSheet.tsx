@@ -42,7 +42,7 @@ export default function NotificationsSheet() {
               type="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="FX and settlement activity"
+              placeholder="Search"
               className={listStyles.searchInput}
             />
           </label>
