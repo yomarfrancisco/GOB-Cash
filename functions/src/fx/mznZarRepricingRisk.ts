@@ -3,7 +3,7 @@
  * Historical breach frequency of hourly MZN-per-ZAR moves. Not an executable quote.
  */
 
-export const REPRICING_THRESHOLD_BPS = 50
+export const REPRICING_THRESHOLD_BPS = 2
 export const MIN_SAMPLE_COUNT = 48
 export const ROLLING_WINDOW_DAYS = 90
 export const MIN_HOURLY_GAP_MS = 45 * 60 * 1000
