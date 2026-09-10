@@ -13,7 +13,7 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
-import { formatMZN, formatUSDT, formatZAR } from '@/lib/money'
+import { formatUSDT, formatZARWithDot } from '@/lib/money'
 import { zarToMzn, mznToZar, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
@@ -634,16 +634,14 @@ function HomeContent() {
     isAuthed && isBalanceReady ? ((wallets as any)?.cashMZN?.fiatBalance ?? 0) : 0
   const cashZARBalance =
     isAuthed && isBalanceReady ? ((wallets as any)?.cashZAR?.fiatBalance ?? 0) : 0
-  const profitMZNBalance =
-    isAuthed && isBalanceReady ? ((wallets as any)?.earnings?.fiatBalance ?? 0) : 0
-  const quotedMznPerZar =
+  const liveMznPerZar =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
-      : undefined
-  const totalBalanceMZN =
-    cashMZNBalance + profitMZNBalance + zarToMzn(cashZARBalance, quotedMznPerZar)
-  const formattedBalance = formatMZN(totalBalanceMZN)
-  const subtitleText = `Available: ${formattedBalance}`
+      : 0
+  const costRate = costMznPerZar(liveMznPerZar)
+  const totalBalanceZAR = cashZARBalance + mznToZar(cashMZNBalance, costRate)
+  const formattedBalance = formatZARWithDot(totalBalanceZAR)
+  const subtitleText = `Total: ${formattedBalance}`
 
 
   return (
