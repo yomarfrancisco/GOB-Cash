@@ -827,7 +827,7 @@ export default function ProfileClient() {
                   }}
                   aria-disabled={depositLocked}
                 >
-                  Add MZN
+                  Add liquidity
                   <LockOverlay show={depositLocked} />
                 </button>
                 <button
@@ -845,7 +845,7 @@ export default function ProfileClient() {
                   }}
                   aria-disabled={withdrawLocked}
                 >
-                  Withdraw ZAR
+                  Withdraw
                   <LockOverlay show={withdrawLocked} />
                 </button>
               </div>
