@@ -152,6 +152,35 @@ export function isMemoryOrHistoryQuestion(message: string): boolean {
   )
 }
 
+export function isWhatIfAsk(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  return (
+    /\bwhat if\b/.test(text) ||
+    /\bwhat would happen\b/.test(text) ||
+    /\bwould happen if\b/.test(text) ||
+    /\bsuppose we\b/.test(text) ||
+    /\blet'?s say we\b/.test(text) ||
+    /\bif we (?:rest|exclude|drop|lost|lose|skip|cap|capped|follow|followed|used)\b/.test(text)
+  )
+}
+
+export function isBankerQuestion(message: string): boolean {
+  if (isWhatIfAsk(message)) return false
+  if (isMemoryOrHistoryQuestion(message)) return true
+  const text = message.trim().toLowerCase()
+  if (!text) return false
+  if (
+    /\b(unavailable|blocked|don'?t use|do not use|restore|cap|limit|prefer|exclude|lost|down|resting)\b/.test(text) ||
+    /\brest\b/.test(text)
+  ) {
+    return false
+  }
+  return (
+    /^(why|how|explain|tell me|what happens|is this|should we|does this|can you explain)\b/.test(text) ||
+    (text.includes('?') && /^(why|how|what|who|when|where|is |are |should|does|do |can |could |would )\b/.test(text))
+  )
+}
+
 function parseClockTime(lower: string): { hour: number; minute: number } | null {
   const colon = lower.match(/\b(\d{1,2}):(\d{2})\b/)
   if (colon) {

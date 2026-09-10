@@ -17,8 +17,10 @@ import {
   buildReplenishNotificationCopy,
   completeCycle,
   createInitialState,
+  formatAskImpactBody,
   planCycle,
   planReplenish,
+  previewAskImpact,
   roundMoney,
   type CyclePlan,
   type ReplenishPlan,
@@ -52,7 +54,9 @@ import {
 import {
   firestoreTimestampMs,
   hasFutureTimeConstraint,
+  isBankerQuestion,
   isMemoryOrHistoryQuestion,
+  isWhatIfAsk,
 } from '../routing/routingTime'
 import {
   costMznPerZarFromSell,
@@ -294,6 +298,71 @@ function publishAgentRevision(
     recordingSource: 'SYSTEM',
   })
   return { activityEventId, revisionCount: nextRevision }
+}
+
+function adviceEventId(testRunId: string, feedbackId: string): string {
+  return `routing-${testRunId}-ask-${feedbackId}`
+}
+
+function previewStateForAsk(
+  state: RoutingState,
+  awaitingKind: string | undefined
+): RoutingState {
+  if (awaitingKind === 'replenish') return { ...state, bufferUsed: 0 }
+  return state
+}
+
+function publishAdviceCard(
+  tx: admin.firestore.Transaction,
+  params: {
+    adminUid: string
+    testRunId: string
+    cycleNumber: number
+    feedbackId: string
+    now: admin.firestore.Timestamp
+    title: string
+    body: string
+    userReply: string
+    routingAction: 'advice' | 'proposal'
+    proposalId?: string
+    awaitingProposalAccept?: boolean
+  }
+): string {
+  const activityEventId = adviceEventId(params.testRunId, params.feedbackId)
+  const eventRef = db
+    .collection('users')
+    .doc(params.adminUid)
+    .collection('activityEvents')
+    .doc(activityEventId)
+  tx.set(eventRef, {
+    id: activityEventId,
+    kind: CONVERSION_ROUTING_KIND,
+    title: params.title,
+    body: params.body,
+    dropdownTitle: params.title,
+    dropdownBody: params.body.split('\n')[0] || params.title,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_zar',
+    amountCurrency: 'ZAR',
+    amountValue: 0,
+    amountSign: 'debit',
+    txId: activityEventId,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: false,
+    status: params.awaitingProposalAccept ? 'awaiting_proposal' : 'recorded',
+    routingAction: params.routingAction,
+    routingRevision: false,
+    proposalId: params.proposalId || null,
+    awaitingProposalAccept: params.awaitingProposalAccept === true,
+    testRunId: params.testRunId,
+    cycleNumber: params.cycleNumber,
+    userReply: params.userReply,
+    userRepliedAt: params.now,
+    createdAt: params.now,
+    recordingSource: 'SYSTEM',
+  })
+  return activityEventId
 }
 
 function mergeById<T extends { id: number }>(stored: unknown, fallback: T[]): T[] {
@@ -926,9 +995,13 @@ export const admin_submitConversionRoutingFeedback = functions
   .region('us-central1')
   .https.onCall(async (data, context) => {
     const adminUid = assertRoutingAdmin(context)
+    const acceptProposalId =
+      typeof data?.acceptProposalId === 'string' ? data.acceptProposalId.trim() : ''
+    const discardProposalId =
+      typeof data?.discardProposalId === 'string' ? data.discardProposalId.trim() : ''
     const rawMessage = typeof data?.message === 'string' ? data.message.trim() : ''
-    if (!rawMessage) {
-      throw new functions.https.HttpsError('invalid-argument', 'Reply text is required')
+    if (!rawMessage && !acceptProposalId && !discardProposalId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Ask text is required')
     }
 
     const requestedRun = typeof data?.testRunId === 'string' ? data.testRunId : undefined
@@ -947,16 +1020,35 @@ export const admin_submitConversionRoutingFeedback = functions
     if (testData.status !== 'active') {
       throw new functions.https.HttpsError('failed-precondition', 'Conversion routing test is not active')
     }
-    if (testData.awaitingKind === 'replenish') {
-      throw new functions.https.HttpsError(
-        'failed-precondition',
-        'Reply is available on conversion instructions, not liquidity replenishment'
-      )
+
+    const awaitingKind =
+      typeof testData.awaitingKind === 'string' ? testData.awaitingKind : 'deploy'
+    const cycleNumber = requestedCycle || num(testData.awaitingCycleNumber, 0)
+    if (cycleNumber <= 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'No conversion routing cycle is in progress')
     }
 
-    const cycleNumber = requestedCycle || num(testData.awaitingCycleNumber, 0)
-    if (cycleNumber <= 0 || num(testData.awaitingCycleNumber, 0) !== cycleNumber) {
-      throw new functions.https.HttpsError('failed-precondition', 'No awaiting conversion instruction to revise')
+    if (discardProposalId) {
+      const proposalRef = testRef.collection('proposals').doc(discardProposalId)
+      const proposalSnap = await proposalRef.get()
+      if (!proposalSnap.exists) {
+        throw new functions.https.HttpsError('not-found', 'That proposal is no longer pending')
+      }
+      const now = admin.firestore.Timestamp.now()
+      const eventRef = db
+        .collection('users')
+        .doc(adminUid)
+        .collection('activityEvents')
+        .doc(adviceEventId(testRunId, discardProposalId))
+      await db.runTransaction(async (tx) => {
+        tx.set(proposalRef, { status: 'discarded', updatedAt: now }, { merge: true })
+        tx.set(
+          eventRef,
+          { status: 'cancelled', awaitingProposalAccept: false, updatedAt: now },
+          { merge: true }
+        )
+      })
+      return { testRunId, cycleNumber, status: 'discarded', acknowledgement: 'Discarded.' }
     }
 
     const state = stateFromDoc(testData)
@@ -964,10 +1056,12 @@ export const admin_submitConversionRoutingFeedback = functions
     const constraints = expireConstraintsByTime(constraintsFromDoc(testData), nowMs)
     const cycleRef = testRef.collection('cycles').doc(String(cycleNumber))
     const cycleSnap = await cycleRef.get()
-    if (!cycleSnap.exists || cycleSnap.data()?.status !== 'awaiting_execution') {
-      throw new functions.https.HttpsError('failed-precondition', 'This cycle is no longer awaiting execution')
-    }
-    const stored = storedPlanFromCycle(cycleSnap.data() || {}, cycleNumber)
+    const canReviseDeploy =
+      awaitingKind === 'deploy' &&
+      cycleSnap.exists &&
+      cycleSnap.data()?.status === 'awaiting_execution' &&
+      num(testData.awaitingCycleNumber, 0) === cycleNumber
+    const stored = storedPlanFromCycle(cycleSnap.exists ? cycleSnap.data() || {} : {}, cycleNumber)
     const quotes = await applyLiveQuotes(state)
     const liveState = { ...state, config: { ...state.config, spread: quotes.state.config.spread } }
     const [recentCycles, recentFeedback] = await Promise.all([
@@ -997,67 +1091,96 @@ export const admin_submitConversionRoutingFeedback = functions
       issuedAtMs,
     }
 
-    const memoryAnswer = isMemoryOrHistoryQuestion(rawMessage)
-      ? answerMemoryQuestion({
-          message: rawMessage,
-          nowMs,
-          constraints,
-          recentFeedback,
-          recentCycles,
-          ledger: ledgerFromRoutingState(liveState),
-          awaiting: { cycleNumber },
-        })
-      : null
-    const clientSentIntents = Array.isArray(data?.intents)
-    const providedIntents = attachResolvedExpiry(
-      clientSentIntents
-        ? (data.intents as unknown[])
-            .map((row) => sanitizeIntent(row))
-            .filter((row): row is RoutingIntent => Boolean(row))
-        : [],
-      rawMessage,
-      nowMs
-    )
-    const clientClarification = usefulClarification(
-      typeof data?.clarification === 'string' ? data.clarification : null
-    )
-    const recoveredFastPath = providedIntents.length ? null : parseFastPath(rawMessage)
-    const looksLikeHistoryQuestion = isMemoryOrHistoryQuestion(rawMessage)
-    const missingResolvedTime =
-      hasFutureTimeConstraint(rawMessage) &&
-      !providedIntents.some(
-        (row) => row.scope === 'until_date' || (typeof row.expiresAt === 'number' && row.expiresAt > nowMs)
+    let askMessage = rawMessage
+    let interpreted: {
+      intents: RoutingIntent[]
+      clarification: string | null
+      interpreter: 'llm' | 'fast_path'
+    }
+    if (acceptProposalId) {
+      const proposalSnap = await testRef.collection('proposals').doc(acceptProposalId).get()
+      if (!proposalSnap.exists || proposalSnap.data()?.status !== 'pending') {
+        throw new functions.https.HttpsError('not-found', 'That proposal is no longer pending')
+      }
+      const proposal = proposalSnap.data() || {}
+      askMessage = typeof proposal.rawMessage === 'string' && proposal.rawMessage.trim()
+        ? proposal.rawMessage.trim()
+        : rawMessage || 'Accept'
+      interpreted = {
+        intents: Array.isArray(proposal.intents)
+          ? (proposal.intents as unknown[])
+              .map((row) => sanitizeIntent(row))
+              .filter((row): row is RoutingIntent => Boolean(row))
+          : [],
+        clarification: null,
+        interpreter: 'fast_path',
+      }
+    } else {
+      const memoryAnswer = isMemoryOrHistoryQuestion(askMessage)
+          ? answerMemoryQuestion({
+              message: askMessage,
+              nowMs,
+              constraints,
+              recentFeedback,
+              recentCycles,
+              ledger: ledgerFromRoutingState(liveState),
+              awaiting: { cycleNumber },
+            })
+          : null
+      const clientSentIntents = Array.isArray(data?.intents)
+      const providedIntents = attachResolvedExpiry(
+        clientSentIntents
+          ? (data.intents as unknown[])
+              .map((row) => sanitizeIntent(row))
+              .filter((row): row is RoutingIntent => Boolean(row))
+          : [],
+        askMessage,
+        nowMs
       )
-    const shouldReinterpret =
-      Boolean(llmApiKey()) &&
-      ((providedIntents.length === 0 && looksLikeHistoryQuestion) || missingResolvedTime)
-    const interpreted = memoryAnswer
-      ? {
-          intents: [] as RoutingIntent[],
-          clarification: memoryAnswer,
-          interpreter: 'fast_path' as const,
-        }
-      : providedIntents.length && !shouldReinterpret
-      ? {
-          intents: providedIntents,
-          clarification: clientClarification,
-          interpreter: 'llm' as const,
-        }
-      : recoveredFastPath?.intents.length
+      const clientClarification = usefulClarification(
+        typeof data?.clarification === 'string' ? data.clarification : null
+      )
+      const recoveredFastPath = providedIntents.length ? null : parseFastPath(askMessage)
+      const looksLikeHistoryQuestion = isMemoryOrHistoryQuestion(askMessage) || isBankerQuestion(askMessage)
+      const missingResolvedTime =
+        hasFutureTimeConstraint(askMessage) &&
+        !providedIntents.some(
+          (row) => row.scope === 'until_date' || (typeof row.expiresAt === 'number' && row.expiresAt > nowMs)
+        )
+      const shouldReinterpret =
+        Boolean(llmApiKey()) &&
+        ((providedIntents.length === 0 && looksLikeHistoryQuestion) || missingResolvedTime)
+      interpreted = memoryAnswer
         ? {
-            ...recoveredFastPath,
-            intents: attachResolvedExpiry(recoveredFastPath.intents, rawMessage, nowMs),
+            intents: [] as RoutingIntent[],
+            clarification: memoryAnswer,
+            interpreter: 'fast_path' as const,
           }
-        : shouldReinterpret || !clientSentIntents
-          ? await interpretAdminFeedback(rawMessage, interpretContext).then((result) => ({
-              ...result,
-              intents: attachResolvedExpiry(result.intents, rawMessage, nowMs),
-            }))
-          : {
-              intents: [] as RoutingIntent[],
-              clarification: clientClarification || contextualClarify(stored.cardAssignments),
-              interpreter: 'llm' as const,
+        : providedIntents.length && !shouldReinterpret
+        ? {
+            intents: providedIntents,
+            clarification: clientClarification,
+            interpreter: 'llm' as const,
+          }
+        : recoveredFastPath?.intents.length
+          ? {
+              ...recoveredFastPath,
+              intents: attachResolvedExpiry(recoveredFastPath.intents, askMessage, nowMs),
             }
+          : shouldReinterpret || !clientSentIntents
+            ? await interpretAdminFeedback(askMessage, interpretContext).then((result) => ({
+                ...result,
+                intents: attachResolvedExpiry(result.intents, askMessage, nowMs),
+              }))
+            : {
+                intents: [] as RoutingIntent[],
+                clarification: clientClarification || contextualClarify(stored.cardAssignments),
+                interpreter: 'llm' as const,
+              }
+      if (isBankerQuestion(askMessage)) {
+        interpreted = { ...interpreted, intents: [] }
+      }
+    }
 
     const validIntents: RoutingIntent[] = []
     const intentErrors: string[] = []
@@ -1068,49 +1191,47 @@ export const admin_submitConversionRoutingFeedback = functions
     }
 
     const now = admin.firestore.Timestamp.now()
-    const feedbackId = testRef.collection('feedback').doc().id
+    const feedbackId = acceptProposalId || testRef.collection('feedback').doc().id
     const cycleData = cycleSnap.data() || {}
-    const previousEventId = currentRoutingEventId(testRunId, cycleNumber, cycleData)
+    const previousEventId = cycleSnap.exists
+      ? currentRoutingEventId(testRunId, cycleNumber, cycleData)
+      : ''
     const revisionCount = num(cycleData.revisionCount, 0)
+    const currentPlan = canReviseDeploy ? stored : null
 
     if (!validIntents.length) {
       const clarification =
         usefulClarification(interpreted.clarification) ||
         intentErrors[0] ||
-        contextualClarify(stored.cardAssignments)
-      const title = `Conversion instruction · Cycle ${cycleNumber}/${liveState.config.cycleCount}`
+        (stored.cardAssignments.length
+          ? `This cycle uses ${stored.cardAssignments
+              .map((row) => `${row.cardId}`)
+              .join(', ')}. Ask why, what happens next, or name a card to change.`
+          : 'Ask why this instruction, what happens next, or name a card or machine to change.')
+      const title =
+        awaitingKind === 'replenish'
+          ? `Before Cycle ${cycleNumber}/${liveState.config.cycleCount}`
+          : `Cycle ${cycleNumber}/${liveState.config.cycleCount}`
       await db.runTransaction(async (tx) => {
-        const published = publishAgentRevision(tx, {
+        publishAdviceCard(tx, {
           adminUid,
           testRunId,
           cycleNumber,
-          previousEventId,
-          revisionCount,
+          feedbackId,
           now,
           title,
           body: clarification,
-          dropdownTitle: title,
-          dropdownBody: clarification,
-          amountValue: stored.deployedAmount,
-          awaitingConfirm: stored.deployedAmount > 0,
-          routingBlocked: stored.deployedAmount <= 0,
-          userReply: rawMessage,
+          userReply: askMessage,
+          routingAction: 'advice',
         })
         tx.set(testRef.collection('feedback').doc(feedbackId), {
           id: feedbackId,
           adminUserId: adminUid,
           cycleNumber,
-          rawMessage,
+          rawMessage: askMessage,
           interpretedIntent: interpreted,
           status: 'clarification',
           createdAt: now,
-        })
-        tx.set(cycleRef.collection('thread').doc(), { role: 'admin', text: rawMessage, createdAt: now })
-        tx.set(cycleRef.collection('thread').doc(), { role: 'system', text: clarification, createdAt: now })
-        tx.update(cycleRef, {
-          activityEventId: published.activityEventId,
-          revisionCount: published.revisionCount,
-          updatedAt: now,
         })
         tx.set(testRef, { constraints, updatedAt: now }, { merge: true })
       })
@@ -1123,11 +1244,141 @@ export const admin_submitConversionRoutingFeedback = functions
       }
     }
 
-    const applied = applyIntentsToState(liveState, constraints, validIntents, cycleNumber, feedbackId)
+    const previewApplied = applyIntentsToState(
+      liveState,
+      constraints,
+      validIntents,
+      cycleNumber,
+      feedbackId
+    )
+    const preview = previewAskImpact(
+      previewStateForAsk(previewApplied.state, awaitingKind),
+      overlayFromConstraints(previewApplied.constraints),
+      quotes.costRate
+    )
+    const acknowledgement = previewApplied.summaries.join(' ')
+    const previewBody = formatAskImpactBody({
+      acknowledgement,
+      currentPlan,
+      preview,
+      proposal: true,
+    })
+
+    if (isWhatIfAsk(askMessage) && !acceptProposalId) {
+      const title = acknowledgement.replace(/\.$/, '') || `If that rule · Cycle ${cycleNumber}`
+      await db.runTransaction(async (tx) => {
+        publishAdviceCard(tx, {
+          adminUid,
+          testRunId,
+          cycleNumber,
+          feedbackId,
+          now,
+          title,
+          body: previewBody,
+          userReply: askMessage,
+          routingAction: 'proposal',
+          proposalId: feedbackId,
+          awaitingProposalAccept: true,
+        })
+        tx.set(testRef.collection('proposals').doc(feedbackId), {
+          id: feedbackId,
+          status: 'pending',
+          rawMessage: askMessage,
+          intents: validIntents,
+          cycleNumber,
+          createdAt: now,
+        })
+        tx.set(testRef.collection('feedback').doc(feedbackId), {
+          id: feedbackId,
+          adminUserId: adminUid,
+          cycleNumber,
+          rawMessage: askMessage,
+          interpretedIntent: validIntents,
+          interpreter: interpreted.interpreter,
+          interpretationSummary: acknowledgement,
+          status: 'proposal',
+          createdAt: now,
+        })
+      })
+      return {
+        testRunId,
+        cycleNumber,
+        status: 'proposal',
+        acknowledgement,
+        interpreter: interpreted.interpreter,
+      }
+    }
+
+    if (!canReviseDeploy) {
+      await db.runTransaction(async (tx) => {
+        publishAdviceCard(tx, {
+          adminUid,
+          testRunId,
+          cycleNumber,
+          feedbackId,
+          now,
+          title: acknowledgement.replace(/\.$/, '') || `Cycle ${cycleNumber}`,
+          body: formatAskImpactBody({
+            acknowledgement: `${acknowledgement} Takes effect on the next conversion instruction.`,
+            currentPlan: null,
+            preview,
+            proposal: false,
+          }),
+          userReply: askMessage,
+          routingAction: 'advice',
+        })
+        tx.set(testRef.collection('feedback').doc(feedbackId), {
+          id: feedbackId,
+          adminUserId: adminUid,
+          cycleNumber,
+          rawMessage: askMessage,
+          interpretedIntent: validIntents,
+          interpreter: interpreted.interpreter,
+          interpretationSummary: acknowledgement,
+          status: 'applied',
+          createdAt: now,
+        })
+        if (acceptProposalId) {
+          tx.set(
+            testRef.collection('proposals').doc(acceptProposalId),
+            { status: 'accepted', updatedAt: now },
+            { merge: true }
+          )
+          tx.set(
+            db
+              .collection('users')
+              .doc(adminUid)
+              .collection('activityEvents')
+              .doc(adviceEventId(testRunId, acceptProposalId)),
+            { status: 'accepted', awaitingProposalAccept: false, updatedAt: now },
+            { merge: true }
+          )
+        }
+        tx.set(
+          testRef,
+          {
+            config: previewApplied.state.config,
+            cards: previewApplied.state.cards,
+            machines: previewApplied.state.machines,
+            constraints: previewApplied.constraints,
+            updatedAt: now,
+          },
+          { merge: true }
+        )
+      })
+      return {
+        testRunId,
+        cycleNumber,
+        status: 'applied',
+        acknowledgement,
+        interpreter: interpreted.interpreter,
+      }
+    }
+
+    const applied = previewApplied
     const overlay = overlayFromConstraints(applied.constraints)
     const plan = planCycle(applied.state, overlay)
     const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
-    const acknowledgement = applied.summaries.join(' ')
     const activity = buildAgentReplyCopy(
       plan,
       applied.state.config.cycleCount,
@@ -1165,20 +1416,20 @@ export const admin_submitConversionRoutingFeedback = functions
         amountValue: plan.deployedAmount,
         awaitingConfirm: !blocked,
         routingBlocked: blocked,
-        userReply: rawMessage,
+        userReply: askMessage,
       })
       tx.set(testRef.collection('feedback').doc(feedbackId), {
         id: feedbackId,
         adminUserId: adminUid,
         cycleNumber,
-        rawMessage,
+        rawMessage: askMessage,
         interpretedIntent: validIntents,
         interpreter: interpreted.interpreter,
         interpretationSummary: acknowledgement,
         status: 'applied',
         createdAt: now,
       })
-      tx.set(cycleRef.collection('thread').doc(), { role: 'admin', text: rawMessage, createdAt: now })
+      tx.set(cycleRef.collection('thread').doc(), { role: 'admin', text: askMessage, createdAt: now })
       tx.set(cycleRef.collection('thread').doc(), { role: 'system', text: acknowledgement, createdAt: now })
       tx.update(cycleRef, {
         previousAssignments,
@@ -1213,6 +1464,22 @@ export const admin_submitConversionRoutingFeedback = functions
         },
         { merge: true }
       )
+      if (acceptProposalId) {
+        tx.set(
+          testRef.collection('proposals').doc(acceptProposalId),
+          { status: 'accepted', updatedAt: now },
+          { merge: true }
+        )
+        tx.set(
+          db
+            .collection('users')
+            .doc(adminUid)
+            .collection('activityEvents')
+            .doc(adviceEventId(testRunId, acceptProposalId)),
+          { status: 'accepted', awaitingProposalAccept: false, updatedAt: now },
+          { merge: true }
+        )
+      }
     })
 
     return {

@@ -960,12 +960,14 @@ export type ConversionRoutingFeedbackResult = {
 }
 
 export async function admin_submitConversionRoutingFeedback(params: {
-  message: string
+  message?: string
   testRunId?: string
   cycleNumber?: number
   cardCount?: number
   machineCount?: number
   assignments?: Array<{ cardId: number; machineId: number; amount: number }>
+  acceptProposalId?: string
+  discardProposalId?: string
 }): Promise<ConversionRoutingFeedbackResult> {
   const { getFirebaseAuth } = await import('@/lib/firebase')
   const token = await getFirebaseAuth().currentUser?.getIdToken()

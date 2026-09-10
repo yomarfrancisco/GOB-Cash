@@ -668,6 +668,61 @@ export function planReplenish(
   }
 }
 
+export function previewAskImpact(
+  state: RoutingState,
+  overlay: RoutingOverlay,
+  costRate: number
+): { replenishFirst: ReplenishPlan | null; nextPlan: CyclePlan | null } {
+  const replenishFirst = planReplenish(state, costRate, overlay)
+  if (replenishFirst) return { replenishFirst, nextPlan: null }
+  return { replenishFirst: null, nextPlan: planCycle(state, overlay) }
+}
+
+export function formatAskImpactBody(params: {
+  acknowledgement: string
+  currentPlan?: CyclePlan | null
+  preview: { replenishFirst: ReplenishPlan | null; nextPlan: CyclePlan | null }
+  proposal?: boolean
+}): string {
+  const lines = [params.acknowledgement.trim(), '']
+  const replenish = params.preview.replenishFirst
+  const plan = params.preview.nextPlan
+  if (replenish) {
+    lines.push(
+      `Replenish still first: ${formatMznAmount(replenish.amountMzn)} → ${formatZar(replenish.amountZar)}`
+    )
+    lines.push(`Then Cycle ${replenish.cycleNumber}`)
+  } else if (plan && plan.cardAssignments.length) {
+    lines.push('Next:')
+    for (const row of plan.cardAssignments) {
+      lines.push(assignmentLine(row, 'activity'))
+    }
+    lines.push('')
+    lines.push(`Idle: ${plan.idleCapital > 0 ? formatZar(plan.idleCapital) : 'none'}`)
+    lines.push(`Expected spread this cycle: ${formatZar(plan.expectedProfit)}`)
+    if (params.currentPlan) {
+      const sameRoute =
+        params.currentPlan.cardAssignments.length === plan.cardAssignments.length &&
+        params.currentPlan.cardAssignments.every(
+          (row, index) =>
+            row.cardId === plan.cardAssignments[index]?.cardId &&
+            row.machineId === plan.cardAssignments[index]?.machineId
+        )
+      if (sameRoute) lines.push('Route unchanged from the current instruction.')
+    }
+    lines.push(
+      plan.bufferActionRequired ? 'Replenish would follow this cycle.' : 'Replenish: not required after this cycle'
+    )
+  } else if (plan) {
+    lines.push(plan.selectionReason || 'No valid route under that rule.')
+  }
+  if (params.proposal) {
+    lines.push('')
+    lines.push('Accept applies this rule. Execute still moves the money.')
+  }
+  return lines.filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n').trim()
+}
+
 export function buildNotificationCopy(
   plan: CyclePlan,
   cycleCount: number

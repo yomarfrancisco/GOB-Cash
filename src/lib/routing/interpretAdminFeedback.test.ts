@@ -28,6 +28,13 @@ describe('parseObviousFeedback', () => {
     assert.equal(parsed?.intents[0]?.action, 'exclude_card')
     assert.equal(parsed?.intents[0]?.resourceId, 5)
   })
+
+  it('still reads a what-if rest as a rest intent', () => {
+    const parsed = parseObviousFeedback('what if we rest Wolf for 3 cycles')
+    assert.equal(parsed?.intents[0]?.action, 'rest_card')
+    assert.equal(parsed?.intents[0]?.resourceId, 5)
+    assert.equal(parsed?.intents[0]?.nCycles, 3)
+  })
 })
 
 describe('parseRoutingAssignmentsFromBody', () => {

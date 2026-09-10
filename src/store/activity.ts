@@ -39,6 +39,8 @@ export type ActivityItem = {
   thinking?: boolean
   userReply?: string
   userRepliedAt?: number
+  proposalId?: string
+  awaitingProposalAccept?: boolean
 }
 
 const MAX_ACTIVITY_ITEMS = 80

@@ -173,8 +173,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const message = typeof body?.message === 'string' ? body.message.trim() : ''
-    if (!message) {
-      return NextResponse.json({ error: 'Reply text is required' }, { status: 400 })
+    const acceptProposalId = typeof body?.acceptProposalId === 'string' ? body.acceptProposalId.trim() : ''
+    const discardProposalId = typeof body?.discardProposalId === 'string' ? body.discardProposalId.trim() : ''
+    if (!message && !acceptProposalId && !discardProposalId) {
+      return NextResponse.json({ error: 'Ask text is required' }, { status: 400 })
     }
 
     const token = extractBearerToken(request, body)
@@ -214,8 +216,9 @@ export async function POST(request: NextRequest) {
       cycleNumber
     )
 
+    const skipInterpret = Boolean(acceptProposalId || discardProposalId)
     const memoryAnswer =
-      history && isMemoryOrHistoryQuestion(message)
+      !skipInterpret && history && isMemoryOrHistoryQuestion(message)
         ? answerMemoryQuestion({
             message,
             nowMs: history.nowMs,
@@ -226,7 +229,9 @@ export async function POST(request: NextRequest) {
             awaiting: { cycleNumber },
           })
         : null
-    const interpreted = memoryAnswer
+    const interpreted = skipInterpret
+      ? { intents: [], clarification: null, interpreter: 'fast_path' as const }
+      : memoryAnswer
       ? { intents: [], clarification: memoryAnswer, interpreter: 'fast_path' as const }
       : await interpretRoutingFeedbackWithOpenAI(message, {
           cycleNumber,
@@ -256,6 +261,8 @@ export async function POST(request: NextRequest) {
             cycleNumber: body?.cycleNumber,
             intents: interpreted.intents,
             clarification: interpreted.clarification,
+            acceptProposalId: acceptProposalId || undefined,
+            discardProposalId: discardProposalId || undefined,
           },
         }),
       }
