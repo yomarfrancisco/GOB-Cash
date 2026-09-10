@@ -18,7 +18,6 @@ import { CountryCode } from '@/config/depositBankAccounts'
 import { resolveAssignedDepositBank, completeAssignedDepositBank } from '@/lib/depositBankCycle'
 import { uploadDepositProof, assertDepositProofPdf } from '@/lib/depositProof'
 import { recordDepositProofPending, resolveDepositReference } from '@/lib/depositProofActivity'
-import { AGENT_UID } from '@/types/transactions'
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
@@ -30,9 +29,7 @@ import { formatUSDT } from '@/lib/money'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import { useUserProfileStore } from '@/store/userProfile'
 import { useWalletStore } from '@/store/wallets'
-import { useSupportSheet } from '@/store/useSupportSheet'
-import { CreditCard, Phone, LogOut, PiggyBank, Receipt, Brain, BanknoteArrowDown, SmartphoneNfc, Bell, Copy } from 'lucide-react'
-import LockOverlay from '@/components/LockOverlay'
+import { CreditCard, PiggyBank, Receipt, BanknoteArrowDown, SmartphoneNfc, Copy } from 'lucide-react'
 // Crypto deposit removed - no longer needed
 import PaymentsSheet from '@/components/PaymentsSheet'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
@@ -61,7 +58,6 @@ import { ChevronRight } from 'lucide-react'
 import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
 import { logout } from '@/lib/logout'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
-import { useProfileAccess } from '@/lib/restrictions'
 import { DEFAULT_COMPLIANCE_PERCENT, formatCompliancePercent } from '@/lib/didit'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import { generateStyledCashIdQr } from '@/lib/qr'
@@ -405,7 +401,6 @@ export default function ProfileClient() {
 
   const { setOnSelect, open } = useTransactSheet()
   const { profile, setProfile } = useUserProfileStore()
-  const { open: openSupport } = useSupportSheet()
   const { open: openBankingDetails } = useBankingDetailsSheet()
   const { openNotifications } = useNotificationsStore()
   const hasUnseenActivity = useActivityUnreadStore(selectHasUnseenLiquidityActivity)
@@ -463,13 +458,6 @@ export default function ProfileClient() {
   const [depositAmountMZN, setDepositAmountMZN] = useState(0)
   const [depositAmountZAR, setDepositAmountZAR] = useState(0) // Converted ZAR quote
   
-  // Check if current user is agent
-  const auth = getFirebaseAuth()
-  const isAdminDesk = auth.currentUser?.uid === AGENT_UID
-  const currentUserId = auth.currentUser?.uid
-  const access = useProfileAccess(currentUserId, kycStatus, kycSessionStatus)
-  const depositLocked = !access.canDeposit
-  const withdrawLocked = !access.canWithdraw
   const [openAmount, setOpenAmount] = useState(false)
   const [openDirectPayment, setOpenDirectPayment] = useState(false)
   const [openSendDetails, setOpenSendDetails] = useState(false)
@@ -812,74 +800,31 @@ export default function ProfileClient() {
 
               {/* Buttons */}
               <div className="profile-actions">
-                {isAdminDesk ? (
-                  <>
-                    <button
-                      className="btn profile-edit"
-                      type="button"
-                      onClick={() => {
-                        guardAuthed(() => {
-                          openNotifications()
-                        })
-                      }}
-                    >
-                      {hasUnseenActivity ? (
-                        <span className="profile-action-unread-dot" aria-label="New Ask activity" />
-                      ) : null}
-                      Ask
-                    </button>
-                    <button
-                      className="btn profile-inbox"
-                      type="button"
-                      onClick={async (event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        await logout()
-                      }}
-                    >
-                      Log out
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      className="btn profile-edit"
-                      disabled={depositLocked}
-                      onClick={() => {
-                        if (depositLocked) return
-                        guardAuthed(() => {
-                          openBankDepositAccount()
-                        })
-                      }}
-                      style={{
-                        position: 'relative',
-                        ...(depositLocked ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
-                      }}
-                      aria-disabled={depositLocked}
-                    >
-                      Add liquidity
-                      <LockOverlay show={depositLocked} />
-                    </button>
-                    <button
-                      className="btn profile-inbox"
-                      disabled={withdrawLocked}
-                      onClick={() => {
-                        if (withdrawLocked) return
-                        guardAuthed(() => {
-                          openBankWithdrawAccount()
-                        })
-                      }}
-                      style={{
-                        position: 'relative',
-                        ...(withdrawLocked ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
-                      }}
-                      aria-disabled={withdrawLocked}
-                    >
-                      Withdraw
-                      <LockOverlay show={withdrawLocked} />
-                    </button>
-                  </>
-                )}
+                <button
+                  className="btn profile-edit"
+                  type="button"
+                  onClick={() => {
+                    guardAuthed(() => {
+                      openNotifications()
+                    })
+                  }}
+                >
+                  {hasUnseenActivity ? (
+                    <span className="profile-action-unread-dot" aria-label="New Ask activity" />
+                  ) : null}
+                  Ask
+                </button>
+                <button
+                  className="btn profile-inbox"
+                  type="button"
+                  onClick={async (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    await logout()
+                  }}
+                >
+                  Log out
+                </button>
               </div>
 
               {/* Earn as a cash agent tile — temporarily hidden; set to true to restore */}
@@ -912,91 +857,6 @@ export default function ProfileClient() {
                   <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
                 </button>
               </div>
-              )}
-              {!isAdminDesk && (
-              <div className="profile-settings">
-                <div className="profile-settings-card">
-                  {/* Notifications row - hidden for minimal UI */}
-                  {false && (
-                    <button
-                      className="profile-settings-row"
-                      onClick={() => {
-                        guardAuthed(() => {
-                          openNotifications()
-                        })
-                      }}
-                      type="button"
-                    >
-                      <div className="profile-settings-left">
-                        <div className="profile-settings-icon">
-                          <Bell size={22} strokeWidth={2} style={{ color: '#111' }} />
-                        </div>
-                        <span className="profile-settings-label">Notifications</span>
-                      </div>
-                      <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                    </button>
-                  )}
-                  <button
-                    className="profile-settings-row"
-                    onClick={() => {
-                      guardAuthed(() => {
-                        openNotifications()
-                      })
-                    }}
-                    type="button"
-                  >
-                    <div className="profile-settings-left">
-                      <div className="profile-settings-icon">
-                        {hasUnseenActivity ? (
-                          <span className="profile-settings-unread-dot" aria-label="New liquidity manager activity" />
-                        ) : null}
-                        <Brain size={22} strokeWidth={2} style={{ color: '#111' }} />
-                      </div>
-                      <span className="profile-settings-label">Ask</span>
-                    </div>
-                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                  </button>
-                  {/* Help and support row - hidden for minimal UI */}
-                  {false && (
-                    <button
-                      className="profile-settings-row"
-                      onClick={() => {
-                        guardAuthed(() => {
-                          openSupport()
-                        })
-                      }}
-                      type="button"
-                    >
-                      <div className="profile-settings-left">
-                        <div className="profile-settings-icon">
-                          <Phone size={22} strokeWidth={2} style={{ color: '#111' }} />
-                        </div>
-                        <span className="profile-settings-label">Help and support</span>
-                      </div>
-                      <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                    </button>
-                  )}
-                  <button
-                    className="profile-settings-row"
-                    onClick={async (e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      
-                      // Call comprehensive logout function
-                      await logout()
-                    }}
-                    type="button"
-                  >
-                    <div className="profile-settings-left">
-                      <div className="profile-settings-icon">
-                        <LogOut size={22} strokeWidth={2} style={{ color: '#111' }} />
-                      </div>
-                      <span className="profile-settings-label">Log out</span>
-                    </div>
-                    <Image src="/assets/next_ui.svg" alt="" width={18} height={18} style={{ opacity: 0.4 }} />
-                  </button>
-                </div>
-            </div>
               )}
           </div>
 

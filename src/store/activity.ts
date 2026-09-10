@@ -14,6 +14,7 @@ export type ActivityItem = {
     | 'BANK_TRANSFER_CONFIRMED'
     | 'EXTERNAL_DEPOSIT_CONFIRMED'
     | 'CONVERSION_INSTRUCTED'
+    | 'KYC_REQUIRED'
     | string
   actor: { type: 'ai' | 'user' | 'counterparty'; name?: string; avatarUrl?: string }
   title: string
@@ -41,6 +42,7 @@ export type ActivityItem = {
   userRepliedAt?: number
   proposalId?: string
   awaitingProposalAccept?: boolean
+  kycAction?: 'start' | 'update'
 }
 
 const MAX_ACTIVITY_ITEMS = 80

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useEffect, useState } from 'react'
+import { useMemo, useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
 import { Check, Download, ExternalLink, ArrowUp } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
@@ -22,7 +22,11 @@ import { useUserProfileStore } from '@/store/userProfile'
 import Avatar from '@/components/Avatar'
 import { useNotificationsStore } from '@/state/notifications'
 import { useRouter } from 'next/navigation'
+import { useSignedInKycAccess } from '@/lib/restrictions'
+import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import styles from '@/app/activity/activity.module.css'
+
+const KYC_GATE_ID = 'kyc-desk-gate'
 
 const ADMIN_AVATAR_PATH = MOZPAGA_ADMIN_AVATAR
 const ACTIVITY_PAGE_SIZE = 16
@@ -87,6 +91,7 @@ function isPaymentActivity(item: ActivityItem): boolean {
       'DEPOSIT_PROOF_PENDING',
       'DEPOSIT_PROOF_FAILED',
       'DEPOSIT_CREDITED',
+      'KYC_REQUIRED',
     ].includes(item.kind)
   ) {
     return true
@@ -113,11 +118,31 @@ function isWelcomeSignIn(item: ActivityItem): boolean {
   return /^signed in with (google|phone)$/i.test(item.title.trim())
 }
 
+function isKycGateItem(item: ActivityItem): boolean {
+  return item.kind === 'KYC_REQUIRED' || item.id === KYC_GATE_ID
+}
+
+function buildKycGateItem(cta: 'Start KYC' | 'Update KYC', createdAt: number): ActivityItem {
+  const started = cta === 'Update KYC'
+  return {
+    id: KYC_GATE_ID,
+    kind: 'KYC_REQUIRED',
+    actor: { type: 'ai', name: 'MozPaga', avatarUrl: ADMIN_AVATAR_PATH },
+    title: 'Identity verification required',
+    body: started
+      ? 'Your KYC is not approved yet. Update your documents before adding liquidity or withdrawing. This desk will not continue until verification is complete.'
+      : 'Add liquidity and withdrawals need a completed KYC check. Start verification to continue. This desk will not move money before that.',
+    createdAt,
+    kycAction: started ? 'update' : 'start',
+    awaitingConfirm: false,
+  }
+}
+
 function resolveTaskAvatar(item: ActivityItem): string {
   if (item.actor.avatarUrl && !isUserPlaceholderAvatar(item.actor.avatarUrl)) {
     return item.actor.avatarUrl
   }
-  if (isWelcomeSignIn(item)) return ADMIN_AVATAR_PATH
+  if (isWelcomeSignIn(item) || isKycGateItem(item)) return ADMIN_AVATAR_PATH
   if (item.avatarKind === 'convert_zar') return TASK_AVATARS.convertZar
   if (item.avatarKind === 'convert_mzn') return TASK_AVATARS.convertMzn
   if (item.avatarKind === 'cash_agent_exchange') return TASK_AVATARS.cashAgent
@@ -217,6 +242,7 @@ function ActivityItemCard({
   onRoutingAsk,
   onAcceptProposal,
   onDiscardProposal,
+  lockDeskActions,
 }: {
   item: ActivityItem
   showRoutingActions: boolean
@@ -224,6 +250,7 @@ function ActivityItemCard({
   onRoutingAsk: (item: ActivityItem, message: string) => Promise<void>
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
+  lockDeskActions?: boolean
 }) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
@@ -240,11 +267,16 @@ function ActivityItemCard({
   const [askError, setAskError] = useState('')
   const showDownload = canDownloadProof(item)
   const showKycLink = item.hasKycLink === true
+  const isKycGate = isKycGateItem(item)
+  const kycCta = item.kycAction === 'update' ? 'Update KYC' : 'Start KYC'
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
   const isAwaitingRouting = showRoutingActions && isAwaitingRoutingItem(item)
   const showConfirm = isAwaitingRouting && item.routingBlocked !== true
   const showProposalActions =
-    item.routingAction === 'proposal' && item.awaitingProposalAccept === true && Boolean(item.proposalId)
+    !lockDeskActions &&
+    item.routingAction === 'proposal' &&
+    item.awaitingProposalAccept === true &&
+    Boolean(item.proposalId)
   const askCard = isAskCard(item)
 
   const handleDownload = async (event: React.MouseEvent) => {
@@ -277,6 +309,11 @@ function ActivityItemCard({
     event.stopPropagation()
     closeNotifications()
     router.push(item.routeOnTap || '/profile')
+  }
+
+  const handleKycCta = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    void startDiditVerification()
   }
 
   const handleExecuteRouting = (event: React.MouseEvent) => {
@@ -439,6 +476,18 @@ function ActivityItemCard({
             <Download size={18} strokeWidth={2} />
           </button>
         )}
+        {isKycGate && (
+          <div className={styles.activityActionRow}>
+            <button
+              type="button"
+              className={styles.confirmButton}
+              aria-label={kycCta}
+              onClick={handleKycCta}
+            >
+              {kycCta}
+            </button>
+          </div>
+        )}
         {showConfirm && (
           <div className={styles.activityActionRow}>
             <button
@@ -563,6 +612,7 @@ function ActivitySection({
   onRoutingAsk,
   onAcceptProposal,
   onDiscardProposal,
+  lockDeskActions,
 }: {
   title: string
   items: ActivityItem[]
@@ -571,6 +621,7 @@ function ActivitySection({
   onRoutingAsk: (item: ActivityItem, message: string) => Promise<void>
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
+  lockDeskActions?: boolean
 }) {
   if (items.length === 0) return null
 
@@ -582,11 +633,12 @@ function ActivitySection({
           <ActivityItemCard
             key={item.id}
             item={item}
-            showRoutingActions={item.id === latestAwaitingId}
-            showAsk={item.id === latestActivityId}
+            showRoutingActions={!lockDeskActions && item.id === latestAwaitingId}
+            showAsk={!lockDeskActions && item.id === latestActivityId && !isKycGateItem(item)}
             onRoutingAsk={onRoutingAsk}
             onAcceptProposal={onAcceptProposal}
             onDiscardProposal={onDiscardProposal}
+            lockDeskActions={lockDeskActions}
           />
         ))}
       </div>
@@ -598,6 +650,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const clear = useActivityStore((s) => s.clear)
   const all = useActivityStore((s) => s.all)
   const isAuthed = useAuthStore((s) => s.isAuthed)
+  const { deskBlocked, kycCta } = useSignedInKycAccess()
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
   const [visibleCount, setVisibleCount] = useState(ACTIVITY_PAGE_SIZE)
@@ -627,6 +680,11 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   }, [isAuthed])
 
   useEffect(() => {
+    if (!deskBlocked) return
+    prefetchDiditSdk()
+  }, [deskBlocked])
+
+  useEffect(() => {
     if (!thinkingItem) return
     const arrived = remoteItems.some(
       (item) =>
@@ -648,14 +706,18 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     ]
     return merged.sort((a, b) => b.createdAt - a.createdAt)
   }, [localItems, remoteItems, thinkingItem])
+  const kycGateStampRef = useRef(Date.now())
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
-    return allItems.filter((item) => {
+    const items = allItems.filter((item) => {
+      if (item.id === KYC_GATE_ID) return false
       if (item.thinking) return !normalizedQuery || searchableText(item).includes(normalizedQuery)
       if (!isPaymentActivity(item)) return false
       return !normalizedQuery || searchableText(item).includes(normalizedQuery)
     })
-  }, [allItems, searchQuery])
+    if (!deskBlocked) return items
+    return [buildKycGateItem(kycCta, kycGateStampRef.current), ...items]
+  }, [allItems, searchQuery, deskBlocked, kycCta])
   useEffect(() => {
     setVisibleCount(ACTIVITY_PAGE_SIZE)
   }, [searchQuery])
@@ -665,17 +727,23 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     [filteredItems, isSearching, visibleCount]
   )
   const hasMore = !isSearching && visibleCount < filteredItems.length
-  const latestAwaitingId = useMemo(() => latestAwaitingRoutingId(allItems), [allItems])
-  const latestActivityId = useMemo(
-    () => filteredItems.find((item) => item.thinking !== true)?.id ?? null,
-    [filteredItems]
+  const latestAwaitingId = useMemo(
+    () => (deskBlocked ? null : latestAwaitingRoutingId(allItems)),
+    [allItems, deskBlocked]
   )
+  const latestActivityId = useMemo(() => {
+    if (deskBlocked) return KYC_GATE_ID
+    return filteredItems.find((item) => item.thinking !== true)?.id ?? null
+  }, [filteredItems, deskBlocked])
   const { today, yesterday, last7Days, last30Days, older } = useMemo(
     () => groupByTimePeriod(pagedItems),
     [pagedItems]
   )
 
   const handleRoutingAsk = async (source: ActivityItem, message: string) => {
+    if (deskBlocked || isKycGateItem(source)) {
+      throw new Error('Complete KYC before continuing.')
+    }
     const routing =
       allItems.find(isAwaitingRoutingItem) ||
       allItems.find((item) => Boolean(item.testRunId) && item.thinking !== true)
@@ -714,6 +782,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   }
 
   const handleAcceptProposal = async (item: ActivityItem) => {
+    if (deskBlocked) return
     if (!item.proposalId) return
     setThinkingItem({
       id: `thinking-accept-${item.proposalId}`,
@@ -759,6 +828,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     onRoutingAsk: handleRoutingAsk,
     onAcceptProposal: handleAcceptProposal,
     onDiscardProposal: handleDiscardProposal,
+    lockDeskActions: deskBlocked,
   }
 
   return (

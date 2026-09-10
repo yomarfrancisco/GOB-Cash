@@ -42,6 +42,20 @@ export function isKycApproved(
   return status === 'approved' || session === 'approved'
 }
 
+export function hasStartedKyc(
+  kycStatus?: string | null,
+  kycSessionStatus?: string | null
+): boolean {
+  return Boolean((kycStatus && kycStatus.trim()) || (kycSessionStatus && kycSessionStatus.trim()))
+}
+
+export function kycDeskCtaLabel(
+  kycStatus?: string | null,
+  kycSessionStatus?: string | null
+): 'Start KYC' | 'Update KYC' {
+  return hasStartedKyc(kycStatus, kycSessionStatus) ? 'Update KYC' : 'Start KYC'
+}
+
 export function isFullAccessUid(uid: string | null | undefined, fullAccessUids: string[]): boolean {
   return Boolean(uid && fullAccessUids.includes(uid))
 }
@@ -108,4 +122,43 @@ export function useProfileAccess(
     fullAccessUids,
     kycApproved: isKycApproved(kycStatus, kycSessionStatus),
   })
+}
+
+export function useSignedInKycAccess() {
+  const isAuthed = useAuthStore((s) => s.isAuthed)
+  const [uid, setUid] = useState<string | null>(null)
+  const [kycStatus, setKycStatus] = useState<string | null>(null)
+  const [kycSessionStatus, setKycSessionStatus] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isAuthed) {
+      setUid(null)
+      setKycStatus(null)
+      setKycSessionStatus(null)
+      return
+    }
+    let userUid: string | null = null
+    try {
+      userUid = getFirebaseAuth().currentUser?.uid ?? null
+    } catch {
+      userUid = null
+    }
+    setUid(userUid)
+    if (!userUid) return
+    return onSnapshot(doc(getFirestoreDb(), 'users', userUid), (snap) => {
+      const data = snap.data()
+      setKycStatus(typeof data?.kycStatus === 'string' ? data.kycStatus : null)
+      setKycSessionStatus(typeof data?.kycSessionStatus === 'string' ? data.kycSessionStatus : null)
+    })
+  }, [isAuthed])
+
+  const access = useProfileAccess(uid, kycStatus, kycSessionStatus)
+  return {
+    ...access,
+    kycStatus,
+    kycSessionStatus,
+    deskBlocked: Boolean(isAuthed && uid && !access.canDeposit),
+    kycStarted: hasStartedKyc(kycStatus, kycSessionStatus),
+    kycCta: kycDeskCtaLabel(kycStatus, kycSessionStatus),
+  }
 }
