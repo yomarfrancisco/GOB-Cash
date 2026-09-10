@@ -25,26 +25,28 @@ export default function NotificationsSheet() {
       className={`${listStyles.financialInboxSheet} inboxTallSheet`}
     >
       <div className={`${listStyles.content} ${listStyles.activityContent}`}>
-        <label className={listStyles.searchBar}>
-          <svg
-            className={listStyles.searchIcon}
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" />
-            <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search payment activity"
-            className={listStyles.searchInput}
-          />
-        </label>
+        <div className={listStyles.activitySearchOverlay}>
+          <label className={listStyles.searchBar}>
+            <svg
+              className={listStyles.searchIcon}
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" />
+              <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="FX and settlement activity"
+              className={listStyles.searchInput}
+            />
+          </label>
+        </div>
         <div className={listStyles.conversationList}>
           <NotificationsList searchQuery={searchQuery} />
         </div>
