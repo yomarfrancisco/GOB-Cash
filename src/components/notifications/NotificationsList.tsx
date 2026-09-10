@@ -500,15 +500,15 @@ function ActivityItemCard({
                 .join(' ')}
               aria-label={
                 item.routingAction === 'replenish'
-                  ? 'Execute ZAR restock at COST'
-                  : 'Execute ZAR sale after MZN has reflected'
+                  ? 'Confirm the Moz card was swiped on a SA POS'
+                  : 'Confirm ZAR was sent after MZN reflected'
               }
               aria-busy={confirmState !== 'idle'}
               disabled={confirmState !== 'idle'}
               onClick={handleExecuteRouting}
             >
               <Check size={16} strokeWidth={2.4} />
-              Execute
+              {item.routingAction === 'replenish' ? "I've swiped" : "I've sent ZAR"}
             </button>
             {showAsk && (
               <button
@@ -590,7 +590,7 @@ function ActivityItemCard({
         {isRoutingInstruction && item.status === 'completed' && !item.thinking && (
           <span className={styles.executedLabel}>
             <Check size={16} strokeWidth={2.4} />
-            Executed
+            {item.routingAction === 'replenish' ? 'Card swiped' : 'ZAR sent'}
           </span>
         )}
         {showKycLink && (
