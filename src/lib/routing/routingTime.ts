@@ -147,7 +147,7 @@ export function isMemoryOrHistoryQuestion(message: string): boolean {
     /\b(unavailable|blocked|don'?t use|do not use|restore|cap|limit|prefer|resting|exclude)\b/.test(text) &&
     /\b(?:card|machine|c|m)\s*\d+/.test(text)
   if (namesAChange) return false
-  return /\b(remember|recall|remind|when|what time|how long|which day|did we|did i|did you|last used|already|told you|you know|was it|still lost|expect)\b/.test(
+  return /\b(remember|recall|remind|when|what time|how long|which day|did we|did i|did you|have we|last used|already|told you|you know|was it|still lost|expect)\b/.test(
     text
   )
 }
@@ -164,6 +164,10 @@ export function isWhatIfAsk(message: string): boolean {
   )
 }
 
+function questionStem(message: string): string {
+  return message.trim().toLowerCase().replace(/^(?:ok|okay|alright)[,.]?\s+/, '')
+}
+
 export function isPaceAsk(message: string): boolean {
   const text = message.trim().toLowerCase()
   if (!text || namesConstraintChange(message)) return false
@@ -174,10 +178,19 @@ export function isPaceAsk(message: string): boolean {
   )
 }
 
+export function isSettlementAsk(message: string): boolean {
+  const text = questionStem(message)
+  if (!text || namesConstraintChange(message)) return false
+  const amount = /\b(how much|settled|volume|spent|swiped)\b/.test(text)
+  const window = /\b(week|7 days|past (?:week|seven days)|this week|today|tonight)\b/.test(text)
+  const who = /\b(each card|per card|every card|by card|on each)\b/.test(text)
+  return (amount && (window || who)) || (window && who)
+}
+
 export function isBankerQuestion(message: string): boolean {
   if (isWhatIfAsk(message)) return false
   if (isMemoryOrHistoryQuestion(message)) return true
-  if (isPaceAsk(message)) return true
+  if (isPaceAsk(message) || isSettlementAsk(message)) return true
   const text = message.trim().toLowerCase()
   if (!text) return false
   if (
@@ -186,10 +199,11 @@ export function isBankerQuestion(message: string): boolean {
   ) {
     return false
   }
+  const stem = questionStem(message)
   return (
-    /^(why|how|explain|tell me|what happens|is this|isn'?t|aren'?t|should we|does this|can you explain)\b/.test(text) ||
+    /^(why|how|explain|tell me|what happens|is this|isn'?t|aren'?t|should we|does this|can you explain)\b/.test(stem) ||
     (text.includes('?') &&
-      /^(why|how|what|who|when|where|is |isn'?t |are |aren'?t |should|does|do |can |could |would )\b/.test(text))
+      /^(why|how|what|who|when|where|is |isn'?t |are |aren'?t |should|does|do |can |could |would )\b/.test(stem))
   )
 }
 

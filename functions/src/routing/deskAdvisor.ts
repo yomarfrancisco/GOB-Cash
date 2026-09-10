@@ -38,6 +38,7 @@ import {
   isBankerQuestion,
   isDeskStrategyAsk,
   isPaceAsk,
+  isSettlementAsk,
   isWhatIfAsk,
   namesConstraintChange,
 } from './routingTime'
@@ -454,6 +455,47 @@ function restockPaceAdvice(
   }
 }
 
+function settlementAdvice(state: RoutingState, swipes: SwipeRecord[], nowMs: number): DeskAdvice {
+  const weekFrom = nowMs - 7 * 86_400_000
+  const week = swipes.filter((row) => row.atMs >= weekFrom)
+  const ids = [...new Set([...state.cards.map((row) => row.id), ...week.map((row) => row.cardId)])].sort(
+    (a, b) => a - b
+  )
+  const parts = ids.map((id) => {
+    const rows = week.filter((row) => row.cardId === id)
+    const amount = rows.reduce((sum, row) => sum + row.amount, 0)
+    return rows.length
+      ? `${cardShortName(id)} ${formatZar(amount)} (${rows.length})`
+      : `${cardShortName(id)} ${formatZar(0)}`
+  })
+  const total = week.reduce((sum, row) => sum + row.amount, 0)
+  const oldest = [...week].sort((a, b) => a.atMs - b.atMs)[0]
+  const logStart =
+    oldest && nowMs - oldest.atMs < 6 * 86_400_000
+      ? ` Dated log starts ${formatVisibleSast(oldest.atMs, nowMs)} — restocks before that are not in it.`
+      : ''
+  if (!week.length) {
+    const testParts = state.cards
+      .slice()
+      .sort((a, b) => a.id - b.id)
+      .map((row) => `${cardShortName(row.id)} ${formatZar(row.volume)}`)
+    return {
+      kind: 'next_step',
+      title: 'No dated week yet',
+      body: `The dated swipe log is empty this week — it only records I've swiped after logging started.${
+        testParts.length ? ` Test-to-date POS: ${testParts.join(' · ')}.` : ''
+      }`,
+    }
+  }
+  return {
+    kind: 'next_step',
+    title: 'POS this week',
+    body: `This week: ${parts.join(' · ')}. Total ${formatZar(total)} (${week.length} swipe${
+      week.length === 1 ? '' : 's'
+    }).${logStart}`,
+  }
+}
+
 function nextStepAdvice(
   route: {
     kind: 'replenish' | 'deploy'
@@ -622,6 +664,8 @@ export function adviseDesk(params: {
 
   if (isFreezeOutlookAsk(message)) return freezeOutlookAdvice(state, message, nowMs)
   if (askedRetire) return retireAdvice(state)
+
+  if (isSettlementAsk(message)) return settlementAdvice(state, swipes, nowMs)
 
   if (isPaceAsk(message)) {
     if (open?.kind === 'replenish') return restockPaceAdvice(open, state, swipes, nowMs)

@@ -267,4 +267,46 @@ describe('adviseDesk', () => {
     assert.match(advice.body, /21:54/)
     assert.match(advice.body, /do not add another card/i)
   })
+
+  it('answers weekly POS from the swipe log, not by repeating the restock list', () => {
+    const state = createInitialState()
+    state.bufferUsed = 49_891.33
+    state.availableCapital = 108.67
+    state.cards = state.cards.map((card) =>
+      card.id === 5 ? { ...card, volume: 45_355 } : card.id === 3 ? { ...card, volume: 12_473 } : card
+    )
+    const swipeAt = sastToUtcMs(2026, 9, 10, 22, 39)
+    const nowMs = sastToUtcMs(2026, 9, 10, 22, 52)
+    const advice = adviseDesk({
+      message: 'ok how much have we settled on each card over the past week?',
+      state,
+      constraints: [],
+      current: {
+        kind: 'replenish',
+        assignments: [
+          { cardId: 3, machineId: 3, amount: 12_472.84 },
+          { cardId: 5, machineId: 2, amount: 12_472.83 },
+        ],
+        amountZar: 24_945.67,
+      },
+      swipes: [
+        { id: '19-5-1', atMs: swipeAt, cardId: 5, machineId: 1, amount: 11_339, cycleNumber: 19 },
+        { id: '19-3-3', atMs: swipeAt, cardId: 3, machineId: 3, amount: 11_339, cycleNumber: 19 },
+        { id: '19-1-1', atMs: swipeAt, cardId: 1, machineId: 1, amount: 11_339, cycleNumber: 19 },
+        { id: '19-2-2', atMs: swipeAt, cardId: 2, machineId: 2, amount: 11_338, cycleNumber: 19 },
+      ],
+      cycleNumber: 20,
+      costRate: 4.15,
+      nowMs,
+    })
+    assert.equal(advice.kind, 'next_step')
+    assert.match(advice.body, /Wolf R11,339/)
+    assert.match(advice.body, /BRICS AI R11,339/)
+    assert.match(advice.body, /Goblin R0/)
+    assert.match(advice.body, /Total R45,355/)
+    assert.match(advice.body, /22:39/)
+    assert.doesNotMatch(advice.body, /Execute that list/)
+    assert.doesNotMatch(advice.body, /taken less rand/)
+    assert.doesNotMatch(advice.body, /Cards resting|POS resting/)
+  })
 })

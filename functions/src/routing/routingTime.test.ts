@@ -8,6 +8,8 @@ import {
   isBankerQuestion,
   isDeskStrategyAsk,
   isMemoryOrHistoryQuestion,
+  isPaceAsk,
+  isSettlementAsk,
   isWhatIfAsk,
   resolveExpiryFromMessage,
   sastToUtcMs,
@@ -55,6 +57,19 @@ describe('time phrases', () => {
     assert.equal(isBankerQuestion('Wolf is lost'), false)
     assert.equal(isBankerQuestion("Isn't this too much too soon?"), true)
     assert.equal(shouldNotApplyAskIntents("Isn't this too much too soon?"), true)
+    assert.equal(
+      isBankerQuestion('ok how much have we settled on each card over the past week?'),
+      true
+    )
+    assert.equal(
+      shouldNotApplyAskIntents('ok how much have we settled on each card over the past week?'),
+      true
+    )
+    assert.equal(
+      isSettlementAsk('ok how much have we settled on each card over the past week?'),
+      true
+    )
+    assert.equal(isPaceAsk('ok how much have we settled on each card over the past week?'), false)
     assert.equal(isWhatIfAsk('what if we rest Wolf for 3 cycles'), true)
     assert.equal(isWhatIfAsk('Wolf is lost'), false)
   })
