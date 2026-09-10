@@ -10,6 +10,7 @@ import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsdt } from '@/lib/mznZar'
 import { formatAgentCashTitle, saveCashPayResume } from '@/lib/agentCashQr'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
+import { useWalletStore } from '@/store/wallets'
 import '@/styles/amount-sheet.css'
 
 function wait(ms: number) {
@@ -109,6 +110,8 @@ export default function AmountSheet({
   const autoPlayRef = useRef(false)
   const { isAuthed, requireAuth } = useAuthStore()
   const { alloc } = useWalletAlloc()
+  const wallets = useWalletStore((state) => state.wallets)
+  const walletsHydrated = useWalletStore((state) => state.walletsHydrated)
   const gateGuestPay = agentCash && !isAuthed
   const blockGuestPay = () => {
     const handle = agentCashHandle
@@ -124,8 +127,16 @@ export default function AmountSheet({
     (entryPoint === 'conversionKeypad' && conversionDestination === 'MZN') ||
     (isWithdrawKeypad && conversionDestination === 'ZAR')
   const isConversionKeypad = entryPoint === 'conversionKeypad'
-  const displayBalanceMZN = isAuthed ? (alloc.mznCents ?? 0) / 100 : (balanceMZN ?? 0)
-  const displayBalanceZAR = isAuthed ? (alloc.cashCents ?? 0) / 100 : 0
+  const displayBalanceMZN = isAuthed
+    ? walletsHydrated
+      ? Number((wallets as { cashMZN?: { fiatBalance?: number } })?.cashMZN?.fiatBalance ?? (alloc.mznCents ?? 0) / 100)
+      : 0
+    : (balanceMZN ?? 0)
+  const displayBalanceZAR = isAuthed
+    ? walletsHydrated
+      ? Number((wallets as { cashZAR?: { fiatBalance?: number } })?.cashZAR?.fiatBalance ?? (alloc.cashCents ?? 0) / 100)
+      : 0
+    : 0
 
   // Reset amount when sheet opens, or use initialAmount if provided
   useEffect(() => {

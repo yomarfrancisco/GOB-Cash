@@ -5,6 +5,7 @@ import { getFirebaseAuth } from '@/lib/firebase'
 import { updateWalletBalances } from '@/lib/wallets'
 import type { WalletMap } from '@/types/wallet'
 import { useAuthStore, type AuthStateValue } from '@/store/auth'
+import { useWalletStore } from '@/store/wallets'
 
 export type WalletAlloc = {
   totalCents: number // total funds in cents; funds-available display derives from this
@@ -62,6 +63,9 @@ const DEMO: WalletAlloc = {
 
 export function WalletAllocProvider({ children }: { children: ReactNode }) {
   const isAuthed = useAuthStore((state) => state.isAuthed)
+  const wallets = useWalletStore((state) => state.wallets)
+  const walletsHydrated = useWalletStore((state) => state.walletsHydrated)
+  const demoMode = useWalletStore((state) => state.demoMode)
   // Initialize based on auth state: ZERO for authed, DEMO for pre-auth
   const [alloc, setAlloc] = useState<WalletAlloc>(() => (isAuthed ? ZERO : DEMO))
   const [isRebalancing, setRebalancing] = useState(false)
@@ -453,6 +457,12 @@ export function WalletAllocProvider({ children }: { children: ReactNode }) {
       }, 100)
     }
   }, [auth])
+
+  useEffect(() => {
+    if (!isAuthed || !walletsHydrated || demoMode || !wallets) return
+    if (Object.keys(wallets).length === 0) return
+    syncFromWallets(wallets as WalletMap)
+  }, [isAuthed, wallets, walletsHydrated, demoMode, syncFromWallets])
 
   return (
     <WalletAllocContext.Provider
