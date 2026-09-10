@@ -11,6 +11,8 @@ import {
   type StoredConstraint,
 } from './constraints'
 import {
+  explainPosChoice,
+  formatSwipeInstruction,
   formatZar,
   pairingKey,
   planCycle,
@@ -20,7 +22,7 @@ import {
   type RoutingState,
 } from './conversionRouter'
 import type { RecentCycleBrief, RecentFeedbackBrief } from './interpretContext'
-import { cardLabel, machineLabel, resolveNamedCardIds } from './inventory'
+import { cardLabel, cardShortName, resolveNamedCardIds } from './inventory'
 import { formatSast, isWhatIfAsk, namesConstraintChange } from './routingTime'
 
 export type DeskOption = {
@@ -209,9 +211,18 @@ function routeFromPreview(
 }
 
 function assignmentLine(assignments: CardAssignment[]): string {
+  return assignments.map((row) => formatSwipeInstruction(row)).join('; ')
+}
+
+function posWhy(
+  assignments: CardAssignment[],
+  state: RoutingState,
+  cycleNumber: number
+): string {
   return assignments
-    .map((row) => `${cardLabel(row.cardId)} on ${machineLabel(row.machineId)} for ${formatZar(row.amount)}`)
-    .join('; ')
+    .map((row) => row.posReason || explainPosChoice(state, row, cycleNumber))
+    .filter(Boolean)
+    .join(' ')
 }
 
 function currentOpenRoute(
@@ -266,25 +277,25 @@ function rankRecovery(
   }
 }
 
-function optionFromRecovery(recovery: RankedRecovery, index: number): DeskOption {
+function optionFromRecovery(
+  recovery: RankedRecovery,
+  index: number,
+  state: RoutingState,
+  cycleNumber: number
+): DeskOption {
   const swipe = assignmentLine(recovery.assignments)
+  const why = posWhy(recovery.assignments, state, cycleNumber)
   const last =
     recovery.daysSinceSwipe == null
       ? 'No dated swipe in this test.'
       : recovery.daysSinceSwipe === 0
         ? 'Last swiped today.'
         : `Last swiped ${recovery.daysSinceSwipe} day${recovery.daysSinceSwipe === 1 ? '' : 's'} ago.`
-  const heat =
-    recovery.pairUses >= 3
-      ? ` That card–POS pair has already been used ${recovery.pairUses} times.`
-      : recovery.pairUses === 0
-        ? ' That pair has not been used yet.'
-        : ` Pair used ${recovery.pairUses} time${recovery.pairUses === 1 ? '' : 's'}.`
-  const verb = recovery.kind === 'replenish' ? 'Swipe' : 'Then pay ZAR after MZN lands — first restock swipe'
+  const verb = recovery.kind === 'replenish' ? 'swipe' : 'then pay ZAR after MZN lands — first restock swipe'
   return {
     id: String(index + 1),
-    title: `Use ${cardLabel(recovery.cardId).replace(/^[^ ]+ /, '')}`,
-    body: `Restore ${cardLabel(recovery.cardId)} and ${verb.toLowerCase()} ${swipe}. ${last}${heat}`,
+    title: `Use ${cardShortName(recovery.cardId)}`,
+    body: `Restore ${cardShortName(recovery.cardId)} and ${verb} ${swipe}. ${why} ${last}`.trim(),
     intents: [restoreIntent(recovery.cardId)],
   }
 }
@@ -380,27 +391,34 @@ function safestSwipeAdvice(
   }
   return adviceFromRecoveries(
     'You said a swipe still has to happen. This is the single safest pair the ledger can issue right now.',
-    [recoveries[0]]
+    [recoveries[0]],
+    state,
+    cycleNumber
   )
 }
 
-function nextStepAdvice(route: {
-  kind: 'replenish' | 'deploy'
-  assignments: CardAssignment[]
-  amountZar: number
-}): DeskAdvice {
+function nextStepAdvice(
+  route: {
+    kind: 'replenish' | 'deploy'
+    assignments: CardAssignment[]
+    amountZar: number
+  },
+  state: RoutingState,
+  cycleNumber: number
+): DeskAdvice {
   const swipe = assignmentLine(route.assignments)
   if (route.kind === 'replenish') {
+    const why = posWhy(route.assignments, state, cycleNumber)
     return {
       kind: 'next_step',
       title: 'Next: restock ZAR',
-      body: `The open route is one restock: swipe ${swipe}. Execute that. There is no second route to offer.`,
+      body: `The open restock is one swipe: ${swipe}. ${why} Execute that. There is no second route to offer.`,
     }
   }
   return {
     kind: 'next_step',
     title: 'Next: sell ZAR',
-    body: `The open route is one sale: receive MZN first, then pay ${formatZar(route.amountZar)}. ${swipe ? `Restock after that would use ${swipe}.` : ''} Execute only after the Moz credit is in. There is no second route to offer.`,
+    body: `The open route is one sale: receive MZN first, then pay ${formatZar(route.amountZar)}. Execute only after the Moz credit is in. There is no second route to offer.`,
   }
 }
 
@@ -451,7 +469,12 @@ function recoveriesForCards(
   return ranked.sort((a, b) => a.score - b.score || a.cardId - b.cardId)
 }
 
-function adviceFromRecoveries(lead: string, recoveries: RankedRecovery[]): DeskAdvice {
+function adviceFromRecoveries(
+  lead: string,
+  recoveries: RankedRecovery[],
+  state: RoutingState,
+  cycleNumber: number
+): DeskAdvice {
   if (!recoveries.length) {
     return {
       kind: 'question',
@@ -463,10 +486,10 @@ function adviceFromRecoveries(lead: string, recoveries: RankedRecovery[]): DeskA
   const best = recoveries[0]
   const close = recoveries.filter((row, index) => index === 0 || row.score - best.score <= 25)
   const picked = close.slice(0, 3)
-  const options = picked.map((row, index) => optionFromRecovery(row, index))
+  const options = picked.map((row, index) => optionFromRecovery(row, index, state, cycleNumber))
   const title =
     options.length === 1
-      ? `Use ${cardLabel(best.cardId).replace(/^[^ ]+ /, '')}`
+      ? `Use ${cardShortName(best.cardId)}`
       : `${options.length} workable cards`
   return {
     kind: 'options',
@@ -527,7 +550,7 @@ export function adviseDesk(params: {
       nowMs
     )
     const names = namedCardIds.map((id) => cardLabel(id)).join(', ')
-    return adviceFromRecoveries(`You named ${names}. I only offer a route the planner can actually issue.`, recoveries)
+    return adviceFromRecoveries(`You named ${names}. I only offer a route the planner can actually issue.`, recoveries, state, cycleNumber)
   }
 
   if (mustSwipeAnyway(message) && !open) {
@@ -544,7 +567,7 @@ export function adviseDesk(params: {
     }
   }
 
-  if (open) return nextStepAdvice(open)
+  if (open) return nextStepAdvice(open, state, cycleNumber)
 
   if (holds.length) {
     // Do not auto-pick a parked card. Cycle-rest cannot complete while jammed.

@@ -131,6 +131,27 @@ describe('adviseDesk', () => {
     assert.doesNotMatch(advice.body, /\(3\)/)
   })
 
+  it('justifies the POS on an open restock', () => {
+    const state = createInitialState()
+    state.bufferUsed = 40_000
+    state.availableCapital = 13_129
+    const advice = adviseDesk({
+      message: "what's next?",
+      state,
+      constraints: [],
+      cycleNumber: 1,
+      costRate: 4.32,
+      nowMs: NOW,
+    })
+    assert.equal(advice.kind, 'next_step')
+    assert.match(advice.title, /restock/i)
+    assert.match(advice.body, /on (FNB IMANI|Capitec BRICS|FNB BRICS|FNB Wolf)/)
+    assert.match(
+      advice.body,
+      /cannot use|taken less rand|cooler pair|only legal POS|preferred machine|volume is lower|sat idle|tied with|has been on/
+    )
+  })
+
   it('tells the admin to wait when one card has a unique calendar lift', () => {
     const state = createInitialState()
     const applied = restAll(state)
@@ -168,6 +189,11 @@ describe('adviseDesk', () => {
     assert.equal(advice.options?.[0].intents[0]?.action, 'restore_card')
     assert.doesNotMatch(advice.body, /this_cycle/)
     assert.match(advice.body, /safest pair/i)
+    assert.match(advice.body, /on (FNB IMANI|Capitec BRICS|FNB BRICS|FNB Wolf)/)
+    assert.match(
+      advice.body,
+      /cannot use|taken less rand|cooler pair|only legal POS|preferred machine|volume is lower|sat idle|ranked ahead|has been on|tied with/
+    )
   })
 
   it('explains a two-month freeze instead of parking the desk', () => {

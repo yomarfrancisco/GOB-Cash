@@ -5,6 +5,7 @@ import {
   DEFAULT_TEST_CONFIG,
   buildAgentReplyCopy,
   buildNotificationCopy,
+  buildReplenishActivityCopy,
   buildReplenishNotificationCopy,
   completeCycle,
   createInitialState,
@@ -181,8 +182,39 @@ describe('20-cycle default test', () => {
     assert.equal(replenish?.amountMzn, 172_800)
     const copy = buildReplenishNotificationCopy(replenish!)
     assert.equal(copy.title, 'Restock ZAR @ COST')
-    assert.match(copy.body, /R40,000/)
+    assert.match(copy.body, /Swipe /)
+    assert.doesNotMatch(copy.body, /each Moz/)
     assert.ok((replenish?.cardAssignments.length || 0) > 0)
+    assert.ok(replenish!.cardAssignments.every((row) => Boolean(row.posReason)))
+  })
+
+  it('names the actual swipe and why that POS, not a generic each-card line', () => {
+    const state = createInitialState()
+    state.bufferUsed = 40_000
+    state.availableCapital = 13_129
+    const overlay = { ...EMPTY_OVERLAY, excludedCardIds: [1, 2, 4, 5] }
+    const replenish = planReplenish(state, 4.32, overlay)
+    assert.ok(replenish)
+    assert.equal(replenish!.cardAssignments.length, 1)
+    assert.equal(replenish!.cardAssignments[0].cardId, 3)
+    assert.equal(
+      replenish!.cardAssignments[0].machineId === 1 || replenish!.cardAssignments[0].machineId === 2,
+      false
+    )
+    const row = replenish!.cardAssignments[0]
+    assert.match(row.posReason || '', /cannot use FNB BRICS or Capitec BRICS/i)
+    const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state, overlay)
+    assert.match(copy.body, /^Swipe BRICS AI on /)
+    assert.match(copy.body, /cannot use FNB BRICS or Capitec BRICS/i)
+    assert.doesNotMatch(copy.body, /each Moz debit card/)
+    assert.doesNotMatch(copy.body, /Cards resting/)
+    assert.doesNotMatch(copy.body, /POS resting/)
+    assert.doesNotMatch(copy.body, /Spends /)
+    assert.doesNotMatch(copy.body, /from Moz accounts/)
+    assert.doesNotMatch(copy.body, /Awaiting execution/)
+    const notice = buildReplenishNotificationCopy(replenish!)
+    assert.match(notice.body, /^Swipe BRICS AI on /)
+    assert.doesNotMatch(notice.body, /each Moz/)
   })
 })
 

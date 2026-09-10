@@ -7,7 +7,7 @@
  */
 
 import { EMPTY_OVERLAY, type RoutingOverlay } from './constraints'
-import { cardLabel, isForbiddenPair, machineLabel } from './inventory'
+import { cardLabel, cardShortName, isForbiddenPair, machineLabel, machineShortName } from './inventory'
 
 export type RoutingConfig = {
   cardCount: number
@@ -56,6 +56,7 @@ export type CardAssignment = {
   cardId: number
   machineId: number
   amount: number
+  posReason?: string
 }
 
 export type RoutingState = {
@@ -317,6 +318,180 @@ function machineLoadTargets(
   return loads
 }
 
+function pairUseCount(state: RoutingState, cardId: number, machineId: number): number {
+  return state.pairings[pairingKey(cardId, machineId)] || 0
+}
+
+function pairUsePhrase(count: number): string {
+  if (count <= 0) return 'never'
+  if (count === 1) return 'once'
+  return `${count} times`
+}
+
+function comparePosCandidates(
+  state: RoutingState,
+  cardId: number,
+  a: MachineState,
+  b: MachineState,
+  cycleNumber: number,
+  preferred: Set<number>,
+  assignedVolume: Map<number, number>
+): number {
+  const aPreferred = preferred.has(a.id) ? 0 : 1
+  const bPreferred = preferred.has(b.id) ? 0 : 1
+  if (aPreferred !== bPreferred) return aPreferred - bPreferred
+  const aProjected = a.volume + (assignedVolume.get(a.id) || 0)
+  const bProjected = b.volume + (assignedVolume.get(b.id) || 0)
+  const aBucket = Math.floor(aProjected / VOLUME_BALANCE_BUCKET)
+  const bBucket = Math.floor(bProjected / VOLUME_BALANCE_BUCKET)
+  if (aBucket !== bBucket) return aBucket - bBucket
+  const aPair = pairUseCount(state, cardId, a.id)
+  const bPair = pairUseCount(state, cardId, b.id)
+  if (aPair !== bPair) return aPair - bPair
+  if (aProjected !== bProjected) return aProjected - bProjected
+  const aJustUsed = a.lastCycleUsed === cycleNumber - 1
+  const bJustUsed = b.lastCycleUsed === cycleNumber - 1
+  if (aJustUsed !== bJustUsed) return aJustUsed ? 1 : -1
+  if (a.lastCycleUsed !== b.lastCycleUsed) return a.lastCycleUsed - b.lastCycleUsed
+  return a.id - b.id
+}
+
+function describePosPick(params: {
+  state: RoutingState
+  cardId: number
+  chosen: MachineState
+  runnerUp: MachineState | undefined
+  cycleNumber: number
+  overlay: RoutingOverlay
+  assignedVolume: Map<number, number>
+}): string {
+  const { state, cardId, chosen, runnerUp, cycleNumber, overlay, assignedVolume } = params
+  const card = cardShortName(cardId)
+  const pos = machineShortName(chosen.id)
+  const preferred = new Set(overlay.preferredMachineIds)
+  const bits: string[] = []
+  const banned = state.machines.filter((machine) => isForbiddenPair(cardId, machine.id))
+  if (banned.length) {
+    bits.push(
+      `${card} cannot use ${banned.map((machine) => machineShortName(machine.id)).join(' or ')} (same-identity pair).`
+    )
+  }
+  if (!runnerUp) {
+    bits.push(`${pos} is the only legal POS left for this card.`)
+    return bits.join(' ')
+  }
+  const other = machineShortName(runnerUp.id)
+  if (preferred.has(chosen.id) && !preferred.has(runnerUp.id)) {
+    bits.push(`${pos} is the preferred machine for this restock, ahead of ${other}.`)
+    return bits.join(' ')
+  }
+  const chosenVol = chosen.volume + (assignedVolume.get(chosen.id) || 0)
+  const otherVol = runnerUp.volume + (assignedVolume.get(runnerUp.id) || 0)
+  const chosenBucket = Math.floor(chosenVol / VOLUME_BALANCE_BUCKET)
+  const otherBucket = Math.floor(otherVol / VOLUME_BALANCE_BUCKET)
+  const chosenPair = pairUseCount(state, cardId, chosen.id)
+  const otherPair = pairUseCount(state, cardId, runnerUp.id)
+  if (chosenBucket !== otherBucket) {
+    bits.push(
+      `${pos} has taken less rand than ${other}, so this swipe does not pile onto the heavier machine.`
+    )
+  } else if (chosenPair !== otherPair) {
+    bits.push(
+      `${card} has been on ${pos} ${pairUsePhrase(chosenPair)}, vs ${pairUsePhrase(otherPair)} on ${other}. The cooler pair keeps restock capacity open.`
+    )
+  } else if (chosenVol !== otherVol) {
+    bits.push(`${pos} volume is lower than ${other}.`)
+  } else if (
+    runnerUp.lastCycleUsed === cycleNumber - 1 &&
+    chosen.lastCycleUsed !== cycleNumber - 1
+  ) {
+    bits.push(`${other} ran last cycle; ${pos} did not.`)
+  } else if (chosen.lastCycleUsed !== runnerUp.lastCycleUsed) {
+    bits.push(`${pos} has sat idle longer than ${other}.`)
+  } else {
+    bits.push(
+      `${pos} tied with ${other} on volume, pair heat, and idle time, so the planner keeps ${pos}.`
+    )
+  }
+  return bits.join(' ')
+}
+
+export function explainPosChoice(
+  state: RoutingState,
+  assignment: CardAssignment,
+  cycleNumber: number,
+  overlay: RoutingOverlay = EMPTY_OVERLAY
+): string {
+  if (assignment.posReason) return assignment.posReason
+  const excluded = new Set(overlay.excludedMachineIds)
+  const preferred = new Set(overlay.preferredMachineIds)
+  const assignedVolume = new Map<number, number>()
+  const candidates = state.machines.filter(
+    (machine) => !excluded.has(machine.id) && !isForbiddenPair(assignment.cardId, machine.id)
+  )
+  candidates.sort((a, b) =>
+    comparePosCandidates(state, assignment.cardId, a, b, cycleNumber, preferred, assignedVolume)
+  )
+  const chosen =
+    state.machines.find((machine) => machine.id === assignment.machineId) || candidates[0]
+  if (!chosen) {
+    return `${machineShortName(assignment.machineId)} is the POS named on this instruction.`
+  }
+  const rankedFirst = candidates[0]
+  if (rankedFirst && rankedFirst.id !== chosen.id) {
+    const bits: string[] = []
+    const banned = state.machines.filter((machine) => isForbiddenPair(assignment.cardId, machine.id))
+    if (banned.length) {
+      bits.push(
+        `${cardShortName(assignment.cardId)} cannot use ${banned
+          .map((machine) => machineShortName(machine.id))
+          .join(' or ')} (same-identity pair).`
+      )
+    }
+    bits.push(
+      `${machineShortName(chosen.id)} is the POS on this instruction. ${cardShortName(assignment.cardId)} has been on it ${pairUsePhrase(
+        pairUseCount(state, assignment.cardId, chosen.id)
+      )}.`
+    )
+    return bits.join(' ')
+  }
+  const runnerUp = candidates.find((machine) => machine.id !== chosen.id)
+  return describePosPick({
+    state,
+    cardId: assignment.cardId,
+    chosen,
+    runnerUp,
+    cycleNumber,
+    overlay,
+    assignedVolume,
+  })
+}
+
+export function annotatePosReasons(
+  state: RoutingState,
+  assignments: CardAssignment[],
+  cycleNumber: number,
+  overlay: RoutingOverlay = EMPTY_OVERLAY
+): CardAssignment[] {
+  const planned = assignMachines(
+    state,
+    assignments.map((row) => row.cardId),
+    assignments.map((row) => row.amount),
+    cycleNumber,
+    overlay
+  )
+  return assignments.map((row) => {
+    if (row.posReason) return row
+    const match = planned.find(
+      (item) => item.cardId === row.cardId && item.machineId === row.machineId
+    )
+    return {
+      ...row,
+      posReason: match?.posReason || explainPosChoice(state, row, cycleNumber, overlay),
+    }
+  })
+}
+
 export function assignMachines(
   state: RoutingState,
   selectedCardIds: number[],
@@ -339,25 +514,9 @@ export function assignMachines(
       (machine) =>
         (remaining.get(machine.id) || 0) > 0 && !isForbiddenPair(item.cardId, machine.id)
     )
-    candidates.sort((a, b) => {
-      const aPreferred = preferred.has(a.id) ? 0 : 1
-      const bPreferred = preferred.has(b.id) ? 0 : 1
-      if (aPreferred !== bPreferred) return aPreferred - bPreferred
-      const aProjected = a.volume + (assignedVolume.get(a.id) || 0)
-      const bProjected = b.volume + (assignedVolume.get(b.id) || 0)
-      const aBucket = Math.floor(aProjected / VOLUME_BALANCE_BUCKET)
-      const bBucket = Math.floor(bProjected / VOLUME_BALANCE_BUCKET)
-      if (aBucket !== bBucket) return aBucket - bBucket
-      const aPair = state.pairings[pairingKey(item.cardId, a.id)] || 0
-      const bPair = state.pairings[pairingKey(item.cardId, b.id)] || 0
-      if (aPair !== bPair) return aPair - bPair
-      if (aProjected !== bProjected) return aProjected - bProjected
-      const aJustUsed = a.lastCycleUsed === cycleNumber - 1
-      const bJustUsed = b.lastCycleUsed === cycleNumber - 1
-      if (aJustUsed !== bJustUsed) return aJustUsed ? 1 : -1
-      if (a.lastCycleUsed !== b.lastCycleUsed) return a.lastCycleUsed - b.lastCycleUsed
-      return a.id - b.id
-    })
+    candidates.sort((a, b) =>
+      comparePosCandidates(state, item.cardId, a, b, cycleNumber, preferred, assignedVolume)
+    )
 
     const chosen = candidates[0]
     if (!chosen) continue
@@ -365,6 +524,15 @@ export function assignMachines(
       cardId: item.cardId,
       machineId: chosen.id,
       amount: item.amount,
+      posReason: describePosPick({
+        state,
+        cardId: item.cardId,
+        chosen,
+        runnerUp: candidates[1],
+        cycleNumber,
+        overlay,
+        assignedVolume,
+      }),
     })
     remaining.set(chosen.id, (remaining.get(chosen.id) || 0) - 1)
     assignedVolume.set(chosen.id, (assignedVolume.get(chosen.id) || 0) + item.amount)
@@ -512,7 +680,8 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
       ? `${formatZar(idleCapital)} idle: available capital sits in a capacity gap.`
       : 'Full available capital is routable.',
     `${selectedCardIds.map((id) => cardLabel(id)).join(', ')} chosen for fewest active cycles, then longest rest.`,
-    `${cardAssignments.map((row) => machineLabel(row.machineId)).join(', ')} assigned for volume balance, then least-used pairings. Same-name pairs are never used.`,
+    cardAssignments.map((row) => row.posReason).filter(Boolean).join(' ') ||
+      `${cardAssignments.map((row) => machineLabel(row.machineId)).join(', ')} assigned for volume balance, then least-used pairings. Same-name pairs are never used.`,
     overlayNotes,
     bufferActionRequired
       ? `Projected buffer ${formatZar(bufferUsedProjected)} exceeds ${formatZar(bufferTriggerAmount)} working threshold.`
@@ -640,15 +809,12 @@ export function simulateRun(config: RoutingConfig = DEFAULT_TEST_CONFIG): {
 const MOZ_RECEIVE_ACCOUNTS =
   'BCI, FNB Mozambique, BIM, Moza Banco, or Vista Mozambique'
 
-function assignmentLine(row: CardAssignment, style: 'notification' | 'activity'): string {
-  if (style === 'notification') {
-    return `${cardLabel(row.cardId)} → ${machineLabel(row.machineId)} — ${formatZar(row.amount)}`
-  }
-  return `${cardLabel(row.cardId)} · ${machineLabel(row.machineId)} · ${formatZar(row.amount)}`
+function swipeInstruction(row: CardAssignment): string {
+  return `${cardShortName(row.cardId)} on ${machineShortName(row.machineId)} for ${formatZar(row.amount)}`
 }
 
-function restingLabel(ids: number[]): string {
-  return ids.length ? ids.join(', ') : 'none'
+export function formatSwipeInstruction(row: CardAssignment): string {
+  return swipeInstruction(row)
 }
 
 export function formatMznAmount(amount: number): string {
@@ -718,9 +884,17 @@ export function formatAskImpactBody(params: {
   if (replenish) {
     lines.push(`Restock ZAR @ COST still first: ${formatZar(replenish.amountZar)}`)
     if (replenish.cardAssignments.length) {
-      lines.push('Swipe:')
-      for (const row of replenish.cardAssignments) {
-        lines.push(assignmentLine(row, 'activity'))
+      if (replenish.cardAssignments.length === 1) {
+        lines.push(`Swipe ${swipeInstruction(replenish.cardAssignments[0])}.`)
+        if (replenish.cardAssignments[0].posReason) {
+          lines.push(replenish.cardAssignments[0].posReason)
+        }
+      } else {
+        lines.push('Swipe:')
+        for (const row of replenish.cardAssignments) {
+          lines.push(swipeInstruction(row))
+          if (row.posReason) lines.push(row.posReason)
+        }
       }
     }
     lines.push(`Then sell ZAR, Cycle ${replenish.cycleNumber}`)
@@ -756,14 +930,22 @@ export function buildNotificationCopy(
 export function buildReplenishNotificationCopy(
   replenish: ReplenishPlan
 ): { title: string; body: string } {
-  const route = replenish.cardAssignments
-    .map((row) => `${cardLabel(row.cardId)}→${machineLabel(row.machineId)}`)
-    .join(' · ')
+  const rows = replenish.cardAssignments
+  if (!rows.length) {
+    return {
+      title: 'Restock ZAR @ COST',
+      body: `Restock ${formatZar(replenish.amountZar)} at COST`,
+    }
+  }
+  if (rows.length === 1) {
+    return {
+      title: 'Restock ZAR @ COST',
+      body: `Swipe ${swipeInstruction(rows[0])}`,
+    }
+  }
   return {
     title: 'Restock ZAR @ COST',
-    body: route
-      ? `Swipe to restock ${formatZar(replenish.amountZar)}\n${route}`
-      : `Restock ${formatZar(replenish.amountZar)} at COST\nThen Cycle ${replenish.cycleNumber}`,
+    body: rows.map((row) => `Swipe ${swipeInstruction(row)}`).join('\n'),
   }
 }
 
@@ -846,30 +1028,39 @@ export function buildActivityCopy(
 export function buildReplenishActivityCopy(
   replenish: ReplenishPlan,
   cycleCount: number,
-  status: 'awaiting_execution' | 'completed'
+  status: 'awaiting_execution' | 'completed',
+  state?: RoutingState,
+  overlay: RoutingOverlay = EMPTY_OVERLAY
 ): { title: string; body: string } {
-  const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
-  const lines = [
-    `Restock ${formatZar(replenish.amountZar)} in South Africa at COST.`,
-    '',
-    `Swipe each Moz debit card on a SA POS. Repeating the same card–POS pair burns restock capacity; resting pairs keep throughput open for the next ZAR sale.`,
-    '',
-  ]
-  if (replenish.cardAssignments.length) {
-    for (const row of replenish.cardAssignments) {
-      lines.push(assignmentLine(row, 'activity'))
+  void status
+  const rows = state
+    ? annotatePosReasons(state, replenish.cardAssignments, replenish.cycleNumber, overlay)
+    : replenish.cardAssignments
+  const lines: string[] = []
+  if (rows.length === 1) {
+    lines.push(`Swipe ${swipeInstruction(rows[0])}.`)
+    if (rows[0].posReason) {
+      lines.push('')
+      lines.push(rows[0].posReason)
     }
+  } else if (rows.length > 1) {
+    lines.push(`Swipe these ${rows.length} pairs:`)
     lines.push('')
-    lines.push(`Cards resting: ${restingLabel(replenish.restingCardIds)}`)
-    lines.push(`POS resting: ${restingLabel(replenish.restingMachineIds)}`)
+    for (const row of rows) {
+      lines.push(`Swipe ${swipeInstruction(row)}.`)
+      if (row.posReason) lines.push(row.posReason)
+      lines.push('')
+    }
+  } else {
+    lines.push(`Restock ${formatZar(replenish.amountZar)} in South Africa at COST.`)
   }
-  lines.push(`Rate: COST @ ${replenish.costRate.toFixed(2)} Mt/R`)
-  lines.push(`Spends ${formatMznAmount(replenish.amountMzn)} from Moz accounts`)
-  lines.push(`Then: Sell ZAR · Cycle ${replenish.cycleNumber} of ${cycleCount}`)
-  lines.push(`Status: ${statusLabel}`)
+  if (replenish.costRate > 0) {
+    lines.push(`COST ${replenish.costRate.toFixed(2)} Mt/R.`)
+  }
+  lines.push(`Then sell ZAR · Cycle ${replenish.cycleNumber} of ${cycleCount}.`)
   return {
     title: `Restock ZAR @ COST · before Cycle ${replenish.cycleNumber}/${cycleCount}`,
-    body: lines.join('\n'),
+    body: lines.join('\n').trim(),
   }
 }
 

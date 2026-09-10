@@ -165,17 +165,28 @@ function overlayForDoc(data: admin.firestore.DocumentData) {
   return overlayFromConstraints(constraintsFromDoc(data))
 }
 
-function assignmentsFromUnknown(raw: unknown): Array<{ cardId: number; machineId: number; amount: number }> {
+function assignmentsFromUnknown(raw: unknown): Array<{
+  cardId: number
+  machineId: number
+  amount: number
+  posReason?: string
+}> {
   if (!Array.isArray(raw)) return []
   return raw.flatMap((row) => {
     if (!row || typeof row !== 'object') return []
-    const item = row as { cardId?: unknown; machineId?: unknown; amount?: unknown }
+    const item = row as {
+      cardId?: unknown
+      machineId?: unknown
+      amount?: unknown
+      posReason?: unknown
+    }
     if (typeof item.cardId !== 'number' || typeof item.machineId !== 'number') return []
     return [
       {
         cardId: item.cardId,
         machineId: item.machineId,
         amount: typeof item.amount === 'number' ? item.amount : 0,
+        ...(typeof item.posReason === 'string' && item.posReason ? { posReason: item.posReason } : {}),
       },
     ]
   })
@@ -503,11 +514,18 @@ function writeIssuedReplenish(
   testRunId: string,
   state: RoutingState,
   replenish: ReplenishPlan,
-  now: admin.firestore.Timestamp
+  now: admin.firestore.Timestamp,
+  overlay = EMPTY_OVERLAY
 ): { plan: CyclePlan; activityEventId: string; kind: 'replenish' } {
   const plan = planCycle(state)
   const notification = buildReplenishNotificationCopy(replenish)
-  const activity = buildReplenishActivityCopy(replenish, state.config.cycleCount, 'awaiting_execution')
+  const activity = buildReplenishActivityCopy(
+    replenish,
+    state.config.cycleCount,
+    'awaiting_execution',
+    state,
+    overlay
+  )
   const activityEventId = replenishEventId(testRunId, replenish.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
   const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
@@ -577,7 +595,7 @@ function writeIssuedCycle(
 ): { plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' } {
   const replenish = planReplenish(state, quotes.costRate, overlay)
   if (replenish) {
-    return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now)
+    return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now, overlay)
   }
 
   const plan = planCycle(state, overlay)
@@ -897,7 +915,8 @@ export const admin_confirmConversionRoutingCycle = functions
       const awaitingKind = testData.awaitingKind === 'replenish' ? 'replenish' : 'deploy'
 
       if (awaitingKind === 'replenish') {
-        const replenish = planReplenish(state, num(testData.replenishCostRate, quotes.costRate))
+        const overlay = overlayForDoc(testData)
+        const replenish = planReplenish(state, num(testData.replenishCostRate, quotes.costRate), overlay)
         if (!replenish) {
           throw new functions.https.HttpsError('failed-precondition', 'No ZAR restock is awaiting')
         }
@@ -916,7 +935,9 @@ export const admin_confirmConversionRoutingCycle = functions
               : replenish.restingMachineIds,
           },
           state.config.cycleCount,
-          'completed'
+          'completed',
+          state,
+          overlay
         )
         const eventRef = db
           .collection('users')

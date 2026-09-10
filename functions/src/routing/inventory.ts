@@ -29,14 +29,20 @@ export const DEFAULT_FORBIDDEN_PAIRS: Array<{ cardId: number; machineId: number 
 export const CARD_FLAG = '🇲🇿'
 export const MACHINE_FLAG = '🇿🇦'
 
+export function cardShortName(id: number): string {
+  return DEFAULT_CARDS.find((row) => row.id === id)?.shortName || `Card ${id}`
+}
+
+export function machineShortName(id: number): string {
+  return DEFAULT_MACHINES.find((row) => row.id === id)?.shortName || `Machine ${id}`
+}
+
 export function cardLabel(id: number): string {
-  const name = DEFAULT_CARDS.find((row) => row.id === id)?.shortName || `Card ${id}`
-  return `${CARD_FLAG} ${name}`
+  return `${CARD_FLAG} ${cardShortName(id)}`
 }
 
 export function machineLabel(id: number): string {
-  const name = DEFAULT_MACHINES.find((row) => row.id === id)?.shortName || `Machine ${id}`
-  return `${MACHINE_FLAG} ${name}`
+  return `${MACHINE_FLAG} ${machineShortName(id)}`
 }
 
 export function isForbiddenPair(cardId: number, machineId: number): boolean {
