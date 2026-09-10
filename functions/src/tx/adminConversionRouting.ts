@@ -26,8 +26,10 @@ import {
   type CyclePlan,
   type ReplenishPlan,
   type RoutingConfig,
+  receiveChoiceForSale,
   type RoutingState,
 } from '../routing/conversionRouter'
+import { applyReceiveChoice, parseReceiveHint, type ReceiveChoice } from '../routing/mozReceive'
 import {
   EMPTY_OVERLAY,
   applyIntentsToState,
@@ -163,6 +165,16 @@ function storedPlanFromCycle(
 
 function overlayForDoc(data: admin.firestore.DocumentData) {
   return overlayFromConstraints(constraintsFromDoc(data))
+}
+
+function receiveChoiceFromDoc(data: admin.firestore.DocumentData): ReceiveChoice | null {
+  if (typeof data.receiveCardId !== 'number' || typeof data.receiveBankId !== 'string') return null
+  return {
+    cardId: data.receiveCardId,
+    bankId: data.receiveBankId as ReceiveChoice['bankId'],
+    bank: typeof data.receiveBank === 'string' ? data.receiveBank : '',
+    reason: typeof data.receiveReason === 'string' ? data.receiveReason : '',
+  }
 }
 
 function assignmentsFromUnknown(raw: unknown): Array<{
@@ -461,6 +473,15 @@ function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
     cards,
     machines,
     pairings: data.pairings && typeof data.pairings === 'object' ? data.pairings : {},
+    receiveCounts:
+      data.receiveCounts && typeof data.receiveCounts === 'object'
+        ? Object.fromEntries(
+            Object.entries(data.receiveCounts as Record<string, unknown>)
+              .map(([key, value]) => [Number(key), value])
+              .filter((row): row is [number, number] => Number.isFinite(row[0]) && typeof row[1] === 'number')
+          )
+        : {},
+    lastReceiveCardId: typeof data.lastReceiveCardId === 'number' ? data.lastReceiveCardId : null,
     config: {
       ...base.config,
       cardCount: cards.length,
@@ -569,6 +590,8 @@ function writeIssuedReplenish(
       cards: state.cards,
       machines: state.machines,
       pairings: state.pairings,
+      receiveCounts: state.receiveCounts || {},
+      lastReceiveCardId: state.lastReceiveCardId ?? null,
       awaitingCycleNumber: replenish.cycleNumber,
       awaitingKind: 'replenish',
       replenishAmountMzn: replenish.amountMzn,
@@ -600,15 +623,17 @@ function writeIssuedCycle(
 
   const plan = planCycle(state, overlay)
   const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
+  const receive = blocked ? null : receiveChoiceForSale(state, plan, overlay)
   const notification = blocked
     ? { title: `Sell ZAR · Cycle ${plan.cycleNumber}`, body: 'No valid route under current constraints\nAsk to restore a card or POS' }
-    : buildNotificationCopy(plan, state.config.cycleCount)
+    : buildNotificationCopy(plan, state.config.cycleCount, receive)
   const activity = buildActivityCopy(
     plan,
     state.config.cycleCount,
     'awaiting_execution',
     state.config.spread,
-    quotes
+    quotes,
+    { state, overlay }
   )
   const activityEventId = eventId(testRunId, plan.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
@@ -662,6 +687,10 @@ function writeIssuedCycle(
     costRate: quotes.costRate,
     spreadRate: state.config.spread,
     selectionReason: plan.selectionReason,
+    receiveCardId: receive?.cardId ?? null,
+    receiveBankId: receive?.bankId ?? null,
+    receiveBank: receive?.bank ?? null,
+    receiveReason: receive?.reason ?? null,
     status: 'awaiting_execution' as CycleStatus,
     createdAt: now,
     completedAt: null,
@@ -682,6 +711,8 @@ function writeIssuedCycle(
       cards: state.cards,
       machines: state.machines,
       pairings: state.pairings,
+      receiveCounts: state.receiveCounts || {},
+      lastReceiveCardId: state.lastReceiveCardId ?? null,
       awaitingCycleNumber: plan.cycleNumber,
       awaitingKind: 'deploy',
       updatedAt: now,
@@ -794,6 +825,8 @@ async function startNewTest(adminUid: string, forceNew: boolean) {
     cards: state.cards,
     machines: state.machines,
     pairings: {},
+    receiveCounts: {},
+    lastReceiveCardId: null,
     constraints: [],
     createdAt: now,
     updatedAt: now,
@@ -864,6 +897,8 @@ export const admin_getConversionRoutingStatus = functions
       cards: state.cards,
       machines: state.machines,
       pairings: state.pairings,
+      receiveCounts: state.receiveCounts || {},
+      lastReceiveCardId: state.lastReceiveCardId ?? null,
     })
   })
 
@@ -1002,14 +1037,19 @@ export const admin_confirmConversionRoutingCycle = functions
       }
 
       const actualProfit = suppliedProfit ?? roundMoney(plan.deployedAmount * liveSpread)
-      const nextState = applySell(state, plan, actualProfit)
+      const overlay = overlayForDoc(testData)
+      const storedReceive = receiveChoiceFromDoc(cycleData)
+      const nextState = storedReceive
+        ? applyReceiveChoice(applySell(state, plan, actualProfit), storedReceive.cardId)
+        : applySell(state, plan, actualProfit)
       const remainingConstraints = expireConstraints(constraintsFromDoc(testData), cycleNumber)
       const completedCopy = buildActivityCopy(
         plan,
         state.config.cycleCount,
         'completed',
         liveSpread,
-        { sellRate: quotes.sellRate, costRate: quotes.costRate }
+        { sellRate: quotes.sellRate, costRate: quotes.costRate },
+        { state, overlay, receive: storedReceive }
       )
       const eventRef = db
         .collection('users')
@@ -1380,6 +1420,9 @@ export const admin_submitConversionRoutingFeedback = functions
       currentPlan,
       preview,
       proposal: true,
+      state: previewApplied.state,
+      overlay: overlayFromConstraints(previewApplied.constraints),
+      receiveHint: parseReceiveHint(askMessage),
     })
 
     if (isWhatIfAsk(askMessage) && !acceptProposalId) {
@@ -1458,6 +1501,9 @@ export const admin_submitConversionRoutingFeedback = functions
                 currentPlan: null,
                 preview,
                 proposal: false,
+                state: previewApplied.state,
+                overlay: overlayFromConstraints(previewApplied.constraints),
+                receiveHint: parseReceiveHint(askMessage),
               }),
           userReply: askMessage,
           routingAction: 'advice',
@@ -1514,18 +1560,22 @@ export const admin_submitConversionRoutingFeedback = functions
     const overlay = overlayFromConstraints(applied.constraints)
     const plan = planCycle(applied.state, overlay)
     const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
+    const receive = blocked
+      ? null
+      : receiveChoiceForSale(applied.state, plan, overlay, parseReceiveHint(askMessage))
     const activity = buildAgentReplyCopy(
       plan,
       applied.state.config.cycleCount,
       acknowledgement,
-      blocked
+      blocked,
+      receive
     )
     const notification = blocked
       ? {
           title: `Conversion Cycle ${plan.cycleNumber}`,
           body: 'No valid route under current constraints\nReply to restore a card or machine',
         }
-      : buildNotificationCopy(plan, applied.state.config.cycleCount)
+      : buildNotificationCopy(plan, applied.state.config.cycleCount, receive)
 
     await db.runTransaction(async (tx) => {
       const freshTest = await tx.get(testRef)
@@ -1580,6 +1630,10 @@ export const admin_submitConversionRoutingFeedback = functions
         restingCardIds: plan.restingCardIds,
         restingMachineIds: plan.restingMachineIds,
         selectionReason: plan.selectionReason,
+        receiveCardId: receive?.cardId ?? null,
+        receiveBankId: receive?.bankId ?? null,
+        receiveBank: receive?.bank ?? null,
+        receiveReason: receive?.reason ?? null,
         revisionReason: acknowledgement,
         activityEventId: published.activityEventId,
         revisionCount: published.revisionCount,

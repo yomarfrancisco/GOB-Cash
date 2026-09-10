@@ -7,7 +7,13 @@
  */
 
 import { EMPTY_OVERLAY, type RoutingOverlay } from './constraints'
-import { cardLabel, cardShortName, isForbiddenPair, machineLabel, machineShortName } from './inventory'
+import { cardLabel, cardShortName, formatReceiveAccount, isForbiddenPair, machineLabel, machineShortName } from './inventory'
+import {
+  chooseReceiveAccount,
+  DEFAULT_RECEIVE_HINT,
+  type ReceiveChoice,
+  type ReceiveHint,
+} from './mozReceive'
 
 export type RoutingConfig = {
   cardCount: number
@@ -69,6 +75,8 @@ export type RoutingState = {
   cards: CardState[]
   machines: MachineState[]
   pairings: Record<string, number>
+  receiveCounts: Record<number, number>
+  lastReceiveCardId: number | null
 }
 
 export type CyclePlan = {
@@ -146,6 +154,8 @@ export function createInitialState(config: RoutingConfig = DEFAULT_TEST_CONFIG):
       lastCycleUsed: 0,
     })),
     pairings: {},
+    receiveCounts: {},
+    lastReceiveCardId: null,
   }
 }
 
@@ -806,9 +816,6 @@ export function simulateRun(config: RoutingConfig = DEFAULT_TEST_CONFIG): {
   return { state, cycles }
 }
 
-const MOZ_RECEIVE_ACCOUNTS =
-  'BCI, FNB Mozambique, BIM, Moza Banco, or Vista Mozambique'
-
 function swipeInstruction(row: CardAssignment): string {
   return `${cardShortName(row.cardId)} on ${machineShortName(row.machineId)} for ${formatZar(row.amount)}`
 }
@@ -862,6 +869,57 @@ export function planReplenish(
   }
 }
 
+export function nextSwipeAssignments(
+  state: RoutingState,
+  sell: CyclePlan,
+  overlay: RoutingOverlay = EMPTY_OVERLAY
+): CardAssignment[] {
+  const afterSell = applySell(state, sell)
+  const swipeCapital = afterSell.bufferUsed > 0 ? afterSell.bufferUsed : sell.deployedAmount
+  if (!(swipeCapital > 0)) return []
+  const swipe = planCycle(
+    {
+      ...afterSell,
+      availableCapital: swipeCapital,
+      bufferUsed: 0,
+    },
+    overlay
+  )
+  return swipe.cardAssignments
+}
+
+export function formatReceiveAccountsLine(choice: ReceiveChoice | null | undefined): string {
+  if (!choice) return ''
+  return formatReceiveAccount(choice.cardId)
+}
+
+function formatReceiveStep(choice: ReceiveChoice | null): string[] {
+  if (!choice) {
+    return [
+      '1. Receive MZN into the Moz debit account named for this sale. If that card is parked, Ask which METIX account can take the credit. Never Vista.',
+    ]
+  }
+  const lines = [`1. Receive MZN into ${formatReceiveAccount(choice.cardId)}.`]
+  if (choice.reason) lines.push(choice.reason)
+  return lines
+}
+
+export function receiveChoiceForSale(
+  state: RoutingState,
+  sell: CyclePlan,
+  overlay: RoutingOverlay = EMPTY_OVERLAY,
+  hint: ReceiveHint = DEFAULT_RECEIVE_HINT
+): ReceiveChoice | null {
+  return chooseReceiveAccount({
+    state,
+    overlay,
+    amountZar: sell.deployedAmount,
+    cycleNumber: sell.cycleNumber,
+    swipeCardIds: nextSwipeAssignments(state, sell, overlay).map((row) => row.cardId),
+    hint,
+  })
+}
+
 export function previewAskImpact(
   state: RoutingState,
   overlay: RoutingOverlay,
@@ -877,6 +935,9 @@ export function formatAskImpactBody(params: {
   currentPlan?: CyclePlan | null
   preview: { replenishFirst: ReplenishPlan | null; nextPlan: CyclePlan | null }
   proposal?: boolean
+  state?: RoutingState
+  overlay?: RoutingOverlay
+  receiveHint?: ReceiveHint
 }): string {
   const lines = [params.acknowledgement.trim(), '']
   const replenish = params.preview.replenishFirst
@@ -899,7 +960,17 @@ export function formatAskImpactBody(params: {
     }
     lines.push(`Then sell ZAR, Cycle ${replenish.cycleNumber}`)
   } else if (plan && plan.deployedAmount > 0) {
-    lines.push(`Next: receive MZN, then pay ${formatZar(plan.deployedAmount)}.`)
+    const receive =
+      params.state && plan
+        ? receiveChoiceForSale(params.state, plan, params.overlay, params.receiveHint)
+        : null
+    const account = formatReceiveAccountsLine(receive)
+    lines.push(
+      account
+        ? `Next: receive MZN into ${account}, then pay ${formatZar(plan.deployedAmount)}.`
+        : `Next: receive MZN, then pay ${formatZar(plan.deployedAmount)}.`
+    )
+    if (receive?.reason) lines.push(receive.reason)
     lines.push(`Expected spread this sale: ${formatZar(plan.expectedProfit)}`)
     lines.push(
       plan.bufferActionRequired
@@ -918,12 +989,16 @@ export function formatAskImpactBody(params: {
 
 export function buildNotificationCopy(
   plan: CyclePlan,
-  cycleCount: number
+  cycleCount: number,
+  receive: ReceiveChoice | null = null
 ): { title: string; body: string } {
   void cycleCount
+  const account = formatReceiveAccountsLine(receive)
   return {
     title: `Sell ZAR · Cycle ${plan.cycleNumber}`,
-    body: `Pay ${formatZar(plan.deployedAmount)} after MZN reflects`,
+    body: account
+      ? `Pay ${formatZar(plan.deployedAmount)} after MZN hits ${account}`
+      : `Pay ${formatZar(plan.deployedAmount)} after MZN reflects`,
   }
 }
 
@@ -953,7 +1028,8 @@ export function buildAgentReplyCopy(
   plan: CyclePlan,
   cycleCount: number,
   acknowledgement: string,
-  blocked: boolean
+  blocked: boolean,
+  receive: ReceiveChoice | null = null
 ): { title: string; body: string } {
   const title = `Sell ZAR · Cycle ${plan.cycleNumber}/${cycleCount}`
   if (blocked) {
@@ -962,11 +1038,15 @@ export function buildAgentReplyCopy(
       body: [acknowledgement, '', plan.selectionReason || 'No valid route under current constraints.'].filter(Boolean).join('\n'),
     }
   }
+  const account = formatReceiveAccountsLine(receive)
   const lines = [
     acknowledgement,
     '',
-    `Next: receive MZN, then pay ${formatZar(plan.deployedAmount)}.`,
+    account
+      ? `Next: receive MZN into ${account}, then pay ${formatZar(plan.deployedAmount)}.`
+      : `Next: receive MZN, then pay ${formatZar(plan.deployedAmount)}.`,
   ]
+  if (receive?.reason) lines.push(receive.reason)
   return { title, body: lines.join('\n') }
 }
 
@@ -976,7 +1056,13 @@ export function buildActivityCopy(
   status: 'awaiting_execution' | 'completed',
   spread: number,
   quotes?: { sellRate: number; costRate: number },
-  extra?: { revisionReason?: string }
+  extra?: {
+    revisionReason?: string
+    state?: RoutingState
+    overlay?: RoutingOverlay
+    receiveHint?: ReceiveHint
+    receive?: ReceiveChoice | null
+  }
 ): { title: string; body: string } {
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
   if (plan.deployedAmount <= 0) {
@@ -994,11 +1080,20 @@ export function buildActivityCopy(
   }
   const bufferAmount = plan.bufferTriggerAmount > 0 ? roundMoney(plan.bufferTriggerAmount / 0.9) : 50_000
   const bufferKept = roundMoney(Math.max(0, bufferAmount - plan.bufferUsedProjected))
+  const receive =
+    extra?.receive !== undefined
+      ? extra.receive
+      : extra?.state
+        ? receiveChoiceForSale(extra.state, plan, extra.overlay, extra.receiveHint)
+        : null
+  const account = formatReceiveAccountsLine(receive)
   const lines = [
-    `Pay ${formatZar(plan.deployedAmount)} after MZN has reflected.`,
+    account
+      ? `Pay ${formatZar(plan.deployedAmount)} after MZN has reflected in ${account}.`
+      : `Pay ${formatZar(plan.deployedAmount)} after MZN has reflected.`,
     '',
-    `1. Receive MZN into a Moz account (${MOZ_RECEIVE_ACCOUNTS}).`,
-    '2. Wait for proof of payment and the credit.',
+    ...formatReceiveStep(receive),
+    '2. Wait for proof of payment and the credit in that account.',
     '3. Only then send ZAR to the operator’s South African account.',
     '',
   ]

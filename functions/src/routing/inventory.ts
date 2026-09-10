@@ -1,16 +1,55 @@
+export type MozBankId = 'bci' | 'bim' | 'fnb' | 'standard' | 'vista' | 'moza' | 'absa'
+
 export type NamedResource = {
   id: number
   name: string
   shortName: string
   aliases: string[]
+  mozBank?: string
+  mozBankId?: MozBankId
 }
 
 export const DEFAULT_CARDS: NamedResource[] = [
-  { id: 1, name: 'Ginav Standard Bank', shortName: 'Ginav', aliases: ['ginav standard bank', 'ginav'] },
-  { id: 2, name: 'Vidrotec BIM', shortName: 'Vidrotec', aliases: ['vidrotec bim', 'vidrotec'] },
-  { id: 3, name: 'BRICS AI EI FNB', shortName: 'BRICS AI', aliases: ['brics ai ei fnb', 'brics ai', 'brics'] },
-  { id: 4, name: 'Goblin BCI', shortName: 'Goblin', aliases: ['goblin bci', 'goblin'] },
-  { id: 5, name: 'Wolf BCI', shortName: 'Wolf', aliases: ['wolf bci', 'wolf'] },
+  {
+    id: 1,
+    name: 'Ginav Standard Bank',
+    shortName: 'Ginav',
+    mozBank: 'Standard Bank Mozambique',
+    mozBankId: 'standard',
+    aliases: ['ginav standard bank', 'ginav'],
+  },
+  {
+    id: 2,
+    name: 'Vidrotec BIM',
+    shortName: 'Vidrotec',
+    mozBank: 'BIM',
+    mozBankId: 'bim',
+    aliases: ['vidrotec bim', 'vidrotec'],
+  },
+  {
+    id: 3,
+    name: 'BRICS AI EI FNB',
+    shortName: 'BRICS AI',
+    mozBank: 'FNB Mozambique',
+    mozBankId: 'fnb',
+    aliases: ['brics ai ei fnb', 'brics ai', 'brics'],
+  },
+  {
+    id: 4,
+    name: 'Goblin BCI',
+    shortName: 'Goblin',
+    mozBank: 'BCI',
+    mozBankId: 'bci',
+    aliases: ['goblin bci', 'goblin'],
+  },
+  {
+    id: 5,
+    name: 'Wolf BCI',
+    shortName: 'Wolf',
+    mozBank: 'BCI',
+    mozBankId: 'bci',
+    aliases: ['wolf bci', 'wolf'],
+  },
 ]
 
 export const DEFAULT_MACHINES: NamedResource[] = [
@@ -35,6 +74,18 @@ export function cardShortName(id: number): string {
 
 export function machineShortName(id: number): string {
   return DEFAULT_MACHINES.find((row) => row.id === id)?.shortName || `Machine ${id}`
+}
+
+export function cardMozBank(id: number): string {
+  return DEFAULT_CARDS.find((row) => row.id === id)?.mozBank || 'Mozambique'
+}
+
+export function cardMozBankId(id: number): MozBankId | null {
+  return DEFAULT_CARDS.find((row) => row.id === id)?.mozBankId || null
+}
+
+export function formatReceiveAccount(cardId: number): string {
+  return `${cardShortName(cardId)} · ${cardMozBank(cardId)}`
 }
 
 export function cardLabel(id: number): string {
@@ -109,10 +160,13 @@ export function resolveNamedMachineIds(text: string): number[] {
 }
 
 export function inventoryPromptList(): string {
-  const cards = DEFAULT_CARDS.map((row) => `${row.shortName} (card ${row.id}, ${row.name})`).join('; ')
+  const cards = DEFAULT_CARDS.map((row) => {
+    const bank = row.mozBank ? `, receive MZN at ${row.mozBank}` : ''
+    return `${row.shortName} (card ${row.id}, ${row.name}${bank})`
+  }).join('; ')
   const machines = DEFAULT_MACHINES.map((row) => `${row.shortName} (machine ${row.id}, ${row.name})`).join('; ')
   const banned = DEFAULT_FORBIDDEN_PAIRS.map(
     (row) => `${cardLabel(row.cardId)} cannot use ${machineLabel(row.machineId)}`
   ).join('; ')
-  return `Cards are Mozambique ${CARD_FLAG}: ${cards}.\nMachines are South Africa ${MACHINE_FLAG}: ${machines}.\nPermanent pairing bans: ${banned}. Never assign a banned pair. Use the flags in summaries.`
+  return `Cards are Mozambique ${CARD_FLAG}: ${cards}.\nMachines are South Africa ${MACHINE_FLAG}: ${machines}.\nPermanent pairing bans: ${banned}. Never assign a banned pair. Use the flags in summaries.\nReceive MZN only into a named debit account, never a generic bank list. BCI, BIM, FNB Mozambique, and Standard Bank are on METIX real-time local rails and can take large credits. Vista is a small bank with high fees — never receive there. Diversify receives so the same card/bank does not take every credit. Mahomed pays from BCI and BIM; same-bank METIX is preferred when he is the payer.`
 }

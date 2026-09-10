@@ -93,6 +93,8 @@ describe('adviseDesk', () => {
     assert.equal(advice.kind, 'next_step')
     assert.equal(advice.options, undefined)
     assert.match(advice.body, /no second route/i)
+    assert.match(advice.body, /Receive MZN into |receive MZN into /)
+    assert.match(advice.body, /METIX|Mahomed|BCI|BIM/)
   })
 
   it('parks the desk when the admin says no card is safe', () => {

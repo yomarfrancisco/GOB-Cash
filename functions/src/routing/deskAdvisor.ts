@@ -18,11 +18,13 @@ import {
   planCycle,
   planReplenish,
   previewAskImpact,
+  receiveChoiceForSale,
   type CardAssignment,
   type RoutingState,
 } from './conversionRouter'
+import { parseReceiveHint } from './mozReceive'
 import type { RecentCycleBrief, RecentFeedbackBrief } from './interpretContext'
-import { cardLabel, cardShortName, resolveNamedCardIds } from './inventory'
+import { cardLabel, cardShortName, formatReceiveAccount, resolveNamedCardIds } from './inventory'
 import { formatSast, isWhatIfAsk, namesConstraintChange } from './routingTime'
 
 export type DeskOption = {
@@ -404,7 +406,8 @@ function nextStepAdvice(
     amountZar: number
   },
   state: RoutingState,
-  cycleNumber: number
+  cycleNumber: number,
+  message: string
 ): DeskAdvice {
   const swipe = assignmentLine(route.assignments)
   if (route.kind === 'replenish') {
@@ -415,10 +418,24 @@ function nextStepAdvice(
       body: `The open restock is one swipe: ${swipe}. ${why} Execute that. There is no second route to offer.`,
     }
   }
+  const sell = planCycle(state)
+  const receive =
+    sell.deployedAmount > 0
+      ? receiveChoiceForSale(state, sell, undefined, parseReceiveHint(message))
+      : null
+  const named = receive
+    ? `receive MZN into ${formatReceiveAccount(receive.cardId)}`
+    : 'receive MZN first'
   return {
     kind: 'next_step',
     title: 'Next: sell ZAR',
-    body: `The open route is one sale: receive MZN first, then pay ${formatZar(route.amountZar)}. Execute only after the Moz credit is in. There is no second route to offer.`,
+    body: [
+      `The open route is one sale: ${named}, then pay ${formatZar(route.amountZar)}.`,
+      receive?.reason,
+      'Execute only after that Moz credit is in. There is no second route to offer.',
+    ]
+      .filter(Boolean)
+      .join(' '),
   }
 }
 
@@ -567,7 +584,7 @@ export function adviseDesk(params: {
     }
   }
 
-  if (open) return nextStepAdvice(open, state, cycleNumber)
+  if (open) return nextStepAdvice(open, state, cycleNumber, message)
 
   if (holds.length) {
     // Do not auto-pick a parked card. Cycle-rest cannot complete while jammed.
