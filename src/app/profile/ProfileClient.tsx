@@ -465,7 +465,7 @@ export default function ProfileClient() {
   
   // Check if current user is agent
   const auth = getFirebaseAuth()
-  const isAgent = auth.currentUser?.uid === AGENT_UID
+  const isAdminDesk = auth.currentUser?.uid === AGENT_UID
   const currentUserId = auth.currentUser?.uid
   const access = useProfileAccess(currentUserId, kycStatus, kycSessionStatus)
   const depositLocked = !access.canDeposit
@@ -812,42 +812,74 @@ export default function ProfileClient() {
 
               {/* Buttons */}
               <div className="profile-actions">
-                <button 
-                  className="btn profile-edit" 
-                  disabled={depositLocked}
-                  onClick={() => {
-                    if (depositLocked) return
-                    guardAuthed(() => {
-                      openBankDepositAccount()
-                    })
-                  }}
-                  style={{ 
-                    position: 'relative',
-                    ...(depositLocked ? { opacity: 0.6, cursor: 'not-allowed' } : {})
-                  }}
-                  aria-disabled={depositLocked}
-                >
-                  Add liquidity
-                  <LockOverlay show={depositLocked} />
-                </button>
-                <button
-                  className="btn profile-inbox"
-                  disabled={withdrawLocked}
-                  onClick={() => {
-                    if (withdrawLocked) return
-                    guardAuthed(() => {
-                      openBankWithdrawAccount()
-                    })
-                  }}
-                  style={{ 
-                    position: 'relative',
-                    ...(withdrawLocked ? { opacity: 0.6, cursor: 'not-allowed' } : {})
-                  }}
-                  aria-disabled={withdrawLocked}
-                >
-                  Withdraw
-                  <LockOverlay show={withdrawLocked} />
-                </button>
+                {isAdminDesk ? (
+                  <>
+                    <button
+                      className="btn profile-edit"
+                      type="button"
+                      onClick={() => {
+                        guardAuthed(() => {
+                          openNotifications()
+                        })
+                      }}
+                    >
+                      {hasUnseenActivity ? (
+                        <span className="profile-action-unread-dot" aria-label="New Ask activity" />
+                      ) : null}
+                      Ask
+                    </button>
+                    <button
+                      className="btn profile-inbox"
+                      type="button"
+                      onClick={async (event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        await logout()
+                      }}
+                    >
+                      Log out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="btn profile-edit"
+                      disabled={depositLocked}
+                      onClick={() => {
+                        if (depositLocked) return
+                        guardAuthed(() => {
+                          openBankDepositAccount()
+                        })
+                      }}
+                      style={{
+                        position: 'relative',
+                        ...(depositLocked ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
+                      }}
+                      aria-disabled={depositLocked}
+                    >
+                      Add liquidity
+                      <LockOverlay show={depositLocked} />
+                    </button>
+                    <button
+                      className="btn profile-inbox"
+                      disabled={withdrawLocked}
+                      onClick={() => {
+                        if (withdrawLocked) return
+                        guardAuthed(() => {
+                          openBankWithdrawAccount()
+                        })
+                      }}
+                      style={{
+                        position: 'relative',
+                        ...(withdrawLocked ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
+                      }}
+                      aria-disabled={withdrawLocked}
+                    >
+                      Withdraw
+                      <LockOverlay show={withdrawLocked} />
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Earn as a cash agent tile — temporarily hidden; set to true to restore */}
@@ -881,6 +913,7 @@ export default function ProfileClient() {
                 </button>
               </div>
               )}
+              {!isAdminDesk && (
               <div className="profile-settings">
                 <div className="profile-settings-card">
                   {/* Notifications row - hidden for minimal UI */}
@@ -964,6 +997,7 @@ export default function ProfileClient() {
                   </button>
                 </div>
             </div>
+              )}
           </div>
 
           {/* Top fade overlay - fades content behind top glass/logo */}
