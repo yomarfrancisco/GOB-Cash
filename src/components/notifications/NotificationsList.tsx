@@ -25,7 +25,7 @@ import { useRouter } from 'next/navigation'
 import styles from '@/app/activity/activity.module.css'
 
 const ADMIN_AVATAR_PATH = MOZPAGA_ADMIN_AVATAR
-const PERIOD_PREVIEW_LIMIT = 4
+const ACTIVITY_PAGE_SIZE = 16
 
 function isCopiedActivity(item: ActivityItem): boolean {
   return searchableText(item).includes('copied')
@@ -572,17 +572,13 @@ function ActivitySection({
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const hasMore = items.length > PERIOD_PREVIEW_LIMIT
-  const visibleItems = expanded || !hasMore ? items : items.slice(0, PERIOD_PREVIEW_LIMIT)
-
   if (items.length === 0) return null
 
   return (
     <div className={styles.activitySection}>
       <h2 className={styles.sectionTitle}>{title}</h2>
       <div className={styles.activityList}>
-        {visibleItems.map((item) => (
+        {items.map((item) => (
           <ActivityItemCard
             key={item.id}
             item={item}
@@ -593,15 +589,6 @@ function ActivitySection({
             onDiscardProposal={onDiscardProposal}
           />
         ))}
-        {hasMore && !expanded && (
-          <button
-            type="button"
-            className={styles.moreButton}
-            onClick={() => setExpanded(true)}
-          >
-            More...
-          </button>
-        )}
       </div>
     </div>
   )
@@ -613,6 +600,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
+  const [visibleCount, setVisibleCount] = useState(ACTIVITY_PAGE_SIZE)
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -668,14 +656,23 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       return !normalizedQuery || searchableText(item).includes(normalizedQuery)
     })
   }, [allItems, searchQuery])
+  useEffect(() => {
+    setVisibleCount(ACTIVITY_PAGE_SIZE)
+  }, [searchQuery])
+  const isSearching = searchQuery.trim().length > 0
+  const pagedItems = useMemo(
+    () => (isSearching ? filteredItems : filteredItems.slice(0, visibleCount)),
+    [filteredItems, isSearching, visibleCount]
+  )
+  const hasMore = !isSearching && visibleCount < filteredItems.length
   const latestAwaitingId = useMemo(() => latestAwaitingRoutingId(allItems), [allItems])
   const latestActivityId = useMemo(
     () => filteredItems.find((item) => item.thinking !== true)?.id ?? null,
     [filteredItems]
   )
   const { today, yesterday, last7Days, last30Days, older } = useMemo(
-    () => groupByTimePeriod(filteredItems),
-    [filteredItems]
+    () => groupByTimePeriod(pagedItems),
+    [pagedItems]
   )
 
   const handleRoutingAsk = async (source: ActivityItem, message: string) => {
@@ -771,6 +768,17 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       <ActivitySection title="Last 7 days" items={last7Days} {...sectionProps} />
       <ActivitySection title="Last 30 days" items={last30Days} {...sectionProps} />
       <ActivitySection title="Older" items={older} {...sectionProps} />
+      {hasMore && (
+        <div className={styles.activityList}>
+          <button
+            type="button"
+            className={styles.moreButton}
+            onClick={() => setVisibleCount((count) => count + ACTIVITY_PAGE_SIZE)}
+          >
+            More...
+          </button>
+        </div>
+      )}
       {filteredItems.length === 0 && (
         <p className={styles.emptyState}>
           {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}
