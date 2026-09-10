@@ -288,6 +288,7 @@ function ActivityItemCard({
   const isKycGate = isKycGateItem(item)
   const kycCta = item.kycAction === 'update' ? 'Update KYC' : 'Start KYC'
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+  const showExecuted = isRoutingInstruction && item.status === 'completed' && !item.thinking
   const confirmItem =
     showRoutingActions || showAsk ? confirmTargetForCard(item, pendingAction, showAsk) : null
   const showConfirm = Boolean(confirmItem) && !lockDeskActions
@@ -483,7 +484,14 @@ function ActivityItemCard({
             ) : null}
           </>
         )}
-        {(isKycGate || showConfirm || showStartNextRun || showDownload || showAsk) && (
+        {(isKycGate ||
+          showConfirm ||
+          showStartNextRun ||
+          showDownload ||
+          showAsk ||
+          showProposalActions ||
+          showExecuted ||
+          showKycLink) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
               <button
@@ -534,6 +542,34 @@ function ActivityItemCard({
                 Start the next run
               </button>
             )}
+            {showProposalActions && (
+              <>
+                <button
+                  type="button"
+                  className={[
+                    styles.confirmButton,
+                    proposalState === 'accepting' ? styles.confirmButtonLoading : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-label={item.pursueLabel || 'Accept routing proposal'}
+                  disabled={proposalState !== 'idle'}
+                  onClick={handleAcceptProposal}
+                >
+                  <Check size={16} strokeWidth={2.4} />
+                  {item.pursueLabel || 'Accept'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.replyButton}
+                  aria-label="Discard routing proposal"
+                  disabled={proposalState !== 'idle'}
+                  onClick={handleDiscardProposal}
+                >
+                  Discard
+                </button>
+              </>
+            )}
             {showDownload && (
               <button
                 type="button"
@@ -558,6 +594,12 @@ function ActivityItemCard({
                 Download POP
               </button>
             )}
+            {showExecuted && (
+              <span className={styles.executedLabel}>
+                <Check size={16} strokeWidth={2.4} />
+                {item.routingAction === 'replenish' ? 'Card swiped' : 'ZAR sent'}
+              </span>
+            )}
             {showAsk && (
               <button
                 type="button"
@@ -567,6 +609,17 @@ function ActivityItemCard({
                 onClick={handleToggleAsk}
               >
                 Ask
+              </button>
+            )}
+            {showKycLink && (
+              <button
+                type="button"
+                className={styles.replyButton}
+                aria-label="Update KYC documents"
+                onClick={handleKycLink}
+              >
+                <ExternalLink size={14} strokeWidth={2.4} />
+                Update KYC
               </button>
             )}
           </div>
@@ -593,50 +646,6 @@ function ActivityItemCard({
             </div>
             {askError ? <div className={styles.replyError}>{askError}</div> : null}
           </form>
-        )}
-        {showProposalActions && (
-          <div className={styles.activityActionRow}>
-            <button
-              type="button"
-              className={[
-                styles.confirmButton,
-                proposalState === 'accepting' ? styles.confirmButtonLoading : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-label={item.pursueLabel || 'Accept routing proposal'}
-              disabled={proposalState !== 'idle'}
-              onClick={handleAcceptProposal}
-            >
-              <Check size={16} strokeWidth={2.4} />
-              {item.pursueLabel || 'Accept'}
-            </button>
-            <button
-              type="button"
-              className={styles.replyButton}
-              aria-label="Discard routing proposal"
-              disabled={proposalState !== 'idle'}
-              onClick={handleDiscardProposal}
-            >
-              Discard
-            </button>
-          </div>
-        )}
-        {isRoutingInstruction && item.status === 'completed' && !item.thinking && (
-          <span className={styles.executedLabel}>
-            <Check size={16} strokeWidth={2.4} />
-            {item.routingAction === 'replenish' ? 'Card swiped' : 'ZAR sent'}
-          </span>
-        )}
-        {showKycLink && (
-          <button
-            type="button"
-            className={styles.downloadButton}
-            aria-label="Update KYC documents"
-            onClick={handleKycLink}
-          >
-            <ExternalLink size={18} strokeWidth={2} />
-          </button>
         )}
       </div>
     </article>

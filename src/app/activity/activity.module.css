@@ -270,10 +270,15 @@
 
 .activityActionRow {
   display: flex;
+  flex-flow: row wrap;
   align-items: center;
   gap: 8px;
   margin: 6px 0 0;
-  flex-wrap: wrap;
+}
+
+.activityActionRow > * {
+  flex: 0 0 auto;
+  width: auto;
 }
 
 .replyButton {
@@ -399,15 +404,18 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 6px 0 0;
-  padding: 6px 10px;
+  margin: 0;
+  padding: 0 10px;
+  height: 28px;
+  min-height: 28px;
+  box-sizing: border-box;
   border-radius: 14px;
   background: rgba(0, 0, 0, 0.05);
   color: rgba(0, 0, 0, 0.45);
   font-size: 12px;
   font-weight: 600;
   line-height: 16px;
-  align-self: flex-start;
+  flex-shrink: 0;
 }
 
 .executedLabel svg {
