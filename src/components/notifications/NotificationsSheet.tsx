@@ -45,7 +45,9 @@ export default function NotificationsSheet() {
             className={listStyles.searchInput}
           />
         </label>
-        <NotificationsList searchQuery={searchQuery} />
+        <div className={listStyles.conversationList}>
+          <NotificationsList searchQuery={searchQuery} />
+        </div>
       </div>
     </ActionSheet>
   )
