@@ -5,7 +5,9 @@ import {
   formatVisibleSast,
   hasCalendarTimeReference,
   hasFutureTimeConstraint,
+  isBankerQuestion,
   isMemoryOrHistoryQuestion,
+  isWhatIfAsk,
   resolveExpiryFromMessage,
   sastToUtcMs,
 } from './routingTime'
@@ -44,6 +46,13 @@ describe('time phrases', () => {
     assert.equal(isMemoryOrHistoryQuestion('Do you remember that it was lost?'), true)
     assert.equal(isMemoryOrHistoryQuestion('Card 5 is unavailable until Monday'), false)
     assert.equal(isMemoryOrHistoryQuestion('Card 5 is unavailable for this cycle.'), false)
+  })
+
+  it('treats why/what-if as banker asks, not silent applies', () => {
+    assert.equal(isBankerQuestion('Why is Wolf on Capitec BRICS?'), true)
+    assert.equal(isBankerQuestion('Wolf is lost'), false)
+    assert.equal(isWhatIfAsk('what if we rest Wolf for 3 cycles'), true)
+    assert.equal(isWhatIfAsk('Wolf is lost'), false)
   })
 
   it('shows a clock time for same-day activity', () => {

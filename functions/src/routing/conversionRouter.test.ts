@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { EMPTY_OVERLAY } from './constraints'
 import {
   DEFAULT_TEST_CONFIG,
   buildAgentReplyCopy,
@@ -7,9 +8,11 @@ import {
   buildReplenishNotificationCopy,
   completeCycle,
   createInitialState,
+  formatAskImpactBody,
   largestValidDeployment,
   planCycle,
   planReplenish,
+  previewAskImpact,
   simulateRun,
   splitAcrossCards,
 } from './conversionRouter'
@@ -179,6 +182,34 @@ describe('20-cycle default test', () => {
     const copy = buildReplenishNotificationCopy(replenish!)
     assert.equal(copy.title, 'Liquidity replenishment')
     assert.equal(copy.body.split('\n').length, 2)
+  })
+})
+
+describe('ask preview', () => {
+  it('shows the next route without the excluded card', () => {
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 30_000 })
+    const current = planCycle(state)
+    const excluded = current.cardAssignments[0]?.cardId
+    assert.ok(excluded)
+    const preview = previewAskImpact(
+      state,
+      { ...EMPTY_OVERLAY, excludedCardIds: [excluded] },
+      4.2
+    )
+    assert.equal(preview.replenishFirst, null)
+    assert.ok(preview.nextPlan)
+    assert.equal(
+      preview.nextPlan.cardAssignments.some((row) => row.cardId === excluded),
+      false
+    )
+    const body = formatAskImpactBody({
+      acknowledgement: 'Wolf resting for the next 3 cycles.',
+      currentPlan: current,
+      preview,
+      proposal: true,
+    })
+    assert.match(body, /Accept applies this rule/)
+    assert.match(body, /Next:/)
   })
 })
 

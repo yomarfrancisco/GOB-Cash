@@ -92,8 +92,8 @@
   -webkit-overflow-scrolling: touch;
   padding: 0;
   min-height: 0;
-  /* Add bottom padding so last items aren't hidden behind footer */
-  padding-bottom: 16px;
+  /* Add bottom padding so last items aren't hidden behind the ask composer */
+  padding-bottom: 24px;
 }
 
 /* Inbox row - matches Figma Inbox layout */

@@ -29,6 +29,8 @@ export type ActivityEventDoc = {
   routingRevision?: boolean
   userReply?: string
   userRepliedAt?: Timestamp | { toMillis?: () => number }
+  proposalId?: string
+  awaitingProposalAccept?: boolean
 }
 
 function createdAtMs(value: ActivityEventDoc['createdAt']): number {
@@ -138,6 +140,8 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     routingRevision: data.routingRevision === true,
     userReply: typeof data.userReply === 'string' && data.userReply.trim() ? data.userReply.trim() : undefined,
     userRepliedAt: data.userRepliedAt ? createdAtMs(data.userRepliedAt) : undefined,
+    proposalId: typeof data.proposalId === 'string' && data.proposalId.trim() ? data.proposalId.trim() : undefined,
+    awaitingProposalAccept: data.awaitingProposalAccept === true && data.status !== 'cancelled' && data.status !== 'accepted',
   }
 }
 

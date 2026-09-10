@@ -13,6 +13,8 @@ import {
 } from '@/lib/transactions/clientFunctions'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
+import { AGENT_UID } from '@/types/transactions'
+import { getFirebaseAuth } from '@/lib/firebase'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { formatVisibleSast } from '@/lib/routing/routingTime'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
@@ -23,6 +25,7 @@ import Avatar from '@/components/Avatar'
 import { useNotificationsStore } from '@/state/notifications'
 import { useRouter } from 'next/navigation'
 import styles from '@/app/activity/activity.module.css'
+import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
 const ADMIN_AVATAR_PATH = MOZPAGA_ADMIN_AVATAR
 const PERIOD_PREVIEW_LIMIT = 4
@@ -194,10 +197,16 @@ function isAwaitingRoutingItem(item: ActivityItem): boolean {
     item.kind === 'CONVERSION_ROUTING_INSTRUCTION' &&
     item.thinking !== true &&
     item.awaitingConfirm === true &&
+    item.routingAction !== 'advice' &&
+    item.routingAction !== 'proposal' &&
     item.status !== 'completed' &&
     item.status !== 'superseded' &&
     item.status !== 'cancelled'
   )
+}
+
+function isAskCard(item: ActivityItem): boolean {
+  return item.routingAction === 'advice' || item.routingAction === 'proposal'
 }
 
 function latestAwaitingRoutingId(items: ActivityItem[]): string | null {
@@ -207,11 +216,13 @@ function latestAwaitingRoutingId(items: ActivityItem[]): string | null {
 function ActivityItemCard({
   item,
   showRoutingActions,
-  onRoutingReply,
+  onAcceptProposal,
+  onDiscardProposal,
 }: {
   item: ActivityItem
   showRoutingActions: boolean
-  onRoutingReply: (item: ActivityItem, message: string) => Promise<void>
+  onAcceptProposal: (item: ActivityItem) => Promise<void>
+  onDiscardProposal: (item: ActivityItem) => Promise<void>
 }) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
@@ -221,16 +232,15 @@ function ActivityItemCard({
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
-  const [replyOpen, setReplyOpen] = useState(false)
-  const [replyText, setReplyText] = useState('')
-  const [replyState, setReplyState] = useState<'idle' | 'loading'>('idle')
-  const [replyError, setReplyError] = useState('')
+  const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
   const showDownload = canDownloadProof(item)
   const showKycLink = item.hasKycLink === true
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
   const isAwaitingRouting = showRoutingActions && isAwaitingRoutingItem(item)
   const showConfirm = isAwaitingRouting && item.routingBlocked !== true
-  const showReply = isAwaitingRouting && item.routingAction !== 'replenish'
+  const showProposalActions =
+    item.routingAction === 'proposal' && item.awaitingProposalAccept === true && Boolean(item.proposalId)
+  const askCard = isAskCard(item)
 
   const handleDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
@@ -287,28 +297,25 @@ function ActivityItemCard({
     })
   }
 
-  const handleToggleReply = (event: React.MouseEvent) => {
+  const handleAcceptProposal = async (event: React.MouseEvent) => {
     event.stopPropagation()
-    setReplyError('')
-    setReplyOpen((open) => !open)
+    if (proposalState !== 'idle') return
+    setProposalState('accepting')
+    try {
+      await onAcceptProposal(item)
+    } finally {
+      setProposalState('idle')
+    }
   }
 
-  const handleSubmitReply = async (event: React.FormEvent) => {
-    event.preventDefault()
+  const handleDiscardProposal = async (event: React.MouseEvent) => {
     event.stopPropagation()
-    const message = replyText.trim()
-    if (!message || replyState !== 'idle') return
-    setReplyState('loading')
-    setReplyError('')
-    setReplyOpen(false)
+    if (proposalState !== 'idle') return
+    setProposalState('discarding')
     try {
-      await onRoutingReply(item, message)
-      setReplyText('')
-    } catch (error) {
-      setReplyOpen(true)
-      setReplyError(error instanceof Error ? error.message : 'Could not apply that reply')
+      await onDiscardProposal(item)
     } finally {
-      setReplyState('idle')
+      setProposalState('idle')
     }
   }
 
@@ -352,8 +359,19 @@ function ActivityItemCard({
           </div>
         ) : (
           <>
+            {askCard && item.userReply ? (
+              <div className={styles.activityUserReply}>
+                <div className={styles.activityUserReplyLabel}>
+                  <span>You</span>
+                  {item.userRepliedAt ? (
+                    <span className={styles.activityUserReplyTime}>{formatVisibleSast(item.userRepliedAt)}</span>
+                  ) : null}
+                </div>
+                <div className={styles.activityUserReplyBody}>{item.userReply}</div>
+              </div>
+            ) : null}
             {item.body ? <div className={styles.activityBody}>{item.body}</div> : null}
-            {item.userReply ? (
+            {!askCard && item.userReply ? (
               <div className={styles.activityUserReply}>
                 <div className={styles.activityUserReplyLabel}>
                   <span>You</span>
@@ -409,54 +427,35 @@ function ActivityItemCard({
               <Check size={16} strokeWidth={2.4} />
               Execute
             </button>
-            {showReply && (
-              <button
-                type="button"
-                className={styles.replyButton}
-                aria-label="Reply to conversion instruction"
-                aria-expanded={replyOpen}
-                onClick={handleToggleReply}
-              >
-                Reply
-              </button>
-            )}
           </div>
         )}
-        {!showConfirm && showReply && (
+        {showProposalActions && (
           <div className={styles.activityActionRow}>
             <button
               type="button"
-              className={styles.replyButton}
-              aria-label="Reply to conversion instruction"
-              aria-expanded={replyOpen}
-              onClick={handleToggleReply}
+              className={[
+                styles.confirmButton,
+                proposalState === 'accepting' ? styles.confirmButtonLoading : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-label="Accept routing proposal"
+              disabled={proposalState !== 'idle'}
+              onClick={handleAcceptProposal}
             >
-              Reply
+              <Check size={16} strokeWidth={2.4} />
+              Accept
+            </button>
+            <button
+              type="button"
+              className={styles.replyButton}
+              aria-label="Discard routing proposal"
+              disabled={proposalState !== 'idle'}
+              onClick={handleDiscardProposal}
+            >
+              Discard
             </button>
           </div>
-        )}
-        {showReply && replyOpen && (
-          <form className={styles.replyComposer} onSubmit={handleSubmitReply} onClick={(event) => event.stopPropagation()}>
-            <div className={styles.replyFrame}>
-              <textarea
-                className={styles.replyInput}
-                value={replyText}
-                onChange={(event) => setReplyText(event.target.value)}
-                placeholder="Wolf is lost"
-                rows={3}
-                disabled={replyState !== 'idle'}
-              />
-              <button
-                type="submit"
-                className={styles.replySend}
-                aria-label="Send reply"
-                disabled={replyState !== 'idle' || !replyText.trim()}
-              >
-                <ArrowUp size={16} strokeWidth={2.4} />
-              </button>
-            </div>
-            {replyError ? <div className={styles.replyError}>{replyError}</div> : null}
-          </form>
         )}
         {isRoutingInstruction && item.status === 'completed' && !item.thinking && (
           <span className={styles.executedLabel}>
@@ -483,12 +482,14 @@ function ActivitySection({
   title,
   items,
   latestAwaitingId,
-  onRoutingReply,
+  onAcceptProposal,
+  onDiscardProposal,
 }: {
   title: string
   items: ActivityItem[]
   latestAwaitingId: string | null
-  onRoutingReply: (item: ActivityItem, message: string) => Promise<void>
+  onAcceptProposal: (item: ActivityItem) => Promise<void>
+  onDiscardProposal: (item: ActivityItem) => Promise<void>
 }) {
   const [expanded, setExpanded] = useState(false)
   const hasMore = items.length > PERIOD_PREVIEW_LIMIT
@@ -505,7 +506,8 @@ function ActivitySection({
             key={item.id}
             item={item}
             showRoutingActions={item.id === latestAwaitingId}
-            onRoutingReply={onRoutingReply}
+            onAcceptProposal={onAcceptProposal}
+            onDiscardProposal={onDiscardProposal}
           />
         ))}
         {hasMore && !expanded && (
@@ -526,9 +528,9 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const clear = useActivityStore((s) => s.clear)
   const all = useActivityStore((s) => s.all)
   const isAuthed = useAuthStore((s) => s.isAuthed)
+  const isAgent = isAuthed && getFirebaseAuth().currentUser?.uid === AGENT_UID
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
-  const [pendingReplies, setPendingReplies] = useState<Record<string, string>>({})
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -561,25 +563,10 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
         item.kind === 'CONVERSION_ROUTING_INSTRUCTION' &&
         item.thinking !== true &&
         item.testRunId === thinkingItem.testRunId &&
-        item.cycleNumber === thinkingItem.cycleNumber &&
         item.createdAt >= thinkingItem.createdAt - 2500
     )
     if (arrived) setThinkingItem(null)
   }, [remoteItems, thinkingItem])
-
-  useEffect(() => {
-    setPendingReplies((prev) => {
-      let changed = false
-      const next = { ...prev }
-      for (const item of remoteItems) {
-        if (item.userReply && next[item.id]) {
-          delete next[item.id]
-          changed = true
-        }
-      }
-      return changed ? next : prev
-    })
-  }, [remoteItems])
   
   const localItems = useActivityStore((s) => s.all())
   const allItems = useMemo(() => {
@@ -589,14 +576,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       ...remoteItems,
       ...localItems.filter((item) => !remoteIds.has(item.id) && item.id !== thinkingItem?.id),
     ]
-    return merged
-      .map((item) =>
-        pendingReplies[item.id] && !item.userReply
-          ? { ...item, userReply: pendingReplies[item.id], userRepliedAt: item.userRepliedAt || Date.now() }
-          : item
-      )
-      .sort((a, b) => b.createdAt - a.createdAt)
-  }, [localItems, remoteItems, thinkingItem, pendingReplies])
+    return merged.sort((a, b) => b.createdAt - a.createdAt)
+  }, [localItems, remoteItems, thinkingItem])
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
     return allItems.filter((item) => {
@@ -614,81 +595,155 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     [filteredItems]
   )
 
-  const handleRoutingReply = async (source: ActivityItem, message: string) => {
-    setPendingReplies((prev) => ({ ...prev, [source.id]: message }))
+  const handleAsk = async (message: string) => {
+    const source = allItems.find(isAwaitingRoutingItem) || allItems.find((item) => item.testRunId)
     setThinkingItem({
-      id: `thinking-${source.cycleNumber || source.id}-${Date.now()}`,
+      id: `thinking-ask-${Date.now()}`,
       kind: 'CONVERSION_ROUTING_INSTRUCTION',
       actor: {
         type: 'ai',
         name: '$ariel',
         avatarUrl: TASK_AVATARS.convertZar,
       },
-      title: source.title,
+      title: source?.title || 'Ask',
       thinking: true,
       createdAt: Date.now(),
-      cycleNumber: source.cycleNumber,
-      testRunId: source.testRunId,
+      cycleNumber: source?.cycleNumber,
+      testRunId: source?.testRunId,
       awaitingConfirm: false,
+      routingAction: 'advice',
       avatarKind: 'convert_zar',
     })
     try {
       await admin_submitConversionRoutingFeedback({
         message,
-        testRunId: source.testRunId,
-        cycleNumber: source.cycleNumber,
+        testRunId: source?.testRunId,
+        cycleNumber: source?.cycleNumber,
         cardCount: 5,
         machineCount: 4,
-        assignments: parseRoutingAssignmentsFromBody(source.body),
+        assignments: parseRoutingAssignmentsFromBody(source?.body),
       })
     } catch (error) {
-      setPendingReplies((prev) => {
-        const next = { ...prev }
-        delete next[source.id]
-        return next
-      })
       setThinkingItem(null)
       throw error
     }
   }
 
+  const handleAcceptProposal = async (item: ActivityItem) => {
+    if (!item.proposalId) return
+    setThinkingItem({
+      id: `thinking-accept-${item.proposalId}`,
+      kind: 'CONVERSION_ROUTING_INSTRUCTION',
+      actor: {
+        type: 'ai',
+        name: '$ariel',
+        avatarUrl: TASK_AVATARS.convertZar,
+      },
+      title: item.title,
+      thinking: true,
+      createdAt: Date.now(),
+      cycleNumber: item.cycleNumber,
+      testRunId: item.testRunId,
+      awaitingConfirm: false,
+      routingAction: 'advice',
+      avatarKind: 'convert_zar',
+    })
+    try {
+      await admin_submitConversionRoutingFeedback({
+        acceptProposalId: item.proposalId,
+        testRunId: item.testRunId,
+        cycleNumber: item.cycleNumber,
+      })
+    } catch (error) {
+      setThinkingItem(null)
+      throw error
+    }
+  }
+
+  const handleDiscardProposal = async (item: ActivityItem) => {
+    if (!item.proposalId) return
+    await admin_submitConversionRoutingFeedback({
+      discardProposalId: item.proposalId,
+      testRunId: item.testRunId,
+      cycleNumber: item.cycleNumber,
+    })
+  }
+
+  const sectionProps = {
+    latestAwaitingId,
+    onAcceptProposal: handleAcceptProposal,
+    onDiscardProposal: handleDiscardProposal,
+  }
+
   return (
-    <div className={styles.activityContainer}>
-      <ActivitySection
-        title="Today"
-        items={today}
-        latestAwaitingId={latestAwaitingId}
-        onRoutingReply={handleRoutingReply}
-      />
-      <ActivitySection
-        title="Yesterday"
-        items={yesterday}
-        latestAwaitingId={latestAwaitingId}
-        onRoutingReply={handleRoutingReply}
-      />
-      <ActivitySection
-        title="Last 7 days"
-        items={last7Days}
-        latestAwaitingId={latestAwaitingId}
-        onRoutingReply={handleRoutingReply}
-      />
-      <ActivitySection
-        title="Last 30 days"
-        items={last30Days}
-        latestAwaitingId={latestAwaitingId}
-        onRoutingReply={handleRoutingReply}
-      />
-      <ActivitySection
-        title="Older"
-        items={older}
-        latestAwaitingId={latestAwaitingId}
-        onRoutingReply={handleRoutingReply}
-      />
-      {filteredItems.length === 0 && (
-        <p className={styles.emptyState}>
-          {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}
-        </p>
-      )}
-    </div>
+    <>
+      <div className={listStyles.conversationList}>
+        <div className={styles.activityContainer}>
+          <ActivitySection title="Today" items={today} {...sectionProps} />
+          <ActivitySection title="Yesterday" items={yesterday} {...sectionProps} />
+          <ActivitySection title="Last 7 days" items={last7Days} {...sectionProps} />
+          <ActivitySection title="Last 30 days" items={last30Days} {...sectionProps} />
+          <ActivitySection title="Older" items={older} {...sectionProps} />
+          {filteredItems.length === 0 && (
+            <p className={styles.emptyState}>
+              {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}
+            </p>
+          )}
+        </div>
+      </div>
+      {isAgent ? <AskComposer onAsk={handleAsk} disabled={Boolean(thinkingItem)} /> : null}
+    </>
+  )
+}
+
+function AskComposer({
+  onAsk,
+  disabled,
+}: {
+  onAsk: (message: string) => Promise<void>
+  disabled: boolean
+}) {
+  const [text, setText] = useState('')
+  const [state, setState] = useState<'idle' | 'loading'>('idle')
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const message = text.trim()
+    if (!message || state !== 'idle' || disabled) return
+    setState('loading')
+    setError('')
+    try {
+      await onAsk(message)
+      setText('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send that')
+    } finally {
+      setState('idle')
+    }
+  }
+
+  return (
+    <form className={styles.askComposerDock} onSubmit={handleSubmit}>
+      <div className={styles.replyFrame}>
+        <textarea
+          className={styles.replyInput}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Ask, or change the plan"
+          rows={2}
+          disabled={state !== 'idle' || disabled}
+        />
+        <button
+          type="submit"
+          className={styles.replySend}
+          aria-label="Send"
+          disabled={state !== 'idle' || disabled || !text.trim()}
+        >
+          <ArrowUp size={16} strokeWidth={2.4} />
+        </button>
+      </div>
+      {error ? <div className={styles.replyError}>{error}</div> : null}
+    </form>
   )
 }
