@@ -48,6 +48,7 @@ describe('adviseDesk', () => {
     assert.equal(advice.questionKind, 'which_card_safe')
     assert.match(advice.title, /Need a card/i)
     assert.match(advice.body, /Which card is actually safe/i)
+    assert.doesNotMatch(advice.body, /this_cycle/)
     assert.equal(advice.options, undefined)
   })
 
@@ -148,6 +149,42 @@ describe('adviseDesk', () => {
     })
     assert.equal(advice.kind, 'next_step')
     assert.match(advice.body, /comes off rest/i)
+    assert.equal(advice.options, undefined)
+  })
+
+  it('picks one safest swipe when the admin says they have to swipe', () => {
+    const state = createInitialState()
+    const applied = restAll(state)
+    const advice = adviseDesk({
+      message: "Let's assume i have to swipe. what should i do?",
+      state: applied.state,
+      constraints: applied.constraints,
+      cycleNumber: 17,
+      costRate: 4.1,
+      nowMs: NOW,
+    })
+    assert.equal(advice.kind, 'options')
+    assert.equal(advice.options?.length, 1)
+    assert.equal(advice.options?.[0].intents[0]?.action, 'restore_card')
+    assert.doesNotMatch(advice.body, /this_cycle/)
+    assert.match(advice.body, /safest pair/i)
+  })
+
+  it('explains a two-month freeze instead of parking the desk', () => {
+    const state = createInitialState()
+    const applied = restAll(state)
+    const advice = adviseDesk({
+      message: 'ok nothing is coming this week. what happens if no cards are possible for at least 2 months?',
+      state: applied.state,
+      constraints: applied.constraints,
+      cycleNumber: 17,
+      costRate: 4.1,
+      nowMs: NOW,
+    })
+    assert.equal(advice.kind, 'next_step')
+    assert.match(advice.body, /COST restock stops/i)
+    assert.match(advice.body, /float/i)
+    assert.doesNotMatch(advice.body, /Retire every Moz card/)
     assert.equal(advice.options, undefined)
   })
 })

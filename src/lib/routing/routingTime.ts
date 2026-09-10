@@ -202,6 +202,8 @@ export function isDeskStrategyAsk(message: string): boolean {
     /\bhow do we (?:continue|proceed|keep going)\b/.test(text) ||
     /\bbest (?:option|route|move|advice)\b/.test(text) ||
     /\badvise (?:me|us)\b/.test(text) ||
+    /\blet'?s assume\b/.test(text) ||
+    /\bwhat happens if\b/.test(text) ||
     /^(?:ok|okay|alright)[,.]?\s*(?:what'?s next|what now|what do we do)/.test(text)
   )
 }
