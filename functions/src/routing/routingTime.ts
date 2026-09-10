@@ -236,8 +236,22 @@ export function isDeskStrategyAsk(message: string): boolean {
   )
 }
 
+export function wantsNewRoutingRun(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  if (!text) return false
+  return (
+    /\bstart (?:the )?(?:next|a new|another) (?:run|test)\b/.test(text) ||
+    /\b(?:new|another) (?:20[- ]cycle |routing )?(?:run|test)\b/.test(text)
+  )
+}
+
 export function shouldNotApplyAskIntents(message: string): boolean {
-  return isBankerQuestion(message) || isDeskStrategyAsk(message) || isFrictionNoteReply(message)
+  return (
+    isBankerQuestion(message) ||
+    isDeskStrategyAsk(message) ||
+    isFrictionNoteReply(message) ||
+    wantsNewRoutingRun(message)
+  )
 }
 
 function parseClockTime(lower: string): { hour: number; minute: number } | null {

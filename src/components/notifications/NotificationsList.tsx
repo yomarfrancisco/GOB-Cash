@@ -714,7 +714,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       (item) =>
         item.kind === 'CONVERSION_ROUTING_INSTRUCTION' &&
         item.thinking !== true &&
-        item.testRunId === thinkingItem.testRunId &&
         item.createdAt >= thinkingItem.createdAt - 2500
     )
     if (arrived) setThinkingItem(null)

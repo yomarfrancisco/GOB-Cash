@@ -27,6 +27,7 @@ import {
   type ReplenishPlan,
   type RoutingConfig,
   receiveChoiceForSale,
+  formatZar,
   type RoutingState,
 } from '../routing/conversionRouter'
 import { applyReceiveChoice, parseReceiveHint, type ReceiveChoice } from '../routing/mozReceive'
@@ -67,6 +68,7 @@ import {
   isMemoryOrHistoryQuestion,
   isWhatIfAsk,
   shouldNotApplyAskIntents,
+  wantsNewRoutingRun,
 } from '../routing/routingTime'
 import { adviseDesk, deskPursueLabel, isDeskChoiceReply, type DeskRouteSnapshot } from '../routing/deskAdvisor'
 import {
@@ -1240,7 +1242,53 @@ export const admin_submitConversionRoutingFeedback = functions
     }
     const testData = testSnap.data() || {}
     if (testData.status !== 'active') {
-      throw new functions.https.HttpsError('failed-precondition', 'Conversion routing test is not active')
+      const now = admin.firestore.Timestamp.now()
+      const feedbackId = testRef.collection('feedback').doc().id
+      const finishedCycle = num(testData.completedCycles, num(testData.awaitingCycleNumber, 0))
+      if (wantsNewRoutingRun(rawMessage) && !acceptProposalId && !discardProposalId) {
+        const started = await startNewTest(adminUid, true)
+        return {
+          testRunId: started.testRunId,
+          cycleNumber: started.cycleNumber,
+          status: 'advice',
+          acknowledgement: 'New 20-cycle run started. The next instruction is on the latest card.',
+        }
+      }
+      const state = stateFromDoc(testData)
+      const body = [
+        `This ${state.config.cycleCount}-cycle run is done.`,
+        'There is no next swipe or payout on this test.',
+        `ZAR in the routing ledger: ${formatZar(state.availableCapital)} available` +
+          (state.bufferUsed > 0 ? `, ${formatZar(state.bufferUsed)} waiting to restock.` : '.'),
+        'Say “start the next run” if you want a new desk.',
+      ].join(' ')
+      await db.runTransaction(async (tx) => {
+        publishAdviceCard(tx, {
+          adminUid,
+          testRunId,
+          cycleNumber: finishedCycle || state.config.cycleCount,
+          feedbackId,
+          now,
+          title: 'Run finished',
+          body,
+          userReply: rawMessage,
+          routingAction: 'advice',
+        })
+        tx.set(testRef.collection('feedback').doc(feedbackId), {
+          id: feedbackId,
+          adminUserId: adminUid,
+          cycleNumber: finishedCycle || state.config.cycleCount,
+          rawMessage,
+          status: 'advice',
+          createdAt: now,
+        })
+      })
+      return {
+        testRunId,
+        cycleNumber: finishedCycle || state.config.cycleCount,
+        status: 'advice',
+        acknowledgement: body,
+      }
     }
 
     const awaitingKind =

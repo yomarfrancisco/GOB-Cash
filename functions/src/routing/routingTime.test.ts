@@ -14,6 +14,7 @@ import {
   resolveExpiryFromMessage,
   sastToUtcMs,
   shouldNotApplyAskIntents,
+  wantsNewRoutingRun,
 } from './routingTime'
 
 const THURSDAY_0015_SAST = sastToUtcMs(2026, 9, 10, 0, 15)
@@ -80,6 +81,8 @@ describe('time phrases', () => {
     assert.equal(isDeskStrategyAsk('rest Wolf for 3 cycles'), false)
     assert.equal(isDeskStrategyAsk("Let's assume i have to swipe. what should i do?"), true)
     assert.equal(isDeskStrategyAsk('what happens if no cards are possible for at least 2 months?'), true)
+    assert.equal(wantsNewRoutingRun("what's next"), false)
+    assert.equal(wantsNewRoutingRun('start the next run'), true)
   })
 
   it('shows a clock time for same-day activity', () => {
