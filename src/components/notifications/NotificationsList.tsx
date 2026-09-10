@@ -213,12 +213,14 @@ function latestAwaitingRoutingId(items: ActivityItem[]): string | null {
 function ActivityItemCard({
   item,
   showRoutingActions,
+  showAsk,
   onRoutingAsk,
   onAcceptProposal,
   onDiscardProposal,
 }: {
   item: ActivityItem
   showRoutingActions: boolean
+  showAsk: boolean
   onRoutingAsk: (item: ActivityItem, message: string) => Promise<void>
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
@@ -241,7 +243,6 @@ function ActivityItemCard({
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
   const isAwaitingRouting = showRoutingActions && isAwaitingRoutingItem(item)
   const showConfirm = isAwaitingRouting && item.routingBlocked !== true
-  const showAsk = isAwaitingRouting && item.routingAction !== 'replenish'
   const showProposalActions =
     item.routingAction === 'proposal' && item.awaitingProposalAccept === true && Boolean(item.proposalId)
   const askCard = isAskCard(item)
@@ -558,6 +559,7 @@ function ActivitySection({
   title,
   items,
   latestAwaitingId,
+  latestActivityId,
   onRoutingAsk,
   onAcceptProposal,
   onDiscardProposal,
@@ -565,6 +567,7 @@ function ActivitySection({
   title: string
   items: ActivityItem[]
   latestAwaitingId: string | null
+  latestActivityId: string | null
   onRoutingAsk: (item: ActivityItem, message: string) => Promise<void>
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
@@ -584,6 +587,7 @@ function ActivitySection({
             key={item.id}
             item={item}
             showRoutingActions={item.id === latestAwaitingId}
+            showAsk={item.id === latestActivityId}
             onRoutingAsk={onRoutingAsk}
             onAcceptProposal={onAcceptProposal}
             onDiscardProposal={onDiscardProposal}
@@ -665,12 +669,21 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     })
   }, [allItems, searchQuery])
   const latestAwaitingId = useMemo(() => latestAwaitingRoutingId(allItems), [allItems])
+  const latestActivityId = useMemo(
+    () => filteredItems.find((item) => item.thinking !== true)?.id ?? null,
+    [filteredItems]
+  )
   const { today, yesterday, last7Days, last30Days, older } = useMemo(
     () => groupByTimePeriod(filteredItems),
     [filteredItems]
   )
 
   const handleRoutingAsk = async (source: ActivityItem, message: string) => {
+    const routing =
+      allItems.find(isAwaitingRoutingItem) ||
+      allItems.find((item) => Boolean(item.testRunId) && item.thinking !== true)
+    const testRunId = source.testRunId || routing?.testRunId
+    const cycleNumber = source.cycleNumber || routing?.cycleNumber
     setThinkingItem({
       id: `thinking-ask-${Date.now()}`,
       kind: 'CONVERSION_ROUTING_INSTRUCTION',
@@ -682,8 +695,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       title: source.title,
       thinking: true,
       createdAt: Date.now(),
-      cycleNumber: source.cycleNumber,
-      testRunId: source.testRunId,
+      cycleNumber,
+      testRunId,
       awaitingConfirm: false,
       routingAction: 'advice',
       avatarKind: 'convert_zar',
@@ -691,11 +704,11 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     try {
       await admin_submitConversionRoutingFeedback({
         message,
-        testRunId: source.testRunId,
-        cycleNumber: source.cycleNumber,
+        testRunId,
+        cycleNumber,
         cardCount: 5,
         machineCount: 4,
-        assignments: parseRoutingAssignmentsFromBody(source.body),
+        assignments: parseRoutingAssignmentsFromBody(source.body || routing?.body),
       })
     } catch (error) {
       setThinkingItem(null)
@@ -745,6 +758,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
 
   const sectionProps = {
     latestAwaitingId,
+    latestActivityId,
     onRoutingAsk: handleRoutingAsk,
     onAcceptProposal: handleAcceptProposal,
     onDiscardProposal: handleDiscardProposal,
