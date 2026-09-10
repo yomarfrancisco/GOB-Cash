@@ -27,9 +27,56 @@
   overflow: hidden;
 }
 
-/* Clear the close control (16px + 32px) plus a gap so search does not sit under it. */
+/* Liquidity Manager: feed scrolls under a fading search overlay. */
 .activityContent {
-  padding-top: 64px;
+  position: relative;
+  padding-top: 0;
+}
+
+.activitySearchOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: 64px 0 48px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    #ffffff 0%,
+    #ffffff 38%,
+    rgba(255, 255, 255, 0.96) 58%,
+    rgba(255, 255, 255, 0.42) 78%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.activitySearchOverlay .searchBar {
+  pointer-events: auto;
+  margin-bottom: 0;
+}
+
+.activityContent .conversationList {
+  padding-top: 128px;
+  padding-bottom: 80px;
+}
+
+.activityContent::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 88px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.82) 28%,
+    rgba(255, 255, 255, 0.28) 62%,
+    rgba(255, 255, 255, 0) 100%
+  );
 }
 
 .subtitle {
