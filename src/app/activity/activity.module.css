@@ -152,7 +152,7 @@
   margin: 8px 0 0;
   padding: 8px 10px;
   border-radius: 14px;
-  background: rgba(0, 0, 0, 0.05);
+  background: #eef8c8;
 }
 
 .activityUserReplyLabel {
@@ -297,6 +297,10 @@
   flex-shrink: 0;
   -webkit-appearance: none;
   appearance: none;
+}
+
+.askButton {
+  background: #eef8c8;
 }
 
 .replyComposer {
