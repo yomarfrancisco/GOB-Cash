@@ -58,7 +58,9 @@ import {
   isBankerQuestion,
   isMemoryOrHistoryQuestion,
   isWhatIfAsk,
+  shouldNotApplyAskIntents,
 } from '../routing/routingTime'
+import { adviseDesk, deskPursueLabel, isDeskChoiceReply, type DeskRouteSnapshot } from '../routing/deskAdvisor'
 import {
   costMznPerZarFromSell,
   fetchQuotedMznPerZar,
@@ -163,6 +165,50 @@ function overlayForDoc(data: admin.firestore.DocumentData) {
   return overlayFromConstraints(constraintsFromDoc(data))
 }
 
+function assignmentsFromUnknown(raw: unknown): Array<{ cardId: number; machineId: number; amount: number }> {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((row) => {
+    if (!row || typeof row !== 'object') return []
+    const item = row as { cardId?: unknown; machineId?: unknown; amount?: unknown }
+    if (typeof item.cardId !== 'number' || typeof item.machineId !== 'number') return []
+    return [
+      {
+        cardId: item.cardId,
+        machineId: item.machineId,
+        amount: typeof item.amount === 'number' ? item.amount : 0,
+      },
+    ]
+  })
+}
+
+function currentDeskRoute(
+  testData: admin.firestore.DocumentData,
+  stored: CyclePlan,
+  awaitingKind: string
+): DeskRouteSnapshot {
+  if (awaitingKind === 'replenish') {
+    return {
+      kind: 'replenish',
+      assignments: assignmentsFromUnknown(testData.replenishAssignments),
+      amountZar: num(testData.replenishAmountZar, 0),
+    }
+  }
+  return {
+    kind: 'deploy',
+    assignments: stored.cardAssignments,
+    amountZar: stored.deployedAmount,
+  }
+}
+
+function shortConstraintTitle(acknowledgement: string, blocked: boolean, awaitingKind: string): string {
+  if (blocked) return awaitingKind === 'replenish' ? 'No restock possible' : 'No sale possible'
+  const first = acknowledgement.split(/(?<=\.)\s/)[0] || acknowledgement
+  if (/;\s/.test(first) || (first.match(/resting/gi) || []).length > 1 || first.length > 72) {
+    return 'Rule recorded'
+  }
+  return first.replace(/\.$/, '') || 'Rule recorded'
+}
+
 async function loadRecentCycleBriefs(testRunId: string): Promise<RecentCycleBrief[]> {
   const snap = await db
     .collection(TESTS)
@@ -219,6 +265,7 @@ async function loadRecentFeedbackBriefs(testRunId: string): Promise<RecentFeedba
         summary: typeof data.interpretationSummary === 'string' ? data.interpretationSummary : null,
         createdAtMs: firestoreTimestampMs(data.createdAt),
         status: typeof data.status === 'string' ? data.status : '',
+        questionKind: typeof data.questionKind === 'string' ? data.questionKind : null,
       }
     })
   } catch {
@@ -327,6 +374,10 @@ function publishAdviceCard(
     routingAction: 'advice' | 'proposal'
     proposalId?: string
     awaitingProposalAccept?: boolean
+    pursueLabel?: string | null
+    optionCount?: number
+    recommendedOptionId?: string | null
+    questionKind?: string | null
   }
 ): string {
   const activityEventId = adviceEventId(params.testRunId, params.feedbackId)
@@ -356,6 +407,10 @@ function publishAdviceCard(
     routingRevision: false,
     proposalId: params.proposalId || null,
     awaitingProposalAccept: params.awaitingProposalAccept === true,
+    pursueLabel: params.pursueLabel || null,
+    optionCount: params.optionCount || 0,
+    recommendedOptionId: params.recommendedOptionId || null,
+    questionKind: params.questionKind || null,
     testRunId: params.testRunId,
     cycleNumber: params.cycleNumber,
     userReply: params.userReply,
@@ -1170,7 +1225,13 @@ export const admin_submitConversionRoutingFeedback = functions
       const shouldReinterpret =
         Boolean(llmApiKey()) &&
         ((providedIntents.length === 0 && looksLikeHistoryQuestion) || missingResolvedTime)
-      interpreted = memoryAnswer
+      interpreted = shouldNotApplyAskIntents(askMessage) || isDeskChoiceReply(askMessage)
+        ? {
+            intents: [] as RoutingIntent[],
+            clarification: null,
+            interpreter: 'fast_path' as const,
+          }
+        : memoryAnswer
         ? {
             intents: [] as RoutingIntent[],
             clarification: memoryAnswer,
@@ -1197,17 +1258,11 @@ export const admin_submitConversionRoutingFeedback = functions
                 clarification: clientClarification || contextualClarify(stored.cardAssignments),
                 interpreter: 'llm' as const,
               }
-      if (isBankerQuestion(askMessage)) {
-        interpreted = { ...interpreted, intents: [] }
-      }
     }
 
     const validIntents: RoutingIntent[] = []
-    const intentErrors: string[] = []
     for (const intent of interpreted.intents) {
-      const error = validateIntent(intent, liveState)
-      if (error) intentErrors.push(error)
-      else validIntents.push(intent)
+      if (!validateIntent(intent, liveState)) validIntents.push(intent)
     }
 
     const now = admin.firestore.Timestamp.now()
@@ -1220,18 +1275,20 @@ export const admin_submitConversionRoutingFeedback = functions
     const currentPlan = canReviseDeploy ? stored : null
 
     if (!validIntents.length) {
-      const clarification =
-        usefulClarification(interpreted.clarification) ||
-        intentErrors[0] ||
-        (stored.cardAssignments.length
-          ? `This cycle uses ${stored.cardAssignments
-              .map((row) => `${row.cardId}`)
-              .join(', ')}. Ask why, what happens next, or name a card to change.`
-          : 'Ask why this instruction, what happens next, or name a card or machine to change.')
-      const title =
-        awaitingKind === 'replenish'
-          ? `Restock ZAR @ COST · before Cycle ${cycleNumber}/${liveState.config.cycleCount}`
-          : `Sell ZAR · Cycle ${cycleNumber}/${liveState.config.cycleCount}`
+      const desk = adviseDesk({
+        message: askMessage,
+        state: liveState,
+        constraints,
+        current: currentDeskRoute(testData, stored, awaitingKind),
+        recentCycles,
+        recentFeedback,
+        cycleNumber,
+        costRate: quotes.costRate,
+        nowMs,
+      })
+      const pursueLabel = deskPursueLabel(desk)
+      const isProposal = desk.kind === 'options' && Boolean(desk.options?.length)
+      const recommended = desk.options?.find((row) => row.id === desk.recommendedOptionId) || desk.options?.[0]
       await db.runTransaction(async (tx) => {
         publishAdviceCard(tx, {
           adminUid,
@@ -1239,18 +1296,38 @@ export const admin_submitConversionRoutingFeedback = functions
           cycleNumber,
           feedbackId,
           now,
-          title,
-          body: clarification,
+          title: desk.title,
+          body: desk.body,
           userReply: askMessage,
-          routingAction: 'advice',
+          routingAction: isProposal ? 'proposal' : 'advice',
+          proposalId: isProposal ? feedbackId : undefined,
+          awaitingProposalAccept: isProposal,
+          pursueLabel,
+          optionCount: desk.options?.length || 0,
+          recommendedOptionId: desk.recommendedOptionId || null,
+          questionKind: desk.questionKind || null,
         })
+        if (isProposal && recommended) {
+          tx.set(testRef.collection('proposals').doc(feedbackId), {
+            id: feedbackId,
+            status: 'pending',
+            rawMessage: askMessage,
+            intents: recommended.intents,
+            options: desk.options,
+            recommendedOptionId: desk.recommendedOptionId || recommended.id,
+            cycleNumber,
+            createdAt: now,
+          })
+        }
         tx.set(testRef.collection('feedback').doc(feedbackId), {
           id: feedbackId,
           adminUserId: adminUid,
           cycleNumber,
           rawMessage: askMessage,
           interpretedIntent: interpreted,
-          status: 'clarification',
+          interpretationSummary: desk.body.split('\n')[0] || desk.title,
+          status: desk.kind === 'question' ? 'question' : isProposal ? 'proposal' : 'advice',
+          questionKind: desk.questionKind || null,
           createdAt: now,
         })
         tx.set(testRef, { constraints, updatedAt: now }, { merge: true })
@@ -1258,8 +1335,8 @@ export const admin_submitConversionRoutingFeedback = functions
       return {
         testRunId,
         cycleNumber,
-        status: 'clarification',
-        acknowledgement: clarification,
+        status: isProposal ? 'proposal' : desk.kind === 'question' ? 'question' : 'advice',
+        acknowledgement: desk.body,
         interpreter: interpreted.interpreter,
       }
     }
@@ -1285,7 +1362,8 @@ export const admin_submitConversionRoutingFeedback = functions
     })
 
     if (isWhatIfAsk(askMessage) && !acceptProposalId) {
-      const title = acknowledgement.replace(/\.$/, '') || `If that rule · Cycle ${cycleNumber}`
+      const blocked = !(preview.replenishFirst?.cardAssignments.length || (preview.nextPlan && preview.nextPlan.deployedAmount > 0))
+      const title = shortConstraintTitle(acknowledgement, blocked, awaitingKind)
       await db.runTransaction(async (tx) => {
         publishAdviceCard(tx, {
           adminUid,
@@ -1330,20 +1408,36 @@ export const admin_submitConversionRoutingFeedback = functions
     }
 
     if (!canReviseDeploy) {
+      const overlay = overlayFromConstraints(previewApplied.constraints)
+      const restock =
+        awaitingKind === 'replenish'
+          ? planReplenish(previewApplied.state, quotes.costRate, overlay)
+          : null
+      const restockReady = Boolean(restock?.cardAssignments.length)
+      const blocked = !restockReady && !(preview.nextPlan && preview.nextPlan.deployedAmount > 0)
       await db.runTransaction(async (tx) => {
+        if (restockReady && restock) {
+          writeIssuedReplenish(tx, adminUid, testRunId, previewApplied.state, restock, now)
+        }
         publishAdviceCard(tx, {
           adminUid,
           testRunId,
           cycleNumber,
           feedbackId,
           now,
-          title: acknowledgement.replace(/\.$/, '') || `Cycle ${cycleNumber}`,
-          body: formatAskImpactBody({
-            acknowledgement: `${acknowledgement} Takes effect on the next conversion instruction.`,
-            currentPlan: null,
-            preview,
-            proposal: false,
-          }),
+          title: restockReady ? 'Restock updated' : shortConstraintTitle(acknowledgement, blocked, awaitingKind),
+          body: restockReady
+            ? `${acknowledgement}\n\nRestock instruction updated. Execute the swipe on that card.`
+            : formatAskImpactBody({
+                acknowledgement: `${acknowledgement} ${
+                  blocked
+                    ? 'No swipe can run until a card is restored.'
+                    : 'Takes effect on the next conversion instruction.'
+                }`,
+                currentPlan: null,
+                preview,
+                proposal: false,
+              }),
           userReply: askMessage,
           routingAction: 'advice',
         })

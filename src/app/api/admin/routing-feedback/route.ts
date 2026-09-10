@@ -139,6 +139,7 @@ async function loadInterpretHistory(
             summary: typeof row.interpretationSummary === 'string' ? row.interpretationSummary : null,
             createdAtMs: firestoreTimestampMs(row.createdAt),
             status: typeof row.status === 'string' ? row.status : '',
+            questionKind: typeof row.questionKind === 'string' ? row.questionKind : null,
           }
         })
       : []

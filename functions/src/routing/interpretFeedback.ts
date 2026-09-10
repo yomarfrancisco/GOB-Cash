@@ -10,7 +10,8 @@ import {
 } from './constraints'
 import type { RoutingState } from './conversionRouter'
 import { attachResolvedExpiry, buildRoutingLedgerBrief, ledgerFromRoutingState } from './interpretContext'
-import { cardLabel, inventoryPromptList, machineLabel } from './inventory'
+import { cardLabel, inventoryPromptList, machineLabel, resolveNamedCardIds } from './inventory'
+import { namesConstraintChange, shouldNotApplyAskIntents } from './routingTime'
 
 type InterpretContext = {
   cycleNumber: number
@@ -86,7 +87,7 @@ Past remarks ("yesterday we used card 5") are ledger context, not new intents, u
 If the message only asks when something happened, whether you remember a prior change, or when something is expected, emit no intents and put one factual sentence in clarification that names the clock time from the ledger.
 Example: Admin: "Do you remember that it was lost?"
 {"intents":[],"clarification":"Yes. At Thursday 10 September 2026, 00:23 SAST you took Card 4 off Cycle 12 because it was lost."}
-If the admin asks why this route, what happens next, whether the logic is sound, or any strategy question without naming a change, emit no intents and put a short factual answer in clarification using the ledger and current route. Two to six sentences. Do not invent cards, machines, or amounts.
+If the admin asks why this route, what happens next, what's next, what we should do, or any strategy question without naming a change, emit no intents and set clarification to null. The desk advisor will answer from the ledger, ask a question if a fact is missing, and must not invent cards, POS, or amounts.
 If the admin asks "what if" or "what would happen if" AND names a change, emit the intents for that change. The server previews and does not apply until they Accept.
 If ambiguous, use this_cycle and say so in summary. Never silently choose permanent.
 Never put placeholder text in clarification. Do not write "short question", "null", or a generic "I am not sure" message.
@@ -162,11 +163,24 @@ async function interpretWithLlm(message: string, context: InterpretContext): Pro
   return { intents, clarification: usefulClarification(rawClarification), interpreter: 'llm' }
 }
 
+function looksLikeDeskChoice(message: string): boolean {
+  if (shouldNotApplyAskIntents(message)) return true
+  const lower = message.trim().toLowerCase()
+  if (/\b(none|no card|no cards|new card|new consortium|retire)\b/.test(lower)) {
+    return !namesConstraintChange(message)
+  }
+  const named = resolveNamedCardIds(message)
+  return named.length > 0 && message.trim().split(/\s+/).length <= 12 && !namesConstraintChange(message)
+}
+
 export async function interpretAdminFeedback(
   message: string,
   context: InterpretContext
 ): Promise<InterpretResult> {
   const nowMs = context.nowMs ?? Date.now()
+  if (shouldNotApplyAskIntents(message) || looksLikeDeskChoice(message)) {
+    return { intents: [], clarification: null, interpreter: 'fast_path' }
+  }
   const fast = parseFastPath(message)
   if (fast?.intents.length) {
     return { ...fast, intents: attachResolvedExpiry(fast.intents, message, nowMs) }

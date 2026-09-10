@@ -42,6 +42,9 @@ export type ActivityItem = {
   userRepliedAt?: number
   proposalId?: string
   awaitingProposalAccept?: boolean
+  pursueLabel?: string
+  optionCount?: number
+  recommendedOptionId?: string
   kycAction?: 'start' | 'update'
 }
 

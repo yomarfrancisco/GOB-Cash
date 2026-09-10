@@ -16,6 +16,7 @@ export type RecentFeedbackBrief = {
   summary: string | null
   createdAtMs: number | null
   status: string
+  questionKind?: string | null
 }
 
 export type LedgerSnapshot = {
