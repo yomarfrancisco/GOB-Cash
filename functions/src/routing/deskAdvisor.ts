@@ -23,9 +23,16 @@ import {
   type RoutingState,
 } from './conversionRouter'
 import { parseReceiveHint } from './mozReceive'
+import {
+  declineBlocksOtherCard,
+  isFrictionNoteReply,
+  nextNoteQuestion,
+  type FrictionNote,
+  type SwipeRecord,
+} from './friction'
 import type { RecentCycleBrief, RecentFeedbackBrief } from './interpretContext'
 import { cardLabel, cardShortName, formatReceiveAccount, resolveNamedCardIds } from './inventory'
-import { formatSast, isWhatIfAsk, namesConstraintChange } from './routingTime'
+import { formatSast, isDeskStrategyAsk, isWhatIfAsk, namesConstraintChange } from './routingTime'
 
 export type DeskOption = {
   id: string
@@ -519,6 +526,7 @@ function adviceFromRecoveries(
 
 export function isDeskChoiceReply(message: string): boolean {
   if (namesConstraintChange(message) || isWhatIfAsk(message)) return false
+  if (isFrictionNoteReply(message)) return true
   if (wantsRetire(message) || mustSwipeAnyway(message) || isFreezeOutlookAsk(message)) return true
   const named = resolveNamedCardIds(message)
   if (!named.length) return false
@@ -532,6 +540,8 @@ export function adviseDesk(params: {
   current?: DeskRouteSnapshot | null
   recentCycles?: RecentCycleBrief[]
   recentFeedback?: RecentFeedbackBrief[]
+  swipes?: SwipeRecord[]
+  notes?: FrictionNote[]
   cycleNumber: number
   costRate: number
   nowMs: number
@@ -543,6 +553,8 @@ export function adviseDesk(params: {
     current = null,
     recentCycles = [],
     recentFeedback = [],
+    swipes = [],
+    notes = [],
     cycleNumber,
     costRate,
     nowMs,
@@ -552,9 +564,64 @@ export function adviseDesk(params: {
   const open = currentOpenRoute(state, constraints, current, costRate)
   const askedRetire = wantsRetire(message)
   const waitingOnCard = pendingQuestion(recentFeedback) === 'which_card_safe'
+  const pending = pendingQuestion(recentFeedback)
+  const proposed = open?.kind === 'replenish' ? open.assignments : undefined
 
   if (isFreezeOutlookAsk(message)) return freezeOutlookAdvice(state, message, nowMs)
   if (askedRetire) return retireAdvice(state)
+
+  if (
+    pending &&
+    (pending === 'swipe_outcome' || pending === 'declared_month' || pending === 'decline_followup') &&
+    !isFrictionNoteReply(message)
+  ) {
+    const prior = recentFeedback.find((row) => row.questionKind === pending)
+    return {
+      kind: 'question',
+      title: pending === 'declared_month' ? 'Bank profile' : pending === 'decline_followup' ? 'Decline on file' : 'How did that swipe go?',
+      body: prior?.summary || 'Answer the last question first — cleared, documents requested, or declined.',
+      questionKind: pending,
+    }
+  }
+
+  if (namedCardIds.length && declineBlocksOtherCard(notes, nowMs, namedCardIds[0])) {
+    const ask = nextNoteQuestion({
+      swipes,
+      notes,
+      nowMs,
+      proposed,
+      pendingKind: null,
+      lastQuestionAtMs: null,
+    })
+    return {
+      kind: 'question',
+      title: ask?.title || 'Do not switch cards',
+      body:
+        ask?.body ||
+        'A card was declined this week. Do not swipe a different card to work around that. Say how to proceed, or that the bank cleared it.',
+      questionKind: 'decline_followup',
+    }
+  }
+
+  const dueNote =
+    isDeskStrategyAsk(message) || mustSwipeAnyway(message)
+      ? nextNoteQuestion({
+          swipes,
+          notes,
+          nowMs,
+          proposed,
+          pendingKind: pending,
+          lastQuestionAtMs: recentFeedback.find((row) => row.questionKind)?.createdAtMs ?? null,
+        })
+      : null
+  if (dueNote) {
+    return {
+      kind: 'question',
+      title: dueNote.title,
+      body: dueNote.body,
+      questionKind: dueNote.questionKind,
+    }
+  }
 
   if (namedCardIds.length) {
     const recoveries = recoveriesForCards(
@@ -571,6 +638,15 @@ export function adviseDesk(params: {
   }
 
   if (mustSwipeAnyway(message) && !open) {
+    if (notes.some((row) => row.outcome === 'declined' && nowMs - row.atMs < 7 * 86_400_000)) {
+      const ask = nextNoteQuestion({ swipes, notes, nowMs, proposed, pendingKind: null, lastQuestionAtMs: null })
+      return {
+        kind: 'question',
+        title: ask?.title || 'Decline on file',
+        body: ask?.body || 'A card was declined this week. How do you want to proceed? Do not switch cards unless you say so.',
+        questionKind: 'decline_followup',
+      }
+    }
     return safestSwipeAdvice(state, constraints, costRate, cycleNumber, recentCycles, nowMs)
   }
 

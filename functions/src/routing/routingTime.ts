@@ -4,6 +4,8 @@
  * human time phrases into SAST instants the overlay can expire against.
  */
 
+import { isFrictionNoteReply } from './friction'
+
 export const ROUTING_TIMEZONE = 'Africa/Johannesburg'
 export const SAST_OFFSET_MS = 2 * 60 * 60 * 1000
 
@@ -209,7 +211,7 @@ export function isDeskStrategyAsk(message: string): boolean {
 }
 
 export function shouldNotApplyAskIntents(message: string): boolean {
-  return isBankerQuestion(message) || isDeskStrategyAsk(message)
+  return isBankerQuestion(message) || isDeskStrategyAsk(message) || isFrictionNoteReply(message)
 }
 
 function parseClockTime(lower: string): { hour: number; minute: number } | null {

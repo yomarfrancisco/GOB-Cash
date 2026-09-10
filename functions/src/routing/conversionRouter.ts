@@ -7,6 +7,7 @@
  */
 
 import { EMPTY_OVERLAY, type RoutingOverlay } from './constraints'
+import { formatFrictionSentence, type FrictionNote, type SwipeRecord } from './friction'
 import { cardLabel, cardShortName, formatReceiveAccount, isForbiddenPair, machineLabel, machineShortName } from './inventory'
 import {
   chooseReceiveAccount,
@@ -1125,7 +1126,8 @@ export function buildReplenishActivityCopy(
   cycleCount: number,
   status: 'awaiting_execution' | 'completed',
   state?: RoutingState,
-  overlay: RoutingOverlay = EMPTY_OVERLAY
+  overlay: RoutingOverlay = EMPTY_OVERLAY,
+  friction?: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number }
 ): { title: string; body: string } {
   void status
   const rows = state
@@ -1148,6 +1150,19 @@ export function buildReplenishActivityCopy(
     }
   } else {
     lines.push(`Restock ${formatZar(replenish.amountZar)} in South Africa at COST.`)
+  }
+  const frictionLine =
+    friction && rows.length
+      ? formatFrictionSentence({
+          assignments: rows,
+          swipes: friction.swipes,
+          notes: friction.notes,
+          nowMs: friction.nowMs,
+        })
+      : null
+  if (frictionLine) {
+    lines.push(frictionLine)
+    lines.push('')
   }
   if (replenish.costRate > 0) {
     lines.push(`COST ${replenish.costRate.toFixed(2)} Mt/R.`)

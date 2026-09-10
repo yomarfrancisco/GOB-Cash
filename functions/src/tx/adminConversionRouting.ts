@@ -31,6 +31,12 @@ import {
 } from '../routing/conversionRouter'
 import { applyReceiveChoice, parseReceiveHint, type ReceiveChoice } from '../routing/mozReceive'
 import {
+  parseFrictionNote,
+  swipeIdFor,
+  type FrictionNote,
+  type SwipeRecord,
+} from '../routing/friction'
+import {
   EMPTY_OVERLAY,
   applyIntentsToState,
   expireConstraints,
@@ -165,6 +171,43 @@ function storedPlanFromCycle(
 
 function overlayForDoc(data: admin.firestore.DocumentData) {
   return overlayFromConstraints(constraintsFromDoc(data))
+}
+
+function asSwipe(row: unknown): SwipeRecord | null {
+  if (!row || typeof row !== 'object') return null
+  const item = row as Partial<SwipeRecord>
+  if (typeof item.cardId !== 'number' || typeof item.machineId !== 'number' || typeof item.atMs !== 'number') {
+    return null
+  }
+  return {
+    id: typeof item.id === 'string' ? item.id : swipeIdFor(item.cycleNumber || 0, item.cardId, item.machineId),
+    atMs: item.atMs,
+    cardId: item.cardId,
+    machineId: item.machineId,
+    amount: typeof item.amount === 'number' ? item.amount : 0,
+    cycleNumber: typeof item.cycleNumber === 'number' ? item.cycleNumber : 0,
+  }
+}
+
+function asNote(row: unknown): FrictionNote | null {
+  if (!row || typeof row !== 'object') return null
+  const item = row as Partial<FrictionNote>
+  if (item.kind !== 'outcome' && item.kind !== 'profile') return null
+  if (typeof item.atMs !== 'number' || typeof item.text !== 'string') return null
+  return item as FrictionNote
+}
+
+function frictionFromDoc(
+  data: admin.firestore.DocumentData,
+  nowMs: number
+): { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number } {
+  const swipes = Array.isArray(data.recentSwipes)
+    ? data.recentSwipes.map(asSwipe).filter((row): row is SwipeRecord => Boolean(row))
+    : []
+  const notes = Array.isArray(data.frictionNotes)
+    ? data.frictionNotes.map(asNote).filter((row): row is FrictionNote => Boolean(row))
+    : []
+  return { swipes, notes, nowMs }
 }
 
 function receiveChoiceFromDoc(data: admin.firestore.DocumentData): ReceiveChoice | null {
@@ -536,7 +579,12 @@ function writeIssuedReplenish(
   state: RoutingState,
   replenish: ReplenishPlan,
   now: admin.firestore.Timestamp,
-  overlay = EMPTY_OVERLAY
+  overlay = EMPTY_OVERLAY,
+  friction: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number } = {
+    swipes: [],
+    notes: [],
+    nowMs: now.toMillis(),
+  }
 ): { plan: CyclePlan; activityEventId: string; kind: 'replenish' } {
   const plan = planCycle(state)
   const notification = buildReplenishNotificationCopy(replenish)
@@ -545,7 +593,8 @@ function writeIssuedReplenish(
     state.config.cycleCount,
     'awaiting_execution',
     state,
-    overlay
+    overlay,
+    friction
   )
   const activityEventId = replenishEventId(testRunId, replenish.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
@@ -614,11 +663,16 @@ function writeIssuedCycle(
   state: RoutingState,
   now: admin.firestore.Timestamp,
   quotes: { sellRate: number; costRate: number },
-  overlay = EMPTY_OVERLAY
+  overlay = EMPTY_OVERLAY,
+  friction: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number } = {
+    swipes: [],
+    notes: [],
+    nowMs: now.toMillis(),
+  }
 ): { plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' } {
   const replenish = planReplenish(state, quotes.costRate, overlay)
   if (replenish) {
-    return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now, overlay)
+    return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now, overlay, friction)
   }
 
   const plan = planCycle(state, overlay)
@@ -730,8 +784,10 @@ async function issueCycle(
   now: admin.firestore.Timestamp
 ): Promise<{ plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' }> {
   const quoted = await applyLiveQuotes(state)
+  const testSnap = await db.collection(TESTS).doc(testRunId).get()
+  const friction = frictionFromDoc(testSnap.data() || {}, now.toMillis())
   return db.runTransaction(async (tx) =>
-    writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted)
+    writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, friction)
   )
 }
 
@@ -987,6 +1043,21 @@ export const admin_confirmConversionRoutingCycle = functions
           )
         }
         const contacted = applyCardPosContact(state, assignments, cycleNumber)
+        const nowMs = now.toMillis()
+        const friction = frictionFromDoc(testData, nowMs)
+        const added: SwipeRecord[] = assignments.map((row) => ({
+          id: swipeIdFor(cycleNumber, row.cardId, row.machineId),
+          atMs: nowMs,
+          cardId: row.cardId,
+          machineId: row.machineId,
+          amount: row.amount,
+          cycleNumber,
+        }))
+        const nextFriction = {
+          swipes: [...friction.swipes, ...added].slice(-40),
+          notes: friction.notes,
+          nowMs,
+        }
         const cleared: RoutingState = {
           ...contacted,
           bufferUsed: 0,
@@ -1002,7 +1073,21 @@ export const admin_confirmConversionRoutingCycle = functions
             ? { txId: conversionTxId, hasDownloadButton: true }
             : {}),
         })
-        const next = writeIssuedCycle(tx, adminUid, testRunId, cleared, now, quotes, overlayForDoc(testData))
+        tx.set(
+          testRef,
+          { recentSwipes: nextFriction.swipes, updatedAt: now },
+          { merge: true }
+        )
+        const next = writeIssuedCycle(
+          tx,
+          adminUid,
+          testRunId,
+          cleared,
+          now,
+          quotes,
+          overlayForDoc(testData),
+          nextFriction
+        )
         return {
           nextState: cleared,
           nextCycle: next.plan,
@@ -1103,7 +1188,8 @@ export const admin_confirmConversionRoutingCycle = functions
           { ...nextState, config: { ...nextState.config, spread: liveSpread } },
           now,
           quotes,
-          overlayFromConstraints(remainingConstraints)
+          overlayFromConstraints(remainingConstraints),
+          frictionFromDoc(testData, now.toMillis())
         ).plan
         tx.set(testRef, { constraints: remainingConstraints, updatedAt: now }, { merge: true })
       }
@@ -1336,6 +1422,14 @@ export const admin_submitConversionRoutingFeedback = functions
     const currentPlan = canReviseDeploy ? stored : null
 
     if (!validIntents.length) {
+      const friction = frictionFromDoc(testData, nowMs)
+      const pendingKind = recentFeedback.find((row) => row.status === 'question' && row.questionKind)?.questionKind || null
+      const parsedNote = parseFrictionNote(askMessage, {
+        nowMs,
+        swipes: friction.swipes,
+        pendingKind,
+      })
+      const notes = parsedNote ? [...friction.notes, parsedNote].slice(-40) : friction.notes
       const desk = adviseDesk({
         message: askMessage,
         state: liveState,
@@ -1343,6 +1437,8 @@ export const admin_submitConversionRoutingFeedback = functions
         current: currentDeskRoute(testData, stored, awaitingKind),
         recentCycles,
         recentFeedback,
+        swipes: friction.swipes,
+        notes,
         cycleNumber,
         costRate: quotes.costRate,
         nowMs,
@@ -1391,7 +1487,7 @@ export const admin_submitConversionRoutingFeedback = functions
           questionKind: desk.questionKind || null,
           createdAt: now,
         })
-        tx.set(testRef, { constraints, updatedAt: now }, { merge: true })
+        tx.set(testRef, { constraints, frictionNotes: notes, updatedAt: now }, { merge: true })
       })
       return {
         testRunId,
@@ -1481,7 +1577,16 @@ export const admin_submitConversionRoutingFeedback = functions
       const blocked = !restockReady && !(preview.nextPlan && preview.nextPlan.deployedAmount > 0)
       await db.runTransaction(async (tx) => {
         if (restockReady && restock) {
-          writeIssuedReplenish(tx, adminUid, testRunId, previewApplied.state, restock, now)
+          writeIssuedReplenish(
+            tx,
+            adminUid,
+            testRunId,
+            previewApplied.state,
+            restock,
+            now,
+            overlay,
+            frictionFromDoc(testData, now.toMillis())
+          )
         }
         publishAdviceCard(tx, {
           adminUid,

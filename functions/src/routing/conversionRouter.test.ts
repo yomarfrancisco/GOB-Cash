@@ -216,6 +216,49 @@ describe('20-cycle default test', () => {
     assert.match(notice.body, /^Swipe BRICS AI on /)
     assert.doesNotMatch(notice.body, /each Moz/)
   })
+
+  it('keeps the named-pair restock list; empty swipe history adds no extra line', () => {
+    const state = createInitialState()
+    state.bufferUsed = 40_000
+    state.availableCapital = 13_129
+    const replenish = planReplenish(state, 4.15)
+    assert.ok(replenish)
+    assert.ok((replenish!.cardAssignments.length || 0) > 1)
+    const friction = { swipes: [], notes: [], nowMs: Date.UTC(2026, 8, 10, 20, 0) }
+    const copy = buildReplenishActivityCopy(
+      replenish!,
+      20,
+      'awaiting_execution',
+      state,
+      EMPTY_OVERLAY,
+      friction
+    )
+    const baseline = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state)
+    assert.equal(copy.body, baseline.body)
+    assert.match(copy.body, /^Swipe these \d+ pairs:/)
+    assert.match(copy.body, /Swipe .+ on .+ for R/)
+    assert.match(copy.body, /COST 4\.15 Mt\/R\./)
+    assert.match(copy.body, /Then sell ZAR · Cycle \d+ of 20\./)
+    assert.doesNotMatch(copy.body, /each Moz debit card/)
+    assert.doesNotMatch(copy.body, /declined this week|times in 7 days|last 30 days typical/)
+    const first = replenish!.cardAssignments[0]
+    const hot = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state, EMPTY_OVERLAY, {
+      swipes: [0, 1, 2].map((i) => ({
+        id: `hot-${i}`,
+        atMs: Date.UTC(2026, 8, 10 - i, 12, 0),
+        cardId: first.cardId,
+        machineId: first.machineId,
+        amount: first.amount,
+        cycleNumber: 19,
+      })),
+      notes: [],
+      nowMs: Date.UTC(2026, 8, 10, 20, 0),
+    })
+    assert.match(hot.body, /^Swipe these \d+ pairs:/)
+    assert.match(hot.body, /has run 3 times in 7 days/)
+    assert.ok(hot.body.indexOf('Swipe these') < hot.body.indexOf('has run 3 times'))
+    assert.ok(hot.body.indexOf('has run 3 times') < hot.body.indexOf('COST 4.15'))
+  })
 })
 
 describe('ask preview', () => {
