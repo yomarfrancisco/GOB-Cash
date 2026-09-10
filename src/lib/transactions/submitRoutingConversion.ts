@@ -1,6 +1,7 @@
 import { admin_confirmConversionRoutingCycle } from '@/lib/transactions/clientFunctions'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
+import { useNotificationsStore } from '@/state/notifications'
 
 export async function submitRoutingConversion(params: {
   amountZAR: number
@@ -20,5 +21,8 @@ export async function submitRoutingConversion(params: {
       conversionTxId: result.txId,
     })
     useRoutingPlaybackStore.getState().clear()
+    window.setTimeout(() => {
+      useNotificationsStore.getState().openNotifications()
+    }, 320)
   }
 }
