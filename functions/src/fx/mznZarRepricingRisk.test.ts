@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   MIN_SAMPLE_COUNT,
-  REPRICING_THRESHOLD_BPS,
   buildRiskSnapshot,
   deriveMznPerZar,
   hourlyPercentageChange,
@@ -94,11 +93,12 @@ describe('buildRiskSnapshot score', () => {
     ]
     const snapshot = buildRiskSnapshot(observations, start + 3 * HOUR + 60_000, {
       minSampleCount: 1,
+      thresholdBps: 50,
     })
     assert.equal(snapshot.sampleCount, 3)
     assert.equal(snapshot.breachCount, 2)
     assert.equal(snapshot.riskScore, (100 * 2) / 3)
-    assert.equal(snapshot.thresholdBps, REPRICING_THRESHOLD_BPS)
+    assert.equal(snapshot.thresholdBps, 50)
     assert.equal(snapshot.dataStatus, 'ready')
   })
 })
