@@ -356,17 +356,6 @@
   color: #b42318;
 }
 
-.askComposerDock {
-  flex-shrink: 0;
-  padding: 8px 16px 12px;
-  background: #fff;
-  border-top: 1px solid rgba(60, 60, 67, 0.12);
-}
-
-.askComposerDock .replyFrame {
-  min-height: 56px;
-}
-
 .thinkingDots {
   display: inline-flex;
   align-items: center;
