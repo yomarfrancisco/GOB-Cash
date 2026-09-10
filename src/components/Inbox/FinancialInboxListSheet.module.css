@@ -27,10 +27,12 @@
   overflow: hidden;
 }
 
-/* Liquidity Manager: feed scrolls under a fading search overlay. */
+/* Ask sheet: feed scrolls under a fading search overlay. */
 .activityContent {
   position: relative;
   padding-top: 0;
+  overflow: hidden;
+  border-radius: 32px 32px 0 0;
 }
 
 .activitySearchOverlay {
@@ -41,6 +43,7 @@
   z-index: 3;
   padding: 64px 0 48px;
   pointer-events: none;
+  border-radius: 32px 32px 0 0;
   background: linear-gradient(
     to bottom,
     #ffffff 0%,
