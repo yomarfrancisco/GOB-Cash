@@ -180,6 +180,22 @@ export function isPaceAsk(message: string): boolean {
   )
 }
 
+export function isFrictionAsk(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  if (!text) return false
+  return (
+    /\b(risky|unusual|friction|review)\b/.test(text) ||
+    /\bhow old is (?:this |the )?merchant\b/.test(text) ||
+    /\bmerchant profile\b/.test(text) ||
+    (/\bconsortium\b/.test(text) && /\b(spend|share|how much)\b/.test(text)) ||
+    (/\bhow many times\b/.test(text) && /\b(pos|merchant|this (?:pos|machine|pair))\b/.test(text)) ||
+    /\bsimilar to (?:the )?(?:bim|fnb|capitec)\b/.test(text) ||
+    /\bwhy did capitec\b/.test(text) ||
+    (/\bwhat(?:'s| is) different\b/.test(text) && /\b(clean|last)\b/.test(text)) ||
+    /\bsplit sales?\b/.test(text)
+  )
+}
+
 export function isSettlementAsk(message: string): boolean {
   const text = questionStem(message)
   if (!text || namesConstraintChange(message)) return false
@@ -192,7 +208,7 @@ export function isSettlementAsk(message: string): boolean {
 export function isBankerQuestion(message: string): boolean {
   if (isWhatIfAsk(message)) return false
   if (isMemoryOrHistoryQuestion(message)) return true
-  if (isPaceAsk(message) || isSettlementAsk(message)) return true
+  if (isFrictionAsk(message) || isPaceAsk(message) || isSettlementAsk(message)) return true
   const text = message.trim().toLowerCase()
   if (!text) return false
   if (

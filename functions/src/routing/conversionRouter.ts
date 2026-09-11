@@ -1127,7 +1127,8 @@ export function buildReplenishActivityCopy(
   status: 'awaiting_execution' | 'completed',
   state?: RoutingState,
   overlay: RoutingOverlay = EMPTY_OVERLAY,
-  friction?: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number }
+  friction?: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number },
+  observeLine?: string | null
 ): { title: string; body: string } {
   void status
   const rows = state
@@ -1162,6 +1163,10 @@ export function buildReplenishActivityCopy(
       : null
   if (frictionLine) {
     lines.push(frictionLine)
+    lines.push('')
+  }
+  if (observeLine) {
+    lines.push(observeLine)
     lines.push('')
   }
   if (replenish.costRate > 0) {

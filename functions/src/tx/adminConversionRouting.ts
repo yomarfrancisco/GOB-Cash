@@ -37,6 +37,16 @@ import {
   type FrictionNote,
   type SwipeRecord,
 } from '../routing/friction'
+import { assessProposedRoute, formatObserveLine } from '../routing/frictionAdvisor'
+import {
+  DESK_REVIEW_COLLECTION,
+  DESK_TX_COLLECTION,
+  deskTxFromSwipe,
+  mergeDeskHistory,
+  outcomeFromLegacy,
+  type DeskReview,
+  type DeskTx,
+} from '../routing/frictionHistory'
 import {
   EMPTY_OVERLAY,
   applyIntentsToState,
@@ -210,6 +220,140 @@ function frictionFromDoc(
     ? data.frictionNotes.map(asNote).filter((row): row is FrictionNote => Boolean(row))
     : []
   return { swipes, notes, nowMs }
+}
+
+type FrictionBag = {
+  swipes: SwipeRecord[]
+  notes: FrictionNote[]
+  nowMs: number
+  history: DeskTx[]
+  reviews: DeskReview[]
+}
+
+function reviewsFromNotes(notes: FrictionNote[]): DeskReview[] {
+  return notes.flatMap((note) => {
+    const outcome = outcomeFromLegacy(note.outcome)
+    if (!outcome) return []
+    return [
+      {
+        id: note.id,
+        transactionId: note.swipeId,
+        cardId: note.cardId,
+        merchantId: note.machineId,
+        outcome,
+        startedAt: note.atMs,
+        reviewSource: 'unknown',
+        sourceConfidence: 'medium',
+        side: 'unknown',
+        severity: outcome === 'declined' ? 'high' : outcome === 'documents_requested' ? 'medium' : 'low',
+        notes: note.text,
+        rawText: note.text,
+        source: 'live_desk',
+      } satisfies DeskReview,
+    ]
+  })
+}
+
+function asDeskTx(row: unknown): DeskTx | null {
+  if (!row || typeof row !== 'object') return null
+  const item = row as Partial<DeskTx>
+  if (typeof item.occurredAt !== 'number' || typeof item.cardId !== 'number' || typeof item.machineId !== 'number') {
+    return null
+  }
+  return {
+    id: typeof item.id === 'string' ? item.id : deskTxFromSwipe({
+      id: 'legacy',
+      atMs: item.occurredAt,
+      cardId: item.cardId,
+      machineId: item.machineId,
+      amount: item.amountZar || 0,
+      cycleNumber: 0,
+    }).id,
+    occurredAt: item.occurredAt,
+    cardId: item.cardId,
+    merchantId: typeof item.merchantId === 'number' ? item.merchantId : item.machineId,
+    machineId: item.machineId,
+    amountZar: typeof item.amountZar === 'number' ? item.amountZar : 0,
+    currency: 'ZAR',
+    country: 'ZA',
+    channel: 'card_present',
+    consortium: item.consortium !== false,
+    status: 'executed',
+    source: item.source || 'live_desk',
+    testRunId: item.testRunId,
+    cycleNumber: item.cycleNumber,
+  }
+}
+
+function asDeskReview(row: unknown): DeskReview | null {
+  if (!row || typeof row !== 'object') return null
+  const item = row as Partial<DeskReview>
+  if (typeof item.startedAt !== 'number' || typeof item.outcome !== 'string' || typeof item.id !== 'string') {
+    return null
+  }
+  return item as DeskReview
+}
+
+async function loadDeskLedger(): Promise<{ txs: DeskTx[]; reviews: DeskReview[] }> {
+  const [txSnap, reviewSnap] = await Promise.all([
+    db.collection(DESK_TX_COLLECTION).orderBy('occurredAt', 'desc').limit(400).get(),
+    db.collection(DESK_REVIEW_COLLECTION).orderBy('startedAt', 'desc').limit(80).get(),
+  ])
+  return {
+    txs: txSnap.docs.map((docSnap) => asDeskTx({ id: docSnap.id, ...docSnap.data() })).filter((row): row is DeskTx => Boolean(row)),
+    reviews: reviewSnap.docs
+      .map((docSnap) => asDeskReview({ id: docSnap.id, ...docSnap.data() }))
+      .filter((row): row is DeskReview => Boolean(row)),
+  }
+}
+
+function enrichFriction(
+  bag: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number },
+  ledger: { txs: DeskTx[]; reviews: DeskReview[] },
+  testRunId?: string
+): FrictionBag {
+  return {
+    ...bag,
+    history: mergeDeskHistory(ledger.txs, bag.swipes, testRunId),
+    reviews: [...ledger.reviews, ...reviewsFromNotes(bag.notes)],
+  }
+}
+
+function observeLineFor(
+  assignments: Array<{ cardId: number; machineId: number; amount: number }>,
+  friction: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number; history?: DeskTx[]; reviews?: DeskReview[] }
+): string | null {
+  const history = friction.history?.length
+    ? friction.history
+    : mergeDeskHistory([], friction.swipes)
+  return formatObserveLine(
+    assessProposedRoute({
+      assignments,
+      history,
+      reviews: friction.reviews,
+      nowMs: friction.nowMs,
+    })
+  )
+}
+
+function persistDeskTxs(
+  tx: admin.firestore.Transaction,
+  rows: DeskTx[],
+  now: admin.firestore.Timestamp
+) {
+  for (const row of rows) {
+    tx.set(db.collection(DESK_TX_COLLECTION).doc(row.id), {
+      ...row,
+      createdAt: now,
+    })
+  }
+}
+
+function persistDeskReview(tx: admin.firestore.Transaction, review: DeskReview, now: admin.firestore.Timestamp) {
+  tx.set(db.collection(DESK_REVIEW_COLLECTION).doc(review.id), {
+    ...review,
+    createdAt: now,
+  })
 }
 
 function receiveChoiceFromDoc(data: admin.firestore.DocumentData): ReceiveChoice | null {
@@ -584,7 +728,13 @@ function writeIssuedReplenish(
   replenish: ReplenishPlan,
   now: admin.firestore.Timestamp,
   overlay = EMPTY_OVERLAY,
-  friction: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number } = {
+  friction: {
+    swipes: SwipeRecord[]
+    notes: FrictionNote[]
+    nowMs: number
+    history?: DeskTx[]
+    reviews?: DeskReview[]
+  } = {
     swipes: [],
     notes: [],
     nowMs: now.toMillis(),
@@ -592,13 +742,15 @@ function writeIssuedReplenish(
 ): { plan: CyclePlan; activityEventId: string; kind: 'replenish' } {
   const plan = planCycle(state)
   const notification = buildReplenishNotificationCopy(replenish)
+  const observeLine = observeLineFor(replenish.cardAssignments, friction)
   const activity = buildReplenishActivityCopy(
     replenish,
     state.config.cycleCount,
     'awaiting_execution',
     state,
     overlay,
-    friction
+    friction,
+    observeLine
   )
   const activityEventId = replenishEventId(testRunId, replenish.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
@@ -627,6 +779,7 @@ function writeIssuedReplenish(
     cycleNumber: replenish.cycleNumber,
     createdAt: now,
     recordingSource: 'SYSTEM',
+    ...(observeLine ? { frictionLine: observeLine } : {}),
   })
   tx.set(
     testRef,
@@ -668,7 +821,13 @@ function writeIssuedCycle(
   now: admin.firestore.Timestamp,
   quotes: { sellRate: number; costRate: number },
   overlay = EMPTY_OVERLAY,
-  friction: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number } = {
+  friction: {
+    swipes: SwipeRecord[]
+    notes: FrictionNote[]
+    nowMs: number
+    history?: DeskTx[]
+    reviews?: DeskReview[]
+  } = {
     swipes: [],
     notes: [],
     nowMs: now.toMillis(),
@@ -789,7 +948,8 @@ async function issueCycle(
 ): Promise<{ plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' }> {
   const quoted = await applyLiveQuotes(state)
   const testSnap = await db.collection(TESTS).doc(testRunId).get()
-  const friction = frictionFromDoc(testSnap.data() || {}, now.toMillis())
+  const ledger = await loadDeskLedger()
+  const friction = enrichFriction(frictionFromDoc(testSnap.data() || {}, now.toMillis()), ledger, testRunId)
   return db.runTransaction(async (tx) =>
     writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, friction)
   )
@@ -983,6 +1143,7 @@ export const admin_confirmConversionRoutingCycle = functions
 
     const quotes = await applyLiveQuotes(createInitialState())
     const liveSpread = quotes.state.config.spread
+    const ledger = await loadDeskLedger()
     const testRef = db.collection(TESTS).doc(testRunId)
 
     const result = await db.runTransaction(async (tx) => {
@@ -1057,11 +1218,17 @@ export const admin_confirmConversionRoutingCycle = functions
           amount: row.amount,
           cycleNumber,
         }))
-        const nextFriction = {
-          swipes: [...friction.swipes, ...added].slice(-40),
-          notes: friction.notes,
-          nowMs,
-        }
+        const durable = added.map((row) => deskTxFromSwipe(row, { testRunId, source: 'live_desk' }))
+        persistDeskTxs(tx, durable, now)
+        const nextFriction = enrichFriction(
+          {
+            swipes: [...friction.swipes, ...added].slice(-40),
+            notes: friction.notes,
+            nowMs,
+          },
+          { txs: [...ledger.txs, ...durable], reviews: ledger.reviews },
+          testRunId
+        )
         const cleared: RoutingState = {
           ...contacted,
           bufferUsed: 0,
@@ -1193,7 +1360,7 @@ export const admin_confirmConversionRoutingCycle = functions
           now,
           quotes,
           overlayFromConstraints(remainingConstraints),
-          frictionFromDoc(testData, now.toMillis())
+          enrichFriction(frictionFromDoc(testData, now.toMillis()), ledger, testRunId)
         ).plan
         tx.set(testRef, { constraints: remainingConstraints, updatedAt: now }, { merge: true })
       }
@@ -1326,6 +1493,7 @@ export const admin_submitConversionRoutingFeedback = functions
 
     const state = stateFromDoc(testData)
     const nowMs = Date.now()
+    const ledger = await loadDeskLedger()
     const constraints = expireConstraintsByTime(constraintsFromDoc(testData), nowMs)
     const cycleRef = testRef.collection('cycles').doc(String(cycleNumber))
     const cycleSnap = await cycleRef.get()
@@ -1473,7 +1641,7 @@ export const admin_submitConversionRoutingFeedback = functions
     const currentPlan = canReviseDeploy ? stored : null
 
     if (!validIntents.length) {
-      const friction = frictionFromDoc(testData, nowMs)
+      const friction = enrichFriction(frictionFromDoc(testData, nowMs), ledger, testRunId)
       const pendingKind = recentFeedback.find((row) => row.status === 'question' && row.questionKind)?.questionKind || null
       const parsedNote = parseFrictionNote(askMessage, {
         nowMs,
@@ -1481,6 +1649,9 @@ export const admin_submitConversionRoutingFeedback = functions
         pendingKind,
       })
       const notes = parsedNote ? [...friction.notes, parsedNote].slice(-40) : friction.notes
+      const reviews = parsedNote
+        ? [...friction.reviews, ...reviewsFromNotes([parsedNote])]
+        : friction.reviews
       const desk = adviseDesk({
         message: askMessage,
         state: liveState,
@@ -1490,6 +1661,8 @@ export const admin_submitConversionRoutingFeedback = functions
         recentFeedback,
         swipes: friction.swipes,
         notes,
+        history: friction.history,
+        reviews,
         cycleNumber,
         costRate: quotes.costRate,
         nowMs,
@@ -1539,6 +1712,10 @@ export const admin_submitConversionRoutingFeedback = functions
           createdAt: now,
         })
         tx.set(testRef, { constraints, frictionNotes: notes, updatedAt: now }, { merge: true })
+        if (parsedNote) {
+          const mapped = reviewsFromNotes([parsedNote])[0]
+          if (mapped) persistDeskReview(tx, mapped, now)
+        }
       })
       return {
         testRunId,
@@ -1636,7 +1813,7 @@ export const admin_submitConversionRoutingFeedback = functions
             restock,
             now,
             overlay,
-            frictionFromDoc(testData, now.toMillis())
+            enrichFriction(frictionFromDoc(testData, now.toMillis()), ledger, testRunId)
           )
         }
         publishAdviceCard(tx, {

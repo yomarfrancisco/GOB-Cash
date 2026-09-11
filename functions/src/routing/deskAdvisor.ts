@@ -30,6 +30,8 @@ import {
   type FrictionNote,
   type SwipeRecord,
 } from './friction'
+import { answerFrictionAsk } from './frictionAdvisor'
+import { deskTxFromSwipe, type DeskReview, type DeskTx } from './frictionHistory'
 import type { RecentCycleBrief, RecentFeedbackBrief } from './interpretContext'
 import { cardLabel, cardShortName, formatReceiveAccount, resolveNamedCardIds } from './inventory'
 import {
@@ -37,6 +39,7 @@ import {
   formatVisibleSast,
   isBankerQuestion,
   isDeskStrategyAsk,
+  isFrictionAsk,
   isPaceAsk,
   isSettlementAsk,
   isWhatIfAsk,
@@ -637,6 +640,8 @@ export function adviseDesk(params: {
   recentFeedback?: RecentFeedbackBrief[]
   swipes?: SwipeRecord[]
   notes?: FrictionNote[]
+  history?: DeskTx[]
+  reviews?: DeskReview[]
   cycleNumber: number
   costRate: number
   nowMs: number
@@ -650,10 +655,13 @@ export function adviseDesk(params: {
     recentFeedback = [],
     swipes = [],
     notes = [],
+    history,
+    reviews = [],
     cycleNumber,
     costRate,
     nowMs,
   } = params
+  const deskHistory = history?.length ? history : swipes.map((row) => deskTxFromSwipe(row))
   const holds = activeCardHolds(constraints)
   const namedCardIds = resolveNamedCardIds(message)
   const open = currentOpenRoute(state, constraints, current, costRate)
@@ -664,6 +672,21 @@ export function adviseDesk(params: {
 
   if (isFreezeOutlookAsk(message)) return freezeOutlookAdvice(state, message, nowMs)
   if (askedRetire) return retireAdvice(state)
+
+  if (isFrictionAsk(message)) {
+    const answered = answerFrictionAsk({
+      message,
+      assignments: proposed || open?.assignments || [],
+      history: deskHistory,
+      reviews,
+      nowMs,
+    })
+    return {
+      kind: 'next_step',
+      title: answered.title,
+      body: answered.body,
+    }
+  }
 
   if (isSettlementAsk(message)) return settlementAdvice(state, swipes, nowMs)
 
