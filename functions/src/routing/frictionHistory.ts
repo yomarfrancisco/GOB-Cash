@@ -8,6 +8,9 @@ import { machineShortName } from './inventory'
 
 export const DESK_TX_COLLECTION = 'adminDeskTx'
 export const DESK_REVIEW_COLLECTION = 'adminDeskReviews'
+export const DESK_SNAPSHOT_COLLECTION = 'adminDeskSnapshots'
+export const FRICTION_FEATURE_VERSION = 'friction_features_v1'
+export const CONFIDENCE_HEURISTIC_VERSION = 'heuristic_v1'
 
 export type DeskTxSource = 'live_desk' | 'imported_statement' | 'historical_backfill' | 'migrated_swipe'
 
@@ -22,13 +25,19 @@ export type DeskTx = {
   country: 'ZA'
   channel: 'card_present'
   consortium: boolean
-  status: 'executed'
+  status: 'proposed' | 'executed'
   source: DeskTxSource
   testRunId?: string
   cycleNumber?: number
+  proposedAt?: number
+  executedAt?: number
+  proposalSnapshotId?: string
+  executionSnapshotId?: string
+  reconstruction?: boolean
 }
 
 export type FrictionOutcome =
+  | 'review_opened'
   | 'approved_no_friction'
   | 'declined'
   | 'issuer_challenge'
@@ -47,6 +56,7 @@ export type ReviewSeverity = 'low' | 'medium' | 'high'
 
 export type DeskReview = {
   id: string
+  reviewId: string
   transactionId?: string
   cardId?: number
   merchantId?: number
@@ -62,6 +72,7 @@ export type DeskReview = {
   notes: string
   rawText: string
   source: 'live_desk' | 'historical_backfill'
+  /** Metadata only. Never an input to feature or band calculation. */
   caseTag?: string
 }
 
@@ -91,6 +102,10 @@ export const DEFAULT_MERCHANT_PROFILES: MerchantProfile[] = [
   { merchantId: 4, name: 'FNB Wolf' },
 ]
 
+export function omitUndefined<T extends Record<string, unknown>>(row: T): T {
+  return Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined)) as T
+}
+
 export function merchantProfile(merchantId: number, overlays: MerchantProfile[] = []): MerchantProfile {
   const overlay = overlays.find((row) => row.merchantId === merchantId)
   const seeded = DEFAULT_MERCHANT_PROFILES.find((row) => row.merchantId === merchantId)
@@ -109,7 +124,15 @@ export function deskTxId(params: { testRunId?: string; swipeId: string; occurred
 
 export function deskTxFromSwipe(
   swipe: SwipeRecord,
-  extra: { testRunId?: string; source?: DeskTxSource; consortium?: boolean } = {}
+  extra: {
+    testRunId?: string
+    source?: DeskTxSource
+    consortium?: boolean
+    status?: DeskTx['status']
+    proposedAt?: number
+    proposalSnapshotId?: string
+    executionSnapshotId?: string
+  } = {}
 ): DeskTx {
   return {
     id: deskTxId({ testRunId: extra.testRunId, swipeId: swipe.id, occurredAt: swipe.atMs }),
@@ -122,10 +145,14 @@ export function deskTxFromSwipe(
     country: 'ZA',
     channel: 'card_present',
     consortium: extra.consortium !== false,
-    status: 'executed',
+    status: extra.status || 'executed',
+    executedAt: extra.status === 'proposed' ? undefined : swipe.atMs,
+    proposedAt: extra.proposedAt,
     source: extra.source || (extra.testRunId ? 'live_desk' : 'migrated_swipe'),
     testRunId: extra.testRunId,
     cycleNumber: swipe.cycleNumber,
+    proposalSnapshotId: extra.proposalSnapshotId,
+    executionSnapshotId: extra.executionSnapshotId,
   }
 }
 
@@ -139,15 +166,23 @@ export function mergeDeskHistory(durable: DeskTx[], swipes: SwipeRecord[], testR
     const key = `${converted.cardId}:${converted.machineId}:${converted.occurredAt}:${converted.amountZar}`
     if (!byKey.has(key)) byKey.set(key, converted)
   }
-  return [...byKey.values()].sort((a, b) => a.occurredAt - b.occurredAt)
+  return [...byKey.values()]
+    .filter((row) => row.status !== 'proposed')
+    .sort((a, b) => a.occurredAt - b.occurredAt)
 }
 
 export function outcomeFromLegacy(
-  outcome: 'cleared' | 'docs' | 'declined' | 'review_cleared' | undefined
+  outcome: 'cleared' | 'docs' | 'declined' | 'review_cleared' | undefined,
+  text = ''
 ): FrictionOutcome | null {
-  if (outcome === 'cleared') return 'approved_no_friction'
   if (outcome === 'docs') return 'documents_requested'
   if (outcome === 'declined') return 'declined'
   if (outcome === 'review_cleared') return 'review_cleared'
+  if (outcome === 'cleared') {
+    const lower = text.toLowerCase()
+    if (/\b(after review|review then|manual review|review_cleared)\b/.test(lower)) return 'review_cleared'
+    if (/\b(no (?:issue|problem|friction)|clean)\b/.test(lower)) return 'approved_no_friction'
+    return null
+  }
   return null
 }

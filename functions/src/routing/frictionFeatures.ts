@@ -3,8 +3,22 @@
  */
 
 import { cardShortName, machineShortName } from './inventory'
-import type { DeskReview, DeskTx, MerchantProfile } from './frictionHistory'
+import {
+  CONFIDENCE_HEURISTIC_VERSION,
+  FRICTION_FEATURE_VERSION,
+  type DeskReview,
+  type DeskTx,
+  type MerchantProfile,
+} from './frictionHistory'
 import { merchantProfile } from './frictionHistory'
+
+export type ConfidenceCategory = 'thin' | 'developing' | 'established'
+
+export type ConfidenceHeuristic = {
+  version: typeof CONFIDENCE_HEURISTIC_VERSION
+  score: number
+  category: ConfidenceCategory
+}
 
 const HOUR = 3_600_000
 const DAY = 86_400_000
@@ -50,7 +64,7 @@ export type MerchantFeatures = {
   maxTicket: number | null
   observedMonthlyRunRate: number | null
   expectedMonthlyVolume: number | null
-  profileConfidence: number
+  profileConfidence: ConfidenceHeuristic
 }
 
 export type PairFeatures = {
@@ -81,6 +95,9 @@ export type ClusterFeatures = {
 }
 
 export type FrictionSnapshot = {
+  featureVersion: typeof FRICTION_FEATURE_VERSION
+  computedAt: number
+  historyCutoffAt: number
   cardId: number
   merchantId: number
   amountZar: number
@@ -133,13 +150,19 @@ function tradingDays(rows: DeskTx[]): number {
   return days.size
 }
 
+export function confidenceCategory(score: number): ConfidenceCategory {
+  if (score < 0.25) return 'thin'
+  if (score < 0.55) return 'developing'
+  return 'established'
+}
+
 export function merchantProfileConfidence(params: {
   daysSinceActivation: number | null
   lifetimeCount: number
   activeTradingDays: number
   observedMonthlyRunRate: number | null
   expectedMonthlyVolume: number | null
-}): number {
+}): ConfidenceHeuristic {
   const age = params.daysSinceActivation == null ? 0 : Math.min(params.daysSinceActivation / 30, 1) * 0.35
   const count = Math.min(params.lifetimeCount / 40, 1) * 0.35
   const days = Math.min(params.activeTradingDays / 15, 1) * 0.2
@@ -157,7 +180,22 @@ export function merchantProfileConfidence(params: {
   } else if (params.lifetimeCount < 8) {
     expected = 0
   }
-  return Math.round((age + count + days + expected) * 100) / 100
+  const score = Math.round((age + count + days + expected) * 100) / 100
+  return {
+    version: CONFIDENCE_HEURISTIC_VERSION,
+    score,
+    category: confidenceCategory(score),
+  }
+}
+
+export function historyAtCutoff(history: DeskTx[], cutoffAt: number): DeskTx[] {
+  return history.filter(
+    (row) => row.occurredAt < cutoffAt && row.status !== 'proposed'
+  )
+}
+
+export function reviewsAtCutoff(reviews: DeskReview[], cutoffAt: number): DeskReview[] {
+  return reviews.filter((row) => row.startedAt < cutoffAt)
 }
 
 export function buildFrictionSnapshot(params: {
@@ -165,10 +203,13 @@ export function buildFrictionSnapshot(params: {
   history: DeskTx[]
   reviews?: DeskReview[]
   nowMs: number
+  historyCutoffAt?: number
   merchant?: MerchantProfile
 }): FrictionSnapshot {
-  const { proposed, history, nowMs } = params
-  const reviews = params.reviews || []
+  const { proposed, nowMs } = params
+  const historyCutoffAt = params.historyCutoffAt ?? nowMs
+  const history = historyAtCutoff(params.history, historyCutoffAt)
+  const reviews = reviewsAtCutoff(params.reviews || [], historyCutoffAt)
   const merchantId = proposed.machineId
   const profile = params.merchant || merchantProfile(merchantId)
   const cardRows = history.filter((row) => row.cardId === proposed.cardId)
@@ -209,6 +250,9 @@ export function buildFrictionSnapshot(params: {
     .filter((value): value is number => value != null)
 
   return {
+    featureVersion: FRICTION_FEATURE_VERSION,
+    computedAt: nowMs,
+    historyCutoffAt,
     cardId: proposed.cardId,
     merchantId,
     amountZar: proposed.amount,
@@ -241,6 +285,7 @@ export function buildFrictionSnapshot(params: {
           'issuer_challenge',
           'settlement_hold',
           'temporarily_blocked',
+          'review_opened',
         ].includes(row.outcome)
       ).length,
     },

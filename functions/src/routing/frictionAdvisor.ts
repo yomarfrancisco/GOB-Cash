@@ -23,7 +23,6 @@ export type FrictionAssessment = {
     profile: FrictionBand
     review: FrictionBand
   }
-  resemble: Array<'high_severity_cross_institution_review' | 'new_merchant_algorithmic_profile_review'>
 }
 
 export type KnownCase = {
@@ -46,6 +45,12 @@ export const KNOWN_CASES: KnownCase[] = [
       'A Capitec acquiring profile activated 15 July 2026 was flagged around 20 July after 7 transactions totalling about R71,200 (R100–R21,000). The analyst said the algorithm flagged it and asked what normal should look like — industry, typical ticket, local vs international mix. Too few observations to establish a pattern. After that calibration the merchant ran without a further apparent problem.',
   },
 ]
+
+export function confidenceLabel(category: FrictionSnapshot['merchant']['profileConfidence']['category']): string {
+  if (category === 'thin') return 'Thin'
+  if (category === 'developing') return 'Developing'
+  return 'Established'
+}
 
 function pct(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return 'n/a'
@@ -85,7 +90,7 @@ function merchantBand(snap: FrictionSnapshot): FrictionBand {
     age != null &&
     snap.merchant.lifetimeCount > 0 &&
     snap.merchant.lifetimeCount < 8 &&
-    snap.merchant.profileConfidence < 0.25
+    snap.merchant.profileConfidence.category === 'thin'
   ) {
     return 'insufficient_history'
   }
@@ -104,25 +109,6 @@ function reviewBand(snap: FrictionSnapshot): FrictionBand {
   return 'low'
 }
 
-function resembleOf(snap: FrictionSnapshot): FrictionAssessment['resemble'] {
-  const out: FrictionAssessment['resemble'] = []
-  if (
-    (snap.cluster.pair6h >= 3 || snap.cluster.pair24h >= 4) &&
-    (snap.pair.shareOfCard30d == null || snap.pair.shareOfCard30d >= 0.4) &&
-    snap.card.count7d >= 4
-  ) {
-    out.push('high_severity_cross_institution_review')
-  }
-  if (
-    snap.merchant.daysSinceActivation != null &&
-    snap.merchant.daysSinceActivation <= 10 &&
-    snap.merchant.lifetimeCount <= 10
-  ) {
-    out.push('new_merchant_algorithmic_profile_review')
-  }
-  return out
-}
-
 export function assessFriction(snap: FrictionSnapshot): FrictionAssessment {
   const dimensions = {
     card: cardBand(snap),
@@ -131,7 +117,6 @@ export function assessFriction(snap: FrictionSnapshot): FrictionAssessment {
     profile: profileBand(snap),
     review: reviewBand(snap),
   }
-  const resemble = resembleOf(snap)
   const band = bandMax(dimensions.card, dimensions.merchant, dimensions.pair, dimensions.review)
   const reasons: string[] = []
 
@@ -144,6 +129,9 @@ export function assessFriction(snap: FrictionSnapshot): FrictionAssessment {
       `${snap.merchantName} is ${age} with ${snap.merchant.lifetimeCount} observed transaction${
         snap.merchant.lifetimeCount === 1 ? '' : 's'
       }. Current ticket ${formatZar(snap.amountZar)} sits on a thin merchant baseline.`
+    )
+    reasons.push(
+      `Merchant baseline is ${confidenceLabel(snap.merchant.profileConfidence.category)} (${snap.merchant.profileConfidence.version}). That is a versioned heuristic, not a calibrated probability.`
     )
     if (dimensions.card === 'low') {
       reasons.push('Card-side history does not show a material anomaly from the available consortium data.')
@@ -163,9 +151,6 @@ export function assessFriction(snap: FrictionSnapshot): FrictionAssessment {
         `${snap.cardName} on ${snap.merchantName} has ${snap.pair.count7d} desk swipes in 7 days.`
       )
     }
-    if (resemble.includes('high_severity_cross_institution_review')) {
-      reasons.push('This resembles a previously reviewed clustering pattern. That resemblance is not a cause.')
-    }
   }
   if (dimensions.card === 'elevated' && snap.card.amountVsMedian30d && snap.card.amountVsMedian30d >= 1.5) {
     reasons.push(
@@ -183,7 +168,6 @@ export function assessFriction(snap: FrictionSnapshot): FrictionAssessment {
       body: `${snap.cardName} on ${snap.merchantName} does not materially differ from the available desk baseline.`,
       line: null,
       dimensions,
-      resemble,
     }
   }
 
@@ -200,7 +184,6 @@ export function assessFriction(snap: FrictionSnapshot): FrictionAssessment {
     body,
     line: `${title}\n${body}`,
     dimensions,
-    resemble,
   }
 }
 
@@ -274,17 +257,9 @@ export function answerFrictionAsk(params: {
     }
   }
   if (/\bsimilar to (?:the )?bim\b/.test(text) || /\bbim case\b/.test(text)) {
-    const overlap = assessment?.resemble.includes('high_severity_cross_institution_review')
     return {
-      title: overlap ? 'Overlaps the BIM/FNB pattern' : 'BIM/FNB case on file',
-      body: [
-        KNOWN_CASES[0].facts,
-        overlap
-          ? 'The open pair shows short-window clustering and high pair concentration, which overlaps those observed traits. Overlap is not proof of the same review path.'
-          : assessment
-            ? 'The open pair does not currently match that clustering signature from the available desk history.'
-            : 'There is no open pair to compare.',
-      ].join(' '),
+      title: 'BIM/FNB case on file',
+      body: `${KNOWN_CASES[0].facts} Those facts are review metadata. The open pair is assessed from computed features only; the case tag is not an input to the band.`,
     }
   }
   if (/\bhow old is (?:this |the )?merchant\b/.test(text) || /\bmerchant profile\b/.test(text)) {
@@ -299,9 +274,9 @@ export function answerFrictionAsk(params: {
       title: `${snap.merchantName} profile`,
       body: `${age} Lifetime ${snap.merchant.lifetimeCount} transactions, ${formatZar(
         snap.merchant.lifetimeVolume
-      )}. Profile confidence ${snap.merchant.profileConfidence.toFixed(
-        2
-      )} — that is confidence in the observed baseline, not a fraud probability.`,
+      )}. Merchant baseline is ${confidenceLabel(snap.merchant.profileConfidence.category)} (${
+        snap.merchant.profileConfidence.version
+      }) — a versioned heuristic, not a calibrated probability.`,
     }
   }
   if (/\bconsortium\b/.test(text)) {
@@ -343,7 +318,9 @@ export function answerFrictionAsk(params: {
       title: `${snap.merchantName} vs its baseline`,
       body: `Lifetime ${snap.merchant.lifetimeCount} txs, median ticket ${
         snap.merchant.medianTicket == null ? 'n/a' : formatZar(snap.merchant.medianTicket)
-      }. Profile confidence ${snap.merchant.profileConfidence.toFixed(2)}. ${
+      }. Merchant baseline is ${confidenceLabel(snap.merchant.profileConfidence.category)} (${
+        snap.merchant.profileConfidence.version
+      }). ${
         assessment?.dimensions.merchant === 'insufficient_history'
           ? 'Merchant history is too thin to establish normal.'
           : 'Available merchant history does not show a material divergence.'

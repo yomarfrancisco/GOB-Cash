@@ -38,11 +38,14 @@ import {
   type SwipeRecord,
 } from '../routing/friction'
 import { assessProposedRoute, formatObserveLine } from '../routing/frictionAdvisor'
+import { buildPersistedSnapshot } from '../routing/frictionSnapshot'
 import {
   DESK_REVIEW_COLLECTION,
+  DESK_SNAPSHOT_COLLECTION,
   DESK_TX_COLLECTION,
   deskTxFromSwipe,
   mergeDeskHistory,
+  omitUndefined,
   outcomeFromLegacy,
   type DeskReview,
   type DeskTx,
@@ -232,11 +235,12 @@ type FrictionBag = {
 
 function reviewsFromNotes(notes: FrictionNote[]): DeskReview[] {
   return notes.flatMap((note) => {
-    const outcome = outcomeFromLegacy(note.outcome)
+    const outcome = outcomeFromLegacy(note.outcome, note.text)
     if (!outcome) return []
     return [
       {
         id: note.id,
+        reviewId: note.swipeId || note.id,
         transactionId: note.swipeId,
         cardId: note.cardId,
         merchantId: note.machineId,
@@ -278,10 +282,15 @@ function asDeskTx(row: unknown): DeskTx | null {
     country: 'ZA',
     channel: 'card_present',
     consortium: item.consortium !== false,
-    status: 'executed',
+    status: item.status === 'proposed' ? 'proposed' : 'executed',
     source: item.source || 'live_desk',
     testRunId: item.testRunId,
     cycleNumber: item.cycleNumber,
+    proposedAt: item.proposedAt,
+    executedAt: item.executedAt,
+    proposalSnapshotId: item.proposalSnapshotId,
+    executionSnapshotId: item.executionSnapshotId,
+    reconstruction: item.reconstruction === true,
   }
 }
 
@@ -291,7 +300,10 @@ function asDeskReview(row: unknown): DeskReview | null {
   if (typeof item.startedAt !== 'number' || typeof item.outcome !== 'string' || typeof item.id !== 'string') {
     return null
   }
-  return item as DeskReview
+  return {
+    ...(item as DeskReview),
+    reviewId: typeof item.reviewId === 'string' ? item.reviewId : item.id,
+  }
 }
 
 async function loadDeskLedger(): Promise<{ txs: DeskTx[]; reviews: DeskReview[] }> {
@@ -343,7 +355,7 @@ function persistDeskTxs(
 ) {
   for (const row of rows) {
     tx.set(db.collection(DESK_TX_COLLECTION).doc(row.id), {
-      ...row,
+      ...omitUndefined(row as unknown as Record<string, unknown>),
       createdAt: now,
     })
   }
@@ -351,9 +363,57 @@ function persistDeskTxs(
 
 function persistDeskReview(tx: admin.firestore.Transaction, review: DeskReview, now: admin.firestore.Timestamp) {
   tx.set(db.collection(DESK_REVIEW_COLLECTION).doc(review.id), {
-    ...review,
+    ...omitUndefined(review as unknown as Record<string, unknown>),
     createdAt: now,
   })
+}
+
+function persistFrictionSnapshots(
+  tx: admin.firestore.Transaction,
+  rows: ReturnType<typeof buildPersistedSnapshot>[],
+  now: admin.firestore.Timestamp
+) {
+  for (const row of rows) {
+    tx.set(db.collection(DESK_SNAPSHOT_COLLECTION).doc(row.id), {
+      ...omitUndefined(row as unknown as Record<string, unknown>),
+      createdAt: now,
+    })
+  }
+}
+
+function proposalSnapshotIdFromDoc(
+  testData: admin.firestore.DocumentData,
+  cardId: number,
+  machineId: number
+): string | undefined {
+  const rows = testData.frictionProposalSnapshotIds
+  if (!Array.isArray(rows)) return undefined
+  const hit = rows.find(
+    (row) => row && typeof row === 'object' && row.cardId === cardId && row.machineId === machineId
+  )
+  return hit && typeof hit.snapshotId === 'string' ? hit.snapshotId : undefined
+}
+
+function snapshotsForAssignments(
+  kind: 'proposal' | 'execution',
+  assignments: Array<{ cardId: number; machineId: number; amount: number }>,
+  friction: { swipes: SwipeRecord[]; nowMs: number; history?: DeskTx[]; reviews?: DeskReview[] },
+  extra: { testRunId?: string; cycleNumber?: number; transactionIdFor?: (row: { cardId: number; machineId: number }) => string | undefined }
+) {
+  const history = friction.history?.length ? friction.history : mergeDeskHistory([], friction.swipes, extra.testRunId)
+  return assignments.map((row) =>
+    buildPersistedSnapshot({
+      kind,
+      proposed: row,
+      history,
+      reviews: friction.reviews,
+      computedAt: friction.nowMs,
+      historyCutoffAt: friction.nowMs,
+      transactionId: extra.transactionIdFor?.(row),
+      testRunId: extra.testRunId,
+      cycleNumber: extra.cycleNumber,
+    })
+  )
 }
 
 function receiveChoiceFromDoc(data: admin.firestore.DocumentData): ReceiveChoice | null {
@@ -743,6 +803,38 @@ function writeIssuedReplenish(
   const plan = planCycle(state)
   const notification = buildReplenishNotificationCopy(replenish)
   const observeLine = observeLineFor(replenish.cardAssignments, friction)
+  const proposalSnapshots = snapshotsForAssignments('proposal', replenish.cardAssignments, friction, {
+    testRunId,
+    cycleNumber: replenish.cycleNumber,
+  })
+  persistFrictionSnapshots(tx, proposalSnapshots, now)
+  const proposedAt = now.toMillis()
+  persistDeskTxs(
+    tx,
+    replenish.cardAssignments.map((row) => {
+      const snapshot = proposalSnapshots.find(
+        (item) => item.proposed.cardId === row.cardId && item.proposed.machineId === row.machineId
+      )
+      return deskTxFromSwipe(
+        {
+          id: swipeIdFor(replenish.cycleNumber, row.cardId, row.machineId),
+          atMs: proposedAt,
+          cardId: row.cardId,
+          machineId: row.machineId,
+          amount: row.amount,
+          cycleNumber: replenish.cycleNumber,
+        },
+        {
+          testRunId,
+          source: 'live_desk',
+          status: 'proposed',
+          proposedAt,
+          proposalSnapshotId: snapshot?.id,
+        }
+      )
+    }),
+    now
+  )
   const activity = buildReplenishActivityCopy(
     replenish,
     state.config.cycleCount,
@@ -780,6 +872,8 @@ function writeIssuedReplenish(
     createdAt: now,
     recordingSource: 'SYSTEM',
     ...(observeLine ? { frictionLine: observeLine } : {}),
+    frictionSnapshotIds: proposalSnapshots.map((row) => row.id),
+    frictionFeatureVersion: proposalSnapshots[0]?.featureVersion || null,
   })
   tx.set(
     testRef,
@@ -806,6 +900,12 @@ function writeIssuedReplenish(
       replenishAssignments: replenish.cardAssignments,
       replenishRestingCardIds: replenish.restingCardIds,
       replenishRestingMachineIds: replenish.restingMachineIds,
+      frictionProposedAt: now,
+      frictionProposalSnapshotIds: proposalSnapshots.map((row) => ({
+        cardId: row.proposed.cardId,
+        machineId: row.proposed.machineId,
+        snapshotId: row.id,
+      })),
       updatedAt: now,
     },
     { merge: true }
@@ -1218,8 +1318,38 @@ export const admin_confirmConversionRoutingCycle = functions
           amount: row.amount,
           cycleNumber,
         }))
-        const durable = added.map((row) => deskTxFromSwipe(row, { testRunId, source: 'live_desk' }))
-        persistDeskTxs(tx, durable, now)
+        const durable = added.map((row) => {
+          const proposedAt = firestoreTimestampMs(testData.frictionProposedAt) || firestoreTimestampMs(testData.updatedAt) || nowMs
+          return deskTxFromSwipe(row, {
+            testRunId,
+            source: 'live_desk',
+            status: 'executed',
+            proposedAt,
+            proposalSnapshotId: proposalSnapshotIdFromDoc(testData, row.cardId, row.machineId),
+          })
+        })
+        const executionSnapshots = snapshotsForAssignments(
+          'execution',
+          added.map((row) => ({ cardId: row.cardId, machineId: row.machineId, amount: row.amount })),
+          enrichFriction(friction, ledger, testRunId),
+          {
+            testRunId,
+            cycleNumber,
+            transactionIdFor: (row) =>
+              durable.find((item) => item.cardId === row.cardId && item.machineId === row.machineId)?.id,
+          }
+        )
+        persistFrictionSnapshots(tx, executionSnapshots, now)
+        persistDeskTxs(
+          tx,
+          durable.map((row) => ({
+            ...row,
+            executionSnapshotId: executionSnapshots.find(
+              (snap) => snap.proposed.cardId === row.cardId && snap.proposed.machineId === row.machineId
+            )?.id,
+          })),
+          now
+        )
         const nextFriction = enrichFriction(
           {
             swipes: [...friction.swipes, ...added].slice(-40),

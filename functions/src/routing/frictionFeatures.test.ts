@@ -29,8 +29,10 @@ describe('merchant profile confidence', () => {
       observedMonthlyRunRate: 71_200,
       expectedMonthlyVolume: null,
     })
-    assert.ok(score < 0.35)
-    assert.ok(score >= 0)
+    assert.equal(score.version, 'heuristic_v1')
+    assert.equal(score.category, 'thin')
+    assert.ok(score.score < 0.35)
+    assert.ok(score.score >= 0)
   })
 })
 
@@ -40,7 +42,7 @@ describe('Case B — new merchant algorithmic profile', () => {
       tx({
         cardId: 2,
         machineId: 2,
-        occurredAt: NOW - (6 - i) * 18 * 60 * 60 * 1000,
+        occurredAt: NOW - (7 - i) * 18 * 60 * 60 * 1000,
         amountZar: [100, 2_400, 8_000, 9_500, 12_000, 18_200, 21_000][i],
       })
     )
@@ -56,7 +58,7 @@ describe('Case B — new merchant algorithmic profile', () => {
     assert.equal(assessment.band, 'insufficient_history')
     assert.match(assessment.body, /thin merchant baseline|too thin|5 days|Capitec/i)
     assert.doesNotMatch(assessment.body, /bank will flag|fraud|Visa/i)
-    assert.ok(assessment.resemble.includes('new_merchant_algorithmic_profile_review'))
+    assert.match(assessment.body, /heuristic_v1|Thin/i)
   })
 })
 
@@ -113,7 +115,7 @@ describe('friction Ask', () => {
     })
     assert.match(advice.title, /Capitec/i)
     assert.match(advice.body, /days since the activation date/i)
-    assert.match(advice.body, /not a fraud probability/i)
+    assert.match(advice.body, /not a calibrated probability/i)
   })
 
   it('answers the Capitec case from stored facts, not speculation', () => {
