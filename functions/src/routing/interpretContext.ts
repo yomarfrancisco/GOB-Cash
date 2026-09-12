@@ -8,7 +8,7 @@ export type RecentCycleBrief = {
   status: string
   createdAtMs: number | null
   completedAtMs: number | null
-  assignments: Array<{ cardId: number; machineId: number; amount: number }>
+  assignments: Array<{ cardId: number; machineId: number; amount: number; posReason?: string }>
 }
 
 export type RecentFeedbackBrief = {

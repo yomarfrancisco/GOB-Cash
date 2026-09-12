@@ -31,8 +31,15 @@ import {
   type FrictionNote,
   type SwipeRecord,
 } from './friction'
+import {
+  ASK_INTENT_MIN_CONFIDENCE,
+  classifyAskIntentFast,
+  enforceReadOnlyAdvice,
+  type AskClassification,
+} from './askIntent'
 import { answerFrictionAsk } from './frictionAdvisor'
-import { answerLedgerFactAsk } from './ledgerFacts'
+import { answerHistoricalExplanation, type RecentRestockBrief } from './historicalAsk'
+import { answerLedgerAggregate, answerLedgerFactAsk } from './ledgerFacts'
 import { deskTxFromSwipe, type DeskReview, type DeskTx } from './frictionHistory'
 import type { RecentCycleBrief, RecentFeedbackBrief } from './interpretContext'
 import { cardLabel, cardShortName, formatReceiveAccount, resolveNamedCardIds } from './inventory'
@@ -41,8 +48,6 @@ import {
   formatVisibleSast,
   isBankerQuestion,
   isDeskStrategyAsk,
-  isFrictionAsk,
-  isLedgerFactAsk,
   isPaceAsk,
   isPosRankingAsk,
   isSettlementAsk,
@@ -626,13 +631,16 @@ function adviceFromRecoveries(
   }
 }
 
-export function isDeskChoiceReply(message: string): boolean {
+export function isDeskChoiceReply(message: string, pendingKind?: string | null): boolean {
   if (namesConstraintChange(message) || isWhatIfAsk(message)) return false
   if (isFrictionNoteReply(message)) return true
-  if (wantsRetire(message) || mustSwipeAnyway(message) || isFreezeOutlookAsk(message)) return true
   const named = resolveNamedCardIds(message)
   if (!named.length) return false
-  return message.trim().split(/\s+/).length <= 12
+  const words = message.trim().split(/\s+/).length
+  if (pendingKind === 'which_card_safe' && words <= 6 && !/\b(why|when|have|did|last time)\b/i.test(message)) {
+    return true
+  }
+  return words <= 3 && !/\b(why|when|how|did|have|last)\b/i.test(message)
 }
 
 export function adviseDesk(params: {
@@ -641,11 +649,13 @@ export function adviseDesk(params: {
   constraints: StoredConstraint[]
   current?: DeskRouteSnapshot | null
   recentCycles?: RecentCycleBrief[]
+  recentRestocks?: RecentRestockBrief[]
   recentFeedback?: RecentFeedbackBrief[]
   swipes?: SwipeRecord[]
   notes?: FrictionNote[]
   history?: DeskTx[]
   reviews?: DeskReview[]
+  classification?: AskClassification
   cycleNumber: number
   costRate: number
   nowMs: number
@@ -656,11 +666,13 @@ export function adviseDesk(params: {
     constraints,
     current = null,
     recentCycles = [],
+    recentRestocks = [],
     recentFeedback = [],
     swipes = [],
     notes = [],
     history,
     reviews = [],
+    classification: suppliedClassification,
     cycleNumber,
     costRate,
     nowMs,
@@ -673,11 +685,131 @@ export function adviseDesk(params: {
   const waitingOnCard = pendingQuestion(recentFeedback) === 'which_card_safe'
   const pending = pendingQuestion(recentFeedback)
   const proposed = open?.kind === 'replenish' ? open.assignments : undefined
+  const classification =
+    suppliedClassification ||
+    classifyAskIntentFast(message, { pendingKind: pending }) || {
+      intent: 'ambiguous' as const,
+      confidence: 0.3,
+      source: 'fast_path' as const,
+      cardIds: namedCardIds,
+      machineIds: [],
+      reason: 'no fast-path match',
+    }
 
-  if (isFreezeOutlookAsk(message)) return freezeOutlookAdvice(state, message, nowMs)
-  if (askedRetire) return retireAdvice(state)
+  const advice = answerClassifiedAsk({
+    intent: classification.intent,
+    confidence: classification.confidence,
+    message,
+    state,
+    constraints,
+    namedCardIds,
+    open,
+    proposed,
+    holds,
+    askedRetire,
+    waitingOnCard,
+    pending,
+    recentCycles,
+    recentRestocks,
+    recentFeedback,
+    swipes,
+    notes,
+    deskHistory,
+    reviews,
+    cycleNumber,
+    costRate,
+    nowMs,
+  })
+  return enforceReadOnlyAdvice(classification.intent, advice)
+}
 
-  if (isFrictionAsk(message)) {
+function answerClassifiedAsk(params: {
+  intent: AskClassification['intent']
+  confidence: number
+  message: string
+  state: RoutingState
+  constraints: StoredConstraint[]
+  namedCardIds: number[]
+  open: ReturnType<typeof currentOpenRoute>
+  proposed: CardAssignment[] | undefined
+  holds: StoredConstraint[]
+  askedRetire: boolean
+  waitingOnCard: boolean
+  pending: string | null
+  recentCycles: RecentCycleBrief[]
+  recentRestocks: RecentRestockBrief[]
+  recentFeedback: RecentFeedbackBrief[]
+  swipes: SwipeRecord[]
+  notes: FrictionNote[]
+  deskHistory: DeskTx[]
+  reviews: DeskReview[]
+  cycleNumber: number
+  costRate: number
+  nowMs: number
+}): DeskAdvice {
+  const {
+    intent,
+    confidence,
+    message,
+    state,
+    constraints,
+    namedCardIds,
+    open,
+    proposed,
+    holds,
+    askedRetire,
+    waitingOnCard,
+    pending,
+    recentCycles,
+    recentRestocks,
+    recentFeedback,
+    swipes,
+    notes,
+    deskHistory,
+    reviews,
+    cycleNumber,
+    costRate,
+    nowMs,
+  } = params
+
+  if (intent === 'ambiguous' || confidence < ASK_INTENT_MIN_CONFIDENCE) {
+    return {
+      kind: 'question',
+      title: 'Need a clearer Ask',
+      body: 'I am not sure whether you want a ledger fact, an explanation of a past pair, or a change to the route. Say the fact you want, or name the change (park / restore / prefer).',
+    }
+  }
+
+  if (intent === 'unrelated') {
+    return {
+      kind: 'next_step',
+      title: 'Not a desk Ask',
+      body: 'That is outside this restock/sale desk. Ask about the ledger, a past pair, friction, the open instruction, or a rule change.',
+    }
+  }
+
+  if (intent === 'ledger_fact') {
+    const answered = answerLedgerFactAsk({ message, history: deskHistory, nowMs })
+    return { kind: 'next_step', title: answered.title, body: answered.body }
+  }
+
+  if (intent === 'ledger_aggregate') {
+    if (isSettlementAsk(message)) return settlementAdvice(state, swipes, nowMs)
+    const answered = answerLedgerAggregate({ message, history: deskHistory, nowMs })
+    return { kind: 'next_step', title: answered.title, body: answered.body }
+  }
+
+  if (intent === 'historical_explanation') {
+    const answered = answerHistoricalExplanation({
+      message,
+      history: deskHistory,
+      recentRestocks,
+      recentCycles,
+    })
+    return { kind: 'next_step', title: answered.title, body: answered.body }
+  }
+
+  if (intent === 'friction_question') {
     const answered = answerFrictionAsk({
       message,
       assignments: proposed || open?.assignments || [],
@@ -685,52 +817,103 @@ export function adviseDesk(params: {
       reviews,
       nowMs,
     })
-    return {
-      kind: 'next_step',
-      title: answered.title,
-      body: answered.body,
-    }
+    return { kind: 'next_step', title: answered.title, body: answered.body }
   }
 
-  if (isPosRankingAsk(message)) {
-    const assignments = proposed || open?.assignments || []
-    if (!assignments.length) {
+  if (intent === 'current_route_question' || intent === 'execution_status') {
+    if (isFreezeOutlookAsk(message)) return freezeOutlookAdvice(state, message, nowMs)
+    if (isPosRankingAsk(message)) {
+      const assignments = proposed || open?.assignments || []
+      if (!assignments.length) {
+        return {
+          kind: 'next_step',
+          title: 'No pair on the desk',
+          body: 'There is no open restock pair to rank. Name a card and POS, or open a restock.',
+        }
+      }
+      const overlay = overlayFromConstraints(constraints)
+      const namedCard = namedCardIds[0]
+      const focus =
+        (namedCard && assignments.find((row) => row.cardId === namedCard)) || assignments[0]
       return {
         kind: 'next_step',
-        title: 'No pair on the desk',
-        body: 'There is no open restock pair to rank. Name a card and POS, or open a restock.',
+        title: 'POS ranking',
+        body: explainPosRanking(state, focus, cycleNumber, overlay),
       }
     }
-    const overlay = overlayFromConstraints(constraints)
-    const namedCard = namedCardIds[0]
-    const focus =
-      (namedCard && assignments.find((row) => row.cardId === namedCard)) || assignments[0]
+    if (isPaceAsk(message)) {
+      if (open?.kind === 'replenish') return restockPaceAdvice(open, state, swipes, nowMs)
+      return {
+        kind: 'next_step',
+        title: 'No restock to size',
+        body: 'There is no COST restock on the desk. A restock matches ZAR that just left South Africa; it is not extra volume on top.',
+      }
+    }
+    if (
+      pending &&
+      (pending === 'swipe_outcome' || pending === 'declared_month' || pending === 'decline_followup') &&
+      !isFrictionNoteReply(message) &&
+      !isBankerQuestion(message)
+    ) {
+      const prior = recentFeedback.find((row) => row.questionKind === pending)
+      return {
+        kind: 'question',
+        title:
+          pending === 'declared_month'
+            ? 'Bank profile'
+            : pending === 'decline_followup'
+              ? 'Decline on file'
+              : 'How did that swipe go?',
+        body: prior?.summary || 'Answer the last question first — cleared, documents requested, or declined.',
+        questionKind: pending,
+      }
+    }
+    if (mustSwipeAnyway(message) && notes.some((row) => row.outcome === 'declined' && nowMs - row.atMs < 7 * 86_400_000)) {
+      const ask = nextNoteQuestion({ swipes, notes, nowMs, proposed, pendingKind: null, lastQuestionAtMs: null })
+      return {
+        kind: 'question',
+        title: ask?.title || 'Decline on file',
+        body: ask?.body || 'A card was declined this week. How do you want to proceed? Do not switch cards unless you say so.',
+        questionKind: 'decline_followup',
+      }
+    }
+    const dueNote = nextNoteQuestion({
+      swipes,
+      notes,
+      nowMs,
+      proposed,
+      pendingKind: pending,
+      lastQuestionAtMs: recentFeedback.find((row) => row.questionKind)?.createdAtMs ?? null,
+    })
+    if (dueNote && (isDeskStrategyAsk(message) || mustSwipeAnyway(message))) {
+      return {
+        kind: 'question',
+        title: dueNote.title,
+        body: dueNote.body,
+        questionKind: dueNote.questionKind,
+      }
+    }
+    if (mustSwipeAnyway(message) && !open) {
+      return safestSwipeAdvice(state, constraints, costRate, cycleNumber, recentCycles, nowMs)
+    }
+    if (open) return nextStepAdvice(open, state, cycleNumber, message)
+    if (holds.length) return blockedQuestion(holds, nowMs)
     return {
       kind: 'next_step',
-      title: 'POS ranking',
-      body: explainPosRanking(state, focus, cycleNumber, overlay),
+      title: 'No open instruction',
+      body: 'There is no open restock or sale to explain. Ask a ledger fact, or name a card change if you want the route updated.',
     }
   }
 
-  if (isLedgerFactAsk(message)) {
-    const answered = answerLedgerFactAsk({ message, history: deskHistory, nowMs })
+  if (intent !== 'constraint_request') {
     return {
-      kind: 'next_step',
-      title: answered.title,
-      body: answered.body,
+      kind: 'question',
+      title: 'Need a clearer Ask',
+      body: 'I am not sure whether you want a ledger fact, an explanation of a past pair, or a change to the route. Say the fact you want, or name the change (park / restore / prefer).',
     }
   }
 
-  if (isSettlementAsk(message)) return settlementAdvice(state, swipes, nowMs)
-
-  if (isPaceAsk(message)) {
-    if (open?.kind === 'replenish') return restockPaceAdvice(open, state, swipes, nowMs)
-    return {
-      kind: 'next_step',
-      title: 'No restock to size',
-      body: 'There is no COST restock on the desk. A restock matches ZAR that just left South Africa; it is not extra volume on top.',
-    }
-  }
+  if (askedRetire) return retireAdvice(state)
 
   if (
     pending &&
@@ -741,7 +924,12 @@ export function adviseDesk(params: {
     const prior = recentFeedback.find((row) => row.questionKind === pending)
     return {
       kind: 'question',
-      title: pending === 'declared_month' ? 'Bank profile' : pending === 'decline_followup' ? 'Decline on file' : 'How did that swipe go?',
+      title:
+        pending === 'declared_month'
+          ? 'Bank profile'
+          : pending === 'decline_followup'
+            ? 'Decline on file'
+            : 'How did that swipe go?',
       body: prior?.summary || 'Answer the last question first — cleared, documents requested, or declined.',
       questionKind: pending,
     }
@@ -766,26 +954,6 @@ export function adviseDesk(params: {
     }
   }
 
-  const dueNote =
-    isDeskStrategyAsk(message) || mustSwipeAnyway(message)
-      ? nextNoteQuestion({
-          swipes,
-          notes,
-          nowMs,
-          proposed,
-          pendingKind: pending,
-          lastQuestionAtMs: recentFeedback.find((row) => row.questionKind)?.createdAtMs ?? null,
-        })
-      : null
-  if (dueNote) {
-    return {
-      kind: 'question',
-      title: dueNote.title,
-      body: dueNote.body,
-      questionKind: dueNote.questionKind,
-    }
-  }
-
   if (namedCardIds.length) {
     const recoveries = recoveriesForCards(
       state,
@@ -797,7 +965,12 @@ export function adviseDesk(params: {
       nowMs
     )
     const names = namedCardIds.map((id) => cardLabel(id)).join(', ')
-    return adviceFromRecoveries(`You named ${names}. I only offer a route the planner can actually issue.`, recoveries, state, cycleNumber)
+    return adviceFromRecoveries(
+      `You named ${names}. I only offer a route the planner can actually issue.`,
+      recoveries,
+      state,
+      cycleNumber
+    )
   }
 
   if (mustSwipeAnyway(message) && !open) {
@@ -825,11 +998,7 @@ export function adviseDesk(params: {
 
   if (open) return nextStepAdvice(open, state, cycleNumber, message)
 
-  if (holds.length) {
-    // Do not auto-pick a parked card. Cycle-rest cannot complete while jammed.
-    // If a calendar lift is unique, say wait. Otherwise ask which card is safe.
-    return blockedQuestion(holds, nowMs)
-  }
+  if (holds.length) return blockedQuestion(holds, nowMs)
 
   return {
     kind: 'question',

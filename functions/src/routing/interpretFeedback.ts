@@ -10,7 +10,7 @@ import {
 } from './constraints'
 import type { RoutingState } from './conversionRouter'
 import { attachResolvedExpiry, buildRoutingLedgerBrief, ledgerFromRoutingState } from './interpretContext'
-import { cardLabel, inventoryPromptList, machineLabel, resolveNamedCardIds } from './inventory'
+import { cardLabel, inventoryPromptList, machineLabel } from './inventory'
 import { namesConstraintChange, shouldNotApplyAskIntents } from './routingTime'
 
 type InterpretContext = {
@@ -23,7 +23,7 @@ type InterpretContext = {
   issuedAtMs?: number | null
 }
 
-function llmApiKey(): string | null {
+export function llmApiKey(): string | null {
   let config: string | null = null
   try {
     config = functions.config()?.llm?.api_key || functions.config()?.openai?.key || null
@@ -33,7 +33,7 @@ function llmApiKey(): string | null {
   return process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || config || null
 }
 
-function llmModel(): string {
+export function llmModel(): string {
   return process.env.LLM_MODEL || 'gpt-4o-mini'
 }
 
@@ -169,8 +169,7 @@ function looksLikeDeskChoice(message: string): boolean {
   if (/\b(none of them|none are|new card|new consortium|retire|park them)\b/.test(lower)) {
     return !namesConstraintChange(message)
   }
-  const named = resolveNamedCardIds(message)
-  return named.length > 0 && message.trim().split(/\s+/).length <= 12 && !namesConstraintChange(message)
+  return false
 }
 
 export async function interpretAdminFeedback(
@@ -207,5 +206,3 @@ export async function interpretAdminFeedback(
     throw error
   }
 }
-
-export { llmApiKey }

@@ -214,3 +214,41 @@ export function answerLedgerFactAsk(params: {
     body: 'I can answer last card or POS, when a named pair was last used, totals today or this week, and whether a card or POS was used today. Ask one of those from the executed desk log.',
   }
 }
+
+export function answerLedgerAggregate(params: {
+  message: string
+  history: DeskTx[]
+  nowMs: number
+}): { title: string; body: string } {
+  const rows = executedDeskTxs(params.history)
+  const { from, label } = windowFrom(params.message, params.nowMs)
+  const windowRows = rows.filter((row) => atMs(row) >= from)
+  if (!windowRows.length) {
+    return {
+      title: `No POS volume ${label}`,
+      body: `No executed restock swipes are on the ledger ${label}, so there is no POS concentration to report.`,
+    }
+  }
+  const byPos = new Map<number, number>()
+  for (const row of windowRows) {
+    byPos.set(row.machineId, (byPos.get(row.machineId) || 0) + row.amountZar)
+  }
+  const total = windowRows.reduce((sum, row) => sum + row.amountZar, 0)
+  const ranked = [...byPos.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])
+  const parts = ranked.map(([id, amount]) => {
+    const share = total > 0 ? Math.round((amount / total) * 100) : 0
+    return `${machineShortName(id)} ${formatZar(amount)} (${share}%)`
+  })
+  const [topId, topAmount] = ranked[0]
+  const topShare = total > 0 ? topAmount / total : 0
+  const lead =
+    topShare >= 0.5
+      ? `Yes. ${machineShortName(topId)} has taken ${Math.round(topShare * 100)}% of executed restock volume ${label}.`
+      : `No single POS is dominant ${label}. ${machineShortName(topId)} leads at ${Math.round(topShare * 100)}%.`
+  return {
+    title: `POS concentration ${label}`,
+    body: `${lead} ${parts.join(' · ')}. Total ${formatZar(total)} across ${windowRows.length} swipe${
+      windowRows.length === 1 ? '' : 's'
+    }.`,
+  }
+}

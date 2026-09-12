@@ -66,7 +66,14 @@ import {
   type RoutingIntent,
   type StoredConstraint,
 } from '../routing/constraints'
+import {
+  ASK_INTENT_MIN_CONFIDENCE,
+  classifyAskIntent,
+  mayMutateRoute,
+  type AskClassification,
+} from '../routing/askIntent'
 import { interpretAdminFeedback, llmApiKey } from '../routing/interpretFeedback'
+import type { RecentRestockBrief } from '../routing/historicalAsk'
 import {
   answerMemoryQuestion,
   attachResolvedExpiry,
@@ -484,6 +491,24 @@ function shortConstraintTitle(acknowledgement: string, blocked: boolean, awaitin
   return first.replace(/\.$/, '') || 'Rule recorded'
 }
 
+function recentRestocksFromDoc(data: admin.firestore.DocumentData): RecentRestockBrief[] {
+  const raw = data.recentRestocks
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((row) => {
+    if (!row || typeof row !== 'object') return []
+    const item = row as { cycleNumber?: unknown; confirmedAtMs?: unknown; assignments?: unknown }
+    const assignments = assignmentsFromUnknown(item.assignments)
+    if (!assignments.length) return []
+    return [
+      {
+        cycleNumber: typeof item.cycleNumber === 'number' ? item.cycleNumber : 0,
+        confirmedAtMs: typeof item.confirmedAtMs === 'number' ? item.confirmedAtMs : 0,
+        assignments,
+      },
+    ]
+  })
+}
+
 async function loadRecentCycleBriefs(testRunId: string): Promise<RecentCycleBrief[]> {
   const snap = await db
     .collection(TESTS)
@@ -498,19 +523,21 @@ async function loadRecentCycleBriefs(testRunId: string): Promise<RecentCycleBrie
       ? data.cardAssignments
           .map((row: unknown) => {
             if (!row || typeof row !== 'object') return null
-            const item = row as { cardId?: unknown; machineId?: unknown; amount?: unknown }
+            const item = row as { cardId?: unknown; machineId?: unknown; amount?: unknown; posReason?: unknown }
             if (typeof item.cardId !== 'number' || typeof item.machineId !== 'number') return null
             return {
               cardId: item.cardId,
               machineId: item.machineId,
               amount: typeof item.amount === 'number' ? item.amount : 0,
+              ...(typeof item.posReason === 'string' && item.posReason ? { posReason: item.posReason } : {}),
             }
           })
           .filter(
-            (row: { cardId: number; machineId: number; amount: number } | null): row is {
+            (row: { cardId: number; machineId: number; amount: number; posReason?: string } | null): row is {
               cardId: number
               machineId: number
               amount: number
+              posReason?: string
             } => Boolean(row)
           )
       : []
@@ -836,6 +863,7 @@ function writeIssuedReplenish(
           proposalSnapshotId: snapshot?.id,
           restockGroupId,
           assignmentIndex,
+          posReason: row.posReason,
         }
       )
     }),
@@ -1341,6 +1369,8 @@ export const admin_confirmConversionRoutingCycle = functions
             proposalSnapshotId: proposalSnapshotIdFromDoc(testData, row.cardId, row.machineId),
             restockGroupId,
             assignmentIndex,
+            posReason: assignments.find((item) => item.cardId === row.cardId && item.machineId === row.machineId)
+              ?.posReason,
           })
         })
         const executionSnapshots = snapshotsForAssignments(
@@ -1392,7 +1422,23 @@ export const admin_confirmConversionRoutingCycle = functions
         })
         tx.set(
           testRef,
-          { recentSwipes: nextFriction.swipes, updatedAt: now },
+          {
+            recentSwipes: nextFriction.swipes,
+            recentRestocks: [
+              {
+                cycleNumber,
+                confirmedAtMs: nowMs,
+                assignments: assignments.map((row) => ({
+                  cardId: row.cardId,
+                  machineId: row.machineId,
+                  amount: row.amount,
+                  ...(row.posReason ? { posReason: row.posReason } : {}),
+                })),
+              },
+              ...recentRestocksFromDoc(testData),
+            ].slice(0, 12),
+            updatedAt: now,
+          },
           { merge: true }
         )
         const next = writeIssuedCycle(
@@ -1684,6 +1730,9 @@ export const admin_submitConversionRoutingFeedback = functions
       clarification: string | null
       interpreter: 'llm' | 'fast_path'
     }
+    const pendingKindForAsk =
+      recentFeedback.find((row) => row.status === 'question' && row.questionKind)?.questionKind || null
+    let classification: AskClassification
     if (acceptProposalId) {
       const proposalSnap = await testRef.collection('proposals').doc(acceptProposalId).get()
       if (!proposalSnap.exists || proposalSnap.data()?.status !== 'pending') {
@@ -1702,7 +1751,25 @@ export const admin_submitConversionRoutingFeedback = functions
         clarification: null,
         interpreter: 'fast_path',
       }
+      classification = {
+        intent: 'constraint_request',
+        confidence: 1,
+        source: 'fast_path',
+        cardIds: [],
+        machineIds: [],
+        reason: 'accepted pending proposal',
+      }
     } else {
+      classification = await classifyAskIntent(askMessage, { pendingKind: pendingKindForAsk })
+      const allowConstraintIntents =
+        mayMutateRoute(classification.intent) && classification.confidence >= ASK_INTENT_MIN_CONFIDENCE
+      if (!allowConstraintIntents) {
+        interpreted = {
+          intents: [] as RoutingIntent[],
+          clarification: null,
+          interpreter: classification.source === 'llm' ? 'llm' : 'fast_path',
+        }
+      } else {
       const memoryAnswer = isMemoryOrHistoryQuestion(askMessage)
           ? answerMemoryQuestion({
               message: askMessage,
@@ -1737,7 +1804,7 @@ export const admin_submitConversionRoutingFeedback = functions
       const shouldReinterpret =
         Boolean(llmApiKey()) &&
         ((providedIntents.length === 0 && looksLikeHistoryQuestion) || missingResolvedTime)
-      interpreted = shouldNotApplyAskIntents(askMessage) || isDeskChoiceReply(askMessage)
+      interpreted = shouldNotApplyAskIntents(askMessage) || isDeskChoiceReply(askMessage, pendingKindForAsk)
         ? {
             intents: [] as RoutingIntent[],
             clarification: null,
@@ -1770,11 +1837,16 @@ export const admin_submitConversionRoutingFeedback = functions
                 clarification: clientClarification || contextualClarify(stored.cardAssignments),
                 interpreter: 'llm' as const,
               }
+      }
     }
 
+    const allowRouteMutation =
+      mayMutateRoute(classification.intent) && classification.confidence >= ASK_INTENT_MIN_CONFIDENCE
     const validIntents: RoutingIntent[] = []
-    for (const intent of interpreted.intents) {
-      if (!validateIntent(intent, liveState)) validIntents.push(intent)
+    if (allowRouteMutation) {
+      for (const intent of interpreted.intents) {
+        if (!validateIntent(intent, liveState)) validIntents.push(intent)
+      }
     }
 
     const now = admin.firestore.Timestamp.now()
@@ -1804,17 +1876,20 @@ export const admin_submitConversionRoutingFeedback = functions
         constraints,
         current: currentDeskRoute(testData, stored, awaitingKind),
         recentCycles,
+        recentRestocks: recentRestocksFromDoc(testData),
         recentFeedback,
         swipes: friction.swipes,
         notes,
         history: friction.history,
         reviews,
+        classification,
         cycleNumber,
         costRate: quotes.costRate,
         nowMs,
       })
       const pursueLabel = deskPursueLabel(desk)
-      const isProposal = desk.kind === 'options' && Boolean(desk.options?.length)
+      const isProposal =
+        allowRouteMutation && desk.kind === 'options' && Boolean(desk.options?.length)
       const recommended = desk.options?.find((row) => row.id === desk.recommendedOptionId) || desk.options?.[0]
       await db.runTransaction(async (tx) => {
         publishAdviceCard(tx, {
@@ -1852,6 +1927,7 @@ export const admin_submitConversionRoutingFeedback = functions
           cycleNumber,
           rawMessage: askMessage,
           interpretedIntent: interpreted,
+          askIntent: classification,
           interpretationSummary: desk.body.split('\n')[0] || desk.title,
           status: desk.kind === 'question' ? 'question' : isProposal ? 'proposal' : 'advice',
           questionKind: desk.questionKind || null,

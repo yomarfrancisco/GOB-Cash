@@ -186,9 +186,8 @@ describe('adviseDesk', () => {
       costRate: 4.1,
       nowMs: NOW,
     })
-    assert.equal(advice.kind, 'options')
-    assert.equal(advice.options?.length, 1)
-    assert.equal(advice.options?.[0].intents[0]?.action, 'restore_card')
+    assert.equal(advice.kind, 'next_step')
+    assert.equal(advice.options, undefined)
     assert.doesNotMatch(advice.body, /this_cycle/)
     assert.match(advice.body, /safest pair/i)
     assert.match(advice.body, /on (FNB IMANI|Capitec BRICS|FNB BRICS|FNB Wolf)/)
@@ -308,5 +307,120 @@ describe('adviseDesk', () => {
     assert.doesNotMatch(advice.body, /Execute that list/)
     assert.doesNotMatch(advice.body, /taken less rand/)
     assert.doesNotMatch(advice.body, /Cards resting|POS resting/)
+  })
+
+  it('answers POS concentration from the ledger, not the open sale', () => {
+    const state = createInitialState()
+    const nowMs = sastToUtcMs(2026, 9, 12, 14, 26)
+    const advice = adviseDesk({
+      message: 'Have we been leaning too heavily on any one POS today?',
+      state,
+      constraints: [],
+      current: {
+        kind: 'deploy',
+        assignments: [{ cardId: 2, machineId: 1, amount: 15_000 }],
+        amountZar: 15_000,
+      },
+      history: [
+        {
+          id: 'a',
+          occurredAt: nowMs - 3_600_000,
+          executedAt: nowMs - 3_600_000,
+          cardId: 1,
+          merchantId: 3,
+          machineId: 3,
+          amountZar: 15_000,
+          currency: 'ZAR',
+          country: 'ZA',
+          channel: 'card_present',
+          consortium: true,
+          status: 'executed',
+          source: 'live_desk',
+        },
+        {
+          id: 'b',
+          occurredAt: nowMs - 2_400_000,
+          executedAt: nowMs - 2_400_000,
+          cardId: 2,
+          merchantId: 3,
+          machineId: 3,
+          amountZar: 12_000,
+          currency: 'ZAR',
+          country: 'ZA',
+          channel: 'card_present',
+          consortium: true,
+          status: 'executed',
+          source: 'live_desk',
+        },
+        {
+          id: 'c',
+          occurredAt: nowMs - 1_200_000,
+          executedAt: nowMs - 1_200_000,
+          cardId: 5,
+          merchantId: 2,
+          machineId: 2,
+          amountZar: 8_000,
+          currency: 'ZAR',
+          country: 'ZA',
+          channel: 'card_present',
+          consortium: true,
+          status: 'executed',
+          source: 'live_desk',
+        },
+      ],
+      cycleNumber: 7,
+      costRate: 4.15,
+      nowMs,
+    })
+    assert.equal(advice.kind, 'next_step')
+    assert.equal(advice.options, undefined)
+    assert.match(advice.body, /FNB IMANI/)
+    assert.match(advice.body, /77%|Yes/)
+    assert.doesNotMatch(advice.body, /receive MZN|Vidrotec|BIM|Pursue/i)
+  })
+
+  it('explains the stored Ginav / FNB IMANI reason and never proposes a new route', () => {
+    const state = createInitialState()
+    const nowMs = sastToUtcMs(2026, 9, 12, 14, 26)
+    const storedReason =
+      'Restore Ginav and then pay ZAR after MZN lands — first restock swipe Vidrotec on FNB BRICS is heavier, so FNB IMANI avoids concentrating more volume on the heavier POS.'
+    const advice = adviseDesk({
+      message: 'Why did we choose FNB IMANI for Ginav last time?',
+      state,
+      constraints: [],
+      current: {
+        kind: 'deploy',
+        assignments: [{ cardId: 2, machineId: 1, amount: 15_000 }],
+        amountZar: 15_000,
+      },
+      history: [
+        {
+          id: 'ginav-imani',
+          occurredAt: nowMs - 86_400_000,
+          executedAt: nowMs - 86_400_000,
+          cardId: 1,
+          merchantId: 3,
+          machineId: 3,
+          amountZar: 15_000,
+          currency: 'ZAR',
+          country: 'ZA',
+          channel: 'card_present',
+          consortium: true,
+          status: 'executed',
+          source: 'live_desk',
+          cycleNumber: 6,
+          posReason: storedReason,
+        },
+      ],
+      cycleNumber: 7,
+      costRate: 4.15,
+      nowMs,
+    })
+    assert.equal(advice.kind, 'next_step')
+    assert.equal(advice.options, undefined)
+    assert.match(advice.body, /Stored reason/)
+    assert.match(advice.body, /avoiding concentrating more volume|avoids concentrating more volume/)
+    assert.doesNotMatch(advice.body, /You named Ginav|Pursue|Discard/i)
+    assert.doesNotMatch(advice.body, /receive MZN|no second route/i)
   })
 })

@@ -35,6 +35,7 @@ export type DeskTx = {
   executionSnapshotId?: string
   restockGroupId?: string
   assignmentIndex?: number
+  posReason?: string
   reconstruction?: boolean
 }
 
@@ -140,6 +141,7 @@ export function deskTxFromSwipe(
     executionSnapshotId?: string
     restockGroupId?: string
     assignmentIndex?: number
+    posReason?: string
   } = {}
 ): DeskTx {
   return {
@@ -163,6 +165,7 @@ export function deskTxFromSwipe(
     executionSnapshotId: extra.executionSnapshotId,
     restockGroupId: extra.restockGroupId,
     assignmentIndex: extra.assignmentIndex,
+    posReason: extra.posReason,
   }
 }
 
