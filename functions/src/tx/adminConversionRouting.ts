@@ -46,6 +46,7 @@ import {
   deskTxFromSwipe,
   mergeDeskHistory,
   omitUndefined,
+  restockGroupIdFor,
   outcomeFromLegacy,
   type DeskReview,
   type DeskTx,
@@ -290,6 +291,8 @@ function asDeskTx(row: unknown): DeskTx | null {
     executedAt: item.executedAt,
     proposalSnapshotId: item.proposalSnapshotId,
     executionSnapshotId: item.executionSnapshotId,
+    restockGroupId: item.restockGroupId,
+    assignmentIndex: typeof item.assignmentIndex === 'number' ? item.assignmentIndex : undefined,
     reconstruction: item.reconstruction === true,
   }
 }
@@ -809,9 +812,10 @@ function writeIssuedReplenish(
   })
   persistFrictionSnapshots(tx, proposalSnapshots, now)
   const proposedAt = now.toMillis()
+  const restockGroupId = restockGroupIdFor(testRunId, replenish.cycleNumber)
   persistDeskTxs(
     tx,
-    replenish.cardAssignments.map((row) => {
+    replenish.cardAssignments.map((row, assignmentIndex) => {
       const snapshot = proposalSnapshots.find(
         (item) => item.proposed.cardId === row.cardId && item.proposed.machineId === row.machineId
       )
@@ -830,6 +834,8 @@ function writeIssuedReplenish(
           status: 'proposed',
           proposedAt,
           proposalSnapshotId: snapshot?.id,
+          restockGroupId,
+          assignmentIndex,
         }
       )
     }),
@@ -1279,6 +1285,22 @@ export const admin_confirmConversionRoutingCycle = functions
         const assignments = Array.isArray(testData.replenishAssignments)
           ? (testData.replenishAssignments as ReplenishPlan['cardAssignments'])
           : replenish.cardAssignments
+        const eventRef = db
+          .collection('users')
+          .doc(adminUid)
+          .collection('activityEvents')
+          .doc(replenishEventId(testRunId, cycleNumber))
+        const eventSnap = await tx.get(eventRef)
+        if (!eventSnap.exists || eventSnap.data()?.status !== 'awaiting_execution') {
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            'Restock ZAR @ COST is not awaiting execution'
+          )
+        }
+        const issuedFriction = enrichFriction(frictionFromDoc(testData, now.toMillis()), ledger, testRunId)
+        const storedObserve =
+          typeof eventSnap.data()?.frictionLine === 'string' ? (eventSnap.data()?.frictionLine as string) : null
+        const observeLine = storedObserve || observeLineFor(assignments, issuedFriction)
         const completedCopy = buildReplenishActivityCopy(
           {
             ...replenish,
@@ -1293,20 +1315,10 @@ export const admin_confirmConversionRoutingCycle = functions
           state.config.cycleCount,
           'completed',
           state,
-          overlay
+          overlay,
+          issuedFriction,
+          observeLine
         )
-        const eventRef = db
-          .collection('users')
-          .doc(adminUid)
-          .collection('activityEvents')
-          .doc(replenishEventId(testRunId, cycleNumber))
-        const eventSnap = await tx.get(eventRef)
-        if (!eventSnap.exists || eventSnap.data()?.status !== 'awaiting_execution') {
-          throw new functions.https.HttpsError(
-            'failed-precondition',
-            'Restock ZAR @ COST is not awaiting execution'
-          )
-        }
         const contacted = applyCardPosContact(state, assignments, cycleNumber)
         const nowMs = now.toMillis()
         const friction = frictionFromDoc(testData, nowMs)
@@ -1318,7 +1330,8 @@ export const admin_confirmConversionRoutingCycle = functions
           amount: row.amount,
           cycleNumber,
         }))
-        const durable = added.map((row) => {
+        const restockGroupId = restockGroupIdFor(testRunId, cycleNumber)
+        const durable = added.map((row, assignmentIndex) => {
           const proposedAt = firestoreTimestampMs(testData.frictionProposedAt) || firestoreTimestampMs(testData.updatedAt) || nowMs
           return deskTxFromSwipe(row, {
             testRunId,
@@ -1326,6 +1339,8 @@ export const admin_confirmConversionRoutingCycle = functions
             status: 'executed',
             proposedAt,
             proposalSnapshotId: proposalSnapshotIdFromDoc(testData, row.cardId, row.machineId),
+            restockGroupId,
+            assignmentIndex,
           })
         })
         const executionSnapshots = snapshotsForAssignments(
@@ -1370,6 +1385,7 @@ export const admin_confirmConversionRoutingCycle = functions
           status: 'completed',
           awaitingConfirm: false,
           completedAt: now,
+          ...(observeLine ? { frictionLine: observeLine } : {}),
           ...(conversionTxId
             ? { txId: conversionTxId, hasDownloadButton: true }
             : {}),

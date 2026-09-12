@@ -12,6 +12,7 @@ import {
 } from './constraints'
 import {
   explainPosChoice,
+  explainPosRanking,
   formatSwipeInstruction,
   formatZar,
   pairingKey,
@@ -31,6 +32,7 @@ import {
   type SwipeRecord,
 } from './friction'
 import { answerFrictionAsk } from './frictionAdvisor'
+import { answerLedgerFactAsk } from './ledgerFacts'
 import { deskTxFromSwipe, type DeskReview, type DeskTx } from './frictionHistory'
 import type { RecentCycleBrief, RecentFeedbackBrief } from './interpretContext'
 import { cardLabel, cardShortName, formatReceiveAccount, resolveNamedCardIds } from './inventory'
@@ -40,7 +42,9 @@ import {
   isBankerQuestion,
   isDeskStrategyAsk,
   isFrictionAsk,
+  isLedgerFactAsk,
   isPaceAsk,
+  isPosRankingAsk,
   isSettlementAsk,
   isWhatIfAsk,
   namesConstraintChange,
@@ -681,6 +685,35 @@ export function adviseDesk(params: {
       reviews,
       nowMs,
     })
+    return {
+      kind: 'next_step',
+      title: answered.title,
+      body: answered.body,
+    }
+  }
+
+  if (isPosRankingAsk(message)) {
+    const assignments = proposed || open?.assignments || []
+    if (!assignments.length) {
+      return {
+        kind: 'next_step',
+        title: 'No pair on the desk',
+        body: 'There is no open restock pair to rank. Name a card and POS, or open a restock.',
+      }
+    }
+    const overlay = overlayFromConstraints(constraints)
+    const namedCard = namedCardIds[0]
+    const focus =
+      (namedCard && assignments.find((row) => row.cardId === namedCard)) || assignments[0]
+    return {
+      kind: 'next_step',
+      title: 'POS ranking',
+      body: explainPosRanking(state, focus, cycleNumber, overlay),
+    }
+  }
+
+  if (isLedgerFactAsk(message)) {
+    const answered = answerLedgerFactAsk({ message, history: deskHistory, nowMs })
     return {
       kind: 'next_step',
       title: answered.title,

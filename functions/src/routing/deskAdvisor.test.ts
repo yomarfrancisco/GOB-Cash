@@ -150,7 +150,7 @@ describe('adviseDesk', () => {
     assert.match(advice.body, /on (FNB IMANI|Capitec BRICS|FNB BRICS|FNB Wolf)/)
     assert.match(
       advice.body,
-      /cannot use|taken less rand|cooler pair|only legal POS|preferred machine|volume is lower|sat idle|tied with|has been on/
+      /same-identity|less recent restock volume|used less often|only eligible POS|asked to prefer|idle longer|even on recent restock volume/
     )
   })
 
@@ -194,7 +194,7 @@ describe('adviseDesk', () => {
     assert.match(advice.body, /on (FNB IMANI|Capitec BRICS|FNB BRICS|FNB Wolf)/)
     assert.match(
       advice.body,
-      /cannot use|taken less rand|cooler pair|only legal POS|preferred machine|volume is lower|sat idle|ranked ahead|has been on|tied with/
+      /same-identity|less recent restock volume|used less often|only eligible POS|asked to prefer|idle longer|even on recent restock volume|safest pair/
     )
   })
 

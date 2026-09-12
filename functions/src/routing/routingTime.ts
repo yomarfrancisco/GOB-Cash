@@ -196,9 +196,41 @@ export function isFrictionAsk(message: string): boolean {
   )
 }
 
-export function isSettlementAsk(message: string): boolean {
+export function isPosRankingAsk(message: string): boolean {
   const text = questionStem(message)
   if (!text || namesConstraintChange(message)) return false
+  if (/\bwhy did capitec\b/.test(text)) return false
+  return (
+    /\bwhy this (?:pos|pairing|pair|machine)\b/.test(text) ||
+    /\bwhy (?:this|the) pairing\b/.test(text) ||
+    /\bwhy is \S+ on\b/.test(text) ||
+    /\bwhy \S+ on (?:fnb|capitec|imani|wolf|brics)\b/.test(text)
+  )
+}
+
+export function isLedgerFactAsk(message: string): boolean {
+  const text = questionStem(message)
+  if (!text || namesConstraintChange(message)) return false
+  if (isFrictionAsk(message) || isPosRankingAsk(message)) return false
+  const lastWho =
+    /\b(last|most recently)\b/.test(text) &&
+    /\b(merchant|pos|machine|card)\b/.test(text) &&
+    !/\blast clean\b/.test(text)
+  const whenLast =
+    /\bwhen did we last (?:use|swipe)\b/.test(text) ||
+    /\blast (?:use|used|swiped?) on\b/.test(text)
+  const howMuchNamed =
+    /\bhow much\b/.test(text) &&
+    /\b(today|tonight|this week|7 days)\b/.test(text) &&
+    !/\b(each card|per card|every card|by card|on each)\b/.test(text)
+  const mostPos = /\bwhich pos\b/.test(text) && /\bmost\b/.test(text)
+  const didWeUse = /\bdid we use\b/.test(text) && /\b(today|tonight|this week)\b/.test(text)
+  return lastWho || whenLast || howMuchNamed || mostPos || didWeUse
+}
+
+export function isSettlementAsk(message: string): boolean {
+  const text = questionStem(message)
+  if (!text || namesConstraintChange(message) || isLedgerFactAsk(message)) return false
   const amount = /\b(how much|settled|volume|spent|swiped)\b/.test(text)
   const window = /\b(week|7 days|past (?:week|seven days)|this week|today|tonight)\b/.test(text)
   const who = /\b(each card|per card|every card|by card|on each)\b/.test(text)
@@ -208,7 +240,15 @@ export function isSettlementAsk(message: string): boolean {
 export function isBankerQuestion(message: string): boolean {
   if (isWhatIfAsk(message)) return false
   if (isMemoryOrHistoryQuestion(message)) return true
-  if (isFrictionAsk(message) || isPaceAsk(message) || isSettlementAsk(message)) return true
+  if (
+    isFrictionAsk(message) ||
+    isPaceAsk(message) ||
+    isSettlementAsk(message) ||
+    isLedgerFactAsk(message) ||
+    isPosRankingAsk(message)
+  ) {
+    return true
+  }
   const text = message.trim().toLowerCase()
   if (!text) return false
   if (

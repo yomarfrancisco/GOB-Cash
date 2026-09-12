@@ -202,10 +202,12 @@ describe('20-cycle default test', () => {
       false
     )
     const row = replenish!.cardAssignments[0]
-    assert.match(row.posReason || '', /cannot use FNB BRICS or Capitec BRICS/i)
+    assert.match(row.posReason || '', /unavailable for BRICS AI because they are same-identity pairs/i)
+    assert.doesNotMatch(row.posReason || '', /never, vs|cooler pair|pair heat|runner-up/i)
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state, overlay)
     assert.match(copy.body, /^Swipe BRICS AI on /)
-    assert.match(copy.body, /cannot use FNB BRICS or Capitec BRICS/i)
+    assert.match(copy.body, /BRICS AI → /)
+    assert.match(copy.body, /same-identity pairs/i)
     assert.doesNotMatch(copy.body, /each Moz debit card/)
     assert.doesNotMatch(copy.body, /Cards resting/)
     assert.doesNotMatch(copy.body, /POS resting/)
@@ -257,6 +259,28 @@ describe('20-cycle default test', () => {
     assert.match(hot.body, /^Swipe these \d+ pairs:/)
     assert.match(hot.body, /has run 3 times in 7 days/)
     assert.ok(hot.body.indexOf('Swipe these') < hot.body.indexOf('has run 3 times'))
+    const observe = 'Friction: Elevated\nSame card/merchant pair has been used 3 times in 7 days.'
+    const awaiting = buildReplenishActivityCopy(
+      replenish!,
+      20,
+      'awaiting_execution',
+      state,
+      EMPTY_OVERLAY,
+      friction,
+      observe
+    )
+    const completed = buildReplenishActivityCopy(
+      replenish!,
+      20,
+      'completed',
+      state,
+      EMPTY_OVERLAY,
+      friction,
+      observe
+    )
+    assert.match(awaiting.body, /Friction: Elevated/)
+    assert.match(completed.body, /Friction: Elevated/)
+    assert.ok(completed.body.includes(observe.split('\n')[0]))
     assert.ok(hot.body.indexOf('has run 3 times') < hot.body.indexOf('COST 4.15'))
   })
 })

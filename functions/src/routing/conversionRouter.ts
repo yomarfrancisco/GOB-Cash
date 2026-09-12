@@ -367,6 +367,18 @@ function comparePosCandidates(
   return a.id - b.id
 }
 
+function bannedPosNames(state: RoutingState, cardId: number): string[] {
+  return state.machines.filter((machine) => isForbiddenPair(cardId, machine.id)).map((machine) => machineShortName(machine.id))
+}
+
+function sameIdentityReason(card: string, pos: string, banned: string[]): string | null {
+  if (!banned.length) return null
+  const listed = banned.join(' and ')
+  const verb = banned.length === 1 ? 'is' : 'are'
+  const noun = banned.length === 1 ? 'it is a same-identity pair' : 'they are same-identity pairs'
+  return `${listed} ${verb} unavailable for ${card} because ${noun}, so ${pos} is the best eligible option.`
+}
+
 function describePosPick(params: {
   state: RoutingState
   cardId: number
@@ -375,16 +387,53 @@ function describePosPick(params: {
   cycleNumber: number
   overlay: RoutingOverlay
   assignedVolume: Map<number, number>
+  detail?: 'card' | 'ranking'
 }): string {
   const { state, cardId, chosen, runnerUp, cycleNumber, overlay, assignedVolume } = params
+  const detail = params.detail || 'card'
   const card = cardShortName(cardId)
   const pos = machineShortName(chosen.id)
+  const prefix = `${card} → ${pos}`
   const preferred = new Set(overlay.preferredMachineIds)
+  const banned = bannedPosNames(state, cardId)
+  if (detail === 'card') {
+    const identity = sameIdentityReason(card, pos, banned)
+    if (identity) return `${prefix} — ${identity}`
+    if (!runnerUp) return `${prefix} — ${pos} is the only eligible POS left for this card.`
+    const other = machineShortName(runnerUp.id)
+    if (preferred.has(chosen.id) && !preferred.has(runnerUp.id)) {
+      return `${prefix} — ${pos} is the POS you asked to prefer for this restock.`
+    }
+    const chosenVol = chosen.volume + (assignedVolume.get(chosen.id) || 0)
+    const otherVol = runnerUp.volume + (assignedVolume.get(runnerUp.id) || 0)
+    const chosenBucket = Math.floor(chosenVol / VOLUME_BALANCE_BUCKET)
+    const otherBucket = Math.floor(otherVol / VOLUME_BALANCE_BUCKET)
+    const chosenPair = pairUseCount(state, cardId, chosen.id)
+    const otherPair = pairUseCount(state, cardId, runnerUp.id)
+    if (chosenBucket !== otherBucket || chosenVol !== otherVol && chosenPair === otherPair) {
+      return `${prefix} — ${pos} has handled less recent restock volume than the alternatives, so this avoids concentrating more volume on the heavier POS.`
+    }
+    if (chosenPair !== otherPair) {
+      return `${prefix} — this card/POS pair has been used less often than the alternatives, which keeps the restock load more balanced.`
+    }
+    if (
+      runnerUp.lastCycleUsed === cycleNumber - 1 &&
+      chosen.lastCycleUsed !== cycleNumber - 1
+    ) {
+      return `${prefix} — ${other} was used on the previous cycle, so this swipe uses ${pos} instead of repeating that POS immediately.`
+    }
+    if (chosen.lastCycleUsed !== runnerUp.lastCycleUsed) {
+      return `${prefix} — ${pos} has been idle longer than the other eligible POS, so this swipe uses the quieter machine.`
+    }
+    return `${prefix} — the eligible POS options are even on recent restock volume and pairing history, so ${pos} stays on this instruction.`
+  }
+
   const bits: string[] = []
-  const banned = state.machines.filter((machine) => isForbiddenPair(cardId, machine.id))
   if (banned.length) {
     bits.push(
-      `${card} cannot use ${banned.map((machine) => machineShortName(machine.id)).join(' or ')} (same-identity pair).`
+      `${card} cannot use ${banned.join(' or ')} (same-identity pair). Pair counts: ${card} on ${pos} ${pairUsePhrase(
+        pairUseCount(state, cardId, chosen.id)
+      )}.`
     )
   }
   if (!runnerUp) {
@@ -404,24 +453,24 @@ function describePosPick(params: {
   const otherPair = pairUseCount(state, cardId, runnerUp.id)
   if (chosenBucket !== otherBucket) {
     bits.push(
-      `${pos} has taken less rand than ${other}, so this swipe does not pile onto the heavier machine.`
+      `${pos} volume bucket ${chosenBucket} vs ${other} at ${otherBucket} (R${VOLUME_BALANCE_BUCKET.toLocaleString('en-ZA')} steps). ${card} on ${pos} ${pairUsePhrase(chosenPair)}, vs ${pairUsePhrase(otherPair)} on ${other}.`
     )
   } else if (chosenPair !== otherPair) {
     bits.push(
-      `${card} has been on ${pos} ${pairUsePhrase(chosenPair)}, vs ${pairUsePhrase(otherPair)} on ${other}. The cooler pair keeps restock capacity open.`
+      `${card} has been on ${pos} ${pairUsePhrase(chosenPair)}, vs ${pairUsePhrase(otherPair)} on ${other}.`
     )
   } else if (chosenVol !== otherVol) {
-    bits.push(`${pos} volume is lower than ${other}.`)
+    bits.push(`${pos} raw volume ${formatZar(chosenVol)} vs ${other} ${formatZar(otherVol)}.`)
   } else if (
     runnerUp.lastCycleUsed === cycleNumber - 1 &&
     chosen.lastCycleUsed !== cycleNumber - 1
   ) {
     bits.push(`${other} ran last cycle; ${pos} did not.`)
   } else if (chosen.lastCycleUsed !== runnerUp.lastCycleUsed) {
-    bits.push(`${pos} has sat idle longer than ${other}.`)
+    bits.push(`${pos} lastCycleUsed ${chosen.lastCycleUsed} vs ${other} ${runnerUp.lastCycleUsed}.`)
   } else {
     bits.push(
-      `${pos} tied with ${other} on volume, pair heat, and idle time, so the planner keeps ${pos}.`
+      `${pos} tied with ${other} on volume, pair count, and idle time; the planner keeps ${pos} (lower POS id).`
     )
   }
   return bits.join(' ')
@@ -450,21 +499,11 @@ export function explainPosChoice(
   }
   const rankedFirst = candidates[0]
   if (rankedFirst && rankedFirst.id !== chosen.id) {
-    const bits: string[] = []
-    const banned = state.machines.filter((machine) => isForbiddenPair(assignment.cardId, machine.id))
-    if (banned.length) {
-      bits.push(
-        `${cardShortName(assignment.cardId)} cannot use ${banned
-          .map((machine) => machineShortName(machine.id))
-          .join(' or ')} (same-identity pair).`
-      )
-    }
-    bits.push(
-      `${machineShortName(chosen.id)} is the POS on this instruction. ${cardShortName(assignment.cardId)} has been on it ${pairUsePhrase(
-        pairUseCount(state, assignment.cardId, chosen.id)
-      )}.`
-    )
-    return bits.join(' ')
+    const card = cardShortName(assignment.cardId)
+    const pos = machineShortName(chosen.id)
+    const identity = sameIdentityReason(card, pos, bannedPosNames(state, assignment.cardId))
+    if (identity) return `${card} → ${pos} — ${identity}`
+    return `${card} → ${pos} — ${pos} is the POS on this instruction, so this swipe follows the named pair rather than switching to another eligible machine.`
   }
   const runnerUp = candidates.find((machine) => machine.id !== chosen.id)
   return describePosPick({
@@ -475,6 +514,40 @@ export function explainPosChoice(
     cycleNumber,
     overlay,
     assignedVolume,
+    detail: 'card',
+  })
+}
+
+export function explainPosRanking(
+  state: RoutingState,
+  assignment: CardAssignment,
+  cycleNumber: number,
+  overlay: RoutingOverlay = EMPTY_OVERLAY
+): string {
+  const excluded = new Set(overlay.excludedMachineIds)
+  const preferred = new Set(overlay.preferredMachineIds)
+  const assignedVolume = new Map<number, number>()
+  const candidates = state.machines.filter(
+    (machine) => !excluded.has(machine.id) && !isForbiddenPair(assignment.cardId, machine.id)
+  )
+  candidates.sort((a, b) =>
+    comparePosCandidates(state, assignment.cardId, a, b, cycleNumber, preferred, assignedVolume)
+  )
+  const chosen =
+    state.machines.find((machine) => machine.id === assignment.machineId) || candidates[0]
+  if (!chosen) {
+    return `${machineShortName(assignment.machineId)} is the POS named on this instruction.`
+  }
+  const runnerUp = candidates.find((machine) => machine.id !== chosen.id)
+  return describePosPick({
+    state,
+    cardId: assignment.cardId,
+    chosen,
+    runnerUp,
+    cycleNumber,
+    overlay,
+    assignedVolume,
+    detail: 'ranking',
   })
 }
 

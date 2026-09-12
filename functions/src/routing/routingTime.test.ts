@@ -9,6 +9,7 @@ import {
   isDeskStrategyAsk,
   isMemoryOrHistoryQuestion,
   isPaceAsk,
+  isLedgerFactAsk,
   isSettlementAsk,
   isWhatIfAsk,
   resolveExpiryFromMessage,
@@ -71,6 +72,8 @@ describe('time phrases', () => {
       true
     )
     assert.equal(isPaceAsk('ok how much have we settled on each card over the past week?'), false)
+    assert.equal(isLedgerFactAsk('what was the last merchant we used?'), true)
+    assert.equal(isBankerQuestion('what was the last merchant we used?'), true)
     assert.equal(isWhatIfAsk('what if we rest Wolf for 3 cycles'), true)
     assert.equal(isWhatIfAsk('Wolf is lost'), false)
   })

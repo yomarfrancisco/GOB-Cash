@@ -33,7 +33,13 @@ export type DeskTx = {
   executedAt?: number
   proposalSnapshotId?: string
   executionSnapshotId?: string
+  restockGroupId?: string
+  assignmentIndex?: number
   reconstruction?: boolean
+}
+
+export function restockGroupIdFor(testRunId: string, cycleNumber: number): string {
+  return `restock-${testRunId}-c${cycleNumber}`
 }
 
 export type FrictionOutcome =
@@ -132,6 +138,8 @@ export function deskTxFromSwipe(
     proposedAt?: number
     proposalSnapshotId?: string
     executionSnapshotId?: string
+    restockGroupId?: string
+    assignmentIndex?: number
   } = {}
 ): DeskTx {
   return {
@@ -153,6 +161,8 @@ export function deskTxFromSwipe(
     cycleNumber: swipe.cycleNumber,
     proposalSnapshotId: extra.proposalSnapshotId,
     executionSnapshotId: extra.executionSnapshotId,
+    restockGroupId: extra.restockGroupId,
+    assignmentIndex: extra.assignmentIndex,
   }
 }
 
