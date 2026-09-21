@@ -417,15 +417,15 @@ function ActivityItemCard({
             name={item.actor.name || profile.fullName}
             handle={profile.userHandle}
             email={profile.email}
-            size={40}
-            rounded={20}
+            size={36}
+            rounded={18}
           />
         ) : (
           <Image
             src={avatarUrl ?? ADMIN_AVATAR_PATH}
             alt={item.actor.name || 'Payment agent'}
-            width={40}
-            height={40}
+            width={36}
+            height={36}
             className={styles.avatarImg}
             unoptimized
           />
