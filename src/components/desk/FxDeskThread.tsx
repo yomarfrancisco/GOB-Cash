@@ -264,8 +264,16 @@ export function FxDeskThread() {
   return (
     <div className={styles.root}>
       <header className={styles.header}>
-        <div className={styles.headerFace}>
-          <Image src={DESK_TEAM.sam.avatar} alt="" width={44} height={44} unoptimized />
+        <div className={styles.stack} aria-hidden>
+          <div className={`${styles.stackFace} ${styles.stackAmina}`}>
+            <Image src={DESK_TEAM.amina.avatar} alt="" width={28} height={28} unoptimized />
+          </div>
+          <div className={`${styles.stackFace} ${styles.stackLeo}`}>
+            <Image src={DESK_TEAM.leo.avatar} alt="" width={28} height={28} unoptimized />
+          </div>
+          <div className={`${styles.stackFace} ${styles.stackSam}`}>
+            <Image src={DESK_TEAM.sam.avatar} alt="" width={36} height={36} unoptimized />
+          </div>
         </div>
         <div className={styles.headerCopy}>
           <p className={styles.headerName}>Sam</p>
