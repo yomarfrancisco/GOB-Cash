@@ -468,7 +468,7 @@ export default function ProfileClient() {
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'convert'>('deposit')
   const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'cardDeposit' | 'depositKeypad' | 'conversionKeypad' | 'withdrawKeypad' | undefined>(undefined)
-  const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
+  const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('MZN')
   const [agentCashKeypad, setAgentCashKeypad] = useState(false)
   const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
   const openedCashLinkRef = useRef<string | null>(null)
@@ -657,6 +657,7 @@ export default function ProfileClient() {
               <TopGlassBar />
               <BottomGlassBar 
                 currentPath="/profile" 
+                conversionDestination={conversionDestination}
                 onDollarClick={() => {
                   guardAuthed(() => {
                     setAgentCashKeypad(false)

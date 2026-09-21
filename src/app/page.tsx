@@ -135,7 +135,7 @@ function HomeContent() {
   const [openCardSuccess, setOpenCardSuccess] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('deposit')
   const [amountEntryPoint, setAmountEntryPoint] = useState<'helicopter' | 'cashButton' | 'conversionKeypad' | undefined>(undefined)
-  const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('ZAR')
+  const [conversionDestination, setConversionDestination] = useState<ConversionDestination>('MZN')
   const [conversionPrefill, setConversionPrefill] = useState<number | undefined>(undefined)
   const [agentCashKeypad, setAgentCashKeypad] = useState(false)
   const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
@@ -660,6 +660,7 @@ function HomeContent() {
               <TopGlassBar />
               <BottomGlassBar 
                 currentPath="/" 
+                conversionDestination={conversionDestination}
                 onDollarClick={() => {
                   if (!isAuthed) {
                     requireAuth(() => {})

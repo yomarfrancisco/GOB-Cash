@@ -635,7 +635,7 @@ export default function AmountSheet({
               type="button"
               disabled={!isPositive || exceedsZarBalance || exceedsMznBalance || conversionBusy}
             >
-              Exchange
+              {isZarPrimaryKeypad ? 'Sell ZAR' : 'Sell MZN'}
             </button>
           ) : entryPoint === 'cashButton' ? (
             // Dual buttons for $ button entry point: "Request" and "Pay"

@@ -12,13 +12,19 @@ import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import { USER_PLACEHOLDER_AVATAR } from '@/lib/avatarAssets'
 import '@/styles/bottom-glass.css'
 
+function sellActionLabel(destination?: 'ZAR' | 'MZN') {
+  return destination === 'ZAR' ? 'Sell MZN' : 'Sell ZAR'
+}
+
 interface BottomGlassBarProps {
   currentPath?: string
   onDollarClick?: () => void // NOTE: Dollar FAB now opens the amount sheet directly. The old "Cash agents around you" sheet is now accessible from Settings → Inbox.
   onRequestAgent?: () => void // Deprecated: no longer used, kept for backward compatibility
+  conversionDestination?: 'ZAR' | 'MZN'
 }
 
-export default function BottomGlassBar({ currentPath = '/', onDollarClick }: BottomGlassBarProps) {
+export default function BottomGlassBar({ currentPath = '/', onDollarClick, conversionDestination }: BottomGlassBarProps) {
+  const sellLabel = sellActionLabel(conversionDestination)
   const isHome = currentPath === '/'
   const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
   const { isAuthed, requireAuth } = useAuthStore()
@@ -57,7 +63,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             'is-autonomous': !isAuthed,
             'fab-highlighted': isHighlighted,
           })}
-          aria-label={isHighlighted ? 'Exchanging' : 'Exchange'}
+          aria-label={sellLabel}
           onClick={handleCenterButtonClick}
           onMouseEnter={() => {
             // Prefetch auth images on hover (if not authed, button may trigger auth)
@@ -100,7 +106,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             </div>
           </div>
         </button>
-        <div className="nav-label">{isHighlighted ? 'Exchanging' : 'Exchange'}</div>
+        <div className="nav-label">{sellLabel}</div>
       </div>
       <div className="nav-item" style={{ position: 'relative' }}>
         <Link 
