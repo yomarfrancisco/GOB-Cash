@@ -46,9 +46,7 @@ export default function NotificationsSheet() {
             <p className={listStyles.deskHeaderRole}>{DESK_TEAM.sam.role}</p>
           </div>
         </div>
-        <div className={listStyles.conversationList} data-desk-feed>
-          <NotificationsList />
-        </div>
+        <NotificationsList />
       </div>
     </ActionSheet>
   )

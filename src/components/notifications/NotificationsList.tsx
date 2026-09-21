@@ -25,6 +25,7 @@ import { useRouter } from 'next/navigation'
 import { useSignedInKycAccess } from '@/lib/restrictions'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import styles from '@/app/activity/activity.module.css'
+import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 
 const KYC_GATE_ID = 'kyc-desk-gate'
 
@@ -244,7 +245,6 @@ function confirmTargetForCard(item: ActivityItem): ActivityItem | null {
 function ActivityItemCard({
   item,
   showRoutingActions,
-  showAsk,
   onRoutingAsk,
   onAcceptProposal,
   onDiscardProposal,
@@ -252,7 +252,6 @@ function ActivityItemCard({
 }: {
   item: ActivityItem
   showRoutingActions: boolean
-  showAsk: boolean
   onRoutingAsk: (item: ActivityItem, message: string) => Promise<void>
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
@@ -267,10 +266,6 @@ function ActivityItemCard({
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
-  const [askOpen, setAskOpen] = useState(false)
-  const [askText, setAskText] = useState('')
-  const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
-  const [askError, setAskError] = useState('')
   const [startNextState, setStartNextState] = useState<'idle' | 'loading'>('idle')
   const showDownload = canDownloadProof(item)
   const showStartNextRun = !lockDeskActions && item.startNextRun === true
@@ -370,41 +365,14 @@ function ActivityItemCard({
     }
   }
 
-  const handleToggleAsk = (event: React.MouseEvent) => {
-    event.stopPropagation()
-    setAskError('')
-    setAskOpen((open) => !open)
-  }
-
   const handleStartNextRun = async (event: React.MouseEvent) => {
     event.stopPropagation()
     if (startNextState !== 'idle') return
     setStartNextState('loading')
     try {
       await onRoutingAsk(item, 'start the next run')
-    } catch (error) {
-      setAskError(error instanceof Error ? error.message : 'Could not start the next run')
     } finally {
       setStartNextState('idle')
-    }
-  }
-
-  const handleSubmitAsk = async (event: React.FormEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    const message = askText.trim()
-    if (!message || askState !== 'idle') return
-    setAskState('loading')
-    setAskError('')
-    setAskOpen(false)
-    try {
-      await onRoutingAsk(item, message)
-      setAskText('')
-    } catch (error) {
-      setAskOpen(true)
-      setAskError(error instanceof Error ? error.message : 'Could not send that')
-    } finally {
-      setAskState('idle')
     }
   }
 
@@ -477,7 +445,6 @@ function ActivityItemCard({
           showConfirm ||
           showStartNextRun ||
           showDownload ||
-          showAsk ||
           showProposalActions ||
           showExecuted ||
           showKycLink) && (
@@ -589,17 +556,6 @@ function ActivityItemCard({
                 {item.routingAction === 'replenish' ? 'Card swiped' : 'ZAR sent'}
               </span>
             )}
-            {showAsk && (
-              <button
-                type="button"
-                className={`${styles.replyButton} ${styles.askButton}`}
-                aria-label="Ask about this instruction"
-                aria-expanded={askOpen}
-                onClick={handleToggleAsk}
-              >
-                Ask
-              </button>
-            )}
             {showKycLink && (
               <button
                 type="button"
@@ -612,29 +568,6 @@ function ActivityItemCard({
               </button>
             )}
           </div>
-        )}
-        {showAsk && askOpen && (
-          <form className={styles.replyComposer} onSubmit={handleSubmitAsk} onClick={(event) => event.stopPropagation()}>
-            <div className={styles.replyFrame}>
-              <textarea
-                className={styles.replyInput}
-                value={askText}
-                onChange={(event) => setAskText(event.target.value)}
-                placeholder="Wolf is lost"
-                rows={3}
-                disabled={askState !== 'idle'}
-              />
-              <button
-                type="submit"
-                className={styles.replySend}
-                aria-label="Send"
-                disabled={askState !== 'idle' || !askText.trim()}
-              >
-                <ArrowUp size={16} strokeWidth={2.4} />
-              </button>
-            </div>
-            {askError ? <div className={styles.replyError}>{askError}</div> : null}
-          </form>
         )}
       </div>
     </article>
@@ -671,7 +604,6 @@ function ActivitySection({
             key={item.id}
             item={item}
             showRoutingActions={!lockDeskActions && item.id === latestAwaitingId}
-            showAsk={!lockDeskActions && item.id === latestActivityId && !isKycGateItem(item)}
             onRoutingAsk={onRoutingAsk}
             onAcceptProposal={onAcceptProposal}
             onDiscardProposal={onDiscardProposal}
@@ -691,6 +623,9 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
   const [visibleCount, setVisibleCount] = useState(ACTIVITY_PAGE_SIZE)
+  const [askText, setAskText] = useState('')
+  const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
+  const [askError, setAskError] = useState('')
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -879,32 +814,84 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     lockDeskActions: deskBlocked,
   }
 
+  const askAnchor =
+    allItems.find((item) => item.thinking !== true && item.id === latestActivityId) ||
+    allItems.find((item) => item.thinking !== true && Boolean(item.testRunId)) ||
+    allItems.find((item) => item.thinking !== true)
+
+  const handleSubmitAsk = async (event?: { preventDefault: () => void }) => {
+    event?.preventDefault()
+    const message = askText.trim()
+    if (!message || askState !== 'idle' || deskBlocked || !askAnchor) return
+    setAskState('loading')
+    setAskError('')
+    try {
+      await handleRoutingAsk(askAnchor, message)
+      setAskText('')
+    } catch (error) {
+      setAskError(error instanceof Error ? error.message : 'Sam could not take that just now.')
+    } finally {
+      setAskState('idle')
+    }
+  }
+
   return (
-    <div className={styles.activityContainer} ref={listRootRef}>
-      {hasMore && (
-        <div className={styles.activityList}>
-          <button
-            type="button"
-            className={styles.moreButton}
-            onClick={() => {
-              skipScrollRef.current = true
-              setVisibleCount((count) => count + ACTIVITY_PAGE_SIZE)
+    <>
+      <div className={listStyles.conversationList} data-desk-feed>
+        <div className={styles.activityContainer} ref={listRootRef}>
+          {hasMore && (
+            <div className={styles.activityList}>
+              <button
+                type="button"
+                className={styles.moreButton}
+                onClick={() => {
+                  skipScrollRef.current = true
+                  setVisibleCount((count) => count + ACTIVITY_PAGE_SIZE)
+                }}
+              >
+                Older
+              </button>
+            </div>
+          )}
+          <ActivitySection title="Older" items={older} {...sectionProps} />
+          <ActivitySection title="Last 30 days" items={last30Days} {...sectionProps} />
+          <ActivitySection title="Last 7 days" items={last7Days} {...sectionProps} />
+          <ActivitySection title="Yesterday" items={yesterday} {...sectionProps} />
+          <ActivitySection title="Today" items={today} {...sectionProps} />
+          {filteredItems.length === 0 && (
+            <p className={styles.emptyState}>
+              {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}
+            </p>
+          )}
+        </div>
+      </div>
+      <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
+        <div className={listStyles.deskAskFrame}>
+          <textarea
+            className={listStyles.deskAskField}
+            rows={1}
+            value={askText}
+            placeholder="Ask Sam"
+            disabled={askState !== 'idle' || deskBlocked}
+            onChange={(event) => setAskText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                void handleSubmitAsk(event)
+              }
             }}
+          />
+          <button
+            type="submit"
+            className={listStyles.deskAskSend}
+            disabled={askState !== 'idle' || deskBlocked || !askText.trim()}
+            aria-label="Send"
           >
-            Older
+            <ArrowUp size={16} strokeWidth={2.4} />
           </button>
         </div>
-      )}
-      <ActivitySection title="Older" items={older} {...sectionProps} />
-      <ActivitySection title="Last 30 days" items={last30Days} {...sectionProps} />
-      <ActivitySection title="Last 7 days" items={last7Days} {...sectionProps} />
-      <ActivitySection title="Yesterday" items={yesterday} {...sectionProps} />
-      <ActivitySection title="Today" items={today} {...sectionProps} />
-      {filteredItems.length === 0 && (
-        <p className={styles.emptyState}>
-          {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}
-        </p>
-      )}
-    </div>
+        {askError ? <p className={listStyles.deskAskError}>{askError}</p> : null}
+      </form>
+    </>
   )
 }
