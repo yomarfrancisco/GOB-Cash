@@ -221,6 +221,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-anchor: none;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   padding: 0;
   min-height: 0;

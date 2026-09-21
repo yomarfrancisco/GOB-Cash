@@ -779,16 +779,9 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       skipScrollRef.current = false
       return
     }
-    const root = listRootRef.current
-    if (!root) return
-    let node: HTMLElement | null = root.parentElement
-    while (node) {
-      if (node.scrollHeight - node.clientHeight > 8) {
-        node.scrollTop = node.scrollHeight
-        return
-      }
-      node = node.parentElement
-    }
+    const feed = listRootRef.current?.closest('[data-desk-feed]')
+    if (!(feed instanceof HTMLElement)) return
+    feed.scrollTop = feed.scrollHeight
   }, [latestActivityId, thinkingItem?.id, pagedItems.length])
   const { today, yesterday, last7Days, last30Days, older } = useMemo(
     () => groupByTimePeriod(pagedItems),

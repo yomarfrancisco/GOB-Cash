@@ -15,6 +15,9 @@ export default function NotificationsSheet() {
   useEffect(() => {
     if (!isNotificationsOpen) return
     useActivityUnreadStore.getState().markSeen()
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
   }, [isNotificationsOpen])
 
   return (
@@ -43,7 +46,7 @@ export default function NotificationsSheet() {
             <p className={listStyles.deskHeaderRole}>{DESK_TEAM.sam.role}</p>
           </div>
         </div>
-        <div className={listStyles.conversationList}>
+        <div className={listStyles.conversationList} data-desk-feed>
           <NotificationsList />
         </div>
       </div>
