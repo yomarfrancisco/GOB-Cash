@@ -44,7 +44,7 @@
   overflow: hidden;
   overscroll-behavior: none;
   padding: 0;
-  background: #f4f3f8;
+  background: #fff;
 }
 
 .deskContent::after {

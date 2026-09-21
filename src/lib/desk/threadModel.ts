@@ -12,13 +12,13 @@ export const DESK_TEAM = {
   leo: {
     id: 'leo' as const,
     name: 'Leo',
-    role: 'SA rails',
+    role: 'ZAR Manager',
     avatar: '/assets/avatar_agent3.png',
   },
   amina: {
     id: 'amina' as const,
     name: 'Amina',
-    role: 'Mozambique issuers',
+    role: 'MZN Manager',
     avatar: '/assets/Brics-girl-blue.png',
   },
 }

@@ -284,27 +284,39 @@ export function FxDeskThread() {
         )}
         {visibleThread.map((row) => {
           if (row.kind === 'day') return <DayCard key={row.id} row={row} />
-          const team = row.speaker === 'you' ? null : DESK_TEAM[row.speaker]
+          const team = row.speaker === 'leo' || row.speaker === 'amina' ? DESK_TEAM[row.speaker] : null
+          const tone =
+            row.speaker === 'you'
+              ? styles.youText
+              : row.speaker === 'amina'
+                ? styles.aminaText
+                : row.speaker === 'leo'
+                  ? styles.leoText
+                  : styles.samText
           return (
-            <div key={row.id} className={`${styles.row} ${row.speaker === 'you' ? styles.rowYou : styles.rowTeam}`}>
+            <div
+              key={row.id}
+              className={`${styles.row} ${row.speaker === 'you' ? styles.rowYou : styles.rowTeam} ${row.speaker === 'sam' ? styles.rowSam : ''}`}
+            >
               {team && (
                 <div className={styles.face}>
                   <Image src={team.avatar} alt="" width={28} height={28} unoptimized />
                 </div>
               )}
               <div className={styles.bubble}>
-                {team && <p className={styles.who}>{team.name}</p>}
-                <p className={`${styles.text} ${row.speaker === 'you' ? styles.youText : styles.teamText}`}>{row.text}</p>
+                {team && (
+                  <p className={styles.who}>
+                    {team.name} {team.role}
+                  </p>
+                )}
+                <p className={`${styles.text} ${tone}`}>{row.text}</p>
                 {row.pendingConfirm && <p className={styles.pending}>Not saved yet — type yes if this should stand.</p>}
               </div>
             </div>
           )
         })}
         {thinking && (
-          <div className={`${styles.row} ${styles.rowTeam}`}>
-            <div className={styles.face}>
-              <Image src={DESK_TEAM.sam.avatar} alt="" width={28} height={28} unoptimized />
-            </div>
+          <div className={`${styles.row} ${styles.rowTeam} ${styles.rowSam}`}>
             <div className={styles.thinking} aria-label="Sam is writing">
               <span />
               <span />
