@@ -51,6 +51,11 @@
   content: none;
 }
 
+.deskHeaderChrome {
+  flex-shrink: 0;
+  height: 176px;
+}
+
 .activitySearchOverlay {
   position: absolute;
   top: 0;
@@ -113,6 +118,15 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: opacity 180ms ease;
+}
+
+.deskFacePending {
+  opacity: 0;
+}
+
+.deskFaceReady {
+  opacity: 1;
 }
 
 .deskStackAmina {
@@ -150,7 +164,7 @@
 }
 
 .activityContent .conversationList {
-  padding-top: 176px;
+  padding-top: 8px;
   padding-bottom: 104px;
 }
 
