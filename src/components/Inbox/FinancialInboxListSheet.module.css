@@ -146,12 +146,12 @@
   right: 0;
   bottom: 0;
   z-index: 4;
-  padding: 8px 32px calc(12px + env(safe-area-inset-bottom)) 79px;
+  padding: 4px 32px calc(8px + env(safe-area-inset-bottom)) 79px;
 }
 
 .activityContent .conversationList {
   padding-top: 176px;
-  padding-bottom: 132px;
+  padding-bottom: 104px;
 }
 
 .activityContent::after {

@@ -838,7 +838,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   return (
     <>
       <div className={listStyles.conversationList} data-desk-feed>
-        <div className={styles.activityContainer} ref={listRootRef}>
+        <div className={`${styles.activityContainer} ${styles.deskFeed}`} ref={listRootRef}>
           {hasMore && (
             <div className={styles.activityList}>
               <button

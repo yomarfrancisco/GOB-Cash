@@ -10,6 +10,15 @@
   margin-top: 8px;
 }
 
+.deskFeed {
+  padding-bottom: 8px;
+  margin-top: 0;
+}
+
+.deskFeed .activitySection:last-of-type {
+  margin-bottom: 8px;
+}
+
 .searchBar {
   display: flex;
   align-items: center;
