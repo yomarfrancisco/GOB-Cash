@@ -27,16 +27,20 @@ export default function NotificationsSheet() {
     >
       <div className={`${listStyles.content} ${listStyles.activityContent}`}>
         <div className={listStyles.activitySearchOverlay}>
-          <div className={listStyles.deskTeamStack} aria-hidden>
-            <div className={`${listStyles.deskStackFace} ${listStyles.deskStackAmina}`}>
-              <Image src={DESK_TEAM.amina.avatar} alt="" width={36} height={36} unoptimized />
+          <div className={listStyles.deskHeader}>
+            <div className={listStyles.deskTeamStack} aria-hidden>
+              <div className={`${listStyles.deskStackFace} ${listStyles.deskStackAmina}`}>
+                <Image src={DESK_TEAM.amina.avatar} alt="" width={36} height={36} unoptimized />
+              </div>
+              <div className={`${listStyles.deskStackFace} ${listStyles.deskStackLeo}`}>
+                <Image src={DESK_TEAM.leo.avatar} alt="" width={36} height={36} unoptimized />
+              </div>
+              <div className={`${listStyles.deskStackFace} ${listStyles.deskStackSam}`}>
+                <Image src={DESK_TEAM.sam.avatar} alt="" width={44} height={44} unoptimized />
+              </div>
             </div>
-            <div className={`${listStyles.deskStackFace} ${listStyles.deskStackLeo}`}>
-              <Image src={DESK_TEAM.leo.avatar} alt="" width={36} height={36} unoptimized />
-            </div>
-            <div className={`${listStyles.deskStackFace} ${listStyles.deskStackSam}`}>
-              <Image src={DESK_TEAM.sam.avatar} alt="" width={44} height={44} unoptimized />
-            </div>
+            <p className={listStyles.deskHeaderName}>{DESK_TEAM.sam.name}</p>
+            <p className={listStyles.deskHeaderRole}>{DESK_TEAM.sam.role}</p>
           </div>
         </div>
         <div className={listStyles.conversationList}>
