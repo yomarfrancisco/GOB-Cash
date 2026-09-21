@@ -288,4 +288,6 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
   }
 }
 
-export const DESK_CHIPS = ['what’s next', 'Capitec declined', 'that swipe did not land', 'FNB IMANI froze']
+export function hasLiveStep(next: DeskNextStep): boolean {
+  return Boolean(next.clock || next.stillToDeliver || next.startAgain)
+}

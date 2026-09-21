@@ -8,30 +8,25 @@ import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import { admin_submitConversionRoutingFeedback } from '@/lib/transactions/clientFunctions'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
-import { useUserProfileStore } from '@/store/userProfile'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { useNotificationsStore } from '@/state/notifications'
 import { useSignedInKycAccess } from '@/lib/restrictions'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import {
-  DESK_CHIPS,
   DESK_TEAM,
   buildDeskThread,
   buildNextStep,
+  hasLiveStep,
   isDeskNo,
   isDeskYes,
   latestPendingWrite,
   type DeskDayRow,
+  type DeskNextStep,
 } from '@/lib/desk/threadModel'
 import styles from './FxDesk.module.css'
 
 const PAGE = 40
 const KYC_ID = 'kyc-desk-gate'
-
-function seatName(fullName: string, handle: string): string {
-  const name = fullName.trim() || handle.replace(/^@/, '').trim()
-  return name || 'Operator'
-}
 
 function DayCard({ row }: { row: DeskDayRow }) {
   const [open, setOpen] = useState(false)
@@ -81,11 +76,50 @@ function DayCard({ row }: { row: DeskDayRow }) {
   )
 }
 
+function StepCard({
+  next,
+  clockState,
+  onClock,
+  onStartAgain,
+}: {
+  next: DeskNextStep
+  clockState: 'idle' | 'loading'
+  onClock: () => void
+  onStartAgain: () => void
+}) {
+  return (
+    <article className={styles.day}>
+      <h3 className={styles.dayTitle}>{next.title}</h3>
+      <p className={styles.dayResult}>{next.body}</p>
+      {next.stillToDeliver && <p className={styles.leftover}>Still to deliver · {next.stillToDeliver}</p>}
+      {(next.clock || next.startAgain) && (
+        <div className={styles.nextActions}>
+          {next.clock && (
+            <button
+              type="button"
+              className={styles.clock}
+              disabled={clockState !== 'idle' && next.clock !== 'kyc'}
+              onClick={onClock}
+            >
+              {(next.clock === 'sent' || next.clock === 'swiped') && <Check size={14} strokeWidth={2.4} />}
+              {next.clockLabel}
+            </button>
+          )}
+          {next.startAgain && next.clock !== 'start' && (
+            <button type="button" className={styles.secondary} onClick={onStartAgain}>
+              Start again
+            </button>
+          )}
+        </div>
+      )}
+    </article>
+  )
+}
+
 export function FxDeskThread() {
   const clear = useActivityStore((s) => s.clear)
   const all = useActivityStore((s) => s.all)
   const isAuthed = useAuthStore((s) => s.isAuthed)
-  const profile = useUserProfileStore((s) => s.profile)
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
   const { deskBlocked, kycCta } = useSignedInKycAccess()
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
@@ -95,7 +129,7 @@ export function FxDeskThread() {
   const [clockState, setClockState] = useState<'idle' | 'loading'>('idle')
   const [error, setError] = useState('')
   const [visibleCount, setVisibleCount] = useState(PAGE)
-  const endRef = useRef<HTMLDivElement>(null)
+  const threadRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const items = all()
@@ -148,7 +182,9 @@ export function FxDeskThread() {
   )
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' })
+    const el = threadRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
   }, [visibleThread.length, thinking, next.title])
 
   const routingAnchor =
@@ -233,22 +269,17 @@ export function FxDeskThread() {
         </div>
         <div className={styles.headerCopy}>
           <p className={styles.headerName}>Sam</p>
-          <p className={styles.headerRole}>
-            Relationship manager
-            <br />
-            {seatName(profile.fullName, profile.userHandle)} · South Africa FX operator
-          </p>
+          <p className={styles.headerRole}>Relationship manager</p>
         </div>
-        <span className={styles.demo}>Demo</span>
       </header>
 
-      <div className={styles.thread}>
+      <div className={styles.thread} ref={threadRef}>
         {hasMore && (
           <button type="button" className={styles.more} onClick={() => setVisibleCount((count) => count + PAGE)}>
             Earlier in this window
           </button>
         )}
-        {visibleThread.length === 0 && !thinking && (
+        {visibleThread.length === 0 && !thinking && !hasLiveStep(next) && (
           <p className={styles.empty}>This window is empty. Ask Sam what is next.</p>
         )}
         {visibleThread.map((row) => {
@@ -281,46 +312,17 @@ export function FxDeskThread() {
             </div>
           </div>
         )}
-        <div ref={endRef} />
+        {hasLiveStep(next) && (
+          <StepCard
+            next={next}
+            clockState={clockState}
+            onClock={handleClock}
+            onStartAgain={() => void sendAsk('start the next run')}
+          />
+        )}
       </div>
 
       <div className={styles.dock}>
-        <section className={styles.next}>
-          <h2 className={styles.nextTitle}>{next.title}</h2>
-          <p className={styles.nextBody}>{next.body}</p>
-          {next.stillToDeliver && <p className={styles.leftover}>Still to deliver · {next.stillToDeliver}</p>}
-          {(next.clock || next.startAgain) && (
-            <div className={styles.nextActions}>
-              {next.clock && (
-                <button
-                  type="button"
-                  className={styles.clock}
-                  disabled={clockState !== 'idle' && next.clock !== 'kyc'}
-                  onClick={handleClock}
-                >
-                  {(next.clock === 'sent' || next.clock === 'swiped') && <Check size={14} strokeWidth={2.4} />}
-                  {next.clockLabel}
-                </button>
-              )}
-              {next.startAgain && next.clock !== 'start' && (
-                <button type="button" className={styles.secondary} onClick={() => void sendAsk('start the next run')}>
-                  Start again
-                </button>
-              )}
-            </div>
-          )}
-        </section>
-
-        {!deskBlocked && (
-          <div className={styles.chips}>
-            {DESK_CHIPS.map((chip) => (
-              <button key={chip} type="button" className={styles.chip} onClick={() => setDraft(chip)}>
-                {chip}
-              </button>
-            ))}
-          </div>
-        )}
-
         <form
           className={styles.composer}
           onSubmit={(event) => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { buildDeskThread, buildNextStep, isDeskYes, latestPendingWrite } from './threadModel'
+import { buildDeskThread, buildNextStep, hasLiveStep, isDeskYes, latestPendingWrite } from './threadModel'
 
 function item(extra: Record<string, unknown> & { id: string; title: string }) {
   return {
@@ -67,7 +67,9 @@ describe('FX Desk thread', () => {
     const next = buildNextStep([awaiting])
     assert.equal(next.clock, 'sent')
     assert.equal(next.clockLabel, "I've sent ZAR")
+    assert.equal(hasLiveStep(next), true)
     assert.equal(isDeskYes('yes'), true)
     assert.equal(latestPendingWrite([awaiting]), null)
+    assert.equal(buildDeskThread([awaiting]).length, 0)
   })
 })

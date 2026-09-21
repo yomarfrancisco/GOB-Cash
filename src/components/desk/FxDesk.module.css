@@ -1,20 +1,32 @@
 .root {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
   background: #f4f3f8;
 }
 
 .header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 18px 52px 12px 20px;
-  background: #fff;
-  border-bottom: 1px solid rgba(60, 60, 67, 0.08);
-  flex-shrink: 0;
+  padding: 18px 56px 40px 20px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(244, 243, 248, 0.88) 0%,
+    rgba(244, 243, 248, 0.7) 42%,
+    rgba(244, 243, 248, 0.28) 72%,
+    rgba(244, 243, 248, 0) 100%
+  );
 }
 
 .headerFace {
@@ -49,23 +61,14 @@
   color: rgba(0, 0, 0, 0.48);
 }
 
-.demo {
-  flex-shrink: 0;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: #eef8c8;
-  color: #111;
-  font: 600 10px/14px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .thread {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 16px 16px 8px;
+  padding: 88px 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -271,29 +274,27 @@
 }
 
 .dock {
+  position: relative;
   flex-shrink: 0;
-  background: #fff;
-  border-top: 1px solid rgba(60, 60, 67, 0.08);
-  padding: 10px 16px 16px;
+  background: transparent;
+  padding: 0 16px 16px;
 }
 
-.next {
-  padding: 12px 12px 10px;
-  border-radius: 16px;
-  background: #f4f3f8;
-  margin-bottom: 10px;
-}
-
-.nextTitle {
-  margin: 0;
-  font: 600 14px/18px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: #111;
-}
-
-.nextBody {
-  margin: 4px 0 0;
-  font: 400 13px/18px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: rgba(0, 0, 0, 0.66);
+.dock::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 56px;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    #f4f3f8 0%,
+    rgba(244, 243, 248, 0.82) 28%,
+    rgba(244, 243, 248, 0.28) 62%,
+    rgba(244, 243, 248, 0) 100%
+  );
 }
 
 .leftover {
@@ -331,25 +332,6 @@
   height: 32px;
   padding: 0 12px;
   background: rgba(0, 0, 0, 0.08);
-  color: #111;
-  font: 600 12px/16px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  cursor: pointer;
-}
-
-.chips {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-}
-
-.chip {
-  flex-shrink: 0;
-  border: 0;
-  border-radius: 999px;
-  height: 28px;
-  padding: 0 10px;
-  background: #eef8c8;
   color: #111;
   font: 600 12px/16px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   cursor: pointer;

@@ -36,11 +36,13 @@
 }
 
 .deskContent {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  overscroll-behavior: none;
   padding: 0;
   background: #f4f3f8;
 }
