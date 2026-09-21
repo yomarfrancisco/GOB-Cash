@@ -866,10 +866,10 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
         </div>
       </div>
       <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
-        <div className={listStyles.deskAskFrame}>
+        <div className={styles.replyFrame}>
           <textarea
-            className={listStyles.deskAskField}
-            rows={1}
+            className={styles.replyInput}
+            rows={3}
             value={askText}
             placeholder="Ask Sam"
             disabled={askState !== 'idle' || deskBlocked}
@@ -883,14 +883,14 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
           />
           <button
             type="submit"
-            className={listStyles.deskAskSend}
+            className={styles.replySend}
             disabled={askState !== 'idle' || deskBlocked || !askText.trim()}
             aria-label="Send"
           >
             <ArrowUp size={16} strokeWidth={2.4} />
           </button>
         </div>
-        {askError ? <p className={listStyles.deskAskError}>{askError}</p> : null}
+        {askError ? <p className={styles.replyError}>{askError}</p> : null}
       </form>
     </>
   )
