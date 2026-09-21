@@ -758,11 +758,13 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     setVisibleCount(ACTIVITY_PAGE_SIZE)
   }, [searchQuery])
   const isSearching = searchQuery.trim().length > 0
-  const pagedItems = useMemo(
-    () => (isSearching ? filteredItems : filteredItems.slice(0, visibleCount)),
-    [filteredItems, isSearching, visibleCount]
-  )
+  const pagedItems = useMemo(() => {
+    const newestWindow = isSearching ? filteredItems : filteredItems.slice(0, visibleCount)
+    return [...newestWindow].sort((a, b) => a.createdAt - b.createdAt)
+  }, [filteredItems, isSearching, visibleCount])
   const hasMore = !isSearching && visibleCount < filteredItems.length
+  const listRootRef = useRef<HTMLDivElement>(null)
+  const skipScrollRef = useRef(false)
   const latestAwaitingId = useMemo(
     () => (deskBlocked ? null : latestAwaitingRoutingId(allItems)),
     [allItems, deskBlocked]
@@ -771,6 +773,23 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     if (deskBlocked) return KYC_GATE_ID
     return filteredItems.find((item) => item.thinking !== true)?.id ?? null
   }, [filteredItems, deskBlocked])
+
+  useEffect(() => {
+    if (skipScrollRef.current) {
+      skipScrollRef.current = false
+      return
+    }
+    const root = listRootRef.current
+    if (!root) return
+    let node: HTMLElement | null = root.parentElement
+    while (node) {
+      if (node.scrollHeight - node.clientHeight > 8) {
+        node.scrollTop = node.scrollHeight
+        return
+      }
+      node = node.parentElement
+    }
+  }, [latestActivityId, thinkingItem?.id, pagedItems.length])
   const { today, yesterday, last7Days, last30Days, older } = useMemo(
     () => groupByTimePeriod(pagedItems),
     [pagedItems]
@@ -868,23 +887,26 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   }
 
   return (
-    <div className={styles.activityContainer}>
-      <ActivitySection title="Today" items={today} {...sectionProps} />
-      <ActivitySection title="Yesterday" items={yesterday} {...sectionProps} />
-      <ActivitySection title="Last 7 days" items={last7Days} {...sectionProps} />
-      <ActivitySection title="Last 30 days" items={last30Days} {...sectionProps} />
-      <ActivitySection title="Older" items={older} {...sectionProps} />
+    <div className={styles.activityContainer} ref={listRootRef}>
       {hasMore && (
         <div className={styles.activityList}>
           <button
             type="button"
             className={styles.moreButton}
-            onClick={() => setVisibleCount((count) => count + ACTIVITY_PAGE_SIZE)}
+            onClick={() => {
+              skipScrollRef.current = true
+              setVisibleCount((count) => count + ACTIVITY_PAGE_SIZE)
+            }}
           >
-            More...
+            Older
           </button>
         </div>
       )}
+      <ActivitySection title="Older" items={older} {...sectionProps} />
+      <ActivitySection title="Last 30 days" items={last30Days} {...sectionProps} />
+      <ActivitySection title="Last 7 days" items={last7Days} {...sectionProps} />
+      <ActivitySection title="Yesterday" items={yesterday} {...sectionProps} />
+      <ActivitySection title="Today" items={today} {...sectionProps} />
       {filteredItems.length === 0 && (
         <p className={styles.emptyState}>
           {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}

@@ -220,6 +220,7 @@
 .conversationList {
   flex: 1;
   overflow-y: auto;
+  overflow-anchor: none;
   -webkit-overflow-scrolling: touch;
   padding: 0;
   min-height: 0;
