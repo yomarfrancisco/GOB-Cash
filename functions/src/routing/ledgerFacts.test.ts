@@ -3,7 +3,7 @@ import { describe, it } from 'node:test'
 import { adviseDesk } from './deskAdvisor'
 import { createInitialState } from './conversionRouter'
 import type { DeskTx } from './frictionHistory'
-import { answerLedgerFactAsk } from './ledgerFacts'
+import { answerLedgerAggregate, answerLedgerFactAsk, computePosConcentration } from './ledgerFacts'
 import { isLedgerFactAsk, isSettlementAsk, sastToUtcMs } from './routingTime'
 
 const NOW = sastToUtcMs(2026, 9, 12, 11, 7)
@@ -106,5 +106,30 @@ describe('ledger retrieval', () => {
     })
     assert.doesNotMatch(advice.body, /receive MZN|Vidrotec|BIM/i)
     assert.match(advice.body, /Individual swipe order is unknown/)
+  })
+})
+
+describe('ledger aggregate ties', () => {
+  it('does not name a leader when displayed shares are tied', () => {
+    const nowMs = sastToUtcMs(2026, 9, 12, 15, 0)
+    const history = [
+      tx({ id: 'c', cardId: 5, machineId: 2, amountZar: 15_000, occurredAt: nowMs - 3_600_000 }),
+      tx({ id: 'i', cardId: 1, machineId: 3, amountZar: 15_000, occurredAt: nowMs - 2_400_000 }),
+      tx({ id: 'w', cardId: 4, machineId: 4, amountZar: 15_000, occurredAt: nowMs - 1_200_000 }),
+    ]
+    const row = computePosConcentration(history, 'Have we been leaning too heavily on any one POS today?', nowMs)
+    assert.ok(row)
+    assert.equal(row!.leaders.length, 3)
+    assert.ok(row!.leaders.every((item) => item.sharePct === 33))
+    const answered = answerLedgerAggregate({
+      message: 'Have we been leaning too heavily on any one POS today?',
+      history,
+      nowMs,
+    })
+    assert.match(answered.body, /tied at 33%/)
+    assert.match(answered.body, /Capitec BRICS/)
+    assert.match(answered.body, /FNB IMANI/)
+    assert.doesNotMatch(answered.body, /leads/)
+    assert.doesNotMatch(answered.body, /Yes\./)
   })
 })

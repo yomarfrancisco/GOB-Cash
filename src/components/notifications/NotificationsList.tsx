@@ -235,17 +235,9 @@ function latestAwaitingRoutingId(items: ActivityItem[]): string | null {
   return items.find(isAwaitingRoutingItem)?.id ?? null
 }
 
-function confirmTargetForCard(
-  item: ActivityItem,
-  pending: ActivityItem | null,
-  showAsk: boolean
-): ActivityItem | null {
-  const actionable =
-    pending && isAwaitingRoutingItem(pending) && pending.routingBlocked !== true ? pending : null
+function confirmTargetForCard(item: ActivityItem): ActivityItem | null {
+  if (isAskCard(item)) return null
   if (isAwaitingRoutingItem(item) && item.routingBlocked !== true) return item
-  if (showAsk && item.routingAction === 'advice' && actionable && actionable.id !== item.id) {
-    return actionable
-  }
   return null
 }
 
@@ -253,7 +245,6 @@ function ActivityItemCard({
   item,
   showRoutingActions,
   showAsk,
-  pendingAction,
   onRoutingAsk,
   onAcceptProposal,
   onDiscardProposal,
@@ -262,7 +253,6 @@ function ActivityItemCard({
   item: ActivityItem
   showRoutingActions: boolean
   showAsk: boolean
-  pendingAction: ActivityItem | null
   onRoutingAsk: (item: ActivityItem, message: string) => Promise<void>
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
@@ -289,8 +279,7 @@ function ActivityItemCard({
   const kycCta = item.kycAction === 'update' ? 'Update KYC' : 'Start KYC'
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
   const showExecuted = isRoutingInstruction && item.status === 'completed' && !item.thinking
-  const confirmItem =
-    showRoutingActions || showAsk ? confirmTargetForCard(item, pendingAction, showAsk) : null
+  const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
   const showConfirm = Boolean(confirmItem) && !lockDeskActions
   const showProposalActions =
     !lockDeskActions &&
@@ -657,7 +646,6 @@ function ActivitySection({
   items,
   latestAwaitingId,
   latestActivityId,
-  pendingAction,
   onRoutingAsk,
   onAcceptProposal,
   onDiscardProposal,
@@ -667,7 +655,6 @@ function ActivitySection({
   items: ActivityItem[]
   latestAwaitingId: string | null
   latestActivityId: string | null
-  pendingAction: ActivityItem | null
   onRoutingAsk: (item: ActivityItem, message: string) => Promise<void>
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
@@ -685,7 +672,6 @@ function ActivitySection({
             item={item}
             showRoutingActions={!lockDeskActions && item.id === latestAwaitingId}
             showAsk={!lockDeskActions && item.id === latestActivityId && !isKycGateItem(item)}
-            pendingAction={pendingAction}
             onRoutingAsk={onRoutingAsk}
             onAcceptProposal={onAcceptProposal}
             onDiscardProposal={onDiscardProposal}
@@ -785,10 +771,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     if (deskBlocked) return KYC_GATE_ID
     return filteredItems.find((item) => item.thinking !== true)?.id ?? null
   }, [filteredItems, deskBlocked])
-  const pendingAction = useMemo(
-    () => (deskBlocked ? null : allItems.find(isAwaitingRoutingItem) ?? null),
-    [allItems, deskBlocked]
-  )
   const { today, yesterday, last7Days, last30Days, older } = useMemo(
     () => groupByTimePeriod(pagedItems),
     [pagedItems]
@@ -879,7 +861,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const sectionProps = {
     latestAwaitingId,
     latestActivityId,
-    pendingAction,
     onRoutingAsk: handleRoutingAsk,
     onAcceptProposal: handleAcceptProposal,
     onDiscardProposal: handleDiscardProposal,

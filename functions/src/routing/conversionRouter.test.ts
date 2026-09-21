@@ -186,6 +186,15 @@ describe('20-cycle default test', () => {
     assert.doesNotMatch(copy.body, /each Moz/)
     assert.ok((replenish?.cardAssignments.length || 0) > 0)
     assert.ok(replenish!.cardAssignments.every((row) => Boolean(row.posReason)))
+    assert.ok(
+      replenish!.cardAssignments.every(
+        (row) =>
+          row.routingDecision?.selectionReason === row.posReason &&
+          row.routingDecision.selectedCardId === row.cardId &&
+          row.routingDecision.selectedMachineId === row.machineId &&
+          row.routingDecision.decisionVersion === 'routing_decision_v1'
+      )
+    )
   })
 
   it('names the actual swipe and why that POS, not a generic each-card line', () => {

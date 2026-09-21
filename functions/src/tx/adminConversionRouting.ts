@@ -22,12 +22,13 @@ import {
   planCycle,
   planReplenish,
   previewAskImpact,
-  roundMoney,
   type CyclePlan,
   type ReplenishPlan,
   type RoutingConfig,
   receiveChoiceForSale,
   formatZar,
+  parseRoutingDecision,
+  stampAssignmentDecisions,
   type RoutingState,
 } from '../routing/conversionRouter'
 import { applyReceiveChoice, parseReceiveHint, type ReceiveChoice } from '../routing/mozReceive'
@@ -93,10 +94,22 @@ import {
 } from '../routing/routingTime'
 import { adviseDesk, deskPursueLabel, isDeskChoiceReply, type DeskRouteSnapshot } from '../routing/deskAdvisor'
 import {
-  costMznPerZarFromSell,
   fetchQuotedMznPerZar,
   liveGrossSpreadRate,
 } from '../fx/quotedMznZar'
+import {
+  applyPathWrites,
+  classifyPathWrite,
+  frozenQuoteFromSell,
+  parsePathBook,
+  parsePathWrite,
+  residualPaymentId,
+  settleResidualOnConfirm,
+  zarProfitFromQuote,
+  type FrozenQuote,
+  type PathBook,
+  type PathWrite,
+} from '../routing/pathEngine'
 
 const db = admin.firestore()
 const TESTS = 'adminConversionTests'
@@ -450,14 +463,19 @@ function assignmentsFromUnknown(raw: unknown): Array<{
       machineId?: unknown
       amount?: unknown
       posReason?: unknown
+      routingDecision?: unknown
     }
     if (typeof item.cardId !== 'number' || typeof item.machineId !== 'number') return []
+    const routingDecision = parseRoutingDecision(item.routingDecision)
+    const posReason =
+      (typeof item.posReason === 'string' && item.posReason) || routingDecision?.selectionReason || ''
     return [
       {
         cardId: item.cardId,
         machineId: item.machineId,
         amount: typeof item.amount === 'number' ? item.amount : 0,
-        ...(typeof item.posReason === 'string' && item.posReason ? { posReason: item.posReason } : {}),
+        ...(posReason ? { posReason } : {}),
+        ...(routingDecision ? { routingDecision } : {}),
       },
     ]
   })
@@ -523,13 +541,23 @@ async function loadRecentCycleBriefs(testRunId: string): Promise<RecentCycleBrie
       ? data.cardAssignments
           .map((row: unknown) => {
             if (!row || typeof row !== 'object') return null
-            const item = row as { cardId?: unknown; machineId?: unknown; amount?: unknown; posReason?: unknown }
+            const item = row as {
+              cardId?: unknown
+              machineId?: unknown
+              amount?: unknown
+              posReason?: unknown
+              routingDecision?: unknown
+            }
             if (typeof item.cardId !== 'number' || typeof item.machineId !== 'number') return null
+            const routingDecision = parseRoutingDecision(item.routingDecision)
+            const posReason =
+              (typeof item.posReason === 'string' && item.posReason) || routingDecision?.selectionReason || ''
             return {
               cardId: item.cardId,
               machineId: item.machineId,
               amount: typeof item.amount === 'number' ? item.amount : 0,
-              ...(typeof item.posReason === 'string' && item.posReason ? { posReason: item.posReason } : {}),
+              ...(posReason ? { posReason } : {}),
+              ...(routingDecision ? { routingDecision } : {}),
             }
           })
           .filter(
@@ -792,21 +820,48 @@ async function currentTestId(adminUid: string): Promise<string | null> {
   return typeof testRunId === 'string' && testRunId ? testRunId : null
 }
 
+function pathBookFromDoc(data: admin.firestore.DocumentData | undefined, quote?: FrozenQuote): PathBook {
+  const parsed = parsePathBook({
+    residuals: data?.pathResiduals,
+    notes: data?.exhaustionNotes,
+    quote: data?.frozenQuote || data?.quote,
+  })
+  return {
+    residuals: parsed.residuals || [],
+    notes: parsed.notes || [],
+    quote: quote || parsed.quote,
+  }
+}
+
+function persistPathBook(
+  extra: Record<string, unknown>,
+  book: PathBook
+): Record<string, unknown> {
+  return {
+    ...extra,
+    pathResiduals: book.residuals || [],
+    exhaustionNotes: book.notes || [],
+    ...(book.quote ? { frozenQuote: book.quote } : {}),
+  }
+}
+
 async function applyLiveQuotes(state: RoutingState): Promise<{
   state: RoutingState
   sellRate: number
   costRate: number
+  quote: FrozenQuote
 }> {
   const sellRate = await fetchQuotedMznPerZar()
-  const costRate = costMznPerZarFromSell(sellRate)
-  const spread = liveGrossSpreadRate(sellRate, costRate)
+  const quote = frozenQuoteFromSell(sellRate, Date.now())
+  const spread = liveGrossSpreadRate(quote.sellRate, quote.costRate)
   return {
     state: {
       ...state,
       config: { ...state.config, spread },
     },
-    sellRate,
-    costRate,
+    sellRate: quote.sellRate,
+    costRate: quote.costRate,
+    quote,
   }
 }
 
@@ -828,32 +883,37 @@ function writeIssuedReplenish(
     swipes: [],
     notes: [],
     nowMs: now.toMillis(),
-  }
+  },
+  book: PathBook = {}
 ): { plan: CyclePlan; activityEventId: string; kind: 'replenish' } {
-  const plan = planCycle(state)
-  const notification = buildReplenishNotificationCopy(replenish)
-  const observeLine = observeLineFor(replenish.cardAssignments, friction)
-  const proposalSnapshots = snapshotsForAssignments('proposal', replenish.cardAssignments, friction, {
+  const plan = planCycle(state, overlay, { ...book, residuals: [] })
+  const proposedAt = now.toMillis()
+  const issued = {
+    ...replenish,
+    cardAssignments: stampAssignmentDecisions(replenish.cardAssignments, proposedAt),
+  }
+  const notification = buildReplenishNotificationCopy(issued)
+  const observeLine = observeLineFor(issued.cardAssignments, friction)
+  const proposalSnapshots = snapshotsForAssignments('proposal', issued.cardAssignments, friction, {
     testRunId,
-    cycleNumber: replenish.cycleNumber,
+    cycleNumber: issued.cycleNumber,
   })
   persistFrictionSnapshots(tx, proposalSnapshots, now)
-  const proposedAt = now.toMillis()
-  const restockGroupId = restockGroupIdFor(testRunId, replenish.cycleNumber)
+  const restockGroupId = restockGroupIdFor(testRunId, issued.cycleNumber)
   persistDeskTxs(
     tx,
-    replenish.cardAssignments.map((row, assignmentIndex) => {
+    issued.cardAssignments.map((row, assignmentIndex) => {
       const snapshot = proposalSnapshots.find(
         (item) => item.proposed.cardId === row.cardId && item.proposed.machineId === row.machineId
       )
       return deskTxFromSwipe(
         {
-          id: swipeIdFor(replenish.cycleNumber, row.cardId, row.machineId),
+          id: swipeIdFor(issued.cycleNumber, row.cardId, row.machineId),
           atMs: proposedAt,
           cardId: row.cardId,
           machineId: row.machineId,
           amount: row.amount,
-          cycleNumber: replenish.cycleNumber,
+          cycleNumber: issued.cycleNumber,
         },
         {
           testRunId,
@@ -863,7 +923,8 @@ function writeIssuedReplenish(
           proposalSnapshotId: snapshot?.id,
           restockGroupId,
           assignmentIndex,
-          posReason: row.posReason,
+          posReason: row.posReason || row.routingDecision?.selectionReason,
+          routingDecision: row.routingDecision,
         }
       )
     }),
@@ -931,9 +992,10 @@ function writeIssuedReplenish(
       replenishAmountMzn: replenish.amountMzn,
       replenishAmountZar: replenish.amountZar,
       replenishCostRate: replenish.costRate,
-      replenishAssignments: replenish.cardAssignments,
+      replenishAssignments: issued.cardAssignments,
       replenishRestingCardIds: replenish.restingCardIds,
       replenishRestingMachineIds: replenish.restingMachineIds,
+      ...persistPathBook({}, book),
       frictionProposedAt: now,
       frictionProposalSnapshotIds: proposalSnapshots.map((row) => ({
         cardId: row.proposed.cardId,
@@ -953,7 +1015,7 @@ function writeIssuedCycle(
   testRunId: string,
   state: RoutingState,
   now: admin.firestore.Timestamp,
-  quotes: { sellRate: number; costRate: number },
+  quotes: { sellRate: number; costRate: number; quote?: FrozenQuote },
   overlay = EMPTY_OVERLAY,
   friction: {
     swipes: SwipeRecord[]
@@ -965,14 +1027,23 @@ function writeIssuedCycle(
     swipes: [],
     notes: [],
     nowMs: now.toMillis(),
-  }
+  },
+  book: PathBook = {}
 ): { plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' } {
-  const replenish = planReplenish(state, quotes.costRate, overlay)
+  const liveBook: PathBook = {
+    ...book,
+    quote: quotes.quote || book.quote,
+  }
+  const replenish = planReplenish(state, quotes.costRate, overlay, liveBook)
   if (replenish) {
-    return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now, overlay, friction)
+    return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now, overlay, friction, liveBook)
   }
 
-  const plan = planCycle(state, overlay)
+  const planned = planCycle(state, overlay, liveBook)
+  const plan = {
+    ...planned,
+    cardAssignments: stampAssignmentDecisions(planned.cardAssignments, now.toMillis()),
+  }
   const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
   const receive = blocked ? null : receiveChoiceForSale(state, plan, overlay)
   const notification = blocked
@@ -1037,6 +1108,7 @@ function writeIssuedCycle(
     sellRate: quotes.sellRate,
     costRate: quotes.costRate,
     spreadRate: state.config.spread,
+    quote: liveBook.quote || quotes.quote,
     selectionReason: plan.selectionReason,
     receiveCardId: receive?.cardId ?? null,
     receiveBankId: receive?.bankId ?? null,
@@ -1066,6 +1138,7 @@ function writeIssuedCycle(
       lastReceiveCardId: state.lastReceiveCardId ?? null,
       awaitingCycleNumber: plan.cycleNumber,
       awaitingKind: 'deploy',
+      ...persistPathBook({}, liveBook),
       updatedAt: now,
     },
     { merge: true }
@@ -1084,8 +1157,9 @@ async function issueCycle(
   const testSnap = await db.collection(TESTS).doc(testRunId).get()
   const ledger = await loadDeskLedger()
   const friction = enrichFriction(frictionFromDoc(testSnap.data() || {}, now.toMillis()), ledger, testRunId)
+  const book = pathBookFromDoc(testSnap.data() || {}, quoted.quote)
   return db.runTransaction(async (tx) =>
-    writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, friction)
+    writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, friction, book)
   )
 }
 
@@ -1303,10 +1377,11 @@ export const admin_confirmConversionRoutingCycle = functions
 
       const state = stateFromDoc(testData)
       const awaitingKind = testData.awaitingKind === 'replenish' ? 'replenish' : 'deploy'
+      const book = pathBookFromDoc(testData, quotes.quote)
 
       if (awaitingKind === 'replenish') {
         const overlay = overlayForDoc(testData)
-        const replenish = planReplenish(state, num(testData.replenishCostRate, quotes.costRate), overlay)
+        const replenish = planReplenish(state, num(testData.replenishCostRate, quotes.costRate), overlay, book)
         if (!replenish) {
           throw new functions.https.HttpsError('failed-precondition', 'No ZAR restock is awaiting')
         }
@@ -1361,6 +1436,7 @@ export const admin_confirmConversionRoutingCycle = functions
         const restockGroupId = restockGroupIdFor(testRunId, cycleNumber)
         const durable = added.map((row, assignmentIndex) => {
           const proposedAt = firestoreTimestampMs(testData.frictionProposedAt) || firestoreTimestampMs(testData.updatedAt) || nowMs
+          const issued = assignments.find((item) => item.cardId === row.cardId && item.machineId === row.machineId)
           return deskTxFromSwipe(row, {
             testRunId,
             source: 'live_desk',
@@ -1369,8 +1445,8 @@ export const admin_confirmConversionRoutingCycle = functions
             proposalSnapshotId: proposalSnapshotIdFromDoc(testData, row.cardId, row.machineId),
             restockGroupId,
             assignmentIndex,
-            posReason: assignments.find((item) => item.cardId === row.cardId && item.machineId === row.machineId)
-              ?.posReason,
+            posReason: issued?.posReason || issued?.routingDecision?.selectionReason,
+            routingDecision: issued?.routingDecision,
           })
         })
         const executionSnapshots = snapshotsForAssignments(
@@ -1432,7 +1508,10 @@ export const admin_confirmConversionRoutingCycle = functions
                   cardId: row.cardId,
                   machineId: row.machineId,
                   amount: row.amount,
-                  ...(row.posReason ? { posReason: row.posReason } : {}),
+                  ...(row.posReason || row.routingDecision?.selectionReason
+                    ? { posReason: row.posReason || row.routingDecision?.selectionReason }
+                    : {}),
+                  ...(row.routingDecision ? { routingDecision: row.routingDecision } : {}),
                 })),
               },
               ...recentRestocksFromDoc(testData),
@@ -1441,6 +1520,15 @@ export const admin_confirmConversionRoutingCycle = functions
           },
           { merge: true }
         )
+        const settledBook: PathBook = {
+          ...book,
+          residuals: assignments.reduce(
+            (rows, row) => settleResidualOnConfirm(rows, row, residualPaymentId(cycleNumber, row.cardId, row.machineId)),
+            book.residuals || []
+          ),
+          quote: quotes.quote,
+        }
+        tx.set(testRef, persistPathBook({}, settledBook), { merge: true })
         const next = writeIssuedCycle(
           tx,
           adminUid,
@@ -1449,7 +1537,8 @@ export const admin_confirmConversionRoutingCycle = functions
           now,
           quotes,
           overlayForDoc(testData),
-          nextFriction
+          nextFriction,
+          settledBook
         )
         return {
           nextState: cleared,
@@ -1484,7 +1573,8 @@ export const admin_confirmConversionRoutingCycle = functions
         )
       }
 
-      const actualProfit = suppliedProfit ?? roundMoney(plan.deployedAmount * liveSpread)
+      const frozen = plan.cardAssignments[0]?.routingDecision?.quote || book.quote || quotes.quote
+      const actualProfit = suppliedProfit ?? zarProfitFromQuote(plan.deployedAmount, frozen)
       const overlay = overlayForDoc(testData)
       const storedReceive = receiveChoiceFromDoc(cycleData)
       const nextState = storedReceive
@@ -1538,12 +1628,31 @@ export const admin_confirmConversionRoutingCycle = functions
             awaitingCycleNumber: null,
             awaitingKind: null,
             constraints: remainingConstraints,
+            ...persistPathBook(
+              {},
+              {
+                ...book,
+                residuals: plan.cardAssignments.reduce(
+                  (rows, row) =>
+                    settleResidualOnConfirm(rows, row, residualPaymentId(cycleNumber, row.cardId, row.machineId)),
+                  book.residuals || []
+                ),
+              }
+            ),
             completedAt: now,
             updatedAt: now,
           },
           { merge: true }
         )
       } else {
+        const settledBook: PathBook = {
+          ...book,
+          residuals: plan.cardAssignments.reduce(
+            (rows, row) => settleResidualOnConfirm(rows, row, residualPaymentId(cycleNumber, row.cardId, row.machineId)),
+            book.residuals || []
+          ),
+          quote: quotes.quote,
+        }
         nextCycle = writeIssuedCycle(
           tx,
           adminUid,
@@ -1552,9 +1661,10 @@ export const admin_confirmConversionRoutingCycle = functions
           now,
           quotes,
           overlayFromConstraints(remainingConstraints),
-          enrichFriction(frictionFromDoc(testData, now.toMillis()), ledger, testRunId)
+          enrichFriction(frictionFromDoc(testData, now.toMillis()), ledger, testRunId),
+          settledBook
         ).plan
-        tx.set(testRef, { constraints: remainingConstraints, updatedAt: now }, { merge: true })
+        tx.set(testRef, { constraints: remainingConstraints, ...persistPathBook({}, settledBook), updatedAt: now }, { merge: true })
       }
 
       return {
@@ -1733,6 +1843,7 @@ export const admin_submitConversionRoutingFeedback = functions
     const pendingKindForAsk =
       recentFeedback.find((row) => row.status === 'question' && row.questionKind)?.questionKind || null
     let classification: AskClassification
+    let acceptedPathWrites: PathWrite[] = []
     if (acceptProposalId) {
       const proposalSnap = await testRef.collection('proposals').doc(acceptProposalId).get()
       if (!proposalSnap.exists || proposalSnap.data()?.status !== 'pending') {
@@ -1751,8 +1862,14 @@ export const admin_submitConversionRoutingFeedback = functions
         clarification: null,
         interpreter: 'fast_path',
       }
+      acceptedPathWrites = Array.isArray(proposal.pathWrites)
+        ? (proposal.pathWrites as unknown[]).flatMap((row) => {
+            const parsed = parsePathWrite(row)
+            return parsed ? [parsed] : []
+          })
+        : []
       classification = {
-        intent: 'constraint_request',
+        intent: acceptedPathWrites.length ? 'path_write' : 'constraint_request',
         confidence: 1,
         source: 'fast_path',
         cardIds: [],
@@ -1857,6 +1974,144 @@ export const admin_submitConversionRoutingFeedback = functions
       : ''
     const revisionCount = num(cycleData.revisionCount, 0)
     const currentPlan = canReviseDeploy ? stored : null
+    const currentBook = pathBookFromDoc(testData, quotes.quote)
+    const openRow = stored.cardAssignments[0]
+    const previewPathWrite =
+      acceptedPathWrites[0] ||
+      (classification.intent === 'path_write'
+        ? classifyPathWrite(askMessage, {
+            cardIds: classification.cardIds,
+            machineIds: classification.machineIds,
+            amountZar: openRow?.amount ?? stored.deployedAmount,
+            openCardId: openRow?.cardId ?? null,
+            openMachineId: openRow?.machineId ?? null,
+            economicPaymentId: openRow
+              ? residualPaymentId(cycleNumber, openRow.cardId, openRow.machineId)
+              : undefined,
+          })?.write
+        : undefined)
+
+    if (acceptedPathWrites.length) {
+      const nextBook = applyPathWrites(currentBook, acceptedPathWrites, {
+        cycleNumber,
+        nowIso: new Date(nowMs).toISOString(),
+      })
+      const acknowledgement = acceptedPathWrites.map((row) => row.summary).join(' ')
+      const overlay = overlayFromConstraints(constraints)
+      const preview = previewAskImpact(
+        previewStateForAsk(liveState, awaitingKind),
+        overlay,
+        quotes.costRate,
+        nextBook
+      )
+      const friction = enrichFriction(frictionFromDoc(testData, nowMs), ledger, testRunId)
+      await db.runTransaction(async (tx) => {
+        if (canReviseDeploy) {
+          const plan = preview.nextPlan || planCycle(liveState, overlay, nextBook)
+          const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
+          const receive = blocked ? null : receiveChoiceForSale(liveState, plan, overlay)
+          const activity = buildAgentReplyCopy(plan, liveState.config.cycleCount, acknowledgement, blocked, receive)
+          const notification = blocked
+            ? {
+                title: `Sell ZAR · Cycle ${plan.cycleNumber}`,
+                body: 'Hold. No live legal pair under current residuals and freezes.',
+              }
+            : buildNotificationCopy(plan, liveState.config.cycleCount, receive)
+          const published = publishAgentRevision(tx, {
+            adminUid,
+            testRunId,
+            cycleNumber,
+            previousEventId,
+            revisionCount,
+            now,
+            title: activity.title,
+            body: activity.body,
+            dropdownTitle: notification.title,
+            dropdownBody: notification.body,
+            amountValue: plan.deployedAmount,
+            awaitingConfirm: !blocked,
+            routingBlocked: blocked,
+            userReply: askMessage,
+          })
+          tx.update(cycleRef, {
+            cardAssignments: plan.cardAssignments,
+            machineAssignments: plan.cardAssignments.map((row) => ({
+              machineId: row.machineId,
+              cardId: row.cardId,
+              amount: row.amount,
+            })),
+            deployedAmount: plan.deployedAmount,
+            idleCapital: plan.idleCapital,
+            expectedProfit: plan.expectedProfit,
+            restingCardIds: plan.restingCardIds,
+            restingMachineIds: plan.restingMachineIds,
+            selectionReason: plan.selectionReason,
+            quote: nextBook.quote || quotes.quote,
+            sellRate: quotes.sellRate,
+            costRate: quotes.costRate,
+            activityEventId: published.activityEventId,
+            revisionCount: published.revisionCount,
+            revisionReason: acknowledgement,
+            updatedAt: now,
+          })
+        } else if (awaitingKind === 'replenish') {
+          const restock = planReplenish(liveState, quotes.costRate, overlay, nextBook)
+          if (restock) {
+            writeIssuedReplenish(tx, adminUid, testRunId, liveState, restock, now, overlay, friction, nextBook)
+          }
+        }
+        publishAdviceCard(tx, {
+          adminUid,
+          testRunId,
+          cycleNumber,
+          feedbackId,
+          now,
+          title: 'Outcome recorded',
+          body: formatAskImpactBody({
+            acknowledgement,
+            currentPlan,
+            preview,
+            proposal: false,
+            state: liveState,
+            overlay,
+          }),
+          userReply: askMessage,
+          routingAction: 'advice',
+        })
+        tx.set(testRef.collection('feedback').doc(feedbackId), {
+          id: feedbackId,
+          adminUserId: adminUid,
+          cycleNumber,
+          rawMessage: askMessage,
+          askIntent: classification,
+          interpretationSummary: acknowledgement,
+          status: 'applied',
+          createdAt: now,
+        })
+        tx.set(
+          testRef.collection('proposals').doc(acceptProposalId),
+          { status: 'accepted', updatedAt: now },
+          { merge: true }
+        )
+        tx.set(
+          db
+            .collection('users')
+            .doc(adminUid)
+            .collection('activityEvents')
+            .doc(adviceEventId(testRunId, acceptProposalId)),
+          { status: 'accepted', awaitingProposalAccept: false, updatedAt: now },
+          { merge: true }
+        )
+        tx.set(testRef, persistPathBook({ constraints, updatedAt: now }, nextBook), { merge: true })
+      })
+      return {
+        testRunId,
+        cycleNumber,
+        status: 'applied',
+        acknowledgement,
+        interpreter: interpreted.interpreter,
+      }
+    }
 
     if (!validIntents.length) {
       const friction = enrichFriction(frictionFromDoc(testData, nowMs), ledger, testRunId)
@@ -1915,6 +2170,7 @@ export const admin_submitConversionRoutingFeedback = functions
             status: 'pending',
             rawMessage: askMessage,
             intents: recommended.intents,
+            ...(previewPathWrite ? { pathWrites: [previewPathWrite] } : {}),
             options: desk.options,
             recommendedOptionId: desk.recommendedOptionId || recommended.id,
             cycleNumber,
@@ -1958,7 +2214,8 @@ export const admin_submitConversionRoutingFeedback = functions
     const preview = previewAskImpact(
       previewStateForAsk(previewApplied.state, awaitingKind),
       overlayFromConstraints(previewApplied.constraints),
-      quotes.costRate
+      quotes.costRate,
+      currentBook
     )
     const acknowledgement = previewApplied.summaries.join(' ')
     const previewBody = formatAskImpactBody({
@@ -2021,7 +2278,7 @@ export const admin_submitConversionRoutingFeedback = functions
       const overlay = overlayFromConstraints(previewApplied.constraints)
       const restock =
         awaitingKind === 'replenish'
-          ? planReplenish(previewApplied.state, quotes.costRate, overlay)
+          ? planReplenish(previewApplied.state, quotes.costRate, overlay, currentBook)
           : null
       const restockReady = Boolean(restock?.cardAssignments.length)
       const blocked = !restockReady && !(preview.nextPlan && preview.nextPlan.deployedAmount > 0)
@@ -2113,7 +2370,7 @@ export const admin_submitConversionRoutingFeedback = functions
 
     const applied = previewApplied
     const overlay = overlayFromConstraints(applied.constraints)
-    const plan = planCycle(applied.state, overlay)
+    const plan = planCycle(applied.state, overlay, currentBook)
     const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
     const receive = blocked
       ? null

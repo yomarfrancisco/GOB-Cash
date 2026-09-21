@@ -4,6 +4,7 @@
  */
 
 import { isFrictionNoteReply } from './friction'
+import { classifyPathWrite } from './pathEngine'
 import { llmApiKey, llmModel } from './interpretFeedback'
 import { cardShortName, machineShortName, resolveNamedCardIds, resolveNamedMachineIds } from './inventory'
 import {
@@ -39,6 +40,7 @@ export type AskIntent =
   | 'friction_question'
   | 'current_route_question'
   | 'constraint_request'
+  | 'path_write'
   | 'execution_status'
   | 'unrelated'
   | 'ambiguous'
@@ -61,6 +63,7 @@ const INTENTS: AskIntent[] = [
   'friction_question',
   'current_route_question',
   'constraint_request',
+  'path_write',
   'execution_status',
   'unrelated',
   'ambiguous',
@@ -120,8 +123,19 @@ export function classifyAskIntentFast(
   const named = entities(message)
   const words = text.split(/\s+/).length
 
+  const pathWrite = classifyPathWrite(message, named)
+  if (
+    pathWrite?.write &&
+    !namesObviousConstraint(message) &&
+    !isInterrogativeAsk(message)
+  ) {
+    return classified('path_write', message, 0.9, pathWrite.write.kind)
+  }
   if (isFrictionNoteReply(message)) {
     return classified('friction_question', message, 0.9, 'typed review note')
+  }
+  if (pathWrite && !namesObviousConstraint(message) && !isInterrogativeAsk(message)) {
+    return classified('path_write', message, 0.72, pathWrite.ambiguous || 'path write needs a rail')
   }
   if (namesObviousConstraint(message) && !isInterrogativeAsk(message)) {
     return classified('constraint_request', message, 0.92, 'explicit constraint verb')
@@ -190,6 +204,7 @@ historical_explanation — why a past route/pair was chosen; mentions last time 
 friction_question — review risk, merchant age, BIM/Capitec cases, unusual vs baseline
 current_route_question — explain the open restock or sale, or what's next on that instruction
 constraint_request — the admin is changing inventory: rest, exclude, restore, cap, prefer, park, use X next
+path_write — confirmed rail outcome: freeze, rail_up, decline, unpaid, delay. Not a pair assignment.
 execution_status — start the next run, or whether a swipe/sale is awaiting
 unrelated — not desk routing
 ambiguous — cannot tell; needs a clarification
@@ -198,6 +213,7 @@ Rules:
 - Naming a card or POS is not a constraint by itself.
 - Questions (why/when/have/did/is) are never constraint_request unless they also command a change (park, rest, don't use, restore, cap, prefer).
 - "Use Ginav next time" is constraint_request.
+- "Capitec declined", "FNB IMANI froze", "that swipe did not land" are path_write.
 - "Why did we choose FNB IMANI for Ginav last time?" is historical_explanation.
 - "Have we been leaning too heavily on any one POS today?" is ledger_aggregate.
 - Pending question which_card_safe plus a bare card name is constraint_request.
@@ -259,7 +275,7 @@ export async function classifyAskIntent(
 }
 
 export function mayMutateRoute(intent: AskIntent): boolean {
-  return intent === 'constraint_request'
+  return intent === 'constraint_request' || intent === 'path_write'
 }
 
 export function enforceReadOnlyAdvice<T extends { kind: string; options?: unknown; recommendedOptionId?: unknown }>(

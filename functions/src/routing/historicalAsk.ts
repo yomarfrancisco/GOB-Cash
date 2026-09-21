@@ -2,7 +2,7 @@
  * Explain a past pair from stored records. Never re-runs the planner.
  */
 
-import { formatZar } from './conversionRouter'
+import { formatZar, type RoutingDecision } from './conversionRouter'
 import type { DeskTx } from './frictionHistory'
 import type { RecentCycleBrief } from './interpretContext'
 import { cardShortName, machineShortName, resolveNamedCardIds, resolveNamedMachineIds } from './inventory'
@@ -11,7 +11,20 @@ import { formatSast } from './routingTime'
 export type RecentRestockBrief = {
   cycleNumber: number
   confirmedAtMs: number
-  assignments: Array<{ cardId: number; machineId: number; amount: number; posReason?: string }>
+  assignments: Array<{
+    cardId: number
+    machineId: number
+    amount: number
+    posReason?: string
+    routingDecision?: RoutingDecision
+  }>
+}
+
+function storedSelectionReason(row?: {
+  posReason?: string
+  routingDecision?: RoutingDecision
+}): string | undefined {
+  return row?.routingDecision?.selectionReason || row?.posReason
 }
 
 function atMs(row: DeskTx): number {
@@ -45,21 +58,23 @@ export function answerHistoricalExplanation(params: {
           (item) => item.cardId === lastTx.cardId && item.machineId === lastTx.machineId
         )
     )
-  const storedReason =
-    lastTx?.posReason ||
-    restock?.assignments.find(
+  const restockAssignment = restock?.assignments.find(
+    (item) =>
+      (!cardId || item.cardId === cardId) && (!machineId || item.machineId === machineId)
+  )
+  const cycleAssignment = (params.recentCycles || [])
+    .flatMap((row) => row.assignments.map((item) => ({ ...item, cycleNumber: row.cycleNumber })))
+    .reverse()
+    .find(
       (item) =>
-        (!cardId || item.cardId === cardId) && (!machineId || item.machineId === machineId)
-    )?.posReason ||
-    (params.recentCycles || [])
-      .flatMap((row) => row.assignments.map((item) => ({ ...item, cycleNumber: row.cycleNumber })))
-      .reverse()
-      .find(
-        (item) =>
-          (!cardId || item.cardId === cardId) &&
-          (!machineId || item.machineId === machineId) &&
-          item.posReason
-      )?.posReason
+        (!cardId || item.cardId === cardId) &&
+        (!machineId || item.machineId === machineId) &&
+        storedSelectionReason(item)
+    )
+  const storedReason =
+    storedSelectionReason(lastTx) ||
+    storedSelectionReason(restockAssignment) ||
+    storedSelectionReason(cycleAssignment)
 
   if (!cardId && !machineId) {
     return {

@@ -215,40 +215,89 @@ export function answerLedgerFactAsk(params: {
   }
 }
 
-export function answerLedgerAggregate(params: {
-  message: string
-  history: DeskTx[]
+export type PosConcentrationShare = {
+  machineId: number
+  amount: number
+  sharePct: number
+}
+
+export type PosConcentration = {
+  label: string
+  total: number
+  swipeCount: number
+  ranked: PosConcentrationShare[]
+  leaders: PosConcentrationShare[]
+}
+
+function joinPosNames(names: string[]): string {
+  if (names.length <= 1) return names[0] || ''
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+export function computePosConcentration(
+  history: DeskTx[],
+  message: string,
   nowMs: number
-}): { title: string; body: string } {
-  const rows = executedDeskTxs(params.history)
-  const { from, label } = windowFrom(params.message, params.nowMs)
+): PosConcentration | null {
+  const rows = executedDeskTxs(history)
+  const { from, label } = windowFrom(message, nowMs)
   const windowRows = rows.filter((row) => atMs(row) >= from)
-  if (!windowRows.length) {
-    return {
-      title: `No POS volume ${label}`,
-      body: `No executed restock swipes are on the ledger ${label}, so there is no POS concentration to report.`,
-    }
-  }
+  if (!windowRows.length) return null
   const byPos = new Map<number, number>()
   for (const row of windowRows) {
     byPos.set(row.machineId, (byPos.get(row.machineId) || 0) + row.amountZar)
   }
   const total = windowRows.reduce((sum, row) => sum + row.amountZar, 0)
-  const ranked = [...byPos.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])
-  const parts = ranked.map(([id, amount]) => {
-    const share = total > 0 ? Math.round((amount / total) * 100) : 0
-    return `${machineShortName(id)} ${formatZar(amount)} (${share}%)`
-  })
-  const [topId, topAmount] = ranked[0]
-  const topShare = total > 0 ? topAmount / total : 0
-  const lead =
-    topShare >= 0.5
-      ? `Yes. ${machineShortName(topId)} has taken ${Math.round(topShare * 100)}% of executed restock volume ${label}.`
-      : `No single POS is dominant ${label}. ${machineShortName(topId)} leads at ${Math.round(topShare * 100)}%.`
+  const ranked = [...byPos.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+    .map(([machineId, amount]) => ({
+      machineId,
+      amount,
+      sharePct: total > 0 ? Math.round((amount / total) * 100) : 0,
+    }))
+  const topPct = ranked[0]?.sharePct ?? 0
   return {
-    title: `POS concentration ${label}`,
-    body: `${lead} ${parts.join(' · ')}. Total ${formatZar(total)} across ${windowRows.length} swipe${
-      windowRows.length === 1 ? '' : 's'
-    }.`,
+    label,
+    total,
+    swipeCount: windowRows.length,
+    ranked,
+    leaders: ranked.filter((row) => row.sharePct === topPct),
+  }
+}
+
+function proseFromConcentration(row: PosConcentration): string {
+  const parts = row.ranked.map(
+    (item) => `${machineShortName(item.machineId)} ${formatZar(item.amount)} (${item.sharePct}%)`
+  )
+  const leaderNames = joinPosNames(row.leaders.map((item) => machineShortName(item.machineId)))
+  const topPct = row.leaders[0]?.sharePct ?? 0
+  const lead =
+    row.leaders.length === 1 && topPct >= 50
+      ? `Yes. ${leaderNames} has taken ${topPct}% of executed restock volume ${row.label}.`
+      : row.leaders.length > 1
+        ? `No single POS is dominant ${row.label}. ${leaderNames} are tied at ${topPct}%.`
+        : `No single POS is dominant ${row.label}. ${leaderNames} leads at ${topPct}%.`
+  return `${lead} ${parts.join(' · ')}. Total ${formatZar(row.total)} across ${row.swipeCount} swipe${
+    row.swipeCount === 1 ? '' : 's'
+  }.`
+}
+
+export function answerLedgerAggregate(params: {
+  message: string
+  history: DeskTx[]
+  nowMs: number
+}): { title: string; body: string } {
+  const concentration = computePosConcentration(params.history, params.message, params.nowMs)
+  if (!concentration) {
+    const { label } = windowFrom(params.message, params.nowMs)
+    return {
+      title: `No POS volume ${label}`,
+      body: `No executed restock swipes are on the ledger ${label}, so there is no POS concentration to report.`,
+    }
+  }
+  return {
+    title: `POS concentration ${concentration.label}`,
+    body: proseFromConcentration(concentration),
   }
 }

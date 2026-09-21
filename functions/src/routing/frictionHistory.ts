@@ -3,6 +3,7 @@
  * One swipe is one card-present row. Review side lives on review events.
  */
 
+import type { RoutingDecision } from './conversionRouter'
 import type { SwipeRecord } from './friction'
 import { machineShortName } from './inventory'
 
@@ -36,6 +37,7 @@ export type DeskTx = {
   restockGroupId?: string
   assignmentIndex?: number
   posReason?: string
+  routingDecision?: RoutingDecision
   reconstruction?: boolean
 }
 
@@ -142,6 +144,7 @@ export function deskTxFromSwipe(
     restockGroupId?: string
     assignmentIndex?: number
     posReason?: string
+    routingDecision?: RoutingDecision
   } = {}
 ): DeskTx {
   return {
@@ -165,7 +168,8 @@ export function deskTxFromSwipe(
     executionSnapshotId: extra.executionSnapshotId,
     restockGroupId: extra.restockGroupId,
     assignmentIndex: extra.assignmentIndex,
-    posReason: extra.posReason,
+    posReason: extra.posReason || extra.routingDecision?.selectionReason,
+    routingDecision: extra.routingDecision,
   }
 }
 

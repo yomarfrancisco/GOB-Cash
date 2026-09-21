@@ -42,7 +42,8 @@ import { answerHistoricalExplanation, type RecentRestockBrief } from './historic
 import { answerLedgerAggregate, answerLedgerFactAsk } from './ledgerFacts'
 import { deskTxFromSwipe, type DeskReview, type DeskTx } from './frictionHistory'
 import type { RecentCycleBrief, RecentFeedbackBrief } from './interpretContext'
-import { cardLabel, cardShortName, formatReceiveAccount, resolveNamedCardIds } from './inventory'
+import { classifyPathWrite } from './pathEngine'
+import { cardLabel, cardShortName, formatReceiveAccount, resolveNamedCardIds, resolveNamedMachineIds } from './inventory'
 import {
   formatSast,
   formatVisibleSast,
@@ -259,12 +260,13 @@ function currentOpenRoute(
   state: RoutingState,
   constraints: StoredConstraint[],
   current: DeskRouteSnapshot | null,
-  costRate: number
+  costRate: number,
+  nowMs?: number
 ): { kind: 'replenish' | 'deploy'; assignments: CardAssignment[]; amountZar: number } | null {
   if (current?.assignments.length && current.amountZar > 0) {
     return current
   }
-  const overlay = overlayFromConstraints(constraints)
+  const overlay = overlayFromConstraints(constraints, nowMs)
   const replenish = planReplenish(state, costRate, overlay)
   if (replenish?.cardAssignments.length) {
     return { kind: 'replenish', assignments: replenish.cardAssignments, amountZar: replenish.amountZar }
@@ -680,7 +682,7 @@ export function adviseDesk(params: {
   const deskHistory = history?.length ? history : swipes.map((row) => deskTxFromSwipe(row))
   const holds = activeCardHolds(constraints)
   const namedCardIds = resolveNamedCardIds(message)
-  const open = currentOpenRoute(state, constraints, current, costRate)
+  const open = currentOpenRoute(state, constraints, current, costRate, nowMs)
   const askedRetire = wantsRetire(message)
   const waitingOnCard = pendingQuestion(recentFeedback) === 'which_card_safe'
   const pending = pendingQuestion(recentFeedback)
@@ -831,7 +833,7 @@ function answerClassifiedAsk(params: {
           body: 'There is no open restock pair to rank. Name a card and POS, or open a restock.',
         }
       }
-      const overlay = overlayFromConstraints(constraints)
+      const overlay = overlayFromConstraints(constraints, nowMs)
       const namedCard = namedCardIds[0]
       const focus =
         (namedCard && assignments.find((row) => row.cardId === namedCard)) || assignments[0]
@@ -902,6 +904,40 @@ function answerClassifiedAsk(params: {
       kind: 'next_step',
       title: 'No open instruction',
       body: 'There is no open restock or sale to explain. Ask a ledger fact, or name a card change if you want the route updated.',
+    }
+  }
+
+  if (intent === 'path_write') {
+    const openRow = open?.assignments[0]
+    const classified = classifyPathWrite(message, {
+      cardIds: namedCardIds.length ? namedCardIds : undefined,
+      machineIds: resolveNamedMachineIds(message),
+      amountZar: open?.amountZar ?? openRow?.amount ?? null,
+      openCardId: openRow?.cardId ?? null,
+      openMachineId: openRow?.machineId ?? null,
+    })
+    if (!classified?.write) {
+      return {
+        kind: 'question',
+        title: 'Which rail?',
+        body:
+          classified?.ambiguous ||
+          'Name the POS and, if needed, the card or ticket. Freeze and unpaid are different writes.',
+      }
+    }
+    return {
+      kind: 'options',
+      title: 'Record outcome',
+      body: `${classified.write.summary} Pursue records this write. The next card is the Q-best live legal pair — Ask does not pick the pair.`,
+      options: [
+        {
+          id: 'apply-path-write',
+          title: classified.write.summary,
+          body: 'Records the confirmed outcome. Does not invent a pair.',
+          intents: [],
+        },
+      ],
+      recommendedOptionId: 'apply-path-write',
     }
   }
 

@@ -8,7 +8,13 @@ export type RecentCycleBrief = {
   status: string
   createdAtMs: number | null
   completedAtMs: number | null
-  assignments: Array<{ cardId: number; machineId: number; amount: number; posReason?: string }>
+  assignments: Array<{
+    cardId: number
+    machineId: number
+    amount: number
+    posReason?: string
+    routingDecision?: import('./conversionRouter').RoutingDecision
+  }>
 }
 
 export type RecentFeedbackBrief = {

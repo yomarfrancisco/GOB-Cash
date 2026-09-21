@@ -7,6 +7,19 @@
  */
 
 import { EMPTY_OVERLAY, type RoutingOverlay } from './constraints'
+import {
+  expectedSpreadMzn,
+  fallbackQuote,
+  legalPairs,
+  openResiduals,
+  parseFrozenQuote,
+  pickQBestPair,
+  zarProfitFromQuote,
+  type FrozenQuote,
+  type PathBook,
+  type PathResidual,
+  type TightnessRank,
+} from './pathEngine'
 import { formatFrictionSentence, type FrictionNote, type SwipeRecord } from './friction'
 import { cardLabel, cardShortName, formatReceiveAccount, isForbiddenPair, machineLabel, machineShortName } from './inventory'
 import {
@@ -59,11 +72,35 @@ export type MachineState = {
   lastCycleUsed: number
 }
 
+export const ROUTING_DECISION_VERSION = 'routing_decision_v1'
+
+export type RoutingDecision = {
+  selectedCardId: number
+  selectedMachineId: number
+  selectedAt: number
+  selectionReason: string
+  eligibleAlternatives: Array<{ machineId: number; volume: number; pairUseCount: number }>
+  excludedAlternatives: Array<{ machineId: number; reason: string }>
+  relevantConstraints: string[]
+  machineVolumesAtDecision: Record<string, number>
+  pairUseCountsAtDecision: Record<string, number>
+  cardRestStateAtDecision: {
+    activeCycles: number
+    restCycles: number
+    lastCycleUsed: number
+  }
+  decisionVersion: string
+  quote?: FrozenQuote
+  residualsConsidered?: PathResidual[]
+  tightnessRanks?: TightnessRank[]
+}
+
 export type CardAssignment = {
   cardId: number
   machineId: number
   amount: number
   posReason?: string
+  routingDecision?: RoutingDecision
 }
 
 export type RoutingState = {
@@ -96,6 +133,11 @@ export type CyclePlan = {
   bufferTriggerAmount: number
   bufferActionRequired: boolean
   selectionReason: string
+  quote?: FrozenQuote
+  holdReason?: string
+  residualsConsidered?: PathResidual[]
+  tightnessRanks?: TightnessRank[]
+  expectedZarProfit?: number
 }
 
 export type CompletedCycle = CyclePlan & {
@@ -551,6 +593,178 @@ export function explainPosRanking(
   })
 }
 
+export function parseRoutingDecision(raw: unknown): RoutingDecision | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const row = raw as Partial<RoutingDecision> & { selectionReason?: unknown }
+  if (typeof row.selectedCardId !== 'number' || typeof row.selectedMachineId !== 'number') return undefined
+  if (typeof row.selectionReason !== 'string' || !row.selectionReason.trim()) return undefined
+  return {
+    selectedCardId: row.selectedCardId,
+    selectedMachineId: row.selectedMachineId,
+    selectedAt: typeof row.selectedAt === 'number' ? row.selectedAt : 0,
+    selectionReason: row.selectionReason,
+    eligibleAlternatives: Array.isArray(row.eligibleAlternatives)
+      ? row.eligibleAlternatives.flatMap((item) => {
+          if (!item || typeof item !== 'object') return []
+          const alt = item as { machineId?: unknown; volume?: unknown; pairUseCount?: unknown }
+          if (typeof alt.machineId !== 'number') return []
+          return [
+            {
+              machineId: alt.machineId,
+              volume: typeof alt.volume === 'number' ? alt.volume : 0,
+              pairUseCount: typeof alt.pairUseCount === 'number' ? alt.pairUseCount : 0,
+            },
+          ]
+        })
+      : [],
+    excludedAlternatives: Array.isArray(row.excludedAlternatives)
+      ? row.excludedAlternatives.flatMap((item) => {
+          if (!item || typeof item !== 'object') return []
+          const alt = item as { machineId?: unknown; reason?: unknown }
+          if (typeof alt.machineId !== 'number' || typeof alt.reason !== 'string') return []
+          return [{ machineId: alt.machineId, reason: alt.reason }]
+        })
+      : [],
+    relevantConstraints: Array.isArray(row.relevantConstraints)
+      ? row.relevantConstraints.filter((item): item is string => typeof item === 'string')
+      : [],
+    machineVolumesAtDecision:
+      row.machineVolumesAtDecision && typeof row.machineVolumesAtDecision === 'object'
+        ? (row.machineVolumesAtDecision as Record<string, number>)
+        : {},
+    pairUseCountsAtDecision:
+      row.pairUseCountsAtDecision && typeof row.pairUseCountsAtDecision === 'object'
+        ? (row.pairUseCountsAtDecision as Record<string, number>)
+        : {},
+    cardRestStateAtDecision: {
+      activeCycles:
+        typeof row.cardRestStateAtDecision?.activeCycles === 'number'
+          ? row.cardRestStateAtDecision.activeCycles
+          : 0,
+      restCycles:
+        typeof row.cardRestStateAtDecision?.restCycles === 'number'
+          ? row.cardRestStateAtDecision.restCycles
+          : 0,
+      lastCycleUsed:
+        typeof row.cardRestStateAtDecision?.lastCycleUsed === 'number'
+          ? row.cardRestStateAtDecision.lastCycleUsed
+          : 0,
+    },
+    decisionVersion:
+      typeof row.decisionVersion === 'string' && row.decisionVersion
+        ? row.decisionVersion
+        : ROUTING_DECISION_VERSION,
+    quote: parseFrozenQuote(row.quote),
+    residualsConsidered: Array.isArray(row.residualsConsidered)
+      ? (row.residualsConsidered as PathResidual[])
+      : undefined,
+    tightnessRanks: Array.isArray(row.tightnessRanks) ? (row.tightnessRanks as TightnessRank[]) : undefined,
+  }
+}
+
+export function stampAssignmentDecisions(
+  assignments: CardAssignment[],
+  selectedAt: number
+): CardAssignment[] {
+  return assignments.map((row) =>
+    row.routingDecision
+      ? { ...row, routingDecision: { ...row.routingDecision, selectedAt } }
+      : row
+  )
+}
+
+function overlayConstraintNotes(overlay: RoutingOverlay): string[] {
+  const notes: string[] = []
+  if (overlay.excludedCardIds.length) {
+    notes.push(`excluded cards: ${overlay.excludedCardIds.map((id) => cardShortName(id)).join(', ')}`)
+  }
+  if (overlay.excludedMachineIds.length) {
+    notes.push(`excluded POS: ${overlay.excludedMachineIds.map((id) => machineShortName(id)).join(', ')}`)
+  }
+  if (overlay.preferredMachineIds.length) {
+    notes.push(`preferred POS: ${overlay.preferredMachineIds.map((id) => machineShortName(id)).join(', ')}`)
+  }
+  const capped = Object.entries(overlay.cardMaxById)
+  if (capped.length) {
+    notes.push(`card caps: ${capped.map(([id, max]) => `${cardShortName(Number(id))} ${formatZar(max)}`).join(', ')}`)
+  }
+  return notes
+}
+
+function buildRoutingDecision(params: {
+  state: RoutingState
+  cardId: number
+  chosen: MachineState
+  candidates: MachineState[]
+  overlay: RoutingOverlay
+  assignedVolume: Map<number, number>
+  remaining: Map<number, number>
+  selectionReason: string
+  selectedAt?: number
+  book?: PathBook
+  ranks?: TightnessRank[]
+}): RoutingDecision {
+  const excludedAlternatives: RoutingDecision['excludedAlternatives'] = []
+  const excludedMachines = new Set(params.overlay.excludedMachineIds)
+  const notes = params.book?.notes || []
+  const residual = openResiduals(params.book)[0]
+  for (const machine of params.state.machines) {
+    if (machine.id === params.chosen.id) continue
+    if (excludedMachines.has(machine.id)) {
+      excludedAlternatives.push({ machineId: machine.id, reason: 'excluded by admin constraint' })
+    } else if (isForbiddenPair(params.cardId, machine.id)) {
+      excludedAlternatives.push({ machineId: machine.id, reason: 'banned identity' })
+    } else if (
+      !legalPairs(params.state, params.overlay, notes).some(
+        (row) => row.cardId === params.cardId && row.machineId === machine.id
+      )
+    ) {
+      excludedAlternatives.push({ machineId: machine.id, reason: 'frozen' })
+    } else if (residual && machine.id === residual.machineId && params.chosen.id !== residual.machineId) {
+      excludedAlternatives.push({ machineId: machine.id, reason: 'residual prefers other pair' })
+    } else if ((params.remaining.get(machine.id) || 0) <= 0) {
+      excludedAlternatives.push({ machineId: machine.id, reason: 'no remaining slot this restock' })
+    }
+  }
+  const card = params.state.cards.find((row) => row.id === params.cardId)
+  return {
+    selectedCardId: params.cardId,
+    selectedMachineId: params.chosen.id,
+    selectedAt: params.selectedAt || 0,
+    selectionReason: params.selectionReason,
+    eligibleAlternatives: params.candidates
+      .filter((machine) => machine.id !== params.chosen.id)
+      .map((machine) => ({
+        machineId: machine.id,
+        volume: machine.volume + (params.assignedVolume.get(machine.id) || 0),
+        pairUseCount: pairUseCount(params.state, params.cardId, machine.id),
+      })),
+    excludedAlternatives,
+    relevantConstraints: overlayConstraintNotes(params.overlay),
+    machineVolumesAtDecision: Object.fromEntries(
+      params.state.machines.map((machine) => [
+        String(machine.id),
+        machine.volume + (params.assignedVolume.get(machine.id) || 0),
+      ])
+    ),
+    pairUseCountsAtDecision: Object.fromEntries(
+      params.state.machines.map((machine) => [
+        pairingKey(params.cardId, machine.id),
+        pairUseCount(params.state, params.cardId, machine.id),
+      ])
+    ),
+    cardRestStateAtDecision: {
+      activeCycles: card?.activeCycles || 0,
+      restCycles: card?.restCycles || 0,
+      lastCycleUsed: card?.lastCycleUsed || 0,
+    },
+    decisionVersion: ROUTING_DECISION_VERSION,
+    quote: params.book?.quote,
+    residualsConsidered: params.book?.residuals,
+    tightnessRanks: params.ranks,
+  }
+}
+
 export function annotatePosReasons(
   state: RoutingState,
   assignments: CardAssignment[],
@@ -565,15 +779,43 @@ export function annotatePosReasons(
     overlay
   )
   return assignments.map((row) => {
-    if (row.posReason) return row
+    if (row.posReason && row.routingDecision) return row
     const match = planned.find(
       (item) => item.cardId === row.cardId && item.machineId === row.machineId
     )
+    const posReason = row.posReason || match?.posReason || explainPosChoice(state, row, cycleNumber, overlay)
     return {
       ...row,
-      posReason: match?.posReason || explainPosChoice(state, row, cycleNumber, overlay),
+      posReason,
+      routingDecision: row.routingDecision || match?.routingDecision,
     }
   })
+}
+
+function projectedState(state: RoutingState, assignedVolume: Map<number, number>): RoutingState {
+  if (!assignedVolume.size) return state
+  return {
+    ...state,
+    machines: state.machines.map((machine) => ({
+      ...machine,
+      volume: roundMoney(machine.volume + (assignedVolume.get(machine.id) || 0)),
+    })),
+  }
+}
+
+function identityPosReason(
+  state: RoutingState,
+  cardId: number,
+  machineId: number,
+  qBestReason: string,
+  residual?: PathResidual | null
+): string {
+  if (residual) return qBestReason
+  const card = cardShortName(cardId)
+  const pos = machineShortName(machineId)
+  const identity = sameIdentityReason(card, pos, bannedPosNames(state, cardId))
+  if (identity) return `${card} → ${pos} — ${identity}`
+  return qBestReason
 }
 
 export function assignMachines(
@@ -581,7 +823,8 @@ export function assignMachines(
   selectedCardIds: number[],
   amounts: number[],
   cycleNumber: number,
-  overlay: RoutingOverlay = EMPTY_OVERLAY
+  overlay: RoutingOverlay = EMPTY_OVERLAY,
+  book: PathBook = {}
 ): CardAssignment[] {
   const remaining = machineLoadTargets(state, selectedCardIds.length, overlay)
   const assignedVolume = new Map<number, number>()
@@ -594,28 +837,65 @@ export function assignMachines(
   }))
 
   for (const item of cardsWithAmounts) {
+    const working = projectedState(state, assignedVolume)
+    const picked = pickQBestPair({
+      state: working,
+      overlay,
+      cycleNumber,
+      amountZar: item.amount,
+      book,
+      onlyCardId: item.cardId,
+    })
+    const openSlot = (machineId: number) => (remaining.get(machineId) || 0) > 0
+    const rankedOpen = (picked.ranks || []).filter((row) => openSlot(row.machineId))
+    let chosen =
+      picked.assignment && openSlot(picked.assignment.machineId)
+        ? state.machines.find((machine) => machine.id === picked.assignment!.machineId)
+        : rankedOpen[0]
+          ? state.machines.find((machine) => machine.id === rankedOpen[0].machineId)
+          : undefined
+
     const candidates = state.machines.filter(
-      (machine) =>
-        (remaining.get(machine.id) || 0) > 0 && !isForbiddenPair(item.cardId, machine.id)
+      (machine) => openSlot(machine.id) && !isForbiddenPair(item.cardId, machine.id)
     )
     candidates.sort((a, b) =>
       comparePosCandidates(state, item.cardId, a, b, cycleNumber, preferred, assignedVolume)
     )
-
-    const chosen = candidates[0]
+    if (!chosen) chosen = candidates[0]
     if (!chosen) continue
+
+    const fallbackReason = describePosPick({
+      state,
+      cardId: item.cardId,
+      chosen,
+      runnerUp: candidates.find((machine) => machine.id !== chosen!.id),
+      cycleNumber,
+      overlay,
+      assignedVolume,
+    })
+    const posReason = identityPosReason(
+      state,
+      item.cardId,
+      chosen.id,
+      picked.assignment?.posReason || fallbackReason,
+      openResiduals(book)[0]
+    )
     assignments.push({
       cardId: item.cardId,
       machineId: chosen.id,
       amount: item.amount,
-      posReason: describePosPick({
+      posReason,
+      routingDecision: buildRoutingDecision({
         state,
         cardId: item.cardId,
         chosen,
-        runnerUp: candidates[1],
-        cycleNumber,
+        candidates: candidates.length ? candidates : [chosen],
         overlay,
         assignedVolume,
+        remaining,
+        selectionReason: posReason,
+        book,
+        ranks: picked.ranks,
       }),
     })
     remaining.set(chosen.id, (remaining.get(chosen.id) || 0) - 1)
@@ -628,17 +908,41 @@ export function assignMachines(
 function cardHasLegalMachine(
   state: RoutingState,
   cardId: number,
-  overlay: RoutingOverlay
+  overlay: RoutingOverlay,
+  book: PathBook = {}
 ): boolean {
-  const excluded = new Set(overlay.excludedMachineIds)
-  return state.machines.some(
-    (machine) => !excluded.has(machine.id) && !isForbiddenPair(cardId, machine.id)
-  )
+  return legalPairs(state, overlay, book.notes).some((row) => row.cardId === cardId)
 }
 
-export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_OVERLAY): CyclePlan {
+function stampQuoteOnAssignments(
+  assignments: CardAssignment[],
+  book: PathBook,
+  ranks?: TightnessRank[]
+): CardAssignment[] {
+  if (!book.quote && !book.residuals?.length && !ranks?.length) return assignments
+  return assignments.map((row) => {
+    if (!row.routingDecision) return row
+    return {
+      ...row,
+      routingDecision: {
+        ...row.routingDecision,
+        quote: row.routingDecision.quote || book.quote,
+        residualsConsidered: row.routingDecision.residualsConsidered || book.residuals,
+        tightnessRanks: row.routingDecision.tightnessRanks || ranks,
+      },
+    }
+  })
+}
+
+export function planCycle(
+  state: RoutingState,
+  overlay: RoutingOverlay = EMPTY_OVERLAY,
+  book: PathBook = {}
+): CyclePlan {
   const { config } = state
   const cycleNumber = state.completedCycles + 1
+  const quote = book.quote
+  const liveBook: PathBook = { ...book, quote }
   const excludedCards = new Set(overlay.excludedCardIds)
   const excludedMachines = new Set(overlay.excludedMachineIds)
   const eligibleCards = state.cards.filter((card) => {
@@ -650,13 +954,14 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
   const eligibleMachines = state.machines.filter((machine) => !excludedMachines.has(machine.id))
   const eligibleIds = new Set(eligibleCards.map((card) => card.id))
 
-  const blocked = (reason: string): CyclePlan => ({
+  const blocked = (reason: string, holdReason = reason): CyclePlan => ({
     cycleNumber,
     startingCapital: config.startingCapital,
     availableCapital: state.availableCapital,
     deployedAmount: 0,
     idleCapital: roundMoney(state.availableCapital),
     expectedProfit: 0,
+    expectedZarProfit: 0,
     cardCountUsed: 0,
     cardAssignments: [],
     restingCardIds: state.cards.map((card) => card.id),
@@ -666,6 +971,9 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
     bufferTriggerAmount: roundMoney(config.bufferAmount * config.bufferTriggerRatio),
     bufferActionRequired: false,
     selectionReason: reason,
+    holdReason,
+    ...(quote ? { quote } : {}),
+    residualsConsidered: liveBook.residuals,
   })
 
   if (eligibleCards.length === 0) {
@@ -673,6 +981,65 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
   }
   if (eligibleMachines.length === 0) {
     return blocked('No valid route available. No eligible machines remain under current admin constraints.')
+  }
+  const pairs = legalPairs(state, overlay, liveBook.notes)
+  if (!pairs.length) {
+    return blocked(
+      liveBook.notes?.some((row) => row.kind === 'freeze')
+        ? 'Hold: every legal pair is frozen or banned.'
+        : 'No valid route available under current machine pairing bans.'
+    )
+  }
+
+  const residual = openResiduals(liveBook)[0]
+  if (residual) {
+    const picked = pickQBestPair({
+      state,
+      overlay,
+      cycleNumber,
+      amountZar: residual.amountZar,
+      book: liveBook,
+      residual,
+    })
+    if (picked.holdReason) return blocked(picked.holdReason)
+    if (!picked.assignment) return blocked('Hold: leftover cannot be issued on a live legal pair.')
+    if (picked.ranks[0] && picked.ranks[0].tightness >= 8) {
+      return blocked(
+        'Hold: every legal pair is too tight from confirmed declines or unpaid leftovers to issue this evening.'
+      )
+    }
+    const chosen = state.machines.find((machine) => machine.id === picked.assignment.machineId)
+    if (!chosen) return blocked('Hold: leftover cannot be issued on a live legal pair.')
+    const posReason = picked.assignment.posReason || ''
+    const assignment: CardAssignment = {
+      ...picked.assignment,
+      posReason,
+      routingDecision: buildRoutingDecision({
+        state,
+        cardId: picked.assignment.cardId,
+        chosen,
+        candidates: state.machines.filter((machine) =>
+          pairs.some((row) => row.cardId === picked.assignment!.cardId && row.machineId === machine.id)
+        ),
+        overlay,
+        assignedVolume: new Map(),
+        remaining: machineLoadTargets(state, 1, overlay),
+        selectionReason: posReason,
+        book: liveBook,
+        ranks: picked.ranks,
+      }),
+    }
+    return finishPlan({
+      state,
+      overlay,
+      cycleNumber,
+      quote,
+      liveBook,
+      cardAssignments: [assignment],
+      selectedCardIds: [assignment.cardId],
+      deployedForPlan: residual.amountZar,
+      tightnessRanks: picked.ranks,
+    })
   }
 
   const { deployedAmount, cardCount } = largestValidDeployment(state.availableCapital, {
@@ -686,7 +1053,7 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
   }
 
   const rankedCardIds = selectCards(state, eligibleIds.size, cycleNumber, eligibleIds).filter((id) =>
-    cardHasLegalMachine(state, id, overlay)
+    cardHasLegalMachine(state, id, overlay, liveBook)
   )
   if (!rankedCardIds.length) {
     return blocked('No valid route available. No eligible card has a legal machine under current pairing bans.')
@@ -695,6 +1062,7 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
   let selectedCardIds: number[] = []
   let cardAssignments: CardAssignment[] = []
   let usedDeployed = 0
+  let tightnessRanks: TightnessRank[] | undefined
   for (let n = Math.min(cardCount, rankedCardIds.length); n >= 1; n--) {
     const candidateIds = rankedCardIds.slice(0, n)
     const sized = largestValidDeployment(state.availableCapital, {
@@ -721,7 +1089,7 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
         continue
       }
     }
-    const assigned = assignMachines(state, picked, nextAmounts, cycleNumber, overlay)
+    const assigned = assignMachines(state, picked, nextAmounts, cycleNumber, overlay, liveBook)
     if (!assigned.length) continue
     if (assigned.length !== picked.length) {
       n = assigned.length + 1
@@ -730,21 +1098,52 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
     selectedCardIds = picked
     cardAssignments = assigned
     usedDeployed = sized.deployedAmount
+    tightnessRanks = assigned[0]?.routingDecision?.tightnessRanks
     break
   }
   if (!cardAssignments.length) {
     return blocked('No valid route available under current machine pairing bans.')
   }
-  const deployedForPlan = usedDeployed
+  return finishPlan({
+    state,
+    overlay,
+    cycleNumber,
+    quote,
+    liveBook,
+    cardAssignments,
+    selectedCardIds,
+    deployedForPlan: usedDeployed,
+    tightnessRanks,
+  })
+}
+
+function finishPlan(params: {
+  state: RoutingState
+  overlay: RoutingOverlay
+  cycleNumber: number
+  quote?: FrozenQuote
+  liveBook: PathBook
+  cardAssignments: CardAssignment[]
+  selectedCardIds: number[]
+  deployedForPlan: number
+  tightnessRanks?: TightnessRank[]
+}): CyclePlan {
+  const { state, overlay, cycleNumber, quote, liveBook, selectedCardIds, deployedForPlan } = params
+  const cardAssignments = stampQuoteOnAssignments(params.cardAssignments, liveBook, params.tightnessRanks)
   const idleCapital = roundMoney(Math.max(0, state.availableCapital - deployedForPlan))
-  const expectedProfit = roundMoney(deployedForPlan * config.spread)
+  const expectedProfit = quote
+    ? expectedSpreadMzn(deployedForPlan, quote)
+    : roundMoney(deployedForPlan * state.config.spread)
+  const expectedZarProfit = quote
+    ? zarProfitFromQuote(deployedForPlan, quote)
+    : roundMoney(deployedForPlan * state.config.spread)
   const usedCardIds = new Set(cardAssignments.map((row) => row.cardId))
   const usedMachineIds = new Set(cardAssignments.map((row) => row.machineId))
   const restingCardIds = state.cards.map((card) => card.id).filter((id) => !usedCardIds.has(id))
   const restingMachineIds = state.machines
     .map((machine) => machine.id)
     .filter((id) => !usedMachineIds.has(id))
-  const bufferTriggerAmount = roundMoney(config.bufferAmount * config.bufferTriggerRatio)
+  const bufferTriggerAmount = roundMoney(state.config.bufferAmount * state.config.bufferTriggerRatio)
   const bufferUsedProjected = roundMoney(state.bufferUsed + deployedForPlan)
   const bufferActionRequired = state.bufferUsed > 0 && bufferUsedProjected > bufferTriggerAmount
   const overlayNotes = [
@@ -759,13 +1158,13 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
     .join(' ')
 
   const selectionReason = [
-    `Need ${cardAssignments.length} card${cardAssignments.length === 1 ? '' : 's'} for ${formatZar(deployedForPlan)} within ${formatZar(config.minCardAmount)}–${formatZar(config.maxCardAmount)}.`,
+    `Need ${cardAssignments.length} card${cardAssignments.length === 1 ? '' : 's'} for ${formatZar(deployedForPlan)} within ${formatZar(state.config.minCardAmount)}–${formatZar(state.config.maxCardAmount)}.`,
     idleCapital > 0
       ? `${formatZar(idleCapital)} idle: available capital sits in a capacity gap.`
       : 'Full available capital is routable.',
     `${selectedCardIds.map((id) => cardLabel(id)).join(', ')} chosen for fewest active cycles, then longest rest.`,
     cardAssignments.map((row) => row.posReason).filter(Boolean).join(' ') ||
-      `${cardAssignments.map((row) => machineLabel(row.machineId)).join(', ')} assigned for volume balance, then least-used pairings. Same-name pairs are never used.`,
+      `${cardAssignments.map((row) => machineLabel(row.machineId)).join(', ')} assigned by leftover, tightness, then volume tie-break. Same-name pairs are never used.`,
     overlayNotes,
     bufferActionRequired
       ? `Projected buffer ${formatZar(bufferUsedProjected)} exceeds ${formatZar(bufferTriggerAmount)} working threshold.`
@@ -776,11 +1175,12 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
 
   return {
     cycleNumber,
-    startingCapital: config.startingCapital,
+    startingCapital: state.config.startingCapital,
     availableCapital: state.availableCapital,
     deployedAmount: deployedForPlan,
     idleCapital,
     expectedProfit,
+    expectedZarProfit,
     cardCountUsed: cardAssignments.length,
     cardAssignments,
     restingCardIds,
@@ -790,6 +1190,9 @@ export function planCycle(state: RoutingState, overlay: RoutingOverlay = EMPTY_O
     bufferTriggerAmount,
     bufferActionRequired,
     selectionReason,
+    ...(quote ? { quote } : {}),
+    residualsConsidered: liveBook.residuals,
+    tightnessRanks: params.tightnessRanks,
   }
 }
 
@@ -852,7 +1255,11 @@ export function applySell(
   plan: CyclePlan,
   actualProfit?: number
 ): RoutingState {
-  const profit = roundMoney(actualProfit ?? plan.expectedProfit)
+  const profit = roundMoney(
+    actualProfit ??
+      plan.expectedZarProfit ??
+      (plan.quote ? zarProfitFromQuote(plan.deployedAmount, plan.quote) : plan.deployedAmount * state.config.spread)
+  )
   const bufferUsed = roundMoney(state.bufferUsed + plan.deployedAmount)
   return {
     ...state,
@@ -917,21 +1324,32 @@ export type ReplenishPlan = {
   cardAssignments: CardAssignment[]
   restingCardIds: number[]
   restingMachineIds: number[]
+  quote?: FrozenQuote
 }
 
 export function planReplenish(
   state: RoutingState,
   costRate: number,
-  overlay: RoutingOverlay = EMPTY_OVERLAY
+  overlay: RoutingOverlay = EMPTY_OVERLAY,
+  book: PathBook = {}
 ): ReplenishPlan | null {
-  const nextSell = planCycle(state, overlay)
+  const liveBook: PathBook = { ...book }
+  const nextSell = planCycle(state, overlay, liveBook)
   if (!nextSell.bufferActionRequired || state.bufferUsed <= 0 || !(costRate > 0)) return null
   const restockState: RoutingState = {
     ...state,
     availableCapital: state.bufferUsed,
     bufferUsed: 0,
   }
-  const swipe = planCycle(restockState, overlay)
+  const restockBook: PathBook = {
+    ...liveBook,
+    residuals: [],
+    quote: {
+      ...(liveBook.quote || fallbackQuote()),
+      costRate,
+    },
+  }
+  const swipe = planCycle(restockState, overlay, restockBook)
   return {
     cycleNumber: nextSell.cycleNumber,
     amountZar: state.bufferUsed,
@@ -940,13 +1358,15 @@ export function planReplenish(
     cardAssignments: swipe.cardAssignments,
     restingCardIds: swipe.restingCardIds,
     restingMachineIds: swipe.restingMachineIds,
+    quote: restockBook.quote,
   }
 }
 
 export function nextSwipeAssignments(
   state: RoutingState,
   sell: CyclePlan,
-  overlay: RoutingOverlay = EMPTY_OVERLAY
+  overlay: RoutingOverlay = EMPTY_OVERLAY,
+  book: PathBook = {}
 ): CardAssignment[] {
   const afterSell = applySell(state, sell)
   const swipeCapital = afterSell.bufferUsed > 0 ? afterSell.bufferUsed : sell.deployedAmount
@@ -957,7 +1377,8 @@ export function nextSwipeAssignments(
       availableCapital: swipeCapital,
       bufferUsed: 0,
     },
-    overlay
+    overlay,
+    { ...book, residuals: [] }
   )
   return swipe.cardAssignments
 }
@@ -997,11 +1418,16 @@ export function receiveChoiceForSale(
 export function previewAskImpact(
   state: RoutingState,
   overlay: RoutingOverlay,
-  costRate: number
+  costRate: number,
+  book: PathBook = {}
 ): { replenishFirst: ReplenishPlan | null; nextPlan: CyclePlan | null } {
-  const replenishFirst = planReplenish(state, costRate, overlay)
+  const liveBook: PathBook = {
+    ...book,
+    quote: book.quote || (costRate > 0 ? { ...fallbackQuote(), costRate, sellRate: costRate * 1.1 } : fallbackQuote()),
+  }
+  const replenishFirst = planReplenish(state, costRate, overlay, liveBook)
   if (replenishFirst) return { replenishFirst, nextPlan: null }
-  return { replenishFirst: null, nextPlan: planCycle(state, overlay) }
+  return { replenishFirst: null, nextPlan: planCycle(state, overlay, liveBook) }
 }
 
 export function formatAskImpactBody(params: {
@@ -1045,7 +1471,7 @@ export function formatAskImpactBody(params: {
         : `Next: receive MZN, then pay ${formatZar(plan.deployedAmount)}.`
     )
     if (receive?.reason) lines.push(receive.reason)
-    lines.push(`Expected spread this sale: ${formatZar(plan.expectedProfit)}`)
+    lines.push(`Expected spread this sale: ${formatMznAmount(plan.expectedProfit)}`)
     lines.push(
       plan.bufferActionRequired
         ? 'Restock ZAR @ COST would follow this sale.'
@@ -1177,9 +1603,10 @@ export function buildActivityCopy(
   }
   lines.push('Rand carries the premium. Do not pay ZAR first.')
   lines.push(`Expected spread: ${formatSpreadPercent(spread)}`)
-  lines.push(`Expected gross spread: ${formatZar(plan.expectedProfit)}`)
+  lines.push(`Expected gross spread: ${formatMznAmount(plan.expectedProfit)}`)
   if (quotes && quotes.sellRate > 0 && quotes.costRate > 0) {
     const profitPerZar = roundMoney(Math.max(0, quotes.sellRate - quotes.costRate))
+    lines.push(`Receive ${formatMznAmount(roundMoney(plan.deployedAmount * quotes.sellRate))} at frozen SELL.`)
     lines.push(`SELL ${quotes.sellRate.toFixed(2)} Mt/R · COST ${quotes.costRate.toFixed(2)} Mt/R`)
     lines.push(`Live spread: ${profitPerZar.toFixed(2)} Mt/R`)
   }
