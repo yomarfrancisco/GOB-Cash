@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect } from 'react'
+import Image from 'next/image'
 import ActionSheet from '../ActionSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useActivityUnreadStore } from '@/store/activityUnread'
-import { FxDeskThread } from '@/components/desk/FxDeskThread'
+import { NotificationsList } from './NotificationsList'
+import { DESK_TEAM } from '@/lib/desk/threadModel'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
 export default function NotificationsSheet() {
@@ -23,8 +25,23 @@ export default function NotificationsSheet() {
       size="tall"
       className={`${listStyles.financialInboxSheet} inboxTallSheet`}
     >
-      <div className={`${listStyles.content} ${listStyles.activityContent} ${listStyles.deskContent}`}>
-        <FxDeskThread />
+      <div className={`${listStyles.content} ${listStyles.activityContent}`}>
+        <div className={listStyles.activitySearchOverlay}>
+          <div className={listStyles.deskTeamStack} aria-hidden>
+            <div className={`${listStyles.deskStackFace} ${listStyles.deskStackAmina}`}>
+              <Image src={DESK_TEAM.amina.avatar} alt="" width={36} height={36} unoptimized />
+            </div>
+            <div className={`${listStyles.deskStackFace} ${listStyles.deskStackLeo}`}>
+              <Image src={DESK_TEAM.leo.avatar} alt="" width={36} height={36} unoptimized />
+            </div>
+            <div className={`${listStyles.deskStackFace} ${listStyles.deskStackSam}`}>
+              <Image src={DESK_TEAM.sam.avatar} alt="" width={44} height={44} unoptimized />
+            </div>
+          </div>
+        </div>
+        <div className={listStyles.conversationList}>
+          <NotificationsList />
+        </div>
       </div>
     </ActionSheet>
   )
