@@ -35,6 +35,20 @@
   border-radius: 32px 32px 0 0;
 }
 
+.deskContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  background: #f4f3f8;
+}
+
+.deskContent::after {
+  content: none;
+}
+
 .activitySearchOverlay {
   position: absolute;
   top: 0;
