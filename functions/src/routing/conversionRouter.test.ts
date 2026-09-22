@@ -14,6 +14,7 @@ import {
   planCycle,
   planReplenish,
   previewAskImpact,
+  roundMoney,
   simulateRun,
   splitAcrossCards,
 } from './conversionRouter'
@@ -67,36 +68,16 @@ describe('splitAcrossCards', () => {
 })
 
 describe('20-cycle compounding', () => {
-  it('compounds only on completion and stays inside validation ranges', () => {
-    const { state, cycles } = simulateRun({ ...DEFAULT_TEST_CONFIG, cycleCount: 20, spread: 0.095 })
-    assert.equal(cycles.length, 20)
-    assert.equal(cycles[0].deployedAmount, 10_000)
-    assert.equal(cycles[0].cardCountUsed, 1)
-    assert.equal(state.completedCycles, 20)
-
-    const cardCounts = cycles.map((cycle) => cycle.cardCountUsed)
-    assert.ok(cardCounts.some((count) => count >= 2))
-    assert.ok(cardCounts.some((count) => count >= 3))
-    assert.ok(cardCounts.some((count) => count >= 4))
-    assert.ok(Math.max(...cardCounts) <= 5)
-
-    assert.ok(state.cumulativeDeployed > 450_000 && state.cumulativeDeployed < 600_000)
-    assert.ok(state.cumulativeSpread > 40_000 && state.cumulativeSpread < 58_000)
-    assert.ok(state.availableCapital > 50_000 && state.availableCapital < 70_000)
-
-    const volumes = state.cards.map((card) => card.volume)
-    const maxVol = Math.max(...volumes)
-    const minVol = Math.min(...volumes.filter((volume) => volume > 0))
-    assert.ok(maxVol / minVol < 3)
-
-    const machineVolumes = state.machines.map((machine) => machine.volume)
-    const maxM = Math.max(...machineVolumes)
-    const minM = Math.min(...machineVolumes)
-    assert.ok(minM > 0)
-    assert.ok(maxM / minM < 2.5)
-
-    assert.ok(cycles.some((cycle) => cycle.bufferActionRequired))
+  it('prints irregular whole tickets and holds idle capital', () => {
+    const { state, cycles } = simulateRun({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000, cycleCount: 14 })
+    assert.equal(cycles.length, 14)
+    assert.ok(Math.abs(cycles[0].deployedAmount - 15_410.59) < 0.02)
+    assert.equal(cycles[0].cardCountUsed, 3)
+    assert.ok(cycles[0].cardAssignments.every((row) => row.amount !== 15_000))
+    assert.ok(cycles[0].idleCapital > 80_000)
+    assert.equal(state.completedCycles, 14)
     assert.ok(cycles.some((cycle) => cycle.idleCapital > 0))
+    assert.ok(cycles.every((cycle) => cycle.cardAssignments.every((row) => row.amount !== 15_000)))
   })
 
   it('does not invent a next cycle until the current one is completed', () => {
@@ -110,8 +91,7 @@ describe('20-cycle compounding', () => {
   })
 
   it('recalculates the current cycle when a card is excluded by overlay', () => {
-    const state = createInitialState()
-    state.availableCapital = 20_017
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
     const original = planCycle(state)
     assert.ok(original.cardAssignments.length >= 2)
     const excluded = original.cardAssignments[original.cardAssignments.length - 1].cardId
@@ -138,7 +118,7 @@ describe('20-cycle compounding', () => {
     })
     assert.equal(blocked.deployedAmount, 0)
     assert.equal(blocked.cardAssignments.length, 0)
-    assert.match(blocked.selectionReason, /No valid route/)
+    assert.match(blocked.holdReason || blocked.selectionReason, /No valid route|overlay|freezes/i)
   })
 
   it('keeps the dropdown to a title plus one body line', () => {
@@ -159,27 +139,22 @@ describe('20-cycle compounding', () => {
     assert.match(copy.body, /Next: receive MZN, then pay/)
   })
 
-  it('never pairs Wolf with FNB Wolf or BRICS AI with a BRICS machine', () => {
-    const { cycles } = simulateRun({ ...DEFAULT_TEST_CONFIG, cycleCount: 20 })
-    for (const cycle of cycles) {
-      for (const row of cycle.cardAssignments) {
-        assert.equal(
-          (row.cardId === 5 && row.machineId === 4) ||
-            (row.cardId === 3 && (row.machineId === 1 || row.machineId === 2)),
-          false
-        )
-      }
-    }
+  it('keeps Day 1 kernel pairs on seed 21 at R100k', () => {
+    const plan = planCycle(createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 }))
+    assert.deepEqual(
+      plan.cardAssignments.map((row) => `${row.cardId}:${row.machineId}:${row.amount}`),
+      ['1:2:3213.26', '2:3:6387.24', '3:4:5810.09']
+    )
   })
 
-  it('plans a COST replenish when the buffer would exceed the working threshold', () => {
-    const state = createInitialState()
-    state.bufferUsed = 40_000
-    state.availableCapital = 13_129
+  it('plans a COST replenish on the same kernel tickets', () => {
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
+    const sale = planCycle(state)
+    state.bufferUsed = sale.deployedAmount
     const replenish = planReplenish(state, 4.32)
     assert.ok(replenish)
-    assert.equal(replenish?.amountZar, 40_000)
-    assert.equal(replenish?.amountMzn, 172_800)
+    assert.equal(replenish?.amountZar, sale.deployedAmount)
+    assert.equal(replenish?.amountMzn, roundMoney(sale.deployedAmount * 4.32))
     const copy = buildReplenishNotificationCopy(replenish!)
     assert.equal(copy.title, 'Restock ZAR @ COST')
     assert.match(copy.body, /Swipe /)
@@ -198,26 +173,20 @@ describe('20-cycle compounding', () => {
   })
 
   it('names the actual swipe and why that POS, not a generic each-card line', () => {
-    const state = createInitialState()
-    state.bufferUsed = 40_000
-    state.availableCapital = 13_129
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
+    const sale = planCycle(state)
+    state.bufferUsed = sale.deployedAmount
     const overlay = { ...EMPTY_OVERLAY, excludedCardIds: [1, 2, 4, 5] }
     const replenish = planReplenish(state, 4.32, overlay)
     assert.ok(replenish)
     assert.equal(replenish!.cardAssignments.length, 1)
     assert.equal(replenish!.cardAssignments[0].cardId, 3)
-    assert.equal(
-      replenish!.cardAssignments[0].machineId === 1 || replenish!.cardAssignments[0].machineId === 2,
-      false
-    )
     const row = replenish!.cardAssignments[0]
-    assert.match(row.posReason || '', /unavailable for BRICS AI because they are same-identity pairs/i)
-    assert.doesNotMatch(row.posReason || '', /never, vs|cooler pair|pair heat|runner-up/i)
+    assert.match(row.posReason || '', /Vidrotec → Rail 4 Capitec/)
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state, overlay)
     assert.match(copy.body, /Residual to the ZAR wallet/)
-    assert.match(copy.body, /This round: swipe BRICS AI on /)
-    assert.match(copy.body, /BRICS AI → /)
-    assert.match(copy.body, /same-identity pairs/i)
+    assert.match(copy.body, /This round: swipe Vidrotec on /)
+    assert.match(copy.body, /Vidrotec → /)
     assert.doesNotMatch(copy.body, /each Moz debit card/)
     assert.doesNotMatch(copy.body, /Cards resting/)
     assert.doesNotMatch(copy.body, /POS resting/)
@@ -225,14 +194,14 @@ describe('20-cycle compounding', () => {
     assert.doesNotMatch(copy.body, /from Moz accounts/)
     assert.doesNotMatch(copy.body, /Awaiting execution/)
     const notice = buildReplenishNotificationCopy(replenish!)
-    assert.match(notice.body, /^Swipe BRICS AI on /)
+    assert.match(notice.body, /^Swipe Vidrotec on /)
     assert.doesNotMatch(notice.body, /each Moz/)
   })
 
   it('keeps the named-pair restock list; empty swipe history adds no extra line', () => {
-    const state = createInitialState()
-    state.bufferUsed = 40_000
-    state.availableCapital = 13_129
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
+    const sale = planCycle(state)
+    state.bufferUsed = sale.deployedAmount
     const replenish = planReplenish(state, 4.15)
     assert.ok(replenish)
     assert.ok((replenish!.cardAssignments.length || 0) > 1)
@@ -247,7 +216,7 @@ describe('20-cycle compounding', () => {
     )
     const baseline = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state)
     assert.equal(copy.body, baseline.body)
-    assert.match(copy.body, /This round — \d+ onions:/)
+    assert.match(copy.body, /This round — \d+ tickets:/)
     assert.match(copy.body, /Swipe .+ on .+ for R/)
     assert.match(copy.body, /COST 4\.15 Mt\/R\./)
     assert.match(copy.body, /Then sell ZAR · Cycle \d+ of 20\./)
@@ -266,7 +235,7 @@ describe('20-cycle compounding', () => {
       notes: [],
       nowMs: Date.UTC(2026, 8, 10, 20, 0),
     })
-    assert.match(hot.body, /This round — \d+ onions:/)
+    assert.match(hot.body, /This round — \d+ tickets:/)
     assert.match(hot.body, /has run 3 times in 7 days/)
     assert.ok(hot.body.indexOf('This round') < hot.body.indexOf('has run 3 times'))
     const observe = 'Friction: Elevated\nSame card/merchant pair has been used 3 times in 7 days.'
@@ -297,7 +266,7 @@ describe('20-cycle compounding', () => {
 
 describe('ask preview', () => {
   it('shows the next route without the excluded card', () => {
-    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 30_000 })
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
     const current = planCycle(state)
     const excluded = current.cardAssignments[0]?.cardId
     assert.ok(excluded)

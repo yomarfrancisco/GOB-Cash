@@ -70,9 +70,9 @@ describe('ledger retrieval', () => {
       history: groupedRestock,
       nowMs: NOW,
     })
-    assert.match(answered.body, /Goblin → FNB Wolf/)
-    assert.match(answered.body, /Wolf → Capitec BRICS/)
-    assert.match(answered.body, /Ginav → FNB IMANI/)
+    assert.match(answered.body, /Wolf → Rail 4 Capitec/)
+    assert.match(answered.body, /Goblin → Rail 2 FNB/)
+    assert.match(answered.body, /BRICS → Rail 3 Capitec/)
     assert.match(answered.body, /Individual swipe order is unknown/)
   })
 
@@ -82,7 +82,7 @@ describe('ledger retrieval', () => {
       history: groupedRestock,
       nowMs: NOW,
     })
-    assert.match(answered.body, /Wolf → Capitec BRICS/)
+    assert.match(answered.body, /Wolf → Rail 4 Capitec/)
     assert.match(answered.body, /SAST/)
     assert.match(answered.body, /grouped restock/)
     assert.match(answered.body, /Individual swipe order is unknown/)
@@ -127,8 +127,8 @@ describe('ledger aggregate ties', () => {
       nowMs,
     })
     assert.match(answered.body, /tied at 33%/)
-    assert.match(answered.body, /Capitec BRICS/)
-    assert.match(answered.body, /FNB IMANI/)
+    assert.match(answered.body, /Rail 4 Capitec/)
+    assert.match(answered.body, /Rail 2 FNB/)
     assert.doesNotMatch(answered.body, /leads/)
     assert.doesNotMatch(answered.body, /Yes\./)
   })

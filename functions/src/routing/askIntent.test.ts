@@ -81,7 +81,7 @@ describe('Ask intent classifier', () => {
       delete process.env.LLM_API_KEY
       delete process.env.OPENAI_API_KEY
       const leaningQ = 'Have we been leaning too heavily on any one POS today?'
-      const whyQ = 'Why did we choose FNB IMANI for Ginav last time?'
+      const whyQ = 'Why did we choose Rail 2 FNB for Ginav last time?'
       const leaning = await classifyAskIntent(leaningQ)
       const why = await classifyAskIntent(whyQ)
       assert.equal(leaning.source, 'fast_path')
@@ -129,9 +129,9 @@ describe('Ask intent classifier', () => {
             id: 'ginav-imani',
             occurredAt: nowMs - 86_400_000,
             executedAt: nowMs - 86_400_000,
-            cardId: 1,
-            merchantId: 3,
-            machineId: 3,
+            cardId: 2,
+            merchantId: 2,
+            machineId: 2,
             amountZar: 15_000,
             currency: 'ZAR',
             country: 'ZA',
@@ -143,7 +143,7 @@ describe('Ask intent classifier', () => {
           },
         ],
       })
-      assert.match(leaningAdvice.body, /FNB IMANI|POS concentration|no POS concentration/i)
+      assert.match(leaningAdvice.body, /Rail 3 Capitec|POS concentration|no POS concentration/i)
       assert.match(whyAdvice.body, /stored issuance reason|Stored reason/i)
       assert.deepEqual(openaiCalls, [])
     } finally {

@@ -52,7 +52,7 @@ describe('friction sentence', () => {
       notes: [],
       nowMs: NOW,
     })
-    assert.match(line || '', /Goblin on FNB IMANI has run 3 times in 7 days/)
+    assert.match(line || '', /Wolf on Rail 3 Capitec has run 3 times in 7 days/)
     assert.match(line || '', /invoice ready|settle/)
   })
 
@@ -88,7 +88,7 @@ describe('friction sentence', () => {
       ],
       nowMs: NOW,
     })
-    assert.match(blocked || '', /Goblin was declined/)
+    assert.match(blocked || '', /Wolf was declined/)
     assert.match(blocked || '', /Do not swipe another card/)
   })
 })
@@ -107,7 +107,7 @@ describe('note questions', () => {
       pendingKind: null,
     })
     assert.equal(due?.questionKind, 'swipe_outcome')
-    assert.match(due?.body || '', /Wolf on FNB BRICS/)
+    assert.match(due?.body || '', /Goblin on Rail 1 FNB/)
   })
 })
 

@@ -12,58 +12,54 @@ export type NamedResource = {
 export const DEFAULT_CARDS: NamedResource[] = [
   {
     id: 1,
-    name: 'Ginav Standard Bank',
-    shortName: 'Ginav',
-    mozBank: 'Standard Bank Mozambique',
-    mozBankId: 'standard',
-    aliases: ['ginav standard bank', 'ginav'],
+    name: 'BRICS BIM',
+    shortName: 'BRICS',
+    mozBank: 'BIM',
+    mozBankId: 'bim',
+    aliases: ['brics bim', 'brics ai ei fnb', 'brics ai', 'brics'],
   },
   {
     id: 2,
-    name: 'Vidrotec BIM',
-    shortName: 'Vidrotec',
-    mozBank: 'BIM',
-    mozBankId: 'bim',
-    aliases: ['vidrotec bim', 'vidrotec'],
+    name: 'Ginav FNB',
+    shortName: 'Ginav',
+    mozBank: 'FNB Mozambique',
+    mozBankId: 'fnb',
+    aliases: ['ginav fnb', 'ginav standard bank', 'ginav'],
   },
   {
     id: 3,
-    name: 'BRICS AI EI FNB',
-    shortName: 'BRICS AI',
-    mozBank: 'FNB Mozambique',
-    mozBankId: 'fnb',
-    aliases: ['brics ai ei fnb', 'brics ai', 'brics'],
+    name: 'Vidrotec BCI',
+    shortName: 'Vidrotec',
+    mozBank: 'BCI',
+    mozBankId: 'bci',
+    aliases: ['vidrotec bci', 'vidrotec bim', 'vidrotec'],
   },
   {
     id: 4,
-    name: 'Goblin BCI',
-    shortName: 'Goblin',
-    mozBank: 'BCI',
-    mozBankId: 'bci',
-    aliases: ['goblin bci', 'goblin'],
+    name: 'Wolf Vista',
+    shortName: 'Wolf',
+    mozBank: 'Vista',
+    mozBankId: 'vista',
+    aliases: ['wolf vista', 'wolf bci', 'wolf'],
   },
   {
     id: 5,
-    name: 'Wolf BCI',
-    shortName: 'Wolf',
-    mozBank: 'BCI',
-    mozBankId: 'bci',
-    aliases: ['wolf bci', 'wolf'],
+    name: 'Goblin Standard Bank',
+    shortName: 'Goblin',
+    mozBank: 'Standard Bank Mozambique',
+    mozBankId: 'standard',
+    aliases: ['goblin standard bank', 'goblin bci', 'goblin'],
   },
 ]
 
 export const DEFAULT_MACHINES: NamedResource[] = [
-  { id: 1, name: 'FNB BRICS', shortName: 'FNB BRICS', aliases: ['fnb brics'] },
-  { id: 2, name: 'Capitec BRICS', shortName: 'Capitec BRICS', aliases: ['capitec brics', 'capitec'] },
-  { id: 3, name: 'FNB IMANI', shortName: 'FNB IMANI', aliases: ['fnb imani', 'imani'] },
-  { id: 4, name: 'FNB Wolf', shortName: 'FNB Wolf', aliases: ['fnb wolf'] },
+  { id: 1, name: 'Rail 1 FNB', shortName: 'Rail 1 FNB', aliases: ['rail 1 fnb', 'rail 1', 'fnb brics', 'fnb wolf'] },
+  { id: 2, name: 'Rail 2 FNB', shortName: 'Rail 2 FNB', aliases: ['rail 2 fnb', 'rail 2', 'fnb imani', 'imani'] },
+  { id: 3, name: 'Rail 3 Capitec', shortName: 'Rail 3 Capitec', aliases: ['rail 3 capitec', 'rail 3'] },
+  { id: 4, name: 'Rail 4 Capitec', shortName: 'Rail 4 Capitec', aliases: ['rail 4 capitec', 'rail 4', 'capitec brics', 'capitec'] },
 ]
 
-export const DEFAULT_FORBIDDEN_PAIRS: Array<{ cardId: number; machineId: number }> = [
-  { cardId: 3, machineId: 1 },
-  { cardId: 3, machineId: 2 },
-  { cardId: 5, machineId: 4 },
-]
+export const DEFAULT_FORBIDDEN_PAIRS: Array<{ cardId: number; machineId: number }> = []
 
 export const CARD_FLAG = '🇲🇿'
 export const MACHINE_FLAG = '🇿🇦'
@@ -168,5 +164,5 @@ export function inventoryPromptList(): string {
   const banned = DEFAULT_FORBIDDEN_PAIRS.map(
     (row) => `${cardLabel(row.cardId)} cannot use ${machineLabel(row.machineId)}`
   ).join('; ')
-  return `Cards are Mozambique ${CARD_FLAG}: ${cards}.\nMachines are South Africa ${MACHINE_FLAG}: ${machines}.\nPermanent pairing bans: ${banned}. Never assign a banned pair. Use the flags in summaries.\nReceive MZN only into a named debit account, never a generic bank list. BCI, BIM, FNB Mozambique, and Standard Bank are on METIX real-time local rails and can take large credits. Vista is a small bank with high fees — never receive there. Diversify receives so the same card/bank does not take every credit. Mahomed pays from BCI and BIM; same-bank METIX is preferred when he is the payer.`
+  return `Cards are Mozambique ${CARD_FLAG}: ${cards}.\nMachines are South Africa ${MACHINE_FLAG}: ${machines}.\n${banned ? `Permanent pairing bans: ${banned}. Never assign a banned pair. ` : ''}Use the flags in summaries.\nReceive MZN only into a named debit account, never a generic bank list. BCI, BIM, FNB Mozambique, and Standard Bank are on METIX real-time local rails and can take large credits. Vista is a small bank with high fees — never receive there. Diversify receives so the same card/bank does not take every credit. Mahomed pays from BCI and BIM; same-bank METIX is preferred when he is the payer.`
 }

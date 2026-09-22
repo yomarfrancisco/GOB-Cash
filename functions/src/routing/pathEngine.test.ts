@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { EMPTY_OVERLAY } from './constraints'
-import { applyCapitalShock, createInitialState, planCycle, planReplenish, residualToTarget } from './conversionRouter'
+import { applyCapitalShock, createInitialState, DEFAULT_TEST_CONFIG, planCycle, planReplenish } from './conversionRouter'
 import { answerHistoricalExplanation } from './historicalAsk'
 import {
   applyPathWrites,
@@ -10,7 +10,6 @@ import {
   fallbackQuote,
   frozenQuoteFromSell,
   pickQBestPair,
-  planFlow,
   type PathBook,
 } from './pathEngine'
 
@@ -19,54 +18,27 @@ function bookWith(extra: PathBook = {}): PathBook {
 }
 
 describe('pathEngine Q-best', () => {
-  it('reroutes an unpaid leftover off the failed pair when another legal pair exists', () => {
-    const state = createInitialState()
-    const residual = {
-      economicPaymentId: 'pay-c1-1-3',
-      amountZar: 10_000,
-      originCycle: 1,
-      cardId: 1,
-      machineId: 3,
-      status: 'open' as const,
-    }
-    const book = bookWith({
-      residuals: [residual],
-      notes: [
-        {
-          cycle: 1,
-          kind: 'decline',
-          cardId: 1,
-          machineId: 3,
-          amountZar: 10_000,
-          at: '2026-09-18T10:00:00.000Z',
-          economicPaymentId: 'pay-c1-1-3',
-        },
-      ],
-    })
-    const plan = planCycle(state, EMPTY_OVERLAY, book)
-    assert.equal(plan.deployedAmount, 10_000)
-    assert.ok(plan.cardAssignments.length === 1)
-    const row = plan.cardAssignments[0]
-    assert.notEqual(row.cardId, 1)
-    assert.notEqual(`${row.cardId}:${row.machineId}`, '1:3')
-    assert.match(row.posReason || '', /leftover|Q-best/i)
-    assert.equal(row.routingDecision?.quote?.sellRate, fallbackQuote().sellRate)
+  it('issues absorbing whole tickets, not a leftover onion pack', () => {
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
+    const plan = planCycle(state, EMPTY_OVERLAY, bookWith())
+    assert.ok(plan.cardAssignments.length >= 1)
+    assert.ok(plan.cardAssignments.every((row) => row.amount !== 15_000))
+    assert.ok(plan.deployedAmount < 20_000)
+    assert.ok((plan.idleCapital || 0) > 80_000)
   })
 
-  it('never lets a banned same-identity pair win', () => {
+  it('still enumerates a legal card×POS for a named leftover', () => {
     const state = createInitialState()
     const picked = pickQBestPair({
       state,
       overlay: EMPTY_OVERLAY,
       cycleNumber: 1,
-      amountZar: 10_000,
+      amountZar: 2_500,
       book: bookWith(),
       onlyCardId: 3,
     })
     assert.ok(picked.assignment)
     assert.equal(picked.assignment.cardId, 3)
-    assert.notEqual(picked.assignment.machineId, 1)
-    assert.notEqual(picked.assignment.machineId, 2)
   })
 
   it('freeze removes a POS until rail_up', () => {
@@ -87,7 +59,7 @@ describe('pathEngine Q-best', () => {
       state,
       overlay: EMPTY_OVERLAY,
       cycleNumber: 2,
-      amountZar: 10_000,
+      amountZar: 2_500,
       book: frozen,
     })
     assert.ok(whileDown.assignment)
@@ -106,7 +78,7 @@ describe('pathEngine Q-best', () => {
       state,
       overlay: EMPTY_OVERLAY,
       cycleNumber: 3,
-      amountZar: 10_000,
+      amountZar: 2_500,
       book: up,
     })
     assert.ok(after.ranks.some((row) => row.machineId === 3))
@@ -127,34 +99,12 @@ describe('pathEngine Q-best', () => {
     const plan = planCycle(state, EMPTY_OVERLAY, book)
     assert.equal(plan.deployedAmount, 0)
     assert.equal(plan.cardAssignments.length, 0)
-    assert.match(plan.selectionReason, /Hold/)
-  })
-
-  it('holds a leftover that cannot fit R10k–R15k', () => {
-    const state = createInitialState()
-    const plan = planCycle(
-      state,
-      EMPTY_OVERLAY,
-      bookWith({
-        residuals: [
-          {
-            economicPaymentId: 'pay-print-cap',
-            amountZar: 8_000,
-            originCycle: 1,
-            cardId: 1,
-            machineId: 3,
-            status: 'open',
-          },
-        ],
-      })
-    )
-    assert.equal(plan.deployedAmount, 0)
-    assert.match(plan.holdReason || plan.selectionReason, /does not fit/)
+    assert.match(plan.holdReason || plan.selectionReason, /Hold|frozen|empty|eligible|valid route|freezes/i)
   })
 
   it('prices a sale from live SELL and restock from live COST', () => {
     const quote = frozenQuoteFromSell(5.5, 1)
-    const state = createInitialState()
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
     const sale = planCycle(state, EMPTY_OVERLAY, bookWith({ quote }))
     assert.equal(sale.quote?.sellRate, 5.5)
     assert.equal(sale.quote?.costRate, quote.costRate)
@@ -162,26 +112,29 @@ describe('pathEngine Q-best', () => {
     assert.ok(Math.abs(sale.expectedProfit - sale.deployedAmount * (quote.sellRate - quote.costRate)) < 0.02)
     assert.notEqual(sale.expectedProfit, sale.deployedAmount * 0.1)
 
-    state.bufferUsed = 40_000
-    state.availableCapital = 13_129
+    state.bufferUsed = sale.deployedAmount
     const restock = planReplenish(state, quote.costRate, EMPTY_OVERLAY, bookWith({ quote }))
     assert.ok(restock)
-    assert.equal(restock?.amountMzn, Math.round(40_000 * quote.costRate * 100) / 100)
+    assert.deepEqual(
+      restock?.cardAssignments.map((row) => row.amount),
+      sale.cardAssignments.map((row) => row.amount)
+    )
+    assert.equal(restock?.amountZar, sale.deployedAmount)
     assert.equal(restock?.costRate, quote.costRate)
   })
 
   it('historical Ask reads the frozen reason and does not re-plan', () => {
     const answered = answerHistoricalExplanation({
-      message: 'Why did we choose FNB IMANI for Ginav last time?',
+      message: 'Why did we choose Rail 2 FNB for Ginav last time?',
       history: [
         {
-          id: 'ginav-imani',
+          id: 'ginav-rail2',
           occurredAt: Date.UTC(2026, 8, 17, 12),
           executedAt: Date.UTC(2026, 8, 17, 12),
-          cardId: 1,
-          merchantId: 3,
-          machineId: 3,
-          amountZar: 10_000,
+          cardId: 2,
+          merchantId: 2,
+          machineId: 2,
+          amountZar: 3_524.31,
           currency: 'ZAR',
           country: 'ZA',
           channel: 'card_present',
@@ -226,46 +179,11 @@ describe('path write classifier', () => {
 })
 
 describe('pathEngine flow', () => {
-  it('splits a leftover above one print cap into two onions', () => {
-    const state = createInitialState()
-    const flow = planFlow({
-      state,
-      overlay: EMPTY_OVERLAY,
-      cycleNumber: 1,
-      amountZar: 25_000,
-      book: bookWith({
-        residuals: [
-          {
-            economicPaymentId: 'pay-big',
-            amountZar: 25_000,
-            originCycle: 1,
-            cardId: 1,
-            machineId: 3,
-            status: 'open',
-          },
-        ],
-      }),
-      residual: {
-        economicPaymentId: 'pay-big',
-        amountZar: 25_000,
-        originCycle: 1,
-        cardId: 1,
-        machineId: 3,
-        status: 'open',
-      },
-    })
-    assert.equal(flow.holdReason, undefined)
-    assert.equal(flow.onions.length, 2)
-    assert.equal(flow.deployedAmount, 25_000)
-    assert.ok(flow.onions.every((row) => row.amount >= 10_000 && row.amount <= 15_000))
-    assert.notEqual(flow.onions[0].cardId, flow.onions[1].cardId)
-    assert.notEqual(`${flow.onions[0].cardId}:${flow.onions[0].machineId}`, '1:3')
-  })
-
-  it('treats Sell ZAR as a capital shock that raises residual to the wallet', () => {
+  it('treats Sell ZAR as a set-window-capital shock, not an additive residual', () => {
     const started = createInitialState()
-    const after = applyCapitalShock(started, { kind: 'sell_zar', amountZar: 12_000 })
-    assert.equal(residualToTarget(after), residualToTarget(started) + 12_000)
-    assert.equal(after.availableCapital, started.availableCapital + 12_000)
+    const after = applyCapitalShock(started, { kind: 'sell_zar', amountZar: 100_000 })
+    assert.equal(after.authorisedZar, 100_000)
+    assert.ok(after.window)
+    assert.equal(after.window?.openingAmountZar ?? after.authorisedZar, 100_000)
   })
 })

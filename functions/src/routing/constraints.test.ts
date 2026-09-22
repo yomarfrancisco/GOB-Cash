@@ -39,13 +39,13 @@ describe('parseFastPath', () => {
   it('reads named cards and machines', () => {
     const lost = parseFastPath('Wolf is lost')
     assert.equal(lost?.intents[0]?.action, 'exclude_card')
-    assert.equal(lost?.intents[0]?.resourceId, 5)
+    assert.equal(lost?.intents[0]?.resourceId, 4)
     const down = parseFastPath('Capitec is down')
     assert.equal(down?.intents[0]?.action, 'exclude_machine')
-    assert.equal(down?.intents[0]?.resourceId, 2)
+    assert.equal(down?.intents[0]?.resourceId, 4)
     const machine = parseFastPath('FNB Wolf is down')
     assert.equal(machine?.intents[0]?.action, 'exclude_machine')
-    assert.equal(machine?.intents[0]?.resourceId, 4)
+    assert.equal(machine?.intents[0]?.resourceId, 1)
   })
 })
 
@@ -85,7 +85,7 @@ describe('placeholder copy is not a valid answer', () => {
     assert.equal(usefulClarification('short question'), null)
     assert.match(
       contextualClarify([{ cardId: 4, machineId: 3 }, { cardId: 5, machineId: 1 }]),
-      /🇲🇿 Goblin on 🇿🇦 FNB IMANI/
+      /🇲🇿 Wolf on 🇿🇦 Rail 3 Capitec/
     )
   })
 })

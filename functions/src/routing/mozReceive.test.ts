@@ -48,7 +48,7 @@ describe('chooseReceiveAccount', () => {
       state,
       amountZar: 45_000,
       cycleNumber: 1,
-      swipeCardIds: [1, 2, 4, 5],
+      swipeCardIds: [1, 2, 3, 5],
     })
     assert.ok(first)
     state = applyReceiveChoice(state, first!.cardId)
@@ -56,7 +56,7 @@ describe('chooseReceiveAccount', () => {
       state,
       amountZar: 45_000,
       cycleNumber: 2,
-      swipeCardIds: [1, 2, 4, 5],
+      swipeCardIds: [1, 2, 3, 5],
     })
     assert.ok(second)
     assert.notEqual(second?.cardId, first?.cardId)
@@ -69,10 +69,10 @@ describe('chooseReceiveAccount', () => {
       state,
       amountZar: 15_000,
       cycleNumber: 1,
-      swipeCardIds: [3],
+      swipeCardIds: [2],
       hint: parseReceiveHint('payer is on FNB'),
     })
-    assert.equal(choice?.cardId, 3)
+    assert.equal(choice?.cardId, 2)
     assert.equal(choice?.bankId, 'fnb')
   })
 })

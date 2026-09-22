@@ -13,9 +13,9 @@ describe('historical explanation', () => {
         id: 'ginav-imani',
         occurredAt: NOW - 86_400_000,
         executedAt: NOW - 86_400_000,
-        cardId: 1,
-        merchantId: 3,
-        machineId: 3,
+        cardId: 2,
+        merchantId: 2,
+        machineId: 2,
         amountZar: 15_000,
         currency: 'ZAR',
         country: 'ZA',
@@ -25,10 +25,10 @@ describe('historical explanation', () => {
         source: 'live_desk',
         cycleNumber: 6,
         routingDecision: {
-          selectedCardId: 1,
-          selectedMachineId: 3,
+          selectedCardId: 2,
+          selectedMachineId: 2,
           selectedAt: NOW - 86_400_000,
-          selectionReason: 'Ginav → FNB IMANI — frozen at issuance, not today’s planner.',
+          selectionReason: 'Ginav → Rail 2 FNB — frozen at issuance, not today’s planner.',
           eligibleAlternatives: [{ machineId: 4, volume: 12_000, pairUseCount: 1 }],
           excludedAlternatives: [{ machineId: 1, reason: 'same-identity pair' }],
           relevantConstraints: [],
@@ -40,7 +40,7 @@ describe('historical explanation', () => {
       },
     ]
     const answered = answerHistoricalExplanation({
-      message: 'Why did we choose FNB IMANI for Ginav last time?',
+      message: 'Why did we choose Rail 2 FNB for Ginav last time?',
       history,
     })
     assert.match(answered.body, /frozen at issuance, not today’s planner/)

@@ -34,6 +34,7 @@ import {
   stampAssignmentDecisions,
   type RoutingState,
 } from '../routing/conversionRouter'
+import { applyWindowPathWrite, ROUTING_ENGINE_ID } from '../routing/throughputPlan'
 import { applyReceiveChoice, parseReceiveHint, type ReceiveChoice } from '../routing/mozReceive'
 import {
   parseFrictionNote,
@@ -797,6 +798,8 @@ function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
     authorisedZar: num(data.authorisedZar, num(data.startingCapital, base.authorisedZar)),
     cycledZar: num(data.cycledZar, 0),
     mznInventory: num(data.mznInventory, 0),
+    window: data.throughputWindow && typeof data.throughputWindow === 'object' ? data.throughputWindow : undefined,
+    windowNeedsAdvance: data.windowNeedsAdvance === true,
     config: {
       ...base.config,
       cardCount: cards.length,
@@ -810,7 +813,18 @@ function persistCapital(state: RoutingState) {
     authorisedZar: state.authorisedZar || 0,
     cycledZar: state.cycledZar || 0,
     mznInventory: state.mznInventory || 0,
+    throughputWindow: state.window ? JSON.parse(JSON.stringify(state.window)) : null,
+    windowNeedsAdvance: state.windowNeedsAdvance === true,
+    routingEngine: ROUTING_ENGINE_ID,
   }
+}
+
+function shouldStartFreshWindow(data: admin.firestore.DocumentData | undefined): boolean {
+  if (!data) return true
+  if (data.status === 'completed' || data.status === 'declined' || data.status === 'superseded') {
+    return false
+  }
+  return data.routingEngine !== ROUTING_ENGINE_ID
 }
 
 function publicSummary(state: RoutingState, extra: Record<string, unknown> = {}) {
@@ -1156,7 +1170,7 @@ function writeIssuedCycle(
       pairings: state.pairings,
       receiveCounts: state.receiveCounts || {},
       lastReceiveCardId: state.lastReceiveCardId ?? null,
-      ...persistCapital(state),
+      ...persistCapital({ ...state, window: plan.window ?? state.window }),
       awaitingCycleNumber: plan.cycleNumber,
       awaitingKind: 'deploy',
       ...persistPathBook({}, persistBook),
@@ -1242,13 +1256,16 @@ async function startNewTest(
     const existing = await db.collection(TESTS).doc(existingId).get()
     if (existing.exists) {
       const data = existing.data() || {}
-      const state = stateFromDoc(data)
-      return publicSummary(state, {
-        testRunId: existingId,
-        status: data.status || 'active',
-        cycleNumber: data.awaitingCycleNumber || state.completedCycles,
-        started: false,
-      })
+      if (!shouldStartFreshWindow(data)) {
+        const state = stateFromDoc(data)
+        return publicSummary(state, {
+          testRunId: existingId,
+          status: data.status || 'active',
+          cycleNumber: data.awaitingCycleNumber || state.completedCycles,
+          started: false,
+        })
+      }
+      forceNew = true
     }
   }
 
@@ -1285,6 +1302,7 @@ async function startNewTest(
     receiveCounts: {},
     lastReceiveCardId: null,
     ...persistCapital(state),
+    routingEngine: ROUTING_ENGINE_ID,
     constraints: [],
     lastShockLine: lastShockLine || null,
     createdAt: now,
@@ -1897,7 +1915,7 @@ export const admin_submitConversionRoutingFeedback = functions
       num(testData.awaitingCycleNumber, 0) === cycleNumber
     const stored = storedPlanFromCycle(cycleSnap.exists ? cycleSnap.data() || {} : {}, cycleNumber)
     const quotes = await applyLiveQuotes(state)
-    const liveState = { ...state, config: { ...state.config, spread: quotes.state.config.spread } }
+    let liveState = { ...state, config: { ...state.config, spread: quotes.state.config.spread } }
     const [recentCycles, recentFeedback] = await Promise.all([
       loadRecentCycleBriefs(testRunId),
       loadRecentFeedbackBriefs(testRunId),
@@ -2087,6 +2105,7 @@ export const admin_submitConversionRoutingFeedback = functions
         cycleNumber,
         nowIso: new Date(nowMs).toISOString(),
       })
+      liveState = acceptedPathWrites.reduce((state, write) => applyWindowPathWrite(state, write), liveState)
       const acknowledgement = acceptedPathWrites.map((row) => row.summary).join(' ')
       const overlay = overlayFromConstraints(constraints)
       const preview = previewAskImpact(

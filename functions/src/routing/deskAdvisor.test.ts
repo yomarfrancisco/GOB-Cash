@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { applyIntentsToState } from './constraints'
-import { createInitialState, type RoutingState } from './conversionRouter'
+import { createInitialState, DEFAULT_TEST_CONFIG, type RoutingState } from './conversionRouter'
 import { adviseDesk } from './deskAdvisor'
 import { cardLabel } from './inventory'
 import { isDeskStrategyAsk, shouldNotApplyAskIntents, sastToUtcMs } from './routingTime'
@@ -53,7 +53,7 @@ describe('adviseDesk', () => {
   })
 
   it('offers one restore route when the admin names a workable card', () => {
-    const state = createInitialState()
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
     const applied = restAll(state)
     const advice = adviseDesk({
       message: 'Ginav',
@@ -76,7 +76,7 @@ describe('adviseDesk', () => {
     assert.equal(advice.options?.length, 1)
     assert.match(advice.options?.[0].body || '', /Ginav/i)
     assert.equal(advice.options?.[0].intents[0]?.action, 'restore_card')
-    assert.equal(advice.options?.[0].intents[0]?.resourceId, 1)
+    assert.equal(advice.options?.[0].intents[0]?.resourceId, 2)
     assert.equal(advice.title.startsWith('Use '), true)
   })
 
@@ -116,7 +116,7 @@ describe('adviseDesk', () => {
   })
 
   it('offers two routes only when two named cards both work', () => {
-    const state = createInitialState()
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
     const applied = restAll(state)
     const advice = adviseDesk({
       message: 'Ginav or Vidrotec',
@@ -147,11 +147,8 @@ describe('adviseDesk', () => {
     })
     assert.equal(advice.kind, 'next_step')
     assert.match(advice.title, /restock/i)
-    assert.match(advice.body, /on (FNB IMANI|Capitec BRICS|FNB BRICS|FNB Wolf)/)
-    assert.match(
-      advice.body,
-      /same-identity|less recent restock volume|used less often|only eligible POS|asked to prefer|idle longer|even on recent restock volume/
-    )
+    assert.match(advice.body, /on (Rail \d+ (FNB|Capitec)|FNB IMANI|Capitec BRICS|FNB BRICS|FNB Wolf)/)
+    assert.match(advice.body, /BRICS → Rail 4 Capitec|whole ticket|Rail 4 Capitec/)
   })
 
   it('tells the admin to wait when one card has a unique calendar lift', () => {
@@ -190,7 +187,7 @@ describe('adviseDesk', () => {
     assert.equal(advice.options, undefined)
     assert.doesNotMatch(advice.body, /this_cycle/)
     assert.match(advice.body, /safest pair/i)
-    assert.match(advice.body, /on (FNB IMANI|Capitec BRICS|FNB BRICS|FNB Wolf)/)
+    assert.match(advice.body, /on (Rail \d+ (FNB|Capitec)|FNB IMANI|Capitec BRICS|FNB BRICS|FNB Wolf)/)
     assert.match(
       advice.body,
       /same-identity|less recent restock volume|used less often|only eligible POS|asked to prefer|idle longer|even on recent restock volume|safest pair/
@@ -262,7 +259,7 @@ describe('adviseDesk', () => {
     assert.doesNotMatch(advice.body, /card name|none \/ new card|Which card is actually safe/i)
     assert.match(advice.body, /R49,891/)
     assert.match(advice.body, /4 swipes/)
-    assert.match(advice.body, /R10,000/)
+    assert.match(advice.body, /R1,000–R8,000/)
     assert.match(advice.body, /21:54/)
     assert.match(advice.body, /do not add another card/i)
   })
@@ -299,9 +296,9 @@ describe('adviseDesk', () => {
       nowMs,
     })
     assert.equal(advice.kind, 'next_step')
-    assert.match(advice.body, /Wolf R11,339/)
-    assert.match(advice.body, /BRICS AI R11,339/)
-    assert.match(advice.body, /Goblin R0/)
+    assert.match(advice.body, /Goblin R11,339/)
+    assert.match(advice.body, /BRICS R11,339/)
+    assert.match(advice.body, /Wolf R0/)
     assert.match(advice.body, /Total R45,355/)
     assert.match(advice.body, /22:39/)
     assert.doesNotMatch(advice.body, /Execute that list/)
@@ -374,18 +371,18 @@ describe('adviseDesk', () => {
     })
     assert.equal(advice.kind, 'next_step')
     assert.equal(advice.options, undefined)
-    assert.match(advice.body, /FNB IMANI/)
+    assert.match(advice.body, /Rail 2 FNB/)
     assert.match(advice.body, /77%|Yes/)
     assert.doesNotMatch(advice.body, /receive MZN|Vidrotec|BIM|Pursue/i)
   })
 
-  it('explains the stored Ginav / FNB IMANI reason and never proposes a new route', () => {
+  it('explains the stored Ginav / Rail 2 FNB reason and never proposes a new route', () => {
     const state = createInitialState()
     const nowMs = sastToUtcMs(2026, 9, 12, 14, 26)
     const storedReason =
-      'Restore Ginav and then pay ZAR after MZN lands — first restock swipe Vidrotec on FNB BRICS is heavier, so FNB IMANI avoids concentrating more volume on the heavier POS.'
+      'Restore Ginav and then pay ZAR after MZN lands — first restock swipe Vidrotec on Rail 1 FNB is heavier, so Rail 2 FNB avoids concentrating more volume on the heavier POS.'
     const advice = adviseDesk({
-      message: 'Why did we choose FNB IMANI for Ginav last time?',
+      message: 'Why did we choose Rail 2 FNB for Ginav last time?',
       state,
       constraints: [],
       current: {
@@ -395,12 +392,12 @@ describe('adviseDesk', () => {
       },
       history: [
         {
-          id: 'ginav-imani',
+          id: 'ginav-rail2',
           occurredAt: nowMs - 86_400_000,
           executedAt: nowMs - 86_400_000,
-          cardId: 1,
-          merchantId: 3,
-          machineId: 3,
+          cardId: 2,
+          merchantId: 2,
+          machineId: 2,
           amountZar: 15_000,
           currency: 'ZAR',
           country: 'ZA',
@@ -411,15 +408,15 @@ describe('adviseDesk', () => {
           cycleNumber: 6,
           posReason: storedReason,
           routingDecision: {
-            selectedCardId: 1,
-            selectedMachineId: 3,
+            selectedCardId: 2,
+            selectedMachineId: 2,
             selectedAt: nowMs - 86_400_000,
             selectionReason: storedReason,
             eligibleAlternatives: [{ machineId: 4, volume: 0, pairUseCount: 0 }],
             excludedAlternatives: [{ machineId: 1, reason: 'same-identity pair' }],
             relevantConstraints: [],
-            machineVolumesAtDecision: { '3': 0 },
-            pairUseCountsAtDecision: { '1:3': 0 },
+            machineVolumesAtDecision: { '2': 0 },
+            pairUseCountsAtDecision: { '2:2': 0 },
             cardRestStateAtDecision: { activeCycles: 1, restCycles: 0, lastCycleUsed: 5 },
             decisionVersion: 'routing_decision_v1',
           },
