@@ -473,9 +473,11 @@ export default function ProfileClient() {
   const [agentCashHandle, setAgentCashHandle] = useState<string | null>(null)
   const openedCashLinkRef = useRef<string | null>(null)
   const routingPlay = useRoutingPlaybackStore((s) => s.play)
+  const clockPlayRef = useRef(routingPlay)
 
   useEffect(() => {
     if (!routingPlay) return
+    clockPlayRef.current = routingPlay
     setAgentCashKeypad(false)
     setAgentCashHandle(null)
     setConversionDestination(routingPlay.destination || 'MZN')
@@ -543,7 +545,6 @@ export default function ProfileClient() {
   const closeAmount = useCallback(() => {
     setOpenAmount(false)
     setAmountEntryPoint(undefined) // Reset entry point when closing
-    useRoutingPlaybackStore.getState().clear()
   }, [])
   const closeSendDetails = useCallback(() => {
     setOpenSendDetails(false)
@@ -661,6 +662,7 @@ export default function ProfileClient() {
                 conversionDestination={conversionDestination}
                 onDollarClick={() => {
                   guardAuthed(() => {
+                    clockPlayRef.current = null
                     useRoutingPlaybackStore.getState().clear()
                     setAgentCashKeypad(false)
                     setAgentCashHandle(null)
@@ -1246,7 +1248,8 @@ export default function ProfileClient() {
           }, 220)
         } : undefined}
         onCardSubmit={amountEntryPoint === 'conversionKeypad' ? ({ amountMZN, amountZAR }) => {
-          const play = useRoutingPlaybackStore.getState().play
+          const play = useRoutingPlaybackStore.getState().play || clockPlayRef.current
+          clockPlayRef.current = null
           const run = play
             ? submitRoutingConversion({ amountZAR, amountMZN })
             : submitInternalConversion({
@@ -1524,6 +1527,7 @@ export default function ProfileClient() {
       <FinancialInboxSheet />
       <PayIntoSheet
         onConfirm={(destination) => {
+          clockPlayRef.current = null
           useRoutingPlaybackStore.getState().clear()
           setAgentCashKeypad(false)
           setAgentCashHandle(null)

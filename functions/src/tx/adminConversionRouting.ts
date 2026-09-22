@@ -1531,7 +1531,14 @@ export const admin_confirmConversionRoutingCycle = functions
     const ledger = await loadDeskLedger()
     const testRef = db.collection(TESTS).doc(testRunId)
 
-    const result = await db.runTransaction(async (tx) => {
+    const result: {
+      nextState: RoutingState
+      nextCycle: CyclePlan | null
+      testComplete: boolean
+      cycleNumber: number
+      confirmedKind: 'deploy' | 'replenish'
+      issueNext?: boolean
+    } = await db.runTransaction(async (tx) => {
       const testSnap = await tx.get(testRef)
       if (!testSnap.exists) {
         throw new functions.https.HttpsError('not-found', 'Conversion routing test not found')
@@ -1708,24 +1715,32 @@ export const admin_confirmConversionRoutingCycle = functions
           ),
           quote: quotes.quote,
         }
-        tx.set(testRef, persistPathBook({}, settledBook), { merge: true })
-        const next = writeIssuedCycle(
-          tx,
-          adminUid,
-          testRunId,
-          cleared,
-          now,
-          quotes,
-          overlayForDoc(testData),
-          nextFriction,
-          settledBook
+        tx.set(
+          testRef,
+          {
+            ...persistCapital(cleared),
+            availableCapital: cleared.availableCapital,
+            bufferUsed: cleared.bufferUsed,
+            completedCycles: cleared.completedCycles,
+            cards: cleared.cards,
+            machines: cleared.machines,
+            pairings: cleared.pairings,
+            awaitingCycleNumber: null,
+            awaitingKind: null,
+            ...persistPathBook({}, settledBook),
+            updatedAt: now,
+          },
+          { merge: true }
         )
         return {
           nextState: cleared,
-          nextCycle: next.plan,
+          nextCycle: null,
           testComplete: false,
           cycleNumber,
           confirmedKind: 'replenish',
+          issueNext: true,
+          nextFriction,
+          settledBook,
         }
       }
 
@@ -1833,18 +1848,38 @@ export const admin_confirmConversionRoutingCycle = functions
           ),
           quote: quotes.quote,
         }
-        nextCycle = writeIssuedCycle(
-          tx,
-          adminUid,
-          testRunId,
-          { ...nextState, config: { ...nextState.config, spread: liveSpread } },
-          now,
-          quotes,
-          overlayFromConstraints(remainingConstraints),
-          enrichFriction(frictionFromDoc(testData, now.toMillis()), ledger, testRunId),
-          settledBook
-        ).plan
-        tx.set(testRef, { constraints: remainingConstraints, ...persistPathBook({}, settledBook), updatedAt: now }, { merge: true })
+        tx.set(
+          testRef,
+          {
+            ...persistCapital(nextState),
+            availableCapital: nextState.availableCapital,
+            bufferUsed: nextState.bufferUsed,
+            completedCycles: nextState.completedCycles,
+            cumulativeDeployed: nextState.cumulativeDeployed,
+            cumulativeSpread: nextState.cumulativeSpread,
+            cards: nextState.cards,
+            machines: nextState.machines,
+            pairings: nextState.pairings,
+            receiveCounts: nextState.receiveCounts || {},
+            lastReceiveCardId: nextState.lastReceiveCardId ?? null,
+            awaitingCycleNumber: null,
+            awaitingKind: null,
+            constraints: remainingConstraints,
+            ...persistPathBook({}, settledBook),
+            updatedAt: now,
+          },
+          { merge: true }
+        )
+        nextCycle = null
+        return {
+          nextState,
+          nextCycle,
+          testComplete,
+          cycleNumber,
+          confirmedKind: 'deploy',
+          issueNext: true,
+          settledBook,
+        }
       }
 
       return {
@@ -1856,12 +1891,27 @@ export const admin_confirmConversionRoutingCycle = functions
       }
     })
 
+    let nextCycle = result.nextCycle
+    if (result.issueNext && !result.testComplete) {
+      try {
+        const issued = await issueCycle(
+          adminUid,
+          testRunId,
+          { ...result.nextState, config: { ...result.nextState.config, spread: liveSpread } },
+          now
+        )
+        nextCycle = issued.plan
+      } catch (error) {
+        console.error('[confirm] next instruction failed after cycle completed', error)
+      }
+    }
+
     return publicSummary(result.nextState, {
       testRunId,
       status: result.testComplete ? 'completed' : 'active',
       confirmedCycle: result.cycleNumber,
-      cycleNumber: result.nextCycle?.cycleNumber ?? result.nextState.completedCycles,
-      nextDeployedAmount: result.nextCycle?.deployedAmount ?? null,
+      cycleNumber: nextCycle?.cycleNumber ?? result.nextState.completedCycles,
+      nextDeployedAmount: nextCycle?.deployedAmount ?? null,
       completed: result.testComplete,
     })
   })

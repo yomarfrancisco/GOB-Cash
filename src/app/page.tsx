@@ -143,8 +143,10 @@ function HomeContent() {
   const resumedAuthedCashKeypadRef = useRef(false)
 
   const routingPlay = useRoutingPlaybackStore((s) => s.play)
+  const clockPlayRef = useRef(routingPlay)
   useEffect(() => {
     if (!routingPlay) return
+    clockPlayRef.current = routingPlay
     setAgentCashKeypad(false)
     setAgentCashHandle(null)
     setConversionPrefill(undefined)
@@ -156,6 +158,7 @@ function HomeContent() {
 
   const openConversionKeypad = useCallback((agentCash = false, handle?: string | null) => {
     playDollarSound()
+    clockPlayRef.current = null
     useRoutingPlaybackStore.getState().clear()
     setAgentCashKeypad(agentCash)
     setAgentCashHandle(agentCash && handle ? handle.replace(/^[@$]/, '') : null)
@@ -942,7 +945,6 @@ function HomeContent() {
           setConversionPrefill(undefined)
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
-          useRoutingPlaybackStore.getState().clear()
         }}
         agentCash={agentCashKeypad}
         agentCashHandle={agentCashHandle}
@@ -1032,7 +1034,8 @@ function HomeContent() {
           }, 220) // Match other modal transitions
         } : undefined}
         onCardSubmit={amountEntryPoint === 'conversionKeypad' ? ({ amountMZN, amountZAR }) => {
-          const play = useRoutingPlaybackStore.getState().play
+          const play = useRoutingPlaybackStore.getState().play || clockPlayRef.current
+          clockPlayRef.current = null
           const run = play
             ? submitRoutingConversion({ amountZAR, amountMZN })
             : submitInternalConversion({
@@ -1221,6 +1224,7 @@ function HomeContent() {
       <FinancialInboxSheet />
       <PayIntoSheet
         onConfirm={(destination) => {
+          clockPlayRef.current = null
           useRoutingPlaybackStore.getState().clear()
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
