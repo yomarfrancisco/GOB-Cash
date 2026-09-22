@@ -808,8 +808,9 @@ function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
   }
 }
 
+/** Deep-strip undefined; keeps Timestamp/FieldValue instances intact. */
 function firestoreSafe<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value))
+  return omitUndefined(value)
 }
 
 function persistCapital(state: RoutingState) {

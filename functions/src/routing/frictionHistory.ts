@@ -111,8 +111,30 @@ export const DEFAULT_MERCHANT_PROFILES: MerchantProfile[] = [
   { merchantId: 4, name: 'FNB Wolf' },
 ]
 
-export function omitUndefined<T extends Record<string, unknown>>(row: T): T {
-  return Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined)) as T
+/**
+ * Deep-strip `undefined` so Firestore accepts the document. Plain objects and
+ * arrays are walked; class instances (Timestamp, FieldValue, Date) pass through.
+ */
+export function omitUndefined<T>(row: T): T {
+  return stripUndefined(row) as T
+}
+
+function stripUndefined(value: unknown): unknown {
+  if (value === undefined || value === null) return value
+  if (Array.isArray(value)) {
+    return value.filter((item) => item !== undefined).map((item) => stripUndefined(item))
+  }
+  if (typeof value === 'object') {
+    const proto = Object.getPrototypeOf(value)
+    if (proto !== Object.prototype && proto !== null) return value
+    const out: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      if (item === undefined) continue
+      out[key] = stripUndefined(item)
+    }
+    return out
+  }
+  return value
 }
 
 export function merchantProfile(merchantId: number, overlays: MerchantProfile[] = []): MerchantProfile {

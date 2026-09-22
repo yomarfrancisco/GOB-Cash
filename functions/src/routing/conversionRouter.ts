@@ -1010,13 +1010,16 @@ function stampQuoteOnAssignments(
   if (!book.quote && !book.residuals?.length && !ranks?.length) return assignments
   return assignments.map((row) => {
     if (!row.routingDecision) return row
+    const quote = row.routingDecision.quote || book.quote
+    const residualsConsidered = row.routingDecision.residualsConsidered || book.residuals
+    const tightnessRanks = row.routingDecision.tightnessRanks || ranks
     return {
       ...row,
       routingDecision: {
         ...row.routingDecision,
-        quote: row.routingDecision.quote || book.quote,
-        residualsConsidered: row.routingDecision.residualsConsidered || book.residuals,
-        tightnessRanks: row.routingDecision.tightnessRanks || ranks,
+        ...(quote ? { quote } : {}),
+        ...(residualsConsidered ? { residualsConsidered } : {}),
+        ...(tightnessRanks ? { tightnessRanks } : {}),
       },
     }
   })

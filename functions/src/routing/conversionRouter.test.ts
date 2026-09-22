@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { EMPTY_OVERLAY } from './constraints'
+import { deskTxFromSwipe, omitUndefined } from './frictionHistory'
 import {
   DEFAULT_TEST_CONFIG,
   buildAgentReplyCopy,
@@ -172,6 +173,32 @@ describe('20-cycle compounding', () => {
           row.routingDecision.decisionVersion === 'routing_decision_v1'
       )
     )
+  })
+
+  it('restock ledger rows carry no undefined keys anywhere (Firestore rejects the write)', () => {
+    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
+    const sale = planCycle(state)
+    state.bufferUsed = sale.deployedAmount
+    const replenish = planReplenish(state, 4.32)
+    assert.ok(replenish)
+    const rows = replenish!.cardAssignments.map((row) =>
+      deskTxFromSwipe(
+        { id: 'swipe', atMs: 1, cardId: row.cardId, machineId: row.machineId, amount: row.amount, cycleNumber: 2 },
+        { testRunId: 'run', source: 'live_desk', status: 'proposed', proposedAt: 1, routingDecision: row.routingDecision }
+      )
+    )
+    const offenders: string[] = []
+    const walk = (value: unknown, path: string) => {
+      if (value === undefined) offenders.push(path)
+      else if (Array.isArray(value)) value.forEach((item, i) => walk(item, `${path}[${i}]`))
+      else if (value && typeof value === 'object') {
+        for (const [key, item] of Object.entries(value)) walk(item, `${path}.${key}`)
+      }
+    }
+    rows.map((row) => omitUndefined(row)).forEach((row, i) => walk(row, `row${i}`))
+    assert.deepEqual(offenders, [])
+    // The previous shallow strip left routingDecision.tightnessRanks: undefined behind.
+    assert.ok(rows.every((row) => !('tightnessRanks' in (row.routingDecision || {})) || row.routingDecision?.tightnessRanks !== undefined))
   })
 
   it('names the actual swipe and why that POS, not a generic each-card line', () => {

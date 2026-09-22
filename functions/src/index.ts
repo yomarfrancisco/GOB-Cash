@@ -10,6 +10,8 @@ import * as admin from 'firebase-admin'
 
 // Initialize Firebase Admin
 admin.initializeApp()
+// Firestore rejects `undefined` anywhere in a document; drop such keys instead of failing the write.
+admin.firestore().settings({ ignoreUndefinedProperties: true })
 
 // Export functions
 export { onContactWrite } from './onContactWrite'

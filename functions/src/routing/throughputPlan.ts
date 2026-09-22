@@ -11,7 +11,7 @@ import type { ProspectiveBranch, ProspectiveRoute } from '../throughput/prospect
 
 export const KERNEL_SEED = WINDOW_SEED
 /** Persisted on each desk run. Ensure starts a new window when this does not match. */
-export const ROUTING_ENGINE_ID = 'absorbing-tickets-v1'
+export const ROUTING_ENGINE_ID = 'absorbing-tickets-v2'
 
 /** Firestore rejects arrays of arrays (learner.cov). Keep the book, drop engine internals. */
 export function persistWindow(window: ProspectiveBranch): Record<string, unknown> {
