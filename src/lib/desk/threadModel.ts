@@ -256,9 +256,9 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
   if (finished) {
     return {
       title: 'Window closed',
-      body: firstSentence(finished.body || 'This 20-cycle window is done.'),
+      body: firstSentence(finished.body || 'This 14-weekday window is done.'),
       clock: 'start',
-      clockLabel: `Start ${finished.cycleNumber ? `cycle ${(finished.cycleNumber || 0) + 1}` : 'the next window'}`,
+      clockLabel: finished.cycleNumber ? 'Start the window' : 'Start the window',
       stillToDeliver: leftover,
       startAgain: true,
       item: finished,

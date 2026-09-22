@@ -66,9 +66,9 @@ describe('splitAcrossCards', () => {
   })
 })
 
-describe('20-cycle default test', () => {
+describe('20-cycle compounding', () => {
   it('compounds only on completion and stays inside validation ranges', () => {
-    const { state, cycles } = simulateRun({ ...DEFAULT_TEST_CONFIG, spread: 0.095 })
+    const { state, cycles } = simulateRun({ ...DEFAULT_TEST_CONFIG, cycleCount: 20, spread: 0.095 })
     assert.equal(cycles.length, 20)
     assert.equal(cycles[0].deployedAmount, 10_000)
     assert.equal(cycles[0].cardCountUsed, 1)
@@ -214,7 +214,8 @@ describe('20-cycle default test', () => {
     assert.match(row.posReason || '', /unavailable for BRICS AI because they are same-identity pairs/i)
     assert.doesNotMatch(row.posReason || '', /never, vs|cooler pair|pair heat|runner-up/i)
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state, overlay)
-    assert.match(copy.body, /^Swipe BRICS AI on /)
+    assert.match(copy.body, /Residual to the ZAR wallet/)
+    assert.match(copy.body, /This round: swipe BRICS AI on /)
     assert.match(copy.body, /BRICS AI → /)
     assert.match(copy.body, /same-identity pairs/i)
     assert.doesNotMatch(copy.body, /each Moz debit card/)
@@ -246,7 +247,7 @@ describe('20-cycle default test', () => {
     )
     const baseline = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state)
     assert.equal(copy.body, baseline.body)
-    assert.match(copy.body, /^Swipe these \d+ pairs:/)
+    assert.match(copy.body, /This round — \d+ onions:/)
     assert.match(copy.body, /Swipe .+ on .+ for R/)
     assert.match(copy.body, /COST 4\.15 Mt\/R\./)
     assert.match(copy.body, /Then sell ZAR · Cycle \d+ of 20\./)
@@ -265,9 +266,9 @@ describe('20-cycle default test', () => {
       notes: [],
       nowMs: Date.UTC(2026, 8, 10, 20, 0),
     })
-    assert.match(hot.body, /^Swipe these \d+ pairs:/)
+    assert.match(hot.body, /This round — \d+ onions:/)
     assert.match(hot.body, /has run 3 times in 7 days/)
-    assert.ok(hot.body.indexOf('Swipe these') < hot.body.indexOf('has run 3 times'))
+    assert.ok(hot.body.indexOf('This round') < hot.body.indexOf('has run 3 times'))
     const observe = 'Friction: Elevated\nSame card/merchant pair has been used 3 times in 7 days.'
     const awaiting = buildReplenishActivityCopy(
       replenish!,

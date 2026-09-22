@@ -17,7 +17,10 @@ import {
   buildReplenishNotificationCopy,
   applySell,
   applyCardPosContact,
+  applyCapitalShock,
+  applyRestockLanding,
   createInitialState,
+  residualToTarget,
   formatAskImpactBody,
   planCycle,
   planReplenish,
@@ -791,11 +794,22 @@ function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
           )
         : {},
     lastReceiveCardId: typeof data.lastReceiveCardId === 'number' ? data.lastReceiveCardId : null,
+    authorisedZar: num(data.authorisedZar, num(data.startingCapital, base.authorisedZar)),
+    cycledZar: num(data.cycledZar, 0),
+    mznInventory: num(data.mznInventory, 0),
     config: {
       ...base.config,
       cardCount: cards.length,
       machineCount: machines.length,
     },
+  }
+}
+
+function persistCapital(state: RoutingState) {
+  return {
+    authorisedZar: state.authorisedZar || 0,
+    cycledZar: state.cycledZar || 0,
+    mznInventory: state.mznInventory || 0,
   }
 }
 
@@ -825,11 +839,13 @@ function pathBookFromDoc(data: admin.firestore.DocumentData | undefined, quote?:
     residuals: data?.pathResiduals,
     notes: data?.exhaustionNotes,
     quote: data?.frozenQuote || data?.quote,
+    lastShockLine: data?.lastShockLine,
   })
   return {
     residuals: parsed.residuals || [],
     notes: parsed.notes || [],
     quote: quote || parsed.quote,
+    lastShockLine: parsed.lastShockLine,
   }
 }
 
@@ -842,6 +858,7 @@ function persistPathBook(
     pathResiduals: book.residuals || [],
     exhaustionNotes: book.notes || [],
     ...(book.quote ? { frozenQuote: book.quote } : {}),
+    lastShockLine: book.lastShockLine || null,
   }
 }
 
@@ -987,6 +1004,7 @@ function writeIssuedReplenish(
       pairings: state.pairings,
       receiveCounts: state.receiveCounts || {},
       lastReceiveCardId: state.lastReceiveCardId ?? null,
+      ...persistCapital(state),
       awaitingCycleNumber: replenish.cycleNumber,
       awaitingKind: 'replenish',
       replenishAmountMzn: replenish.amountMzn,
@@ -1040,6 +1058,8 @@ function writeIssuedCycle(
   }
 
   const planned = planCycle(state, overlay, liveBook)
+  const shockLine = liveBook.lastShockLine
+  const persistBook: PathBook = { ...liveBook, lastShockLine: undefined }
   const plan = {
     ...planned,
     cardAssignments: stampAssignmentDecisions(planned.cardAssignments, now.toMillis()),
@@ -1055,7 +1075,7 @@ function writeIssuedCycle(
     'awaiting_execution',
     state.config.spread,
     quotes,
-    { state, overlay }
+    { state, overlay, revisionReason: shockLine }
   )
   const activityEventId = eventId(testRunId, plan.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
@@ -1136,9 +1156,10 @@ function writeIssuedCycle(
       pairings: state.pairings,
       receiveCounts: state.receiveCounts || {},
       lastReceiveCardId: state.lastReceiveCardId ?? null,
+      ...persistCapital(state),
       awaitingCycleNumber: plan.cycleNumber,
       awaitingKind: 'deploy',
-      ...persistPathBook({}, liveBook),
+      ...persistPathBook({}, persistBook),
       updatedAt: now,
     },
     { merge: true }
@@ -1209,7 +1230,12 @@ async function cancelAwaitingCycle(
   }
 }
 
-async function startNewTest(adminUid: string, forceNew: boolean) {
+async function startNewTest(
+  adminUid: string,
+  forceNew: boolean,
+  startingCapital?: number,
+  lastShockLine?: string
+) {
   const now = admin.firestore.Timestamp.now()
   const existingId = await currentTestId(adminUid)
   if (existingId && !forceNew) {
@@ -1239,7 +1265,10 @@ async function startNewTest(adminUid: string, forceNew: boolean) {
   }
 
   const testRunId = db.collection(TESTS).doc().id
-  const state = createInitialState(DEFAULT_TEST_CONFIG)
+  const state = createInitialState({
+    ...DEFAULT_TEST_CONFIG,
+    ...(typeof startingCapital === 'number' && startingCapital > 0 ? { startingCapital } : {}),
+  })
   await db.collection(TESTS).doc(testRunId).set({
     testRunId,
     adminUid,
@@ -1255,7 +1284,9 @@ async function startNewTest(adminUid: string, forceNew: boolean) {
     pairings: {},
     receiveCounts: {},
     lastReceiveCardId: null,
+    ...persistCapital(state),
     constraints: [],
+    lastShockLine: lastShockLine || null,
     createdAt: now,
     updatedAt: now,
   })
@@ -1287,6 +1318,58 @@ async function startNewTest(adminUid: string, forceNew: boolean) {
     dropdownTitle: notification.title,
     dropdownBody: notification.body,
   })
+}
+
+export async function applyAdminCapitalShock(params: {
+  adminUid: string
+  kind: 'sell_zar' | 'add_zar' | 'add_mzn'
+  amountZar: number
+  amountMzn?: number
+}): Promise<void> {
+  const { adminUid, kind, amountZar, amountMzn } = params
+  if (adminUid !== ROUTING_ADMIN_UID) return
+  const amount = Number(amountZar) || 0
+  const mzn = Number(amountMzn) || 0
+  if (kind !== 'add_mzn' && !(amount > 0)) return
+  if (kind === 'add_mzn' && !(mzn > 0)) return
+
+  const shockLine =
+    kind === 'sell_zar'
+      ? `Capital shock: Sell ZAR ${formatZar(amount)}. Residual re-solved.`
+      : kind === 'add_zar'
+        ? `Capital shock: ZAR inventory ${formatZar(amount)} added. Residual re-solved.`
+        : `Capital shock: MZN inventory added. Residual re-solved.`
+
+  const existingId = await currentTestId(adminUid)
+  const existing = existingId ? await db.collection(TESTS).doc(existingId).get() : null
+  const status = existing?.data()?.status
+
+  if (!existingId || !existing?.exists || status !== 'active') {
+    if (kind === 'sell_zar') {
+      await startNewTest(adminUid, true, amount, shockLine)
+    } else if (kind === 'add_zar') {
+      await startNewTest(adminUid, true, amount, shockLine)
+    }
+    return
+  }
+
+  const now = admin.firestore.Timestamp.now()
+  const data = existing.data() || {}
+  const state = applyCapitalShock(stateFromDoc(data), { kind, amountZar: amount, amountMzn: mzn })
+  const awaiting = num(data.awaitingCycleNumber, 0)
+  if (awaiting > 0) {
+    await cancelAwaitingCycle(adminUid, existingId, awaiting, now)
+  }
+  await db.collection(TESTS).doc(existingId).set(
+    {
+      availableCapital: state.availableCapital,
+      ...persistCapital(state),
+      lastShockLine: shockLine,
+      updatedAt: now,
+    },
+    { merge: true }
+  )
+  await issueCycle(adminUid, existingId, state, now)
 }
 
 export const admin_startConversionRoutingTest = functions
@@ -1480,11 +1563,14 @@ export const admin_confirmConversionRoutingCycle = functions
           { txs: [...ledger.txs, ...durable], reviews: ledger.reviews },
           testRunId
         )
-        const cleared: RoutingState = {
-          ...contacted,
-          bufferUsed: 0,
-          config: { ...contacted.config, spread: liveSpread },
-        }
+        const cleared: RoutingState = applyRestockLanding(
+          {
+            ...contacted,
+            bufferUsed: 0,
+            config: { ...contacted.config, spread: liveSpread },
+          },
+          assignments.reduce((sum, row) => sum + row.amount, 0)
+        )
         tx.update(eventRef, {
           title: completedCopy.title,
           body: completedCopy.body,
@@ -1722,16 +1808,21 @@ export const admin_submitConversionRoutingFeedback = functions
           testRunId: started.testRunId,
           cycleNumber: started.cycleNumber,
           status: 'advice',
-          acknowledgement: 'New 20-cycle run started. The next instruction is on the latest card.',
+          acknowledgement: 'New 14-weekday window started. The next instruction is on the latest card.',
         }
       }
       const state = stateFromDoc(testData)
+      const residual = residualToTarget(state)
       const body = [
-        `This ${state.config.cycleCount}-cycle run is done.`,
+        residual > 0
+          ? `This 14-weekday window is closed with ${formatZar(residual)} still owed to the ZAR wallet.`
+          : 'This 14-weekday window is closed. Residual to the ZAR wallet is R0.',
         'There is no next swipe or payout on this test.',
         `ZAR in the routing ledger: ${formatZar(state.availableCapital)} available` +
           (state.bufferUsed > 0 ? `, ${formatZar(state.bufferUsed)} waiting to restock.` : '.'),
-        'Say “start the next run” if you want a new desk.',
+        residual > 0
+          ? 'Sell ZAR or add inventory to re-open the residual. Do not start a new window while U is still open.'
+          : 'Say “start the window” if you want a new desk with no authorised U.',
       ].join(' ')
       await db.runTransaction(async (tx) => {
         publishAdviceCard(tx, {
@@ -1740,11 +1831,11 @@ export const admin_submitConversionRoutingFeedback = functions
           cycleNumber: finishedCycle || state.config.cycleCount,
           feedbackId,
           now,
-          title: 'Run finished',
+          title: residual > 0 ? 'Window closed — residual open' : 'Window closed',
           body,
           userReply: rawMessage,
           routingAction: 'advice',
-          startNextRun: true,
+          startNextRun: residual <= 0,
         })
         tx.set(testRef.collection('feedback').doc(feedbackId), {
           id: feedbackId,

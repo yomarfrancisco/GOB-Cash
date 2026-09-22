@@ -233,5 +233,23 @@ export const tx_createInternalConversion = functions
       })
     }
 
+    try {
+      const { ROUTING_ADMIN_UID } = await import('../routing/conversionRouter')
+      if (userId === ROUTING_ADMIN_UID) {
+        const { applyAdminCapitalShock } = await import('./adminConversionRouting')
+        await applyAdminCapitalShock({
+          adminUid: userId,
+          kind: isZarSale ? 'sell_zar' : 'add_zar',
+          amountZar: sourceCurrency === 'ZAR' ? sourceAmountMajor : expectedDestinationMajor,
+          amountMzn: sourceCurrency === 'MZN' ? sourceAmountMajor : reportedDestMajor,
+        })
+      }
+    } catch (error) {
+      console.error('[tx_createInternalConversion] Capital shock failed (non-blocking)', {
+        txId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+
     return { txId }
   })

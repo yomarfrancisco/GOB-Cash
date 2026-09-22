@@ -83,6 +83,8 @@ describe('sell receive copy', () => {
     const plan = planCycle(state)
     const copy = buildActivityCopy(plan, 20, 'awaiting_execution', 0.1, undefined, { state })
     assert.match(copy.body, /Receive MZN into /)
+    assert.match(copy.body, /Residual to the ZAR wallet/)
+    assert.match(copy.body, /This round:/)
     assert.doesNotMatch(copy.body, /Moza Banco, or Vista/)
     assert.doesNotMatch(copy.body, /into a Moz account/)
     assert.match(copy.body, /METIX/)

@@ -490,12 +490,12 @@ function ActivityItemCard({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Start the next run"
+                aria-label="Start the window"
                 aria-busy={startNextState !== 'idle'}
                 disabled={startNextState !== 'idle'}
                 onClick={handleStartNextRun}
               >
-                Start the next run
+                Start the window
               </button>
             )}
             {showProposalActions && (

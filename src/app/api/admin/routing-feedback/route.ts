@@ -26,7 +26,7 @@ function ledgerFromTestDoc(data: Record<string, unknown>): LedgerSnapshot {
     availableCapital: num(data.availableCapital, 0),
     bufferUsed: num(data.bufferUsed, 0),
     completedCycles: num(data.completedCycles, 0),
-    cycleCount: num(config.cycleCount, 20),
+    cycleCount: num(config.cycleCount, 14),
     bufferAmount: num(config.bufferAmount, 50_000),
     cards: Array.isArray(data.cards) ? data.cards : [],
     machines: Array.isArray(data.machines) ? data.machines : [],

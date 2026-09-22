@@ -14,6 +14,7 @@ import {
   openResiduals,
   parseFrozenQuote,
   pickQBestPair,
+  planFlow,
   zarProfitFromQuote,
   type FrozenQuote,
   type PathBook,
@@ -52,7 +53,7 @@ export const DEFAULT_TEST_CONFIG: RoutingConfig = {
   recycleRate: 1,
   bufferAmount: 50_000,
   bufferTriggerRatio: 0.9,
-  cycleCount: 20,
+  cycleCount: 14,
 }
 
 export type CardState = {
@@ -115,6 +116,9 @@ export type RoutingState = {
   pairings: Record<string, number>
   receiveCounts: Record<number, number>
   lastReceiveCardId: number | null
+  authorisedZar: number
+  cycledZar: number
+  mznInventory: number
 }
 
 export type CyclePlan = {
@@ -199,7 +203,90 @@ export function createInitialState(config: RoutingConfig = DEFAULT_TEST_CONFIG):
     pairings: {},
     receiveCounts: {},
     lastReceiveCardId: null,
+    authorisedZar: roundMoney(config.startingCapital),
+    cycledZar: 0,
+    mznInventory: 0,
   }
+}
+
+export type CapitalShock = {
+  kind: 'sell_zar' | 'add_zar' | 'add_mzn'
+  amountZar?: number
+  amountMzn?: number
+}
+
+export function residualToTarget(state: RoutingState): number {
+  const authorised = Number.isFinite(state.authorisedZar) ? state.authorisedZar : state.availableCapital
+  const cycled = Number.isFinite(state.cycledZar) ? state.cycledZar : 0
+  return roundMoney(Math.max(0, authorised - cycled))
+}
+
+export function applyCapitalShock(state: RoutingState, shock: CapitalShock): RoutingState {
+  if (shock.kind === 'sell_zar') {
+    const amount = roundMoney(shock.amountZar || 0)
+    if (!(amount > 0)) return state
+    return {
+      ...state,
+      authorisedZar: roundMoney((state.authorisedZar || 0) + amount),
+      availableCapital: roundMoney(state.availableCapital + amount),
+    }
+  }
+  if (shock.kind === 'add_zar') {
+    const amount = roundMoney(shock.amountZar || 0)
+    if (!(amount > 0)) return state
+    return {
+      ...state,
+      availableCapital: roundMoney(state.availableCapital + amount),
+    }
+  }
+  const mzn = roundMoney(shock.amountMzn || 0)
+  if (!(mzn > 0)) return state
+  return {
+    ...state,
+    mznInventory: roundMoney((state.mznInventory || 0) + mzn),
+  }
+}
+
+export function applyRestockLanding(state: RoutingState, amountZar: number): RoutingState {
+  const amount = roundMoney(amountZar)
+  if (!(amount > 0)) return state
+  return {
+    ...state,
+    cycledZar: roundMoney((state.cycledZar || 0) + amount),
+  }
+}
+
+function residualLead(
+  state: RoutingState | undefined,
+  cycleNumber: number,
+  cycleCount: number,
+  shockLine?: string
+): string[] {
+  const residual = state ? residualToTarget(state) : 0
+  const lines = [
+    `Residual to the ZAR wallet: ${formatZar(residual)}. Weekday ${cycleNumber} of ${cycleCount}.`,
+  ]
+  if (shockLine) lines.push(shockLine)
+  lines.push('')
+  return lines
+}
+
+function onionLines(assignments: CardAssignment[], verb: 'send' | 'swipe'): string[] {
+  if (!assignments.length) return []
+  if (assignments.length === 1) {
+    const row = assignments[0]
+    return [
+      verb === 'swipe'
+        ? `This round: swipe ${swipeInstruction(row)}.`
+        : `This round: ${swipeInstruction(row)}.`,
+    ]
+  }
+  return [
+    `This round — ${assignments.length} onions:`,
+    ...assignments.map((row) =>
+      verb === 'swipe' ? `- Swipe ${swipeInstruction(row)}.` : `- ${swipeInstruction(row)}.`
+    ),
+  ]
 }
 
 /**
@@ -993,7 +1080,7 @@ export function planCycle(
 
   const residual = openResiduals(liveBook)[0]
   if (residual) {
-    const picked = pickQBestPair({
+    const flow = planFlow({
       state,
       overlay,
       cycleNumber,
@@ -1001,44 +1088,49 @@ export function planCycle(
       book: liveBook,
       residual,
     })
-    if (picked.holdReason) return blocked(picked.holdReason)
-    if (!picked.assignment) return blocked('Hold: leftover cannot be issued on a live legal pair.')
-    if (picked.ranks[0] && picked.ranks[0].tightness >= 8) {
-      return blocked(
-        'Hold: every legal pair is too tight from confirmed declines or unpaid leftovers to issue this evening.'
-      )
+    if (flow.holdReason) return blocked(flow.holdReason)
+    if (!flow.onions.length) return blocked('Hold: leftover cannot be issued on a live legal pair.')
+    const remaining = machineLoadTargets(state, flow.onions.length, overlay)
+    const assignedVolume = new Map<number, number>()
+    const cardAssignments: CardAssignment[] = []
+    for (const onion of flow.onions) {
+      const chosen = state.machines.find((machine) => machine.id === onion.machineId)
+      if (!chosen) continue
+      const posReason = onion.posReason || ''
+      cardAssignments.push({
+        cardId: onion.cardId,
+        machineId: onion.machineId,
+        amount: onion.amount,
+        posReason,
+        routingDecision: buildRoutingDecision({
+          state,
+          cardId: onion.cardId,
+          chosen,
+          candidates: state.machines.filter((machine) =>
+            pairs.some((row) => row.cardId === onion.cardId && row.machineId === machine.id)
+          ),
+          overlay,
+          assignedVolume,
+          remaining,
+          selectionReason: posReason,
+          book: liveBook,
+          ranks: flow.ranks,
+        }),
+      })
+      remaining.set(chosen.id, (remaining.get(chosen.id) || 0) - 1)
+      assignedVolume.set(chosen.id, (assignedVolume.get(chosen.id) || 0) + onion.amount)
     }
-    const chosen = state.machines.find((machine) => machine.id === picked.assignment.machineId)
-    if (!chosen) return blocked('Hold: leftover cannot be issued on a live legal pair.')
-    const posReason = picked.assignment.posReason || ''
-    const assignment: CardAssignment = {
-      ...picked.assignment,
-      posReason,
-      routingDecision: buildRoutingDecision({
-        state,
-        cardId: picked.assignment.cardId,
-        chosen,
-        candidates: state.machines.filter((machine) =>
-          pairs.some((row) => row.cardId === picked.assignment!.cardId && row.machineId === machine.id)
-        ),
-        overlay,
-        assignedVolume: new Map(),
-        remaining: machineLoadTargets(state, 1, overlay),
-        selectionReason: posReason,
-        book: liveBook,
-        ranks: picked.ranks,
-      }),
-    }
+    if (!cardAssignments.length) return blocked('Hold: leftover cannot be issued on a live legal pair.')
     return finishPlan({
       state,
       overlay,
       cycleNumber,
       quote,
       liveBook,
-      cardAssignments: [assignment],
-      selectedCardIds: [assignment.cardId],
-      deployedForPlan: residual.amountZar,
-      tightnessRanks: picked.ranks,
+      cardAssignments,
+      selectedCardIds: cardAssignments.map((row) => row.cardId),
+      deployedForPlan: flow.deployedAmount,
+      tightnessRanks: flow.ranks,
     })
   }
 
@@ -1569,11 +1661,10 @@ export function buildActivityCopy(
     return {
       title: `Sell ZAR · Cycle ${plan.cycleNumber}/${cycleCount}`,
       body: [
-        extra?.revisionReason || 'Routing adjustment recorded',
+        ...residualLead(extra?.state, plan.cycleNumber, cycleCount, extra?.revisionReason),
+        plan.holdReason || plan.selectionReason || 'Hold: the corridor cannot take this residual.',
         '',
-        plan.selectionReason || 'No valid route available under current constraints.',
-        '',
-        'Modify a constraint or restore a card/POS, then Ask again.',
+        'Ask Sam what changed on a card or POS. Do not invent a pair.',
         `Status: ${statusLabel}`,
       ].join('\n'),
     }
@@ -1588,6 +1679,9 @@ export function buildActivityCopy(
         : null
   const account = formatReceiveAccountsLine(receive)
   const lines = [
+    ...residualLead(extra?.state, plan.cycleNumber, cycleCount, extra?.revisionReason),
+    ...onionLines(plan.cardAssignments, 'send'),
+    '',
     account
       ? `Pay ${formatZar(plan.deployedAmount)} after MZN has reflected in ${account}.`
       : `Pay ${formatZar(plan.deployedAmount)} after MZN has reflected.`,
@@ -1597,10 +1691,6 @@ export function buildActivityCopy(
     '3. Only then send ZAR to the operator’s South African account.',
     '',
   ]
-  if (extra?.revisionReason) {
-    lines.push(`Reason for revision: ${extra.revisionReason}`)
-    lines.push('')
-  }
   lines.push('Rand carries the premium. Do not pay ZAR first.')
   lines.push(`Expected spread: ${formatSpreadPercent(spread)}`)
   lines.push(`Expected gross spread: ${formatMznAmount(plan.expectedProfit)}`)
@@ -1634,22 +1724,20 @@ export function buildReplenishActivityCopy(
   const rows = state
     ? annotatePosReasons(state, replenish.cardAssignments, replenish.cycleNumber, overlay)
     : replenish.cardAssignments
-  const lines: string[] = []
-  if (rows.length === 1) {
-    lines.push(`Swipe ${swipeInstruction(rows[0])}.`)
-    if (rows[0].posReason) {
-      lines.push('')
-      lines.push(rows[0].posReason)
-    }
-  } else if (rows.length > 1) {
-    lines.push(`Swipe these ${rows.length} pairs:`)
+  const lines: string[] = [
+    ...residualLead(state, replenish.cycleNumber, cycleCount),
+    ...onionLines(rows, 'swipe'),
+    '',
+  ]
+  if (rows.length === 1 && rows[0].posReason) {
+    lines.push(rows[0].posReason)
     lines.push('')
+  } else if (rows.length > 1) {
     for (const row of rows) {
-      lines.push(`Swipe ${swipeInstruction(row)}.`)
       if (row.posReason) lines.push(row.posReason)
-      lines.push('')
     }
-  } else {
+    if (rows.some((row) => row.posReason)) lines.push('')
+  } else if (!rows.length) {
     lines.push(`Restock ${formatZar(replenish.amountZar)} in South Africa at COST.`)
   }
   const frictionLine =

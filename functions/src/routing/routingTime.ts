@@ -296,8 +296,9 @@ export function wantsNewRoutingRun(message: string): boolean {
   const text = message.trim().toLowerCase()
   if (!text) return false
   return (
-    /\bstart (?:the )?(?:next|a new|another) (?:run|test)\b/.test(text) ||
-    /\b(?:new|another) (?:20[- ]cycle |routing )?(?:run|test)\b/.test(text)
+    /\bstart (?:the )?(?:next|a new|another) (?:run|test|window)\b/.test(text) ||
+    /\bstart the window\b/.test(text) ||
+    /\b(?:new|another) (?:14[- ]weekday |20[- ]cycle |routing )?(?:run|test|window)\b/.test(text)
   )
 }
 

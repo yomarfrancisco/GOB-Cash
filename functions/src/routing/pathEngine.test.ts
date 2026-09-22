@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { EMPTY_OVERLAY } from './constraints'
-import { createInitialState, planCycle, planReplenish } from './conversionRouter'
+import { applyCapitalShock, createInitialState, planCycle, planReplenish, residualToTarget } from './conversionRouter'
 import { answerHistoricalExplanation } from './historicalAsk'
 import {
   applyPathWrites,
@@ -10,6 +10,7 @@ import {
   fallbackQuote,
   frozenQuoteFromSell,
   pickQBestPair,
+  planFlow,
   type PathBook,
 } from './pathEngine'
 
@@ -221,5 +222,50 @@ describe('path write classifier', () => {
     )
     assert.equal(classifyPathWrite('Capitec delayed', { machineIds: [2] })?.write?.kind, 'delay')
     assert.match(classifyPathWrite('something froze')?.ambiguous || '', /Which rail/)
+  })
+})
+
+describe('pathEngine flow', () => {
+  it('splits a leftover above one print cap into two onions', () => {
+    const state = createInitialState()
+    const flow = planFlow({
+      state,
+      overlay: EMPTY_OVERLAY,
+      cycleNumber: 1,
+      amountZar: 25_000,
+      book: bookWith({
+        residuals: [
+          {
+            economicPaymentId: 'pay-big',
+            amountZar: 25_000,
+            originCycle: 1,
+            cardId: 1,
+            machineId: 3,
+            status: 'open',
+          },
+        ],
+      }),
+      residual: {
+        economicPaymentId: 'pay-big',
+        amountZar: 25_000,
+        originCycle: 1,
+        cardId: 1,
+        machineId: 3,
+        status: 'open',
+      },
+    })
+    assert.equal(flow.holdReason, undefined)
+    assert.equal(flow.onions.length, 2)
+    assert.equal(flow.deployedAmount, 25_000)
+    assert.ok(flow.onions.every((row) => row.amount >= 10_000 && row.amount <= 15_000))
+    assert.notEqual(flow.onions[0].cardId, flow.onions[1].cardId)
+    assert.notEqual(`${flow.onions[0].cardId}:${flow.onions[0].machineId}`, '1:3')
+  })
+
+  it('treats Sell ZAR as a capital shock that raises residual to the wallet', () => {
+    const started = createInitialState()
+    const after = applyCapitalShock(started, { kind: 'sell_zar', amountZar: 12_000 })
+    assert.equal(residualToTarget(after), residualToTarget(started) + 12_000)
+    assert.equal(after.availableCapital, started.availableCapital + 12_000)
   })
 })
