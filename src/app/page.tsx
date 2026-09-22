@@ -1037,7 +1037,7 @@ function HomeContent() {
           const play = useRoutingPlaybackStore.getState().play || clockPlayRef.current
           clockPlayRef.current = null
           const run = play
-            ? submitRoutingConversion({ amountZAR, amountMZN })
+            ? submitRoutingConversion({ amountZAR, amountMZN, play })
             : submitInternalConversion({
                 destination: conversionDestination,
                 amountMZN,
@@ -1051,12 +1051,12 @@ function HomeContent() {
             const message = String(error?.message || '')
             useNotificationStore.getState().pushNotification({
               kind: 'payment_failed',
-              title: 'Conversion failed',
+              title: play ? 'Cycle did not advance' : 'Conversion failed',
               body: /insufficient/i.test(message)
                 ? conversionDestination === 'ZAR'
                   ? 'Insufficient MZN balance.'
                   : 'Insufficient ZAR balance.'
-                : 'Unable to convert.',
+                : message || 'Unable to convert.',
               actor: { type: 'system', name: 'MozPaga' },
             })
           })

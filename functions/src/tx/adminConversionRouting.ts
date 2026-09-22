@@ -808,6 +808,10 @@ function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
   }
 }
 
+function firestoreSafe<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value))
+}
+
 function persistCapital(state: RoutingState) {
   return {
     authorisedZar: state.authorisedZar || 0,
@@ -1003,7 +1007,7 @@ function writeIssuedReplenish(
   })
   tx.set(
     testRef,
-    {
+    firestoreSafe({
       testRunId,
       adminUid,
       status: 'active',
@@ -1035,7 +1039,7 @@ function writeIssuedReplenish(
         snapshotId: row.id,
       })),
       updatedAt: now,
-    },
+    }),
     { merge: true }
   )
   return { plan, activityEventId, kind: 'replenish' }
@@ -1119,7 +1123,7 @@ function writeIssuedCycle(
     createdAt: now,
     recordingSource: 'SYSTEM',
   })
-  tx.set(cycleRef, {
+  tx.set(cycleRef, firestoreSafe({
     testRunId,
     cycleNumber: plan.cycleNumber,
     startingCapital: plan.startingCapital,
@@ -1152,10 +1156,10 @@ function writeIssuedCycle(
     createdAt: now,
     completedAt: null,
     activityEventId,
-  })
+  }))
   tx.set(
     testRef,
-    {
+    firestoreSafe({
       testRunId,
       adminUid,
       status: 'active',
@@ -1175,7 +1179,7 @@ function writeIssuedCycle(
       awaitingKind: 'deploy',
       ...persistPathBook({}, persistBook),
       updatedAt: now,
-    },
+    }),
     { merge: true }
   )
 
@@ -1548,11 +1552,12 @@ export const admin_confirmConversionRoutingCycle = functions
         throw new functions.https.HttpsError('failed-precondition', 'Conversion routing test is not active')
       }
 
-      const cycleNumber = requestedCycle || num(testData.awaitingCycleNumber, 0)
+      const storedAwaiting = num(testData.awaitingCycleNumber, 0)
+      const cycleNumber = requestedCycle || storedAwaiting
       if (cycleNumber <= 0) {
         throw new functions.https.HttpsError('failed-precondition', 'No cycle is awaiting execution')
       }
-      if (num(testData.awaitingCycleNumber, 0) !== cycleNumber) {
+      if (storedAwaiting > 0 && storedAwaiting !== cycleNumber) {
         throw new functions.https.HttpsError(
           'failed-precondition',
           `Cycle ${cycleNumber} is not the current awaiting instruction`
@@ -1746,8 +1751,48 @@ export const admin_confirmConversionRoutingCycle = functions
 
       const cycleRef = testRef.collection('cycles').doc(String(cycleNumber))
       const cycleSnap = await tx.get(cycleRef)
+      const openEvents = await tx.get(
+        db.collection('users').doc(adminUid).collection('activityEvents').where('testRunId', '==', testRunId)
+      )
       if (!cycleSnap.exists) {
-        throw new functions.https.HttpsError('not-found', `Cycle ${cycleNumber} was not issued`)
+        const open = openEvents.docs.find((docSnap) => {
+          const row = docSnap.data() || {}
+          return row.status === 'awaiting_execution' && num(row.cycleNumber, 0) === cycleNumber
+        })
+        const plan = planCycle(state, overlayForDoc(testData), book)
+        if (plan.deployedAmount <= 0) {
+          throw new functions.https.HttpsError('failed-precondition', 'No executable route is available.')
+        }
+        const nextState = applySell({ ...state, completedCycles: Math.max(0, cycleNumber - 1) }, plan)
+        if (open) {
+          tx.update(open.ref, {
+            status: 'completed',
+            awaitingConfirm: false,
+            completedAt: now,
+            ...(conversionTxId ? { txId: conversionTxId, hasDownloadButton: true } : {}),
+          })
+        }
+        tx.set(
+          testRef,
+          firestoreSafe({
+            ...persistCapital(nextState),
+            availableCapital: nextState.availableCapital,
+            bufferUsed: nextState.bufferUsed,
+            completedCycles: cycleNumber,
+            awaitingCycleNumber: null,
+            awaitingKind: null,
+            updatedAt: now,
+          }),
+          { merge: true }
+        )
+        return {
+          nextState: { ...nextState, completedCycles: cycleNumber },
+          nextCycle: null,
+          testComplete: false,
+          cycleNumber,
+          confirmedKind: 'deploy' as const,
+          issueNext: true,
+        }
       }
       const cycleData = cycleSnap.data() || {}
       if (cycleData.status !== 'awaiting_execution') {

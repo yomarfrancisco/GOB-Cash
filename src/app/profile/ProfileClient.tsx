@@ -1251,7 +1251,7 @@ export default function ProfileClient() {
           const play = useRoutingPlaybackStore.getState().play || clockPlayRef.current
           clockPlayRef.current = null
           const run = play
-            ? submitRoutingConversion({ amountZAR, amountMZN })
+            ? submitRoutingConversion({ amountZAR, amountMZN, play })
             : submitInternalConversion({
                 destination: conversionDestination,
                 amountMZN,

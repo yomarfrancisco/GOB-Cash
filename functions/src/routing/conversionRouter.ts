@@ -847,9 +847,9 @@ function buildRoutingDecision(params: {
       lastCycleUsed: card?.lastCycleUsed || 0,
     },
     decisionVersion: ROUTING_DECISION_VERSION,
-    quote: params.book?.quote,
-    residualsConsidered: params.book?.residuals,
-    tightnessRanks: params.ranks,
+    ...(params.book?.quote ? { quote: params.book.quote } : {}),
+    ...(params.book?.residuals ? { residualsConsidered: params.book.residuals } : {}),
+    ...(params.ranks ? { tightnessRanks: params.ranks } : {}),
   }
 }
 

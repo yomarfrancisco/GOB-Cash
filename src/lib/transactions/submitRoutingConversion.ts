@@ -6,8 +6,9 @@ import { useNotificationsStore } from '@/state/notifications'
 export async function submitRoutingConversion(params: {
   amountZAR: number
   amountMZN: number
+  play?: ReturnType<typeof useRoutingPlaybackStore.getState>['play']
 }): Promise<void> {
-  const play = useRoutingPlaybackStore.getState().play
+  const play = params.play || useRoutingPlaybackStore.getState().play
   const destination = play?.destination || 'MZN'
   const result = await submitInternalConversion({
     destination,
