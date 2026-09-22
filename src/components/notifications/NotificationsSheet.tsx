@@ -5,10 +5,11 @@ import ActionSheet from '../ActionSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useActivityUnreadStore } from '@/store/activityUnread'
 import { NotificationsList } from './NotificationsList'
-import { DESK_TEAM } from '@/lib/desk/threadModel'
+import { DESK_RING, DESK_TEAM, type DeskAgent } from '@/lib/desk/threadModel'
+import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
-const DESK_FACES = [DESK_TEAM.sam.avatar, DESK_TEAM.leo.avatar, DESK_TEAM.amina.avatar] as const
+const DESK_FACES = DESK_RING.map((id) => DESK_TEAM[id].avatar)
 
 if (typeof window !== 'undefined') {
   DESK_FACES.forEach((src) => {
@@ -17,10 +18,18 @@ if (typeof window !== 'undefined') {
   })
 }
 
-function DeskFace({ src, className }: { src: string; className: string }) {
+/** Ring slot for each agent: the active one sits on top, the other two keep ring order below. */
+const SLOT_CLASS = [listStyles.deskSlotTop, listStyles.deskSlotLeft, listStyles.deskSlotRight] as const
+
+function slotFor(agent: DeskAgent, active: DeskAgent): string {
+  const offset = (DESK_RING.indexOf(agent) - DESK_RING.indexOf(active) + DESK_RING.length) % DESK_RING.length
+  return SLOT_CLASS[offset]
+}
+
+function DeskFace({ src, className, speaking }: { src: string; className: string; speaking: boolean }) {
   const [ready, setReady] = useState(false)
   return (
-    <div className={`${listStyles.deskStackFace} ${className}`}>
+    <div className={`${listStyles.deskStackFace} ${className} ${speaking ? listStyles.deskFaceSpeaking : ''}`}>
       <img
         src={src}
         alt=""
@@ -33,6 +42,8 @@ function DeskFace({ src, className }: { src: string; className: string }) {
 
 export default function NotificationsSheet() {
   const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
+  const active = useDeskSpeakerStore((s) => s.active)
+  const speaker = DESK_TEAM[active]
 
   useEffect(() => {
     if (!isNotificationsOpen) return
@@ -55,12 +66,21 @@ export default function NotificationsSheet() {
         <div className={listStyles.activitySearchOverlay}>
           <div className={listStyles.deskHeader}>
             <div className={listStyles.deskTeamStack} aria-hidden>
-              <DeskFace src={DESK_TEAM.amina.avatar} className={listStyles.deskStackAmina} />
-              <DeskFace src={DESK_TEAM.leo.avatar} className={listStyles.deskStackLeo} />
-              <DeskFace src={DESK_TEAM.sam.avatar} className={listStyles.deskStackSam} />
+              {DESK_RING.map((id) => (
+                <DeskFace
+                  key={id}
+                  src={DESK_TEAM[id].avatar}
+                  className={slotFor(id, active)}
+                  speaking={id === active}
+                />
+              ))}
             </div>
-            <p className={listStyles.deskHeaderName}>{DESK_TEAM.sam.name}</p>
-            <p className={listStyles.deskHeaderRole}>{DESK_TEAM.sam.role}</p>
+            <p key={`${active}-name`} className={`${listStyles.deskHeaderName} ${listStyles.deskHeaderSwap}`}>
+              {speaker.name}
+            </p>
+            <p key={`${active}-role`} className={`${listStyles.deskHeaderRole} ${listStyles.deskHeaderSwap}`}>
+              {speaker.role}
+            </p>
           </div>
         </div>
         <NotificationsList />

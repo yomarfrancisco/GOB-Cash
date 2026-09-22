@@ -1,7 +1,13 @@
 import type { ActivityItem } from '@/store/activity'
 
 export type DeskSpeaker = 'you' | 'sam' | 'leo' | 'amina'
+export type DeskAgent = Exclude<DeskSpeaker, 'you'>
 
+/**
+ * The desk is three people. Sam owns the relationship: asks, answers,
+ * opening the window. Leo runs the ZAR leg: every Sell ZAR card is his.
+ * Amina runs the MZN leg: every restock (Moz cards swiped at COST) is hers.
+ */
 export const DESK_TEAM = {
   sam: {
     id: 'sam' as const,
@@ -12,15 +18,49 @@ export const DESK_TEAM = {
   leo: {
     id: 'leo' as const,
     name: 'Leo',
-    role: 'ZAR Manager',
+    role: 'ZAR liquidity manager',
     avatar: '/assets/avatar_agent3.png',
   },
   amina: {
     id: 'amina' as const,
     name: 'Amina',
-    role: 'MZN Manager',
+    role: 'MZN liquidity manager',
     avatar: '/assets/Brics-girl-blue.png',
   },
+}
+
+/** Ring order for the header stack; the active agent rotates to the top. */
+export const DESK_RING: DeskAgent[] = ['sam', 'leo', 'amina']
+
+/**
+ * Who is speaking on a desk item. Works on the Firestore doc shape too, so
+ * the list, the header and the thread all agree.
+ */
+export function deskAgentFor(item: {
+  kind?: string
+  routingAction?: string
+  thinking?: boolean
+}): DeskAgent {
+  if (item.thinking) return 'sam'
+  if (item.kind !== 'CONVERSION_ROUTING_INSTRUCTION') return 'sam'
+  if (item.routingAction === 'deploy') return 'leo'
+  if (item.routingAction === 'replenish') return 'amina'
+  return 'sam'
+}
+
+/** Items that count as the desk talking (routing cards, asks, window shocks). */
+export function isDeskVoiceItem(item: { kind?: string; actor?: { type?: string } }): boolean {
+  return item.kind === 'CONVERSION_ROUTING_INSTRUCTION' || item.kind === 'ai_trade'
+}
+
+/** The agent whose turn it is: the newest desk item, thinking dots included. */
+export function activeDeskAgent(items: Array<{ kind?: string; routingAction?: string; thinking?: boolean; createdAt: number }>): DeskAgent {
+  let latest: (typeof items)[number] | null = null
+  for (const item of items) {
+    if (!isDeskVoiceItem(item)) continue
+    if (!latest || item.createdAt > latest.createdAt) latest = item
+  }
+  return latest ? deskAgentFor(latest) : 'sam'
 }
 
 export type DeskChatRow = {
@@ -139,10 +179,8 @@ export function isAwaitingClock(item: ActivityItem): boolean {
   )
 }
 
-export function speakerForItem(item: ActivityItem): Exclude<DeskSpeaker, 'you'> {
-  if (item.routingAction === 'replenish') return 'leo'
-  if (item.routingAction === 'deploy') return 'amina'
-  return 'sam'
+export function speakerForItem(item: ActivityItem): DeskAgent {
+  return deskAgentFor(item)
 }
 
 function samConfirmText(item: ActivityItem): string {

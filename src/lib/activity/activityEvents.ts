@@ -2,6 +2,7 @@ import { collection, onSnapshot, type Timestamp, type Unsubscribe } from 'fireba
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import type { ActivityItem } from '@/store/activity'
 import { conversionAvatar, TASK_AVATARS } from './taskAvatars'
+import { DESK_TEAM, deskAgentFor } from '@/lib/desk/threadModel'
 
 export type ActivityEventDoc = {
   id?: string
@@ -62,7 +63,7 @@ function avatarUrlForEvent(data: ActivityEventDoc): string | undefined {
     return TASK_AVATARS.convertZar
   }
   if (data.kind === 'CONVERSION_ROUTING_INSTRUCTION') {
-    return data.avatarKind === 'convert_mzn' ? TASK_AVATARS.convertMzn : TASK_AVATARS.convertZar
+    return DESK_TEAM[deskAgentFor(data)].avatar
   }
   if (
     data.kind === 'DEPOSIT_PROOF_PENDING' ||
@@ -108,13 +109,13 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     actor: {
       type: actorType,
       name:
-        data.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
-        data.kind === 'MONTHLY_SETTLEMENT_STATEMENT' ||
-        (data.kind === 'CONVERSION_ROUTING_INSTRUCTION' && data.routingAction !== 'replenish')
-          ? '$ariel'
-          : actorType === 'ai'
-            ? 'Ama'
-            : undefined,
+        data.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+          ? DESK_TEAM[deskAgentFor(data)].name
+          : data.kind === 'WEEKLY_SETTLEMENT_STATEMENT' || data.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+            ? '$ariel'
+            : actorType === 'ai'
+              ? 'Ama'
+              : undefined,
       avatarUrl: avatarUrlForEvent(data),
     },
     title: data.title || 'Activity',

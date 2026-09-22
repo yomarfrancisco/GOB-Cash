@@ -17,6 +17,8 @@ import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { formatVisibleSast } from '@/lib/routing/routingTime'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
+import { DESK_TEAM, deskAgentFor, activeDeskAgent } from '@/lib/desk/threadModel'
+import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
 import Avatar from '@/components/Avatar'
@@ -155,9 +157,7 @@ function resolveTaskAvatar(item: ActivityItem): string {
     item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
   ) {
     if (item.kind === 'CONVERSION_ROUTING_INSTRUCTION') {
-      return item.avatarKind === 'convert_mzn' || item.routingAction === 'replenish'
-        ? TASK_AVATARS.convertMzn
-        : TASK_AVATARS.convertZar
+      return DESK_TEAM[deskAgentFor(item)].avatar
     }
     return item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
       item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
@@ -677,6 +677,10 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     ]
     return merged.sort((a, b) => b.createdAt - a.createdAt)
   }, [localItems, remoteItems, thinkingItem])
+  const setActiveAgent = useDeskSpeakerStore((s) => s.setActive)
+  useEffect(() => {
+    setActiveAgent(activeDeskAgent(allItems))
+  }, [allItems, setActiveAgent])
   const kycGateStampRef = useRef(Date.now())
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
@@ -737,8 +741,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       kind: 'CONVERSION_ROUTING_INSTRUCTION',
       actor: {
         type: 'ai',
-        name: '$ariel',
-        avatarUrl: TASK_AVATARS.convertZar,
+        name: DESK_TEAM.sam.name,
+        avatarUrl: DESK_TEAM.sam.avatar,
       },
       title: source.title,
       thinking: true,
@@ -772,8 +776,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       kind: 'CONVERSION_ROUTING_INSTRUCTION',
       actor: {
         type: 'ai',
-        name: '$ariel',
-        avatarUrl: TASK_AVATARS.convertZar,
+        name: DESK_TEAM.sam.name,
+        avatarUrl: DESK_TEAM.sam.avatar,
       },
       title: item.title,
       thinking: true,
