@@ -1266,7 +1266,8 @@ export function parseRoutingPlay(raw: unknown): RoutingPlayRequest | null {
 export async function assertRoutingPlayMatches(
   adminUid: string,
   play: RoutingPlayRequest,
-  amountZar: number
+  amountZar: number,
+  amountMzn?: number
 ): Promise<{ expectedZar: number }> {
   const now = admin.firestore.Timestamp.now()
   const currentRun = await currentTestId(adminUid)
@@ -1305,6 +1306,16 @@ export async function assertRoutingPlayMatches(
   }
   const entered = roundMoney(amountZar)
   if (expected > 0 && Math.abs(expected - entered) > 0.005) {
+    // A restock keypad types the card's MZN and converts it at the live COST
+    // rate, which drifts from the frozen ticket ZAR. The card's MZN is the
+    // tickets; record those rather than the repriced figure.
+    if (play.action === 'replenish') {
+      const ticketMzn = roundMoney(num(data.replenishAmountMzn, 0))
+      const typedMzn = typeof amountMzn === 'number' ? roundMoney(amountMzn) : 0
+      if (ticketMzn > 0 && typedMzn > 0 && Math.abs(ticketMzn - typedMzn) <= 0.02) {
+        return { expectedZar: expected }
+      }
+    }
     const diff = roundMoney(expected - entered)
     throw new functions.https.HttpsError(
       'failed-precondition',

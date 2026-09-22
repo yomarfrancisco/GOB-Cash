@@ -118,7 +118,12 @@ export const tx_createInternalConversion = functions
           : Number.isFinite(destinationAmount) && destinationAmount > 0
             ? roundMajor(destinationAmount)
             : roundMajor(sourceAmount / costRate)
-        const { expectedZar } = await assertRoutingPlayMatches(userId, play, enteredZar)
+        const { expectedZar } = await assertRoutingPlayMatches(
+          userId,
+          play,
+          enteredZar,
+          isZarSale ? undefined : sourceAmount
+        )
         anchoredZar = expectedZar
       }
     }
