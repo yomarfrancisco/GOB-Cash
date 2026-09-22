@@ -1329,10 +1329,10 @@ export async function applyAdminCapitalShock(params: {
 
   const shockLine =
     kind === 'sell_zar'
-      ? `Capital shock: Sell ZAR ${formatZar(amount)}. Residual re-solved.`
+      ? `Window opened: ${formatZar(amount)} to convert over 14 weekdays.`
       : kind === 'add_zar'
-        ? `Capital shock: ZAR inventory ${formatZar(amount)} added. Residual re-solved.`
-        : `Capital shock: MZN inventory added. Residual re-solved.`
+        ? `${formatZar(amount)} added to the window. Book re-solved.`
+        : `MZN added to the window. Book re-solved.`
 
   const existingId = await currentTestId(adminUid)
   const existing = existingId ? await db.collection(TESTS).doc(existingId).get() : null

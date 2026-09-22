@@ -249,46 +249,38 @@ function mandateLine(state: RoutingState | undefined): string {
       ? state.authorisedZar
       : state.availableCapital
     : 0
-  return `Still to convert ${formatZar(residual)} of ${formatZar(authorised)}.`
+  return `${formatZar(residual)} of ${formatZar(authorised)} still to convert.`
 }
 
-function residualLead(
-  state: RoutingState | undefined,
-  cycleNumber: number,
-  cycleCount: number,
-  shockLine?: string
-): string[] {
-  const lines = [`${mandateLine(state)} Weekday ${cycleNumber} of ${cycleCount}.`]
-  if (shockLine) lines.push(shockLine)
-  lines.push('')
-  return lines
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+
+/** Next trading weekday after a kernel weekday label ("Mon" → "Tue", "Fri" → "Mon"). */
+export function nextTradingWeekday(weekday: string | undefined): string | null {
+  if (!weekday) return null
+  const index = WEEKDAYS.findIndex((day) => weekday.toLowerCase().startsWith(day.toLowerCase()))
+  if (index < 0) return null
+  return WEEKDAYS[(index + 1) % WEEKDAYS.length]
 }
 
-/** Restock card: the tickets being swiped back are the previous weekday's sale. */
-function restockLead(state: RoutingState | undefined, nextCycle: number, cycleCount: number): string[] {
-  const soldDay = Math.max(1, nextCycle - 1)
-  return [
-    `${mandateLine(state)} Restocking weekday ${soldDay}'s tickets before weekday ${nextCycle} of ${cycleCount}.`,
-    '',
-  ]
+type DayRef = { weekday: string; day: number } | undefined
+
+function dayRecord(plan: { window?: ProspectiveBranch } | undefined, state?: RoutingState): DayRef {
+  const record = plan?.window?.snapshot.days.at(-1) ?? state?.window?.snapshot.days.at(-1)
+  return record ? { weekday: record.weekday, day: record.day } : undefined
 }
 
-function onionLines(assignments: CardAssignment[], verb: 'send' | 'swipe'): string[] {
-  if (!assignments.length) return []
-  if (assignments.length === 1) {
-    const row = assignments[0]
-    return [
-      verb === 'swipe'
-        ? `This round: swipe ${swipeInstruction(row)}.`
-        : `This round: ${swipeInstruction(row)}.`,
-    ]
-  }
-  return [
-    `This round — ${assignments.length} tickets:`,
-    ...assignments.map((row) =>
-      verb === 'swipe' ? `- Swipe ${swipeInstruction(row)}.` : `- ${swipeInstruction(row)}.`
-    ),
-  ]
+/** "Mon, day 1 of 14" or a cycle fallback when the kernel has not printed a day. */
+function dayLabel(ref: DayRef, cycleNumber: number, cycleCount: number): string {
+  return ref ? `${ref.weekday}, day ${ref.day} of ${cycleCount}` : `Cycle ${cycleNumber} of ${cycleCount}`
+}
+
+/** One line per whole ticket. Sale: amount first. Restock: swipe verb first (the desk clock parses it). */
+function ticketLines(assignments: CardAssignment[], verb: 'sell' | 'swipe'): string[] {
+  return assignments.map((row) =>
+    verb === 'swipe'
+      ? `- Swipe ${swipeInstruction(row)}`
+      : `- ${formatZar(row.amount)} · ${cardShortName(row.cardId)} · ${machineShortName(row.machineId)}`
+  )
 }
 
 function machineLoadTargets(
@@ -1155,22 +1147,13 @@ export function formatAskImpactBody(params: {
   const replenish = params.preview.replenishFirst
   const plan = params.preview.nextPlan
   if (replenish) {
-    lines.push(`Restock ZAR @ COST still first: ${formatZar(replenish.amountZar)}`)
-    if (replenish.cardAssignments.length) {
-      if (replenish.cardAssignments.length === 1) {
-        lines.push(`Swipe ${swipeInstruction(replenish.cardAssignments[0])}.`)
-      } else {
-        lines.push('Swipe:')
-        for (const row of replenish.cardAssignments) {
-          lines.push(swipeInstruction(row))
-        }
-      }
-    }
-    lines.push(`Then sell ZAR, Cycle ${replenish.cycleNumber}`)
+    lines.push(`Restock first: ${formatZar(replenish.amountZar)} at COST.`)
+    lines.push(...ticketLines(replenish.cardAssignments, 'swipe'))
+    lines.push('Then the next sale.')
   } else if (plan && plan.deployedAmount > 0) {
-    lines.push(`Next: pay ${formatZar(plan.deployedAmount)} once the MZN has reflected.`)
-    lines.push(`Expected gross spread this sale: ${formatMznAmount(plan.expectedProfit)}`)
-    if (plan.bufferActionRequired) lines.push('Restock ZAR @ COST would follow this sale.')
+    lines.push(`Next: send ${formatZar(plan.deployedAmount)} once the MZN has landed.`)
+    lines.push(`${formatMznAmount(plan.expectedProfit)} gross spread.`)
+    if (plan.bufferActionRequired) lines.push('Then swipe the tickets back at COST.')
   } else if (plan) {
     lines.push(plan.selectionReason || 'No valid restock route under that rule.')
   }
@@ -1185,12 +1168,10 @@ export function buildNotificationCopy(
   plan: CyclePlan,
   cycleCount: number
 ): { title: string; body: string } {
-  void cycleCount
-  const record = plan.window?.snapshot.days.at(-1)
-  const when = record ? `${record.weekday} day ${record.day}` : `Cycle ${plan.cycleNumber}`
+  const when = dayLabel(dayRecord(plan), plan.cycleNumber, cycleCount)
   return {
     title: `Sell ZAR · ${when}`,
-    body: `${when}: pay ${formatZar(plan.deployedAmount)} once the MZN has reflected`,
+    body: `Send ${formatZar(plan.deployedAmount)} once the MZN has landed`,
   }
 }
 
@@ -1198,22 +1179,9 @@ export function buildReplenishNotificationCopy(
   replenish: ReplenishPlan
 ): { title: string; body: string } {
   const rows = replenish.cardAssignments
-  if (!rows.length) {
-    return {
-      title: 'Restock ZAR @ COST',
-      body: `Restock ${formatZar(replenish.amountZar)} at COST`,
-    }
-  }
-  if (rows.length === 1) {
-    return {
-      title: 'Restock ZAR @ COST',
-      body: `Swipe ${swipeInstruction(rows[0])}`,
-    }
-  }
-  return {
-    title: 'Restock ZAR @ COST',
-    body: rows.map((row) => `Swipe ${swipeInstruction(row)}`).join('\n'),
-  }
+  const title = 'Restock ZAR at COST'
+  if (!rows.length) return { title, body: `Restock ${formatZar(replenish.amountZar)} at COST` }
+  return { title, body: rows.map((row) => `Swipe ${swipeInstruction(row)}`).join('\n') }
 }
 
 export function buildAgentReplyCopy(
@@ -1222,17 +1190,24 @@ export function buildAgentReplyCopy(
   acknowledgement: string,
   blocked: boolean
 ): { title: string; body: string } {
-  const title = `Sell ZAR · Cycle ${plan.cycleNumber}/${cycleCount}`
+  const title = `Sell ZAR · ${dayLabel(dayRecord(plan), plan.cycleNumber, cycleCount)}`
   if (blocked) {
     return {
       title,
       body: [acknowledgement, '', plan.selectionReason || 'No valid route under current constraints.'].filter(Boolean).join('\n'),
     }
   }
-  const lines = [acknowledgement, '', `Next: pay ${formatZar(plan.deployedAmount)} once the MZN has reflected.`]
-  return { title, body: lines.join('\n') }
+  return {
+    title,
+    body: [acknowledgement, '', `Next: send ${formatZar(plan.deployedAmount)} once the MZN has landed.`].join('\n'),
+  }
 }
 
+/**
+ * Sell ZAR card. Shape, top to bottom:
+ *   what the sale is (ZAR → MZN at SELL) · the whole tickets · the one rule ·
+ *   spread and mandate · what follows · status.
+ */
 export function buildActivityCopy(
   plan: CyclePlan,
   cycleCount: number,
@@ -1245,70 +1220,93 @@ export function buildActivityCopy(
     overlay?: RoutingOverlay
   }
 ): { title: string; body: string } {
+  void spread
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
+  const ref = dayRecord(plan, extra?.state)
+  const title = `Sell ZAR · ${dayLabel(ref, plan.cycleNumber, cycleCount)}`
   if (plan.deployedAmount <= 0) {
     return {
-      title: `Sell ZAR · Cycle ${plan.cycleNumber}/${cycleCount}`,
+      title,
       body: [
-        ...residualLead(extra?.state, plan.cycleNumber, cycleCount, extra?.revisionReason),
         plan.holdReason || plan.selectionReason || 'Hold: the corridor cannot take this residual.',
+        extra?.revisionReason || '',
+        extra?.state && extra.state.authorisedZar > 0 ? mandateLine(extra.state) : '',
         '',
-        'Ask Sam what changed on a card or POS. Do not invent a pair.',
         `Status: ${statusLabel}`,
-      ].join('\n'),
+      ]
+        .filter((line, index, all) => line !== '' || all[index - 1] !== '')
+        .join('\n'),
     }
   }
-  void spread
-  // Kernel facts (tickets, mandate residual, weekday) plus the live-quote leg. Nothing else.
-  const lines = [
-    ...onionLines(plan.cardAssignments, 'send'),
-    '',
-    ...residualLead(extra?.state, plan.cycleNumber, cycleCount, extra?.revisionReason),
-    `Pay ${formatZar(plan.deployedAmount)} once the MZN has reflected.`,
-    '',
-  ]
-  if (quotes && quotes.sellRate > 0 && quotes.costRate > 0) {
-    const profitPerZar = roundMoney(Math.max(0, quotes.sellRate - quotes.costRate))
-    lines.push(`Receive ${formatMznAmount(roundMoney(plan.deployedAmount * quotes.sellRate))} at frozen SELL.`)
-    lines.push(`SELL ${quotes.sellRate.toFixed(2)} Mt/R · COST ${quotes.costRate.toFixed(2)} Mt/R`)
-    lines.push(`Live spread: ${profitPerZar.toFixed(2)} Mt/R`)
+  const sell = quotes && quotes.sellRate > 0 ? quotes.sellRate : null
+  const cost = quotes && quotes.costRate > 0 ? quotes.costRate : null
+  const lines: string[] = []
+  lines.push(
+    sell
+      ? `Sell ${formatZar(plan.deployedAmount)} for ${formatMznAmount(roundMoney(plan.deployedAmount * sell))} at SELL ${sell.toFixed(2)}.`
+      : `Sell ${formatZar(plan.deployedAmount)}.`
+  )
+  if (extra?.revisionReason) lines.push(extra.revisionReason)
+  lines.push('')
+  lines.push(plan.cardAssignments.length === 1 ? 'Ticket:' : `${plan.cardAssignments.length} tickets:`)
+  lines.push(...ticketLines(plan.cardAssignments, 'sell'))
+  lines.push('')
+  lines.push('Send the ZAR once the MZN has landed.')
+  if (sell && cost) {
+    lines.push(
+      `Spread ${roundMoney(Math.max(0, sell - cost)).toFixed(2)} Mt/R over COST ${cost.toFixed(2)} · ${formatMznAmount(plan.expectedProfit)} gross.`
+    )
+  } else {
+    lines.push(`${formatMznAmount(plan.expectedProfit)} gross spread.`)
   }
-  lines.push(`Expected gross spread: ${formatMznAmount(plan.expectedProfit)}`)
-  if (plan.bufferActionRequired) {
-    lines.push('Restock these tickets at COST before the next weekday.')
-  }
+  lines.push(mandateLine(extra?.state))
+  lines.push('')
+  const next = nextTradingWeekday(ref?.weekday)
+  lines.push(
+    plan.bufferActionRequired
+      ? `Next: swipe these tickets back at COST, then ${next ? `${next}'s` : 'the next'} sale.`
+      : `Next: restock at COST, then ${next ? `${next}'s` : 'the next'} sale.`
+  )
   lines.push(`Status: ${statusLabel}`)
-  return {
-    title: `Sell ZAR · Cycle ${plan.cycleNumber}/${cycleCount}`,
-    body: lines.join('\n'),
-  }
+  return { title, body: lines.join('\n') }
 }
 
+/**
+ * Restock card. The tickets swiped back are the ones just sold; the MZN
+ * received pays for the swipes at COST and the ZAR lands back in the SA float.
+ */
 export function buildReplenishActivityCopy(
   replenish: ReplenishPlan,
   cycleCount: number,
   status: 'awaiting_execution' | 'completed',
   state?: RoutingState
 ): { title: string; body: string } {
-  void status
-  // Kernel routes as issued (card → rail); no desk-side annotation or friction narrative.
+  const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
+  const sold = dayRecord(undefined, state)
+  const soldLabel = sold ? `${sold.weekday}'s` : 'the sold'
+  const next = nextTradingWeekday(sold?.weekday)
+  const nextLabel = sold
+    ? `${next ?? 'next weekday'}, day ${Math.min(cycleCount, sold.day + 1)} of ${cycleCount}`
+    : `Cycle ${replenish.cycleNumber} of ${cycleCount}`
   const rows = replenish.cardAssignments
   const lines: string[] = [
-    ...restockLead(state, replenish.cycleNumber, cycleCount),
-    ...onionLines(rows, 'swipe'),
+    replenish.costRate > 0
+      ? `Swipe ${soldLabel} tickets back into the SA float at COST ${replenish.costRate.toFixed(2)}.`
+      : `Swipe ${soldLabel} tickets back into the SA float at COST.`,
     '',
   ]
-  if (!rows.length) {
-    lines.push(`Restock ${formatZar(replenish.amountZar)} in South Africa at COST.`)
-    lines.push('')
+  if (rows.length) {
+    lines.push(...ticketLines(rows, 'swipe'))
+    lines.push(`Total ${formatZar(replenish.amountZar)} · ${formatMznAmount(replenish.amountMzn)} out.`)
+  } else {
+    lines.push(`Restock ${formatZar(replenish.amountZar)} at COST.`)
   }
-  if (replenish.costRate > 0) {
-    lines.push(`COST ${replenish.costRate.toFixed(2)} Mt/R.`)
-  }
-  lines.push(`Then sell ZAR · Cycle ${replenish.cycleNumber} of ${cycleCount}.`)
+  lines.push('')
+  lines.push(`Next: sell ZAR on ${nextLabel}.`)
+  lines.push(`Status: ${statusLabel}`)
   return {
-    title: `Restock ZAR @ COST · before Cycle ${replenish.cycleNumber}/${cycleCount}`,
-    body: lines.join('\n').trim(),
+    title: `Restock ZAR at COST · ${sold ? `${sold.weekday}'s tickets` : `before cycle ${replenish.cycleNumber}`}`,
+    body: lines.join('\n'),
   }
 }
 
