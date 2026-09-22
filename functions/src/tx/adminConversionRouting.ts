@@ -1308,6 +1308,23 @@ async function cancelAwaitingCycle(
   if (cycleSnap.exists && cycleSnap.data()?.status === 'awaiting_execution') {
     await cycleRef.update({ status: 'cancelled', completedAt: now })
   }
+  // Instruction-only fallbacks use suffixed ids; sweep anything still awaiting on this run.
+  const strays = await db
+    .collection('users')
+    .doc(adminUid)
+    .collection('activityEvents')
+    .where('testRunId', '==', testRunId)
+    .where('status', '==', 'awaiting_execution')
+    .get()
+  for (const doc of strays.docs) {
+    const prev = doc.data() || {}
+    await doc.ref.update({
+      status: 'cancelled',
+      awaitingConfirm: false,
+      body: `${prev.body || ''}\nStatus: Cancelled`.replace(/\nStatus: Awaiting execution/, '\nStatus: Cancelled'),
+      completedAt: now,
+    })
+  }
 }
 
 async function startNewTest(
