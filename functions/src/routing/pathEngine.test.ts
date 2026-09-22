@@ -186,4 +186,17 @@ describe('pathEngine flow', () => {
     assert.ok(after.window)
     assert.equal(after.window?.openingAmountZar ?? after.authorisedZar, 100_000)
   })
+
+  it('Sell ZAR on a fresh desk opens Day 1 tickets at that capital', () => {
+    const dummy = planCycle(createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 10_000 }))
+    const after = applyCapitalShock(
+      { ...createInitialState(), window: dummy.window, completedCycles: 0 },
+      { kind: 'sell_zar', amountZar: 100_000 }
+    )
+    const plan = planCycle(after)
+    assert.equal(plan.window?.openingAmountZar, 100_000)
+    assert.equal(plan.window?.snapshot.days.at(-1)?.day, 1)
+    assert.ok(Math.abs(plan.deployedAmount - 15_410.59) < 0.02)
+    assert.equal(plan.cardAssignments.length, 3)
+  })
 })

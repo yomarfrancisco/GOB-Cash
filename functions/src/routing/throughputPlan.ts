@@ -73,7 +73,7 @@ export function resolveWindow(state: {
   return window
 }
 
-export function shockWindowCapital<T extends {
+export function openWindowAtCapital<T extends {
   window?: ProspectiveBranch
   windowNeedsAdvance?: boolean
   authorisedZar: number
@@ -81,9 +81,29 @@ export function shockWindowCapital<T extends {
 }>(state: T, amountZar: number): T {
   const amount = money(amountZar)
   if (!(amount > 0)) return state
-  const window = state.window
-    ? setWindowCapital(state.window, amount)
-    : startWindow({ availableZar: amount, seed: KERNEL_SEED })
+  const window = startWindow({ availableZar: amount, seed: KERNEL_SEED })
+  return {
+    ...state,
+    authorisedZar: amount,
+    availableCapital: window.availableZar,
+    window,
+    windowNeedsAdvance: false,
+  }
+}
+
+export function shockWindowCapital<T extends {
+  window?: ProspectiveBranch
+  windowNeedsAdvance?: boolean
+  authorisedZar: number
+  availableCapital: number
+  completedCycles?: number
+}>(state: T, amountZar: number): T {
+  const amount = money(amountZar)
+  if (!(amount > 0)) return state
+  if (!state.window || (state.completedCycles || 0) === 0) {
+    return openWindowAtCapital(state, amount)
+  }
+  const window = setWindowCapital(state.window, amount)
   return {
     ...state,
     authorisedZar: amount,

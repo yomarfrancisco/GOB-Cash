@@ -1313,6 +1313,16 @@ async function startNewTest(
     adminUid,
     updatedAt: now,
   })
+  const authorised =
+    typeof startingCapital === 'number' && startingCapital > 0 ? startingCapital : 0
+  if (!(authorised > 0)) {
+    return publicSummary(state, {
+      testRunId,
+      status: 'active',
+      cycleNumber: 0,
+      started: false,
+    })
+  }
   const issued = await issueCycle(adminUid, testRunId, state, now)
   const notification =
     issued.kind === 'replenish'
@@ -1362,10 +1372,15 @@ export async function applyAdminCapitalShock(params: {
   const existing = existingId ? await db.collection(TESTS).doc(existingId).get() : null
   const status = existing?.data()?.status
 
-  if (!existingId || !existing?.exists || status !== 'active') {
-    if (kind === 'sell_zar') {
-      await startNewTest(adminUid, true, amount, shockLine)
-    } else if (kind === 'add_zar') {
+  const completedCycles = num(existing?.data()?.completedCycles, 0)
+  if (
+    !existingId ||
+    !existing?.exists ||
+    status !== 'active' ||
+    shouldStartFreshWindow(existing.data()) ||
+    (kind === 'sell_zar' && completedCycles === 0)
+  ) {
+    if (kind === 'sell_zar' || kind === 'add_zar') {
       await startNewTest(adminUid, true, amount, shockLine)
     }
     return

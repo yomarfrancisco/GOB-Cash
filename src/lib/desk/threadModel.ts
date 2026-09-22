@@ -196,7 +196,19 @@ export function buildDeskThread(items: ActivityItem[]): DeskThreadRow[] {
       continue
     }
 
-    if (isAwaitingClock(item)) continue
+    if (isAwaitingClock(item)) {
+      const text = humanizeDeskText(item.body || item.title)
+      if (text) {
+        rows.push({
+          kind: 'chat',
+          id: item.id,
+          speaker: speakerForItem(item),
+          text,
+          at: item.createdAt,
+        })
+      }
+      continue
+    }
 
     const text = isAskItem(item) ? samConfirmText(item) : humanizeDeskText(item.body || item.title)
     if (!text) continue
@@ -242,7 +254,7 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
       title: sale
         ? `Cycle ${awaiting.cycleNumber || ''} · send ZAR`.replace('Cycle  ·', 'Cycle')
         : `Cycle ${awaiting.cycleNumber || ''} · restock`.replace('Cycle  ·', 'Cycle'),
-      body: firstSentence(awaiting.body || awaiting.title),
+      body: humanizeDeskText(awaiting.body || awaiting.title) || firstSentence(awaiting.body || awaiting.title),
       clock: awaiting.routingBlocked ? null : sale ? 'sent' : 'swiped',
       clockLabel: sale ? "I've sent ZAR" : "I've swiped",
       stillToDeliver: leftover,

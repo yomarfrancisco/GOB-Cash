@@ -156,6 +156,7 @@ function HomeContent() {
 
   const openConversionKeypad = useCallback((agentCash = false, handle?: string | null) => {
     playDollarSound()
+    useRoutingPlaybackStore.getState().clear()
     setAgentCashKeypad(agentCash)
     setAgentCashHandle(agentCash && handle ? handle.replace(/^[@$]/, '') : null)
     setConversionPrefill(undefined)
@@ -941,6 +942,7 @@ function HomeContent() {
           setConversionPrefill(undefined)
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
+          useRoutingPlaybackStore.getState().clear()
         }}
         agentCash={agentCashKeypad}
         agentCashHandle={agentCashHandle}
@@ -1039,7 +1041,7 @@ function HomeContent() {
                 amountZAR,
                 agentCash: agentCashKeypad,
                 agentCashHandle: agentCashHandle,
-                capitalShock: !agentCashKeypad,
+                capitalShock: true,
               })
           void run.catch((error: any) => {
             useRoutingPlaybackStore.getState().clear()
@@ -1219,6 +1221,7 @@ function HomeContent() {
       <FinancialInboxSheet />
       <PayIntoSheet
         onConfirm={(destination) => {
+          useRoutingPlaybackStore.getState().clear()
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
           setConversionDestination(destination)

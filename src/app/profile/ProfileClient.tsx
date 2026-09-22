@@ -543,6 +543,7 @@ export default function ProfileClient() {
   const closeAmount = useCallback(() => {
     setOpenAmount(false)
     setAmountEntryPoint(undefined) // Reset entry point when closing
+    useRoutingPlaybackStore.getState().clear()
   }, [])
   const closeSendDetails = useCallback(() => {
     setOpenSendDetails(false)
@@ -660,6 +661,7 @@ export default function ProfileClient() {
                 conversionDestination={conversionDestination}
                 onDollarClick={() => {
                   guardAuthed(() => {
+                    useRoutingPlaybackStore.getState().clear()
                     setAgentCashKeypad(false)
                     setAgentCashHandle(null)
                     setConversionDestination('MZN')
@@ -1253,7 +1255,7 @@ export default function ProfileClient() {
                 amountZAR,
                 agentCash: agentCashKeypad,
                 agentCashHandle: agentCashHandle,
-                capitalShock: !agentCashKeypad,
+                capitalShock: true,
               })
           void run.catch((error: any) => {
             useRoutingPlaybackStore.getState().clear()
@@ -1522,6 +1524,7 @@ export default function ProfileClient() {
       <FinancialInboxSheet />
       <PayIntoSheet
         onConfirm={(destination) => {
+          useRoutingPlaybackStore.getState().clear()
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
           setConversionDestination(destination)

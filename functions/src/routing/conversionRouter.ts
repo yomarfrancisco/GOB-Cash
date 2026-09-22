@@ -265,7 +265,7 @@ function residualLead(
 ): string[] {
   const residual = state ? residualToTarget(state) : 0
   const lines = [
-    `Residual to the ZAR wallet: ${formatZar(residual)}. Weekday ${cycleNumber} of ${cycleCount}.`,
+    `Window capital ${formatZar(residual)}. Weekday ${cycleNumber} of ${cycleCount}.`,
   ]
   if (shockLine) lines.push(shockLine)
   lines.push('')
@@ -1574,9 +1574,9 @@ export function buildActivityCopy(
         : null
   const account = formatReceiveAccountsLine(receive)
   const lines = [
-    ...residualLead(extra?.state, plan.cycleNumber, cycleCount, extra?.revisionReason),
     ...onionLines(plan.cardAssignments, 'send'),
     '',
+    ...residualLead(extra?.state, plan.cycleNumber, cycleCount, extra?.revisionReason),
     account
       ? `Pay ${formatZar(plan.deployedAmount)} after MZN has reflected in ${account}.`
       : `Pay ${formatZar(plan.deployedAmount)} after MZN has reflected.`,

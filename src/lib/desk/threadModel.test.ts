@@ -70,6 +70,9 @@ describe('FX Desk thread', () => {
     assert.equal(hasLiveStep(next), true)
     assert.equal(isDeskYes('yes'), true)
     assert.equal(latestPendingWrite([awaiting]), null)
-    assert.equal(buildDeskThread([awaiting]).length, 0)
+    const rows = buildDeskThread([awaiting])
+    assert.equal(rows.length, 1)
+    if (rows[0].kind !== 'chat') return
+    assert.match(rows[0].text, /Pay R10,000/)
   })
 })
