@@ -314,13 +314,8 @@ export function pickQBestPair(params: {
   if (!ranks.length) {
     return { ranks, holdReason: 'Hold: every legal pair is frozen or banned.' }
   }
-  const min = params.state.config.minCardAmount
-  const max = params.state.config.maxCardAmount
-  if (params.amountZar + 0.005 < min || params.amountZar - 0.005 > max) {
-    return {
-      ranks,
-      holdReason: `Hold: leftover ${formatZar(params.amountZar)} does not fit ${formatZar(min)}–${formatZar(max)}.`,
-    }
+  if (!(params.amountZar > 0)) {
+    return { ranks, holdReason: `Hold: leftover ${formatZar(params.amountZar)} is not a payable ticket.` }
   }
   const best = ranks[0]
   const posReason = explainPathPick(best, params.residual)

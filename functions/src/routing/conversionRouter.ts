@@ -22,38 +22,24 @@ import {
 } from './pathEngine'
 import { assignmentsFromRoutes, markWindowRestocked, resolveWindow, shockWindowCapital } from './throughputPlan'
 import type { ProspectiveBranch } from '../throughput/prospective/types'
-import { formatFrictionSentence, type FrictionNote, type SwipeRecord } from './friction'
-import { cardLabel, cardShortName, formatReceiveAccount, isForbiddenPair, machineLabel, machineShortName } from './inventory'
-import {
-  chooseReceiveAccount,
-  DEFAULT_RECEIVE_HINT,
-  type ReceiveChoice,
-  type ReceiveHint,
-} from './mozReceive'
+import { cardShortName, DEFAULT_CARDS, isForbiddenPair, machineShortName } from './inventory'
 
+/**
+ * Desk configuration. Ticket sizes, card counts and capital come from the
+ * Throughput kernel's absorbing book; only the spread fallback, the window
+ * length and the rail inventory size live here.
+ */
 export type RoutingConfig = {
-  cardCount: number
   machineCount: number
-  minCardAmount: number
-  maxCardAmount: number
-  startingCapital: number
   spread: number
   recycleRate: number
-  bufferAmount: number
-  bufferTriggerRatio: number
   cycleCount: number
 }
 
 export const DEFAULT_TEST_CONFIG: RoutingConfig = {
-  cardCount: 5,
   machineCount: 4,
-  minCardAmount: 1_000,
-  maxCardAmount: 8_000,
-  startingCapital: 10_000,
   spread: 0.10,
   recycleRate: 1,
-  bufferAmount: 50_000,
-  bufferTriggerRatio: 0.9,
   cycleCount: 14,
 }
 
@@ -116,8 +102,6 @@ export type RoutingState = {
   cards: CardState[]
   machines: MachineState[]
   pairings: Record<string, number>
-  receiveCounts: Record<number, number>
-  lastReceiveCardId: number | null
   authorisedZar: number
   cycledZar: number
   mznInventory: number
@@ -127,7 +111,6 @@ export type RoutingState = {
 
 export type CyclePlan = {
   cycleNumber: number
-  startingCapital: number
   availableCapital: number
   deployedAmount: number
   idleCapital: number
@@ -136,9 +119,9 @@ export type CyclePlan = {
   cardAssignments: CardAssignment[]
   restingCardIds: number[]
   restingMachineIds: number[]
+  /** ZAR sold this window and not yet restocked. */
   bufferUsedBefore: number
-  bufferUsedProjected: number
-  bufferTriggerAmount: number
+  /** True when the sold tickets must be swiped back at COST before the next weekday. */
   bufferActionRequired: boolean
   selectionReason: string
   quote?: FrozenQuote
@@ -182,16 +165,20 @@ export function formatSpreadPercent(spread: number): string {
   return `${useInt ? nearestInt : pct}%`
 }
 
-export function createInitialState(config: RoutingConfig = DEFAULT_TEST_CONFIG): RoutingState {
+/** Cards on the desk are the kernel's Moz cards (see inventory); capital arrives with `$`. */
+export function createInitialState(
+  config: RoutingConfig = DEFAULT_TEST_CONFIG,
+  capitalZar = 0
+): RoutingState {
   return {
     config,
-    availableCapital: roundMoney(config.startingCapital),
+    availableCapital: roundMoney(capitalZar),
     bufferUsed: 0,
     completedCycles: 0,
     cumulativeDeployed: 0,
     cumulativeSpread: 0,
-    cards: Array.from({ length: config.cardCount }, (_, i) => ({
-      id: i + 1,
+    cards: DEFAULT_CARDS.map((card) => ({
+      id: card.id,
       activeCycles: 0,
       restCycles: 0,
       volume: 0,
@@ -206,9 +193,7 @@ export function createInitialState(config: RoutingConfig = DEFAULT_TEST_CONFIG):
       lastCycleUsed: 0,
     })),
     pairings: {},
-    receiveCounts: {},
-    lastReceiveCardId: null,
-    authorisedZar: roundMoney(config.startingCapital),
+    authorisedZar: roundMoney(capitalZar),
     cycledZar: 0,
     mznInventory: 0,
   }
@@ -304,139 +289,6 @@ function onionLines(assignments: CardAssignment[], verb: 'send' | 'swipe'): stri
       verb === 'swipe' ? `- Swipe ${swipeInstruction(row)}.` : `- ${swipeInstruction(row)}.`
     ),
   ]
-}
-
-/**
- * Largest amount that can be distributed across the fewest cards, each
- * inside [min, max]. Amounts in a capacity gap (e.g. R17k) deploy the
- * next-lower valid total and leave the remainder idle.
- */
-export function largestValidDeployment(
-  availableCapital: number,
-  config: Pick<RoutingConfig, 'cardCount' | 'minCardAmount' | 'maxCardAmount'>
-): { deployedAmount: number; cardCount: number } {
-  const available = roundMoney(availableCapital)
-  let best = { deployedAmount: 0, cardCount: 0 }
-
-  for (let n = 1; n <= config.cardCount; n++) {
-    const minTotal = roundMoney(n * config.minCardAmount)
-    const maxTotal = roundMoney(n * config.maxCardAmount)
-    if (available < minTotal) continue
-    const deployedAmount = Math.min(available, maxTotal)
-    if (
-      deployedAmount > best.deployedAmount ||
-      (deployedAmount === best.deployedAmount && (best.cardCount === 0 || n < best.cardCount))
-    ) {
-      best = { deployedAmount: roundMoney(deployedAmount), cardCount: n }
-    }
-  }
-
-  return best
-}
-
-export function splitAcrossCards(
-  total: number,
-  cardCount: number,
-  minCardAmount: number,
-  maxCardAmount: number
-): number[] {
-  if (cardCount <= 0) return []
-  const totalCents = Math.round(total * 100)
-  const minCents = Math.round(minCardAmount * 100)
-  const maxCents = Math.round(maxCardAmount * 100)
-  const base = Math.floor(totalCents / cardCount)
-  const remainder = totalCents - base * cardCount
-  const parts = Array.from({ length: cardCount }, (_, i) => base + (i < remainder ? 1 : 0))
-
-  for (let i = 0; i < parts.length; i++) {
-    if (parts[i] < minCents) {
-      for (let j = 0; j < parts.length && parts[i] < minCents; j++) {
-        if (j === i) continue
-        const spare = parts[j] - minCents
-        if (spare <= 0) continue
-        const take = Math.min(spare, minCents - parts[i])
-        parts[j] -= take
-        parts[i] += take
-      }
-    }
-    if (parts[i] > maxCents) {
-      for (let j = 0; j < parts.length && parts[i] > maxCents; j++) {
-        if (j === i) continue
-        const room = maxCents - parts[j]
-        if (room <= 0) continue
-        const give = Math.min(room, parts[i] - maxCents)
-        parts[j] += give
-        parts[i] -= give
-      }
-      if (parts[i] > maxCents) {
-        throw new Error(`Cannot split ${total} across ${cardCount} cards within card limits`)
-      }
-    }
-    if (parts[i] < minCents) {
-      throw new Error(`Cannot split ${total} across ${cardCount} cards within card limits`)
-    }
-  }
-
-  if (excessUnused(parts, totalCents)) {
-    throw new Error(`Split of ${total} across ${cardCount} cards does not sum`)
-  }
-
-  return parts.map((cents) => cents / 100)
-}
-
-export function splitAcrossCardsWithCaps(total: number, mins: number[], maxes: number[]): number[] {
-  if (mins.length === 0 || mins.length !== maxes.length) return []
-  const minCents = mins.map((value) => Math.round(value * 100))
-  const maxCents = maxes.map((value) => Math.round(value * 100))
-  const totalCents = Math.round(total * 100)
-  const minSum = minCents.reduce((sum, value) => sum + value, 0)
-  const maxSum = maxCents.reduce((sum, value) => sum + value, 0)
-  if (totalCents < minSum || totalCents > maxSum) {
-    throw new Error(`Cannot split ${total} within mixed card limits`)
-  }
-  const parts = [...minCents]
-  let remaining = totalCents - minSum
-  while (remaining > 0) {
-    const rooms = parts.map((part, index) => maxCents[index] - part)
-    const open = rooms
-      .map((room, index) => (room > 0 ? index : -1))
-      .filter((index) => index >= 0)
-    if (!open.length) {
-      throw new Error(`Cannot split ${total} within mixed card limits`)
-    }
-    const share = Math.max(1, Math.floor(remaining / open.length))
-    for (const index of open) {
-      if (remaining <= 0) break
-      const take = Math.min(rooms[index], share, remaining)
-      parts[index] += take
-      remaining -= take
-    }
-  }
-  return parts.map((cents) => cents / 100)
-}
-
-function excessUnused(parts: number[], totalCents: number): boolean {
-  return parts.reduce((sum, value) => sum + value, 0) !== totalCents
-}
-
-export function selectCards(
-  state: RoutingState,
-  cardCount: number,
-  cycleNumber: number,
-  eligibleIds?: Set<number>
-): number[] {
-  const ranked = [...state.cards]
-    .filter((card) => !eligibleIds || eligibleIds.has(card.id))
-    .sort((a, b) => {
-    if (a.activeCycles !== b.activeCycles) return a.activeCycles - b.activeCycles
-    const aJustUsed = a.lastCycleUsed === cycleNumber - 1
-    const bJustUsed = b.lastCycleUsed === cycleNumber - 1
-    if (aJustUsed !== bJustUsed) return aJustUsed ? 1 : -1
-    if (a.restCycles !== b.restCycles) return b.restCycles - a.restCycles
-    if (a.lastCycleUsed !== b.lastCycleUsed) return a.lastCycleUsed - b.lastCycleUsed
-    return a.id - b.id
-  })
-  return ranked.slice(0, cardCount).map((card) => card.id)
 }
 
 function machineLoadTargets(
@@ -869,33 +721,6 @@ function buildRoutingDecision(params: {
   }
 }
 
-export function annotatePosReasons(
-  state: RoutingState,
-  assignments: CardAssignment[],
-  cycleNumber: number,
-  overlay: RoutingOverlay = EMPTY_OVERLAY
-): CardAssignment[] {
-  const planned = assignMachines(
-    state,
-    assignments.map((row) => row.cardId),
-    assignments.map((row) => row.amount),
-    cycleNumber,
-    overlay
-  )
-  return assignments.map((row) => {
-    if (row.posReason && row.routingDecision) return row
-    const match = planned.find(
-      (item) => item.cardId === row.cardId && item.machineId === row.machineId
-    )
-    const posReason = row.posReason || match?.posReason || explainPosChoice(state, row, cycleNumber, overlay)
-    return {
-      ...row,
-      posReason,
-      routingDecision: row.routingDecision || match?.routingDecision,
-    }
-  })
-}
-
 function projectedState(state: RoutingState, assignedVolume: Map<number, number>): RoutingState {
   if (!assignedVolume.size) return state
   return {
@@ -1009,15 +834,6 @@ export function assignMachines(
   return assignments
 }
 
-function cardHasLegalMachine(
-  state: RoutingState,
-  cardId: number,
-  overlay: RoutingOverlay,
-  book: PathBook = {}
-): boolean {
-  return legalPairs(state, overlay, book.notes).some((row) => row.cardId === cardId)
-}
-
 function stampQuoteOnAssignments(
   assignments: CardAssignment[],
   book: PathBook,
@@ -1047,6 +863,26 @@ export function planCycle(
   book: PathBook = {}
 ): CyclePlan {
   const quote = book.quote
+  if (!state.window && !(state.availableCapital > 0)) {
+    // No `$` yet: there is no book to open. Hold without touching the kernel.
+    return {
+      cycleNumber: state.completedCycles + 1,
+      availableCapital: state.availableCapital,
+      deployedAmount: 0,
+      idleCapital: 0,
+      expectedProfit: 0,
+      expectedZarProfit: 0,
+      cardCountUsed: 0,
+      cardAssignments: [],
+      restingCardIds: state.cards.map((card) => card.id),
+      restingMachineIds: state.machines.map((machine) => machine.id),
+      bufferUsedBefore: state.bufferUsed,
+      bufferActionRequired: false,
+      selectionReason: 'No window capital. Tap $ and sell ZAR to open Day 1.',
+      holdReason: 'No window capital. Tap $ and sell ZAR to open Day 1.',
+      ...(quote ? { quote } : {}),
+    }
+  }
   const window = resolveWindow(state)
   const record = window.snapshot.days.at(-1)
   const routes = record?.routes ?? []
@@ -1106,7 +942,6 @@ export function planCycle(
     : roundMoney(deployedForPlan * state.config.spread)
   return {
     cycleNumber,
-    startingCapital: state.config.startingCapital,
     availableCapital: state.availableCapital,
     deployedAmount: deployedForPlan,
     idleCapital,
@@ -1117,8 +952,6 @@ export function planCycle(
     restingCardIds: state.cards.map((card) => card.id).filter((id) => !usedCardIds.has(id)),
     restingMachineIds: state.machines.map((machine) => machine.id).filter((id) => !usedMachineIds.has(id)),
     bufferUsedBefore: state.bufferUsed,
-    bufferUsedProjected: roundMoney(state.bufferUsed + deployedForPlan),
-    bufferTriggerAmount: roundMoney(state.config.bufferAmount * state.config.bufferTriggerRatio),
     bufferActionRequired: state.bufferUsed > 0 && deployedForPlan > 0,
     selectionReason: [
       record
@@ -1133,85 +966,6 @@ export function planCycle(
     residualsConsidered: book.residuals,
     ...(holdReason ? { holdReason } : {}),
     window,
-  }
-}
-
-function finishPlan(params: {
-  state: RoutingState
-  overlay: RoutingOverlay
-  cycleNumber: number
-  quote?: FrozenQuote
-  liveBook: PathBook
-  cardAssignments: CardAssignment[]
-  selectedCardIds: number[]
-  deployedForPlan: number
-  tightnessRanks?: TightnessRank[]
-}): CyclePlan {
-  const { state, overlay, cycleNumber, quote, liveBook, selectedCardIds, deployedForPlan } = params
-  const cardAssignments = stampQuoteOnAssignments(params.cardAssignments, liveBook, params.tightnessRanks)
-  const idleCapital = roundMoney(Math.max(0, state.availableCapital - deployedForPlan))
-  const expectedProfit = quote
-    ? expectedSpreadMzn(deployedForPlan, quote)
-    : roundMoney(deployedForPlan * state.config.spread)
-  const expectedZarProfit = quote
-    ? zarProfitFromQuote(deployedForPlan, quote)
-    : roundMoney(deployedForPlan * state.config.spread)
-  const usedCardIds = new Set(cardAssignments.map((row) => row.cardId))
-  const usedMachineIds = new Set(cardAssignments.map((row) => row.machineId))
-  const restingCardIds = state.cards.map((card) => card.id).filter((id) => !usedCardIds.has(id))
-  const restingMachineIds = state.machines
-    .map((machine) => machine.id)
-    .filter((id) => !usedMachineIds.has(id))
-  const bufferTriggerAmount = roundMoney(state.config.bufferAmount * state.config.bufferTriggerRatio)
-  const bufferUsedProjected = roundMoney(state.bufferUsed + deployedForPlan)
-  const bufferActionRequired = state.bufferUsed > 0 && bufferUsedProjected > bufferTriggerAmount
-  const overlayNotes = [
-    overlay.excludedCardIds.length
-      ? `${overlay.excludedCardIds.map((id) => cardLabel(id)).join(', ')} excluded by admin feedback.`
-      : '',
-    overlay.excludedMachineIds.length
-      ? `${overlay.excludedMachineIds.map((id) => machineLabel(id)).join(', ')} unavailable by admin feedback.`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
-
-  const selectionReason = [
-    `Need ${cardAssignments.length} card${cardAssignments.length === 1 ? '' : 's'} for ${formatZar(deployedForPlan)} within ${formatZar(state.config.minCardAmount)}–${formatZar(state.config.maxCardAmount)}.`,
-    idleCapital > 0
-      ? `${formatZar(idleCapital)} idle: available capital sits in a capacity gap.`
-      : 'Full available capital is routable.',
-    `${selectedCardIds.map((id) => cardLabel(id)).join(', ')} chosen for fewest active cycles, then longest rest.`,
-    cardAssignments.map((row) => row.posReason).filter(Boolean).join(' ') ||
-      `${cardAssignments.map((row) => machineLabel(row.machineId)).join(', ')} assigned by leftover, tightness, then volume tie-break. Same-name pairs are never used.`,
-    overlayNotes,
-    bufferActionRequired
-      ? `Projected buffer ${formatZar(bufferUsedProjected)} exceeds ${formatZar(bufferTriggerAmount)} working threshold.`
-      : `Projected buffer ${formatZar(bufferUsedProjected)} within ${formatZar(bufferTriggerAmount)} working threshold.`,
-  ]
-    .filter(Boolean)
-    .join(' ')
-
-  return {
-    cycleNumber,
-    startingCapital: state.config.startingCapital,
-    availableCapital: state.availableCapital,
-    deployedAmount: deployedForPlan,
-    idleCapital,
-    expectedProfit,
-    expectedZarProfit,
-    cardCountUsed: cardAssignments.length,
-    cardAssignments,
-    restingCardIds,
-    restingMachineIds,
-    bufferUsedBefore: state.bufferUsed,
-    bufferUsedProjected,
-    bufferTriggerAmount,
-    bufferActionRequired,
-    selectionReason,
-    ...(quote ? { quote } : {}),
-    residualsConsidered: liveBook.residuals,
-    tightnessRanks: params.tightnessRanks,
   }
 }
 
@@ -1300,11 +1054,11 @@ export function completeCycle(
   return applyCardPosContact(applySell(state, plan, actualProfit), plan.cardAssignments, plan.cycleNumber)
 }
 
-export function simulateRun(config: RoutingConfig = DEFAULT_TEST_CONFIG): {
+export function simulateRun(config: RoutingConfig = DEFAULT_TEST_CONFIG, capitalZar = 100_000): {
   state: RoutingState
   cycles: CompletedCycle[]
 } {
-  let state = createInitialState(config)
+  let state = createInitialState(config, capitalZar)
   const cycles: CompletedCycle[] = []
   for (let i = 0; i < config.cycleCount; i++) {
     const plan = planCycle(state)
@@ -1374,47 +1128,6 @@ export function planReplenish(
   }
 }
 
-export function nextSwipeAssignments(
-  _state: RoutingState,
-  sell: CyclePlan,
-  _overlay: RoutingOverlay = EMPTY_OVERLAY,
-  _book: PathBook = {}
-): CardAssignment[] {
-  return sell.cardAssignments
-}
-
-export function formatReceiveAccountsLine(choice: ReceiveChoice | null | undefined): string {
-  if (!choice) return ''
-  return formatReceiveAccount(choice.cardId)
-}
-
-function formatReceiveStep(choice: ReceiveChoice | null): string[] {
-  if (!choice) {
-    return [
-      '1. Receive MZN into the Moz debit account named for this sale. If that card is parked, Ask which METIX account can take the credit. Never Vista.',
-    ]
-  }
-  const lines = [`1. Receive MZN into ${formatReceiveAccount(choice.cardId)}.`]
-  if (choice.reason) lines.push(choice.reason)
-  return lines
-}
-
-export function receiveChoiceForSale(
-  state: RoutingState,
-  sell: CyclePlan,
-  overlay: RoutingOverlay = EMPTY_OVERLAY,
-  hint: ReceiveHint = DEFAULT_RECEIVE_HINT
-): ReceiveChoice | null {
-  return chooseReceiveAccount({
-    state,
-    overlay,
-    amountZar: sell.deployedAmount,
-    cycleNumber: sell.cycleNumber,
-    swipeCardIds: nextSwipeAssignments(state, sell, overlay).map((row) => row.cardId),
-    hint,
-  })
-}
-
 export function previewAskImpact(
   state: RoutingState,
   overlay: RoutingOverlay,
@@ -1437,7 +1150,6 @@ export function formatAskImpactBody(params: {
   proposal?: boolean
   state?: RoutingState
   overlay?: RoutingOverlay
-  receiveHint?: ReceiveHint
 }): string {
   const lines = [params.acknowledgement.trim(), '']
   const replenish = params.preview.replenishFirst
@@ -1447,36 +1159,18 @@ export function formatAskImpactBody(params: {
     if (replenish.cardAssignments.length) {
       if (replenish.cardAssignments.length === 1) {
         lines.push(`Swipe ${swipeInstruction(replenish.cardAssignments[0])}.`)
-        if (replenish.cardAssignments[0].posReason) {
-          lines.push(replenish.cardAssignments[0].posReason)
-        }
       } else {
         lines.push('Swipe:')
         for (const row of replenish.cardAssignments) {
           lines.push(swipeInstruction(row))
-          if (row.posReason) lines.push(row.posReason)
         }
       }
     }
     lines.push(`Then sell ZAR, Cycle ${replenish.cycleNumber}`)
   } else if (plan && plan.deployedAmount > 0) {
-    const receive =
-      params.state && plan
-        ? receiveChoiceForSale(params.state, plan, params.overlay, params.receiveHint)
-        : null
-    const account = formatReceiveAccountsLine(receive)
-    lines.push(
-      account
-        ? `Next: receive MZN into ${account}, then pay ${formatZar(plan.deployedAmount)}.`
-        : `Next: receive MZN, then pay ${formatZar(plan.deployedAmount)}.`
-    )
-    if (receive?.reason) lines.push(receive.reason)
-    lines.push(`Expected spread this sale: ${formatMznAmount(plan.expectedProfit)}`)
-    lines.push(
-      plan.bufferActionRequired
-        ? 'Restock ZAR @ COST would follow this sale.'
-        : 'ZAR buffer still covers the next order after this sale.'
-    )
+    lines.push(`Next: pay ${formatZar(plan.deployedAmount)} once the MZN has reflected.`)
+    lines.push(`Expected gross spread this sale: ${formatMznAmount(plan.expectedProfit)}`)
+    if (plan.bufferActionRequired) lines.push('Restock ZAR @ COST would follow this sale.')
   } else if (plan) {
     lines.push(plan.selectionReason || 'No valid restock route under that rule.')
   }
@@ -1489,18 +1183,14 @@ export function formatAskImpactBody(params: {
 
 export function buildNotificationCopy(
   plan: CyclePlan,
-  cycleCount: number,
-  receive: ReceiveChoice | null = null
+  cycleCount: number
 ): { title: string; body: string } {
   void cycleCount
-  const account = formatReceiveAccountsLine(receive)
   const record = plan.window?.snapshot.days.at(-1)
   const when = record ? `${record.weekday} day ${record.day}` : `Cycle ${plan.cycleNumber}`
   return {
     title: `Sell ZAR · ${when}`,
-    body: account
-      ? `${when}: pay ${formatZar(plan.deployedAmount)} after MZN hits ${account}`
-      : `${when}: pay ${formatZar(plan.deployedAmount)} after MZN reflects`,
+    body: `${when}: pay ${formatZar(plan.deployedAmount)} once the MZN has reflected`,
   }
 }
 
@@ -1530,8 +1220,7 @@ export function buildAgentReplyCopy(
   plan: CyclePlan,
   cycleCount: number,
   acknowledgement: string,
-  blocked: boolean,
-  receive: ReceiveChoice | null = null
+  blocked: boolean
 ): { title: string; body: string } {
   const title = `Sell ZAR · Cycle ${plan.cycleNumber}/${cycleCount}`
   if (blocked) {
@@ -1540,15 +1229,7 @@ export function buildAgentReplyCopy(
       body: [acknowledgement, '', plan.selectionReason || 'No valid route under current constraints.'].filter(Boolean).join('\n'),
     }
   }
-  const account = formatReceiveAccountsLine(receive)
-  const lines = [
-    acknowledgement,
-    '',
-    account
-      ? `Next: receive MZN into ${account}, then pay ${formatZar(plan.deployedAmount)}.`
-      : `Next: receive MZN, then pay ${formatZar(plan.deployedAmount)}.`,
-  ]
-  if (receive?.reason) lines.push(receive.reason)
+  const lines = [acknowledgement, '', `Next: pay ${formatZar(plan.deployedAmount)} once the MZN has reflected.`]
   return { title, body: lines.join('\n') }
 }
 
@@ -1562,8 +1243,6 @@ export function buildActivityCopy(
     revisionReason?: string
     state?: RoutingState
     overlay?: RoutingOverlay
-    receiveHint?: ReceiveHint
-    receive?: ReceiveChoice | null
   }
 ): { title: string; body: string } {
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
@@ -1579,40 +1258,24 @@ export function buildActivityCopy(
       ].join('\n'),
     }
   }
-  const bufferAmount = plan.bufferTriggerAmount > 0 ? roundMoney(plan.bufferTriggerAmount / 0.9) : 50_000
-  const bufferKept = roundMoney(Math.max(0, bufferAmount - plan.bufferUsedProjected))
-  const receive =
-    extra?.receive !== undefined
-      ? extra.receive
-      : extra?.state
-        ? receiveChoiceForSale(extra.state, plan, extra.overlay, extra.receiveHint)
-        : null
-  const account = formatReceiveAccountsLine(receive)
+  void spread
+  // Kernel facts (tickets, mandate residual, weekday) plus the live-quote leg. Nothing else.
   const lines = [
     ...onionLines(plan.cardAssignments, 'send'),
     '',
     ...residualLead(extra?.state, plan.cycleNumber, cycleCount, extra?.revisionReason),
-    account
-      ? `Pay ${formatZar(plan.deployedAmount)} after MZN has reflected in ${account}.`
-      : `Pay ${formatZar(plan.deployedAmount)} after MZN has reflected.`,
-    '',
-    ...formatReceiveStep(receive),
-    '2. Wait for proof of payment and the credit in that account.',
-    '3. Only then send ZAR to the operator’s South African account.',
+    `Pay ${formatZar(plan.deployedAmount)} once the MZN has reflected.`,
     '',
   ]
-  lines.push('Rand carries the premium. Do not pay ZAR first.')
-  lines.push(`Expected spread: ${formatSpreadPercent(spread)}`)
-  lines.push(`Expected gross spread: ${formatMznAmount(plan.expectedProfit)}`)
   if (quotes && quotes.sellRate > 0 && quotes.costRate > 0) {
     const profitPerZar = roundMoney(Math.max(0, quotes.sellRate - quotes.costRate))
     lines.push(`Receive ${formatMznAmount(roundMoney(plan.deployedAmount * quotes.sellRate))} at frozen SELL.`)
     lines.push(`SELL ${quotes.sellRate.toFixed(2)} Mt/R · COST ${quotes.costRate.toFixed(2)} Mt/R`)
     lines.push(`Live spread: ${profitPerZar.toFixed(2)} Mt/R`)
   }
-  lines.push(`ZAR kept in South Africa after this payout: ${formatZar(bufferKept)} of ${formatZar(bufferAmount)}.`)
+  lines.push(`Expected gross spread: ${formatMznAmount(plan.expectedProfit)}`)
   if (plan.bufferActionRequired) {
-    lines.push('Restock ZAR @ COST before the next sale so the buffer is not emptied.')
+    lines.push('Restock these tickets at COST before the next weekday.')
   }
   lines.push(`Status: ${statusLabel}`)
   return {
@@ -1625,46 +1288,18 @@ export function buildReplenishActivityCopy(
   replenish: ReplenishPlan,
   cycleCount: number,
   status: 'awaiting_execution' | 'completed',
-  state?: RoutingState,
-  overlay: RoutingOverlay = EMPTY_OVERLAY,
-  friction?: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number },
-  observeLine?: string | null
+  state?: RoutingState
 ): { title: string; body: string } {
   void status
-  const rows = state
-    ? annotatePosReasons(state, replenish.cardAssignments, replenish.cycleNumber, overlay)
-    : replenish.cardAssignments
+  // Kernel routes as issued (card → rail); no desk-side annotation or friction narrative.
+  const rows = replenish.cardAssignments
   const lines: string[] = [
     ...restockLead(state, replenish.cycleNumber, cycleCount),
     ...onionLines(rows, 'swipe'),
     '',
   ]
-  if (rows.length === 1 && rows[0].posReason) {
-    lines.push(rows[0].posReason)
-    lines.push('')
-  } else if (rows.length > 1) {
-    for (const row of rows) {
-      if (row.posReason) lines.push(row.posReason)
-    }
-    if (rows.some((row) => row.posReason)) lines.push('')
-  } else if (!rows.length) {
+  if (!rows.length) {
     lines.push(`Restock ${formatZar(replenish.amountZar)} in South Africa at COST.`)
-  }
-  const frictionLine =
-    friction && rows.length
-      ? formatFrictionSentence({
-          assignments: rows,
-          swipes: friction.swipes,
-          notes: friction.notes,
-          nowMs: friction.nowMs,
-        })
-      : null
-  if (frictionLine) {
-    lines.push(frictionLine)
-    lines.push('')
-  }
-  if (observeLine) {
-    lines.push(observeLine)
     lines.push('')
   }
   if (replenish.costRate > 0) {

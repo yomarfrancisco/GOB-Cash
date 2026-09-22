@@ -19,7 +19,7 @@ function bookWith(extra: PathBook = {}): PathBook {
 
 describe('pathEngine Q-best', () => {
   it('issues absorbing whole tickets, not a leftover onion pack', () => {
-    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
+    const state = createInitialState(DEFAULT_TEST_CONFIG, 100_000)
     const plan = planCycle(state, EMPTY_OVERLAY, bookWith())
     assert.ok(plan.cardAssignments.length >= 1)
     assert.ok(plan.cardAssignments.every((row) => row.amount !== 15_000))
@@ -85,7 +85,7 @@ describe('pathEngine Q-best', () => {
   })
 
   it('holds when every legal pair is frozen', () => {
-    const state = createInitialState()
+    const state = createInitialState(DEFAULT_TEST_CONFIG, 100_000)
     const book = bookWith({
       notes: [1, 2, 3, 4].map((machineId) => ({
         cycle: 1,
@@ -104,7 +104,7 @@ describe('pathEngine Q-best', () => {
 
   it('prices a sale from live SELL and restock from live COST', () => {
     const quote = frozenQuoteFromSell(5.5, 1)
-    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
+    const state = createInitialState(DEFAULT_TEST_CONFIG, 100_000)
     const sale = planCycle(state, EMPTY_OVERLAY, bookWith({ quote }))
     assert.equal(sale.quote?.sellRate, 5.5)
     assert.equal(sale.quote?.costRate, quote.costRate)
@@ -188,7 +188,7 @@ describe('pathEngine flow', () => {
   })
 
   it('Sell ZAR on a fresh desk opens Day 1 tickets at that capital', () => {
-    const dummy = planCycle(createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 10_000 }))
+    const dummy = planCycle(createInitialState(DEFAULT_TEST_CONFIG, 10_000))
     const after = applyCapitalShock(
       { ...createInitialState(), window: dummy.window, completedCycles: 0 },
       { kind: 'sell_zar', amountZar: 100_000 }

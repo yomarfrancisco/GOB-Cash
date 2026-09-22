@@ -19,11 +19,9 @@ import {
   planCycle,
   planReplenish,
   previewAskImpact,
-  receiveChoiceForSale,
   type CardAssignment,
   type RoutingState,
 } from './conversionRouter'
-import { parseReceiveHint } from './mozReceive'
 import {
   declineBlocksOtherCard,
   isFrictionNoteReply,
@@ -43,7 +41,7 @@ import { answerLedgerAggregate, answerLedgerFactAsk } from './ledgerFacts'
 import { deskTxFromSwipe, type DeskReview, type DeskTx } from './frictionHistory'
 import type { RecentCycleBrief, RecentFeedbackBrief } from './interpretContext'
 import { classifyPathWrite } from './pathEngine'
-import { cardLabel, cardShortName, formatReceiveAccount, resolveNamedCardIds, resolveNamedMachineIds } from './inventory'
+import { cardLabel, cardShortName, resolveNamedCardIds, resolveNamedMachineIds } from './inventory'
 import {
   formatSast,
   formatVisibleSast,
@@ -445,16 +443,11 @@ function restockPaceAdvice(
   nowMs: number
 ): DeskAdvice {
   const n = route.assignments.length
-  const min = formatZar(state.config.minCardAmount)
-  const max = formatZar(state.config.maxCardAmount)
   const last = [...swipes].sort((a, b) => b.atMs - a.atMs)[0]
   const gapMs = last ? nowMs - last.atMs : null
   const sameEvening = gapMs != null && gapMs < 8 * 60 * 60 * 1000
   const whySize = `The ${formatZar(route.amountZar)} sale emptied that much SA float. This restock replaces it`
-  const whyCount =
-    n <= 1
-      ? `, in one swipe because it fits ${min}–${max}.`
-      : `, split into ${n} swipes so each stays in ${min}–${max}.`
+  const whyCount = n <= 1 ? ', in one swipe: the book issued one ticket.' : `, in ${n} swipes: the book issued ${n} tickets.`
   const timing =
     last && gapMs != null
       ? ` Last swipe in the log was ${formatVisibleSast(last.atMs, nowMs)} — ${agoLabel(gapMs)}.`
@@ -534,24 +527,14 @@ function nextStepAdvice(
       body: `${lead} ${why} Execute that list. There is no second route to offer.`,
     }
   }
-  const sell = planCycle(state)
-  const receive =
-    sell.deployedAmount > 0
-      ? receiveChoiceForSale(state, sell, undefined, parseReceiveHint(message))
-      : null
-  const named = receive
-    ? `receive MZN into ${formatReceiveAccount(receive.cardId)}`
-    : 'receive MZN first'
+  void planCycle
   return {
     kind: 'next_step',
     title: 'Next: sell ZAR',
     body: [
-      `The open route is one sale: ${named}, then pay ${formatZar(route.amountZar)}.`,
-      receive?.reason,
+      `The open route is one sale: receive MZN first, then pay ${formatZar(route.amountZar)}.`,
       'Execute only after that Moz credit is in. There is no second route to offer.',
-    ]
-      .filter(Boolean)
-      .join(' '),
+    ].join(' '),
   }
 }
 

@@ -72,18 +72,6 @@ export function machineShortName(id: number): string {
   return DEFAULT_MACHINES.find((row) => row.id === id)?.shortName || `Machine ${id}`
 }
 
-export function cardMozBank(id: number): string {
-  return DEFAULT_CARDS.find((row) => row.id === id)?.mozBank || 'Mozambique'
-}
-
-export function cardMozBankId(id: number): MozBankId | null {
-  return DEFAULT_CARDS.find((row) => row.id === id)?.mozBankId || null
-}
-
-export function formatReceiveAccount(cardId: number): string {
-  return `${cardShortName(cardId)} · ${cardMozBank(cardId)}`
-}
-
 export function cardLabel(id: number): string {
   return `${CARD_FLAG} ${cardShortName(id)}`
 }

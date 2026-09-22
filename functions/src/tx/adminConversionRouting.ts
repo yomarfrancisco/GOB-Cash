@@ -29,30 +29,24 @@ import {
   type CyclePlan,
   type ReplenishPlan,
   type RoutingConfig,
-  receiveChoiceForSale,
   formatZar,
   parseRoutingDecision,
   stampAssignmentDecisions,
   type RoutingState,
 } from '../routing/conversionRouter'
 import { applyWindowPathWrite, hydrateWindow, persistWindow, ROUTING_ENGINE_ID } from '../routing/throughputPlan'
-import { applyReceiveChoice, parseReceiveHint, type ReceiveChoice } from '../routing/mozReceive'
 import {
   parseFrictionNote,
   swipeIdFor,
   type FrictionNote,
   type SwipeRecord,
 } from '../routing/friction'
-import { assessProposedRoute, formatObserveLine } from '../routing/frictionAdvisor'
-import { buildPersistedSnapshot } from '../routing/frictionSnapshot'
 import {
   DESK_REVIEW_COLLECTION,
-  DESK_SNAPSHOT_COLLECTION,
   DESK_TX_COLLECTION,
   deskTxFromSwipe,
   mergeDeskHistory,
   omitUndefined,
-  restockGroupIdFor,
   outcomeFromLegacy,
   type DeskReview,
   type DeskTx,
@@ -162,15 +156,9 @@ function replenishEventId(testRunId: string, cycleNumber: number): string {
 function parseConfig(raw: unknown): RoutingConfig {
   const data = raw && typeof raw === 'object' ? (raw as Partial<RoutingConfig>) : {}
   return {
-    cardCount: num(data.cardCount, DEFAULT_TEST_CONFIG.cardCount),
     machineCount: num(data.machineCount, DEFAULT_TEST_CONFIG.machineCount),
-    minCardAmount: num(data.minCardAmount, DEFAULT_TEST_CONFIG.minCardAmount),
-    maxCardAmount: num(data.maxCardAmount, DEFAULT_TEST_CONFIG.maxCardAmount),
-    startingCapital: num(data.startingCapital, DEFAULT_TEST_CONFIG.startingCapital),
     spread: num(data.spread, DEFAULT_TEST_CONFIG.spread),
     recycleRate: num(data.recycleRate, DEFAULT_TEST_CONFIG.recycleRate),
-    bufferAmount: num(data.bufferAmount, DEFAULT_TEST_CONFIG.bufferAmount),
-    bufferTriggerRatio: num(data.bufferTriggerRatio, DEFAULT_TEST_CONFIG.bufferTriggerRatio),
     cycleCount: num(data.cycleCount, DEFAULT_TEST_CONFIG.cycleCount),
   }
 }
@@ -193,7 +181,6 @@ function storedPlanFromCycle(
   const assignments = Array.isArray(data.cardAssignments) ? data.cardAssignments : []
   return {
     cycleNumber: num(data.cycleNumber, cycleNumber),
-    startingCapital: num(data.startingCapital, 0),
     availableCapital: num(data.availableCapital, 0),
     deployedAmount: num(data.deployedAmount, 0),
     idleCapital: num(data.idleCapital, 0),
@@ -203,8 +190,6 @@ function storedPlanFromCycle(
     restingCardIds: Array.isArray(data.restingCardIds) ? data.restingCardIds : [],
     restingMachineIds: Array.isArray(data.restingMachineIds) ? data.restingMachineIds : [],
     bufferUsedBefore: num(data.bufferUsed, 0),
-    bufferUsedProjected: num(data.bufferUsedProjected, 0),
-    bufferTriggerAmount: 0,
     bufferActionRequired: data.bufferActionRequired === true,
     selectionReason: typeof data.selectionReason === 'string' ? data.selectionReason : '',
   }
@@ -359,99 +344,11 @@ function enrichFriction(
   }
 }
 
-function observeLineFor(
-  assignments: Array<{ cardId: number; machineId: number; amount: number }>,
-  friction: { swipes: SwipeRecord[]; notes: FrictionNote[]; nowMs: number; history?: DeskTx[]; reviews?: DeskReview[] }
-): string | null {
-  const history = friction.history?.length
-    ? friction.history
-    : mergeDeskHistory([], friction.swipes)
-  return formatObserveLine(
-    assessProposedRoute({
-      assignments,
-      history,
-      reviews: friction.reviews,
-      nowMs: friction.nowMs,
-    })
-  )
-}
-
-function persistDeskTxs(
-  tx: admin.firestore.Transaction,
-  rows: DeskTx[],
-  now: admin.firestore.Timestamp
-) {
-  for (const row of rows) {
-    tx.set(db.collection(DESK_TX_COLLECTION).doc(row.id), {
-      ...omitUndefined(row as unknown as Record<string, unknown>),
-      createdAt: now,
-    })
-  }
-}
-
 function persistDeskReview(tx: admin.firestore.Transaction, review: DeskReview, now: admin.firestore.Timestamp) {
   tx.set(db.collection(DESK_REVIEW_COLLECTION).doc(review.id), {
     ...omitUndefined(review as unknown as Record<string, unknown>),
     createdAt: now,
   })
-}
-
-function persistFrictionSnapshots(
-  tx: admin.firestore.Transaction,
-  rows: ReturnType<typeof buildPersistedSnapshot>[],
-  now: admin.firestore.Timestamp
-) {
-  for (const row of rows) {
-    tx.set(db.collection(DESK_SNAPSHOT_COLLECTION).doc(row.id), {
-      ...omitUndefined(row as unknown as Record<string, unknown>),
-      createdAt: now,
-    })
-  }
-}
-
-function proposalSnapshotIdFromDoc(
-  testData: admin.firestore.DocumentData,
-  cardId: number,
-  machineId: number
-): string | undefined {
-  const rows = testData.frictionProposalSnapshotIds
-  if (!Array.isArray(rows)) return undefined
-  const hit = rows.find(
-    (row) => row && typeof row === 'object' && row.cardId === cardId && row.machineId === machineId
-  )
-  return hit && typeof hit.snapshotId === 'string' ? hit.snapshotId : undefined
-}
-
-function snapshotsForAssignments(
-  kind: 'proposal' | 'execution',
-  assignments: Array<{ cardId: number; machineId: number; amount: number }>,
-  friction: { swipes: SwipeRecord[]; nowMs: number; history?: DeskTx[]; reviews?: DeskReview[] },
-  extra: { testRunId?: string; cycleNumber?: number; transactionIdFor?: (row: { cardId: number; machineId: number }) => string | undefined }
-) {
-  const history = friction.history?.length ? friction.history : mergeDeskHistory([], friction.swipes, extra.testRunId)
-  return assignments.map((row) =>
-    buildPersistedSnapshot({
-      kind,
-      proposed: row,
-      history,
-      reviews: friction.reviews,
-      computedAt: friction.nowMs,
-      historyCutoffAt: friction.nowMs,
-      transactionId: extra.transactionIdFor?.(row),
-      testRunId: extra.testRunId,
-      cycleNumber: extra.cycleNumber,
-    })
-  )
-}
-
-function receiveChoiceFromDoc(data: admin.firestore.DocumentData): ReceiveChoice | null {
-  if (typeof data.receiveCardId !== 'number' || typeof data.receiveBankId !== 'string') return null
-  return {
-    cardId: data.receiveCardId,
-    bankId: data.receiveBankId as ReceiveChoice['bankId'],
-    bank: typeof data.receiveBank === 'string' ? data.receiveBank : '',
-    reason: typeof data.receiveReason === 'string' ? data.receiveReason : '',
-  }
 }
 
 function assignmentsFromUnknown(raw: unknown): Array<{
@@ -787,15 +684,6 @@ function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
     cards,
     machines,
     pairings: data.pairings && typeof data.pairings === 'object' ? data.pairings : {},
-    receiveCounts:
-      data.receiveCounts && typeof data.receiveCounts === 'object'
-        ? Object.fromEntries(
-            Object.entries(data.receiveCounts as Record<string, unknown>)
-              .map(([key, value]) => [Number(key), value])
-              .filter((row): row is [number, number] => Number.isFinite(row[0]) && typeof row[1] === 'number')
-          )
-        : {},
-    lastReceiveCardId: typeof data.lastReceiveCardId === 'number' ? data.lastReceiveCardId : null,
     authorisedZar: num(data.authorisedZar, num(data.startingCapital, base.authorisedZar)),
     cycledZar: num(data.cycledZar, 0),
     mznInventory: num(data.mznInventory, 0),
@@ -803,7 +691,6 @@ function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
     windowNeedsAdvance: data.windowNeedsAdvance === true,
     config: {
       ...base.config,
-      cardCount: cards.length,
       machineCount: machines.length,
     },
   }
@@ -910,17 +797,6 @@ function writeIssuedReplenish(
   replenish: ReplenishPlan,
   now: admin.firestore.Timestamp,
   overlay = EMPTY_OVERLAY,
-  friction: {
-    swipes: SwipeRecord[]
-    notes: FrictionNote[]
-    nowMs: number
-    history?: DeskTx[]
-    reviews?: DeskReview[]
-  } = {
-    swipes: [],
-    notes: [],
-    nowMs: now.toMillis(),
-  },
   book: PathBook = {}
 ): { plan: CyclePlan; activityEventId: string; kind: 'replenish' } {
   const plan = planCycle(state, overlay, { ...book, residuals: [] })
@@ -930,52 +806,7 @@ function writeIssuedReplenish(
     cardAssignments: stampAssignmentDecisions(replenish.cardAssignments, proposedAt),
   }
   const notification = buildReplenishNotificationCopy(issued)
-  const observeLine = observeLineFor(issued.cardAssignments, friction)
-  const proposalSnapshots = snapshotsForAssignments('proposal', issued.cardAssignments, friction, {
-    testRunId,
-    cycleNumber: issued.cycleNumber,
-  })
-  persistFrictionSnapshots(tx, proposalSnapshots, now)
-  const restockGroupId = restockGroupIdFor(testRunId, issued.cycleNumber)
-  persistDeskTxs(
-    tx,
-    issued.cardAssignments.map((row, assignmentIndex) => {
-      const snapshot = proposalSnapshots.find(
-        (item) => item.proposed.cardId === row.cardId && item.proposed.machineId === row.machineId
-      )
-      return deskTxFromSwipe(
-        {
-          id: swipeIdFor(issued.cycleNumber, row.cardId, row.machineId),
-          atMs: proposedAt,
-          cardId: row.cardId,
-          machineId: row.machineId,
-          amount: row.amount,
-          cycleNumber: issued.cycleNumber,
-        },
-        {
-          testRunId,
-          source: 'live_desk',
-          status: 'proposed',
-          proposedAt,
-          proposalSnapshotId: snapshot?.id,
-          restockGroupId,
-          assignmentIndex,
-          posReason: row.posReason || row.routingDecision?.selectionReason,
-          routingDecision: row.routingDecision,
-        }
-      )
-    }),
-    now
-  )
-  const activity = buildReplenishActivityCopy(
-    replenish,
-    state.config.cycleCount,
-    'awaiting_execution',
-    state,
-    overlay,
-    friction,
-    observeLine
-  )
+  const activity = buildReplenishActivityCopy(issued, state.config.cycleCount, 'awaiting_execution', state)
   const activityEventId = replenishEventId(testRunId, replenish.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
   const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
@@ -1003,9 +834,6 @@ function writeIssuedReplenish(
     cycleNumber: replenish.cycleNumber,
     createdAt: now,
     recordingSource: 'SYSTEM',
-    ...(observeLine ? { frictionLine: observeLine } : {}),
-    frictionSnapshotIds: proposalSnapshots.map((row) => row.id),
-    frictionFeatureVersion: proposalSnapshots[0]?.featureVersion || null,
   })
   tx.set(
     testRef,
@@ -1022,8 +850,6 @@ function writeIssuedReplenish(
       cards: state.cards,
       machines: state.machines,
       pairings: state.pairings,
-      receiveCounts: state.receiveCounts || {},
-      lastReceiveCardId: state.lastReceiveCardId ?? null,
       ...persistCapital(state),
       awaitingCycleNumber: replenish.cycleNumber,
       awaitingKind: 'replenish',
@@ -1034,12 +860,6 @@ function writeIssuedReplenish(
       replenishRestingCardIds: replenish.restingCardIds,
       replenishRestingMachineIds: replenish.restingMachineIds,
       ...persistPathBook({}, book),
-      frictionProposedAt: now,
-      frictionProposalSnapshotIds: proposalSnapshots.map((row) => ({
-        cardId: row.proposed.cardId,
-        machineId: row.proposed.machineId,
-        snapshotId: row.id,
-      })),
       updatedAt: now,
     }),
     { merge: true }
@@ -1055,17 +875,6 @@ function writeIssuedCycle(
   now: admin.firestore.Timestamp,
   quotes: { sellRate: number; costRate: number; quote?: FrozenQuote },
   overlay = EMPTY_OVERLAY,
-  friction: {
-    swipes: SwipeRecord[]
-    notes: FrictionNote[]
-    nowMs: number
-    history?: DeskTx[]
-    reviews?: DeskReview[]
-  } = {
-    swipes: [],
-    notes: [],
-    nowMs: now.toMillis(),
-  },
   book: PathBook = {}
 ): { plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' } {
   const liveBook: PathBook = {
@@ -1074,7 +883,7 @@ function writeIssuedCycle(
   }
   const replenish = planReplenish(state, quotes.costRate, overlay, liveBook)
   if (replenish) {
-    return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now, overlay, friction, liveBook)
+    return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now, overlay, liveBook)
   }
 
   const planned = planCycle(state, overlay, liveBook)
@@ -1085,10 +894,9 @@ function writeIssuedCycle(
     cardAssignments: stampAssignmentDecisions(planned.cardAssignments, now.toMillis()),
   }
   const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
-  const receive = blocked ? null : receiveChoiceForSale(state, plan, overlay)
   const notification = blocked
     ? { title: `Sell ZAR · Cycle ${plan.cycleNumber}`, body: 'No valid route under current constraints\nAsk to restore a card or POS' }
-    : buildNotificationCopy(plan, state.config.cycleCount, receive)
+    : buildNotificationCopy(plan, state.config.cycleCount)
   const activity = buildActivityCopy(
     plan,
     state.config.cycleCount,
@@ -1128,7 +936,6 @@ function writeIssuedCycle(
   tx.set(cycleRef, firestoreSafe({
     testRunId,
     cycleNumber: plan.cycleNumber,
-    startingCapital: plan.startingCapital,
     availableCapital: plan.availableCapital,
     deployedAmount: plan.deployedAmount,
     idleCapital: plan.idleCapital,
@@ -1143,17 +950,12 @@ function writeIssuedCycle(
     restingCardIds: plan.restingCardIds,
     restingMachineIds: plan.restingMachineIds,
     bufferUsed: plan.bufferUsedBefore,
-    bufferUsedProjected: plan.bufferUsedProjected,
     bufferActionRequired: plan.bufferActionRequired,
     sellRate: quotes.sellRate,
     costRate: quotes.costRate,
     spreadRate: state.config.spread,
     quote: liveBook.quote || quotes.quote,
     selectionReason: plan.selectionReason,
-    receiveCardId: receive?.cardId ?? null,
-    receiveBankId: receive?.bankId ?? null,
-    receiveBank: receive?.bank ?? null,
-    receiveReason: receive?.reason ?? null,
     status: 'awaiting_execution' as CycleStatus,
     createdAt: now,
     completedAt: null,
@@ -1174,8 +976,6 @@ function writeIssuedCycle(
       cards: state.cards,
       machines: state.machines,
       pairings: state.pairings,
-      receiveCounts: state.receiveCounts || {},
-      lastReceiveCardId: state.lastReceiveCardId ?? null,
       ...persistCapital({ ...state, window: plan.window ?? state.window }),
       awaitingCycleNumber: plan.cycleNumber,
       awaitingKind: 'deploy',
@@ -1196,12 +996,10 @@ async function issueCycle(
 ): Promise<{ plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' }> {
   const quoted = await applyLiveQuotes(state)
   const testSnap = await db.collection(TESTS).doc(testRunId).get()
-  const ledger = await loadDeskLedger()
-  const friction = enrichFriction(frictionFromDoc(testSnap.data() || {}, now.toMillis()), ledger, testRunId)
   const book = pathBookFromDoc(testSnap.data() || {}, quoted.quote)
   try {
     return await db.runTransaction(async (tx) =>
-      writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, friction, book)
+      writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, book)
     )
   } catch (error) {
     console.error('[issueCycle] persist failed; writing instruction only', error)
@@ -1222,7 +1020,6 @@ function writeInstructionOnly(
     ...planned,
     cardAssignments: stampAssignmentDecisions(planned.cardAssignments, now.toMillis()),
   }
-  const receive = plan.deployedAmount > 0 ? receiveChoiceForSale(state, plan, EMPTY_OVERLAY) : null
   const activity = buildActivityCopy(
     plan,
     state.config.cycleCount,
@@ -1243,9 +1040,7 @@ function writeInstructionOnly(
       title: activity.title,
       body: activity.body,
       dropdownTitle: `Sell ZAR · Cycle ${plan.cycleNumber}`,
-      dropdownBody: receive
-        ? `Pay ${formatZar(plan.deployedAmount)} after MZN hits ${receive.bank || receive.bankId}`
-        : activity.title,
+      dropdownBody: buildNotificationCopy(plan, state.config.cycleCount).body,
       actorType: 'ai_manager',
       avatarKind: 'convert_zar',
       amountCurrency: 'ZAR',
@@ -1383,10 +1178,10 @@ async function startNewTest(
   }
 
   const testRunId = db.collection(TESTS).doc().id
-  const state = createInitialState({
-    ...DEFAULT_TEST_CONFIG,
-    ...(typeof startingCapital === 'number' && startingCapital > 0 ? { startingCapital } : {}),
-  })
+  const state = createInitialState(
+    DEFAULT_TEST_CONFIG,
+    typeof startingCapital === 'number' && startingCapital > 0 ? startingCapital : 0
+  )
   await db.collection(TESTS).doc(testRunId).set({
     testRunId,
     adminUid,
@@ -1400,8 +1195,6 @@ async function startNewTest(
     cards: state.cards,
     machines: state.machines,
     pairings: {},
-    receiveCounts: {},
-    lastReceiveCardId: null,
     ...persistCapital(state),
     routingEngine: ROUTING_ENGINE_ID,
     constraints: [],
@@ -1614,8 +1407,6 @@ export const admin_getConversionRoutingStatus = functions
       cards: state.cards,
       machines: state.machines,
       pairings: state.pairings,
-      receiveCounts: state.receiveCounts || {},
-      lastReceiveCardId: state.lastReceiveCardId ?? null,
     })
   })
 
@@ -1649,7 +1440,6 @@ export const admin_confirmConversionRoutingCycle = functions
 
     const quotes = await applyLiveQuotes(createInitialState())
     const liveSpread = quotes.state.config.spread
-    const ledger = await loadDeskLedger()
     const testRef = db.collection(TESTS).doc(testRunId)
 
     const result: {
@@ -1706,10 +1496,6 @@ export const admin_confirmConversionRoutingCycle = functions
             'Restock ZAR @ COST is not awaiting execution'
           )
         }
-        const issuedFriction = enrichFriction(frictionFromDoc(testData, now.toMillis()), ledger, testRunId)
-        const storedObserve =
-          typeof eventSnap.data()?.frictionLine === 'string' ? (eventSnap.data()?.frictionLine as string) : null
-        const observeLine = storedObserve || observeLineFor(assignments, issuedFriction)
         const completedCopy = buildReplenishActivityCopy(
           {
             ...replenish,
@@ -1723,10 +1509,7 @@ export const admin_confirmConversionRoutingCycle = functions
           },
           state.config.cycleCount,
           'completed',
-          state,
-          overlay,
-          issuedFriction,
-          observeLine
+          state
         )
         const contacted = applyCardPosContact(state, assignments, cycleNumber)
         const nowMs = now.toMillis()
@@ -1739,53 +1522,11 @@ export const admin_confirmConversionRoutingCycle = functions
           amount: row.amount,
           cycleNumber,
         }))
-        const restockGroupId = restockGroupIdFor(testRunId, cycleNumber)
-        const durable = added.map((row, assignmentIndex) => {
-          const proposedAt = firestoreTimestampMs(testData.frictionProposedAt) || firestoreTimestampMs(testData.updatedAt) || nowMs
-          const issued = assignments.find((item) => item.cardId === row.cardId && item.machineId === row.machineId)
-          return deskTxFromSwipe(row, {
-            testRunId,
-            source: 'live_desk',
-            status: 'executed',
-            proposedAt,
-            proposalSnapshotId: proposalSnapshotIdFromDoc(testData, row.cardId, row.machineId),
-            restockGroupId,
-            assignmentIndex,
-            posReason: issued?.posReason || issued?.routingDecision?.selectionReason,
-            routingDecision: issued?.routingDecision,
-          })
-        })
-        const executionSnapshots = snapshotsForAssignments(
-          'execution',
-          added.map((row) => ({ cardId: row.cardId, machineId: row.machineId, amount: row.amount })),
-          enrichFriction(friction, ledger, testRunId),
-          {
-            testRunId,
-            cycleNumber,
-            transactionIdFor: (row) =>
-              durable.find((item) => item.cardId === row.cardId && item.machineId === row.machineId)?.id,
-          }
-        )
-        persistFrictionSnapshots(tx, executionSnapshots, now)
-        persistDeskTxs(
-          tx,
-          durable.map((row) => ({
-            ...row,
-            executionSnapshotId: executionSnapshots.find(
-              (snap) => snap.proposed.cardId === row.cardId && snap.proposed.machineId === row.machineId
-            )?.id,
-          })),
-          now
-        )
-        const nextFriction = enrichFriction(
-          {
-            swipes: [...friction.swipes, ...added].slice(-40),
-            notes: friction.notes,
-            nowMs,
-          },
-          { txs: [...ledger.txs, ...durable], reviews: ledger.reviews },
-          testRunId
-        )
+        const nextFriction = {
+          swipes: [...friction.swipes, ...added].slice(-40),
+          notes: friction.notes,
+          nowMs,
+        }
         const cleared: RoutingState = applyRestockLanding(
           {
             ...contacted,
@@ -1800,7 +1541,6 @@ export const admin_confirmConversionRoutingCycle = functions
           status: 'completed',
           awaitingConfirm: false,
           completedAt: now,
-          ...(observeLine ? { frictionLine: observeLine } : {}),
           ...(conversionTxId
             ? { txId: conversionTxId, hasDownloadButton: true }
             : {}),
@@ -1933,10 +1673,7 @@ export const admin_confirmConversionRoutingCycle = functions
       const frozen = plan.cardAssignments[0]?.routingDecision?.quote || book.quote || quotes.quote
       const actualProfit = suppliedProfit ?? zarProfitFromQuote(plan.deployedAmount, frozen)
       const overlay = overlayForDoc(testData)
-      const storedReceive = receiveChoiceFromDoc(cycleData)
-      const nextState = storedReceive
-        ? applyReceiveChoice(applySell(state, plan, actualProfit), storedReceive.cardId)
-        : applySell(state, plan, actualProfit)
+      const nextState = applySell(state, plan, actualProfit)
       const remainingConstraints = expireConstraints(constraintsFromDoc(testData), cycleNumber)
       const completedCopy = buildActivityCopy(
         plan,
@@ -1944,7 +1681,7 @@ export const admin_confirmConversionRoutingCycle = functions
         'completed',
         liveSpread,
         { sellRate: quotes.sellRate, costRate: quotes.costRate },
-        { state, overlay, receive: storedReceive }
+        { state, overlay }
       )
       const eventRef = db
         .collection('users')
@@ -2022,8 +1759,6 @@ export const admin_confirmConversionRoutingCycle = functions
             cards: nextState.cards,
             machines: nextState.machines,
             pairings: nextState.pairings,
-            receiveCounts: nextState.receiveCounts || {},
-            lastReceiveCardId: nextState.lastReceiveCardId ?? null,
             awaitingCycleNumber: null,
             awaitingKind: null,
             constraints: remainingConstraints,
@@ -2402,19 +2137,17 @@ export const admin_submitConversionRoutingFeedback = functions
         quotes.costRate,
         nextBook
       )
-      const friction = enrichFriction(frictionFromDoc(testData, nowMs), ledger, testRunId)
       await db.runTransaction(async (tx) => {
         if (canReviseDeploy) {
           const plan = preview.nextPlan || planCycle(liveState, overlay, nextBook)
           const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
-          const receive = blocked ? null : receiveChoiceForSale(liveState, plan, overlay)
-          const activity = buildAgentReplyCopy(plan, liveState.config.cycleCount, acknowledgement, blocked, receive)
+          const activity = buildAgentReplyCopy(plan, liveState.config.cycleCount, acknowledgement, blocked)
           const notification = blocked
             ? {
                 title: `Sell ZAR · Cycle ${plan.cycleNumber}`,
                 body: 'Hold. No live legal pair under current residuals and freezes.',
               }
-            : buildNotificationCopy(plan, liveState.config.cycleCount, receive)
+            : buildNotificationCopy(plan, liveState.config.cycleCount)
           const published = publishAgentRevision(tx, {
             adminUid,
             testRunId,
@@ -2455,7 +2188,7 @@ export const admin_submitConversionRoutingFeedback = functions
         } else if (awaitingKind === 'replenish') {
           const restock = planReplenish(liveState, quotes.costRate, overlay, nextBook)
           if (restock) {
-            writeIssuedReplenish(tx, adminUid, testRunId, liveState, restock, now, overlay, friction, nextBook)
+            writeIssuedReplenish(tx, adminUid, testRunId, liveState, restock, now, overlay, nextBook)
           }
         }
         publishAdviceCard(tx, {
@@ -2623,7 +2356,6 @@ export const admin_submitConversionRoutingFeedback = functions
       proposal: true,
       state: previewApplied.state,
       overlay: overlayFromConstraints(previewApplied.constraints),
-      receiveHint: parseReceiveHint(askMessage),
     })
 
     if (isWhatIfAsk(askMessage) && !acceptProposalId) {
@@ -2690,7 +2422,7 @@ export const admin_submitConversionRoutingFeedback = functions
             restock,
             now,
             overlay,
-            enrichFriction(frictionFromDoc(testData, now.toMillis()), ledger, testRunId)
+            currentBook
           )
         }
         publishAdviceCard(tx, {
@@ -2713,7 +2445,6 @@ export const admin_submitConversionRoutingFeedback = functions
                 proposal: false,
                 state: previewApplied.state,
                 overlay: overlayFromConstraints(previewApplied.constraints),
-                receiveHint: parseReceiveHint(askMessage),
               }),
           userReply: askMessage,
           routingAction: 'advice',
@@ -2770,22 +2501,13 @@ export const admin_submitConversionRoutingFeedback = functions
     const overlay = overlayFromConstraints(applied.constraints)
     const plan = planCycle(applied.state, overlay, currentBook)
     const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
-    const receive = blocked
-      ? null
-      : receiveChoiceForSale(applied.state, plan, overlay, parseReceiveHint(askMessage))
-    const activity = buildAgentReplyCopy(
-      plan,
-      applied.state.config.cycleCount,
-      acknowledgement,
-      blocked,
-      receive
-    )
+    const activity = buildAgentReplyCopy(plan, applied.state.config.cycleCount, acknowledgement, blocked)
     const notification = blocked
       ? {
           title: `Conversion Cycle ${plan.cycleNumber}`,
           body: 'No valid route under current constraints\nReply to restore a card or machine',
         }
-      : buildNotificationCopy(plan, applied.state.config.cycleCount, receive)
+      : buildNotificationCopy(plan, applied.state.config.cycleCount)
 
     await db.runTransaction(async (tx) => {
       const freshTest = await tx.get(testRef)
@@ -2840,10 +2562,6 @@ export const admin_submitConversionRoutingFeedback = functions
         restingCardIds: plan.restingCardIds,
         restingMachineIds: plan.restingMachineIds,
         selectionReason: plan.selectionReason,
-        receiveCardId: receive?.cardId ?? null,
-        receiveBankId: receive?.bankId ?? null,
-        receiveBank: receive?.bank ?? null,
-        receiveReason: receive?.reason ?? null,
         revisionReason: acknowledgement,
         activityEventId: published.activityEventId,
         revisionCount: published.revisionCount,

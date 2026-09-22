@@ -53,7 +53,7 @@ describe('adviseDesk', () => {
   })
 
   it('offers one restore route when the admin names a workable card', () => {
-    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
+    const state = createInitialState(DEFAULT_TEST_CONFIG, 100_000)
     const applied = restAll(state)
     const advice = adviseDesk({
       message: 'Ginav',
@@ -81,7 +81,7 @@ describe('adviseDesk', () => {
   })
 
   it('does not invent a third route when one sale is already open', () => {
-    const state = createInitialState()
+    const state = createInitialState(DEFAULT_TEST_CONFIG, 100_000)
     const advice = adviseDesk({
       message: "what's next?",
       state,
@@ -93,8 +93,8 @@ describe('adviseDesk', () => {
     assert.equal(advice.kind, 'next_step')
     assert.equal(advice.options, undefined)
     assert.match(advice.body, /no second route/i)
-    assert.match(advice.body, /Receive MZN into |receive MZN into /)
-    assert.match(advice.body, /METIX|Mahomed|BCI|BIM/)
+    assert.match(advice.body, /receive MZN first/i)
+    assert.doesNotMatch(advice.body, /METIX|Mahomed|Vista|BCI|BIM/)
   })
 
   it('parks the desk when the admin says no card is safe', () => {
@@ -116,7 +116,7 @@ describe('adviseDesk', () => {
   })
 
   it('offers two routes only when two named cards both work', () => {
-    const state = createInitialState({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000 })
+    const state = createInitialState(DEFAULT_TEST_CONFIG, 100_000)
     const applied = restAll(state)
     const advice = adviseDesk({
       message: 'Ginav or Vidrotec',
@@ -173,7 +173,7 @@ describe('adviseDesk', () => {
   })
 
   it('picks one safest swipe when the admin says they have to swipe', () => {
-    const state = createInitialState()
+    const state = createInitialState(DEFAULT_TEST_CONFIG, 100_000)
     const applied = restAll(state)
     const advice = adviseDesk({
       message: "Let's assume i have to swipe. what should i do?",
@@ -259,7 +259,8 @@ describe('adviseDesk', () => {
     assert.doesNotMatch(advice.body, /card name|none \/ new card|Which card is actually safe/i)
     assert.match(advice.body, /R49,891/)
     assert.match(advice.body, /4 swipes/)
-    assert.match(advice.body, /R1,000–R8,000/)
+    assert.match(advice.body, /the book issued 4 tickets/)
+    assert.doesNotMatch(advice.body, /R1,000–R8,000/)
     assert.match(advice.body, /21:54/)
     assert.match(advice.body, /do not add another card/i)
   })

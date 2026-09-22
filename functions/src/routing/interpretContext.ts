@@ -30,7 +30,6 @@ export type LedgerSnapshot = {
   bufferUsed: number
   completedCycles: number
   cycleCount: number
-  bufferAmount: number
   cards: Array<{
     id: number
     activeCycles: number
@@ -55,7 +54,6 @@ export function ledgerFromRoutingState(state: RoutingState): LedgerSnapshot {
     bufferUsed: state.bufferUsed,
     completedCycles: state.completedCycles,
     cycleCount: state.config.cycleCount,
-    bufferAmount: state.config.bufferAmount,
     cards: state.cards,
     machines: state.machines,
     pairings: state.pairings,
@@ -155,7 +153,7 @@ export function buildRoutingLedgerBrief(params: {
   return [
     clock.promptLine,
     `Test progress: ${ledger.completedCycles} of ${ledger.cycleCount} cycles completed. Cycle ${awaiting.cycleNumber} is awaiting ${awaiting.kind === 'replenish' ? 'ZAR restock @ COST' : 'ZAR sale'}${issued}.`,
-    `Capital: ${formatZar(ledger.availableCapital)} available. Buffer: ${formatZar(ledger.bufferUsed)} / ${formatZar(ledger.bufferAmount)}.`,
+    `Capital: ${formatZar(ledger.availableCapital)} available. Sold awaiting restock: ${formatZar(ledger.bufferUsed)}.`,
     nextAction,
     'Cards:',
     cards || '(none)',

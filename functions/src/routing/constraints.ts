@@ -371,7 +371,6 @@ export function applyIntentsToState(
       const id = nextState.cards.length + 1
       nextState = {
         ...nextState,
-        config: { ...nextState.config, cardCount: id },
         cards: [
           ...nextState.cards,
           { id, activeCycles: 0, restCycles: 0, volume: 0, lastCycleUsed: 0, machineHistory: [] },
@@ -381,11 +380,8 @@ export function applyIntentsToState(
       continue
     }
     if (intent.action === 'set_global_max' && intent.value) {
-      nextState = {
-        ...nextState,
-        config: { ...nextState.config, maxCardAmount: intent.value },
-      }
-      summaries.push(intent.summary)
+      // Ticket sizes are decided by the kernel's absorbing book; nothing to set.
+      summaries.push('Ticket sizes come from the book; no global cap applied.')
       continue
     }
 
