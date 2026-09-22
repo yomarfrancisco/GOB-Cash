@@ -13,6 +13,17 @@
   overflow: hidden; /* Prevent square overlay from showing above rounded sheet */
 }
 
+/* A desk action opens the keypad over the conversation. The desk stays
+   mounted underneath, so when the keypad slides away the thread is already
+   there. Dropdowns sit above both. */
+.as-root:has(.inboxTallSheet) {
+  z-index: 10010;
+}
+
+.as-root:has(.amount) {
+  z-index: 10020;
+}
+
 .as-overlay {
   position: absolute;
   inset: 0;

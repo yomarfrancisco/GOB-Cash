@@ -336,7 +336,6 @@ function ActivityItemCard({
       return
     }
     setConfirmState('loading')
-    closeNotifications()
     useRoutingPlaybackStore.getState().requestPlay({
       destination: isReplenish ? 'ZAR' : 'MZN',
       amountZAR: amountZAR || 0,

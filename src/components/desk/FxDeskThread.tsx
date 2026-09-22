@@ -9,7 +9,6 @@ import { admin_submitConversionRoutingFeedback } from '@/lib/transactions/client
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
-import { useNotificationsStore } from '@/state/notifications'
 import { useSignedInKycAccess } from '@/lib/restrictions'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import {
@@ -120,7 +119,6 @@ export function FxDeskThread() {
   const clear = useActivityStore((s) => s.clear)
   const all = useActivityStore((s) => s.all)
   const isAuthed = useAuthStore((s) => s.isAuthed)
-  const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
   const { deskBlocked, kycCta } = useSignedInKycAccess()
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [thinking, setThinking] = useState(false)
@@ -250,7 +248,6 @@ export function FxDeskThread() {
     if (isReplenish && (!(typeof amountMZN === 'number') || amountMZN <= 0)) return
     if (!isReplenish && (!(typeof amountZAR === 'number') || amountZAR <= 0)) return
     setClockState('loading')
-    closeNotifications()
     useRoutingPlaybackStore.getState().requestPlay({
       destination: isReplenish ? 'ZAR' : 'MZN',
       amountZAR: amountZAR || 0,

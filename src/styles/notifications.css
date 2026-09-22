@@ -6,7 +6,7 @@
   transform: translateX(-50%);
   width: 100%;
   max-width: 430px;
-  z-index: 9999;
+  z-index: 10040;
   pointer-events: none;
   padding: 8px 16px;
   box-sizing: border-box;
