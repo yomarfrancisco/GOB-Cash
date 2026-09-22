@@ -23,6 +23,7 @@ import {
   residualToTarget,
   formatAskImpactBody,
   planCycle,
+  roundMoney,
   planReplenish,
   previewAskImpact,
   type CyclePlan,
@@ -1446,6 +1447,78 @@ async function startNewTest(
     dropdownTitle: notification.title,
     dropdownBody: notification.body,
   })
+}
+
+export type RoutingPlayRequest = {
+  testRunId: string
+  cycleNumber: number
+  action: 'deploy' | 'replenish'
+}
+
+export function parseRoutingPlay(raw: unknown): RoutingPlayRequest | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const testRunId = typeof row.testRunId === 'string' ? row.testRunId : ''
+  const cycleNumber = typeof row.cycleNumber === 'number' ? row.cycleNumber : NaN
+  const action = row.action === 'replenish' ? 'replenish' : row.action === 'deploy' ? 'deploy' : null
+  if (!testRunId || !Number.isFinite(cycleNumber) || cycleNumber <= 0 || !action) return null
+  return { testRunId, cycleNumber, action }
+}
+
+/**
+ * Before a play records a conversion, make sure the card is the desk's current
+ * step and the ZAR entered equals the ticket total. Throws a readable
+ * failed-precondition otherwise, so nothing is written for a stale or wrong card.
+ */
+export async function assertRoutingPlayMatches(
+  adminUid: string,
+  play: RoutingPlayRequest,
+  amountZar: number
+): Promise<{ expectedZar: number }> {
+  const now = admin.firestore.Timestamp.now()
+  const currentRun = await currentTestId(adminUid)
+  if (!currentRun || play.testRunId !== currentRun) {
+    await cancelAwaitingRoutingEvents(adminUid, now, (row) => row.testRunId === play.testRunId)
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'That instruction was from a retired desk run and has been cleared. Tap $ and sell ZAR to open Day 1.'
+    )
+  }
+  const testRef = db.collection(TESTS).doc(currentRun)
+  const testSnap = await testRef.get()
+  const data = testSnap.data() || {}
+  if (data.status !== 'active') {
+    throw new functions.https.HttpsError('failed-precondition', 'Conversion routing test is not active')
+  }
+  const awaitingCycle = num(data.awaitingCycleNumber, 0)
+  const awaitingKind = typeof data.awaitingKind === 'string' ? data.awaitingKind : 'deploy'
+  if (awaitingCycle !== play.cycleNumber || awaitingKind !== play.action) {
+    const step = awaitingKind === 'replenish' ? 'the restock' : 'the sale'
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      awaitingCycle > 0
+        ? `That card is no longer the current step. The desk is waiting on ${step} for cycle ${awaitingCycle}.`
+        : 'That card is no longer the current step. Open the desk for the next instruction.'
+    )
+  }
+
+  let expected = 0
+  if (play.action === 'replenish') {
+    expected = num(data.replenishAmountZar, 0)
+  } else {
+    const cycleSnap = await testRef.collection('cycles').doc(String(play.cycleNumber)).get()
+    expected = num(cycleSnap.data()?.deployedAmount, 0)
+    if (!(expected > 0)) expected = planCycle(stateFromDoc(data)).deployedAmount
+  }
+  const entered = roundMoney(amountZar)
+  if (expected > 0 && Math.abs(expected - entered) > 0.005) {
+    const diff = roundMoney(expected - entered)
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Tickets total ${formatZar(expected)} but ${formatZar(entered)} was entered — ${formatZar(Math.abs(diff))} ${diff > 0 ? 'short' : 'over'}. Enter the ticket total exactly.`
+    )
+  }
+  return { expectedZar: expected > 0 ? expected : entered }
 }
 
 export async function applyAdminCapitalShock(params: {

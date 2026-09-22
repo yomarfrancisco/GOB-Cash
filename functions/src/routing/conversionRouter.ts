@@ -257,19 +257,35 @@ export function applyRestockLanding(state: RoutingState, amountZar: number): Rou
   })
 }
 
+function mandateLine(state: RoutingState | undefined): string {
+  const residual = state ? residualToTarget(state) : 0
+  const authorised = state
+    ? Number.isFinite(state.authorisedZar)
+      ? state.authorisedZar
+      : state.availableCapital
+    : 0
+  return `Still to convert ${formatZar(residual)} of ${formatZar(authorised)}.`
+}
+
 function residualLead(
   state: RoutingState | undefined,
   cycleNumber: number,
   cycleCount: number,
   shockLine?: string
 ): string[] {
-  const residual = state ? residualToTarget(state) : 0
-  const lines = [
-    `Window capital ${formatZar(residual)}. Weekday ${cycleNumber} of ${cycleCount}.`,
-  ]
+  const lines = [`${mandateLine(state)} Weekday ${cycleNumber} of ${cycleCount}.`]
   if (shockLine) lines.push(shockLine)
   lines.push('')
   return lines
+}
+
+/** Restock card: the tickets being swiped back are the previous weekday's sale. */
+function restockLead(state: RoutingState | undefined, nextCycle: number, cycleCount: number): string[] {
+  const soldDay = Math.max(1, nextCycle - 1)
+  return [
+    `${mandateLine(state)} Restocking weekday ${soldDay}'s tickets before weekday ${nextCycle} of ${cycleCount}.`,
+    '',
+  ]
 }
 
 function onionLines(assignments: CardAssignment[], verb: 'send' | 'swipe'): string[] {
@@ -1619,7 +1635,7 @@ export function buildReplenishActivityCopy(
     ? annotatePosReasons(state, replenish.cardAssignments, replenish.cycleNumber, overlay)
     : replenish.cardAssignments
   const lines: string[] = [
-    ...residualLead(state, replenish.cycleNumber, cycleCount),
+    ...restockLead(state, replenish.cycleNumber, cycleCount),
     ...onionLines(rows, 'swipe'),
     '',
   ]

@@ -11,14 +11,26 @@ import type { ProspectiveBranch, ProspectiveRoute } from '../throughput/prospect
 
 export const KERNEL_SEED = WINDOW_SEED
 /** Persisted on each desk run. Ensure starts a new window when this does not match. */
-export const ROUTING_ENGINE_ID = 'absorbing-tickets-v2'
+export const ROUTING_ENGINE_ID = 'absorbing-tickets-v3'
 
-/** Firestore rejects arrays of arrays (learner.cov). Keep the book, drop engine internals. */
+type PersistedSnapshot = ProspectiveBranch['snapshot'] & {
+  endingState?: unknown
+  priorEndingState?: unknown
+  endingStateJson?: string | null
+  priorEndingStateJson?: string | null
+}
+
+/**
+ * Firestore rejects arrays of arrays (learner.cov), but the learner state is what
+ * picks tomorrow's rails. Carry it as a JSON string so the next advance sees the
+ * same state the kernel would have in memory.
+ */
 export function persistWindow(window: ProspectiveBranch): Record<string, unknown> {
-  const raw = JSON.parse(JSON.stringify(window)) as ProspectiveBranch & {
-    snapshot: ProspectiveBranch['snapshot'] & { endingState?: unknown; priorEndingState?: unknown }
-  }
+  const raw = JSON.parse(JSON.stringify(window)) as ProspectiveBranch & { snapshot: PersistedSnapshot }
   if (raw.snapshot) {
+    const { endingState, priorEndingState } = raw.snapshot
+    raw.snapshot.endingStateJson = endingState == null ? null : JSON.stringify(endingState)
+    raw.snapshot.priorEndingStateJson = priorEndingState == null ? null : JSON.stringify(priorEndingState)
     raw.snapshot.endingState = null
     raw.snapshot.priorEndingState = null
   }
@@ -27,7 +39,19 @@ export function persistWindow(window: ProspectiveBranch): Record<string, unknown
 
 export function hydrateWindow(raw: unknown): ProspectiveBranch | undefined {
   if (!raw || typeof raw !== 'object') return undefined
-  return raw as ProspectiveBranch
+  const window = raw as ProspectiveBranch & { snapshot?: PersistedSnapshot }
+  const snapshot = window.snapshot
+  if (snapshot) {
+    if (typeof snapshot.endingStateJson === 'string') {
+      snapshot.endingState = JSON.parse(snapshot.endingStateJson)
+    }
+    if (typeof snapshot.priorEndingStateJson === 'string') {
+      snapshot.priorEndingState = JSON.parse(snapshot.priorEndingStateJson)
+    }
+    delete snapshot.endingStateJson
+    delete snapshot.priorEndingStateJson
+  }
+  return window as ProspectiveBranch
 }
 
 function nestArrayElements(value: unknown): unknown {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { persistWindow } from './throughputPlan'
+import { hydrateWindow, persistWindow } from './throughputPlan'
 import {
   advanceWindow,
   reportWindowOutcome,
@@ -74,6 +74,23 @@ describe('Throughput golden fixture seed 21 R100k', () => {
     assert.equal(hasArrayOfArrays(persisted), false)
     assert.ok(Array.isArray((persisted.snapshot as { days: unknown[] }).days))
     assert.ok((persisted.snapshot as { days: { routes: unknown[] }[] }).days[0].routes.length >= 3)
+  })
+
+  it('rails survive the Firestore round trip: persisted Day 2/3 equals in-memory Day 2/3', () => {
+    const roundTrip = (window: ReturnType<typeof startWindow>) =>
+      hydrateWindow(JSON.parse(JSON.stringify(persistWindow(window))))!
+    const day1 = startWindow({ availableZar: 100_000, seed: 21 })
+    const memDay2 = advanceWindow(day1)
+    const perDay2 = advanceWindow(roundTrip(day1))
+    assert.deepEqual(dumpRoutes(perDay2, 2).routes, dumpRoutes(memDay2, 2).routes)
+    assert.deepEqual(dumpRoutes(perDay2, 2).routes.map((row) => row.pos), [
+      'Rail 4 Capitec',
+      'Rail 1 FNB',
+      'Rail 2 FNB',
+    ])
+    const memDay3 = advanceWindow(memDay2)
+    const perDay3 = advanceWindow(roundTrip(perDay2))
+    assert.deepEqual(dumpRoutes(perDay3, 3).routes, dumpRoutes(memDay3, 3).routes)
   })
 })
 

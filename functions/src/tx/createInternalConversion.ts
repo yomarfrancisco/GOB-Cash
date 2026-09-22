@@ -82,14 +82,57 @@ export const tx_createInternalConversion = functions
     }
 
     const namedClient = await resolveNamedClient(data?.agentCashHandle, userId)
-    const sourceAmountMajor = roundMajor(sourceAmount)
-    const sourceAmountMinor = Math.round(sourceAmountMajor * 100)
     const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
     const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
     const isZarSale = sourceCurrency === 'ZAR' && destinationCurrency === 'MZN'
+
+    const { ROUTING_ADMIN_UID } = await import('../routing/conversionRouter')
+    const isRoutingAdmin = userId === ROUTING_ADMIN_UID
+
+    // `$` on the admin desk sets the window capital. It is not a sale: no wallet
+    // movement, no conversion record, no "ZAR sold" line.
+    if (isRoutingAdmin && data?.capitalShock === true) {
+      const { applyAdminCapitalShock } = await import('./adminConversionRouting')
+      const shockZar = roundMajor(sourceCurrency === 'ZAR' ? sourceAmount : sourceAmount / costRate)
+      const shockMzn = roundMajor(sourceCurrency === 'MZN' ? sourceAmount : sourceAmount * sellRate)
+      await applyAdminCapitalShock({
+        adminUid: userId,
+        kind: isZarSale ? 'sell_zar' : 'add_zar',
+        amountZar: shockZar,
+        amountMzn: shockMzn,
+      })
+      return { txId: `shock-${Date.now()}`, capitalShock: true, amountZar: shockZar }
+    }
+
+    // A desk play must be the current step and must match the ticket total before
+    // anything is recorded. Restocks are anchored on the ZAR tickets, not on MZN
+    // at a rate that may have moved since the card was printed.
+    let anchoredZar: number | null = null
+    if (isRoutingAdmin && data?.routingPlay) {
+      const { assertRoutingPlayMatches, parseRoutingPlay } = await import('./adminConversionRouting')
+      const play = parseRoutingPlay(data.routingPlay)
+      if (play) {
+        const destinationAmount = Number(data?.destinationAmount)
+        const enteredZar = isZarSale
+          ? roundMajor(sourceAmount)
+          : Number.isFinite(destinationAmount) && destinationAmount > 0
+            ? roundMajor(destinationAmount)
+            : roundMajor(sourceAmount / costRate)
+        const { expectedZar } = await assertRoutingPlayMatches(userId, play, enteredZar)
+        anchoredZar = expectedZar
+      }
+    }
+
+    const sourceAmountMajor =
+      anchoredZar != null && sourceCurrency === 'MZN'
+        ? roundMajor(anchoredZar * costRate)
+        : roundMajor(sourceAmount)
+    const sourceAmountMinor = Math.round(sourceAmountMajor * 100)
     const settlementMajor =
       sourceCurrency === 'MZN'
-        ? roundMajor(sourceAmountMajor / costRate)
+        ? anchoredZar != null
+          ? anchoredZar
+          : roundMajor(sourceAmountMajor / costRate)
         : roundMajor(sourceAmountMajor * costRate)
     const reportedDestMajor = isZarSale
       ? roundMajor(sourceAmountMajor * sellRate)
@@ -228,24 +271,6 @@ export const tx_createInternalConversion = functions
       await sendAgentConversionProofEmail(txId)
     } catch (error) {
       console.error('[tx_createInternalConversion] Agent proof email failed (non-blocking)', {
-        txId,
-        error: error instanceof Error ? error.message : String(error),
-      })
-    }
-
-    try {
-      const { ROUTING_ADMIN_UID } = await import('../routing/conversionRouter')
-      if (userId === ROUTING_ADMIN_UID && data?.capitalShock === true) {
-        const { applyAdminCapitalShock } = await import('./adminConversionRouting')
-        await applyAdminCapitalShock({
-          adminUid: userId,
-          kind: isZarSale ? 'sell_zar' : 'add_zar',
-          amountZar: sourceCurrency === 'ZAR' ? sourceAmountMajor : expectedDestinationMajor,
-          amountMzn: sourceCurrency === 'MZN' ? sourceAmountMajor : reportedDestMajor,
-        })
-      }
-    } catch (error) {
-      console.error('[tx_createInternalConversion] Capital shock failed (non-blocking)', {
         txId,
         error: error instanceof Error ? error.message : String(error),
       })

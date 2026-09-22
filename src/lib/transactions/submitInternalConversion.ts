@@ -24,7 +24,8 @@ export async function submitInternalConversion(params: {
   agentCash?: boolean
   agentCashHandle?: string | null
   capitalShock?: boolean
-}): Promise<{ txId: string }> {
+  routingPlay?: { testRunId: string; cycleNumber: number; action: 'deploy' | 'replenish' } | null
+}): Promise<{ txId: string; capitalShock?: boolean }> {
   if (conversionInFlight) {
     throw new Error('Conversion already in progress.')
   }
@@ -39,8 +40,10 @@ export async function submitInternalConversion(params: {
       sourceCurrency,
       destinationCurrency: params.destination,
       sourceAmount,
+      destinationAmount: destAmount,
       agentCashHandle: params.agentCash ? params.agentCashHandle : null,
       capitalShock: params.capitalShock === true,
+      routingPlay: params.routingPlay ?? null,
     })
 
     await waitRemaining(Date.now(), 220)
@@ -63,6 +66,25 @@ export async function submitInternalConversion(params: {
       avatar,
       durationMs: FAB_HOLD_MS,
     })
+
+    if (result.capitalShock) {
+      // Window capital set on the desk; no money moved and nothing was sold.
+      useNotificationStore.getState().pushNotification({
+        id: result.txId,
+        kind: 'ai_trade',
+        title: isZarSale ? 'Sell ZAR window opened' : 'ZAR added to the window',
+        body: isZarSale
+          ? `${sourceLabel} to convert. Day 1 tickets are on the desk.`
+          : `${destLabel} added. The book has been re-solved.`,
+        actor: {
+          type: 'ai_manager',
+          avatar,
+          name: 'Sam',
+        },
+        routeOnTap: '/profile?activity=1',
+      })
+      return result
+    }
 
     useNotificationStore.getState().pushNotification({
       id: result.txId,

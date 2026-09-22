@@ -10,10 +10,19 @@ export async function submitRoutingConversion(params: {
 }): Promise<void> {
   const play = params.play || useRoutingPlaybackStore.getState().play
   const destination = play?.destination || 'MZN'
+  const routingPlay =
+    play?.testRunId && typeof play.cycleNumber === 'number'
+      ? {
+          testRunId: play.testRunId,
+          cycleNumber: play.cycleNumber,
+          action: play.routingAction || (destination === 'ZAR' ? ('replenish' as const) : ('deploy' as const)),
+        }
+      : null
   const result = await submitInternalConversion({
     destination,
     amountMZN: params.amountMZN,
     amountZAR: params.amountZAR,
+    routingPlay,
   })
   if (play) {
     await admin_confirmConversionRoutingCycle({

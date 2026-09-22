@@ -213,7 +213,8 @@ describe('20-cycle compounding', () => {
     const row = replenish!.cardAssignments[0]
     assert.match(row.posReason || '', /Vidrotec → Rail 4 Capitec/)
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state, overlay)
-    assert.match(copy.body, /Window capital/)
+    assert.match(copy.body, /Still to convert R[\d,]+(\.\d{2})? of R100,000\. Restocking weekday \d+'s tickets before weekday \d+ of 20\./)
+    assert.doesNotMatch(copy.body, /Window capital/)
     assert.match(copy.body, /This round: swipe Vidrotec on /)
     assert.match(copy.body, /Vidrotec → /)
     assert.doesNotMatch(copy.body, /each Moz debit card/)

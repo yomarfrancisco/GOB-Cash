@@ -682,7 +682,11 @@ export async function tx_createInternalConversion(params: {
   groupId?: string | null
   agentCashHandle?: string | null
   capitalShock?: boolean
-}): Promise<{ txId: string }> {
+  /** ZAR entered for an MZN→ZAR restock; the server anchors on this, not on MZN at a live rate. */
+  destinationAmount?: number
+  /** Desk card this conversion executes. Server rejects stale cards and wrong totals before writing. */
+  routingPlay?: { testRunId: string; cycleNumber: number; action: 'deploy' | 'replenish' } | null
+}): Promise<{ txId: string; capitalShock?: boolean; amountZar?: number }> {
   const app = getFirebaseApp()
   const functions = getFunctionsInstance()
   if (!app || !functions) {
@@ -690,7 +694,7 @@ export async function tx_createInternalConversion(params: {
   }
   const fn = httpsCallable(functions, 'tx_createInternalConversion')
   const result = await fn(params)
-  return result.data as { txId: string }
+  return result.data as { txId: string; capitalShock?: boolean; amountZar?: number }
 }
 
 /**
