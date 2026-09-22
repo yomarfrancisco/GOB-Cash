@@ -1309,22 +1309,35 @@ async function cancelAwaitingCycle(
     await cycleRef.update({ status: 'cancelled', completedAt: now })
   }
   // Instruction-only fallbacks use suffixed ids; sweep anything still awaiting on this run.
+  await cancelAwaitingRoutingEvents(adminUid, now, (data) => data.testRunId === testRunId)
+}
+
+/** Cancel every awaiting desk instruction matching `match`. Keeps retired runs off the chat. */
+async function cancelAwaitingRoutingEvents(
+  adminUid: string,
+  now: admin.firestore.Timestamp,
+  match: (data: admin.firestore.DocumentData) => boolean
+): Promise<number> {
   const strays = await db
     .collection('users')
     .doc(adminUid)
     .collection('activityEvents')
-    .where('testRunId', '==', testRunId)
+    .where('kind', '==', CONVERSION_ROUTING_KIND)
     .where('status', '==', 'awaiting_execution')
     .get()
+  let cancelled = 0
   for (const doc of strays.docs) {
     const prev = doc.data() || {}
+    if (!match(prev)) continue
     await doc.ref.update({
       status: 'cancelled',
       awaitingConfirm: false,
       body: `${prev.body || ''}\nStatus: Cancelled`.replace(/\nStatus: Awaiting execution/, '\nStatus: Cancelled'),
       completedAt: now,
     })
+    cancelled += 1
   }
+  return cancelled
 }
 
 async function startNewTest(
@@ -1341,6 +1354,8 @@ async function startNewTest(
       const data = existing.data() || {}
       if (!shouldStartFreshWindow(data)) {
         const state = stateFromDoc(data)
+        // Cards from retired runs must not stay tappable on the chat.
+        await cancelAwaitingRoutingEvents(adminUid, now, (row) => row.testRunId !== existingId)
         return publicSummary(state, {
           testRunId: existingId,
           status: data.status || 'active',
@@ -1362,6 +1377,8 @@ async function startNewTest(
     if (existing.exists) {
       await existing.ref.set({ status: 'superseded', updatedAt: now }, { merge: true })
     }
+    // Regardless of awaitingCycleNumber, nothing from the retired run may stay tappable.
+    await cancelAwaitingRoutingEvents(adminUid, now, (row) => row.testRunId === existingId)
   }
 
   const testRunId = db.collection(TESTS).doc().id
@@ -1543,9 +1560,18 @@ export const admin_confirmConversionRoutingCycle = functions
         ? data.actualProfit
         : undefined
 
-    const testRunId = requestedRun || (await currentTestId(adminUid))
+    const currentRun = await currentTestId(adminUid)
+    const testRunId = requestedRun || currentRun
     if (!testRunId) {
       throw new functions.https.HttpsError('not-found', 'No conversion routing test is active')
+    }
+    if (requestedRun && currentRun && requestedRun !== currentRun) {
+      // A card from a retired run was tapped. Clear it so it cannot be tapped again.
+      await cancelAwaitingRoutingEvents(adminUid, now, (row) => row.testRunId === requestedRun)
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'That instruction was from a retired desk run and has been cleared. Tap $ and sell ZAR to open Day 1.'
+      )
     }
 
     const quotes = await applyLiveQuotes(createInitialState())
