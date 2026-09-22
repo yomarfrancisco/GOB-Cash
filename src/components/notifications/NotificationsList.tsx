@@ -261,7 +261,11 @@ function ActivityItemCard({
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
   const profile = useUserProfileStore((s) => s.profile)
   const isCopied = isCopiedActivity(item)
-  const avatarUrl = isCopied ? null : resolveTaskAvatar(item)
+  const deskSpeaker =
+    item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+      ? DESK_TEAM[deskAgentFor(item)]
+      : null
+  const avatarUrl = isCopied ? null : deskSpeaker?.avatar ?? resolveTaskAvatar(item)
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
@@ -391,7 +395,7 @@ function ActivityItemCard({
         ) : (
           <Image
             src={avatarUrl ?? ADMIN_AVATAR_PATH}
-            alt={item.actor.name || 'Payment agent'}
+            alt={deskSpeaker?.name || item.actor.name || 'Payment agent'}
             width={36}
             height={36}
             className={styles.avatarImg}
@@ -400,6 +404,12 @@ function ActivityItemCard({
         )}
       </div>
       <div className={styles.activityContent}>
+        {deskSpeaker ? (
+          <div className={styles.activitySpeaker}>
+            <span>{deskSpeaker.name}</span>
+            <span className={styles.activitySpeakerRole}>{deskSpeaker.role}</span>
+          </div>
+        ) : null}
         <div className={styles.activityHeader}>
           <div className={styles.activityTitle}>{item.title}</div>
           <div className={styles.activityTime}>

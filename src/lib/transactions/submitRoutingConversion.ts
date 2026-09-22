@@ -30,6 +30,14 @@ export async function submitRoutingConversion(params: {
           action: play.routingAction || (destination === 'ZAR' ? ('replenish' as const) : ('deploy' as const)),
         }
       : null
+  if (play) {
+    // The keypad is already closing. Bring the desk back now, and let the
+    // conversion and the next card arrive into it. Waiting for the server
+    // left the profile sitting there for seconds, and a failed confirm
+    // never reopened the desk at all.
+    useRoutingPlaybackStore.getState().clear()
+    useNotificationsStore.getState().openNotifications()
+  }
   const result = await submitInternalConversion({
     destination,
     amountMZN,
@@ -42,9 +50,5 @@ export async function submitRoutingConversion(params: {
       cycleNumber: play.cycleNumber,
       conversionTxId: result.txId,
     })
-    useRoutingPlaybackStore.getState().clear()
-    window.setTimeout(() => {
-      useNotificationsStore.getState().openNotifications()
-    }, 320)
   }
 }

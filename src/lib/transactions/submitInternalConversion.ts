@@ -46,26 +46,33 @@ export async function submitInternalConversion(params: {
       routingPlay: params.routingPlay ?? null,
     })
 
-    await waitRemaining(Date.now(), 220)
+    // A desk play returns to the conversation immediately. The exchange-button
+    // hold is for a keypad the user is staying on.
+    const deskPlay = Boolean(params.routingPlay)
     const fabStartedAt = Date.now()
-    useAiFabHighlightStore.getState().triggerAiFabHighlight({
-      reason: 'exchange',
-      avatar,
-      durationMs: FAB_HOLD_MS,
-    })
+    if (!deskPlay) {
+      await waitRemaining(Date.now(), 220)
+      useAiFabHighlightStore.getState().triggerAiFabHighlight({
+        reason: 'exchange',
+        avatar,
+        durationMs: FAB_HOLD_MS,
+      })
+    }
 
     const result = await conversionPromise
-    await waitRemaining(fabStartedAt, FAB_DROP_MS)
+    if (!deskPlay) await waitRemaining(fabStartedAt, FAB_DROP_MS)
 
     const sourceLabel = sourceCurrency === 'MZN' ? formatMZN(sourceAmount) : formatZARWithDot(sourceAmount)
     const destLabel = params.destination === 'MZN' ? formatMZN(destAmount) : formatZARWithDot(destAmount)
     const isZarSale = sourceCurrency === 'ZAR'
 
-    useAiFabHighlightStore.getState().triggerAiFabHighlight({
-      reason: 'exchange',
-      avatar,
-      durationMs: FAB_HOLD_MS,
-    })
+    if (!deskPlay) {
+      useAiFabHighlightStore.getState().triggerAiFabHighlight({
+        reason: 'exchange',
+        avatar,
+        durationMs: FAB_HOLD_MS,
+      })
+    }
 
     if (result.capitalShock) {
       // Window capital set on the desk; no money moved and nothing was sold.

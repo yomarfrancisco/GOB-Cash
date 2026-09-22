@@ -38,13 +38,16 @@ export const DESK_RING: DeskAgent[] = ['sam', 'leo', 'amina']
  */
 export function deskAgentFor(item: {
   kind?: string
+  title?: string
   routingAction?: string
   thinking?: boolean
 }): DeskAgent {
   if (item.thinking) return 'sam'
-  if (item.kind !== 'CONVERSION_ROUTING_INSTRUCTION') return 'sam'
   if (item.routingAction === 'deploy') return 'leo'
   if (item.routingAction === 'replenish') return 'amina'
+  const title = item.title || ''
+  if (/^Sell ZAR\b/i.test(title)) return 'leo'
+  if (/^Restock\b/i.test(title)) return 'amina'
   return 'sam'
 }
 

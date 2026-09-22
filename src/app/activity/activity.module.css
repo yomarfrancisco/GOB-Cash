@@ -119,6 +119,22 @@
   gap: 2px;
 }
 
+.activitySpeaker {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 2px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: #111;
+}
+
+.activitySpeakerRole {
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.48);
+}
+
 .activityHeader {
   display: flex;
   align-items: flex-start;
