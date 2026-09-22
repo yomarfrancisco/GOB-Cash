@@ -13,6 +13,40 @@ export const KERNEL_SEED = WINDOW_SEED
 /** Persisted on each desk run. Ensure starts a new window when this does not match. */
 export const ROUTING_ENGINE_ID = 'absorbing-tickets-v1'
 
+/** Firestore rejects arrays of arrays (learner.cov). Keep the book, drop engine internals. */
+export function persistWindow(window: ProspectiveBranch): Record<string, unknown> {
+  const raw = JSON.parse(JSON.stringify(window)) as ProspectiveBranch & {
+    snapshot: ProspectiveBranch['snapshot'] & { endingState?: unknown; priorEndingState?: unknown }
+  }
+  if (raw.snapshot) {
+    raw.snapshot.endingState = null
+    raw.snapshot.priorEndingState = null
+  }
+  return nestArrayElements(raw) as Record<string, unknown>
+}
+
+export function hydrateWindow(raw: unknown): ProspectiveBranch | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  return raw as ProspectiveBranch
+}
+
+function nestArrayElements(value: unknown): unknown {
+  if (value == null || typeof value !== 'object') return value
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      Array.isArray(item)
+        ? Object.fromEntries(item.map((entry, index) => [String(index), nestArrayElements(entry)]))
+        : nestArrayElements(item)
+    )
+  }
+  const out: Record<string, unknown> = {}
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (entry === undefined) continue
+    out[key] = nestArrayElements(entry)
+  }
+  return out
+}
+
 export function kernelCardId(cardId: string): number {
   const n = Number(cardId.match(/(\d+)$/)?.[1])
   return Number.isFinite(n) && n > 0 ? n : 0

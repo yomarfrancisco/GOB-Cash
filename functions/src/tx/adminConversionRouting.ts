@@ -34,7 +34,7 @@ import {
   stampAssignmentDecisions,
   type RoutingState,
 } from '../routing/conversionRouter'
-import { applyWindowPathWrite, ROUTING_ENGINE_ID } from '../routing/throughputPlan'
+import { applyWindowPathWrite, hydrateWindow, persistWindow, ROUTING_ENGINE_ID } from '../routing/throughputPlan'
 import { applyReceiveChoice, parseReceiveHint, type ReceiveChoice } from '../routing/mozReceive'
 import {
   parseFrictionNote,
@@ -798,7 +798,7 @@ function stateFromDoc(data: admin.firestore.DocumentData): RoutingState {
     authorisedZar: num(data.authorisedZar, num(data.startingCapital, base.authorisedZar)),
     cycledZar: num(data.cycledZar, 0),
     mznInventory: num(data.mznInventory, 0),
-    window: data.throughputWindow && typeof data.throughputWindow === 'object' ? data.throughputWindow : undefined,
+    window: hydrateWindow(data.throughputWindow),
     windowNeedsAdvance: data.windowNeedsAdvance === true,
     config: {
       ...base.config,
@@ -813,7 +813,7 @@ function persistCapital(state: RoutingState) {
     authorisedZar: state.authorisedZar || 0,
     cycledZar: state.cycledZar || 0,
     mznInventory: state.mznInventory || 0,
-    throughputWindow: state.window ? JSON.parse(JSON.stringify(state.window)) : null,
+    throughputWindow: state.window ? persistWindow(state.window) : null,
     windowNeedsAdvance: state.windowNeedsAdvance === true,
     routingEngine: ROUTING_ENGINE_ID,
   }
@@ -1193,9 +1193,70 @@ async function issueCycle(
   const ledger = await loadDeskLedger()
   const friction = enrichFriction(frictionFromDoc(testSnap.data() || {}, now.toMillis()), ledger, testRunId)
   const book = pathBookFromDoc(testSnap.data() || {}, quoted.quote)
-  return db.runTransaction(async (tx) =>
-    writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, friction, book)
+  try {
+    return await db.runTransaction(async (tx) =>
+      writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, friction, book)
+    )
+  } catch (error) {
+    console.error('[issueCycle] persist failed; writing instruction only', error)
+    return writeInstructionOnly(adminUid, testRunId, quoted.state, now, quoted, book)
+  }
+}
+
+function writeInstructionOnly(
+  adminUid: string,
+  testRunId: string,
+  state: RoutingState,
+  now: admin.firestore.Timestamp,
+  quotes: { sellRate: number; costRate: number; quote?: FrozenQuote },
+  book: PathBook
+): Promise<{ plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' }> {
+  const planned = planCycle(state, EMPTY_OVERLAY, book)
+  const plan = {
+    ...planned,
+    cardAssignments: stampAssignmentDecisions(planned.cardAssignments, now.toMillis()),
+  }
+  const receive = plan.deployedAmount > 0 ? receiveChoiceForSale(state, plan, EMPTY_OVERLAY) : null
+  const activity = buildActivityCopy(
+    plan,
+    state.config.cycleCount,
+    'awaiting_execution',
+    state.config.spread,
+    quotes,
+    { state, overlay: EMPTY_OVERLAY }
   )
+  const activityEventId = `${eventId(testRunId, plan.cycleNumber)}-${now.toMillis()}`
+  return db
+    .collection('users')
+    .doc(adminUid)
+    .collection('activityEvents')
+    .doc(activityEventId)
+    .set({
+      id: activityEventId,
+      kind: CONVERSION_ROUTING_KIND,
+      title: activity.title,
+      body: activity.body,
+      dropdownTitle: `Sell ZAR · Cycle ${plan.cycleNumber}`,
+      dropdownBody: receive
+        ? `Pay ${formatZar(plan.deployedAmount)} after MZN hits ${receive.bank || receive.bankId}`
+        : activity.title,
+      actorType: 'ai_manager',
+      avatarKind: 'convert_zar',
+      amountCurrency: 'ZAR',
+      amountValue: plan.deployedAmount,
+      amountSign: 'debit',
+      txId: activityEventId,
+      hasDownloadButton: false,
+      awaitingConfirm: plan.deployedAmount > 0,
+      routingBlocked: plan.deployedAmount <= 0,
+      status: 'awaiting_execution',
+      routingAction: 'deploy',
+      testRunId,
+      cycleNumber: plan.cycleNumber,
+      createdAt: now,
+      recordingSource: 'SYSTEM',
+    })
+    .then(() => ({ plan, activityEventId, kind: 'deploy' as const }))
 }
 
 async function cancelAwaitingCycle(

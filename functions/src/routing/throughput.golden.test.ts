@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { persistWindow } from './throughputPlan'
 import {
   advanceWindow,
   reportWindowOutcome,
@@ -66,4 +67,22 @@ describe('Throughput golden fixture seed 21 R100k', () => {
     )
     assert.ok(record.routes.some((row) => row.economicPaymentId === leftover.economicPaymentId))
   })
+
+  it('persists a Firestore-safe window without arrays of arrays', () => {
+    const window = startWindow({ availableZar: 100_000, seed: 21 })
+    const persisted = persistWindow(window)
+    assert.equal(hasArrayOfArrays(persisted), false)
+    assert.ok(Array.isArray((persisted.snapshot as { days: unknown[] }).days))
+    assert.ok((persisted.snapshot as { days: { routes: unknown[] }[] }).days[0].routes.length >= 3)
+  })
 })
+
+function hasArrayOfArrays(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => Array.isArray(item)) || value.some(hasArrayOfArrays)
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value).some(hasArrayOfArrays)
+  }
+  return false
+}
