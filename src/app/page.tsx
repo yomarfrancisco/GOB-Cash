@@ -1039,6 +1039,7 @@ function HomeContent() {
                 amountZAR,
                 agentCash: agentCashKeypad,
                 agentCashHandle: agentCashHandle,
+                capitalShock: !agentCashKeypad,
               })
           void run.catch((error: any) => {
             useRoutingPlaybackStore.getState().clear()

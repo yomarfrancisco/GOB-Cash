@@ -23,6 +23,7 @@ export async function submitInternalConversion(params: {
   amountZAR: number
   agentCash?: boolean
   agentCashHandle?: string | null
+  capitalShock?: boolean
 }): Promise<{ txId: string }> {
   if (conversionInFlight) {
     throw new Error('Conversion already in progress.')
@@ -39,6 +40,7 @@ export async function submitInternalConversion(params: {
       destinationCurrency: params.destination,
       sourceAmount,
       agentCashHandle: params.agentCash ? params.agentCashHandle : null,
+      capitalShock: params.capitalShock === true,
     })
 
     await waitRemaining(Date.now(), 220)

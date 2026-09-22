@@ -681,6 +681,7 @@ export async function tx_createInternalConversion(params: {
   sourceAmount: number
   groupId?: string | null
   agentCashHandle?: string | null
+  capitalShock?: boolean
 }): Promise<{ txId: string }> {
   const app = getFirebaseApp()
   const functions = getFunctionsInstance()

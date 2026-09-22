@@ -235,7 +235,7 @@ export const tx_createInternalConversion = functions
 
     try {
       const { ROUTING_ADMIN_UID } = await import('../routing/conversionRouter')
-      if (userId === ROUTING_ADMIN_UID) {
+      if (userId === ROUTING_ADMIN_UID && data?.capitalShock === true) {
         const { applyAdminCapitalShock } = await import('./adminConversionRouting')
         await applyAdminCapitalShock({
           adminUid: userId,
