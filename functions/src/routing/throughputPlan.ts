@@ -96,14 +96,18 @@ export function resolveWindow(state: {
   windowNeedsAdvance?: boolean
   authorisedZar?: number
   availableCapital: number
+  completedCycles?: number
+  bufferUsed?: number
 }): ProspectiveBranch {
   let window = state.window
   const amount = authorisedAmount(state)
   if (!window) {
     return startWindow({ availableZar: amount > 0 ? amount : state.availableCapital, seed: KERNEL_SEED })
   }
-  if (window.snapshot.pendingShock) return advanceToPrint(window)
-  if (state.windowNeedsAdvance) return advanceToPrint(window)
+  const mondayStillOpen = (state.bufferUsed || 0) > 0
+  const printAlreadySold = (state.completedCycles || 0) >= window.completedThroughDay
+  if (window.snapshot.pendingShock || state.windowNeedsAdvance) return advanceToPrint(window)
+  if (printAlreadySold && !mondayStillOpen) return advanceToPrint(window)
   return window
 }
 

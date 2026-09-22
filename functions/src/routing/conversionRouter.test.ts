@@ -72,6 +72,8 @@ describe('20-cycle compounding', () => {
     const { state, cycles } = simulateRun({ ...DEFAULT_TEST_CONFIG, startingCapital: 100_000, cycleCount: 14 })
     assert.equal(cycles.length, 14)
     assert.ok(Math.abs(cycles[0].deployedAmount - 15_410.59) < 0.02)
+    assert.ok(Math.abs(cycles[1].deployedAmount - 9_473.04) < 0.02)
+    assert.notEqual(cycles[1].deployedAmount, cycles[0].deployedAmount)
     assert.equal(cycles[0].cardCountUsed, 3)
     assert.ok(cycles[0].cardAssignments.every((row) => row.amount !== 15_000))
     assert.ok(cycles[0].idleCapital > 80_000)

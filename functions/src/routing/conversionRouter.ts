@@ -1289,14 +1289,8 @@ export function simulateRun(config: RoutingConfig = DEFAULT_TEST_CONFIG): {
   const cycles: CompletedCycle[] = []
   for (let i = 0; i < config.cycleCount; i++) {
     const plan = planCycle(state)
-    state = completeCycle(
-      markWindowRestocked({
-        ...state,
-        window: plan.window,
-        windowNeedsAdvance: false,
-      }),
-      plan
-    )
+    const sold = completeCycle(state, plan)
+    state = applyRestockLanding({ ...sold, bufferUsed: 0 }, plan.deployedAmount)
     cycles.push({
       ...plan,
       actualProfit: plan.expectedProfit,
@@ -1481,11 +1475,13 @@ export function buildNotificationCopy(
 ): { title: string; body: string } {
   void cycleCount
   const account = formatReceiveAccountsLine(receive)
+  const record = plan.window?.snapshot.days.at(-1)
+  const when = record ? `${record.weekday} day ${record.day}` : `Cycle ${plan.cycleNumber}`
   return {
-    title: `Sell ZAR · Cycle ${plan.cycleNumber}`,
+    title: `Sell ZAR · ${when}`,
     body: account
-      ? `Pay ${formatZar(plan.deployedAmount)} after MZN hits ${account}`
-      : `Pay ${formatZar(plan.deployedAmount)} after MZN reflects`,
+      ? `${when}: pay ${formatZar(plan.deployedAmount)} after MZN hits ${account}`
+      : `${when}: pay ${formatZar(plan.deployedAmount)} after MZN reflects`,
   }
 }
 
