@@ -164,7 +164,7 @@ export default function AuthModal() {
               </p>
             )}
             <p className={styles.legal}>
-              PAGA is a <strong>Continuous Settlement Protocol</strong> for constrained FX corridors. It keeps conversions flowing where bank liquidity is dry.{' '}
+              PAGA is a <strong>Continuous Settlement Network</strong> for constrained FX corridors. It keeps conversions flowing where bank liquidity is dry.{' '}
               <em>
                 Authorised FSP 52815 and Co-operative bank{' '}
                 <a
