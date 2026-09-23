@@ -49,4 +49,13 @@ describe('desk visuals', () => {
     const picked = suggestVisuals('show me a graph of projected profits', visuals)
     assert.equal(picked.chart?.id, 'profit')
   })
+
+  it('attaches nothing to a greeting or a plain capital question', () => {
+    const visuals = buildDeskVisuals({
+      state: createInitialState(DEFAULT_TEST_CONFIG, 100_000),
+      walletZar: 10_000,
+    })
+    assert.deepEqual(suggestVisuals('Sam you there?', visuals), {})
+    assert.deepEqual(suggestVisuals('how much capital is left in the wallet', visuals), {})
+  })
 })

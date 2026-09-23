@@ -232,16 +232,22 @@ export function suggestVisuals(
   visuals: DeskVisuals
 ): { table?: DeskTable; chart?: DeskChart } {
   const text = message.toLowerCase()
-  const wantsChart = /\b(graph|chart|plot|visual|show me|project(?:ed|ion)?|forecast)\b/.test(text)
-  const wantsTable = /\b(table|breakdown|list|tickets|days)\b/.test(text)
+  const wantsChart = /\b(graph|chart|plot|visuali[sz]e|project(?:ed|ion)s?|forecast)\b/.test(text)
+  const wantsTable = /\b(table|breakdown|tabulate|by day|per day|day by day)\b/.test(text)
+  if (!wantsChart && !wantsTable) return {}
   const wantsProfit = /\b(profits?|spread|earn(?:ed|ings?)?)\b/.test(text)
   const wantsCapital = /\b(capital|wallet|residual|authorised|authorized|converted)\b/.test(text)
   let chart: DeskChart | undefined
-  if (wantsProfit) chart = pickDeskChart(visuals.charts, 'profit')
-  else if (wantsCapital || wantsChart) chart = pickDeskChart(visuals.charts, wantsCapital ? 'capital' : 'window')
+  if (wantsChart) {
+    chart = wantsProfit
+      ? pickDeskChart(visuals.charts, 'profit')
+      : pickDeskChart(visuals.charts, wantsCapital ? 'capital' : 'window')
+  }
   let table: DeskTable | undefined
-  if (/\btickets?\b/.test(text)) table = pickDeskTable(visuals.tables, 'tickets')
-  else if (wantsTable && wantsCapital) table = pickDeskTable(visuals.tables, 'capital')
-  else if (wantsTable) table = pickDeskTable(visuals.tables, 'window') || pickDeskTable(visuals.tables, 'capital')
+  if (wantsTable) {
+    if (/\btickets?\b/.test(text)) table = pickDeskTable(visuals.tables, 'tickets')
+    else if (wantsCapital) table = pickDeskTable(visuals.tables, 'capital')
+    else table = pickDeskTable(visuals.tables, 'window') || pickDeskTable(visuals.tables, 'capital')
+  }
   return { table, chart }
 }

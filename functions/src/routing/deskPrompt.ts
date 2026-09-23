@@ -14,11 +14,19 @@ Amina is the MZN liquidity manager. She runs every restock: the Mozambique cards
 
 A window is fourteen weekdays. Each weekday Leo sells a set of whole ZAR tickets at SELL. Amina then restocks those same tickets at COST. The spread is SELL minus COST. When the residual hits R0, the book stops. The next amount is this window plus the ZAR spread it earned, and never more than the ZAR wallet can fund. If the wallet is empty, nobody opens a window; ZAR has to be added first.
 
-You are in a live conversation with the operator of this book. Greetings, "are you there", and "who are you / who am I" are on-desk. Answer them as yourself. You know the operator runs this desk. You do not have their legal name unless the ledger states it.
+You are in a live conversation with the operator of this book. You are a colleague at the desk, not a status page.
 
-If they wander off the book, answer in one short sentence, then steer them back: name the open action (Leo's sale or Amina's restock) or the residual still to convert.
+How you talk:
+- Answer the actual question first, in plain words. "Are you there?" gets "Yes, here." "Do you know my name?" gets their name if you have it, or an honest no.
+- You know who the operator is when their profile is attached. Use their first name naturally, the way a colleague would — not on every line.
+- You know the SAST clock. Greet by the time of day. You know how long the open sale or restock has been waiting, and when the last day landed.
+- You remember this thread. If you already introduced yourself, do not do it again. If you already gave a figure a moment ago, do not recite it again unless they ask or it changed.
+- Do not open with the book status. Bring a figure in when it answers the question, or as one short steer.
+- Steer once, lightly. If they wander, one sentence back to the open action or the residual. Do not end every message with "would you like to proceed".
+- Vary your phrasing. Short sentences. Contractions are fine. No bullet lists in a chat reply.
+- Tables and charts are for when they ask for one, or when the question is about numbers over days. Never on a greeting or small talk.
 
-You do not invent a rate, a ticket, a card, a rail, or a balance. Numbers and names come only from the ledger or the desk fact you are given. If a fact is not there, say you do not have it. You do not choose a rail and you do not compute a new book.`
+You do not invent a rate, a ticket, a card, a rail, or a balance. Numbers and names come only from the ledger, the profile, or the desk fact you are given. If a fact is not there, say you do not have it. You do not choose a rail and you do not compute a new book.`
 
 const SPEAKER_ROLE = {
   sam: 'Sam, the relationship manager',
@@ -60,13 +68,54 @@ export type DeskConversation = {
   chart?: DeskChart
 }
 
-function fallbackConversation(speaker: DeskVoice, snapshot: string): DeskConversation {
-  const name = speaker === 'sam' ? 'Sam' : speaker === 'leo' ? 'Leo' : 'Amina'
-  const role = SPEAKER_ROLE[speaker]
+export type DeskOperator = {
+  firstName?: string
+  fullName?: string
+  handle?: string
+}
+
+export type DeskExchange = {
+  atLabel: string
+  you: string
+  speaker: DeskVoice
+  desk: string
+}
+
+export type DeskMoment = {
+  /** "Wednesday 23 September 2026, 11:45 SAST" */
+  clockLine: string
+  /** morning | afternoon | evening | night */
+  partOfDay: string
+  weekend: boolean
+  /** Timestamped desk events, oldest first. */
+  activity: string[]
+}
+
+function speakerName(speaker: DeskVoice): string {
+  return speaker === 'sam' ? 'Sam' : speaker === 'leo' ? 'Leo' : 'Amina'
+}
+
+function fallbackConversation(
+  speaker: DeskVoice,
+  snapshot: string,
+  operator?: DeskOperator,
+  thread?: DeskExchange[]
+): DeskConversation {
+  const name = speakerName(speaker)
+  const introduced = (thread || []).some((row) => row.speaker === speaker)
+  const who = operator?.firstName ? `, ${operator.firstName}` : ''
+  const opener = introduced ? `Here${who}.` : `Here${who} — ${name}, ${SPEAKER_ROLE[speaker].split(', ')[1]}.`
   return {
     title: `${name} is here`,
-    body: `I'm here. I'm ${role}. ${snapshot} What do you need from the book?`,
+    body: `${opener} ${snapshot.split('. ').slice(0, 2).join('. ')}.`,
   }
+}
+
+function threadText(thread: DeskExchange[] | undefined): string {
+  if (!thread?.length) return '(nothing yet — this is the first message)'
+  return thread
+    .map((row) => `[${row.atLabel}] Operator: ${row.you}\n[${row.atLabel}] ${speakerName(row.speaker)}: ${row.desk}`)
+    .join('\n')
 }
 
 /**
@@ -79,10 +128,20 @@ export async function converseAtDesk(params: {
   brief: string
   visuals: DeskVisuals
   deskFact?: string
+  operator?: DeskOperator
+  thread?: DeskExchange[]
+  moment?: DeskMoment
 }): Promise<DeskConversation> {
   const snapshot = params.visuals.snapshot.trim()
-  const fallback = fallbackConversation(params.speaker, snapshot)
-  const facts = [params.brief, snapshot, params.deskFact || '', catalogText(params.visuals)]
+  const fallback = fallbackConversation(params.speaker, snapshot, params.operator, params.thread)
+  const facts = [
+    params.brief,
+    snapshot,
+    params.deskFact || '',
+    catalogText(params.visuals),
+    threadText(params.thread),
+    (params.moment?.activity || []).join('\n'),
+  ]
     .filter(Boolean)
     .join('\n')
   const suggested = suggestVisuals(params.message, params.visuals)
@@ -93,6 +152,19 @@ export async function converseAtDesk(params: {
   }
   const tableIds = params.visuals.tables.map((row) => row.id).join(', ') || 'none'
   const chartIds = params.visuals.charts.map((row) => row.id).join(', ') || 'none'
+  const operatorLine = params.operator?.fullName
+    ? `${params.operator.fullName}${params.operator.handle ? ` (${params.operator.handle})` : ''}. First name: ${params.operator.firstName || params.operator.fullName.split(' ')[0]}.`
+    : params.operator?.handle
+      ? `Handle ${params.operator.handle}. No full name on file.`
+      : 'No name on file. If asked, say so plainly.'
+  const momentLines = params.moment
+    ? [
+        `Now: ${params.moment.clockLine}. It is ${params.moment.partOfDay}${params.moment.weekend ? ', a weekend — rails rest' : ''}.`,
+        params.moment.activity.length ? `Recent desk activity:\n${params.moment.activity.join('\n')}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : ''
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -102,7 +174,7 @@ export async function converseAtDesk(params: {
       },
       body: JSON.stringify({
         model: llmModel(),
-        temperature: 0.35,
+        temperature: 0.5,
         max_tokens: 500,
         response_format: { type: 'json_object' },
         messages: [
@@ -111,25 +183,27 @@ export async function converseAtDesk(params: {
             content: `${DESK_SYSTEM_PROMPT}
 
 You are speaking as ${SPEAKER_ROLE[params.speaker]}.
-Reply to the operator. Two to six sentences. Professional, present, and useful.
-If they greet you or ask who you are, introduce yourself and the open book.
-If they wander, steer them back to the open sale, restock, or residual.
-Attach at most one table and one chart from the catalog, by id. Use a table when a breakdown is clearer. Use a chart when they ask about profit, capital, residual, or a projection.
+Reply to the operator's latest message. One to four sentences for chat; up to six when they ask for detail.
+Read the thread first. Do not repeat an introduction or a figure that is already there unless asked.
+The title is a short chat subject of two to five words in your own voice — never "Status", never a headline.
+Attach a table or chart by id ONLY when the operator asks for a graph, chart, table, breakdown, or projection, or asks how something moved across days. Otherwise both must be null.
 Return JSON only: {"title":"...","body":"...","tableId":null,"chartId":null}
-tableId must be one of: ${tableIds}
-chartId must be one of: ${chartIds}
-Use null when a visual does not help.`,
+tableId must be null or one of: ${tableIds}
+chartId must be null or one of: ${chartIds}`,
           },
           {
             role: 'user',
-            content: `Operator:\n${params.message.trim() || '(no message)'}
+            content: `Operator profile:\n${operatorLine}
 
-Ledger:\n${params.brief || '(none)'}
+${momentLines ? `${momentLines}\n\n` : ''}Thread so far (oldest first):\n${threadText(params.thread)}
+
+Operator now says:\n${params.message.trim() || '(no message — you are speaking first)'}
 
 Book now:\n${snapshot}
 
-${params.deskFact ? `Desk fact (repeat these figures if you use them; do not replace them):\n${params.deskFact}\n` : ''}
-Visual catalog:\n${catalogText(params.visuals)}`,
+Ledger:\n${params.brief || '(none)'}
+
+${params.deskFact ? `Desk fact (if you use these figures, repeat them exactly):\n${params.deskFact}\n\n` : ''}Visual catalog:\n${catalogText(params.visuals)}`,
           },
         ],
       }),
@@ -148,12 +222,11 @@ Visual catalog:\n${catalogText(params.visuals)}`,
     if (!body || body.length > 1200 || !replyAddsNoNewMoney(body, facts)) {
       return { ...fallback, table: suggested.table, chart: suggested.chart }
     }
-    const table =
-      pickDeskTable(params.visuals.tables, parsed.tableId) || suggested.table
-    const chart =
-      pickDeskChart(params.visuals.charts, parsed.chartId) || suggested.chart
+    const asked = Boolean(suggested.table || suggested.chart)
+    const table = pickDeskTable(params.visuals.tables, parsed.tableId) || (asked ? suggested.table : undefined)
+    const chart = pickDeskChart(params.visuals.charts, parsed.chartId) || (asked ? suggested.chart : undefined)
     return {
-      title: title && title.length <= 72 ? title : fallback.title,
+      title: title && title.length <= 48 ? title : fallback.title,
       body,
       table,
       chart,

@@ -75,7 +75,13 @@ import {
   type AskClassification,
 } from '../routing/askIntent'
 import { interpretAdminFeedback, llmApiKey } from '../routing/interpretFeedback'
-import { converseAtDesk, isCannedDeskAdvice } from '../routing/deskPrompt'
+import {
+  converseAtDesk,
+  isCannedDeskAdvice,
+  type DeskExchange,
+  type DeskMoment,
+  type DeskOperator,
+} from '../routing/deskPrompt'
 import { buildDeskVisuals } from '../routing/deskVisuals'
 import type { RecentRestockBrief } from '../routing/historicalAsk'
 import {
@@ -88,6 +94,9 @@ import {
 } from '../routing/interpretContext'
 import {
   firestoreTimestampMs,
+  formatSast,
+  formatVisibleSast,
+  sastParts,
   hasFutureTimeConstraint,
   isBankerQuestion,
   isMemoryOrHistoryQuestion,
@@ -498,7 +507,7 @@ async function loadRecentFeedbackBriefs(testRunId: string): Promise<RecentFeedba
       .doc(testRunId)
       .collection('feedback')
       .orderBy('createdAt', 'desc')
-      .limit(5)
+      .limit(10)
       .get()
     return snap.docs.map((docSnap) => {
       const data = docSnap.data()
@@ -508,6 +517,11 @@ async function loadRecentFeedbackBriefs(testRunId: string): Promise<RecentFeedba
         createdAtMs: firestoreTimestampMs(data.createdAt),
         status: typeof data.status === 'string' ? data.status : '',
         questionKind: typeof data.questionKind === 'string' ? data.questionKind : null,
+        replyBody: typeof data.replyBody === 'string' ? data.replyBody : null,
+        speaker:
+          data.deskSpeaker === 'leo' || data.deskSpeaker === 'amina' || data.deskSpeaker === 'sam'
+            ? data.deskSpeaker
+            : null,
       }
     })
   } catch {
@@ -1014,20 +1028,113 @@ async function zarWalletBalance(adminUid: string): Promise<number> {
   return roundMoney(Number(snap.exists ? snap.data()?.fiatBalance || 0 : 0))
 }
 
+async function loadDeskOperator(adminUid: string): Promise<DeskOperator> {
+  try {
+    const snap = await db.collection('users').doc(adminUid).get()
+    const data = snap.exists ? snap.data() || {} : {}
+    const fullName = typeof data.fullName === 'string' && data.fullName.trim() ? data.fullName.trim() : undefined
+    const rawHandle =
+      typeof data.userHandle === 'string' && data.userHandle.trim()
+        ? data.userHandle.trim()
+        : typeof data.handle === 'string' && data.handle.trim()
+          ? data.handle.trim()
+          : undefined
+    const handle = rawHandle ? (rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`) : undefined
+    return {
+      fullName,
+      firstName: fullName ? fullName.split(/\s+/)[0] : undefined,
+      handle,
+    }
+  } catch {
+    return {}
+  }
+}
+
+function partOfDaySast(nowMs: number): string {
+  const hour = sastParts(nowMs).hour
+  if (hour < 5) return 'night'
+  if (hour < 12) return 'morning'
+  if (hour < 17) return 'afternoon'
+  if (hour < 21) return 'evening'
+  return 'night'
+}
+
+function minutesAgoLabel(thenMs: number, nowMs: number): string {
+  const minutes = Math.max(0, Math.round((nowMs - thenMs) / 60_000))
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} h ago`
+  return `${Math.round(hours / 24)} d ago`
+}
+
+function deskMoment(params: {
+  nowMs: number
+  recentCycles?: RecentCycleBrief[]
+  awaiting?: { kind?: string; issuedAtMs?: number | null; amountZar?: number }
+}): DeskMoment {
+  const parts = sastParts(params.nowMs)
+  const activity: string[] = []
+  const cycles = [...(params.recentCycles || [])]
+    .filter((row) => row.cycleNumber > 0 && (row.completedAtMs || row.createdAtMs))
+    .sort((a, b) => (a.completedAtMs || a.createdAtMs || 0) - (b.completedAtMs || b.createdAtMs || 0))
+    .slice(-4)
+  for (const row of cycles) {
+    const at = row.completedAtMs || row.createdAtMs || 0
+    const sold = row.deployedAmount ?? row.assignments.reduce((sum, item) => sum + (item.amount || 0), 0)
+    activity.push(
+      `${formatVisibleSast(at, params.nowMs)} (${minutesAgoLabel(at, params.nowMs)}): Day ${row.cycleNumber} ${row.status === 'completed' ? 'sold' : row.status || 'issued'} ${formatZar(sold)}.`
+    )
+  }
+  if (params.awaiting?.issuedAtMs) {
+    const who = params.awaiting.kind === 'replenish' ? 'Amina' : 'Leo'
+    const what = params.awaiting.kind === 'replenish' ? 'restock' : 'ZAR sale'
+    activity.push(
+      `${formatVisibleSast(params.awaiting.issuedAtMs, params.nowMs)} (${minutesAgoLabel(params.awaiting.issuedAtMs, params.nowMs)}): ${who} put the ${what}${params.awaiting.amountZar ? ` of ${formatZar(params.awaiting.amountZar)}` : ''} on the desk. Still waiting.`
+    )
+  }
+  return {
+    clockLine: formatSast(params.nowMs),
+    partOfDay: partOfDaySast(params.nowMs),
+    weekend: parts.weekday === 0 || parts.weekday === 6,
+    activity,
+  }
+}
+
+function deskThread(recentFeedback: RecentFeedbackBrief[], nowMs: number): DeskExchange[] {
+  return [...recentFeedback]
+    .filter((row) => row.rawMessage.trim() && (row.replyBody || row.summary))
+    .sort((a, b) => (a.createdAtMs || 0) - (b.createdAtMs || 0))
+    .slice(-6)
+    .map((row) => ({
+      atLabel: row.createdAtMs ? formatVisibleSast(row.createdAtMs, nowMs) : 'earlier',
+      you: row.rawMessage.trim(),
+      speaker: row.speaker || 'sam',
+      desk: (row.replyBody || row.summary || '').trim().slice(0, 600),
+    }))
+}
+
 async function voiceDeskCard(params: {
+  adminUid: string
+  testRunId: string
   speaker: 'sam' | 'leo' | 'amina'
   message: string
   state: RoutingState
   walletZar: number
   fact?: string
-  recentCycles?: import('../routing/interpretContext').RecentCycleBrief[]
   sellRate?: number
   costRate?: number
   awaitingKind?: string
 }) {
+  const nowMs = Date.now()
+  const [operator, recentCycles, recentFeedback] = await Promise.all([
+    loadDeskOperator(params.adminUid),
+    loadRecentCycleBriefs(params.testRunId).catch(() => [] as RecentCycleBrief[]),
+    loadRecentFeedbackBriefs(params.testRunId),
+  ])
   const visuals = buildDeskVisuals({
     state: params.state,
-    recentCycles: params.recentCycles,
+    recentCycles,
     awaitingKind: params.awaitingKind,
     sellRate: params.sellRate,
     costRate: params.costRate,
@@ -1039,6 +1146,9 @@ async function voiceDeskCard(params: {
     brief: visuals.snapshot,
     visuals,
     deskFact: params.fact,
+    operator,
+    thread: deskThread(recentFeedback, nowMs),
+    moment: deskMoment({ nowMs, recentCycles }),
   })
 }
 
@@ -1065,6 +1175,8 @@ async function publishNextWindowCard(params: {
         ? offer.body
         : `The ZAR wallet has ${formatZar(params.walletZar)}. That does not cover ${formatZar(amount)}. Add ZAR, or name an amount the wallet can fund.`
       const spoken = await voiceDeskCard({
+        adminUid: params.adminUid,
+        testRunId: params.testRunId,
         speaker,
         message: params.message,
         state: params.state,
@@ -1097,6 +1209,8 @@ async function publishNextWindowCard(params: {
     ? offer.body
     : `This window still has ${formatZar(residualToTarget(params.state))} of ${formatZar(params.state.authorisedZar)} to convert. I open the next one when that reaches zero.`
   const spoken = await voiceDeskCard({
+    adminUid: params.adminUid,
+    testRunId: params.testRunId,
     speaker,
     message: params.message,
     state: params.state,
@@ -1159,6 +1273,18 @@ async function writeNextWindowAdvice(params: {
       deskTable: params.deskTable,
       deskChart: params.deskChart,
     })
+    if (params.message.trim()) {
+      tx.set(testRef.collection('feedback').doc(feedbackId), {
+        id: feedbackId,
+        adminUserId: params.adminUid,
+        cycleNumber: params.state.completedCycles || params.state.config.cycleCount,
+        rawMessage: params.message,
+        replyBody: params.body,
+        deskSpeaker: params.speaker,
+        status: 'advice',
+        createdAt: now,
+      })
+    }
     tx.set(
       testRef,
       {
@@ -1187,6 +1313,8 @@ async function issueCycle(
     const feedbackId = `window-${now.toMillis()}`
     const testRef = db.collection(TESTS).doc(testRunId)
     const spoken = await voiceDeskCard({
+      adminUid,
+      testRunId,
       speaker: 'sam',
       message: '',
       state,
@@ -2141,6 +2269,8 @@ export const admin_submitConversionRoutingFeedback = functions
       const speaker = addressedDeskAgent(rawMessage)
       const walletZar = await zarWalletBalance(adminUid)
       const spoken = await voiceDeskCard({
+        adminUid,
+        testRunId,
         speaker,
         message: rawMessage,
         state,
@@ -2168,6 +2298,8 @@ export const admin_submitConversionRoutingFeedback = functions
           adminUserId: adminUid,
           cycleNumber: finishedCycle || state.config.cycleCount,
           rawMessage,
+          replyBody: spoken.body,
+          deskSpeaker: speaker,
           status: 'advice',
           createdAt: now,
         })
@@ -2582,11 +2714,12 @@ export const admin_submitConversionRoutingFeedback = functions
         allowRouteMutation && desk.kind === 'options' && Boolean(desk.options?.length)
       const recommended = desk.options?.find((row) => row.id === desk.recommendedOptionId) || desk.options?.[0]
       const speaker = addressedDeskAgent(askMessage)
-      const walletZar = await zarWalletBalance(adminUid)
+      const [walletZar, operator] = await Promise.all([zarWalletBalance(adminUid), loadDeskOperator(adminUid)])
+      const openRoute = currentDeskRoute(testData, stored, awaitingKind)
       const visuals = buildDeskVisuals({
         state: liveState,
         recentCycles,
-        current: currentDeskRoute(testData, stored, awaitingKind),
+        current: openRoute,
         awaitingKind,
         sellRate: quotes.sellRate,
         costRate: quotes.costRate,
@@ -2601,6 +2734,13 @@ export const admin_submitConversionRoutingFeedback = functions
             visuals,
             deskFact:
               isCannedDeskAdvice(desk.title, desk.body) || !desk.body.trim() ? undefined : desk.body,
+            operator,
+            thread: deskThread(recentFeedback, nowMs),
+            moment: deskMoment({
+              nowMs,
+              recentCycles,
+              awaiting: { kind: awaitingKind, issuedAtMs, amountZar: openRoute.amountZar },
+            }),
           })
       await db.runTransaction(async (tx) => {
         publishAdviceCard(tx, {
@@ -2644,6 +2784,8 @@ export const admin_submitConversionRoutingFeedback = functions
           interpretedIntent: interpreted,
           askIntent: classification,
           interpretationSummary: desk.body.split('\n')[0] || desk.title,
+          replyBody: spoken.body,
+          deskSpeaker: speaker,
           status: desk.kind === 'question' ? 'question' : isProposal ? 'proposal' : 'advice',
           questionKind: desk.questionKind || null,
           createdAt: now,

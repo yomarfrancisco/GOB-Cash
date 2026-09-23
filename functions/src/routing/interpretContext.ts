@@ -25,6 +25,9 @@ export type RecentFeedbackBrief = {
   createdAtMs: number | null
   status: string
   questionKind?: string | null
+  /** What the desk actually said back, in the agent's voice. */
+  replyBody?: string | null
+  speaker?: 'sam' | 'leo' | 'amina' | null
 }
 
 export type LedgerSnapshot = {

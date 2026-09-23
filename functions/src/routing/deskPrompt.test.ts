@@ -11,6 +11,13 @@ describe('desk system prompt', () => {
     assert.match(DESK_SYSTEM_PROMPT, /do not choose a rail/i)
   })
 
+  it('tells the desk how to behave like a colleague', () => {
+    assert.match(DESK_SYSTEM_PROMPT, /Answer the actual question first/)
+    assert.match(DESK_SYSTEM_PROMPT, /do not do it again/i)
+    assert.match(DESK_SYSTEM_PROMPT, /Never on a greeting/)
+    assert.match(DESK_SYSTEM_PROMPT, /SAST clock/)
+  })
+
   it('treats the old classifier cards as canned', () => {
     assert.equal(isCannedDeskAdvice('Need a clearer Ask', 'I am not sure'), true)
     assert.equal(isCannedDeskAdvice('Here', "I'm Sam."), false)
