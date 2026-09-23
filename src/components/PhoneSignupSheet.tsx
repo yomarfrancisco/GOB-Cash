@@ -188,7 +188,7 @@ export default function PhoneSignupSheet() {
               </div>
             </label>
             <p className={styles.legal}>
-              PAGA is a <strong>continuous, liquidity-adaptive, FX settlement network</strong> that keeps conversions flowing even when any single bank is dry or offline.{' '}
+              PAGA is a <strong>continuous liquidity-adaptive settlement network</strong>. It keeps FX flowing even when any single bank is dry or offline.{' '}
               <em>
                 Authorised FSP 52815 and Co-operative bank{' '}
                 <a
