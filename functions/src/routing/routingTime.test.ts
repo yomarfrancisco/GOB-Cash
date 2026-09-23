@@ -16,6 +16,8 @@ import {
   sastToUtcMs,
   shouldNotApplyAskIntents,
   wantsNewRoutingRun,
+  isNextWindowAsk,
+  addressedDeskAgent,
 } from './routingTime'
 
 const THURSDAY_0015_SAST = sastToUtcMs(2026, 9, 10, 0, 15)
@@ -101,5 +103,12 @@ describe('time phrases', () => {
       resolveExpiryFromMessage('Card 2 unavailable until 17:00', THURSDAY_0015_SAST),
       sastToUtcMs(2026, 9, 10, 17, 0)
     )
+  })
+
+  it('hears a finished-window question and who was addressed', () => {
+    const message = "Leo, it's weekend. we have R0 left to convert. how do i inject capital to start again?"
+    assert.equal(isNextWindowAsk(message), true)
+    assert.equal(addressedDeskAgent(message), 'leo')
+    assert.equal(addressedDeskAgent('how do we restock'), 'sam')
   })
 })

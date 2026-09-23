@@ -24,6 +24,7 @@ export type ActivityEventDoc = {
   testRunId?: string
   cycleNumber?: number
   routingAction?: 'replenish' | 'deploy' | string
+  deskSpeaker?: 'sam' | 'leo' | 'amina'
   pairedAmountValue?: number
   feedbackAck?: string
   routingBlocked?: boolean
@@ -137,6 +138,10 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     testRunId: data.testRunId,
     cycleNumber: data.cycleNumber,
     routingAction: data.routingAction,
+    deskSpeaker:
+      data.deskSpeaker === 'leo' || data.deskSpeaker === 'amina' || data.deskSpeaker === 'sam'
+        ? data.deskSpeaker
+        : undefined,
     pairedAmountValue: data.pairedAmountValue,
     feedbackAck: typeof data.feedbackAck === 'string' ? data.feedbackAck : undefined,
     routingBlocked: data.routingBlocked === true,

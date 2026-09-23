@@ -16,6 +16,7 @@ import {
   isSettlementAsk,
   namesConstraintChange,
   wantsNewRoutingRun,
+  isNextWindowAsk,
 } from './routingTime'
 
 function namesObviousConstraint(message: string): boolean {
@@ -42,6 +43,7 @@ export type AskIntent =
   | 'constraint_request'
   | 'path_write'
   | 'execution_status'
+  | 'next_window'
   | 'unrelated'
   | 'ambiguous'
 
@@ -65,6 +67,7 @@ const INTENTS: AskIntent[] = [
   'constraint_request',
   'path_write',
   'execution_status',
+  'next_window',
   'unrelated',
   'ambiguous',
 ]
@@ -140,6 +143,9 @@ export function classifyAskIntentFast(
   if (namesObviousConstraint(message) && !isInterrogativeAsk(message)) {
     return classified('constraint_request', message, 0.92, 'explicit constraint verb')
   }
+  if (isNextWindowAsk(message)) {
+    return classified('next_window', message, 0.92, 'fund or reopen the window')
+  }
   if (wantsNewRoutingRun(message)) {
     return classified('execution_status', message, 0.9, 'start next run')
   }
@@ -206,6 +212,7 @@ current_route_question — explain the open restock or sale, or what's next on t
 constraint_request — the admin is changing inventory: rest, exclude, restore, cap, prefer, park, use X next
 path_write — confirmed rail outcome: freeze, rail_up, decline, unpaid, delay. Not a pair assignment.
 execution_status — start the next run, or whether a swipe/sale is awaiting
+next_window — the window is finished or they ask how to inject capital, add ZAR, or start again
 unrelated — not desk routing
 ambiguous — cannot tell; needs a clarification
 

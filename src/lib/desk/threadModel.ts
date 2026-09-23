@@ -36,12 +36,24 @@ export const DESK_RING: DeskAgent[] = ['sam', 'leo', 'amina']
  * Who is speaking on a desk item. Works on the Firestore doc shape too, so
  * the list, the header and the thread all agree.
  */
+/** Who the operator addressed. Unnamed asks stay with Sam. */
+export function addressedDeskAgent(message: string): DeskAgent {
+  const text = message.trim().toLowerCase()
+  if (/\bleo\b/.test(text)) return 'leo'
+  if (/\bamina\b/.test(text)) return 'amina'
+  return 'sam'
+}
+
 export function deskAgentFor(item: {
   kind?: string
   title?: string
   routingAction?: string
   thinking?: boolean
+  deskSpeaker?: string
 }): DeskAgent {
+  if (item.deskSpeaker === 'leo' || item.deskSpeaker === 'amina' || item.deskSpeaker === 'sam') {
+    return item.deskSpeaker
+  }
   if (item.thinking) return 'sam'
   if (item.routingAction === 'deploy') return 'leo'
   if (item.routingAction === 'replenish') return 'amina'

@@ -11,6 +11,7 @@ import {
   completeCycle,
   createInitialState,
   formatAskImpactBody,
+  nextWindowOffer,
   planCycle,
   planReplenish,
   previewAskImpact,
@@ -243,6 +244,24 @@ describe('ask preview', () => {
     assert.match(body, /Accept applies this rule/)
     assert.match(body, /Next: send R[\d,.]+ once the MZN has landed/)
     assert.doesNotMatch(body, /receive MZN into|buffer/i)
+  })
+})
+
+describe('next window', () => {
+  it('recommends this window plus the spread, capped by the wallet', () => {
+    const funded = nextWindowOffer({ authorisedZar: 100_000, profitZar: 2_340, walletZar: 150_000 })
+    assert.equal(funded.targetZar, 102_340)
+    assert.equal(funded.recommendedZar, 102_340)
+    assert.equal(funded.canOpen, true)
+    assert.match(funded.body, /Say yes/)
+
+    const short = nextWindowOffer({ authorisedZar: 100_000, profitZar: 2_340, walletZar: 40_000 })
+    assert.equal(short.recommendedZar, 40_000)
+    assert.equal(short.canOpen, true)
+
+    const empty = nextWindowOffer({ authorisedZar: 100_000, profitZar: 2_340, walletZar: 0 })
+    assert.equal(empty.canOpen, false)
+    assert.match(empty.body, /wallet is empty/)
   })
 })
 

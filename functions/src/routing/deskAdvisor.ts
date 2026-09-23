@@ -757,6 +757,14 @@ function answerClassifiedAsk(params: {
     nowMs,
   } = params
 
+  if (intent === 'next_window') {
+    return {
+      kind: 'next_step',
+      title: 'Next window',
+      body: 'Once this book is at R0, the next window opens from the ZAR wallet. The amount is this window plus the spread it earned, and only what the wallet can fund.',
+    }
+  }
+
   if (intent === 'ambiguous' || confidence < ASK_INTENT_MIN_CONFIDENCE) {
     return {
       kind: 'question',

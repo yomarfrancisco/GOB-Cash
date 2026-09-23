@@ -33,6 +33,7 @@ export type ActivityItem = {
   cycleNumber?: number
   awaitingConfirm?: boolean
   routingAction?: string
+  deskSpeaker?: 'sam' | 'leo' | 'amina'
   pairedAmountValue?: number
   feedbackAck?: string
   routingBlocked?: boolean

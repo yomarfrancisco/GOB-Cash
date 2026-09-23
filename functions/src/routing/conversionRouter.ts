@@ -211,6 +211,56 @@ export function residualToTarget(state: RoutingState): number {
   return roundMoney(Math.max(0, authorised - cycled))
 }
 
+/** The authorised book is fully cycled and no restock is still owed. */
+export function windowIsFinished(state: RoutingState): boolean {
+  return state.authorisedZar > 0 && state.bufferUsed <= 0 && residualToTarget(state) <= 0
+}
+
+/**
+ * Next window size is this window plus the ZAR spread it earned, never more
+ * than the wallet can actually fund.
+ */
+export function nextWindowOffer(params: {
+  authorisedZar: number
+  profitZar: number
+  walletZar: number
+}): {
+  targetZar: number
+  recommendedZar: number
+  walletZar: number
+  canOpen: boolean
+  title: string
+  body: string
+} {
+  const authorised = roundMoney(Math.max(0, params.authorisedZar))
+  const profit = roundMoney(Math.max(0, params.profitZar))
+  const wallet = roundMoney(Math.max(0, params.walletZar))
+  const target = roundMoney(authorised + profit)
+  const recommended = wallet > 0 ? roundMoney(Math.min(wallet, target)) : 0
+  const canOpen = recommended > 0
+  const earned =
+    profit > 0
+      ? `Spread earned on this window: ${formatZar(profit)}.`
+      : 'No spread was earned on this window.'
+  const title = canOpen ? 'Open the next window' : 'Add ZAR before the next window'
+  const body = canOpen
+    ? [
+        `This window is finished. ${formatZar(0)} of ${formatZar(authorised)} left to convert.`,
+        earned,
+        wallet + 0.01 >= target
+          ? `I recommend ${formatZar(target)} next — this window plus the spread. The ZAR wallet has ${formatZar(wallet)}, so it covers that.`
+          : `I would open ${formatZar(target)} (this window plus the spread), but the ZAR wallet has ${formatZar(wallet)}. I recommend ${formatZar(recommended)}.`,
+        'Say yes to open it, or name a different amount.',
+      ].join('\n')
+    : [
+        `This window is finished. ${formatZar(0)} of ${formatZar(authorised)} left to convert.`,
+        earned,
+        'The ZAR wallet is empty, so I cannot open another window yet.',
+        `Add ZAR first. Once it is there, I would open the next window at ${formatZar(target)}.`,
+      ].join('\n')
+  return { targetZar: target, recommendedZar: recommended, walletZar: wallet, canOpen, title, body }
+}
+
 export function applyCapitalShock(state: RoutingState, shock: CapitalShock): RoutingState {
   if (shock.kind === 'sell_zar') {
     const amount = roundMoney(shock.amountZar || 0)

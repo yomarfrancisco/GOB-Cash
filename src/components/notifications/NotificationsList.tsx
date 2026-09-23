@@ -17,7 +17,7 @@ import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { formatVisibleSast } from '@/lib/routing/routingTime'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
-import { DESK_TEAM, deskAgentFor, activeDeskAgent } from '@/lib/desk/threadModel'
+import { DESK_TEAM, deskAgentFor, activeDeskAgent, addressedDeskAgent } from '@/lib/desk/threadModel'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
@@ -745,14 +745,17 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       allItems.find((item) => Boolean(item.testRunId) && item.thinking !== true)
     const testRunId = source.testRunId || routing?.testRunId
     const cycleNumber = source.cycleNumber || routing?.cycleNumber
+    const speaker = addressedDeskAgent(message)
+    const who = DESK_TEAM[speaker]
     setThinkingItem({
       id: `thinking-ask-${Date.now()}`,
       kind: 'CONVERSION_ROUTING_INSTRUCTION',
       actor: {
         type: 'ai',
-        name: DESK_TEAM.sam.name,
-        avatarUrl: DESK_TEAM.sam.avatar,
+        name: who.name,
+        avatarUrl: who.avatar,
       },
+      deskSpeaker: speaker,
       title: source.title,
       thinking: true,
       createdAt: Date.now(),

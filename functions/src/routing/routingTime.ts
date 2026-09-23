@@ -292,6 +292,40 @@ export function isDeskStrategyAsk(message: string): boolean {
   )
 }
 
+/** "Leo, ..." / "Amina, ..." picks who answers. Anything else is Sam. */
+export function addressedDeskAgent(message: string): 'sam' | 'leo' | 'amina' {
+  const text = message.trim().toLowerCase()
+  if (/\bleo\b/.test(text)) return 'leo'
+  if (/\bamina\b/.test(text)) return 'amina'
+  return 'sam'
+}
+
+export function zarAmountFromMessage(message: string): number | null {
+  const match = message.replace(/,/g, '').match(/\br\s*(\d+(?:\.\d+)?)(k)?\b/i)
+  if (!match) return null
+  const amount = Number(match[1]) * (match[2] ? 1000 : 1)
+  return amount > 0 ? Math.round(amount * 100) / 100 : null
+}
+
+export function acceptsNextWindow(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  if (!text) return false
+  if (/^(yes|yeah|yep|yup|ok|okay|do it|open it|start(?: it)?)$/.test(text)) return true
+  return wantsNewRoutingRun(message)
+}
+
+/** Asking how to fund or reopen a finished window, not a route change. */
+export function isNextWindowAsk(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  if (!text) return false
+  if (/\binject\b/.test(text) && /\b(capital|liquidity|capacity|zar|wallet)\b/.test(text)) return true
+  if (/\b(add|fund|top up|deposit)\b/.test(text) && /\b(capital|liquidity|zar|wallet)\b/.test(text)) return true
+  if (/\bstart again\b/.test(text) || /\bopen (?:the )?next window\b/.test(text)) return true
+  if (/\bhow do i\b/.test(text) && /\b(inject|start|open|add|fund)\b/.test(text)) return true
+  if (/\b(r0|zero|nothing left)\b/.test(text) && /\b(inject|start|again|capital|window)\b/.test(text)) return true
+  return false
+}
+
 export function wantsNewRoutingRun(message: string): boolean {
   const text = message.trim().toLowerCase()
   if (!text) return false
@@ -307,7 +341,8 @@ export function shouldNotApplyAskIntents(message: string): boolean {
     isBankerQuestion(message) ||
     isDeskStrategyAsk(message) ||
     isFrictionNoteReply(message) ||
-    wantsNewRoutingRun(message)
+    wantsNewRoutingRun(message) ||
+    isNextWindowAsk(message)
   )
 }
 

@@ -21,6 +21,8 @@ import {
   applyRestockLanding,
   createInitialState,
   residualToTarget,
+  windowIsFinished,
+  nextWindowOffer,
   formatAskImpactBody,
   planCycle,
   roundMoney,
@@ -90,6 +92,10 @@ import {
   isWhatIfAsk,
   shouldNotApplyAskIntents,
   wantsNewRoutingRun,
+  acceptsNextWindow,
+  addressedDeskAgent,
+  isNextWindowAsk,
+  zarAmountFromMessage,
 } from '../routing/routingTime'
 import { adviseDesk, deskPursueLabel, isDeskChoiceReply, type DeskRouteSnapshot } from '../routing/deskAdvisor'
 import {
@@ -611,6 +617,7 @@ function publishAdviceCard(
     recommendedOptionId?: string | null
     questionKind?: string | null
     startNextRun?: boolean
+    deskSpeaker?: 'sam' | 'leo' | 'amina'
   }
 ): string {
   const activityEventId = adviceEventId(params.testRunId, params.feedbackId)
@@ -645,6 +652,7 @@ function publishAdviceCard(
     recommendedOptionId: params.recommendedOptionId || null,
     questionKind: params.questionKind || null,
     startNextRun: params.startNextRun === true,
+    deskSpeaker: params.deskSpeaker || 'sam',
     testRunId: params.testRunId,
     cycleNumber: params.cycleNumber,
     userReply: params.userReply,
@@ -988,12 +996,153 @@ function writeIssuedCycle(
   return { plan, activityEventId, kind: 'deploy' }
 }
 
+async function zarWalletBalance(adminUid: string): Promise<number> {
+  const snap = await db.collection('users').doc(adminUid).collection('wallets').doc('cashZAR').get()
+  return roundMoney(Number(snap.exists ? snap.data()?.fiatBalance || 0 : 0))
+}
+
+async function publishNextWindowCard(params: {
+  adminUid: string
+  testRunId: string
+  state: RoutingState
+  message: string
+  walletZar: number
+}): Promise<{ title: string; body: string; recommendedZar: number; canOpen: boolean }> {
+  const offer = nextWindowOffer({
+    authorisedZar: params.state.authorisedZar,
+    profitZar: params.state.cumulativeSpread,
+    walletZar: params.walletZar,
+  })
+  const named = zarAmountFromMessage(params.message)
+  const speaker = addressedDeskAgent(params.message)
+  const finished = windowIsFinished(params.state)
+  const opening = finished && (acceptsNextWindow(params.message) || (named != null && /\b(open|start|use|inject)\b/i.test(params.message)))
+  if (opening) {
+    const amount = named && named > 0 ? named : offer.recommendedZar
+    if (!(amount > 0) || amount > params.walletZar + 0.01) {
+      const body = !(params.walletZar > 0)
+        ? offer.body
+        : `The ZAR wallet has ${formatZar(params.walletZar)}. That does not cover ${formatZar(amount)}. Add ZAR, or name an amount the wallet can fund.`
+      await writeNextWindowAdvice({ ...params, speaker, title: 'Add ZAR before the next window', body, canOpen: false, recommendedZar: offer.recommendedZar, cancelOpen: true })
+      return { title: 'Add ZAR before the next window', body, recommendedZar: offer.recommendedZar, canOpen: false }
+    }
+    await startNewTest(
+      params.adminUid,
+      true,
+      amount,
+      `Window opened: ${formatZar(amount)} to convert over 14 weekdays.`
+    )
+    const body = `Next window opened at ${formatZar(amount)}. Day 1 is on the desk.`
+    return { title: 'Next window opened', body, recommendedZar: amount, canOpen: true }
+  }
+  const body = finished
+    ? offer.body
+    : `This window still has ${formatZar(residualToTarget(params.state))} of ${formatZar(params.state.authorisedZar)} to convert. I open the next one when that reaches zero.`
+  const title = finished ? offer.title : 'Window still open'
+  await writeNextWindowAdvice({
+    ...params,
+    speaker,
+    title,
+    body,
+    canOpen: finished && offer.canOpen,
+    recommendedZar: offer.recommendedZar,
+    cancelOpen: finished,
+  })
+  return { title, body, recommendedZar: offer.recommendedZar, canOpen: finished && offer.canOpen }
+}
+
+async function writeNextWindowAdvice(params: {
+  adminUid: string
+  testRunId: string
+  state: RoutingState
+  message: string
+  speaker: 'sam' | 'leo' | 'amina'
+  title: string
+  body: string
+  canOpen: boolean
+  recommendedZar: number
+  cancelOpen: boolean
+}): Promise<void> {
+  const now = admin.firestore.Timestamp.now()
+  const feedbackId = `window-${now.toMillis()}`
+  const testRef = db.collection(TESTS).doc(params.testRunId)
+  if (params.cancelOpen) {
+    await cancelAwaitingRoutingEvents(params.adminUid, now, (row) => row.testRunId === params.testRunId)
+  }
+  await db.runTransaction(async (tx) => {
+    publishAdviceCard(tx, {
+      adminUid: params.adminUid,
+      testRunId: params.testRunId,
+      cycleNumber: params.state.completedCycles || params.state.config.cycleCount,
+      feedbackId,
+      now,
+      title: params.title,
+      body: params.body,
+      userReply: params.message,
+      routingAction: 'advice',
+      startNextRun: params.canOpen,
+      deskSpeaker: params.speaker,
+    })
+    tx.set(
+      testRef,
+      {
+        ...(params.cancelOpen ? { awaitingCycleNumber: null, awaitingKind: null } : {}),
+        nextWindowZar: params.recommendedZar,
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+  })
+}
+
 async function issueCycle(
   adminUid: string,
   testRunId: string,
   state: RoutingState,
   now: admin.firestore.Timestamp
 ): Promise<{ plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' }> {
+  if (windowIsFinished(state)) {
+    const walletZar = await zarWalletBalance(adminUid)
+    const offer = nextWindowOffer({
+      authorisedZar: state.authorisedZar,
+      profitZar: state.cumulativeSpread,
+      walletZar,
+    })
+    const feedbackId = `window-${now.toMillis()}`
+    const testRef = db.collection(TESTS).doc(testRunId)
+    const activityEventId = await db.runTransaction(async (tx) => {
+      const id = publishAdviceCard(tx, {
+        adminUid,
+        testRunId,
+        cycleNumber: state.completedCycles || state.config.cycleCount,
+        feedbackId,
+        now,
+        title: offer.title,
+        body: offer.body,
+        userReply: '',
+        routingAction: 'advice',
+        startNextRun: offer.canOpen,
+        deskSpeaker: 'sam',
+      })
+      tx.set(
+        testRef,
+        {
+          awaitingCycleNumber: null,
+          awaitingKind: null,
+          nextWindowZar: offer.recommendedZar,
+          updatedAt: now,
+        },
+        { merge: true }
+      )
+      return id
+    })
+    const plan = planCycle(state)
+    return {
+      plan: { ...plan, deployedAmount: 0, cardCountUsed: 0, cardAssignments: [], holdReason: offer.body },
+      activityEventId,
+      kind: 'deploy',
+    }
+  }
   const quoted = await applyLiveQuotes(state)
   const testSnap = await db.collection(TESTS).doc(testRunId).get()
   const book = pathBookFromDoc(testSnap.data() || {}, quoted.quote)
@@ -1854,13 +2003,41 @@ export const admin_submitConversionRoutingFeedback = functions
       const now = admin.firestore.Timestamp.now()
       const feedbackId = testRef.collection('feedback').doc().id
       const finishedCycle = num(testData.completedCycles, num(testData.awaitingCycleNumber, 0))
-      if (wantsNewRoutingRun(rawMessage) && !acceptProposalId && !discardProposalId) {
-        const started = await startNewTest(adminUid, true)
+      if (
+        (wantsNewRoutingRun(rawMessage) || acceptsNextWindow(rawMessage) || isNextWindowAsk(rawMessage)) &&
+        !acceptProposalId &&
+        !discardProposalId
+      ) {
+        const closed = stateFromDoc(testData)
+        const walletZar = await zarWalletBalance(adminUid)
+        const offer = nextWindowOffer({
+          authorisedZar: closed.authorisedZar,
+          profitZar: closed.cumulativeSpread,
+          walletZar,
+        })
+        const named = zarAmountFromMessage(rawMessage)
+        const amount = named && named > 0 ? named : offer.recommendedZar
+        if (!(amount > 0) || amount > walletZar + 0.01) {
+          const answered = await publishNextWindowCard({
+            adminUid,
+            testRunId,
+            state: closed,
+            message: rawMessage,
+            walletZar,
+          })
+          return { testRunId, cycleNumber: finishedCycle, status: 'advice', acknowledgement: answered.body }
+        }
+        const started = await startNewTest(
+          adminUid,
+          true,
+          amount,
+          `Window opened: ${formatZar(amount)} to convert over 14 weekdays.`
+        )
         return {
           testRunId: started.testRunId,
           cycleNumber: started.cycleNumber,
           status: 'advice',
-          acknowledgement: 'New 14-weekday window started. The next instruction is on the latest card.',
+          acknowledgement: `Next window opened at ${formatZar(amount)}. Day 1 is on the desk.`,
         }
       }
       const state = stateFromDoc(testData)
@@ -2021,6 +2198,25 @@ export const admin_submitConversionRoutingFeedback = functions
       }
     } else {
       classification = await classifyAskIntent(askMessage, { pendingKind: pendingKindForAsk })
+      if (
+        classification.intent === 'next_window' ||
+        isNextWindowAsk(askMessage) ||
+        (windowIsFinished(liveState) && acceptsNextWindow(askMessage))
+      ) {
+        const answered = await publishNextWindowCard({
+          adminUid,
+          testRunId,
+          state: liveState,
+          message: askMessage,
+          walletZar: await zarWalletBalance(adminUid),
+        })
+        return {
+          testRunId,
+          cycleNumber,
+          status: 'advice',
+          acknowledgement: answered.body,
+        }
+      }
       const allowConstraintIntents =
         mayMutateRoute(classification.intent) && classification.confidence >= ASK_INTENT_MIN_CONFIDENCE
       if (!allowConstraintIntents) {
