@@ -52,8 +52,7 @@
 }
 
 .deskHeaderChrome {
-  flex-shrink: 0;
-  height: 176px;
+  display: none;
 }
 
 .activitySearchOverlay {
@@ -62,15 +61,17 @@
   left: 0;
   right: 0;
   z-index: 3;
-  padding: 56px 0 56px;
+  padding: 52px 0 96px;
   pointer-events: none;
   border-radius: 32px 32px 0 0;
+  /* Solid behind the faces and the name, then a long fade so the thread
+     dissolves under the header instead of ending on a hard edge. */
   background: linear-gradient(
     to bottom,
     #ffffff 0%,
-    #ffffff 48%,
-    rgba(255, 255, 255, 0.96) 68%,
-    rgba(255, 255, 255, 0.42) 86%,
+    #ffffff 58%,
+    rgba(255, 255, 255, 0.72) 76%,
+    rgba(255, 255, 255, 0.28) 90%,
     rgba(255, 255, 255, 0) 100%
   );
 }
@@ -213,7 +214,13 @@
 }
 
 .activityContent .conversationList {
-  padding-top: 8px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  padding-top: 188px;
   padding-bottom: 104px;
 }
 
