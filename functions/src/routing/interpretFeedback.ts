@@ -12,6 +12,7 @@ import type { RoutingState } from './conversionRouter'
 import { attachResolvedExpiry, buildRoutingLedgerBrief, ledgerFromRoutingState } from './interpretContext'
 import { cardLabel, inventoryPromptList, machineLabel } from './inventory'
 import { namesConstraintChange, shouldNotApplyAskIntents } from './routingTime'
+import { DESK_SYSTEM_PROMPT } from './deskPrompt'
 
 type InterpretContext = {
   cycleNumber: number
@@ -54,7 +55,9 @@ export function buildInterpretPrompt(message: string, context: InterpretContext)
       },
       nowMs,
     })
-  const system = `You convert an admin's natural-language routing feedback into JSON constraints.
+  const system = `${DESK_SYSTEM_PROMPT}
+
+You convert an admin's natural-language routing feedback into JSON constraints.
 The routing engine is deterministic. You only interpret intent. You never invent a route.
 You are given the current clock in SAST and the planner ledger. Use them to resolve time phrases and to answer questions about when things happened or when they are due.
 

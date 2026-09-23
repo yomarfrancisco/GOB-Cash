@@ -6,6 +6,7 @@
 import { isFrictionNoteReply } from './friction'
 import { classifyPathWrite } from './pathEngine'
 import { llmApiKey, llmModel } from './interpretFeedback'
+import { DESK_SYSTEM_PROMPT } from './deskPrompt'
 import { cardShortName, machineShortName, resolveNamedCardIds, resolveNamedMachineIds } from './inventory'
 import {
   isDeskStrategyAsk,
@@ -200,7 +201,9 @@ async function classifyAskIntentLlm(message: string, extra: { pendingKind?: stri
     return classified('ambiguous', message, 0.3, 'LLM unavailable; no safe fast-path match')
   }
   const named = entities(message)
-  const system = `You classify one FX Desk Ask message. Return JSON only:
+  const system = `${DESK_SYSTEM_PROMPT}
+
+You classify one FX Desk Ask message. Use the desk description only to choose the label. Return JSON only:
 {"intent":"...","confidence":0.0,"reason":"..."}
 
 intent must be exactly one of:

@@ -75,6 +75,7 @@ import {
   type AskClassification,
 } from '../routing/askIntent'
 import { interpretAdminFeedback, llmApiKey } from '../routing/interpretFeedback'
+import { speakDeskReply } from '../routing/deskPrompt'
 import type { RecentRestockBrief } from '../routing/historicalAsk'
 import {
   answerMemoryQuestion,
@@ -1020,9 +1021,10 @@ async function publishNextWindowCard(params: {
   if (opening) {
     const amount = named && named > 0 ? named : offer.recommendedZar
     if (!(amount > 0) || amount > params.walletZar + 0.01) {
-      const body = !(params.walletZar > 0)
+      const fact = !(params.walletZar > 0)
         ? offer.body
         : `The ZAR wallet has ${formatZar(params.walletZar)}. That does not cover ${formatZar(amount)}. Add ZAR, or name an amount the wallet can fund.`
+      const body = await speakDeskReply({ speaker, fact, message: params.message })
       await writeNextWindowAdvice({ ...params, speaker, title: 'Add ZAR before the next window', body, canOpen: false, recommendedZar: offer.recommendedZar, cancelOpen: true })
       return { title: 'Add ZAR before the next window', body, recommendedZar: offer.recommendedZar, canOpen: false }
     }
@@ -1035,9 +1037,10 @@ async function publishNextWindowCard(params: {
     const body = `Next window opened at ${formatZar(amount)}. Day 1 is on the desk.`
     return { title: 'Next window opened', body, recommendedZar: amount, canOpen: true }
   }
-  const body = finished
+  const fact = finished
     ? offer.body
     : `This window still has ${formatZar(residualToTarget(params.state))} of ${formatZar(params.state.authorisedZar)} to convert. I open the next one when that reaches zero.`
+  const body = await speakDeskReply({ speaker, fact, message: params.message })
   const title = finished ? offer.title : 'Window still open'
   await writeNextWindowAdvice({
     ...params,
@@ -1110,6 +1113,7 @@ async function issueCycle(
     })
     const feedbackId = `window-${now.toMillis()}`
     const testRef = db.collection(TESTS).doc(testRunId)
+    const spoken = await speakDeskReply({ speaker: 'sam', fact: offer.body })
     const activityEventId = await db.runTransaction(async (tx) => {
       const id = publishAdviceCard(tx, {
         adminUid,
@@ -1118,7 +1122,7 @@ async function issueCycle(
         feedbackId,
         now,
         title: offer.title,
-        body: offer.body,
+        body: spoken,
         userReply: '',
         routingAction: 'advice',
         startNextRun: offer.canOpen,
@@ -2053,6 +2057,8 @@ export const admin_submitConversionRoutingFeedback = functions
           ? 'Sell ZAR or add inventory to re-open the residual. Do not start a new window while U is still open.'
           : 'Say “start the window” if you want a new desk with no authorised U.',
       ].join(' ')
+      const speaker = addressedDeskAgent(rawMessage)
+      const spoken = await speakDeskReply({ speaker, fact: body, message: rawMessage })
       await db.runTransaction(async (tx) => {
         publishAdviceCard(tx, {
           adminUid,
@@ -2061,10 +2067,11 @@ export const admin_submitConversionRoutingFeedback = functions
           feedbackId,
           now,
           title: residual > 0 ? 'Window closed — residual open' : 'Window closed',
-          body,
+          body: spoken,
           userReply: rawMessage,
           routingAction: 'advice',
           startNextRun: residual <= 0,
+          deskSpeaker: speaker,
         })
         tx.set(testRef.collection('feedback').doc(feedbackId), {
           id: feedbackId,
@@ -2079,7 +2086,7 @@ export const admin_submitConversionRoutingFeedback = functions
         testRunId,
         cycleNumber: finishedCycle || state.config.cycleCount,
         status: 'advice',
-        acknowledgement: body,
+        acknowledgement: spoken,
       }
     }
 
@@ -2484,6 +2491,8 @@ export const admin_submitConversionRoutingFeedback = functions
       const isProposal =
         allowRouteMutation && desk.kind === 'options' && Boolean(desk.options?.length)
       const recommended = desk.options?.find((row) => row.id === desk.recommendedOptionId) || desk.options?.[0]
+      const speaker = addressedDeskAgent(askMessage)
+      const spoken = await speakDeskReply({ speaker, fact: desk.body, message: askMessage })
       await db.runTransaction(async (tx) => {
         publishAdviceCard(tx, {
           adminUid,
@@ -2492,9 +2501,10 @@ export const admin_submitConversionRoutingFeedback = functions
           feedbackId,
           now,
           title: desk.title,
-          body: desk.body,
+          body: spoken,
           userReply: askMessage,
           routingAction: isProposal ? 'proposal' : 'advice',
+          deskSpeaker: speaker,
           proposalId: isProposal ? feedbackId : undefined,
           awaitingProposalAccept: isProposal,
           pursueLabel,
@@ -2537,7 +2547,7 @@ export const admin_submitConversionRoutingFeedback = functions
         testRunId,
         cycleNumber,
         status: isProposal ? 'proposal' : desk.kind === 'question' ? 'question' : 'advice',
-        acknowledgement: desk.body,
+        acknowledgement: spoken,
         interpreter: interpreted.interpreter,
       }
     }
