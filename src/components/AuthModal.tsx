@@ -164,7 +164,7 @@ export default function AuthModal() {
               </p>
             )}
             <p className={styles.legal}>
-              PAGA is a fully-reserved <strong>ZAR settlement and liquidity network</strong> for licensed FX operators across Mozambique and the wider SADC corridor.{' '}
+              PAGA is a <strong>Continuous Settlement Protocol</strong> for constrained FX corridors. It keeps conversions flowing where bank liquidity is dry.{' '}
               <em>
                 Authorised FSP 52815 and Co-operative bank{' '}
                 <a
