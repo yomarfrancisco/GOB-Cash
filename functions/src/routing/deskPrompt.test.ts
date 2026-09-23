@@ -1,8 +1,23 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { DESK_SYSTEM_PROMPT, isCannedDeskAdvice, replyAddsNoNewMoney, replyStaysInsideFacts } from './deskPrompt'
+import {
+  DESK_SYSTEM_PROMPT,
+  PAGA_DEFINITION,
+  PAGA_ONE_PHRASE,
+  isCannedDeskAdvice,
+  replyAddsNoNewMoney,
+  replyStaysInsideFacts,
+} from './deskPrompt'
 
 describe('desk system prompt', () => {
+  it('carries the PAGA definition word for word', () => {
+    assert.equal(PAGA_ONE_PHRASE, 'PAGA is a continuous settlement network.')
+    assert.ok(DESK_SYSTEM_PROMPT.includes(PAGA_DEFINITION))
+    assert.match(PAGA_DEFINITION, /continuous FX settlement network for constrained currency corridors/)
+    assert.match(PAGA_DEFINITION, /residual still to be delivered per path/)
+    assert.match(DESK_SYSTEM_PROMPT, /Do not add licences/)
+  })
+
   it('names the three agents and forbids invented figures', () => {
     assert.match(DESK_SYSTEM_PROMPT, /Sam is the relationship manager/)
     assert.match(DESK_SYSTEM_PROMPT, /Leo is the ZAR liquidity manager/)
