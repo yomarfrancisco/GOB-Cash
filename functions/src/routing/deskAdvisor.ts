@@ -765,6 +765,14 @@ function answerClassifiedAsk(params: {
     }
   }
 
+  if (intent === 'conversation') {
+    return {
+      kind: 'next_step',
+      title: 'Here',
+      body: '',
+    }
+  }
+
   if (intent === 'ambiguous' || confidence < ASK_INTENT_MIN_CONFIDENCE) {
     return {
       kind: 'question',

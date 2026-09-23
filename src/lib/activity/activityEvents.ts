@@ -38,6 +38,62 @@ export type ActivityEventDoc = {
   recommendedOptionId?: string
   startNextRun?: boolean
   questionKind?: string
+  deskTable?: {
+    id?: string
+    title?: string
+    columns?: unknown
+    rows?: unknown
+  }
+  deskChart?: {
+    id?: string
+    title?: string
+    unit?: string
+    series?: unknown
+  }
+}
+
+function asDeskTable(raw: ActivityEventDoc['deskTable']): ActivityItem['deskTable'] {
+  if (!raw || !Array.isArray(raw.columns) || !Array.isArray(raw.rows)) return undefined
+  const columns = raw.columns.filter((cell): cell is string => typeof cell === 'string')
+  const rows = raw.rows.flatMap((row) => {
+    if (!row || typeof row !== 'object') return []
+    const cells = Array.isArray((row as { cells?: unknown }).cells)
+      ? ((row as { cells: unknown[] }).cells.filter((cell): cell is string => typeof cell === 'string'))
+      : []
+    return cells.length ? [{ cells }] : []
+  })
+  if (!columns.length || !rows.length) return undefined
+  return {
+    id: typeof raw.id === 'string' ? raw.id : 'table',
+    title: typeof raw.title === 'string' ? raw.title : '',
+    columns,
+    rows,
+  }
+}
+
+function asDeskChart(raw: ActivityEventDoc['deskChart']): ActivityItem['deskChart'] {
+  if (!raw || !Array.isArray(raw.series)) return undefined
+  const series = raw.series.flatMap((row) => {
+    if (!row || typeof row !== 'object') return []
+    const item = row as { label?: unknown; points?: unknown }
+    if (typeof item.label !== 'string' || !Array.isArray(item.points)) return []
+    const points = item.points.flatMap((point) => {
+      if (!point || typeof point !== 'object') return []
+      const cell = point as { label?: unknown; value?: unknown }
+      if (typeof cell.label !== 'string' || typeof cell.value !== 'number' || !Number.isFinite(cell.value)) {
+        return []
+      }
+      return [{ label: cell.label, value: cell.value }]
+    })
+    return points.length ? [{ label: item.label, points }] : []
+  })
+  if (!series.length) return undefined
+  return {
+    id: typeof raw.id === 'string' ? raw.id : 'chart',
+    title: typeof raw.title === 'string' ? raw.title : '',
+    unit: raw.unit === 'MZN' ? 'MZN' : 'ZAR',
+    series,
+  }
 }
 
 function createdAtMs(value: ActivityEventDoc['createdAt']): number {
@@ -160,6 +216,8 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
         ? data.recommendedOptionId.trim()
         : undefined,
     startNextRun: data.startNextRun === true,
+    deskTable: asDeskTable(data.deskTable),
+    deskChart: asDeskChart(data.deskChart),
   }
 }
 

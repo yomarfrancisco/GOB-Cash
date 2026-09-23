@@ -8,6 +8,8 @@ export type RecentCycleBrief = {
   status: string
   createdAtMs: number | null
   completedAtMs: number | null
+  deployedAmount?: number
+  actualProfit?: number
   assignments: Array<{
     cardId: number
     machineId: number

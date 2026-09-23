@@ -48,6 +48,18 @@ export type ActivityItem = {
   recommendedOptionId?: string
   startNextRun?: boolean
   kycAction?: 'start' | 'update'
+  deskTable?: {
+    id: string
+    title: string
+    columns: string[]
+    rows: Array<{ cells: string[] }>
+  }
+  deskChart?: {
+    id: string
+    title: string
+    unit: 'ZAR' | 'MZN'
+    series: Array<{ label: string; points: Array<{ label: string; value: number }> }>
+  }
 }
 
 const MAX_ACTIVITY_ITEMS = 80

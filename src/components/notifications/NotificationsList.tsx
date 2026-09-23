@@ -28,6 +28,7 @@ import { useSignedInKycAccess } from '@/lib/restrictions'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
+import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
 
 const KYC_GATE_ID = 'kyc-desk-gate'
 
@@ -437,6 +438,7 @@ function ActivityItemCard({
               </div>
             ) : null}
             {item.body ? <div className={styles.activityBody}>{item.body}</div> : null}
+            <DeskCardVisuals item={item} />
             {!askCard && item.userReply ? (
               <div className={styles.activityUserReply}>
                 <div className={styles.activityUserReplyLabel}>

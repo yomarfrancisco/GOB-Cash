@@ -486,3 +486,92 @@
   opacity: 0.55;
 }
 
+.deskVisuals {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0 0;
+}
+
+.deskVisualTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  color: rgba(0, 0, 0, 0.45);
+  margin: 0 0 6px;
+}
+
+.deskTableWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.deskTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: -0.15px;
+}
+
+.deskTable th,
+.deskTable td {
+  text-align: left;
+  padding: 5px 8px 5px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  vertical-align: top;
+}
+
+.deskTable th {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.deskTable td {
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.78);
+}
+
+.deskTable th:last-child,
+.deskTable td:last-child {
+  text-align: right;
+  padding-right: 0;
+}
+
+.deskChart {
+  margin: 0;
+}
+
+.deskChartSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.deskChartAxis {
+  font-size: 8px;
+  fill: rgba(0, 0, 0, 0.42);
+}
+
+.deskChartLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.deskChartLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.deskChartLegend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  display: inline-block;
+}
+

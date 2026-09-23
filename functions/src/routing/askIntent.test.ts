@@ -36,6 +36,12 @@ describe('Ask intent classifier', () => {
     assert.equal(classifyAskIntentFast('Why did Capitec decline last time?')?.intent !== 'path_write', true)
   })
 
+  it('hears a greeting as conversation, not an unclear Ask', () => {
+    assert.equal(classifyAskIntentFast('Sam you there?')?.intent, 'conversation')
+    assert.equal(classifyAskIntentFast('Do you know who I am?')?.intent, 'conversation')
+    assert.equal(mayMutateRoute('conversation'), false)
+  })
+
   it('maps the remaining examples without treating a name as a constraint', () => {
     assert.equal(classifyAskIntentFast('When did we last use Capitec?')?.intent, 'ledger_fact')
     assert.equal(classifyAskIntentFast('Why this POS?')?.intent, 'current_route_question')

@@ -20,6 +20,15 @@ import {
   isNextWindowAsk,
 } from './routingTime'
 
+export function isDeskConversationAsk(message: string): boolean {
+  const text = stem(message)
+  if (/\b(you there|are you (?:there|here)|can you hear)\b/.test(text)) return true
+  if (/^(hi|hello|hey)\b/.test(text) && text.split(/\s+/).length <= 8) return true
+  if (/\bwho am i\b/.test(text) || /\bdo you know who i\b/.test(text)) return true
+  if (/\bwho are you\b/.test(text) || /\bwhat(?:'s| is) your (?:name|role)\b/.test(text)) return true
+  return false
+}
+
 function namesObviousConstraint(message: string): boolean {
   if (namesConstraintChange(message)) return true
   const text = stem(message)
@@ -45,6 +54,7 @@ export type AskIntent =
   | 'path_write'
   | 'execution_status'
   | 'next_window'
+  | 'conversation'
   | 'unrelated'
   | 'ambiguous'
 
@@ -69,6 +79,7 @@ const INTENTS: AskIntent[] = [
   'path_write',
   'execution_status',
   'next_window',
+  'conversation',
   'unrelated',
   'ambiguous',
 ]
@@ -150,6 +161,9 @@ export function classifyAskIntentFast(
   if (wantsNewRoutingRun(message)) {
     return classified('execution_status', message, 0.9, 'start next run')
   }
+  if (isDeskConversationAsk(message)) {
+    return classified('conversation', message, 0.93, 'presence or identity on the desk')
+  }
   if (extra.pendingKind === 'which_card_safe' && named.cardIds.length && words <= 6 && !isInterrogativeAsk(message)) {
     return classified('constraint_request', message, 0.9, 'card named to answer which-card-safe')
   }
@@ -216,6 +230,7 @@ constraint_request — the admin is changing inventory: rest, exclude, restore, 
 path_write — confirmed rail outcome: freeze, rail_up, decline, unpaid, delay. Not a pair assignment.
 execution_status — start the next run, or whether a swipe/sale is awaiting
 next_window — the window is finished or they ask how to inject capital, add ZAR, or start again
+conversation — greeting, "are you there", who am I / who are you, small talk that should stay on the desk
 unrelated — not desk routing
 ambiguous — cannot tell; needs a clarification
 
