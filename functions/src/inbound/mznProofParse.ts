@@ -45,7 +45,9 @@ export function parseMznProof(text: string): MznProof | null {
   const received = /already been received|it'?s done/i.test(text)
   const transfer = /sucesso|operation successful|valor a transferir|transfer value/i.test(text)
   if (!received && !transfer) return null
-  const amountRaw = text.match(/(\d{1,3}(?:[.,]\d{3})+[.,]\d{2}|\d+[.,]\d{2})\s*\n?\s*MZN/i)
+  if (!/MZN/i.test(text)) return null
+  const labelled = text.match(/(?:Valor a transferir|Transfer value)[\s\S]{0,80}?(\d{1,3}(?:[.,]\d{3})+[.,]\d{2}|\d+[.,]\d{2})/i)
+  const amountRaw = labelled || text.match(/(\d{1,3}(?:[.,]\d{3})+[.,]\d{2}|\d+[.,]\d{2})\s*\n?\s*MZN/i)
   const amountMzn = amountRaw ? parseMznAmount(amountRaw[1]) : null
   if (amountMzn == null) return null
   const operation = text.match(/(?:N[uú]mero de opera[cç][aã]o|Operation number)\s*[\n:]*\s*(\d{5,})/i)

@@ -15,6 +15,7 @@ Conta a creditar
 3625 606 841 000 1
 Valor a transferir
 77,690.00
+Descritivo do débito
 MZN`
 
 const VIDROTEC = `It's done!
