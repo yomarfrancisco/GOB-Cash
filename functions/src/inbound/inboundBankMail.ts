@@ -9,6 +9,9 @@ import { defineSecret } from 'firebase-functions/params'
 import { archiveReceivedEmail } from './bankMailPure'
 import { handleBankMailWebhook } from './bankMailPure'
 import { resendReceivingClient } from './resendReceiving'
+import { applyFnbEvent, type CardFloat } from './fnbApply'
+import { pdfText } from './fnbPdf'
+import { isFnbSender, parseFnbCardSpend, parseFnbReceipt, type FnbEvent } from './fnbParse'
 import {
   EVIDENCE_COLLECTION,
   INGRESS_COLLECTION,
@@ -133,4 +136,68 @@ export const inbound_archiveBankMail = functions
     if (!outcome.ok && outcome.retryable) {
       throw new Error('archive_retryable')
     }
+    if (outcome.ok) await recordFnbNotice(ingress.resendEmailId, bucket)
+  })
+
+async function recordFnbNotice(
+  emailId: string,
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } }
+): Promise<void> {
+  const ref = db().collection(EVIDENCE_COLLECTION).doc(emailId)
+  const snap = await ref.get()
+  if (!snap.exists) return
+  const evidence = snap.data() as EvidenceRecord
+  if (!isFnbSender(evidence.from)) return
+  const spend = evidence.subject ? parseFnbCardSpend(evidence.subject) : null
+  let event: FnbEvent | null = spend
+  if (!event) {
+    const pdf = (evidence.attachments || []).find((row) => /pdf/i.test(row.contentType) || /\.pdf$/i.test(row.safeFilename))
+    if (!pdf) return
+    const [bytes] = await bucket.file(pdf.storagePath).download()
+    event = parseFnbReceipt(await pdfText(bytes))
+  }
+  if (!event) return
+  const cardLast4 = event.cardLast4
+  if (!cardLast4) return
+  const eventRef = db().collection('bankFnbEvents').doc(emailId)
+  const floatRef = db().collection('fnbCardFloat').doc(cardLast4)
+  await db().runTransaction(async (tx) => {
+    const existing = await tx.get(eventRef)
+    if (existing.exists) return
+    const floatSnap = await tx.get(floatRef)
+    const next = applyFnbEvent(floatSnap.exists ? (floatSnap.data() as CardFloat) : null, event as FnbEvent, cardLast4)
+    tx.set(eventRef, {
+      ...event,
+      resendEmailId: emailId,
+      from: evidence.from,
+      subject: evidence.subject,
+      createdAt: new Date().toISOString(),
+    })
+    tx.set(floatRef, { ...next, updatedAt: new Date().toISOString() })
+    tx.set(ref, { parseStatus: 'parsed', fnbKind: event.kind }, { merge: true })
+  })
+  safeLog.info('fnb_recorded', { emailId, reason: event.kind })
+}
+
+/** One-shot: parse FNB mail already archived before this recorder existed. */
+export const inbound_backfillFnb = functions
+  .region('us-central1')
+  .runWith({ secrets: [inboundSecret], timeoutSeconds: 120, memory: '512MB' })
+  .https.onRequest(async (req, res) => {
+    const provided = req.get('x-inbound-secret') || ''
+    if (!provided || provided !== inboundSecret.value()) {
+      res.status(401).json({ ok: false })
+      return
+    }
+    const bucket = admin.storage().bucket()
+    const snap = await db().collection(EVIDENCE_COLLECTION).limit(50).get()
+    let recorded = 0
+    for (const doc of snap.docs) {
+      const before = await db().collection('bankFnbEvents').doc(doc.id).get()
+      if (before.exists) continue
+      await recordFnbNotice(doc.id, bucket)
+      const after = await db().collection('bankFnbEvents').doc(doc.id).get()
+      if (after.exists) recorded += 1
+    }
+    res.status(200).json({ ok: true, scanned: snap.size, recorded })
   })

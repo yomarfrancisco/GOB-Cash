@@ -61,7 +61,7 @@ export {
   tx_sendMyMonthlySettlementStatement,
   getMonthlySettlementProof,
 } from './tx/sendMonthlySettlementStatement'
-export { inbound_bankMail, inbound_archiveBankMail } from './inbound/inboundBankMail'
+export { inbound_bankMail, inbound_archiveBankMail, inbound_backfillFnb } from './inbound/inboundBankMail'
 export {
   admin_startConversionRoutingTest,
   admin_ensureConversionRoutingTest,

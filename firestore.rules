@@ -236,6 +236,12 @@ service cloud.firestore {
     match /bankEvidenceRejected/{id} {
       allow read, write: if false;
     }
+    match /bankFnbEvents/{id} {
+      allow read, write: if false;
+    }
+    match /fnbCardFloat/{id} {
+      allow read, write: if false;
+    }
 
     // Deny all other access by default
     match /{document=**} {
