@@ -6,7 +6,9 @@ const SPEND =
   'FNB :-) R395.00 reserved for purchase @ M2 Aesthetic Studio from Current a/c..630649 using card..8948. 24Sep 10:36'
 
 const RECEIPT = `:-) FNB Receipt
+
 BRICS AI
+
 01-09-2026 20:34:31
 Customer Copy
 Approved

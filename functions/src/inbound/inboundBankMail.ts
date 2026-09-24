@@ -163,7 +163,13 @@ async function recordFnbNotice(
   const floatRef = db().collection('fnbCardFloat').doc(cardLast4)
   await db().runTransaction(async (tx) => {
     const existing = await tx.get(eventRef)
-    if (existing.exists) return
+    if (existing.exists) {
+      const prior = existing.data() as { kind?: string; merchant?: string | null }
+      if (prior.kind === 'conversion_receipt' && !prior.merchant && event.kind === 'conversion_receipt' && event.merchant) {
+        tx.set(eventRef, { merchant: event.merchant }, { merge: true })
+      }
+      return
+    }
     const floatSnap = await tx.get(floatRef)
     const next = applyFnbEvent(floatSnap.exists ? (floatSnap.data() as CardFloat) : null, event as FnbEvent, cardLast4)
     tx.set(eventRef, {
@@ -194,7 +200,9 @@ export const inbound_backfillFnb = functions
     let recorded = 0
     for (const doc of snap.docs) {
       const before = await db().collection('bankFnbEvents').doc(doc.id).get()
-      if (before.exists) continue
+      const prior = before.data() as { kind?: string; merchant?: string | null } | undefined
+      const needsMerchant = prior?.kind === 'conversion_receipt' && !prior.merchant
+      if (before.exists && !needsMerchant) continue
       await recordFnbNotice(doc.id, bucket)
       const after = await db().collection('bankFnbEvents').doc(doc.id).get()
       if (after.exists) recorded += 1

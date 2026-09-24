@@ -61,7 +61,7 @@ export function parseFnbReceipt(text: string): FnbConversionReceipt | null {
   const uti = utiParts ? `${utiParts[1]}${utiParts[2] || ''}`.replace(/\s/g, '') : null
   const status = /Approved/i.test(text) ? 'approved' : /Declined/i.test(text) ? 'declined' : 'unknown'
   const date = text.match(/(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2}:\d{2})/)
-  const merchant = text.match(/\n([A-Z][A-Z0-9 .&'-]{2,40})\n\d{2}-\d{2}-\d{4}/)
+  const merchant = text.match(/FNB Receipt\s+([A-Z][A-Z0-9 .&'-]{2,40})\s+\d{2}-\d{2}-\d{4}/i)
   return {
     kind: 'conversion_receipt',
     amountZar,
