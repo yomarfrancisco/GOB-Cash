@@ -226,6 +226,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Bank-mail evidence is server-only. Clients never read raw ingress or artifacts.
+    match /bankEvidenceIngress/{id} {
+      allow read, write: if false;
+    }
+    match /bankEvidence/{id} {
+      allow read, write: if false;
+    }
+    match /bankEvidenceRejected/{id} {
+      allow read, write: if false;
+    }
+
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
