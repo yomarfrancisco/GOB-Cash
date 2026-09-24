@@ -9,7 +9,7 @@ import { defineSecret } from 'firebase-functions/params'
 import { archiveReceivedEmail } from './bankMailPure'
 import { handleBankMailWebhook } from './bankMailPure'
 import { resendReceivingClient } from './resendReceiving'
-import { applyFnbEvent, type CardFloat } from './fnbApply'
+import { applyFnbEvent, liquidityDeltaZar, type CardFloat } from './fnbApply'
 import { pdfText } from './fnbPdf'
 import { bankNoticeCopy, isFnbSender, looksLikeFnbReceipt, parseFnbCardSpend, parseFnbReceipt, type FnbEvent } from './fnbParse'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
@@ -162,20 +162,35 @@ async function recordFnbNotice(
   if (!cardLast4) return
   const eventRef = db().collection('bankFnbEvents').doc(emailId)
   const floatRef = db().collection('fnbCardFloat').doc(cardLast4)
+  const walletRef = db().collection('users').doc(ROUTING_ADMIN_UID).collection('wallets').doc('cashZAR')
   await db().runTransaction(async (tx) => {
     const existing = await tx.get(eventRef)
-    if (existing.exists) {
-      const prior = existing.data() as { kind?: string; merchant?: string | null }
-      if (prior.kind === 'conversion_receipt' && !prior.merchant && event.kind === 'conversion_receipt' && event.merchant) {
-        tx.set(eventRef, { merchant: event.merchant }, { merge: true })
+    const floatSnap = await tx.get(floatRef)
+    const walletSnap = await tx.get(walletRef)
+    const prior = existing.exists ? (existing.data() as FnbEvent & { merchant?: string | null; liquidityApplied?: boolean }) : null
+    if (prior?.kind === 'conversion_receipt' && !prior.merchant && event.kind === 'conversion_receipt' && event.merchant) {
+      tx.set(eventRef, { merchant: event.merchant }, { merge: true })
+    }
+    const source = prior || event
+    if (!prior?.liquidityApplied) {
+      const delta = liquidityDeltaZar(source)
+      if (delta !== 0) {
+        const current = Number(walletSnap.exists ? walletSnap.data()?.fiatBalance || 0 : 0)
+        tx.set(walletRef, {
+          fiatBalance: Math.round((current + delta) * 100) / 100,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true })
       }
+    }
+    if (prior) {
+      if (!prior.liquidityApplied) tx.set(eventRef, { liquidityApplied: true }, { merge: true })
       return
     }
-    const floatSnap = await tx.get(floatRef)
-    const next = applyFnbEvent(floatSnap.exists ? (floatSnap.data() as CardFloat) : null, event as FnbEvent, cardLast4)
+    const next = applyFnbEvent(floatSnap.exists ? (floatSnap.data() as CardFloat) : null, event, cardLast4)
     tx.set(eventRef, {
       ...event,
       forwarded: !fromBank,
+      liquidityApplied: true,
       resendEmailId: emailId,
       from: evidence.from,
       subject: evidence.subject,

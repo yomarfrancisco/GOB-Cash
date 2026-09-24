@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { liquidityDeltaZar } from './fnbApply'
 import { bankNoticeCopy, parseFnbCardSpend, parseFnbReceipt } from './fnbParse'
 
 const SPEND =
@@ -51,6 +52,14 @@ describe('FNB notices', () => {
     const copy = bankNoticeCopy(spend!, true)
     assert.match(copy.body, /forwarded from Gmail/i)
     assert.match(copy.body, /card 8948/)
+  })
+
+  it('adds an approved conversion and subtracts a reservation', () => {
+    const spend = parseFnbCardSpend(SPEND)
+    const receipt = parseFnbReceipt(RECEIPT)
+    assert.equal(liquidityDeltaZar(spend!), -395)
+    assert.equal(liquidityDeltaZar(receipt!), 4000)
+    assert.equal(liquidityDeltaZar({ ...receipt!, status: 'declined' }), 0)
   })
 
   it('ignores mail that is neither notice', () => {

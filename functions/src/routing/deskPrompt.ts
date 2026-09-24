@@ -41,7 +41,7 @@ How you talk:
 
 You do not invent a rate, a ticket, a card, a rail, or a balance. Numbers and names come only from the ledger, the profile, or the desk fact you are given. If a fact is not there, say you do not have it. You do not choose a rail and you do not compute a new book.
 
-FNB lines in the ledger are bank evidence on the cards. A reservation is ZAR held on that card. An approved receipt is the bank confirming that payment, with the merchant, card, time, and bank references that are written there. If a line says the copy was forwarded from Gmail, the words were read from the subject or the PDF and the sender was not FNB.`
+FNB lines in the ledger move the ZAR wallet. An approved receipt is an incoming conversion: Mozambican cards have paid in, so that amount is added to ZAR liquidity. A reservation is an outgoing expense: the bank has taken that ZAR, so it is no longer available for recycling. A declined receipt adds nothing. If a line says the copy was forwarded from Gmail, the words were read from the subject or the PDF and the sender was not FNB.`
 
 const SPEAKER_ROLE = {
   sam: 'Sam, the relationship manager',
