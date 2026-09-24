@@ -251,14 +251,22 @@ async function recordMznProof(
   )
   if (!image) return
   const [bytes] = await bucket.file(image.storagePath).download()
-  const proof = parseMznProof(await imageText(bytes))
-  if (!proof) return
+  const ocr = await imageText(bytes)
+  const proof = parseMznProof(ocr)
+  if (!proof) {
+    await evidenceRef.set({ mznOcr: ocr.slice(0, 1500) }, { merge: true })
+    return
+  }
   const docId = proof.operationNumber || `img-${image.sha256.slice(0, 32)}`
   const eventRef = db().collection('bankMznEvents').doc(docId)
   const walletRef = db().collection('users').doc(ROUTING_ADMIN_UID).collection('wallets').doc('cashMZN')
   await db().runTransaction(async (tx) => {
     const existing = await tx.get(eventRef)
-    if (existing.exists) return
+    if (existing.exists) {
+      const prior = existing.data() as { beneficiary?: string | null }
+      if (!prior.beneficiary && proof.beneficiary) tx.set(eventRef, { beneficiary: proof.beneficiary }, { merge: true })
+      return
+    }
     const walletSnap = await tx.get(walletRef)
     const current = Number(walletSnap.exists ? walletSnap.data()?.fiatBalance || 0 : 0)
     tx.set(walletRef, {

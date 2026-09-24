@@ -42,8 +42,8 @@ function accountLine(text: string, label: RegExp): string | null {
 }
 
 export function parseMznProof(text: string): MznProof | null {
-  const received = /it has already been received|it'?s done/i.test(text)
-  const transfer = /opera[cç][aã]o efectuada com sucesso|operation successful/i.test(text)
+  const received = /already been received|it'?s done/i.test(text)
+  const transfer = /sucesso|operation successful|valor a transferir|transfer value/i.test(text)
   if (!received && !transfer) return null
   const amountRaw = text.match(/(\d{1,3}(?:[.,]\d{3})+[.,]\d{2}|\d+[.,]\d{2})\s*\n?\s*MZN/i)
   const amountMzn = amountRaw ? parseMznAmount(amountRaw[1]) : null
@@ -52,7 +52,7 @@ export function parseMznProof(text: string): MznProof | null {
   const tei = text.match(/TEI order number\s*[\n:]*\s*(\d{5,})/i)
   let beneficiary: string | null = null
   if (received) {
-    const named = text.match(/\n([A-Z][A-Z0-9 .,&'-]{2,60})\n+\s*It has already been received/i)
+    const named = text.match(/([A-Z][A-Z0-9 .,&'-]{2,60})\s+It has already been received/i)
     beneficiary = named ? named[1].trim() : null
   } else {
     beneficiary = lineAfter(text, /Titular da conta a creditar\s*/i)
