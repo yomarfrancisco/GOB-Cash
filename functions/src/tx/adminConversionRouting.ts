@@ -1032,9 +1032,10 @@ async function zarWalletBalance(adminUid: string): Promise<number> {
 
 async function loadFnbDeskLines(): Promise<string> {
   try {
-    const [events, floats] = await Promise.all([
+    const [events, floats, mznEvents] = await Promise.all([
       db.collection('bankFnbEvents').limit(20).get(),
       db.collection('fnbCardFloat').limit(20).get(),
+      db.collection('bankMznEvents').limit(20).get(),
     ])
     const lines: string[] = []
     for (const doc of floats.docs) {
@@ -1076,6 +1077,13 @@ async function loadFnbDeskLines(): Promise<string> {
           `FNB ${row.status || 'recorded'} ${amount} on ${card}${merchant}${row.occurredAt ? `, ${row.occurredAt}` : ''}.${refs ? ` ${refs}.` : ''}${via}`
         )
       }
+    }
+    for (const doc of mznEvents.docs) {
+      const row = doc.data() as { amountMzn?: number; beneficiary?: string | null; operationNumber?: string | null }
+      const amount = typeof row.amountMzn === 'number' ? `${row.amountMzn.toFixed(2)} MZN` : 'an MZN amount'
+      const who = row.beneficiary ? ` for ${row.beneficiary}` : ''
+      const ref = row.operationNumber ? ` Operation ${row.operationNumber}.` : ''
+      lines.push(`MZN received ${amount}${who}.${ref} Screenshot proof, added to the MZN wallet.`)
     }
     return lines.join('\n')
   } catch {

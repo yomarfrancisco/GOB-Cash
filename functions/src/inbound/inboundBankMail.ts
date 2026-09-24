@@ -12,6 +12,8 @@ import { resendReceivingClient } from './resendReceiving'
 import { applyFnbEvent, liquidityDeltaZar, type CardFloat } from './fnbApply'
 import { pdfText } from './fnbPdf'
 import { bankNoticeCopy, isFnbSender, looksLikeFnbReceipt, parseFnbCardSpend, parseFnbReceipt, type FnbEvent } from './fnbParse'
+import { imageText } from './mznImageText'
+import { mznNoticeCopy, parseMznProof, type MznProof } from './mznProofParse'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
 import {
   EVIDENCE_COLLECTION,
@@ -137,7 +139,10 @@ export const inbound_archiveBankMail = functions
     if (!outcome.ok && outcome.retryable) {
       throw new Error('archive_retryable')
     }
-    if (outcome.ok) await recordFnbNotice(ingress.resendEmailId, bucket)
+    if (outcome.ok) {
+      await recordFnbNotice(ingress.resendEmailId, bucket)
+      await recordMznProof(ingress.resendEmailId, bucket)
+    }
   })
 
 async function recordFnbNotice(
@@ -233,6 +238,79 @@ async function publishBankNotice(emailId: string, event: FnbEvent, forwarded: bo
   })
 }
 
+async function recordMznProof(
+  emailId: string,
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } }
+): Promise<void> {
+  const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
+  const snap = await evidenceRef.get()
+  if (!snap.exists) return
+  const evidence = snap.data() as EvidenceRecord
+  const image = (evidence.attachments || []).find(
+    (row) => /^image\//i.test(row.contentType) || /\.(jpe?g|png|webp)$/i.test(row.safeFilename)
+  )
+  if (!image) return
+  const [bytes] = await bucket.file(image.storagePath).download()
+  const proof = parseMznProof(await imageText(bytes))
+  if (!proof) return
+  const docId = proof.operationNumber || `img-${image.sha256.slice(0, 32)}`
+  const eventRef = db().collection('bankMznEvents').doc(docId)
+  const walletRef = db().collection('users').doc(ROUTING_ADMIN_UID).collection('wallets').doc('cashMZN')
+  await db().runTransaction(async (tx) => {
+    const existing = await tx.get(eventRef)
+    if (existing.exists) return
+    const walletSnap = await tx.get(walletRef)
+    const current = Number(walletSnap.exists ? walletSnap.data()?.fiatBalance || 0 : 0)
+    tx.set(walletRef, {
+      fiatBalance: Math.round((current + proof.amountMzn) * 100) / 100,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true })
+    tx.set(eventRef, {
+      ...proof,
+      resendEmailId: emailId,
+      from: evidence.from,
+      subject: evidence.subject,
+      imageSha256: image.sha256,
+      createdAt: new Date().toISOString(),
+    })
+    tx.set(evidenceRef, { parseStatus: 'parsed', mznKind: proof.kind }, { merge: true })
+  })
+  const written = await eventRef.get()
+  if (!written.exists || written.data()?.resendEmailId !== emailId) return
+  safeLog.info('mzn_recorded', { emailId, reason: proof.layout })
+  await publishMznNotice(docId, proof)
+}
+
+async function publishMznNotice(docId: string, proof: MznProof): Promise<void> {
+  const id = `mzn-${docId}`
+  const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
+  const existing = await ref.get()
+  if (existing.exists) return
+  const copy = mznNoticeCopy(proof)
+  await ref.set({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: copy.title,
+    body: copy.body,
+    dropdownTitle: copy.title,
+    dropdownBody: copy.body,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_mzn',
+    amountCurrency: 'MZN',
+    amountValue: proof.amountMzn,
+    amountSign: 'credit',
+    txId: id,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: false,
+    status: 'recorded',
+    routingAction: 'bank_notice',
+    deskSpeaker: 'sam',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    recordingSource: 'SYSTEM',
+  })
+}
+
 /** One-shot: parse FNB mail already archived before this recorder existed. */
 export const inbound_backfillFnb = functions
   .region('us-central1')
@@ -248,6 +326,7 @@ export const inbound_backfillFnb = functions
     let recorded = 0
     for (const doc of snap.docs) {
       await recordFnbNotice(doc.id, bucket)
+      await recordMznProof(doc.id, bucket)
       const after = await db().collection('bankFnbEvents').doc(doc.id).get()
       if (after.exists) recorded += 1
     }
