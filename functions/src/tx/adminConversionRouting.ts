@@ -5,6 +5,7 @@
  */
 
 import * as functions from 'firebase-functions'
+import { defineSecret } from 'firebase-functions/params'
 import * as admin from 'firebase-admin'
 import {
   CONVERSION_ROUTING_KIND,
@@ -127,6 +128,7 @@ import {
   type PathWrite,
 } from '../routing/pathEngine'
 
+const inboundSecret = defineSecret('RESEND_INBOUND_SECRET')
 const db = admin.firestore()
 const TESTS = 'adminConversionTests'
 const CURRENT = 'adminConversionCurrent'
@@ -1839,6 +1841,7 @@ export const admin_getConversionRoutingStatus = functions
 
 export const admin_confirmConversionRoutingCycle = functions
   .region('us-central1')
+  .runWith({ timeoutSeconds: 120, memory: '512MB' })
   .https.onCall(async (data, context) => {
     const adminUid = assertRoutingAdmin(context)
     const now = admin.firestore.Timestamp.now()
@@ -2237,6 +2240,47 @@ export const admin_confirmConversionRoutingCycle = functions
       cycleNumber: nextCycle?.cycleNumber ?? result.nextState.completedCycles,
       nextDeployedAmount: nextCycle?.deployedAmount ?? null,
       completed: result.testComplete,
+    })
+  })
+
+/** Opens the next sale when a confirm saved the swipe and then timed out. */
+export const admin_resumeRoutingCycle = functions
+  .region('us-central1')
+  .runWith({ secrets: [inboundSecret], timeoutSeconds: 120, memory: '512MB' })
+  .https.onRequest(async (req, res) => {
+    const provided = req.get('x-inbound-secret') || ''
+    if (!provided || provided !== inboundSecret.value()) {
+      res.status(401).json({ ok: false })
+      return
+    }
+    const adminUid = ROUTING_ADMIN_UID
+    const testRunId = await currentTestId(adminUid)
+    if (!testRunId) {
+      res.status(404).json({ ok: false, reason: 'no_run' })
+      return
+    }
+    const snap = await db.collection(TESTS).doc(testRunId).get()
+    const data = snap.data() || {}
+    if (data.status !== 'active') {
+      res.status(409).json({ ok: false, reason: 'not_active' })
+      return
+    }
+    const awaiting = num(data.awaitingCycleNumber, 0)
+    if (awaiting > 0) {
+      res.status(200).json({ ok: true, already: data.awaitingKind || 'deploy', cycle: awaiting })
+      return
+    }
+    const state = stateFromDoc(data)
+    if (windowIsFinished(state)) {
+      res.status(200).json({ ok: true, finished: true })
+      return
+    }
+    const issued = await issueCycle(adminUid, testRunId, state, admin.firestore.Timestamp.now())
+    res.status(200).json({
+      ok: true,
+      kind: issued.kind,
+      cycle: issued.plan.cycleNumber,
+      amountZar: issued.plan.deployedAmount,
     })
   })
 

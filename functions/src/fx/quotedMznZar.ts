@@ -66,7 +66,7 @@ export async function fetchQuotedMznPerZar(markup = MZN_ZAR_MARKUP): Promise<num
   }
 
   try {
-    const response = await fetch(fxLatestZarUrl())
+    const response = await fetch(fxLatestZarUrl(), { signal: AbortSignal.timeout(8000) })
     if (!response.ok) throw new Error(`FX HTTP ${response.status}`)
     const data = await response.json()
     const apiRate = mznFromPayload(data)
