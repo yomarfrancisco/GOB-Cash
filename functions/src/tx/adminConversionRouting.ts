@@ -1028,6 +1028,59 @@ async function zarWalletBalance(adminUid: string): Promise<number> {
   return roundMoney(Number(snap.exists ? snap.data()?.fiatBalance || 0 : 0))
 }
 
+async function loadFnbDeskLines(): Promise<string> {
+  try {
+    const [events, floats] = await Promise.all([
+      db.collection('bankFnbEvents').limit(20).get(),
+      db.collection('fnbCardFloat').limit(20).get(),
+    ])
+    const lines: string[] = []
+    for (const doc of floats.docs) {
+      const row = doc.data() as { reservedZar?: number; receiptedZar?: number; availableZar?: number | null }
+      const available = typeof row.availableZar === 'number' ? `R${row.availableZar.toFixed(2)} available` : 'available ZAR not set'
+      lines.push(
+        `FNB card ${doc.id}: reserved R${Number(row.reservedZar || 0).toFixed(2)}, receipted R${Number(row.receiptedZar || 0).toFixed(2)}, ${available}.`
+      )
+    }
+    const notices = events.docs
+      .map((doc) => doc.data() as {
+        kind?: string
+        amountZar?: number
+        cardLast4?: string
+        merchant?: string
+        forwarded?: boolean
+        reservedOn?: string
+        status?: string
+        occurredAt?: string
+        authCode?: string
+        rrn?: string
+        uti?: string
+        createdAt?: string
+      })
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+      .slice(0, 8)
+    for (const row of notices) {
+      const amount = typeof row.amountZar === 'number' ? `R${row.amountZar.toFixed(2)}` : 'an amount'
+      const card = row.cardLast4 ? `card ${row.cardLast4}` : 'a card'
+      const merchant = row.merchant ? ` at ${row.merchant}` : ''
+      const via = row.forwarded === true ? ' Forwarded from Gmail, sender was not FNB.' : ' Direct from FNB.'
+      if (row.kind === 'card_spend') {
+        lines.push(`FNB reserved ${amount} on ${card}${merchant}.${row.reservedOn ? ` ${row.reservedOn}.` : ''}${via}`)
+      } else if (row.kind === 'conversion_receipt') {
+        const refs = [row.authCode ? `auth ${row.authCode}` : '', row.rrn ? `RRN ${row.rrn}` : '', row.uti ? `UTI ${row.uti}` : '']
+          .filter(Boolean)
+          .join(', ')
+        lines.push(
+          `FNB ${row.status || 'recorded'} ${amount} on ${card}${merchant}${row.occurredAt ? `, ${row.occurredAt}` : ''}.${refs ? ` ${refs}.` : ''}${via}`
+        )
+      }
+    }
+    return lines.join('\n')
+  } catch {
+    return ''
+  }
+}
+
 async function loadDeskOperator(adminUid: string): Promise<DeskOperator> {
   try {
     const snap = await db.collection('users').doc(adminUid).get()
@@ -1127,10 +1180,11 @@ async function voiceDeskCard(params: {
   awaitingKind?: string
 }) {
   const nowMs = Date.now()
-  const [operator, recentCycles, recentFeedback] = await Promise.all([
+  const [operator, recentCycles, recentFeedback, bankLines] = await Promise.all([
     loadDeskOperator(params.adminUid),
     loadRecentCycleBriefs(params.testRunId).catch(() => [] as RecentCycleBrief[]),
     loadRecentFeedbackBriefs(params.testRunId),
+    loadFnbDeskLines(),
   ])
   const visuals = buildDeskVisuals({
     state: params.state,
@@ -1143,7 +1197,7 @@ async function voiceDeskCard(params: {
   return converseAtDesk({
     speaker: params.speaker,
     message: params.message,
-    brief: visuals.snapshot,
+    brief: [visuals.snapshot, bankLines].filter(Boolean).join('\n'),
     visuals,
     deskFact: params.fact,
     operator,

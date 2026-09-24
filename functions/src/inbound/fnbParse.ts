@@ -79,3 +79,34 @@ export function parseFnbReceipt(text: string): FnbConversionReceipt | null {
 export function isFnbSender(from: string | null): boolean {
   return Boolean(from && /@fnb\.co\.za>?$/i.test(from.trim()))
 }
+
+/** A Gmail forward keeps the FNB subject. The sender is no longer the bank. */
+export function looksLikeFnbReceipt(subject: string | null): boolean {
+  return /FNB Receipt/i.test(subject || '')
+}
+
+export function bankNoticeCopy(
+  event: FnbEvent,
+  forwarded: boolean
+): { title: string; body: string } {
+  const via = forwarded
+    ? 'This copy was forwarded from Gmail, so the sender was not FNB. The notice itself still reads as FNB.'
+    : 'This arrived directly from FNB.'
+  if (event.kind === 'card_spend') {
+    const amount = `R${event.amountZar.toFixed(2)}`
+    return {
+      title: `FNB reserved ${amount}`,
+      body: `FNB reserved ${amount} on card ${event.cardLast4} at ${event.merchant}. Current account ending ${event.accountLast4}${event.reservedOn ? `, ${event.reservedOn}` : ''}. ${via}`,
+    }
+  }
+  const amount = `R${event.amountZar.toFixed(2)}`
+  const where = event.merchant ? ` at ${event.merchant}` : ''
+  const card = event.cardLast4 ? ` on card ${event.cardLast4}` : ''
+  const refs = [event.authCode ? `auth ${event.authCode}` : '', event.rrn ? `RRN ${event.rrn}` : '']
+    .filter(Boolean)
+    .join(', ')
+  return {
+    title: `FNB approved ${amount}`,
+    body: `FNB approved ${amount}${where}${card}${event.occurredAt ? `, ${event.occurredAt}` : ''}. ${refs ? `${refs}. ` : ''}${via}`,
+  }
+}

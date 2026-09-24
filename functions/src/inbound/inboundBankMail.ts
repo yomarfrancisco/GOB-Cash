@@ -11,7 +11,8 @@ import { handleBankMailWebhook } from './bankMailPure'
 import { resendReceivingClient } from './resendReceiving'
 import { applyFnbEvent, type CardFloat } from './fnbApply'
 import { pdfText } from './fnbPdf'
-import { isFnbSender, parseFnbCardSpend, parseFnbReceipt, type FnbEvent } from './fnbParse'
+import { bankNoticeCopy, isFnbSender, looksLikeFnbReceipt, parseFnbCardSpend, parseFnbReceipt, type FnbEvent } from './fnbParse'
+import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
 import {
   EVIDENCE_COLLECTION,
   INGRESS_COLLECTION,
@@ -147,10 +148,10 @@ async function recordFnbNotice(
   const snap = await ref.get()
   if (!snap.exists) return
   const evidence = snap.data() as EvidenceRecord
-  if (!isFnbSender(evidence.from)) return
+  const fromBank = isFnbSender(evidence.from)
   const spend = evidence.subject ? parseFnbCardSpend(evidence.subject) : null
   let event: FnbEvent | null = spend
-  if (!event) {
+  if (!event && (fromBank || looksLikeFnbReceipt(evidence.subject))) {
     const pdf = (evidence.attachments || []).find((row) => /pdf/i.test(row.contentType) || /\.pdf$/i.test(row.safeFilename))
     if (!pdf) return
     const [bytes] = await bucket.file(pdf.storagePath).download()
@@ -174,6 +175,7 @@ async function recordFnbNotice(
     const next = applyFnbEvent(floatSnap.exists ? (floatSnap.data() as CardFloat) : null, event as FnbEvent, cardLast4)
     tx.set(eventRef, {
       ...event,
+      forwarded: !fromBank,
       resendEmailId: emailId,
       from: evidence.from,
       subject: evidence.subject,
@@ -183,6 +185,37 @@ async function recordFnbNotice(
     tx.set(ref, { parseStatus: 'parsed', fnbKind: event.kind }, { merge: true })
   })
   safeLog.info('fnb_recorded', { emailId, reason: event.kind })
+  await publishBankNotice(emailId, event, !fromBank)
+}
+
+async function publishBankNotice(emailId: string, event: FnbEvent, forwarded: boolean): Promise<void> {
+  const id = `fnb-${emailId}`
+  const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
+  const existing = await ref.get()
+  if (existing.exists) return
+  const copy = bankNoticeCopy(event, forwarded)
+  await ref.set({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: copy.title,
+    body: copy.body,
+    dropdownTitle: copy.title,
+    dropdownBody: copy.body,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_zar',
+    amountCurrency: 'ZAR',
+    amountValue: event.amountZar,
+    amountSign: 'debit',
+    txId: id,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: false,
+    status: 'recorded',
+    routingAction: 'bank_notice',
+    deskSpeaker: 'sam',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    recordingSource: 'SYSTEM',
+  })
 }
 
 /** One-shot: parse FNB mail already archived before this recorder existed. */
@@ -199,10 +232,6 @@ export const inbound_backfillFnb = functions
     const snap = await db().collection(EVIDENCE_COLLECTION).limit(50).get()
     let recorded = 0
     for (const doc of snap.docs) {
-      const before = await db().collection('bankFnbEvents').doc(doc.id).get()
-      const prior = before.data() as { kind?: string; merchant?: string | null } | undefined
-      const needsMerchant = prior?.kind === 'conversion_receipt' && !prior.merchant
-      if (before.exists && !needsMerchant) continue
       await recordFnbNotice(doc.id, bucket)
       const after = await db().collection('bankFnbEvents').doc(doc.id).get()
       if (after.exists) recorded += 1

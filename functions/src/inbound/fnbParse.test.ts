@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { parseFnbCardSpend, parseFnbReceipt } from './fnbParse'
+import { bankNoticeCopy, parseFnbCardSpend, parseFnbReceipt } from './fnbParse'
 
 const SPEND =
   'FNB :-) R395.00 reserved for purchase @ M2 Aesthetic Studio from Current a/c..630649 using card..8948. 24Sep 10:36'
@@ -42,6 +42,15 @@ describe('FNB notices', () => {
     assert.equal(receipt?.authCode, '893796')
     assert.equal(receipt?.uti, '8848407e-4295-4031-870c-68b70cab6165')
     assert.equal(receipt?.merchant, 'BRICS AI')
+  })
+
+  it('reads a Gmail forward of the same reservation', () => {
+    const spend = parseFnbCardSpend(`Fwd: ${SPEND}`)
+    assert.equal(spend?.amountZar, 395)
+    assert.equal(spend?.merchant, 'M2 Aesthetic Studio')
+    const copy = bankNoticeCopy(spend!, true)
+    assert.match(copy.body, /forwarded from Gmail/i)
+    assert.match(copy.body, /card 8948/)
   })
 
   it('ignores mail that is neither notice', () => {
