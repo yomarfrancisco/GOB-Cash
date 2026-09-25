@@ -37,6 +37,7 @@ import {
   stampAssignmentDecisions,
   type RoutingState,
 } from '../routing/conversionRouter'
+import { mznCoversRestock, receiptsCoverRestock } from '../inbound/restockMatch'
 import { applyWindowPathWrite, hydrateWindow, persistWindow, ROUTING_ENGINE_ID } from '../routing/throughputPlan'
 import {
   parseFrictionNote,
@@ -1859,8 +1860,9 @@ export const admin_getConversionRoutingStatus = functions
 export const admin_confirmConversionRoutingCycle = functions
   .region('us-central1')
   .runWith({ timeoutSeconds: 120, memory: '512MB' })
-  .https.onCall(async (data, context) => {
-    const adminUid = assertRoutingAdmin(context)
+  .https.onCall(async (data, context) => confirmOpenCycle(assertRoutingAdmin(context), (data || {}) as Record<string, unknown>))
+
+export async function confirmOpenCycle(adminUid: string, data: Record<string, unknown>) {
     const now = admin.firestore.Timestamp.now()
     const requestedCycle =
       typeof data?.cycleNumber === 'number' ? data.cycleNumber : undefined
@@ -2258,7 +2260,51 @@ export const admin_confirmConversionRoutingCycle = functions
       nextDeployedAmount: nextCycle?.deployedAmount ?? null,
       completed: result.testComplete,
     })
-  })
+}
+
+/** Close an open restock when bank receipts add up to the tickets. */
+export async function tryAutoConfirmOpenRestock(): Promise<void> {
+  const adminUid = ROUTING_ADMIN_UID
+  const testRunId = await currentTestId(adminUid)
+  if (!testRunId) return
+  const snap = await db.collection(TESTS).doc(testRunId).get()
+  const data = snap.data() || {}
+  if (data.status !== 'active' || data.awaitingKind !== 'replenish') return
+  const expectedZar = num(data.replenishAmountZar, 0)
+  const expectedMzn = num(data.replenishAmountMzn, 0)
+  const cycle = num(data.awaitingCycleNumber, 0)
+  if (!(expectedZar > 0) || cycle <= 0) return
+  const issued = await db.collection('users').doc(adminUid).collection('activityEvents').doc(replenishEventId(testRunId, cycle)).get()
+  const issuedAt = issued.data()?.createdAt
+  const issuedMs = typeof issuedAt?.toMillis === 'function' ? issuedAt.toMillis() : 0
+  if (!(issuedMs > 0)) return
+  const [fnb, capitec, mznSnap, mznEvents] = await Promise.all([
+    db.collection('bankFnbEvents').limit(40).get(),
+    db.collection('bankCapitecEvents').limit(40).get(),
+    db.collection('users').doc(adminUid).collection('wallets').doc('cashMZN').get(),
+    db.collection('bankMznEvents').limit(40).get(),
+  ])
+  const zar: Array<{ ref: FirebaseFirestore.DocumentReference; amount: number }> = []
+  const take = (doc: FirebaseFirestore.QueryDocumentSnapshot, amount: number, status: string, kind?: string) => {
+    if (doc.data().matchedRestock) return
+    if (kind && kind !== 'conversion_receipt') return
+    if (status !== 'approved') return
+    const at = Date.parse(String(doc.data().createdAt || ''))
+    if (!Number.isFinite(at) || at < issuedMs) return
+    zar.push({ ref: doc.ref, amount })
+  }
+  fnb.docs.forEach((doc) => take(doc, Number(doc.data().amountZar || 0), String(doc.data().status || ''), String(doc.data().kind || '')))
+  capitec.docs.forEach((doc) => take(doc, Number(doc.data().amountZar || 0), String(doc.data().status || '')))
+  const mznIn = mznEvents.docs
+    .filter((doc) => !doc.data().matchedRestock && Date.parse(String(doc.data().createdAt || '')) >= issuedMs)
+    .map((doc) => Number(doc.data().amountMzn || 0))
+  const balance = Number(mznSnap.data()?.fiatBalance || 0)
+  if (!receiptsCoverRestock(expectedZar, zar.map((row) => row.amount))) return
+  if (!mznCoversRestock(expectedMzn, balance, mznIn)) return
+  await confirmOpenCycle(adminUid, { testRunId, cycleNumber: cycle })
+  const mark = `${testRunId}:${cycle}`
+  await Promise.all(zar.map((row) => row.ref.set({ matchedRestock: mark }, { merge: true })))
+}
 
 /** Opens the next sale when a confirm saved the swipe and then timed out. */
 export const admin_resumeRoutingCycle = functions

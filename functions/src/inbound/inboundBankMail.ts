@@ -16,6 +16,7 @@ import { capitecNoticeCopy, isCapitecSender, parseCapitecReceipt, type CapitecRe
 import { imageText } from './mznImageText'
 import { mznNoticeCopy, parseMznProof, type MznProof } from './mznProofParse'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
+import { tryAutoConfirmOpenRestock } from '../tx/adminConversionRouting'
 import {
   EVIDENCE_COLLECTION,
   INGRESS_COLLECTION,
@@ -208,6 +209,7 @@ async function recordFnbNotice(
   })
   safeLog.info('fnb_recorded', { emailId, reason: event.kind })
   await publishBankNotice(emailId, event, !fromBank)
+  if (event.kind === 'conversion_receipt' && event.status === 'approved') await tryAutoConfirmOpenRestock()
 }
 
 async function publishBankNotice(emailId: string, event: FnbEvent, forwarded: boolean): Promise<void> {
@@ -289,6 +291,7 @@ async function recordMznProof(
   if (!written.exists || written.data()?.resendEmailId !== emailId) return
   safeLog.info('mzn_recorded', { emailId, reason: proof.layout })
   await publishMznNotice(docId, proof)
+  await tryAutoConfirmOpenRestock()
 }
 
 async function publishMznNotice(docId: string, proof: MznProof): Promise<void> {
@@ -362,6 +365,7 @@ async function recordCapitecReceipt(
   if (!written.exists || written.data()?.resendEmailId !== emailId) return
   safeLog.info('capitec_recorded', { emailId, reason: receipt.status })
   await publishCapitecNotice(docId, receipt)
+  if (receipt.status === 'approved') await tryAutoConfirmOpenRestock()
 }
 
 async function publishCapitecNotice(docId: string, receipt: CapitecReceipt): Promise<void> {
