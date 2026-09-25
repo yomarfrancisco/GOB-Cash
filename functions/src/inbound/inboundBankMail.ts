@@ -12,6 +12,7 @@ import { resendReceivingClient } from './resendReceiving'
 import { applyFnbEvent, liquidityDeltaZar, type CardFloat } from './fnbApply'
 import { pdfText } from './fnbPdf'
 import { bankNoticeCopy, isFnbSender, looksLikeFnbReceipt, parseFnbCardSpend, parseFnbReceipt, type FnbEvent } from './fnbParse'
+import { capitecNoticeCopy, isCapitecSender, parseCapitecReceipt, type CapitecReceipt } from './capitecParse'
 import { imageText } from './mznImageText'
 import { mznNoticeCopy, parseMznProof, type MznProof } from './mznProofParse'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
@@ -142,6 +143,7 @@ export const inbound_archiveBankMail = functions
     if (outcome.ok) {
       await recordFnbNotice(ingress.resendEmailId, bucket)
       await recordMznProof(ingress.resendEmailId, bucket)
+      await recordCapitecReceipt(ingress.resendEmailId, bucket)
     }
   })
 
@@ -319,6 +321,78 @@ async function publishMznNotice(docId: string, proof: MznProof): Promise<void> {
   })
 }
 
+async function recordCapitecReceipt(
+  emailId: string,
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } }
+): Promise<void> {
+  const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
+  const snap = await evidenceRef.get()
+  if (!snap.exists) return
+  const evidence = snap.data() as EvidenceRecord
+  if (!isCapitecSender(evidence.from) && !/receipt from/i.test(evidence.subject || '')) return
+  const pdf = (evidence.attachments || []).find((row) => /pdf/i.test(row.contentType) || /\.pdf$/i.test(row.safeFilename))
+  if (!pdf) return
+  const [bytes] = await bucket.file(pdf.storagePath).download()
+  const receipt = parseCapitecReceipt(await pdfText(bytes))
+  if (!receipt) return
+  const docId = receipt.transactionNumber || `pdf-${pdf.sha256.slice(0, 32)}`
+  const eventRef = db().collection('bankCapitecEvents').doc(docId)
+  const walletRef = db().collection('users').doc(ROUTING_ADMIN_UID).collection('wallets').doc('cashZAR')
+  await db().runTransaction(async (tx) => {
+    const existing = await tx.get(eventRef)
+    if (existing.exists) return
+    if (receipt.status === 'approved') {
+      const walletSnap = await tx.get(walletRef)
+      const current = Number(walletSnap.exists ? walletSnap.data()?.fiatBalance || 0 : 0)
+      tx.set(walletRef, {
+        fiatBalance: Math.round((current + receipt.amountZar) * 100) / 100,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true })
+    }
+    tx.set(eventRef, {
+      ...receipt,
+      resendEmailId: emailId,
+      from: evidence.from,
+      subject: evidence.subject,
+      createdAt: new Date().toISOString(),
+    })
+    tx.set(evidenceRef, { parseStatus: 'parsed', capitecKind: receipt.kind }, { merge: true })
+  })
+  const written = await eventRef.get()
+  if (!written.exists || written.data()?.resendEmailId !== emailId) return
+  safeLog.info('capitec_recorded', { emailId, reason: receipt.status })
+  await publishCapitecNotice(docId, receipt)
+}
+
+async function publishCapitecNotice(docId: string, receipt: CapitecReceipt): Promise<void> {
+  const id = `capitec-${docId}`
+  const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
+  if ((await ref.get()).exists) return
+  const copy = capitecNoticeCopy(receipt)
+  await ref.set({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: copy.title,
+    body: copy.body,
+    dropdownTitle: copy.title,
+    dropdownBody: copy.body,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_zar',
+    amountCurrency: 'ZAR',
+    amountValue: receipt.amountZar,
+    amountSign: receipt.status === 'approved' ? 'credit' : 'debit',
+    txId: id,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: false,
+    status: 'recorded',
+    routingAction: 'bank_notice',
+    deskSpeaker: 'sam',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    recordingSource: 'SYSTEM',
+  })
+}
+
 /** One-shot: parse FNB mail already archived before this recorder existed. */
 export const inbound_backfillFnb = functions
   .region('us-central1')
@@ -335,6 +409,7 @@ export const inbound_backfillFnb = functions
     for (const doc of snap.docs) {
       await recordFnbNotice(doc.id, bucket)
       await recordMznProof(doc.id, bucket)
+      await recordCapitecReceipt(doc.id, bucket)
       const after = await db().collection('bankFnbEvents').doc(doc.id).get()
       if (after.exists) recorded += 1
     }

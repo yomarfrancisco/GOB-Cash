@@ -1032,10 +1032,11 @@ async function zarWalletBalance(adminUid: string): Promise<number> {
 
 async function loadFnbDeskLines(): Promise<string> {
   try {
-    const [events, floats, mznEvents] = await Promise.all([
+    const [events, floats, mznEvents, capitecEvents] = await Promise.all([
       db.collection('bankFnbEvents').limit(20).get(),
       db.collection('fnbCardFloat').limit(20).get(),
       db.collection('bankMznEvents').limit(20).get(),
+      db.collection('bankCapitecEvents').limit(20).get(),
     ])
     const lines: string[] = []
     for (const doc of floats.docs) {
@@ -1084,6 +1085,14 @@ async function loadFnbDeskLines(): Promise<string> {
       const who = row.beneficiary ? ` for ${row.beneficiary}` : ''
       const ref = row.operationNumber ? ` Operation ${row.operationNumber}.` : ''
       lines.push(`MZN received ${amount}${who}.${ref} Screenshot proof, added to the MZN wallet.`)
+    }
+    for (const doc of capitecEvents.docs) {
+      const row = doc.data() as { amountZar?: number; merchant?: string | null; status?: string; transactionNumber?: string | null; cardLast4?: string | null }
+      const amount = typeof row.amountZar === 'number' ? `R${row.amountZar.toFixed(2)}` : 'an amount'
+      const where = row.merchant ? ` at ${row.merchant}` : ''
+      const card = row.cardLast4 ? ` on card ${row.cardLast4}` : ''
+      const ref = row.transactionNumber ? ` Transaction ${row.transactionNumber}.` : ''
+      lines.push(`Capitec ${row.status || 'recorded'} ${amount}${where}${card}.${ref}`)
     }
     return lines.join('\n')
   } catch {

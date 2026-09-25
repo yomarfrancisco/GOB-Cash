@@ -245,6 +245,9 @@ service cloud.firestore {
     match /bankMznEvents/{id} {
       allow read, write: if false;
     }
+    match /bankCapitecEvents/{id} {
+      allow read, write: if false;
+    }
 
     // Deny all other access by default
     match /{document=**} {
