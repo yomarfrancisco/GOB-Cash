@@ -30,17 +30,16 @@ describe('Throughput golden fixture seed 21 R100k', () => {
     assert.equal(day2.completedThroughDay, 2)
 
     const book = (day2.snapshot.book[2] ?? []).map((ticket) => ticket.amount)
-    assert.deepEqual(book, [2_942.06, 3_524.31, 3_006.67])
+    assert.deepEqual(book, [5_554.52, 5_836.03])
 
     const record = day2.snapshot.days[1]!
-    assert.ok(Math.abs(record.settledZar - 9_473.04) < CENT)
-    assert.ok(Math.abs(record.heldBackZar - 92_068.02) < CENT)
+    assert.ok(Math.abs(record.settledZar - 11_390.55) < CENT)
+    assert.ok(Math.abs(record.heldBackZar - 89_900.04) < CENT)
 
     const routes = dumpRoutes(day2, 2).routes
     assert.deepEqual(routes, [
-      { card: 'BRICS', pos: 'Rail 4 Capitec', amount: 2_942.06 },
-      { card: 'Ginav', pos: 'Rail 1 FNB', amount: 3_524.31 },
-      { card: 'Vidrotec', pos: 'Rail 2 FNB', amount: 3_006.67 },
+      { card: 'BRICS', pos: 'Rail 1 FNB', amount: 5_554.52 },
+      { card: 'Ginav', pos: 'Rail 2 FNB', amount: 5_836.03 },
     ])
     assert.equal(
       routes.every((row) => row.amount !== 15_000),
@@ -60,7 +59,7 @@ describe('Throughput golden fixture seed 21 R100k', () => {
     })
     const day3 = advanceWindow(reported)
     const record = day3.snapshot.days[2]!
-    assert.ok(Math.abs(record.settledZar - 18_827.57) < CENT)
+    assert.ok(Math.abs(record.settledZar - 18_421.22) < CENT)
     assert.equal(
       record.routes.every((row) => row.amountZar !== 15_000),
       true
@@ -73,7 +72,7 @@ describe('Throughput golden fixture seed 21 R100k', () => {
     const persisted = persistWindow(window)
     assert.equal(hasArrayOfArrays(persisted), false)
     assert.ok(Array.isArray((persisted.snapshot as { days: unknown[] }).days))
-    assert.ok((persisted.snapshot as { days: { routes: unknown[] }[] }).days[0].routes.length >= 3)
+    assert.ok((persisted.snapshot as { days: { routes: unknown[] }[] }).days[0].routes.length >= 2)
   })
 
   it('rails survive the Firestore round trip: persisted Day 2/3 equals in-memory Day 2/3', () => {
@@ -84,7 +83,6 @@ describe('Throughput golden fixture seed 21 R100k', () => {
     const perDay2 = advanceWindow(roundTrip(day1))
     assert.deepEqual(dumpRoutes(perDay2, 2).routes, dumpRoutes(memDay2, 2).routes)
     assert.deepEqual(dumpRoutes(perDay2, 2).routes.map((row) => row.pos), [
-      'Rail 4 Capitec',
       'Rail 1 FNB',
       'Rail 2 FNB',
     ])

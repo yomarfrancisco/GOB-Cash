@@ -16,6 +16,7 @@ import {
   PROSPECTIVE_INITIAL_CARDS,
   PROSPECTIVE_INITIAL_POS,
   PROSPECTIVE_QUOTE_MZN_PER_ZAR,
+  PROSPECTIVE_TICKET_MIN_ZAR,
   type ProspectiveDayRecord,
   type ProspectiveRoute,
 } from "./types";
@@ -38,6 +39,10 @@ export function prospectiveScenario(input: { seed: number; availableZar: number 
   scenario.horizonDays = PROSPECTIVE_HORIZON_DAYS;
   scenario.initialCards = PROSPECTIVE_INITIAL_CARDS;
   scenario.initialPos = PROSPECTIVE_INITIAL_POS;
+  scenario.expectedTicketMinZar = PROSPECTIVE_TICKET_MIN_ZAR;
+  if (scenario.avgTicketZar < scenario.expectedTicketMinZar) {
+    scenario.avgTicketZar = scenario.expectedTicketMinZar;
+  }
   scenario.maximumPosDevices = Math.max(scenario.maximumPosDevices, PROSPECTIVE_INITIAL_POS);
   scenario.hiddenWorldEnabled = true;
   scenario.economicLearnerEnabled = true;

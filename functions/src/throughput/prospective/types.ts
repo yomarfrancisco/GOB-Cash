@@ -5,6 +5,8 @@ export const PROSPECTIVE_HORIZON_DAYS = 14;
 export const PROSPECTIVE_SEED = 21;
 export const PROSPECTIVE_INITIAL_CARDS = 5;
 export const PROSPECTIVE_INITIAL_POS = 4;
+/** Genuine-ticket floor for the live desk. Typical size is lifted to this when it would sit below. */
+export const PROSPECTIVE_TICKET_MIN_ZAR = 5_000;
 
 export type ProspectivePhase =
   | "day_0_ready"
