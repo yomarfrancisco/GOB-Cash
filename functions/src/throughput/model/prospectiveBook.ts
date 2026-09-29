@@ -12,7 +12,7 @@ export type ProspectiveBook = Record<number, CoreTicket[]>;
 
 /**
  * Whole-payment book sized to absorb `availableZar` plus retained-margin headroom.
- * Weekends are empty. Deterministic in (scenario.rngSeed, availableZar).
+ * Sundays are empty. Saturday takes new intakes. Deterministic in (scenario.rngSeed, availableZar).
  */
 export function buildAbsorbingPaymentBook(input: {
   scenario: Scenario;

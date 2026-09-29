@@ -10,7 +10,7 @@ export const FORMULATION = {
     },
     {
       name: "Genuine available demand",
-      latex: "D_t = \\sum_{k=1}^{N_t} s_{t,k},\\quad N_t\\sim\\mathrm{Poisson}(\\lambda)\\ \\text{on Mon–Fri},\\quad N_t=0\\ \\text{on Sat–Sun}",
+      latex: "D_t = \\sum_{k=1}^{N_t} s_{t,k},\\quad N_t\\sim\\mathrm{Poisson}(\\lambda)\\ \\text{on Mon–Sat},\\quad N_t=0\\ \\text{on Sun}",
       note: "Ticket sizes s are drawn in the configured range (expected days use the average ticket). The policy sees today’s realized D_t; lookahead continuation uses E[D] so it is not omniscient about later days. Seeded streams keep paths reproducible.",
     },
     {

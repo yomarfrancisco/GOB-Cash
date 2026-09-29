@@ -39,6 +39,13 @@ export function shortSaBankLabel(institutionLabel: string | null | undefined): s
 
 export function formatRailLabel(posId: string, institutionLabel: string | null | undefined): string {
   const n = posId.match(/(\d+)$/)?.[1]
+  const named: Record<string, string> = {
+    '1': 'Lemon FNB',
+    '2': 'Imani FNB',
+    '3': 'Lemon Capitec',
+    '4': 'Wolf FNB',
+  }
+  if (n && named[n]) return named[n]
   const bank = shortSaBankLabel(institutionLabel)
   return n ? `Rail ${n} ${bank}` : bank
 }

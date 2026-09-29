@@ -1088,7 +1088,29 @@ async function loadFnbDeskLines(): Promise<string> {
       lines.push(`MZN received ${amount}${who}.${ref} Screenshot proof, added to the MZN wallet.`)
     }
     for (const doc of capitecEvents.docs) {
-      const row = doc.data() as { amountZar?: number; merchant?: string | null; status?: string; transactionNumber?: string | null; cardLast4?: string | null }
+      const row = doc.data() as {
+        kind?: string
+        amountZar?: number
+        paidOutZar?: number
+        salesZar?: number
+        commissionZar?: number
+        vatZar?: number
+        merchant?: string | null
+        status?: string
+        transactionNumber?: string | null
+        cardLast4?: string | null
+        reference?: string | null
+        payoutOn?: string | null
+      }
+      if (row.kind === 'settlement_summary') {
+        const net = typeof row.paidOutZar === 'number' ? `R${row.paidOutZar.toFixed(2)}` : 'a net amount'
+        const sales = typeof row.salesZar === 'number' ? ` Sales R${row.salesZar.toFixed(2)}` : ''
+        const fee = typeof row.commissionZar === 'number' ? `, commission R${row.commissionZar.toFixed(2)}, VAT R${Number(row.vatZar || 0).toFixed(2)}` : ''
+        const when = row.payoutOn ? ` on ${row.payoutOn}` : ''
+        const ref = row.reference ? ` Reference ${row.reference}.` : ''
+        lines.push(`Capitec settlement paid out ${net}${when}.${sales}${fee}.${ref} The ZAR card is unchanged.`)
+        continue
+      }
       const amount = typeof row.amountZar === 'number' ? `R${row.amountZar.toFixed(2)}` : 'an amount'
       const where = row.merchant ? ` at ${row.merchant}` : ''
       const card = row.cardLast4 ? ` on card ${row.cardLast4}` : ''
@@ -1169,7 +1191,7 @@ function deskMoment(params: {
   return {
     clockLine: formatSast(params.nowMs),
     partOfDay: partOfDaySast(params.nowMs),
-    weekend: parts.weekday === 0 || parts.weekday === 6,
+    weekend: parts.weekday === 0,
     activity,
   }
 }
@@ -1436,7 +1458,26 @@ async function issueCycle(
   try {
     return await db.runTransaction(async (tx) =>
       writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, book)
-    )
+    ).then(async (issued) => {
+      if (issued.kind === 'deploy' && issued.plan.cardAssignments.length > 0) {
+        try {
+          const { raiseInvoicesForCycle } = await import('../settlement/issueInvoices')
+          await raiseInvoicesForCycle({
+            testRunId,
+            cycleNumber: issued.plan.cycleNumber,
+            assignments: issued.plan.cardAssignments.map((row) => ({
+              cardId: row.cardId,
+              machineId: row.machineId,
+              amount: row.amount,
+              economicPaymentId: row.economicPaymentId,
+            })),
+          })
+        } catch (error) {
+          console.error('[issueCycle] invoice raise failed', error)
+        }
+      }
+      return issued
+    })
   } catch (error) {
     console.error('[issueCycle] persist failed; writing instruction only', error)
     return writeInstructionOnly(adminUid, testRunId, quoted.state, now, quoted, book)
@@ -2294,7 +2335,7 @@ export async function tryAutoConfirmOpenRestock(): Promise<void> {
     zar.push({ ref: doc.ref, amount })
   }
   fnb.docs.forEach((doc) => take(doc, Number(doc.data().amountZar || 0), String(doc.data().status || ''), String(doc.data().kind || '')))
-  capitec.docs.forEach((doc) => take(doc, Number(doc.data().amountZar || 0), String(doc.data().status || '')))
+  capitec.docs.forEach((doc) => take(doc, Number(doc.data().amountZar || 0), String(doc.data().status || ''), String(doc.data().kind || '')))
   const mznIn = mznEvents.docs
     .filter((doc) => !doc.data().matchedRestock && Date.parse(String(doc.data().createdAt || '')) >= issuedMs)
     .map((doc) => Number(doc.data().amountMzn || 0))

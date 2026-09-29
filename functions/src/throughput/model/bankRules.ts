@@ -570,9 +570,9 @@ export function emptyBankRiskFeatures(scenario: Scenario): BankRiskFeatures {
   };
 }
 
-/** Same weekday convention as demand.ts (day 1 = Monday); duplicated here to avoid an import cycle. */
+/** Same weekday convention as demand.ts (day 1 = Monday, Saturday open, Sunday closed); duplicated here to avoid an import cycle. */
 export function isOperatingDay(day: number): boolean {
-  return (((Math.max(1, day) - 1) % 7) + 7) % 7 < 5;
+  return (((Math.max(1, day) - 1) % 7) + 7) % 7 < 6;
 }
 
 /** Most recent operating weekday strictly before `day`, or null. */

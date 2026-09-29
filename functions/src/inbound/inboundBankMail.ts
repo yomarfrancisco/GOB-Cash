@@ -13,6 +13,9 @@ import { applyFnbEvent, liquidityDeltaZar, type CardFloat } from './fnbApply'
 import { pdfText } from './fnbPdf'
 import { bankNoticeCopy, isFnbSender, looksLikeFnbReceipt, parseFnbCardSpend, parseFnbReceipt, type FnbEvent } from './fnbParse'
 import { capitecNoticeCopy, isCapitecSender, parseCapitecReceipt, type CapitecReceipt } from './capitecParse'
+import { capitecSettlementCopy, parseCapitecSettlement, type CapitecSettlement } from './capitecSettlement'
+import { parseFnbSettlement, fnbSettlementCopy } from '../settlement/fnbSettlement'
+import { applyCapitecPayoutToInvoices, applyFnbGrossSettlementToInvoices } from '../settlement/issueInvoices'
 import { imageText } from './mznImageText'
 import { mznNoticeCopy, parseMznProof, type MznProof } from './mznProofParse'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
@@ -28,6 +31,7 @@ import {
 
 const inboundSecret = defineSecret('RESEND_INBOUND_SECRET')
 const inboundApiKey = defineSecret('RESEND_INBOUND_API_KEY')
+const capitecPdfPassword = defineSecret('CAPITEC_PDF_PASSWORD')
 
 const safeLog: SafeLog = {
   info(event, fields) {
@@ -84,7 +88,7 @@ export const inbound_bankMail = functions
 export const inbound_archiveBankMail = functions
   .region('us-central1')
   .runWith({
-    secrets: [inboundApiKey],
+    secrets: [inboundApiKey, capitecPdfPassword],
     timeoutSeconds: 120,
     memory: '512MB',
     failurePolicy: true,
@@ -145,6 +149,7 @@ export const inbound_archiveBankMail = functions
       await recordFnbNotice(ingress.resendEmailId, bucket)
       await recordMznProof(ingress.resendEmailId, bucket)
       await recordCapitecReceipt(ingress.resendEmailId, bucket)
+      await recordCapitecSettlement(ingress.resendEmailId, bucket, capitecPdfPassword.value())
     }
   })
 
@@ -163,7 +168,12 @@ async function recordFnbNotice(
     const pdf = (evidence.attachments || []).find((row) => /pdf/i.test(row.contentType) || /\.pdf$/i.test(row.safeFilename))
     if (!pdf) return
     const [bytes] = await bucket.file(pdf.storagePath).download()
-    event = parseFnbReceipt(await pdfText(bytes))
+    const text = await pdfText(bytes)
+    event = parseFnbReceipt(text)
+    if (!event) {
+      await recordFnbSettlement(emailId, evidence, text, pdf.sha256)
+      return
+    }
   }
   if (!event) return
   const cardLast4 = event.cardLast4
@@ -368,6 +378,148 @@ async function recordCapitecReceipt(
   if (receipt.status === 'approved') await tryAutoConfirmOpenRestock()
 }
 
+async function recordCapitecSettlement(
+  emailId: string,
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } },
+  password: string
+): Promise<void> {
+  const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
+  const snap = await evidenceRef.get()
+  if (!snap.exists) return
+  const evidence = snap.data() as EvidenceRecord
+  const pdf = (evidence.attachments || []).find((row) => /pdf/i.test(row.contentType) || /\.pdf$/i.test(row.safeFilename))
+  if (!pdf) return
+  const [bytes] = await bucket.file(pdf.storagePath).download()
+  let text = ''
+  try {
+    text = await pdfText(bytes, password || undefined)
+  } catch (error) {
+    const locked = /password/i.test(error instanceof Error ? error.message : '')
+    if (locked) safeLog.info('capitec_pdf_locked', { emailId, reason: 'password' })
+    return
+  }
+  const settlement = parseCapitecSettlement(text)
+  if (!settlement) return
+  const docId = (settlement.reference || `pdf-${pdf.sha256.slice(0, 32)}`).replace(/[^\w.-]+/g, '-')
+  const eventRef = db().collection('bankCapitecEvents').doc(docId)
+  await db().runTransaction(async (tx) => {
+    const existing = await tx.get(eventRef)
+    if (existing.exists) return
+    tx.set(eventRef, {
+      ...settlement,
+      resendEmailId: emailId,
+      from: evidence.from,
+      subject: evidence.subject,
+      createdAt: new Date().toISOString(),
+    })
+    tx.set(evidenceRef, { parseStatus: 'parsed', capitecKind: settlement.kind }, { merge: true })
+  })
+  const written = await eventRef.get()
+  if (!written.exists || written.data()?.resendEmailId !== emailId) return
+  safeLog.info('capitec_settlement_recorded', { emailId, reason: 'paid_out' })
+  await publishCapitecSettlementNotice(docId, settlement)
+  try {
+    const marked = await applyCapitecPayoutToInvoices(settlement, docId)
+    safeLog.info('capitec_settlement_recorded', { emailId, reason: `zar_available_${marked}` })
+  } catch (error) {
+    safeLog.info('capitec_settlement_recorded', { emailId, reason: 'zar_available_failed' })
+  }
+}
+
+async function recordFnbSettlement(
+  emailId: string,
+  evidence: EvidenceRecord,
+  text: string,
+  sha256: string
+): Promise<void> {
+  const settlement = parseFnbSettlement(text)
+  if (!settlement) return
+  const docId = (
+    settlement.merchantNumber
+      ? `fnb-settle-${settlement.merchantNumber}-${settlement.statementDate || sha256.slice(0, 12)}`
+      : `fnb-settle-${sha256.slice(0, 24)}`
+  ).replace(/[^\w.-]+/g, '-')
+  const eventRef = db().collection('bankFnbEvents').doc(docId)
+  const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
+  await db().runTransaction(async (tx) => {
+    const existing = await tx.get(eventRef)
+    if (existing.exists) return
+    tx.set(eventRef, {
+      ...settlement,
+      resendEmailId: emailId,
+      from: evidence.from,
+      subject: evidence.subject,
+      createdAt: new Date().toISOString(),
+    })
+    tx.set(evidenceRef, { parseStatus: 'parsed', fnbKind: settlement.kind }, { merge: true })
+  })
+  const written = await eventRef.get()
+  if (!written.exists || written.data()?.resendEmailId !== emailId) return
+  safeLog.info('fnb_recorded', { emailId, reason: 'fnb_settlement' })
+  const id = `fnb-${docId}`
+  const noticeRef = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
+  if (!(await noticeRef.get()).exists) {
+    const copy = fnbSettlementCopy(settlement)
+    await noticeRef.set({
+      id,
+      kind: CONVERSION_ROUTING_KIND,
+      title: copy.title,
+      body: copy.body,
+      dropdownTitle: copy.title,
+      dropdownBody: copy.body,
+      actorType: 'ai_manager',
+      avatarKind: 'convert_zar',
+      amountCurrency: 'ZAR',
+      amountValue: settlement.zarAvailableZar,
+      amountSign: 'credit',
+      txId: id,
+      hasDownloadButton: false,
+      awaitingConfirm: false,
+      routingBlocked: false,
+      status: 'recorded',
+      routingAction: 'bank_notice',
+      deskSpeaker: 'sam',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      recordingSource: 'SYSTEM',
+    })
+  }
+  try {
+    const marked = await applyFnbGrossSettlementToInvoices(settlement, docId)
+    safeLog.info('fnb_recorded', { emailId, reason: `zar_available_${marked}` })
+  } catch {
+    safeLog.info('fnb_recorded', { emailId, reason: 'zar_available_failed' })
+  }
+}
+
+async function publishCapitecSettlementNotice(docId: string, settlement: CapitecSettlement): Promise<void> {
+  const id = `capitec-${docId}`
+  const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
+  if ((await ref.get()).exists) return
+  const copy = capitecSettlementCopy(settlement)
+  await ref.set({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: copy.title,
+    body: copy.body,
+    dropdownTitle: copy.title,
+    dropdownBody: copy.body,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_zar',
+    amountCurrency: 'ZAR',
+    amountValue: settlement.paidOutZar,
+    amountSign: 'credit',
+    txId: id,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: false,
+    status: 'recorded',
+    routingAction: 'bank_notice',
+    deskSpeaker: 'sam',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    recordingSource: 'SYSTEM',
+  })
+}
+
 async function publishCapitecNotice(docId: string, receipt: CapitecReceipt): Promise<void> {
   const id = `capitec-${docId}`
   const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
@@ -400,7 +552,7 @@ async function publishCapitecNotice(docId: string, receipt: CapitecReceipt): Pro
 /** One-shot: parse FNB mail already archived before this recorder existed. */
 export const inbound_backfillFnb = functions
   .region('us-central1')
-  .runWith({ secrets: [inboundSecret], timeoutSeconds: 120, memory: '512MB' })
+  .runWith({ secrets: [inboundSecret, capitecPdfPassword], timeoutSeconds: 120, memory: '512MB' })
   .https.onRequest(async (req, res) => {
     const provided = req.get('x-inbound-secret') || ''
     if (!provided || provided !== inboundSecret.value()) {
@@ -414,6 +566,7 @@ export const inbound_backfillFnb = functions
       await recordFnbNotice(doc.id, bucket)
       await recordMznProof(doc.id, bucket)
       await recordCapitecReceipt(doc.id, bucket)
+      await recordCapitecSettlement(doc.id, bucket, capitecPdfPassword.value())
       const after = await db().collection('bankFnbEvents').doc(doc.id).get()
       if (after.exists) recorded += 1
     }

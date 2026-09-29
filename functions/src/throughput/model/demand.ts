@@ -29,11 +29,12 @@ export function weekdayIndex(day: number): number {
   return ((Math.max(1, day) - 1) % 7 + 7) % 7;
 }
 
+/** Monday–Saturday take new intakes. Sunday settles only. */
 export function isOperatingWeekday(day: number): boolean {
-  return weekdayIndex(day) < 5;
+  return weekdayIndex(day) < 6;
 }
 
-/** The n-th operating weekday strictly after `day`. n=1 is the next Monday–Friday. */
+/** The n-th operating day strictly after `day`. n=1 is the next Monday–Saturday. */
 export function nthOperatingDayAfter(day: number, n: number): number {
   const need = Math.max(0, Math.round(n));
   if (need === 0) return day;

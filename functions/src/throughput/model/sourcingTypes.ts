@@ -15,32 +15,31 @@ export const SLICE0_QUOTE_KIND = "scenario_constant_operator_quote" as const;
  * Configured simulation institutions for the Slice 0 fixture only.
  * Not verified product mappings and not production defaults.
  *
- *   BRICS   → mz.bim
- *   Ginav   → mz.fnb
- *   Vidrotec → mz.bci
- *   Wolf    → mz.vista
- *   Goblin  → mz.standard
- *   POS 1–2 → za.fnb
- *   POS 3–5 → za.capitec
+ *   BRICS   → mz.fnb
+ *   Ginav   → mz.standard
+ *   Vidrotec → mz.bim
+ *   Wolf    → mz.bci
+ *   Goblin  → mz.bci
+ *   POS 1 Lemon FNB, POS 2 Imani FNB, POS 3 Lemon Capitec, POS 4 Wolf FNB
  */
 export const SLICE0_FIXTURE_CARD_INSTITUTIONS: Record<string, string> = {
-  "card-1": "mz.bim",
-  BRICS: "mz.bim",
-  "card-2": "mz.fnb",
-  Ginav: "mz.fnb",
-  "card-3": "mz.bci",
-  Vidrotec: "mz.bci",
-  "card-4": "mz.vista",
-  Wolf: "mz.vista",
-  "card-5": "mz.standard",
-  Goblin: "mz.standard",
+  "card-1": "mz.fnb",
+  BRICS: "mz.fnb",
+  "card-2": "mz.standard",
+  Ginav: "mz.standard",
+  "card-3": "mz.bim",
+  Vidrotec: "mz.bim",
+  "card-4": "mz.bci",
+  Wolf: "mz.bci",
+  "card-5": "mz.bci",
+  Goblin: "mz.bci",
 };
 
 export const SLICE0_FIXTURE_POS_INSTITUTIONS: Record<string, string> = {
   "pos-1": "za.fnb",
   "pos-2": "za.fnb",
   "pos-3": "za.capitec",
-  "pos-4": "za.capitec",
+  "pos-4": "za.fnb",
   "pos-5": "za.capitec",
 };
 
