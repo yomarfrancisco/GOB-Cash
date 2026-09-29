@@ -827,21 +827,7 @@ export async function tx_sendMyMonthlySettlementStatement(
   return result.data as { posted: boolean; periodId: string; conversionCount: number }
 }
 
-/**
- * Download MozPaga proof-of-payment PDF for an internal exchange.
- */
-export async function downloadConversionProof(txId: string): Promise<void> {
-  const app = getFirebaseApp()
-  const functions = getFunctionsInstance()
-
-  if (!app || !functions) {
-    throw new Error('Firebase not initialized')
-  }
-
-  const fn = httpsCallable(functions, 'getConversionProof')
-  const result = await fn({ txId })
-  const data = result.data as { pdfBase64: string; filename: string; mimeType: string }
-
+function triggerPdfDownload(data: { pdfBase64: string; filename: string; mimeType: string }): void {
   const byteCharacters = atob(data.pdfBase64)
   const byteNumbers = new Array(byteCharacters.length)
   for (let i = 0; i < byteCharacters.length; i++) {
@@ -858,6 +844,38 @@ export async function downloadConversionProof(txId: string): Promise<void> {
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
+}
+
+/**
+ * Download MozPaga proof-of-payment PDF for an internal exchange.
+ */
+export async function downloadConversionProof(txId: string): Promise<void> {
+  const app = getFirebaseApp()
+  const functions = getFunctionsInstance()
+
+  if (!app || !functions) {
+    throw new Error('Firebase not initialized')
+  }
+
+  const fn = httpsCallable(functions, 'getConversionProof')
+  const result = await fn({ txId })
+  triggerPdfDownload(result.data as { pdfBase64: string; filename: string; mimeType: string })
+}
+
+/**
+ * Download a settlement invoice PDF raised on Sam's desk.
+ */
+export async function downloadSettlementInvoice(invoiceId: string): Promise<void> {
+  const app = getFirebaseApp()
+  const functions = getFunctionsInstance()
+
+  if (!app || !functions) {
+    throw new Error('Firebase not initialized')
+  }
+
+  const fn = httpsCallable(functions, 'getSettlementInvoiceProof')
+  const result = await fn({ invoiceId })
+  triggerPdfDownload(result.data as { pdfBase64: string; filename: string; mimeType: string })
 }
 
 /**

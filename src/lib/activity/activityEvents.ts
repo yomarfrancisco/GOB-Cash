@@ -17,6 +17,8 @@ export type ActivityEventDoc = {
   createdAt?: Timestamp | { toMillis?: () => number }
   txId?: string
   hasDownloadButton?: boolean
+  invoiceId?: string
+  invoiceStoragePath?: string
   dropdownTitle?: string
   dropdownBody?: string
   status?: string
@@ -187,6 +189,12 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     createdAt: createdAtMs(data.createdAt),
     txId: data.txId,
     hasDownloadButton: data.hasDownloadButton === true,
+    invoiceId:
+      typeof data.invoiceId === 'string' && data.invoiceId.trim() ? data.invoiceId.trim() : undefined,
+    invoiceStoragePath:
+      typeof data.invoiceStoragePath === 'string' && data.invoiceStoragePath.trim()
+        ? data.invoiceStoragePath.trim()
+        : undefined,
     avatarKind: data.avatarKind,
     status: data.status,
     dropdownTitle: data.dropdownTitle,

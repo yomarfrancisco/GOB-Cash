@@ -9,6 +9,7 @@ import {
   downloadConversionProof,
   downloadMonthlySettlementProof,
   downloadWeeklySettlementProof,
+  downloadSettlementInvoice,
   admin_submitConversionRoutingFeedback,
 } from '@/lib/transactions/clientFunctions'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
@@ -206,7 +207,14 @@ function resolveTaskAvatar(item: ActivityItem): string {
   return item.actor.avatarUrl || USER_PLACEHOLDER_AVATAR
 }
 
+function isInvoiceDownloadItem(item: ActivityItem): boolean {
+  return item.routingAction === 'invoice' || Boolean(item.invoiceId)
+}
+
 function canDownloadProof(item: ActivityItem): boolean {
+  if (isInvoiceDownloadItem(item)) {
+    return item.hasDownloadButton === true || Boolean(item.invoiceId)
+  }
   if (!item.txId) return false
   return (
     item.hasDownloadButton === true ||
@@ -290,16 +298,24 @@ function ActivityItemCard({
 
   const handleDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
-    if (!item.txId || downloadState !== 'idle') return
+    if (downloadState !== 'idle') return
+    const invoiceId = item.invoiceId || (isInvoiceDownloadItem(item) ? item.txId : null)
+    if (isInvoiceDownloadItem(item)) {
+      if (!invoiceId) return
+    } else if (!item.txId) {
+      return
+    }
     setDownloadState('loading')
     const startedAt = Date.now()
     try {
-      if (item.kind === 'MONTHLY_SETTLEMENT_STATEMENT') {
-        await downloadMonthlySettlementProof(item.txId)
+      if (isInvoiceDownloadItem(item) && invoiceId) {
+        await downloadSettlementInvoice(invoiceId)
+      } else if (item.kind === 'MONTHLY_SETTLEMENT_STATEMENT') {
+        await downloadMonthlySettlementProof(item.txId!)
       } else if (item.kind === 'WEEKLY_SETTLEMENT_STATEMENT') {
-        await downloadWeeklySettlementProof(item.txId)
+        await downloadWeeklySettlementProof(item.txId!)
       } else {
-        await downloadConversionProof(item.txId)
+        await downloadConversionProof(item.txId!)
       }
       const remaining = 700 - (Date.now() - startedAt)
       if (remaining > 0) {
@@ -308,7 +324,7 @@ function ActivityItemCard({
       setDownloadState('pressed')
       await new Promise((resolve) => setTimeout(resolve, 480))
     } catch (error) {
-      console.error('[Activity] Failed to download proof of payment:', error)
+      console.error('[Activity] Failed to download proof:', error)
     } finally {
       setDownloadState('idle')
     }
@@ -547,18 +563,20 @@ function ActivityItemCard({
                   .filter(Boolean)
                   .join(' ')}
                 aria-label={
-                  item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
-                    ? 'Download monthly settlement statement'
-                    : item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
-                      ? 'Download weekly settlement statement'
-                      : 'Download proof of payment'
+                  isInvoiceDownloadItem(item)
+                    ? 'Download invoice'
+                    : item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+                      ? 'Download monthly settlement statement'
+                      : item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
+                        ? 'Download weekly settlement statement'
+                        : 'Download proof of payment'
                 }
                 aria-busy={downloadState !== 'idle'}
                 disabled={downloadState !== 'idle'}
                 onClick={handleDownload}
               >
                 <Download size={14} strokeWidth={2.4} />
-                Download POP
+                {isInvoiceDownloadItem(item) ? 'Download invoice' : 'Download POP'}
               </button>
             )}
             {showExecuted && (

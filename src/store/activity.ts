@@ -24,6 +24,8 @@ export type ActivityItem = {
   routeOnTap?: string
   txId?: string
   hasDownloadButton?: boolean
+  invoiceId?: string
+  invoiceStoragePath?: string
   avatarKind?: string
   hasKycLink?: boolean
   status?: string

@@ -49,6 +49,7 @@ export { tx_createBankWithdrawalRequest, onBankWithdrawalCreated } from './tx/cr
 export { getBankWithdrawalProof } from './tx/getBankWithdrawalProof'
 export { tx_createInternalConversion } from './tx/createInternalConversion'
 export { getConversionProof } from './tx/getConversionProof'
+export { getSettlementInvoiceProof } from './tx/getSettlementInvoiceProof'
 export { collectHourlyMznZar } from './fx/collectHourlyMznZar'
 export { onDepositProofWrite, tx_confirmDepositProof } from './tx/onDepositProofWrite'
 export {

@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin'
-import { ROUTING_ADMIN_UID } from '../routing/conversionRouter'
+import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
 import {
   attachInvoicePdf,
   markInvoiceZarAvailable,
@@ -58,7 +58,7 @@ export async function publishInvoiceDeskNotice(invoice: SettlementInvoice): Prom
       : ' Raised at issue, before the swipe.'
   await ref.set({
     id,
-    kind: 'conversion_routing',
+    kind: CONVERSION_ROUTING_KIND,
     title: `Invoice ${invoice.invoiceNumber}`,
     body: `${invoice.issuerLegalName} billed ${billTo} R${invoice.totalZar.toFixed(2)}.${timing} Download the PDF from the desk card.`,
     dropdownTitle: invoice.invoiceNumber,
@@ -71,12 +71,14 @@ export async function publishInvoiceDeskNotice(invoice: SettlementInvoice): Prom
     txId: invoice.id,
     hasDownloadButton: Boolean(invoice.storagePath),
     invoiceId: invoice.id,
-    invoiceStoragePath: invoice.storagePath,
+    invoiceStoragePath: invoice.storagePath || null,
     awaitingConfirm: false,
     routingBlocked: false,
     status: 'recorded',
     routingAction: 'invoice',
     deskSpeaker: 'sam',
+    ...(invoice.testRunId ? { testRunId: invoice.testRunId } : {}),
+    ...(typeof invoice.cycleNumber === 'number' ? { cycleNumber: invoice.cycleNumber } : {}),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     recordingSource: 'SYSTEM',
   })
