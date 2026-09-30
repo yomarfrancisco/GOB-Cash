@@ -73,9 +73,9 @@ export const DEFAULT_MACHINES: NamedResource[] = [
   },
   {
     id: 4,
-    name: 'Wolf FNB',
-    shortName: 'Wolf FNB',
-    aliases: ['rail 4 capitec', 'rail 4', 'wolf fnb', 'wandsons', 'wolf and sons'],
+    name: 'Wolf and Sons FNB',
+    shortName: 'Wolf and Sons FNB',
+    aliases: ['rail 4 capitec', 'rail 4', 'wolf fnb', 'wandsons', 'wolf and sons', 'wolf and sons fnb'],
   },
 ]
 

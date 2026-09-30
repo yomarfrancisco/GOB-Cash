@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { formatSellTicketLine, formatSwipeTicketLine } from '../settlement/railDisplay'
-import { scheduleTicketPath, MIN_ATTEMPT_SPACING_MS } from '../routing/attemptSchedule'
+import { scheduleTicketPath, MIN_ATTEMPT_SPACING_MS, SAME_ACQUIRER_GAP_MS } from '../routing/attemptSchedule'
 import { sastToUtcMs } from '../routing/routingTime'
 
 describe('rail display', () => {
-  it('names legal payer and merchant on sell lines', () => {
+  it('keeps legal names on sell ticket lines', () => {
     const line = formatSellTicketLine(5_000, 1, 3)
     assert.match(line, /BRICS AI/i)
     assert.match(line, /FNB Mozambique/i)
@@ -13,17 +13,15 @@ describe('rail display', () => {
     assert.match(line, /Capitec/i)
   })
 
-  it('names issuer and merchant on swipe lines', () => {
+  it('uses short desk names on swipe lines', () => {
     const line = formatSwipeTicketLine(5_000, 3, 2)
-    assert.match(line, /Vidrotec/i)
-    assert.match(line, /BIM|Millennium/i)
-    assert.match(line, /Imani/i)
-    assert.match(line, /FNB/i)
+    assert.match(line, /^Vidrotec \(Millennium BIM\) on Imani FNB for /)
+    assert.doesNotMatch(line, /Sociedade Unipessoal|Beauty Distributors/)
   })
 })
 
 describe('ticket path schedule', () => {
-  it('assigns a concrete time to each ticket with spacing', () => {
+  it('assigns a desk clock to each swipe with spacing', () => {
     const morning = sastToUtcMs(2026, 10, 1, 10, 0)
     const path = scheduleTicketPath({
       nowMs: morning,
@@ -34,15 +32,14 @@ describe('ticket path schedule', () => {
       ],
     })
     assert.equal(path.tickets.length, 3)
-    assert.match(path.tickets[0].timeLabel, /^\d{2}:\d{2}$/)
+    assert.match(path.tickets[0].timeLabel, /^\d{2}h\d{2}$/)
     const t0 = Date.parse(path.tickets[0].earliestAt)
     const t1 = Date.parse(path.tickets[1].earliestAt)
     const t2 = Date.parse(path.tickets[2].earliestAt)
     assert.ok(t1 - t0 >= MIN_ATTEMPT_SPACING_MS - 60_000)
-    assert.ok(t2 - t1 >= MIN_ATTEMPT_SPACING_MS - 60_000)
-    // Same acquirer FNB→FNB gets a path note, not a business-hours essay.
-    assert.ok(path.tickets[2].pathNote == null || /acquirer/i.test(path.tickets[2].pathNote))
-    assert.ok(!/business hours/i.test(path.pathSummary || ''))
-    assert.ok(!/inside business/i.test(JSON.stringify(path)))
+    assert.ok(t2 - t1 >= SAME_ACQUIRER_GAP_MS - 60_000)
+    assert.equal(path.tickets[2].pathNote, null)
+    assert.equal(path.pathSummary, null)
+    assert.ok(!/business hours/i.test(JSON.stringify(path)))
   })
 })

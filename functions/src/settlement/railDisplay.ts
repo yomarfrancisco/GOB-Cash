@@ -1,9 +1,17 @@
 /**
- * Operator-facing rail labels from the settlement register.
- * Inventory shortNames stay for matching; desk copy uses legal principals.
+ * Operator-facing rail labels.
+ * Sell cards stay high-level; restock swipes use short desk names + clock times.
  */
 import { cardShortName, machineShortName } from '../routing/inventory'
 import { buyerByDeskCardId, companyOf, railByMachineId } from './register'
+
+function bankShort(issuingBank: string): string {
+  if (/FNB/i.test(issuingBank) && /Moz/i.test(issuingBank)) return 'FNB Moz'
+  if (/Standard/i.test(issuingBank)) return 'Std Bank Moz'
+  if (/BIM|Millennium/i.test(issuingBank)) return 'Millennium BIM'
+  if (/BCI/i.test(issuingBank)) return 'BCI'
+  return issuingBank
+}
 
 function acquirerLabel(acquirer: string): string {
   if (/^fnb$/i.test(acquirer)) return 'FNB'
@@ -14,21 +22,28 @@ function acquirerLabel(acquirer: string): string {
 export function payerDisplay(cardId: number): {
   buyerName: string
   issuingBank: string
+  bankShort: string
   shortName: string
 } {
   const buyer = buyerByDeskCardId(cardId)
   const shortName = cardShortName(cardId)
   if (!buyer) {
-    return { buyerName: shortName, issuingBank: 'issuing bank', shortName }
+    return { buyerName: shortName, issuingBank: 'issuing bank', bankShort: 'issuer', shortName }
   }
   try {
     return {
       buyerName: companyOf(buyer.companyId).legalName,
       issuingBank: buyer.issuingBank,
+      bankShort: bankShort(buyer.issuingBank),
       shortName: buyer.shortName || shortName,
     }
   } catch {
-    return { buyerName: shortName, issuingBank: buyer.issuingBank, shortName }
+    return {
+      buyerName: shortName,
+      issuingBank: buyer.issuingBank,
+      bankShort: bankShort(buyer.issuingBank),
+      shortName,
+    }
   }
 }
 
@@ -57,24 +72,25 @@ export function posDisplay(machineId: number): {
   }
 }
 
-/** Sell ticket line: amount · payer (issuer) → merchant / acquirer */
+function formatZarCompact(amountZar: number): string {
+  const rounded = Math.round(amountZar * 100) / 100
+  const nearestInt = Math.round(rounded)
+  if (Math.abs(rounded - nearestInt) < 0.005) {
+    return `R${nearestInt.toLocaleString('en-ZA')}`
+  }
+  return `R${rounded.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+/** Full legal line (rarely used on sell cards now). */
 export function formatSellTicketLine(amountZar: number, cardId: number, machineId: number): string {
   const payer = payerDisplay(cardId)
   const pos = posDisplay(machineId)
-  const amount = `R${amountZar.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  // Drop trailing ,00 for whole rands when locale uses comma decimals oddly — keep simple:
-  const zar = Number.isInteger(amountZar)
-    ? `R${amountZar.toLocaleString('en-ZA')}`
-    : amount.replace(/,00$/, '')
-  return `${zar} · ${payer.buyerName} (${payer.issuingBank}) → ${pos.merchantName} / ${pos.acquirer}`
+  return `${formatZarCompact(amountZar)} · ${payer.buyerName} (${payer.issuingBank}) → ${pos.merchantName} / ${pos.acquirer}`
 }
 
-/** Restock swipe line */
+/** Restock swipe: short desk names — BRICS (FNB Moz) on Lemon Capitec for R1 479 */
 export function formatSwipeTicketLine(amountZar: number, cardId: number, machineId: number): string {
   const payer = payerDisplay(cardId)
   const pos = posDisplay(machineId)
-  const zar = Number.isInteger(amountZar)
-    ? `R${amountZar.toLocaleString('en-ZA')}`
-    : `R${amountZar.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  return `${payer.shortName} (${payer.issuingBank}) on ${pos.merchantName} / ${pos.acquirer} for ${zar}`
+  return `${payer.shortName} (${payer.bankShort}) on ${pos.railShort} for ${formatZarCompact(amountZar)}`
 }

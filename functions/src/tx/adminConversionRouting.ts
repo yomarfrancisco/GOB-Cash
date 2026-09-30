@@ -1590,11 +1590,10 @@ async function publishSamDayBrief(input: {
   const first = schedule.tickets[0]
   const body = [
     `Day ${day} of ${input.state.config.cycleCount}.`,
-    `${formatZar(residual)} still to convert of ${formatZar(input.state.authorisedZar || input.state.availableCapital)}.`,
+    `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} window still to convert.`,
     input.kind === 'replenish'
-      ? `Amina has the restock. Start ${first?.timeLabel || schedule.timeLabel}${first?.pathNote ? ` — ${first.pathNote}` : ''}.`
-      : `Leo has the sale. Start ${first?.timeLabel || schedule.timeLabel}${first?.pathNote ? ` — ${first.pathNote}` : ''}.`,
-    schedule.pathSummary || '',
+      ? `Amina has the restock. First swipe ${first?.timeLabel || schedule.timeLabel}.`
+      : `Leo has today's sale — by COB.`,
   ]
     .filter(Boolean)
     .join('\n')

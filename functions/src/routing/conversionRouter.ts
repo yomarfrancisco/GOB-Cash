@@ -294,14 +294,14 @@ export function applyRestockLanding(state: RoutingState, amountZar: number): Rou
   })
 }
 
-function mandateLine(state: RoutingState | undefined): string {
-  const residual = state ? residualToTarget(state) : 0
+function mandateLine(state: RoutingState | undefined, afterThisZar = 0): string {
+  const residual = state ? roundMoney(Math.max(0, residualToTarget(state) - afterThisZar)) : 0
   const authorised = state
     ? Number.isFinite(state.authorisedZar)
       ? state.authorisedZar
       : state.availableCapital
     : 0
-  return `${formatZar(residual)} of ${formatZar(authorised)} still to convert.`
+  return `${formatZar(residual)} of ${formatZar(authorised)} window still to convert after this.`
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -326,7 +326,7 @@ function dayLabel(ref: DayRef, cycleNumber: number, cycleCount: number): string 
   return ref ? `${ref.weekday}, day ${ref.day} of ${cycleCount}` : `Cycle ${cycleNumber} of ${cycleCount}`
 }
 
-/** One line per whole ticket. Optional clock time leads the path. */
+/** Timed swipe lines for restock. Sell cards do not list tickets. */
 function ticketLines(
   assignments: CardAssignment[],
   verb: 'sell' | 'swipe',
@@ -334,13 +334,11 @@ function ticketLines(
 ): string[] {
   return assignments.map((row, index) => {
     const timed = path?.tickets[index]
-    const timePrefix = timed ? `${timed.timeLabel} · ` : ''
-    const core =
-      verb === 'swipe'
-        ? `Swipe ${formatSwipeTicketLine(row.amount, row.cardId, row.machineId)}`
-        : formatSellTicketLine(row.amount, row.cardId, row.machineId)
-    const note = timed?.pathNote ? ` (${timed.pathNote})` : ''
-    return `- ${timePrefix}${core}${note}`
+    const timePrefix = timed ? `${timed.timeLabel}: ` : ''
+    if (verb === 'swipe') {
+      return `- ${timePrefix}Swipe ${formatSwipeTicketLine(row.amount, row.cardId, row.machineId)}`
+    }
+    return `- ${timePrefix}${formatSellTicketLine(row.amount, row.cardId, row.machineId)}`
   })
 }
 
@@ -1265,9 +1263,7 @@ export function buildAgentReplyCopy(
 }
 
 /**
- * Sell ZAR card. Shape, top to bottom:
- *   what the sale is (ZAR → MZN at SELL) · the whole tickets · the one rule ·
- *   spread and mandate · what follows · status.
+ * Sell ZAR card — day total only. Timed tickets belong on Amina's restock.
  */
 export function buildActivityCopy(
   plan: CyclePlan,
@@ -1284,6 +1280,9 @@ export function buildActivityCopy(
   }
 ): { title: string; body: string } {
   void spread
+  void extra?.ticketPath
+  void extra?.beliefHint
+  void extra?.overlay
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
   const ref = dayRecord(plan, extra?.state)
   const title = `Sell ZAR · ${dayLabel(ref, plan.cycleNumber, cycleCount)}`
@@ -1304,38 +1303,27 @@ export function buildActivityCopy(
   const sell = quotes && quotes.sellRate > 0 ? quotes.sellRate : null
   const cost = quotes && quotes.costRate > 0 ? quotes.costRate : null
   const lines: string[] = []
-  lines.push(
-    sell
-      ? `Sell ${formatZar(plan.deployedAmount)} for ${formatMznAmount(roundMoney(plan.deployedAmount * sell))} at SELL ${sell.toFixed(2)}.`
-      : `Sell ${formatZar(plan.deployedAmount)}.`
-  )
-  if (extra?.revisionReason) lines.push(extra.revisionReason)
-  if (extra?.beliefHint) lines.push(extra.beliefHint)
-  lines.push('')
-  lines.push(plan.cardAssignments.length === 1 ? 'Ticket:' : `${plan.cardAssignments.length} tickets:`)
-  lines.push(...ticketLines(plan.cardAssignments, 'sell', extra?.ticketPath))
-  if (extra?.ticketPath?.pathSummary) {
-    lines.push(extra.ticketPath.pathSummary)
-  }
-  lines.push('')
-  lines.push('Send the ZAR once the MZN has landed.')
-  if (sell && cost) {
+  if (sell) {
+    const mzn = formatMznAmount(roundMoney(plan.deployedAmount * sell))
     lines.push(
-      `Spread ${roundMoney(Math.max(0, sell - cost)).toFixed(2)} Mt/R over COST ${cost.toFixed(2)} · ${formatMznAmount(plan.expectedProfit)} gross.`
+      `By COB, sell ${formatZar(plan.deployedAmount)} for ${mzn} at Mt/R ${sell.toFixed(2)}. Send the ZAR once the MZN has landed.`
     )
   } else {
-    lines.push(`${formatMznAmount(plan.expectedProfit)} gross spread.`)
+    lines.push(`By COB, sell ${formatZar(plan.deployedAmount)}. Send the ZAR once the MZN has landed.`)
   }
-  lines.push(mandateLine(extra?.state))
-  lines.push('')
+  if (extra?.revisionReason) lines.push(extra.revisionReason)
+  if (sell && cost) {
+    lines.push(
+      `Spread ${roundMoney(Math.max(0, sell - cost)).toFixed(2)} Mt/R over COST ${cost.toFixed(2)} · That's ${formatMznAmount(plan.expectedProfit)} gross profit.`
+    )
+  } else {
+    lines.push(`That's ${formatMznAmount(plan.expectedProfit)} gross profit.`)
+  }
+  lines.push(mandateLine(extra?.state, plan.deployedAmount))
   const next = nextTradingWeekday(ref?.weekday)
-  lines.push(
-    plan.bufferActionRequired
-      ? `Next: swipe these tickets back at COST, then ${next ? `${next}'s` : 'the next'} sale.`
-      : `Next: restock at COST, then ${next ? `${next}'s` : 'the next'} sale.`
-  )
+  lines.push(`Next: restock at COST, then ${next ? `${next}'s` : 'the next'} sale.`)
   lines.push(`Status: ${statusLabel}`)
-  return { title, body: lines.join('\n') }
+  return { title, body: lines.join(' ') }
 }
 
 /**
@@ -1365,7 +1353,7 @@ export function buildReplenishActivityCopy(
   ]
   if (rows.length) {
     lines.push(...ticketLines(rows, 'swipe', ticketPath))
-    if (ticketPath?.pathSummary) lines.push(ticketPath.pathSummary)
+    lines.push('')
     lines.push(`Total ${formatZar(replenish.amountZar)} · ${formatMznAmount(replenish.amountMzn)} out.`)
   } else {
     lines.push(`Restock ${formatZar(replenish.amountZar)} at COST.`)

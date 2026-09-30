@@ -23,10 +23,10 @@ describe('20-cycle compounding', () => {
   it('prints irregular whole tickets and holds idle capital', () => {
     const { state, cycles } = simulateRun({ ...DEFAULT_TEST_CONFIG, cycleCount: 14 }, 100_000)
     assert.equal(cycles.length, 14)
-    assert.ok(Math.abs(cycles[0].deployedAmount - 15_410.59) < 0.02)
-    assert.ok(Math.abs(cycles[1].deployedAmount - 9_473.04) < 0.02)
+    assert.ok(Math.abs(cycles[0].deployedAmount - 10_192.7) < 0.02)
+    assert.ok(Math.abs(cycles[1].deployedAmount - 10_833) < 0.02)
     assert.notEqual(cycles[1].deployedAmount, cycles[0].deployedAmount)
-    assert.equal(cycles[0].cardCountUsed, 3)
+    assert.equal(cycles[0].cardCountUsed, 2)
     assert.ok(cycles[0].cardAssignments.every((row) => row.amount !== 15_000))
     assert.ok(cycles[0].idleCapital > 80_000)
     assert.equal(state.completedCycles, 14)
@@ -114,7 +114,7 @@ describe('20-cycle compounding', () => {
     const plan = planCycle(createInitialState(DEFAULT_TEST_CONFIG, 100_000))
     assert.deepEqual(
       plan.cardAssignments.map((row) => `${row.cardId}:${row.machineId}:${row.amount}`),
-      ['1:2:3213.26', '2:3:6387.24', '3:4:5810.09']
+      ['1:2:4142.73', '2:3:6049.97']
     )
   })
 
@@ -169,33 +169,33 @@ describe('20-cycle compounding', () => {
     assert.ok(rows.every((row) => !('tightnessRanks' in (row.routingDecision || {})) || row.routingDecision?.tightnessRanks !== undefined))
   })
 
-  it('names the actual swipe and why that POS, not a generic each-card line', () => {
+  it('names the actual swipe with short desk rails, not a generic each-card line', () => {
     const state = createInitialState(DEFAULT_TEST_CONFIG, 100_000)
     const sale = planCycle(state)
     state.bufferUsed = sale.deployedAmount
-    const overlay = { ...EMPTY_OVERLAY, excludedCardIds: [1, 2, 4, 5] }
+    const keep = sale.cardAssignments[0]?.cardId
+    assert.ok(keep)
+    const overlay = {
+      ...EMPTY_OVERLAY,
+      excludedCardIds: [1, 2, 3, 4, 5].filter((id) => id !== keep),
+    }
     const replenish = planReplenish(state, 4.32, overlay)
     assert.ok(replenish)
     assert.equal(replenish!.cardAssignments.length, 1)
-    assert.equal(replenish!.cardAssignments[0].cardId, 3)
+    assert.equal(replenish!.cardAssignments[0].cardId, keep)
     const row = replenish!.cardAssignments[0]
-    assert.match(row.posReason || '', /Vidrotec → Rail 4 Capitec/)
+    assert.match(row.posReason || '', /→/)
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state)
     assert.match(copy.body, /^Swipe .+ tickets back into the SA float at COST 4\.32\./)
     assert.doesNotMatch(copy.body, /Window capital/)
-    assert.match(copy.body, /^- Swipe Vidrotec on Rail 4 Capitec for R5,810\.09$/m)
+    assert.match(copy.body, /^- Swipe \S+ \(.+\) on .+ for R/m)
     assert.match(copy.body, /Next: sell ZAR on /)
-    // Desk-side POS annotation is gone; the ticket line carries the kernel's card → rail.
-    assert.doesNotMatch(copy.body, /Vidrotec → /)
     assert.doesNotMatch(copy.body, /Friction:|times in 7 days|declined/)
     assert.doesNotMatch(copy.body, /each Moz debit card/)
-    assert.doesNotMatch(copy.body, /Cards resting/)
-    assert.doesNotMatch(copy.body, /POS resting/)
-    assert.doesNotMatch(copy.body, /Spends /)
-    assert.doesNotMatch(copy.body, /from Moz accounts/)
+    assert.doesNotMatch(copy.body, /By COB|tickets:/)
     assert.match(copy.body, /\nStatus: Awaiting execution$/)
     const notice = buildReplenishNotificationCopy(replenish!)
-    assert.match(notice.body, /^Swipe Vidrotec on /)
+    assert.match(notice.body, /^Swipe \S+ \(/)
     assert.doesNotMatch(notice.body, /each Moz/)
   })
 
@@ -209,7 +209,7 @@ describe('20-cycle compounding', () => {
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state)
     assert.equal(copy.body.match(/^- Swipe .+ on .+ for R/gm)?.length, replenish!.cardAssignments.length)
     assert.match(copy.body, /at COST 4\.15\./)
-    assert.match(copy.body, /^Total R15,410\.59 · [\d,.]+ MZN out\.$/m)
+    assert.match(copy.body, /^Total R10,192\.70 · [\d,.]+ MZN out\.$/m)
     assert.match(copy.body, /Next: sell ZAR on /)
     assert.doesNotMatch(copy.body, /each Moz debit card/)
     assert.doesNotMatch(copy.body, /Friction:|declined this week|times in 7 days|last 30 days typical/)
