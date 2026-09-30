@@ -23,6 +23,8 @@ import {
 import { assignmentsFromRoutes, markWindowRestocked, resolveWindow, shockWindowCapital } from './throughputPlan'
 import type { ProspectiveBranch } from '../throughput/prospective/types'
 import { cardShortName, DEFAULT_CARDS, isForbiddenPair, machineShortName } from './inventory'
+import { formatSellTicketLine, formatSwipeTicketLine } from '../settlement/railDisplay'
+import { scheduleLine, type AttemptSchedule } from './attemptSchedule'
 
 /**
  * Desk configuration. Ticket sizes, card counts and capital come from the
@@ -328,8 +330,8 @@ function dayLabel(ref: DayRef, cycleNumber: number, cycleCount: number): string 
 function ticketLines(assignments: CardAssignment[], verb: 'sell' | 'swipe'): string[] {
   return assignments.map((row) =>
     verb === 'swipe'
-      ? `- Swipe ${swipeInstruction(row)}`
-      : `- ${formatZar(row.amount)} · ${cardShortName(row.cardId)} · ${machineShortName(row.machineId)}`
+      ? `- Swipe ${formatSwipeTicketLine(row.amount, row.cardId, row.machineId)}`
+      : `- ${formatSellTicketLine(row.amount, row.cardId, row.machineId)}`
   )
 }
 
@@ -1116,7 +1118,7 @@ export function simulateRun(config: RoutingConfig = DEFAULT_TEST_CONFIG, capital
 }
 
 function swipeInstruction(row: CardAssignment): string {
-  return `${cardShortName(row.cardId)} on ${machineShortName(row.machineId)} for ${formatZar(row.amount)}`
+  return formatSwipeTicketLine(row.amount, row.cardId, row.machineId)
 }
 
 export function formatSwipeInstruction(row: CardAssignment): string {
@@ -1268,6 +1270,8 @@ export function buildActivityCopy(
     revisionReason?: string
     state?: RoutingState
     overlay?: RoutingOverlay
+    attemptSchedule?: AttemptSchedule | null
+    beliefHint?: string | null
   }
 ): { title: string; body: string } {
   void spread
@@ -1297,9 +1301,14 @@ export function buildActivityCopy(
       : `Sell ${formatZar(plan.deployedAmount)}.`
   )
   if (extra?.revisionReason) lines.push(extra.revisionReason)
+  if (extra?.beliefHint) lines.push(extra.beliefHint)
   lines.push('')
   lines.push(plan.cardAssignments.length === 1 ? 'Ticket:' : `${plan.cardAssignments.length} tickets:`)
   lines.push(...ticketLines(plan.cardAssignments, 'sell'))
+  if (extra?.attemptSchedule) {
+    lines.push('')
+    lines.push(scheduleLine(extra.attemptSchedule))
+  }
   lines.push('')
   lines.push('Send the ZAR once the MZN has landed.')
   if (sell && cost) {
@@ -1329,7 +1338,8 @@ export function buildReplenishActivityCopy(
   replenish: ReplenishPlan,
   cycleCount: number,
   status: 'awaiting_execution' | 'completed',
-  state?: RoutingState
+  state?: RoutingState,
+  attemptSchedule?: AttemptSchedule | null
 ): { title: string; body: string } {
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
   const sold = dayRecord(undefined, state)
@@ -1350,6 +1360,10 @@ export function buildReplenishActivityCopy(
     lines.push(`Total ${formatZar(replenish.amountZar)} · ${formatMznAmount(replenish.amountMzn)} out.`)
   } else {
     lines.push(`Restock ${formatZar(replenish.amountZar)} at COST.`)
+  }
+  if (attemptSchedule) {
+    lines.push('')
+    lines.push(scheduleLine(attemptSchedule))
   }
   lines.push('')
   lines.push(`Next: sell ZAR on ${nextLabel}.`)

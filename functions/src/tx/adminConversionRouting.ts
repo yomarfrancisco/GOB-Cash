@@ -37,6 +37,10 @@ import {
   stampAssignmentDecisions,
   type RoutingState,
 } from '../routing/conversionRouter'
+import { suggestAttemptTime } from '../routing/attemptSchedule'
+import { beliefHintForAssignments, rankAssignmentsByBelief } from '../routing/beliefRank'
+import type { RouteEvidence } from '../belief/types'
+import { ROUTE_EVIDENCE_COLLECTION } from '../belief/collections'
 import { mznCoversRestock, receiptsCoverRestock } from '../inbound/restockMatch'
 import { applyWindowPathWrite, hydrateWindow, persistWindow, ROUTING_ENGINE_ID } from '../routing/throughputPlan'
 import {
@@ -835,7 +839,8 @@ function writeIssuedReplenish(
   replenish: ReplenishPlan,
   now: admin.firestore.Timestamp,
   overlay = EMPTY_OVERLAY,
-  book: PathBook = {}
+  book: PathBook = {},
+  attemptSchedule = suggestAttemptTime({ pendingExposureZar: 0 })
 ): { plan: CyclePlan; activityEventId: string; kind: 'replenish' } {
   const plan = planCycle(state, overlay, { ...book, residuals: [] })
   const proposedAt = now.toMillis()
@@ -844,7 +849,13 @@ function writeIssuedReplenish(
     cardAssignments: stampAssignmentDecisions(replenish.cardAssignments, proposedAt),
   }
   const notification = buildReplenishNotificationCopy(issued)
-  const activity = buildReplenishActivityCopy(issued, state.config.cycleCount, 'awaiting_execution', state)
+  const activity = buildReplenishActivityCopy(
+    issued,
+    state.config.cycleCount,
+    'awaiting_execution',
+    state,
+    attemptSchedule
+  )
   const activityEventId = replenishEventId(testRunId, replenish.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
   const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
@@ -868,6 +879,8 @@ function writeIssuedReplenish(
     awaitingConfirm: true,
     status: 'awaiting_execution',
     routingAction: 'replenish',
+    deskSpeaker: 'amina',
+    earliestAttemptAt: attemptSchedule.earliestAt,
     testRunId,
     cycleNumber: replenish.cycleNumber,
     createdAt: now,
@@ -913,24 +926,44 @@ function writeIssuedCycle(
   now: admin.firestore.Timestamp,
   quotes: { sellRate: number; costRate: number; quote?: FrozenQuote },
   overlay = EMPTY_OVERLAY,
-  book: PathBook = {}
+  book: PathBook = {},
+  evidence: RouteEvidence[] = []
 ): { plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' } {
   const liveBook: PathBook = {
     ...book,
     quote: quotes.quote || book.quote,
   }
+  const attemptSchedule = suggestAttemptTime({
+    nowMs: now.toMillis(),
+    pendingExposureZar: state.bufferUsed,
+  })
   const replenish = planReplenish(state, quotes.costRate, overlay, liveBook)
   if (replenish) {
-    return writeIssuedReplenish(tx, adminUid, testRunId, state, replenish, now, overlay, liveBook)
+    return writeIssuedReplenish(
+      tx,
+      adminUid,
+      testRunId,
+      state,
+      replenish,
+      now,
+      overlay,
+      liveBook,
+      attemptSchedule
+    )
   }
 
   const planned = planCycle(state, overlay, liveBook)
+  const rankedAssignments =
+    evidence.length > 0 && planned.cardAssignments.length > 0
+      ? rankAssignmentsByBelief(planned.cardAssignments, evidence, state.bufferUsed)
+      : planned.cardAssignments
   const shockLine = liveBook.lastShockLine
   const persistBook: PathBook = { ...liveBook, lastShockLine: undefined }
   const plan = {
     ...planned,
-    cardAssignments: stampAssignmentDecisions(planned.cardAssignments, now.toMillis()),
+    cardAssignments: stampAssignmentDecisions(rankedAssignments, now.toMillis()),
   }
+  const beliefHint = beliefHintForAssignments(plan.cardAssignments, evidence, state.bufferUsed)
   const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
   const notification = blocked
     ? { title: `Sell ZAR · Cycle ${plan.cycleNumber}`, body: 'No valid route under current constraints\nAsk to restore a card or POS' }
@@ -941,7 +974,13 @@ function writeIssuedCycle(
     'awaiting_execution',
     state.config.spread,
     quotes,
-    { state, overlay, revisionReason: shockLine }
+    {
+      state,
+      overlay,
+      revisionReason: shockLine,
+      attemptSchedule: blocked ? null : attemptSchedule,
+      beliefHint: blocked ? null : beliefHint,
+    }
   )
   const activityEventId = eventId(testRunId, plan.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
@@ -966,6 +1005,8 @@ function writeIssuedCycle(
     routingBlocked: blocked,
     status: 'awaiting_execution',
     routingAction: 'deploy',
+    deskSpeaker: 'leo',
+    earliestAttemptAt: attemptSchedule.earliestAt,
     testRunId,
     cycleNumber: plan.cycleNumber,
     createdAt: now,
@@ -1455,9 +1496,20 @@ async function issueCycle(
   const quoted = await applyLiveQuotes(state)
   const testSnap = await db.collection(TESTS).doc(testRunId).get()
   const book = pathBookFromDoc(testSnap.data() || {}, quoted.quote)
+  let evidence: RouteEvidence[] = []
+  try {
+    const snap = await db
+      .collection(ROUTE_EVIDENCE_COLLECTION)
+      .orderBy('eventAt', 'desc')
+      .limit(300)
+      .get()
+    evidence = snap.docs.map((doc) => doc.data() as RouteEvidence).reverse()
+  } catch (error) {
+    console.warn('[issueCycle] route evidence load skipped', error)
+  }
   try {
     return await db.runTransaction(async (tx) =>
-      writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, book)
+      writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, book, evidence)
     ).then(async (issued) => {
       if (issued.kind === 'deploy' && issued.plan.cardAssignments.length > 0) {
         try {
@@ -1476,12 +1528,77 @@ async function issueCycle(
           console.error('[issueCycle] invoice raise failed', error)
         }
       }
+      try {
+        await publishSamDayBrief({
+          adminUid,
+          testRunId,
+          state: quoted.state,
+          plan: issued.plan,
+          kind: issued.kind,
+          now,
+        })
+      } catch (error) {
+        console.warn('[issueCycle] Sam day brief skipped', error)
+      }
       return issued
     })
   } catch (error) {
     console.error('[issueCycle] persist failed; writing instruction only', error)
     return writeInstructionOnly(adminUid, testRunId, quoted.state, now, quoted, book)
   }
+}
+
+async function publishSamDayBrief(input: {
+  adminUid: string
+  testRunId: string
+  state: RoutingState
+  plan: CyclePlan
+  kind: 'deploy' | 'replenish'
+  now: admin.firestore.Timestamp
+}): Promise<void> {
+  const day = Math.min(
+    input.state.config.cycleCount,
+    Math.max(1, input.state.completedCycles + (windowIsFinished(input.state) ? 0 : 1))
+  )
+  const residual = residualToTarget(input.state)
+  const schedule = suggestAttemptTime({
+    nowMs: input.now.toMillis(),
+    pendingExposureZar: input.state.bufferUsed,
+  })
+  const id = `sam-day-brief-${input.testRunId}-c${input.plan.cycleNumber}`
+  const ref = db.collection('users').doc(input.adminUid).collection('activityEvents').doc(id)
+  if ((await ref.get()).exists) return
+  const body = [
+    `Day ${day} of ${input.state.config.cycleCount}.`,
+    `${formatZar(residual)} still to convert of ${formatZar(input.state.authorisedZar || input.state.availableCapital)}.`,
+    input.kind === 'replenish'
+      ? `Amina has the restock. ${schedule.reason || `Earliest swipe: ${schedule.timeLabel} SAST.`}`
+      : `Leo has the sale. ${schedule.reason || `Earliest attempt: ${schedule.timeLabel} SAST.`}`,
+  ].join('\n')
+  await ref.create({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: `Sam · Day ${day} of ${input.state.config.cycleCount}`,
+    body,
+    dropdownTitle: `Day ${day} of ${input.state.config.cycleCount}`,
+    dropdownBody: body.split('\n')[0],
+    actorType: 'ai_manager',
+    avatarKind: 'convert_zar',
+    amountCurrency: 'ZAR',
+    amountValue: input.plan.deployedAmount || 0,
+    amountSign: 'debit',
+    txId: id,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    status: 'recorded',
+    routingAction: 'advice',
+    deskSpeaker: 'sam',
+    testRunId: input.testRunId,
+    cycleNumber: input.plan.cycleNumber,
+    earliestAttemptAt: schedule.earliestAt,
+    createdAt: input.now,
+    recordingSource: 'SYSTEM',
+  })
 }
 
 function writeInstructionOnly(
