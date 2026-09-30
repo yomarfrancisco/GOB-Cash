@@ -13,6 +13,7 @@ import {
 } from '@/lib/transactions/clientFunctions'
 import { AGENT_UID } from '@/types/transactions'
 import { getFirebaseAuth } from '@/lib/firebase'
+import { isE0PreviewPath } from '@/lib/belief/e0Isolation'
 
 const DROPDOWN_KINDS = new Set([
   'BANK_TRANSFER_CONFIRMED',
@@ -74,6 +75,9 @@ export default function ActivityEventsListener() {
   const isAuthed = useAuthStore((s) => s.isAuthed)
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && isE0PreviewPath(window.location.pathname)) {
+      return
+    }
     if (!isAuthed) return
 
     const unsubscribe = subscribeToActivityEvents(

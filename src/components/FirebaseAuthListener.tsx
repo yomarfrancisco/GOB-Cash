@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { getRedirectResult, onAuthStateChanged } from 'firebase/auth'
 import { getFirebaseAuth, getFirebaseApp } from '@/lib/firebase'
+import { isE0PreviewPath } from '@/lib/belief/e0Isolation'
 import { ensureUserDocument, subscribeToCurrentUserDoc } from '@/lib/userDoc'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
@@ -40,6 +41,7 @@ export default function FirebaseAuthListener() {
 
     const auth = getFirebaseAuth()
     const { setAuthState } = useAuthStore.getState()
+    const e0FixtureRoute = () => isE0PreviewPath(window.location.pathname)
 
     // Check for redirect result on mount (one-time check)
     if (!checkedRedirectRef.current) {
@@ -49,7 +51,9 @@ export default function FirebaseAuthListener() {
         .then(async (result) => {
           if (result && result.user) {
             console.log('[Firebase] Auth redirect result user:', result.user.uid)
-            await ensureUserDocument(result.user)
+            if (!e0FixtureRoute()) {
+              await ensureUserDocument(result.user)
+            }
             // setAuthState will be called by onAuthStateChanged below
           }
         })
@@ -61,7 +65,7 @@ export default function FirebaseAuthListener() {
     // Set up auth state listener - this is the single source of truth for isAuthed
     let hasCheckedAuth = false
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (lastUidRef.current && lastUidRef.current !== (user?.uid || null)) {
+      if (lastUidRef.current && lastUidRef.current !== (user?.uid || null) && !e0FixtureRoute()) {
         useActivityStore.getState().clear()
         useNotificationStore.getState().clearNotifications()
         try {
@@ -120,6 +124,12 @@ export default function FirebaseAuthListener() {
       if (unsubscribeWalletsRef.current) {
         unsubscribeWalletsRef.current()
         unsubscribeWalletsRef.current = null
+      }
+
+      // E0 production-review fixture: keep authentication, skip Firestore side effects.
+      if (e0FixtureRoute()) {
+        console.info('[FirebaseAuthListener] E0 fixture route — auth only, no Firestore side effects')
+        return
       }
       
       // Sync profile store from Firebase user data
