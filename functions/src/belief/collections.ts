@@ -1,0 +1,4 @@
+export const ROUTE_EVIDENCE_COLLECTION = 'routeEvidence'
+export const ROUTE_EVIDENCE_SIM_COLLECTION = 'routeEvidenceSim'
+export const ROUTE_BELIEFS_COLLECTION = 'routeBeliefs'
+export const DECISION_RECORDS_COLLECTION = 'decisionRecords'

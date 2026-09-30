@@ -8,9 +8,10 @@ import {
   type SettlementInvoice,
 } from './invoice'
 import { renderSettlementInvoicePdf, settlementInvoiceFilename } from './invoicePdf'
-import { railByMerchantId, resolveMerchantDescriptor } from './register'
+import { railByMachineId, railByMerchantId, resolveMerchantDescriptor } from './register'
 import type { FnbSettlement } from './fnbSettlement'
 import type { CapitecSettlement } from '../inbound/capitecSettlement'
+import { evidenceFromZarAvailable, persistRouteEvidence } from '../belief'
 
 const db = () => admin.firestore()
 
@@ -135,6 +136,33 @@ async function openInvoicesForMerchant(merchantId: string | null, descriptor: st
   return snap.docs.map((doc) => ({ ...(doc.data() as SettlementInvoice), id: doc.id }))
 }
 
+async function recordZarAvailableEvidence(invoice: SettlementInvoice, amountZar: number, at?: string) {
+  try {
+    const rail = invoice.machineId != null ? railByMachineId(invoice.machineId) : null
+    const atIso = at || new Date().toISOString()
+    const row = evidenceFromZarAvailable({
+      issuerId: null,
+      cardId: invoice.deskCardId != null ? String(invoice.deskCardId) : null,
+      buyerId: invoice.billToId,
+      merchantId: invoice.issuerId,
+      posId: invoice.machineId != null ? String(invoice.machineId) : null,
+      terminalId: rail?.terminalId || null,
+      acquirerId: rail?.acquirer || null,
+      invoiceId: invoice.id,
+      economicPaymentId: invoice.economicPaymentId,
+      testRunId: invoice.testRunId,
+      cycleNumber: invoice.cycleNumber,
+      requestedZar: invoice.totalZar,
+      settledZar: amountZar,
+      eventAt: atIso,
+      settledAt: atIso,
+    })
+    await persistRouteEvidence(row)
+  } catch (error) {
+    console.error('[settlement] route evidence emit failed', error)
+  }
+}
+
 export async function applyCapitecPayoutToInvoices(
   settlement: CapitecSettlement,
   settlementDocId: string
@@ -164,6 +192,7 @@ export async function applyCapitecPayoutToInvoices(
       settlementDocId,
       at: settlement.payoutOn || undefined,
     })
+    await recordZarAvailableEvidence(invoice, Math.min(credit, remainingNet), settlement.payoutOn || undefined)
     remainingNet = Math.round((remainingNet - Math.min(credit, remainingNet)) * 100) / 100
     remainingSales = Math.round((remainingSales - invoice.totalZar) * 100) / 100
     marked += 1
@@ -201,6 +230,7 @@ export async function applyFnbGrossSettlementToInvoices(
       settlementDocId,
       at: settlement.statementDate || undefined,
     })
+    await recordZarAvailableEvidence(invoice, hit, settlement.statementDate || undefined)
     marked += 1
   }
   return marked
