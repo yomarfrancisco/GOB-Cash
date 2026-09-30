@@ -73,11 +73,13 @@ export default function E0DeskThread() {
   useEffect(() => {
     const feed = feedRef.current
     if (!feed) return
-    feed.scrollTop = feed.scrollHeight
+    // Start at the top so the seven-step fixture reads as a conversation from the beginning.
+    feed.scrollTop = 0
   }, [moments.length])
 
   return (
-    <div className={styles.shell} data-e0-preview="true" data-e0-writes="false" data-e0-reads-prod="false">
+    <div className="app-shell" data-e0-preview="true" data-e0-writes="false" data-e0-reads-prod="false">
+      <div className={`mobile-frame ${styles.shell}`}>
       <div className={`${listStyles.content} ${listStyles.activityContent} ${styles.content}`}>
         <div className={listStyles.deskHeaderChrome} aria-hidden />
         <div className={listStyles.activitySearchOverlay}>
@@ -130,6 +132,7 @@ export default function E0DeskThread() {
           </div>
           <p className={styles.dockNote}>Composer visible · muted · no mutations</p>
         </form>
+      </div>
       </div>
     </div>
   )
