@@ -37,7 +37,7 @@ import {
   stampAssignmentDecisions,
   type RoutingState,
 } from '../routing/conversionRouter'
-import { suggestAttemptTime } from '../routing/attemptSchedule'
+import { scheduleTicketPath } from '../routing/attemptSchedule'
 import { beliefHintForAssignments, rankAssignmentsByBelief } from '../routing/beliefRank'
 import type { RouteEvidence } from '../belief/types'
 import { ROUTE_EVIDENCE_COLLECTION } from '../belief/collections'
@@ -840,7 +840,7 @@ function writeIssuedReplenish(
   now: admin.firestore.Timestamp,
   overlay = EMPTY_OVERLAY,
   book: PathBook = {},
-  attemptSchedule = suggestAttemptTime({ pendingExposureZar: 0 })
+  ticketPath = scheduleTicketPath({ assignments: [] })
 ): { plan: CyclePlan; activityEventId: string; kind: 'replenish' } {
   const plan = planCycle(state, overlay, { ...book, residuals: [] })
   const proposedAt = now.toMillis()
@@ -848,13 +848,21 @@ function writeIssuedReplenish(
     ...replenish,
     cardAssignments: stampAssignmentDecisions(replenish.cardAssignments, proposedAt),
   }
+  const path =
+    ticketPath.tickets.length > 0
+      ? ticketPath
+      : scheduleTicketPath({
+          assignments: issued.cardAssignments,
+          nowMs: now.toMillis(),
+          pendingExposureZar: 0,
+        })
   const notification = buildReplenishNotificationCopy(issued)
   const activity = buildReplenishActivityCopy(
     issued,
     state.config.cycleCount,
     'awaiting_execution',
     state,
-    attemptSchedule
+    path
   )
   const activityEventId = replenishEventId(testRunId, replenish.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
@@ -880,7 +888,8 @@ function writeIssuedReplenish(
     status: 'awaiting_execution',
     routingAction: 'replenish',
     deskSpeaker: 'amina',
-    earliestAttemptAt: attemptSchedule.earliestAt,
+    earliestAttemptAt: path.earliestAt,
+    ticketPath: path,
     testRunId,
     cycleNumber: replenish.cycleNumber,
     createdAt: now,
@@ -933,12 +942,13 @@ function writeIssuedCycle(
     ...book,
     quote: quotes.quote || book.quote,
   }
-  const attemptSchedule = suggestAttemptTime({
-    nowMs: now.toMillis(),
-    pendingExposureZar: state.bufferUsed,
-  })
   const replenish = planReplenish(state, quotes.costRate, overlay, liveBook)
   if (replenish) {
+    const restockPath = scheduleTicketPath({
+      assignments: replenish.cardAssignments,
+      nowMs: now.toMillis(),
+      pendingExposureZar: state.bufferUsed,
+    })
     return writeIssuedReplenish(
       tx,
       adminUid,
@@ -948,7 +958,7 @@ function writeIssuedCycle(
       now,
       overlay,
       liveBook,
-      attemptSchedule
+      restockPath
     )
   }
 
@@ -963,6 +973,11 @@ function writeIssuedCycle(
     ...planned,
     cardAssignments: stampAssignmentDecisions(rankedAssignments, now.toMillis()),
   }
+  const ticketPath = scheduleTicketPath({
+    assignments: plan.cardAssignments,
+    nowMs: now.toMillis(),
+    pendingExposureZar: state.bufferUsed,
+  })
   const beliefHint = beliefHintForAssignments(plan.cardAssignments, evidence, state.bufferUsed)
   const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
   const notification = blocked
@@ -978,7 +993,7 @@ function writeIssuedCycle(
       state,
       overlay,
       revisionReason: shockLine,
-      attemptSchedule: blocked ? null : attemptSchedule,
+      ticketPath: blocked ? null : ticketPath,
       beliefHint: blocked ? null : beliefHint,
     }
   )
@@ -1006,7 +1021,8 @@ function writeIssuedCycle(
     status: 'awaiting_execution',
     routingAction: 'deploy',
     deskSpeaker: 'leo',
-    earliestAttemptAt: attemptSchedule.earliestAt,
+    earliestAttemptAt: ticketPath.earliestAt,
+    ticketPath,
     testRunId,
     cycleNumber: plan.cycleNumber,
     createdAt: now,
@@ -1561,20 +1577,27 @@ async function publishSamDayBrief(input: {
     Math.max(1, input.state.completedCycles + (windowIsFinished(input.state) ? 0 : 1))
   )
   const residual = residualToTarget(input.state)
-  const schedule = suggestAttemptTime({
+  const schedule = scheduleTicketPath({
+    assignments: input.plan.cardAssignments.length
+      ? input.plan.cardAssignments
+      : [{ cardId: 0, machineId: 0, amount: 0 }],
     nowMs: input.now.toMillis(),
     pendingExposureZar: input.state.bufferUsed,
   })
   const id = `sam-day-brief-${input.testRunId}-c${input.plan.cycleNumber}`
   const ref = db.collection('users').doc(input.adminUid).collection('activityEvents').doc(id)
   if ((await ref.get()).exists) return
+  const first = schedule.tickets[0]
   const body = [
     `Day ${day} of ${input.state.config.cycleCount}.`,
     `${formatZar(residual)} still to convert of ${formatZar(input.state.authorisedZar || input.state.availableCapital)}.`,
     input.kind === 'replenish'
-      ? `Amina has the restock. ${schedule.reason || `Earliest swipe: ${schedule.timeLabel} SAST.`}`
-      : `Leo has the sale. ${schedule.reason || `Earliest attempt: ${schedule.timeLabel} SAST.`}`,
-  ].join('\n')
+      ? `Amina has the restock. Start ${first?.timeLabel || schedule.timeLabel}${first?.pathNote ? ` — ${first.pathNote}` : ''}.`
+      : `Leo has the sale. Start ${first?.timeLabel || schedule.timeLabel}${first?.pathNote ? ` — ${first.pathNote}` : ''}.`,
+    schedule.pathSummary || '',
+  ]
+    .filter(Boolean)
+    .join('\n')
   await ref.create({
     id,
     kind: CONVERSION_ROUTING_KIND,
@@ -1596,6 +1619,7 @@ async function publishSamDayBrief(input: {
     testRunId: input.testRunId,
     cycleNumber: input.plan.cycleNumber,
     earliestAttemptAt: schedule.earliestAt,
+    ticketPath: schedule,
     createdAt: input.now,
     recordingSource: 'SYSTEM',
   })

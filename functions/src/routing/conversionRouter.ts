@@ -24,7 +24,7 @@ import { assignmentsFromRoutes, markWindowRestocked, resolveWindow, shockWindowC
 import type { ProspectiveBranch } from '../throughput/prospective/types'
 import { cardShortName, DEFAULT_CARDS, isForbiddenPair, machineShortName } from './inventory'
 import { formatSellTicketLine, formatSwipeTicketLine } from '../settlement/railDisplay'
-import { scheduleLine, type AttemptSchedule } from './attemptSchedule'
+import { type TicketPathSchedule } from './attemptSchedule'
 
 /**
  * Desk configuration. Ticket sizes, card counts and capital come from the
@@ -326,13 +326,22 @@ function dayLabel(ref: DayRef, cycleNumber: number, cycleCount: number): string 
   return ref ? `${ref.weekday}, day ${ref.day} of ${cycleCount}` : `Cycle ${cycleNumber} of ${cycleCount}`
 }
 
-/** One line per whole ticket. Sale: amount first. Restock: swipe verb first (the desk clock parses it). */
-function ticketLines(assignments: CardAssignment[], verb: 'sell' | 'swipe'): string[] {
-  return assignments.map((row) =>
-    verb === 'swipe'
-      ? `- Swipe ${formatSwipeTicketLine(row.amount, row.cardId, row.machineId)}`
-      : `- ${formatSellTicketLine(row.amount, row.cardId, row.machineId)}`
-  )
+/** One line per whole ticket. Optional clock time leads the path. */
+function ticketLines(
+  assignments: CardAssignment[],
+  verb: 'sell' | 'swipe',
+  path?: TicketPathSchedule | null
+): string[] {
+  return assignments.map((row, index) => {
+    const timed = path?.tickets[index]
+    const timePrefix = timed ? `${timed.timeLabel} · ` : ''
+    const core =
+      verb === 'swipe'
+        ? `Swipe ${formatSwipeTicketLine(row.amount, row.cardId, row.machineId)}`
+        : formatSellTicketLine(row.amount, row.cardId, row.machineId)
+    const note = timed?.pathNote ? ` (${timed.pathNote})` : ''
+    return `- ${timePrefix}${core}${note}`
+  })
 }
 
 function machineLoadTargets(
@@ -1270,7 +1279,7 @@ export function buildActivityCopy(
     revisionReason?: string
     state?: RoutingState
     overlay?: RoutingOverlay
-    attemptSchedule?: AttemptSchedule | null
+    ticketPath?: TicketPathSchedule | null
     beliefHint?: string | null
   }
 ): { title: string; body: string } {
@@ -1304,10 +1313,9 @@ export function buildActivityCopy(
   if (extra?.beliefHint) lines.push(extra.beliefHint)
   lines.push('')
   lines.push(plan.cardAssignments.length === 1 ? 'Ticket:' : `${plan.cardAssignments.length} tickets:`)
-  lines.push(...ticketLines(plan.cardAssignments, 'sell'))
-  if (extra?.attemptSchedule) {
-    lines.push('')
-    lines.push(scheduleLine(extra.attemptSchedule))
+  lines.push(...ticketLines(plan.cardAssignments, 'sell', extra?.ticketPath))
+  if (extra?.ticketPath?.pathSummary) {
+    lines.push(extra.ticketPath.pathSummary)
   }
   lines.push('')
   lines.push('Send the ZAR once the MZN has landed.')
@@ -1339,7 +1347,7 @@ export function buildReplenishActivityCopy(
   cycleCount: number,
   status: 'awaiting_execution' | 'completed',
   state?: RoutingState,
-  attemptSchedule?: AttemptSchedule | null
+  ticketPath?: TicketPathSchedule | null
 ): { title: string; body: string } {
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
   const sold = dayRecord(undefined, state)
@@ -1356,14 +1364,11 @@ export function buildReplenishActivityCopy(
     '',
   ]
   if (rows.length) {
-    lines.push(...ticketLines(rows, 'swipe'))
+    lines.push(...ticketLines(rows, 'swipe', ticketPath))
+    if (ticketPath?.pathSummary) lines.push(ticketPath.pathSummary)
     lines.push(`Total ${formatZar(replenish.amountZar)} · ${formatMznAmount(replenish.amountMzn)} out.`)
   } else {
     lines.push(`Restock ${formatZar(replenish.amountZar)} at COST.`)
-  }
-  if (attemptSchedule) {
-    lines.push('')
-    lines.push(scheduleLine(attemptSchedule))
   }
   lines.push('')
   lines.push(`Next: sell ZAR on ${nextLabel}.`)

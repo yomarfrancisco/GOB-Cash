@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { formatSellTicketLine, formatSwipeTicketLine } from '../settlement/railDisplay'
-import { suggestAttemptTime, MIN_ATTEMPT_SPACING_MS } from '../routing/attemptSchedule'
+import { scheduleTicketPath, MIN_ATTEMPT_SPACING_MS } from '../routing/attemptSchedule'
 import { sastToUtcMs } from '../routing/routingTime'
 
 describe('rail display', () => {
@@ -11,7 +11,6 @@ describe('rail display', () => {
     assert.match(line, /FNB Mozambique/i)
     assert.match(line, /Lemon Economics/i)
     assert.match(line, /Capitec/i)
-    assert.ok(!/Lemon Capitec/.test(line) || /Lemon Economics/.test(line))
   })
 
   it('names issuer and merchant on swipe lines', () => {
@@ -23,15 +22,27 @@ describe('rail display', () => {
   })
 })
 
-describe('attempt schedule', () => {
-  it('spaces after last attempt and clamps to operating hours', () => {
-    const morning = sastToUtcMs(2026, 9, 30, 10, 0)
-    const schedule = suggestAttemptTime({
+describe('ticket path schedule', () => {
+  it('assigns a concrete time to each ticket with spacing', () => {
+    const morning = sastToUtcMs(2026, 10, 1, 10, 0)
+    const path = scheduleTicketPath({
       nowMs: morning,
-      lastAttemptAtMs: morning - 30 * 60_000,
+      assignments: [
+        { cardId: 1, machineId: 3, amount: 5000 }, // Capitec
+        { cardId: 2, machineId: 1, amount: 5000 }, // FNB
+        { cardId: 3, machineId: 2, amount: 5000 }, // FNB again
+      ],
     })
-    const earliest = Date.parse(schedule.earliestAt)
-    assert.ok(earliest >= morning - 30 * 60_000 + MIN_ATTEMPT_SPACING_MS - 60_000)
-    assert.match(schedule.reason || '', /Not before|two-hour|hours/i)
+    assert.equal(path.tickets.length, 3)
+    assert.match(path.tickets[0].timeLabel, /^\d{2}:\d{2}$/)
+    const t0 = Date.parse(path.tickets[0].earliestAt)
+    const t1 = Date.parse(path.tickets[1].earliestAt)
+    const t2 = Date.parse(path.tickets[2].earliestAt)
+    assert.ok(t1 - t0 >= MIN_ATTEMPT_SPACING_MS - 60_000)
+    assert.ok(t2 - t1 >= MIN_ATTEMPT_SPACING_MS - 60_000)
+    // Same acquirer FNB→FNB gets a path note, not a business-hours essay.
+    assert.ok(path.tickets[2].pathNote == null || /acquirer/i.test(path.tickets[2].pathNote))
+    assert.ok(!/business hours/i.test(path.pathSummary || ''))
+    assert.ok(!/inside business/i.test(JSON.stringify(path)))
   })
 })
