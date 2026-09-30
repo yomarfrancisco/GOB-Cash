@@ -112,7 +112,7 @@ export const COMPANIES: Record<string, CompanyRecord> = {
     country: 'ZA',
     relatedPartyNote: 'Directed by Omar Luis Francisco; supplies Imani for resale. No POS rail.',
     supplyCategory: 'Import/export supply of goods subsequently resold by POS merchants.',
-    logoAsset: null,
+    logoAsset: 'house-of-exports.png',
     invoicePrefix: 'HOE',
   },
   brics_ai_ei: {
