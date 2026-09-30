@@ -82,7 +82,7 @@ export const COMPANIES: Record<string, CompanyRecord> = {
     country: 'ZA',
     relatedPartyNote: 'Directed by Martha Somaes; co-director of Lemon Economics.',
     supplyCategory: 'Premium hair, wigs and beauty supplies (wholesale).',
-    logoAsset: 'imani-beauty.jpg',
+    logoAsset: 'imani-beauty.png',
     invoicePrefix: 'IBD',
   },
   wolf_and_sons: {
@@ -149,7 +149,7 @@ export const COMPANIES: Record<string, CompanyRecord> = {
     country: 'MZ',
     relatedPartyNote: 'Omar Luís Francisco 90%; invoices may show trading as GINAV.',
     supplyCategory: 'Wholesale/retail trade, import and export (buyer).',
-    logoAsset: null,
+    logoAsset: 'multivendas.png',
     invoicePrefix: null,
   },
   vidrotec: {
@@ -185,7 +185,7 @@ export const COMPANIES: Record<string, CompanyRecord> = {
     country: 'MZ',
     relatedPartyNote: 'Administered by Ygor Omar Francisco; 10% of Goblin.',
     supplyCategory: 'Digital services buyer under Schedule A lines.',
-    logoAsset: null,
+    logoAsset: 'wolf-digital.png',
     invoicePrefix: null,
   },
   goblin: {
@@ -203,7 +203,7 @@ export const COMPANIES: Record<string, CompanyRecord> = {
     country: 'MZ',
     relatedPartyNote: 'Ygor Omar Francisco 90%; Wolf Digital 10%.',
     supplyCategory: 'Economic research and advisory buyer under Schedule A lines.',
-    logoAsset: null,
+    logoAsset: 'goblin-research.png',
     invoicePrefix: null,
   },
 }

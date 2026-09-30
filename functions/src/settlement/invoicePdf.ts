@@ -30,24 +30,30 @@ export async function renderSettlementInvoicePdf(invoice: SettlementInvoice): Pr
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
-    // Black brand band so logos with black backgrounds sit correctly.
-    doc.rect(0, 0, doc.page.width, 88).fill('#0a0a0a')
+    // Light header — logos are white-background brand marks.
+    doc.rect(0, 0, doc.page.width, 88).fill('#ffffff')
     if (logo) {
       try {
-        doc.image(logo, 48, 18, { height: 52 })
+        doc.image(logo, 48, 16, { height: 56 })
       } catch {
         // Logo optional — text header still prints.
       }
     }
-    doc.fillColor('#f5f5f5').fontSize(10).font('Helvetica')
+    doc.fillColor('#111').fontSize(10).font('Helvetica')
     doc.text(invoice.issuerLegalName.toUpperCase(), 48, 28, { align: 'right', width: doc.page.width - 96 })
     if (invoice.issuerFormerLegalName) {
-      doc.fontSize(8).fillColor('#c8c8c8')
+      doc.fontSize(8).fillColor('#666')
       doc.text(`formerly ${invoice.issuerFormerLegalName}`, 48, 44, {
         align: 'right',
         width: doc.page.width - 96,
       })
     }
+    doc
+      .moveTo(48, 88)
+      .lineTo(doc.page.width - 48, 88)
+      .strokeColor('#e5e5e5')
+      .lineWidth(1)
+      .stroke()
 
     let y = 110
     doc.fillColor('#111').font('Helvetica-Bold').fontSize(18)
