@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { getRedirectResult, onAuthStateChanged } from 'firebase/auth'
-import { getFirebaseAuth, getFirebaseApp } from '@/lib/firebase'
+import { getFirebaseAuth, getFirebaseApp, isFirebaseConfigured } from '@/lib/firebase'
 import { ensureUserDocument, subscribeToCurrentUserDoc } from '@/lib/userDoc'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
@@ -37,7 +37,12 @@ export default function FirebaseAuthListener() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (!isFirebaseConfigured()) {
+      console.info('[FirebaseAuthListener] skipped — Firebase env not configured (E0-safe)')
+      return
+    }
 
+    // Existing auth wiring continues below.
     const auth = getFirebaseAuth()
     const { setAuthState } = useAuthStore.getState()
 
