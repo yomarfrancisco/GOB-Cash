@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { getRedirectResult, onAuthStateChanged } from 'firebase/auth'
 import { getFirebaseAuth, getFirebaseApp, isFirebaseConfigured } from '@/lib/firebase'
+import { isE0PreviewPath } from '@/lib/belief/e0Isolation'
 import { ensureUserDocument, subscribeToCurrentUserDoc } from '@/lib/userDoc'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
@@ -37,6 +38,10 @@ export default function FirebaseAuthListener() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (isE0PreviewPath(window.location.pathname)) {
+      console.info('[FirebaseAuthListener] skipped — E0 protected preview (fixture-only)')
+      return
+    }
     if (!isFirebaseConfigured()) {
       console.info('[FirebaseAuthListener] skipped — Firebase env not configured (E0-safe)')
       return
