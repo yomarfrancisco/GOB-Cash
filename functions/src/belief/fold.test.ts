@@ -8,15 +8,16 @@ function base(partial: Partial<NewRouteEvidenceInput> & Pick<NewRouteEvidenceInp
   return buildRouteEvidence({
     source: 'simulation',
     provenance: 'simulation',
+    trustClass: 'simulation',
     attemptEligibility: 'eligible_submitted',
     causeClass: 'unknown',
-    issuerId: 'bci',
+    merchantPrincipalId: 'lemon_economics',
+    invoiceIssuerEntityId: 'lemon_economics',
+    mozambiqueBuyerId: 'multivendas',
     cardId: 'card-1',
-    buyerId: 'multivendas',
-    merchantId: 'lemon_economics',
-    posId: 'pos-1',
-    terminalId: 't1',
-    acquirerId: 'fnb',
+    cardIssuerBankId: 'bci',
+    posTerminalId: 'pos-1',
+    acquirerBankId: 'fnb',
     invoiceId: 'inv-1',
     economicPaymentId: 'pay-1',
     testRunId: 'sim-1',
@@ -24,6 +25,9 @@ function base(partial: Partial<NewRouteEvidenceInput> & Pick<NewRouteEvidenceInp
     requestedZar: 8000,
     settledZar: null,
     settledAt: null,
+    linkedObservationId: null,
+    operatorUid: null,
+    evidenceRef: null,
     notes: [],
     ...partial,
   })
@@ -55,7 +59,29 @@ describe('route evidence', () => {
     const pair = snaps.find((s) => s.level === 'pair')
     assert.ok(pair)
     assert.equal(pair!.authorisationAcceptance, 1)
-    assert.equal(pair!.reviewState, 'open')
+    assert.equal(pair!.reviewState, 'under_review')
+  })
+
+  it('does not double-count linked settlement_credited and zar_available', () => {
+    const credited = base({
+      kind: 'settlement_credited',
+      eventAt: '2026-09-01T18:00:00.000Z',
+      economicPaymentId: 'same',
+      settledZar: 8000,
+      settledAt: '2026-09-01T18:00:00.000Z',
+      linkedObservationId: 'link-1',
+    })
+    const zar = base({
+      kind: 'zar_available',
+      eventAt: '2026-09-01T18:00:00.000Z',
+      economicPaymentId: 'same',
+      settledZar: 8000,
+      settledAt: '2026-09-01T18:00:00.000Z',
+      linkedObservationId: 'link-1',
+    })
+    const pair = foldEvidence([credited, zar], '2026-09-02T00:00:00.000Z').find((s) => s.level === 'pair')
+    assert.equal(pair!.settlementEvidenceCount, 1)
+    assert.equal(pair!.finalSettlementRate, 1)
   })
 })
 
@@ -141,6 +167,27 @@ describe('belief fold replay', () => {
     assert.equal(snap!.finalSettlementRate, 1)
     assert.equal(snap!.reversalExposure, 8000)
     assert.equal(snap!.largestRecentSuccessfulTicketZar, 8000)
+  })
+
+  it('delayed is not recovering', () => {
+    const rows = [
+      base({ kind: 'authorised', eventAt: '2026-09-01T10:00:00.000Z', economicPaymentId: 'd1' }),
+      base({ kind: 'delayed', eventAt: '2026-09-01T16:00:00.000Z', economicPaymentId: 'd1' }),
+    ]
+    const snap = foldEvidence(rows, '2026-09-01T17:00:00.000Z').find((s) => s.level === 'pair')
+    assert.equal(snap!.reviewState, 'delayed')
+  })
+
+  it('capture does not raise settlement maturity or ticket size', () => {
+    const rows = [
+      base({ kind: 'authorised', eventAt: '2026-09-01T10:00:00.000Z', economicPaymentId: 'c1' }),
+      base({ kind: 'captured', eventAt: '2026-09-01T10:10:00.000Z', economicPaymentId: 'c1' }),
+    ]
+    const snap = foldEvidence(rows, '2026-09-01T11:00:00.000Z').find((s) => s.level === 'pair')
+    assert.equal(snap!.settlementMaturity, 'cold')
+    assert.equal(snap!.settlementEvidenceCount, 0)
+    assert.equal(snap!.largestRecentSuccessfulTicketZar, null)
+    assert.equal(snap!.finalSettlementRate, null)
   })
 
   it('canonical sort is stable by eventAt, ingestedAt, observationId', () => {

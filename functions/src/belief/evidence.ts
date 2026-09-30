@@ -21,17 +21,19 @@ export function observationIdFor(input: NewRouteEvidenceInput): string {
     input.eventAt,
     String(input.requestedZar),
     input.cardId || '',
-    input.posId || '',
-    input.merchantId || '',
-    input.acquirerId || '',
-    input.issuerId || '',
+    input.posTerminalId || '',
+    input.merchantPrincipalId || '',
+    input.acquirerBankId || '',
+    input.cardIssuerBankId || '',
+    input.linkedObservationId || '',
   ]
   return createHash('sha256').update(parts.map(stable).join('|')).digest('hex').slice(0, 32)
 }
 
-export function pairId(issuerId: string | null, acquirerId: string | null): string | null {
-  if (!issuerId || !acquirerId) return null
-  return `${issuerId}__${acquirerId}`
+/** Card-issuing bank × acquirer bank pair — never merchant principal. */
+export function pairId(cardIssuerBankId: string | null, acquirerBankId: string | null): string | null {
+  if (!cardIssuerBankId || !acquirerBankId) return null
+  return `${cardIssuerBankId}__${acquirerBankId}`
 }
 
 export function latencyMs(eventAt: string, settledAt: string | null): number | null {
@@ -50,20 +52,43 @@ export function buildRouteEvidence(
   const issuerAcquirerPairId =
     input.issuerAcquirerPairId !== undefined
       ? input.issuerAcquirerPairId
-      : pairId(input.issuerId, input.acquirerId)
+      : pairId(input.cardIssuerBankId, input.acquirerBankId)
+  const trustClass =
+    input.trustClass ||
+    (input.provenance === 'operator_report'
+      ? 'operator_observation'
+      : input.provenance === 'simulation'
+        ? 'simulation'
+        : input.provenance === 'timeout_rule'
+          ? 'rule_derived'
+          : input.provenance === 'bank_mail'
+            ? 'verified_bank'
+            : 'verified_match')
   return {
     ...input,
     issuerAcquirerPairId,
-    observationId: observationIdFor({ ...input, issuerAcquirerPairId }),
+    trustClass,
+    linkedObservationId: input.linkedObservationId ?? null,
+    operatorUid: input.operatorUid ?? null,
+    evidenceRef: input.evidenceRef ?? null,
+    observationId: observationIdFor({ ...input, issuerAcquirerPairId, trustClass }),
     schemaVersion: BELIEF_SCHEMA_VERSION,
     ingestedAt,
     latencyMs: latencyMs(input.eventAt, input.settledAt),
   }
 }
 
-/** Canonical order for fold replay: event time, ingestion time, observation ID. */
+/** Canonical order for fold replay: event time (settledAt for terminal settles), ingestion, id. */
 export function compareEvidence(a: RouteEvidence, b: RouteEvidence): number {
-  const ea = a.eventAt.localeCompare(b.eventAt)
+  const aKey =
+    (a.kind === 'zar_available' || a.kind === 'settlement_credited') && a.settledAt
+      ? a.settledAt
+      : a.eventAt
+  const bKey =
+    (b.kind === 'zar_available' || b.kind === 'settlement_credited') && b.settledAt
+      ? b.settledAt
+      : b.eventAt
+  const ea = aKey.localeCompare(bKey)
   if (ea !== 0) return ea
   const ia = a.ingestedAt.localeCompare(b.ingestedAt)
   if (ia !== 0) return ia

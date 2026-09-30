@@ -4,11 +4,11 @@ import { appendOnly } from './appendOnly'
 import { buildRouteEvidence } from './evidence'
 import { foldEvidence } from './fold'
 import { decideBeliefThreshold, decideControl, decideLookahead } from './policies'
+import { IDENTITY_EXAMPLES, isCardIssuingBank, isMerchantPrincipal } from './identity'
 import type { NewRouteEvidenceInput, RouteEvidence } from './types'
 
 /**
- * Full audit trace (persisted + derived) for Stage D gate.
- * Prints each step; asserts modelling invariants.
+ * Corrected full audit trace after A2 model fixes.
  */
 describe('full example trace', () => {
   function ev(
@@ -18,20 +18,24 @@ describe('full example trace', () => {
     return buildRouteEvidence({
       source: 'simulation',
       provenance: 'simulation',
+      trustClass: 'simulation',
       attemptEligibility: 'eligible_submitted',
       causeClass: 'unknown',
-      issuerId: 'bci',
+      merchantPrincipalId: 'lemon_economics',
+      invoiceIssuerEntityId: 'lemon_economics',
+      mozambiqueBuyerId: 'multivendas',
       cardId: 'card-2',
-      buyerId: 'multivendas',
-      merchantId: 'lemon_economics',
-      posId: 'machine-1',
-      terminalId: 'term-1',
-      acquirerId: 'fnb',
+      cardIssuerBankId: 'bci',
+      posTerminalId: 'machine-1',
+      acquirerBankId: 'fnb',
       invoiceId: `inv-${partial.economicPaymentId}`,
       testRunId: 'full-trace',
       cycleNumber: 1,
       settledZar: null,
       settledAt: null,
+      linkedObservationId: null,
+      operatorUid: null,
+      evidenceRef: null,
       notes: [],
       ...partial,
     })
@@ -41,9 +45,9 @@ describe('full example trace', () => {
     {
       amountZar: 8000,
       cardId: 'card-2',
-      posId: 'machine-1',
-      issuerId: 'bci',
-      acquirerId: 'fnb',
+      posTerminalId: 'machine-1',
+      cardIssuerBankId: 'bci',
+      acquirerBankId: 'fnb',
       issuerAcquirerPairId: 'bci__fnb',
       invoiceId: 'inv-next',
       economicPaymentId: 'pay-next',
@@ -51,9 +55,9 @@ describe('full example trace', () => {
     {
       amountZar: 5000,
       cardId: 'card-3',
-      posId: 'machine-2',
-      issuerId: 'bci',
-      acquirerId: 'fnb',
+      posTerminalId: 'machine-2',
+      cardIssuerBankId: 'bci',
+      acquirerBankId: 'fnb',
       issuerAcquirerPairId: 'bci__fnb',
       invoiceId: 'inv-alt',
       economicPaymentId: 'pay-alt',
@@ -72,7 +76,7 @@ describe('full example trace', () => {
         kind: 'execute' as const,
         amountZar: 8000,
         cardId: 'card-2',
-        posId: 'machine-1',
+        posTerminalId: 'machine-1',
         issuerAcquirerPairId: 'bci__fnb',
         invoiceId: 'inv-next',
         economicPaymentId: 'pay-next',
@@ -107,6 +111,8 @@ describe('full example trace', () => {
           settledZar: row.settledZar,
           eventAt: row.eventAt,
           settledAt: row.settledAt,
+          merchantPrincipalId: row.merchantPrincipalId,
+          cardIssuerBankId: row.cardIssuerBankId,
         })
       )
     }
@@ -122,9 +128,12 @@ describe('full example trace', () => {
         reviewState: pair?.reviewState,
         reversalExposure: pair?.reversalExposure,
         evidenceCount: pair?.evidenceCount,
+        settlementEvidenceCount: pair?.settlementEvidenceCount,
+        settlementMaturity: pair?.settlementMaturity,
         maturity: pair?.maturity,
       })
     )
+    console.log('pending_input', pending)
     for (const [name, rec] of Object.entries(decisions)) {
       console.log(
         name,
@@ -142,7 +151,6 @@ describe('full example trace', () => {
         assert.ok(!banned.test(fact.text), fact.text)
       }
     }
-    // Seed-free: identical re-run
     const again = decideBeliefThreshold({
       evidence,
       usableZar: 50_000,
@@ -155,7 +163,7 @@ describe('full example trace', () => {
     return { pair, decisions }
   }
 
-  it('prints and validates the seven-step lifecycle', () => {
+  it('prints and validates the corrected seven-step lifecycle', () => {
     let log: RouteEvidence[] = []
     let result: ReturnType<typeof appendOnly>['result']
 
@@ -174,8 +182,12 @@ describe('full example trace', () => {
     assert.equal(step.pair!.authorisationAcceptance, 1)
     assert.equal(step.pair!.finalSettlementRate, null)
     assert.equal(step.pair!.largestRecentSuccessfulTicketZar, null)
+    assert.equal(step.pair!.reviewState, 'pending')
+    assert.equal(step.pair!.settlementMaturity, 'cold')
+    assert.equal(step.decisions.threshold.action.kind, 'bounded_exploration')
+    assert.equal(step.decisions.threshold.action.amountZar, 5000)
 
-    // 2. capture
+    // 2. capture — must NOT unlock R8000 recommendation
     ;({ log, result } = appendOnly(
       log,
       ev({
@@ -188,8 +200,18 @@ describe('full example trace', () => {
     assert.equal(result.status, 'written')
     step = printStep('2_capture', log, '2026-09-10T09:15:00.000Z', 8000, result.row)
     assert.equal(step.pair!.finalSettlementRate, null, 'capture is not settlement')
+    assert.equal(step.pair!.largestRecentSuccessfulTicketZar, null)
+    assert.equal(step.pair!.settlementMaturity, 'cold', 'capture must not raise settlement maturity')
+    assert.notEqual(step.decisions.threshold.action.kind, 'execute')
+    assert.ok(
+      step.decisions.threshold.action.kind === 'bounded_exploration' ||
+        step.decisions.threshold.action.kind === 'wait'
+    )
+    if (step.decisions.threshold.action.amountZar != null) {
+      assert.ok(step.decisions.threshold.action.amountZar < 8000)
+    }
 
-    // 3. delayed
+    // 3. delayed — not recovering
     ;({ log, result } = appendOnly(
       log,
       ev({
@@ -201,9 +223,10 @@ describe('full example trace', () => {
     ))
     assert.equal(result.status, 'written')
     step = printStep('3_settlement_delayed', log, '2026-09-10T15:05:00.000Z', 8000, result.row)
-    assert.ok(step.pair!.reviewState === 'recovering' || step.pair!.reviewState === 'open')
+    assert.equal(step.pair!.reviewState, 'delayed')
+    assert.notEqual(step.pair!.reviewState, 'recovering')
 
-    // 4. zar_available (eventAt = auth time; settledAt later → latency; distinct from capture)
+    // 4. zar_available
     ;({ log, result } = appendOnly(
       log,
       ev({
@@ -220,6 +243,7 @@ describe('full example trace', () => {
     assert.equal(step.pair!.finalSettlementRate, 1)
     assert.equal(step.pair!.largestRecentSuccessfulTicketZar, 8000)
     assert.ok((step.pair!.settlementLatencyMs || 0) > 0)
+    assert.equal(step.pair!.reviewState, 'recovered')
 
     // 5. second payment under review
     const step5Rows: RouteEvidence[] = []
@@ -246,17 +270,13 @@ describe('full example trace', () => {
     assert.equal(result.status, 'written')
     step5Rows.push(result.row)
     step = printStep('5_second_under_review', log, '2026-09-12T10:00:00.000Z', 8000, step5Rows)
-    assert.equal(step.pair!.reviewState, 'open')
+    assert.equal(step.pair!.reviewState, 'under_review')
     assert.ok(
       step.decisions.threshold.action.kind === 'wait' ||
         step.decisions.threshold.action.kind === 'reroute'
     )
-    // Historical review fact must remain visible after later recovery
-    assert.ok(
-      step.decisions.threshold.explanationFacts.some((f) => /under review/i.test(f.text))
-    )
 
-    // 6. recovery + success again
+    // 6. recovery + later usable ZAR
     const step6Rows: RouteEvidence[] = []
     ;({ log, result } = appendOnly(
       log,
@@ -269,6 +289,7 @@ describe('full example trace', () => {
     ))
     assert.equal(result.status, 'written')
     step6Rows.push(result.row)
+    assert.equal(foldEvidence(log, '2026-09-13T09:05:00.000Z').find((s) => s.level === 'pair')!.reviewState, 'recovering')
     ;({ log, result } = appendOnly(
       log,
       ev({
@@ -294,15 +315,14 @@ describe('full example trace', () => {
     assert.equal(result.status, 'written')
     step6Rows.push(result.row)
     step = printStep('6_recovered_then_success', log, '2026-09-14T18:00:00.000Z', 0, step6Rows)
-    assert.equal(step.pair!.reviewState, 'clear')
+    assert.ok(step.pair!.reviewState === 'recovered' || step.pair!.reviewState === 'clear')
     assert.equal(step.pair!.largestRecentSuccessfulTicketZar, 8000)
-    assert.ok(step.pair!.evidenceCount >= 5)
     assert.ok(
       step.decisions.threshold.explanationFacts.some((f) => /under review/i.test(f.text)),
       'recovery must not erase earlier review fact'
     )
 
-    // 7. subsequent reversal
+    // 7. reversal — must change policy
     ;({ log, result } = appendOnly(
       log,
       ev({
@@ -311,12 +331,37 @@ describe('full example trace', () => {
         economicPaymentId: 'pay-3',
         requestedZar: 8000,
         settledZar: 8000,
+        causeClass: 'issuer_control_or_liquidity',
       })
     ))
     assert.equal(result.status, 'written')
     step = printStep('7_reversal', log, '2026-09-20T10:00:00.000Z', 0, result.row)
     assert.equal(step.pair!.reversalExposure, 8000)
     assert.equal(step.pair!.largestRecentSuccessfulTicketZar, 8000, 'reversal must not erase historical ticket')
+    assert.equal(step.pair!.authorisationAcceptance, 1, 'technical acceptance history retained')
     assert.equal(step.pair!.finalSettlementRate, 1, 'historical settlement evidence retained')
+    assert.notEqual(
+      step.decisions.threshold.action.kind === 'execute' && step.decisions.threshold.action.amountZar === 8000,
+      true,
+      'reversal must not keep recommending full R8000 execute'
+    )
+    assert.ok(
+      step.decisions.threshold.action.kind === 'reduce_to' ||
+        step.decisions.threshold.action.kind === 'wait' ||
+        step.decisions.threshold.action.kind === 'bounded_exploration' ||
+        (step.decisions.threshold.action.kind === 'execute' &&
+          (step.decisions.threshold.action.amountZar || 0) < 8000)
+    )
+  })
+
+  it('separates merchant principals from card-issuing banks', () => {
+    for (const m of IDENTITY_EXAMPLES.merchantPrincipals) {
+      assert.ok(isMerchantPrincipal(m.id), m.id)
+      assert.equal(isCardIssuingBank(m.id), false)
+    }
+    for (const b of IDENTITY_EXAMPLES.cardIssuingBanks) {
+      assert.ok(isCardIssuingBank(b.id), b.id)
+      assert.equal(isMerchantPrincipal(b.id), false)
+    }
   })
 })

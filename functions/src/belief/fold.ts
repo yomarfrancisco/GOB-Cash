@@ -19,6 +19,8 @@ type CellAcc = {
   authAccepts: number
   settleAttempts: number
   settleSuccesses: number
+  /** Dedup terminal settlement credits linked to the same economic success. */
+  countedTerminalIds: Set<string>
   latencySum: number
   latencyN: number
   largestTicket: number | null
@@ -27,11 +29,15 @@ type CellAcc = {
   reviewState: ReviewState
   reversalExposure: number
   evidenceCount: number
+  settlementEvidenceCount: number
   lastEventAt: string | null
   firstEventAt: string | null
   recentAttempts: number
   recentSettlements: number
   eventDays: Set<string>
+  operatorObservationCount: number
+  /** Payments that already reached terminal settlement — later delays must not regress them. */
+  settledPaymentIds: Set<string>
 }
 
 function emptyCell(level: BeliefLevel, beliefKey: string): CellAcc {
@@ -42,6 +48,7 @@ function emptyCell(level: BeliefLevel, beliefKey: string): CellAcc {
     authAccepts: 0,
     settleAttempts: 0,
     settleSuccesses: 0,
+    countedTerminalIds: new Set(),
     latencySum: 0,
     latencyN: 0,
     largestTicket: null,
@@ -50,11 +57,14 @@ function emptyCell(level: BeliefLevel, beliefKey: string): CellAcc {
     reviewState: 'clear',
     reversalExposure: 0,
     evidenceCount: 0,
+    settlementEvidenceCount: 0,
     lastEventAt: null,
     firstEventAt: null,
     recentAttempts: 0,
     recentSettlements: 0,
     eventDays: new Set(),
+    operatorObservationCount: 0,
+    settledPaymentIds: new Set(),
   }
 }
 
@@ -84,6 +94,13 @@ function maturity(count: number, freshnessDays: number | null): BeliefMaturity {
   return 'established'
 }
 
+/** Settlement maturity ignores auth/capture/delay noise. */
+function settlementMaturity(settleSuccesses: number, freshnessDays: number | null): BeliefMaturity {
+  if (settleSuccesses < 1) return 'cold'
+  if (settleSuccesses < 3 || (freshnessDays != null && freshnessDays > 21)) return 'thin'
+  return 'established'
+}
+
 function freshnessDays(lastEventAt: string | null, asOf: string): number | null {
   if (!lastEventAt) return null
   const a = Date.parse(lastEventAt)
@@ -94,14 +111,54 @@ function freshnessDays(lastEventAt: string | null, asOf: string): number | null 
 
 function keysFor(row: RouteEvidence): Array<{ level: BeliefLevel; beliefKey: string }> {
   const out: Array<{ level: BeliefLevel; beliefKey: string }> = []
-  if (row.issuerId) out.push({ level: 'issuer', beliefKey: `issuer:${row.issuerId}` })
-  if (row.acquirerId) out.push({ level: 'acquirer', beliefKey: `acquirer:${row.acquirerId}` })
+  if (row.cardIssuerBankId) out.push({ level: 'issuer', beliefKey: `issuer:${row.cardIssuerBankId}` })
+  if (row.acquirerBankId) out.push({ level: 'acquirer', beliefKey: `acquirer:${row.acquirerBankId}` })
   if (row.issuerAcquirerPairId) {
     out.push({ level: 'pair', beliefKey: `pair:${row.issuerAcquirerPairId}` })
   }
   if (row.cardId) out.push({ level: 'card', beliefKey: `card:${row.cardId}` })
-  if (row.posId) out.push({ level: 'pos', beliefKey: `pos:${row.posId}` })
+  if (row.posTerminalId) out.push({ level: 'pos', beliefKey: `pos:${row.posTerminalId}` })
   return out
+}
+
+function applyTerminalSettlement(cell: CellAcc, row: RouteEvidence, asOf: string): void {
+  if (!isEligibleLiquidity(row)) return
+  // Avoid double-counting settlement_credited + zar_available for the same economic success.
+  const terminalKey =
+    row.linkedObservationId ||
+    row.economicPaymentId ||
+    row.observationId
+  if (cell.countedTerminalIds.has(terminalKey)) {
+    // Second linked event: keep latency / pending cleanup only if needed; do not add another success.
+    cell.pendingExposure = Math.max(0, cell.pendingExposure - row.requestedZar)
+    return
+  }
+  cell.countedTerminalIds.add(terminalKey)
+  if (row.economicPaymentId) cell.settledPaymentIds.add(row.economicPaymentId)
+
+  const interrupted =
+    cell.reviewState === 'delayed' ||
+    cell.reviewState === 'under_review' ||
+    cell.reviewState === 'recovering'
+
+  cell.settleAttempts += 1
+  cell.settleSuccesses += 1
+  cell.settlementEvidenceCount += 1
+  const ticket = row.settledZar ?? row.requestedZar
+  if (cell.largestTicket == null || ticket > cell.largestTicket) cell.largestTicket = ticket
+  if (withinDays(row.eventAt, asOf, ROLLING_WINDOW_DAYS)) cell.rollingVolume += ticket
+  if (withinDays(row.eventAt, asOf, RECENT_WINDOW_DAYS)) cell.recentSettlements += 1
+  cell.pendingExposure = Math.max(0, cell.pendingExposure - row.requestedZar)
+  if (row.latencyMs != null) {
+    cell.latencySum += row.latencyMs
+    cell.latencyN += 1
+  }
+  // Later verified successful settlement after interruption → recovered (not silence inference).
+  cell.reviewState = interrupted ? 'recovered' : 'clear'
+}
+
+function paymentAlreadySettled(cell: CellAcc, row: RouteEvidence): boolean {
+  return Boolean(row.economicPaymentId && cell.settledPaymentIds.has(row.economicPaymentId))
 }
 
 function applyRow(cell: CellAcc, row: RouteEvidence, asOf: string): void {
@@ -109,8 +166,10 @@ function applyRow(cell: CellAcc, row: RouteEvidence, asOf: string): void {
   cell.lastEventAt = row.eventAt
   if (!cell.firstEventAt || row.eventAt < cell.firstEventAt) cell.firstEventAt = row.eventAt
   cell.eventDays.add(dayKey(row.eventAt))
+  if (row.trustClass === 'operator_observation' || row.provenance === 'operator_report') {
+    cell.operatorObservationCount += 1
+  }
   const recent = withinDays(row.eventAt, asOf, RECENT_WINDOW_DAYS)
-  const rolling = withinDays(row.eventAt, asOf, ROLLING_WINDOW_DAYS)
   const eligible = isEligibleLiquidity(row)
 
   switch (row.kind) {
@@ -120,48 +179,46 @@ function applyRow(cell: CellAcc, row: RouteEvidence, asOf: string): void {
         cell.authAccepts += 1
         cell.pendingExposure += row.requestedZar
         if (recent) cell.recentAttempts += 1
-      }
-      break
-    case 'captured':
-      // Capture confirms progress; settlement still separate.
-      break
-    case 'settlement_credited':
-    case 'zar_available': {
-      if (eligible) {
-        cell.settleAttempts += 1
-        cell.settleSuccesses += 1
-        const ticket = row.settledZar ?? row.requestedZar
-        if (cell.largestTicket == null || ticket > cell.largestTicket) cell.largestTicket = ticket
-        if (rolling) cell.rollingVolume += ticket
-        if (recent) cell.recentSettlements += 1
-        cell.pendingExposure = Math.max(0, cell.pendingExposure - row.requestedZar)
-        if (row.latencyMs != null) {
-          cell.latencySum += row.latencyMs
-          cell.latencyN += 1
+        if (cell.reviewState === 'clear' || cell.reviewState === 'recovered') {
+          cell.reviewState = 'pending'
         }
       }
       break
-    }
+    case 'captured':
+      // Capture confirms progression only — never settlement performance.
+      break
+    case 'settlement_credited':
+    case 'zar_available':
+      applyTerminalSettlement(cell, row, asOf)
+      break
     case 'under_review':
-      cell.reviewState = 'open'
+      if (!paymentAlreadySettled(cell, row)) cell.reviewState = 'under_review'
       break
     case 'delayed':
-      if (cell.reviewState !== 'open') cell.reviewState = 'recovering'
+      // Delay is not recovery. Never regress a payment that already settled.
+      if (paymentAlreadySettled(cell, row)) break
+      if (cell.reviewState !== 'under_review') cell.reviewState = 'delayed'
+      break
+    case 'declined':
+      if (eligible) {
+        cell.authAttempts += 1
+        // Decline is not an accept.
+      }
+      if (cell.reviewState === 'pending' || cell.reviewState === 'clear') {
+        cell.reviewState = 'under_review'
+      }
       break
     case 'reversed':
       cell.reversalExposure += row.settledZar ?? row.requestedZar
-      // Does not erase prior authorisation evidence.
+      // Does not erase prior authorisation or historical successful ticket.
       break
     case 'recovered':
-      cell.reviewState = 'clear'
+      // Explicit recovery evidence → recovering (not clear yet).
+      cell.reviewState = 'recovering'
       break
     default:
       break
   }
-
-  // Eligible declines / unknown failures: count as auth attempts without accept when kind is not authorised.
-  // Declines arrive as under_review or via a separate decline path — when cause is unknown we still
-  // record evidenceCount but do not invent liquidity attribution beyond attempt eligibility gate.
 }
 
 function toSnapshot(cell: CellAcc, asOf: string): RouteBeliefSnapshot {
@@ -188,12 +245,15 @@ function toSnapshot(cell: CellAcc, asOf: string): RouteBeliefSnapshot {
     reviewState: cell.reviewState,
     reversalExposure: round2(cell.reversalExposure),
     evidenceCount: cell.evidenceCount,
+    settlementEvidenceCount: cell.settlementEvidenceCount,
+    settlementMaturity: settlementMaturity(cell.settleSuccesses, fresh),
     evidenceFreshnessDays: fresh,
     maturity: maturity(cell.evidenceCount, fresh),
     recentAttemptCount: cell.recentAttempts,
     recentSettlementCount: cell.recentSettlements,
     observedCadenceDays: cadence,
     lastEventAt: cell.lastEventAt,
+    operatorObservationCount: cell.operatorObservationCount,
   }
 }
 
@@ -203,7 +263,6 @@ function round2(n: number): number {
 
 /**
  * Pure hierarchical fold. Same evidence multiset → same snapshots (canonical sort).
- * Card/POS cells accumulate independently; consumers pool via {@link resolveRouteBelief}.
  */
 export function foldEvidence(
   evidence: RouteEvidence[],
@@ -228,27 +287,29 @@ export function foldEvidence(
     .sort((a, b) => a.beliefKey.localeCompare(b.beliefKey))
 }
 
-/**
- * Hierarchical readout: prefer pair when established/thin with enough local evidence;
- * otherwise blend toward issuer+acquirer priors by weighting.
- */
 export function resolveRouteBelief(
   snapshots: RouteBeliefSnapshot[],
-  opts: { issuerId?: string | null; acquirerId?: string | null; pairId?: string | null; cardId?: string | null; posId?: string | null }
+  opts: {
+    cardIssuerBankId?: string | null
+    acquirerBankId?: string | null
+    pairId?: string | null
+    cardId?: string | null
+    posTerminalId?: string | null
+  }
 ): RouteBeliefSnapshot | null {
   const byKey = new Map(snapshots.map((s) => [s.beliefKey, s]))
   const pair = opts.pairId ? byKey.get(`pair:${opts.pairId}`) : null
-  const issuer = opts.issuerId ? byKey.get(`issuer:${opts.issuerId}`) : null
-  const acquirer = opts.acquirerId ? byKey.get(`acquirer:${opts.acquirerId}`) : null
+  const issuer = opts.cardIssuerBankId ? byKey.get(`issuer:${opts.cardIssuerBankId}`) : null
+  const acquirer = opts.acquirerBankId ? byKey.get(`acquirer:${opts.acquirerBankId}`) : null
   const card = opts.cardId ? byKey.get(`card:${opts.cardId}`) : null
-  const pos = opts.posId ? byKey.get(`pos:${opts.posId}`) : null
+  const pos = opts.posTerminalId ? byKey.get(`pos:${opts.posTerminalId}`) : null
 
-  if (pair && pair.evidenceCount >= 3 && pair.maturity !== 'cold') {
+  if (pair && pair.settlementEvidenceCount >= 2 && pair.settlementMaturity !== 'cold') {
     return mergePreferLocal(pair, issuer, acquirer)
   }
   if (pair) return mergePreferLocal(pair, issuer, acquirer)
-  if (card && card.evidenceCount >= 4) return mergePreferLocal(card, issuer, acquirer)
-  if (pos && pos.evidenceCount >= 4) return mergePreferLocal(pos, issuer, acquirer)
+  if (card && card.settlementEvidenceCount >= 2) return mergePreferLocal(card, issuer, acquirer)
+  if (pos && pos.settlementEvidenceCount >= 2) return mergePreferLocal(pos, issuer, acquirer)
   if (issuer || acquirer) return mergePreferLocal(issuer ?? null, issuer, acquirer)
   return null
 }
@@ -276,16 +337,20 @@ function mergePreferLocal(
       reviewState: worstReview(issuer?.reviewState, acquirer?.reviewState),
       reversalExposure: (issuer?.reversalExposure || 0) + (acquirer?.reversalExposure || 0),
       evidenceCount: (issuer?.evidenceCount || 0) + (acquirer?.evidenceCount || 0),
+      settlementEvidenceCount:
+        (issuer?.settlementEvidenceCount || 0) + (acquirer?.settlementEvidenceCount || 0),
+      settlementMaturity: colderMaturity(issuer?.settlementMaturity, acquirer?.settlementMaturity),
       evidenceFreshnessDays: minNullable(issuer?.evidenceFreshnessDays, acquirer?.evidenceFreshnessDays),
       maturity: 'cold',
       recentAttemptCount: (issuer?.recentAttemptCount || 0) + (acquirer?.recentAttemptCount || 0),
       recentSettlementCount: (issuer?.recentSettlementCount || 0) + (acquirer?.recentSettlementCount || 0),
       observedCadenceDays: avgNullable(issuer?.observedCadenceDays, acquirer?.observedCadenceDays),
       lastEventAt: maxIso(issuer?.lastEventAt, acquirer?.lastEventAt),
+      operatorObservationCount:
+        (issuer?.operatorObservationCount || 0) + (acquirer?.operatorObservationCount || 0),
     }
   }
-  // Recent local evidence outweighs but does not erase broader priors for rates when local is thin.
-  if (local.maturity === 'cold' || local.evidenceCount < 3) {
+  if (local.settlementMaturity === 'cold' || local.settlementEvidenceCount < 2) {
     return {
       ...local,
       authorisationAcceptance:
@@ -303,6 +368,13 @@ function mergePreferLocal(
     }
   }
   return local
+}
+
+function colderMaturity(a?: BeliefMaturity, b?: BeliefMaturity): BeliefMaturity {
+  const order: BeliefMaturity[] = ['cold', 'thin', 'established']
+  const ia = a ? order.indexOf(a) : 0
+  const ib = b ? order.indexOf(b) : 0
+  return order[Math.min(ia, ib)]
 }
 
 function avgNullable(a: number | null | undefined, b: number | null | undefined): number | null {
@@ -330,8 +402,8 @@ function maxIso(a: string | null | undefined, b: string | null | undefined): str
 }
 
 function worstReview(a?: ReviewState, b?: ReviewState): ReviewState {
-  const order: ReviewState[] = ['clear', 'recovering', 'open']
+  const order: ReviewState[] = ['clear', 'recovered', 'pending', 'recovering', 'delayed', 'under_review']
   const ia = a ? order.indexOf(a) : 0
   const ib = b ? order.indexOf(b) : 0
-  return order[Math.max(ia, ib)]
+  return order[Math.max(ia, ib)] || 'clear'
 }

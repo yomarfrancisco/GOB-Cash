@@ -249,6 +249,29 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Route evidence: clients never create/update/delete. Admin SDK (Cloud Functions) only.
+    // Application layer enforces create-only + conflict rejection; rules deny all client writes.
+    match /routeEvidence/{id} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /routeEvidenceSim/{id} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /routeEvidenceQuarantine/{id} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /routeBeliefs/{id} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /decisionRecords/{id} {
+      allow read: if false;
+      allow write: if false;
+    }
+
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;

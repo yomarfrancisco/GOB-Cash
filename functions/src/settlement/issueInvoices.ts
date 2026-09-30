@@ -141,13 +141,13 @@ async function recordZarAvailableEvidence(invoice: SettlementInvoice, amountZar:
     const rail = invoice.machineId != null ? railByMachineId(invoice.machineId) : null
     const atIso = at || new Date().toISOString()
     const row = evidenceFromZarAvailable({
-      issuerId: null,
+      merchantPrincipalId: invoice.issuerId,
+      invoiceIssuerEntityId: invoice.issuerId,
+      mozambiqueBuyerId: invoice.billToId,
       cardId: invoice.deskCardId != null ? String(invoice.deskCardId) : null,
-      buyerId: invoice.billToId,
-      merchantId: invoice.issuerId,
-      posId: invoice.machineId != null ? String(invoice.machineId) : null,
-      terminalId: rail?.terminalId || null,
-      acquirerId: rail?.acquirer || null,
+      cardIssuerBankId: null,
+      posTerminalId: invoice.machineId != null ? String(invoice.machineId) : null,
+      acquirerBankId: rail?.acquirer || null,
       invoiceId: invoice.id,
       economicPaymentId: invoice.economicPaymentId,
       testRunId: invoice.testRunId,

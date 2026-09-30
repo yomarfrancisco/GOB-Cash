@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>E0 · Sam explain-only preview</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      padding: 2rem 1.25rem 4rem;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #dce9e2 0%, transparent 55%),
+        linear-gradient(180deg, #f4f7f5 0%, #eef2f0 100%);
+      color: #14201a;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    }
+    header { max-width: 42rem; margin: 0 auto 2rem; }
+    .kicker {
+      margin: 0 0 0.35rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      color: #3d5a4c;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 600;
+      line-height: 1.1;
+    }
+    .lede {
+      margin: 0.75rem 0 0;
+      font-size: 1.05rem;
+      line-height: 1.45;
+      color: #31453b;
+      max-width: 36rem;
+    }
+    .moments { max-width: 42rem; margin: 0 auto; display: grid; gap: 1.25rem; }
+    .card { padding: 1.25rem 1.25rem 1rem; border-top: 1px solid #c5d4cb; }
+    .card h2 { margin: 0 0 0.4rem; font-size: 1.25rem; }
+    .meta p {
+      margin: 0.15rem 0;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.85rem;
+      color: #405548;
+    }
+    .sam { margin-top: 1rem; padding: 1rem 0 0; }
+    .speaker {
+      margin: 0 0 0.5rem;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #2f6b4f;
+    }
+    .sam p:not(.speaker) {
+      margin: 0 0 0.65rem;
+      font-size: 1.08rem;
+      line-height: 1.45;
+    }
+    .note {
+      margin: 0.75rem 0 0;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #6a7d72;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="kicker">E0 · explain only · not live routing</p>
+    <h1>Sam route explanations</h1>
+    <p class="lede">Production planner remains the sole action source. Belief facts explain; no Accept or Wait.</p>
+  </header>
+  <div class="moments">
+    <section class="card" data-moment="pending_after_auth">
+      <div class="meta">
+        <h2>After authorisation</h2>
+        <p>Control action: <strong>execute · R8,000</strong></p>
+        <p>Lifecycle: pending</p>
+      </div>
+      <div class="sam">
+        <p class="speaker">Sam</p>
+        <p>Payment authorised; settlement not yet credited as usable ZAR.</p>
+        <p>The next payment is still pending, so I’m not treating that result as additional settled evidence.</p>
+      </div>
+      <p class="note">No Accept · No Wait · Chat remains read-only</p>
+    </section>
+    <section class="card" data-moment="after_capture">
+      <div class="meta">
+        <h2>After capture</h2>
+        <p>Control action: <strong>execute · R8,000</strong></p>
+        <p>Lifecycle: pending</p>
+      </div>
+      <div class="sam">
+        <p class="speaker">Sam</p>
+        <p>Capture confirms progression. I am not treating that as settled usable ZAR.</p>
+        <p>The next payment is still pending, so I’m not treating prior progress as additional settled evidence.</p>
+      </div>
+      <p class="note">No Accept · No Wait · Chat remains read-only</p>
+    </section>
+    <section class="card" data-moment="under_review">
+      <div class="meta">
+        <h2>Under review</h2>
+        <p>Control action: <strong>execute · R8,000</strong></p>
+        <p>Lifecycle: under_review</p>
+      </div>
+      <div class="sam">
+        <p class="speaker">Sam</p>
+        <p>R8,000 previously settled on this route.</p>
+        <p>This payment is under review. I’ve recorded the interruption, but there is not yet evidence that the route has recovered.</p>
+      </div>
+      <p class="note">No Accept · No Wait · Chat remains read-only</p>
+    </section>
+    <section class="card" data-moment="after_recovery">
+      <div class="meta">
+        <h2>After recovery</h2>
+        <p>Control action: <strong>execute · R8,000</strong></p>
+        <p>Lifecycle: recovered</p>
+      </div>
+      <div class="sam">
+        <p class="speaker">Sam</p>
+        <p>R8,000 previously settled on this route.</p>
+        <p>A later payment settled successfully. That reopens the route for assessment; it does not erase the earlier review.</p>
+      </div>
+      <p class="note">No Accept · No Wait · Chat remains read-only</p>
+    </section>
+  </div>
+</body>
+</html>

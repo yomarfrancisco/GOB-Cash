@@ -26,8 +26,9 @@ export function hashDecisionState(state: DecisionState): string {
       f: b.finalSettlementRate,
       t: b.largestRecentSuccessfulTicketZar,
       r: b.reviewState,
-      m: b.maturity,
-      n: b.evidenceCount,
+      m: b.settlementMaturity,
+      n: b.settlementEvidenceCount,
+      x: b.reversalExposure,
     })),
     recentEvidenceIds: state.recentEvidenceIds,
   })

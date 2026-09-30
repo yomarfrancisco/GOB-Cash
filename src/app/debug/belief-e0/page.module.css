@@ -1,0 +1,97 @@
+.page {
+  min-height: 100dvh;
+  padding: 2rem 1.25rem 4rem;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #dce9e2 0%, transparent 55%),
+    linear-gradient(180deg, #f4f7f5 0%, #eef2f0 100%);
+  color: #14201a;
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+}
+
+.header {
+  max-width: 42rem;
+  margin: 0 auto 2rem;
+}
+
+.kicker {
+  margin: 0 0 0.35rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  color: #3d5a4c;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.lede {
+  margin: 0.75rem 0 0;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  color: #31453b;
+  max-width: 36rem;
+}
+
+.moments {
+  max-width: 42rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.card {
+  padding: 1.25rem 1.25rem 1rem;
+  border-top: 1px solid #c5d4cb;
+}
+
+.meta h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.25rem;
+}
+
+.meta p {
+  margin: 0.15rem 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: #405548;
+}
+
+.sam {
+  margin-top: 1rem;
+  padding: 1rem 0 0;
+}
+
+.speaker {
+  margin: 0 0 0.5rem;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #2f6b4f;
+}
+
+.sam p:not(.speaker) {
+  margin: 0 0 0.65rem;
+  font-size: 1.08rem;
+  line-height: 1.45;
+}
+
+.note {
+  margin: 0.75rem 0 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6a7d72;
+}
+
+@media (min-width: 860px) {
+  .page {
+    padding: 3rem 2rem 5rem;
+  }
+}

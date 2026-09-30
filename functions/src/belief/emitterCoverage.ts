@@ -1,11 +1,12 @@
 /**
- * Production emitter coverage for Stage A–D audit.
+ * Production emitter coverage for Stage A2 audit.
  * Positive-only zar_available must not alone drive a live policy.
  */
 
 export type EmitterCoverageRow = {
   event: string
   wired: boolean
+  available: boolean
   source: string
   routeAttribution: string
   idempotencyKey: string
@@ -17,76 +18,88 @@ export const EMITTER_COVERAGE: EmitterCoverageRow[] = [
   {
     event: 'authorisation accepted',
     wired: false,
+    available: false,
     source: '—',
     routeAttribution: '—',
-    idempotencyKey: 'hash(source|provenance|authorised|economicPaymentId|invoiceId|eventAt|requestedZar|card|pos|merchant|acquirer|issuer)',
-    notes: 'Builder exists (evidenceFromAuthorisation); not hooked to desk confirm or bank auth mail yet.',
+    idempotencyKey: 'hash(…kind=authorised…)',
+    notes:
+      'Builder evidenceFromAuthorisation exists. No proven automated auth mail→payment match yet. Desk confirm alone is not wired as production evidence.',
   },
   {
     event: 'capture',
     wired: false,
+    available: false,
     source: '—',
     routeAttribution: '—',
-    idempotencyKey: 'same scheme with kind=captured',
-    notes: 'Kind exists on RouteEvidence; no production emitter.',
+    idempotencyKey: 'kind=captured',
+    notes: 'Builder exists. No trusted acquirer/POS capture feed matched to invoice today.',
   },
   {
     event: 'decline',
     wired: false,
-    source: '—',
-    routeAttribution: '—',
-    idempotencyKey: 'kind under_review/delayed with causeClass + eligibility',
-    notes: 'Must set attemptEligibility and causeClass; unknown must not update liquidity rates. Not wired.',
+    available: true,
+    source: 'Proposed: structured operator_report (not free-text Sam)',
+    routeAttribution: 'payment/invoice/route from operator form',
+    idempotencyKey: 'kind=declined + payment + eventAt + operatorUid',
+    notes: 'No automated decline feed. Operator report builder ready; callable not exposed in E0.',
   },
   {
     event: 'under review',
     wired: false,
-    source: '—',
-    routeAttribution: '—',
-    idempotencyKey: 'kind=under_review + economicPaymentId + eventAt',
-    notes: 'Desk friction / outcome language exists; does not write RouteEvidence.',
+    available: true,
+    source: 'Proposed: structured operator_report',
+    routeAttribution: 'payment/invoice/route',
+    idempotencyKey: 'kind=under_review + payment + eventAt',
+    notes: 'Desk friction language exists but does not write RouteEvidence. Operator form is the smallest control.',
   },
   {
     event: 'delay/timeout',
     wired: false,
-    source: '—',
-    routeAttribution: '—',
-    idempotencyKey: 'kind=delayed or timeout_rule provenance',
-    notes: 'No silence inference; timeout_rule only when explicit overdue deadline exists. Not wired.',
+    available: true,
+    source: 'Proposed: timeout_rule when explicit overdue deadline exists; else operator_report',
+    routeAttribution: 'payment + deadline',
+    idempotencyKey: 'kind=delayed',
+    notes: 'No silence inference. evidenceFromTimeoutRule ready; not hooked until deadline config exists.',
   },
   {
     event: 'settlement credited',
     wired: false,
-    source: '—',
-    routeAttribution: '—',
-    idempotencyKey: 'kind=settlement_credited',
-    notes: 'Distinct from zar_available. FNB/Capitec parsers credit wallets/invoices but do not emit this kind yet.',
+    available: true,
+    source: 'Same bank artifact as zar_available (FNB/Capitec match)',
+    routeAttribution: 'invoice match',
+    idempotencyKey: 'kind=settlement_credited linked to zar_available',
+    notes:
+      'Present implementation treats matched payout as terminal zar_available only to avoid double success. Builder evidenceFromSettlementCredited available for linked sibling if needed.',
   },
   {
     event: 'zar_available',
     wired: true,
-    source: 'functions/src/settlement/issueInvoices.ts → recordZarAvailableEvidence after markInvoiceZarAvailable (FNB gross / Capitec net match)',
+    available: true,
+    source:
+      'functions/src/settlement/issueInvoices.ts → recordZarAvailableEvidence after markInvoiceZarAvailable (FNB gross / Capitec net match)',
     routeAttribution:
-      'merchantId=invoice.issuerId; cardId=deskCardId; buyerId=billToId; posId=machineId; terminalId/acquirer from railByMachineId; invoiceId; economicPaymentId',
-    idempotencyKey: 'observationIdFor(kind=zar_available, …) → Firestore doc id in routeEvidence',
+      'merchantPrincipalId=invoice.issuerId; cardId=deskCardId; mozambiqueBuyerId=billToId; posTerminalId=machineId; acquirer from rail; invoiceId; economicPaymentId',
+    idempotencyKey: 'observationId → Firestore doc id in routeEvidence',
     notes:
-      'Only fires after invoice match on merchant + amount/card last4. Inbound receipt alone does not emit; secure match required. Positive-only — insufficient for live policy.',
+      'Only after secure invoice match. Inbound receipt alone does not emit. Positive-only — insufficient for live policy.',
   },
   {
     event: 'reversal/chargeback',
     wired: false,
-    source: '—',
-    routeAttribution: '—',
+    available: true,
+    source: 'Proposed: structured operator_report (bank chargeback mail not matched yet)',
+    routeAttribution: 'payment/invoice/route + causeClass',
     idempotencyKey: 'kind=reversed compensating append',
-    notes: 'Fold supports append-only reversalExposure; no producer yet.',
+    notes: 'Fold supports reversalExposure; no proven automated chargeback matcher.',
   },
   {
     event: 'verified recovery',
     wired: false,
-    source: '—',
-    routeAttribution: '—',
+    available: true,
+    source: 'Proposed: operator_report recovered; or later zar_available after interruption (fold)',
+    routeAttribution: 'payment/route',
     idempotencyKey: 'kind=recovered',
-    notes: 'Desk rail_up language exists; does not write RouteEvidence.',
+    notes: 'Later verified zar_available after delayed/under_review sets reviewState=recovered in fold.',
   },
 ]
 
