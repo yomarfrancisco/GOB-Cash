@@ -78,61 +78,63 @@ export default function E0DeskThread() {
   }, [moments.length])
 
   return (
-    <div className="app-shell" data-e0-preview="true" data-e0-writes="false" data-e0-reads-prod="false">
-      <div className={`mobile-frame ${styles.shell}`}>
-      <div className={`${listStyles.content} ${listStyles.activityContent} ${styles.content}`}>
-        <div className={listStyles.deskHeaderChrome} aria-hidden />
-        <div className={listStyles.activitySearchOverlay}>
-          <div className={listStyles.deskHeader}>
-            <div className={listStyles.deskTeamStack} aria-hidden>
-              {DESK_RING.map((id, index) => (
-                <DeskFace key={id} src={DESK_TEAM[id].avatar} className={SLOT_CLASS[index]} />
-              ))}
+    <div className={`app-shell ${styles.page}`} data-e0-preview="true" data-e0-writes="false" data-e0-reads-prod="false">
+      <div className="mobile-frame">
+        <div className={styles.shell}>
+          <div className={`${listStyles.content} ${listStyles.activityContent} ${styles.content}`}>
+            <div className={listStyles.deskHeaderChrome} aria-hidden />
+            <div className={listStyles.activitySearchOverlay}>
+              <div className={listStyles.deskHeader}>
+                <div className={listStyles.deskTeamStack} aria-hidden>
+                  {DESK_RING.map((id, index) => (
+                    <DeskFace key={id} src={DESK_TEAM[id].avatar} className={SLOT_CLASS[index]} />
+                  ))}
+                </div>
+                <p className={listStyles.deskHeaderName}>{DESK_TEAM.sam.name}</p>
+                <p className={listStyles.deskHeaderRole}>E0 explain-only · fixture</p>
+              </div>
             </div>
-            <p className={listStyles.deskHeaderName}>{DESK_TEAM.sam.name}</p>
-            <p className={listStyles.deskHeaderRole}>E0 explain-only · fixture</p>
+
+            <div className={listStyles.conversationList} data-desk-feed ref={feedRef}>
+              <div className={`${activityStyles.activityContainer} ${activityStyles.deskFeed} ${styles.feed}`}>
+                <p className={styles.banner}>
+                  Protected preview. Fixture only — no production evidence, no Accept or Wait.
+                </p>
+                {moments.map((moment) => (
+                  <MomentBubble
+                    key={moment.id}
+                    moment={moment}
+                    open={openId === moment.id}
+                    onToggle={() => setOpenId((cur) => (cur === moment.id ? null : moment.id))}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <form
+              className={listStyles.deskAskDock}
+              onSubmit={(event) => {
+                event.preventDefault()
+              }}
+            >
+              <div className={activityStyles.replyFrame}>
+                <textarea
+                  className={activityStyles.replyInput}
+                  rows={2}
+                  value=""
+                  placeholder="Ask Sam (read-only in E0)"
+                  disabled
+                  readOnly
+                  aria-label="Ask Sam (disabled in E0)"
+                />
+                <button type="button" className={activityStyles.replySend} disabled aria-label="Send disabled">
+                  ↑
+                </button>
+              </div>
+              <p className={styles.dockNote}>Composer visible · muted · no mutations</p>
+            </form>
           </div>
         </div>
-
-        <div className={listStyles.conversationList} data-desk-feed ref={feedRef}>
-          <div className={`${activityStyles.activityContainer} ${activityStyles.deskFeed} ${styles.feed}`}>
-            <p className={styles.banner}>
-              Protected preview. Fixture only — no production evidence, no Accept or Wait.
-            </p>
-            {moments.map((moment) => (
-              <MomentBubble
-                key={moment.id}
-                moment={moment}
-                open={openId === moment.id}
-                onToggle={() => setOpenId((cur) => (cur === moment.id ? null : moment.id))}
-              />
-            ))}
-          </div>
-        </div>
-
-        <form
-          className={listStyles.deskAskDock}
-          onSubmit={(event) => {
-            event.preventDefault()
-          }}
-        >
-          <div className={activityStyles.replyFrame}>
-            <textarea
-              className={activityStyles.replyInput}
-              rows={2}
-              value=""
-              placeholder="Ask Sam (read-only in E0)"
-              disabled
-              readOnly
-              aria-label="Ask Sam (disabled in E0)"
-            />
-            <button type="button" className={activityStyles.replySend} disabled aria-label="Send disabled">
-              ↑
-            </button>
-          </div>
-          <p className={styles.dockNote}>Composer visible · muted · no mutations</p>
-        </form>
-      </div>
       </div>
     </div>
   )

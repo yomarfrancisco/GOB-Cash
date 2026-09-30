@@ -1,5 +1,19 @@
+.page {
+  /* Body is display:flex + padded; claim full viewport so .mobile-frame gets real width. */
+  box-sizing: border-box;
+  width: 100vw;
+  max-width: 100vw;
+  min-height: 100dvh;
+  height: 100dvh;
+  margin: -20px;
+  padding: 0;
+  justify-content: center;
+  align-items: stretch;
+  background: #f2f2f7;
+  overflow: hidden;
+}
+
 .shell {
-  /* Lives inside .mobile-frame; fill the frame without reintroducing body-flex collapse. */
   box-sizing: border-box;
   width: 100%;
   height: 100%;
