@@ -33,6 +33,8 @@ import { type TicketPathSchedule } from './attemptSchedule'
  */
 export type RoutingConfig = {
   machineCount: number
+  /** Kernel card count override (default ProsPECTIVE_INITIAL_CARDS when omitted). */
+  cardCount?: number
   spread: number
   recycleRate: number
   cycleCount: number

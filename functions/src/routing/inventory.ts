@@ -50,6 +50,14 @@ export const DEFAULT_CARDS: NamedResource[] = [
     mozBankId: 'bci',
     aliases: ['goblin standard bank', 'goblin bci', 'goblin', 'goblin research'],
   },
+  {
+    id: 6,
+    name: 'Kayman FNB MZ',
+    shortName: 'Kayman',
+    mozBank: 'FNB Mozambique',
+    mozBankId: 'fnb',
+    aliases: ['kayman', 'kayman fnb', 'cayman'],
+  },
 ]
 
 export const DEFAULT_MACHINES: NamedResource[] = [
@@ -76,6 +84,12 @@ export const DEFAULT_MACHINES: NamedResource[] = [
     name: 'Wolf and Sons FNB',
     shortName: 'Wolf and Sons FNB',
     aliases: ['rail 4 capitec', 'rail 4', 'wolf fnb', 'wandsons', 'wolf and sons', 'wolf and sons fnb'],
+  },
+  {
+    id: 5,
+    name: 'Econometrica',
+    shortName: 'Econometrica',
+    aliases: ['rail 5', 'econometrica', 'econometrica capitec', 'econometrics'],
   },
 ]
 

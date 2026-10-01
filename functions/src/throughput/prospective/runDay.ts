@@ -23,30 +23,47 @@ import {
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
-export function prospectiveScenario(input: { seed: number; availableZar: number }): Scenario {
+export function prospectiveScenario(input: {
+  seed: number
+  availableZar: number
+  /** Override installed POS count (default PROSPECTIVE_INITIAL_POS). */
+  initialPos?: number
+  /** Override installed card count (default PROSPECTIVE_INITIAL_CARDS). */
+  initialCards?: number
+}): Scenario {
+  const initialPos = input.initialPos ?? PROSPECTIVE_INITIAL_POS
+  const initialCards = input.initialCards ?? PROSPECTIVE_INITIAL_CARDS
   const scenario = disableOrganic(
     createSlice0Scenario({
       quotedMznPerZar: PROSPECTIVE_QUOTE_MZN_PER_ZAR,
       seed: input.seed,
-      initialPos: PROSPECTIVE_INITIAL_POS,
+      initialPos,
       demandTargetZar: 10_000_000,
       supplyCapacityZar: 10_000_000,
       demandExpiresAtDay: PROSPECTIVE_HORIZON_DAYS,
       supplyExpiresAtDay: PROSPECTIVE_HORIZON_DAYS,
     }),
-  );
-  scenario.startingCapitalZar = Math.max(0, input.availableZar);
-  scenario.horizonDays = PROSPECTIVE_HORIZON_DAYS;
-  scenario.initialCards = PROSPECTIVE_INITIAL_CARDS;
-  scenario.initialPos = PROSPECTIVE_INITIAL_POS;
-  scenario.expectedTicketMinZar = PROSPECTIVE_TICKET_MIN_ZAR;
-  if (scenario.avgTicketZar < scenario.expectedTicketMinZar) {
-    scenario.avgTicketZar = scenario.expectedTicketMinZar;
+  )
+  scenario.startingCapitalZar = Math.max(0, input.availableZar)
+  scenario.horizonDays = PROSPECTIVE_HORIZON_DAYS
+  scenario.initialCards = initialCards
+  const baseNames = scenario.initialCardNames?.length
+    ? [...scenario.initialCardNames]
+    : ['BRICS', 'Ginav', 'Vidrotec', 'Wolf', 'Goblin']
+  while (baseNames.length < initialCards) {
+    if (baseNames.length === 5) baseNames.push('Kayman')
+    else baseNames.push(`Card ${baseNames.length + 1}`)
   }
-  scenario.maximumPosDevices = Math.max(scenario.maximumPosDevices, PROSPECTIVE_INITIAL_POS);
-  scenario.hiddenWorldEnabled = true;
-  scenario.economicLearnerEnabled = true;
-  return scenario;
+  scenario.initialCardNames = baseNames.slice(0, initialCards)
+  scenario.initialPos = initialPos
+  scenario.expectedTicketMinZar = PROSPECTIVE_TICKET_MIN_ZAR
+  if (scenario.avgTicketZar < scenario.expectedTicketMinZar) {
+    scenario.avgTicketZar = scenario.expectedTicketMinZar
+  }
+  scenario.maximumPosDevices = Math.max(scenario.maximumPosDevices, initialPos)
+  scenario.hiddenWorldEnabled = true
+  scenario.economicLearnerEnabled = true
+  return scenario
 }
 
 export function weekdayLabel(day: number): string {
@@ -66,9 +83,18 @@ export function runProspectiveDay(input: {
   seed: number;
   previousState: SimState | null;
   maxPrintZar?: number;
+  initialPos?: number;
+  initialCards?: number;
 }): { record: ProspectiveDayRecord; endingState: SimState; availableZar: number } {
   const tickets = ticketsWithinPrintCap(input.tickets, input.maxPrintZar);
-  const scenario = prospectiveScenario({ seed: input.seed, availableZar: input.availableZar });
+  const initialPos = input.initialPos ?? input.previousState?.pos?.length;
+  const initialCards = input.initialCards ?? input.previousState?.cards?.length;
+  const scenario = prospectiveScenario({
+    seed: input.seed,
+    availableZar: input.availableZar,
+    initialPos,
+    initialCards,
+  });
   const starting = input.previousState
     ? cloneState(input.previousState)
     : initialProspectiveState(scenario, input.availableZar);

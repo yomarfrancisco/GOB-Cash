@@ -200,6 +200,7 @@ export function myopicBestOn(state: SimState, scenario: Scenario): CandidateEval
     scenario.newPairCostZar,
     scenario.newPosCostZar,
     scenario.hotPosUseCostZar,
+    scenario.opticsBricsLemonCostPerZar,
     scenario.coverMixEnabled ? "mix" : "nomix",
     scenario.valueOfInformationEnabled ? "voi" : "novoi",
     scenario.voiConfigurationEnabled ? "cfg" : "nocfg",

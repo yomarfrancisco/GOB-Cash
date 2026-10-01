@@ -44,6 +44,7 @@ export function formatRailLabel(posId: string, institutionLabel: string | null |
     '2': 'Imani FNB',
     '3': 'Lemon Capitec',
     '4': 'Wolf FNB',
+    '5': 'Econometrica',
   }
   if (n && named[n]) return named[n]
   const bank = shortSaBankLabel(institutionLabel)

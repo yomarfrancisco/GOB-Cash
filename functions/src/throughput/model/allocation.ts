@@ -70,13 +70,48 @@ export function displayResourceName(id: string, name?: string): string {
 function pairWeight(card: Resource, pos: Resource, scenario: Scenario): number {
   const cw = usableFraction(resourceMaturity(card, scenario).score);
   const pw = usableFraction(resourceMaturity(pos, scenario).score);
-  return Math.max(1e-6, cw) * Math.max(1e-6, pw);
+  let w = Math.max(1e-6, cw) * Math.max(1e-6, pw);
+  // Soft optics discount: BRICS Moz × Lemon (still trades as Brics AI on the terminal).
+  if (isBricsLemonOpticsPair(card, pos)) w *= 0.35;
+  return w;
 }
 
 export type PairWeightFn = (card: Resource, pos: Resource, scenario: Scenario) => number;
 
 export function defaultPairWeight(card: Resource, pos: Resource, scenario: Scenario): number {
   return pairWeight(card, pos, scenario);
+}
+
+/** BRICS card on Lemon FNB or Lemon Capitec — same-name MZ/ZA optics risk. */
+export function isBricsLemonOpticsPair(
+  card: { id: string; name?: string },
+  pos: { id: string; name?: string },
+): boolean {
+  const cardIsBrics =
+    card.id === "card-1" || /^brics$/i.test((card.name || "").trim()) || /^brics\b/i.test(card.name || "");
+  if (!cardIsBrics) return false;
+  const posId = pos.id || "";
+  const posName = pos.name || "";
+  // Kernel ids: pos-1 Lemon FNB, pos-3 Lemon Capitec. Names may be "POS n" until labeled.
+  if (posId === "pos-1" || posId === "pos-3") return true;
+  return /lemon/i.test(posName);
+}
+
+function opticsBricsLemonCostZar(plan: AllocationPlan, scenario: Scenario): number {
+  const rate = Math.max(0, scenario.opticsBricsLemonCostPerZar || 0);
+  if (!(rate > 0)) return 0;
+  let volume = 0;
+  for (const pair of plan.pairs) {
+    if (
+      isBricsLemonOpticsPair(
+        { id: pair.cardId, name: pair.cardName },
+        { id: pair.posId, name: pair.posName },
+      )
+    ) {
+      volume += pair.amount;
+    }
+  }
+  return roundMoney(volume * rate);
 }
 
 function resourceVolumes(
@@ -345,11 +380,11 @@ function coverHoldDetail(
     const allocated = sum(plan.pairs.map((p) => p.amount));
     const need = t === 0 && firstPacked ? sum(firstPacked.pairs.map((p) => p.amount)) : throughput;
     if (t === 0 && allocated < need - 0.05 && need > 1e-9) return infeasible;
-    if (t === 0) firstCost = operationalComplexityCostZar(plan, cursor, scenario);
+    if (t === 0) firstCost = operationalComplexityCostZar(plan, cursor, scenario) + opticsBricsLemonCostZar(plan, scenario);
     const scoredThroughput = Math.max(allocated, need);
     const risk = evaluateRisk(cursor, scenario, scoredThroughput, plan);
     const econ = fillEconomics(cursor, scenario, scoredThroughput, risk, durations, { activity: plan.pairs });
-    value += econ.myopicEv - hottestPosUseCostZar(plan, cursor, scenario, hotId);
+    value += econ.myopicEv - hottestPosUseCostZar(plan, cursor, scenario, hotId) - opticsBricsLemonCostZar(plan, scenario);
     if (t === 0) {
       day0.day0MyopicEv = econ.myopicEv;
       day0.day0Hazard = risk.hazard;
@@ -607,6 +642,7 @@ function coverSignature(state: SimState, scenario: Scenario): string {
     scenario.newPairCostZar,
     scenario.newPosCostZar,
     scenario.hotPosUseCostZar,
+    scenario.opticsBricsLemonCostPerZar,
     scenario.coverMixEnabled ? "mix" : "nomix",
     scenario.coverThinThroughputZar,
     scenario.coverFatThroughputZar,
@@ -1314,7 +1350,8 @@ export function packTicketsOnKeys(
       };
     })
     .filter((row): row is NonNullable<typeof row> => Boolean(row))
-    .sort((a, b) => a.key.localeCompare(b.key));
+    // Prefer higher-weight pairs first so soft optics discounts on BRICS×Lemon take effect.
+    .sort((a, b) => b.weight - a.weight || a.key.localeCompare(b.key));
 
   if (cover.length === 0) return { plan: empty, transactions: [], blocked: [] };
 
@@ -1479,7 +1516,11 @@ function day0RoutingQ(state: SimState, scenario: Scenario, packed: PackedCore): 
   const throughput = sum(packed.plan.pairs.map((p) => p.amount));
   const risk = evaluateRisk(state, scenario, throughput, packed.plan, packed.transactions);
   const econ = fillEconomics(state, scenario, throughput, risk, expectedReviewDuration(scenario), { activity: packed.plan.pairs });
-  let q = econ.myopicEv - hottestPosUseCostZar(packed.plan, state, scenario) - operationalComplexityCostZar(packed.plan, state, scenario);
+  let q =
+    econ.myopicEv -
+    hottestPosUseCostZar(packed.plan, state, scenario) -
+    operationalComplexityCostZar(packed.plan, state, scenario) -
+    opticsBricsLemonCostZar(packed.plan, scenario);
   if (scenario.economicLearnerEnabled) {
     q += assessDeltaForPlan(state, scenario, packed.plan, packed.transactions).decisionAdjustment;
   }

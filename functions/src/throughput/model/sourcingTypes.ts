@@ -33,6 +33,8 @@ export const SLICE0_FIXTURE_CARD_INSTITUTIONS: Record<string, string> = {
   Wolf: "mz.bci",
   "card-5": "mz.bci",
   Goblin: "mz.bci",
+  "card-6": "mz.fnb",
+  Kayman: "mz.fnb",
 };
 
 export const SLICE0_FIXTURE_POS_INSTITUTIONS: Record<string, string> = {

@@ -122,11 +122,19 @@ export function resolveWindow(state: {
   availableCapital: number
   completedCycles?: number
   bufferUsed?: number
+  config?: { machineCount?: number; cardCount?: number }
 }): ProspectiveBranch {
   let window = state.window
   const amount = authorisedAmount(state)
+  const initialPos = state.config?.machineCount
+  const initialCards = state.config?.cardCount
   if (!window) {
-    return startWindow({ availableZar: amount > 0 ? amount : state.availableCapital, seed: KERNEL_SEED })
+    return startWindow({
+      availableZar: amount > 0 ? amount : state.availableCapital,
+      seed: KERNEL_SEED,
+      ...(initialPos && initialPos > 0 ? { initialPos } : {}),
+      ...(initialCards && initialCards > 0 ? { initialCards } : {}),
+    })
   }
   const mondayStillOpen = (state.bufferUsed || 0) > 0
   const printAlreadySold = (state.completedCycles || 0) >= window.completedThroughDay

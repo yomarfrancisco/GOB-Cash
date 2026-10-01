@@ -57,11 +57,18 @@ export function startWindow(input: {
   availableZar: number
   seed?: number
   at?: string
+  initialPos?: number
+  initialCards?: number
 }): ProspectiveBranch {
   const amountZar = roundMoney(input.availableZar)
   if (!(amountZar > 0)) throw new Error('opening amount must be a positive ZAR figure')
   const seed = input.seed ?? PROSPECTIVE_SEED
-  const scenario = prospectiveScenario({ seed, availableZar: amountZar })
+  const scenario = prospectiveScenario({
+    seed,
+    availableZar: amountZar,
+    initialPos: input.initialPos,
+    initialCards: input.initialCards,
+  })
   const book = buildAbsorbingPaymentBook({
     scenario,
     availableZar: amountZar,
@@ -73,6 +80,8 @@ export function startWindow(input: {
     tickets: book[1] ?? [],
     seed,
     previousState: null,
+    initialPos: input.initialPos,
+    initialCards: input.initialCards,
   })
   const at = input.at ?? nowIso()
   return {

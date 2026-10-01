@@ -145,6 +145,8 @@ export const PARAMETER_TOOLTIPS: Record<string, string> = {
     "First-day cost of routing volume onto a POS with no lifetime volume. Installed devices stay optional; this is not a mandate to use every POS.",
   hotPosUseCostZar:
     "Allocation-only cost for still using the current hottest POS, scaled by that device’s consecutive and 7-day active days. Makes resting that device compete with new-pair cost. Does not enter production F_persist, p0, or γ.",
+  opticsBricsLemonCostPerZar:
+    "Soft allocation-only cost per Rand routed on BRICS (Moz) × any Lemon Economics POS (Lemon FNB or Lemon Capitec). Both Lemon rails still trade as Brics AI on the terminal, so same-name optics raise interruption risk. Does not ban the pair; lowers its cover rank. Not a hazard factor.",
   coverMixEnabled:
     "When on, today’s cover is chosen from a feasible set: 2/3/4 cards from today’s V, no pair from the last operating day, no 3rd consecutive operating day on a card. Lookahead re-chooses a legal cover tomorrow instead of holding the same keys. Not added to h(V) or 180-day CA.",
   coverThinThroughputZar:
@@ -405,6 +407,8 @@ export function createDefaultScenario(): Scenario {
     newPairCostZar: 10,
     newPosCostZar: 40,
     hotPosUseCostZar: 8,
+    /** Soft: ~12% of BRICS×Lemon volume as cover-ranking cost (optics / related-party flagging). */
+    opticsBricsLemonCostPerZar: 0.12,
     coverMixEnabled: false,
     coverThinThroughputZar: 12_000,
     coverFatThroughputZar: 20_000,

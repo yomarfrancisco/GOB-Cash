@@ -197,6 +197,13 @@ export function pairTightness(params: {
   const cardVol = card?.volume || 0
   tightness += machineVol / 20_000 + cardVol / 20_000
   if (machineVol >= 30_000) bits.push(`${machineShortName(params.machineId)} already concentrated on the ledger`)
+  // Soft optics: BRICS × Lemon FNB/Capitec (POS still trades as Brics AI).
+  const cardName = cardShortName(params.cardId)
+  const posName = machineShortName(params.machineId)
+  if (/^brics$/i.test(cardName) && /lemon/i.test(posName)) {
+    tightness += 1.25
+    bits.push('BRICS × Lemon optics (same-name MZ/ZA flagging risk)')
+  }
   return {
     tightness,
     reason: bits.join('; ') || 'no confirmed exhaustion on this pair',

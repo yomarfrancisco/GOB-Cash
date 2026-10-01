@@ -896,6 +896,11 @@ export interface Scenario {
    */
   hotPosUseCostZar: number;
   /**
+   * Soft Rands-of-Q per Rand of volume on BRICS × Lemon Economics POS (FNB or Capitec).
+   * Allocation-only optics / interruption-risk penalty; does not ban the pair.
+   */
+  opticsBricsLemonCostPerZar: number;
+  /**
    * When true, covers must obey the mix: card count from today's V, no pair from the last
    * operating day, no 3rd consecutive operating day on a card, and lookahead re-chooses a
    * legal cover instead of holding the same keys. Allocation-only; not in h(V) or CA.
