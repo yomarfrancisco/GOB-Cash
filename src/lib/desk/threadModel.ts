@@ -303,11 +303,30 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
   if (awaiting) {
     const leftover = leftoverLine(awaiting.body || '')
     const sale = awaiting.routingAction !== 'replenish'
+    const brief = awaiting.operatingBrief
+    const opsBits: string[] = []
+    if (brief?.attemptTimeLabel) opsBits.push(`Attempt from ${brief.attemptTimeLabel} SAST`)
+    if (brief?.operatingDayIndex && brief?.operatingDayCount) {
+      opsBits.push(`Day ${brief.operatingDayIndex}/${brief.operatingDayCount}`)
+    }
+    if (typeof brief?.ceilingTodayZar === 'number') {
+      opsBits.push(`Ceiling today R${Math.round(brief.ceilingTodayZar).toLocaleString('en-ZA')}`)
+    }
+    if (typeof brief?.workingLiquidityHeadroomZar === 'number') {
+      opsBits.push(
+        `Liquidity headroom R${Math.round(brief.workingLiquidityHeadroomZar).toLocaleString('en-ZA')}`
+      )
+    }
+    if (brief?.replanReason) opsBits.push(brief.replanReason)
+    if (brief?.cardMaturityNote) opsBits.push(brief.cardMaturityNote)
+    const base =
+      humanizeDeskText(awaiting.body || awaiting.title) || firstSentence(awaiting.body || awaiting.title)
+    const body = opsBits.length ? `${base}\n\n${opsBits.join(' · ')}` : base
     return {
       title: sale
         ? `Cycle ${awaiting.cycleNumber || ''} · send ZAR`.replace('Cycle  ·', 'Cycle')
         : `Cycle ${awaiting.cycleNumber || ''} · restock`.replace('Cycle  ·', 'Cycle'),
-      body: humanizeDeskText(awaiting.body || awaiting.title) || firstSentence(awaiting.body || awaiting.title),
+      body,
       clock: awaiting.routingBlocked ? null : sale ? 'sent' : 'swiped',
       clockLabel: sale ? "I've sent ZAR" : "I've swiped",
       stillToDeliver: leftover,

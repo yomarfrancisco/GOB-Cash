@@ -62,6 +62,22 @@ export type ActivityItem = {
     unit: 'ZAR' | 'MZN'
     series: Array<{ label: string; points: Array<{ label: string; value: number }> }>
   }
+  /** Binding Confirm earliest time (ISO). */
+  earliestAttemptAt?: string
+  operatingPolicyVersion?: string
+  operatingBrief?: {
+    monthLabel?: string
+    operatingDayIndex?: number
+    operatingDayCount?: number
+    ceilingTodayZar?: number
+    monthRemainingZar?: number
+    requiredWorkingLiquidityZar?: number
+    workingLiquidityHeadroomZar?: number
+    attemptTimeLabel?: string | null
+    routeReason?: string | null
+    replanReason?: string | null
+    cardMaturityNote?: string | null
+  }
 }
 
 const MAX_ACTIVITY_ITEMS = 80

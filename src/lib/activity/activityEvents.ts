@@ -52,6 +52,9 @@ export type ActivityEventDoc = {
     unit?: string
     series?: unknown
   }
+  earliestAttemptAt?: string
+  operatingPolicyVersion?: string
+  operatingBrief?: ActivityItem['operatingBrief']
 }
 
 function asDeskTable(raw: ActivityEventDoc['deskTable']): ActivityItem['deskTable'] {
@@ -226,6 +229,16 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     startNextRun: data.startNextRun === true,
     deskTable: asDeskTable(data.deskTable),
     deskChart: asDeskChart(data.deskChart),
+    earliestAttemptAt:
+      typeof data.earliestAttemptAt === 'string' && data.earliestAttemptAt.trim()
+        ? data.earliestAttemptAt.trim()
+        : undefined,
+    operatingPolicyVersion:
+      typeof data.operatingPolicyVersion === 'string' ? data.operatingPolicyVersion : undefined,
+    operatingBrief:
+      data.operatingBrief && typeof data.operatingBrief === 'object'
+        ? (data.operatingBrief as ActivityItem['operatingBrief'])
+        : undefined,
   }
 }
 
