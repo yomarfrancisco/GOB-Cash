@@ -1,7 +1,9 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
@@ -10,11 +12,14 @@ import { selectHasUnseenLiquidityActivity, useActivityUnreadStore } from '@/stor
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import { USER_PLACEHOLDER_AVATAR } from '@/lib/avatarAssets'
+import { logout } from '@/lib/logout'
 import '@/styles/bottom-glass.css'
 
 function sellActionLabel(destination?: 'ZAR' | 'MZN') {
   return destination === 'ZAR' ? 'Sell MZN' : 'Sell ZAR'
 }
+
+const PROFILE_DOUBLE_TAP_MS = 320
 
 interface BottomGlassBarProps {
   currentPath?: string
@@ -24,6 +29,7 @@ interface BottomGlassBarProps {
 }
 
 export default function BottomGlassBar({ currentPath = '/', onDollarClick, conversionDestination }: BottomGlassBarProps) {
+  const router = useRouter()
   const sellLabel = sellActionLabel(conversionDestination)
   const isHome = currentPath === '/'
   const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
@@ -33,6 +39,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick, conve
   const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
   const hasUnseenActivity = useActivityUnreadStore(selectHasUnseenLiquidityActivity)
   const { profile } = useUserProfileStore()
+  const lastProfileTapAtRef = useRef(0)
+  const profileNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   const handleCenterButtonClick = () => {
     // NOTE: Dollar FAB now opens the amount sheet directly (via onDollarClick callback)
@@ -40,6 +48,43 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick, conve
     if (onDollarClick) {
       onDollarClick()
     }
+  }
+
+  const clearProfileNavTimer = () => {
+    if (profileNavTimerRef.current) {
+      clearTimeout(profileNavTimerRef.current)
+      profileNavTimerRef.current = null
+    }
+  }
+
+  useEffect(() => () => clearProfileNavTimer(), [])
+
+  const handleProfileClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isAuthed) {
+      e.preventDefault()
+      requireAuth(() => {
+        // After auth, user can click again to navigate
+      })
+      return
+    }
+
+    e.preventDefault()
+    const now = Date.now()
+    if (now - lastProfileTapAtRef.current <= PROFILE_DOUBLE_TAP_MS) {
+      clearProfileNavTimer()
+      lastProfileTapAtRef.current = 0
+      void logout()
+      return
+    }
+
+    lastProfileTapAtRef.current = now
+    clearProfileNavTimer()
+    profileNavTimerRef.current = setTimeout(() => {
+      profileNavTimerRef.current = null
+      if (currentPath !== '/profile') {
+        router.push('/profile')
+      }
+    }, PROFILE_DOUBLE_TAP_MS)
   }
 
   // Render nav items once (shared between mobile and desktop)
@@ -111,7 +156,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick, conve
       <div className="nav-item" style={{ position: 'relative' }}>
         <Link 
           href="/profile" 
-          aria-label="Profile"
+          aria-label="Profile. Double-tap to log out."
           onMouseEnter={() => {
             // Prefetch auth images on hover (if not authed, link will trigger auth)
             if (!isAuthed) {
@@ -124,14 +169,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick, conve
               prefetchAuthImages()
             }
           }}
-          onClick={(e) => {
-            if (!isAuthed) {
-              e.preventDefault()
-              requireAuth(() => {
-                // After auth, user can click again to navigate
-              })
-            }
-          }}
+          onClick={handleProfileClick}
         >
           {isAuthed && profile.avatarUrl ? (
             <div className="nav-avatar-container nav-avatar--real">

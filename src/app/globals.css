@@ -1309,19 +1309,9 @@ body {
   color: #fff;
 }
 
-.profile-actions--logout {
-  margin-top: 8px;
-}
-
-.profile-logout {
-  background: transparent;
-  color: #8e8e93;
-  border: 1px solid #3a3a3c !important;
-}
-
-.profile-logout:hover {
-  background: #2c2c2e;
-  color: #fff;
+.profile-edit:hover,
+.profile-inbox:hover {
+  background: #5a5a5c;
 }
 
 .profile-edit--alert {

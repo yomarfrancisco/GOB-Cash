@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
-import { Check, Download, ExternalLink, ArrowUp, Calendar } from 'lucide-react'
+import { Check, Download, ExternalLink, ArrowUp } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -30,7 +30,6 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
-import OperatingCalendarSheet from '@/components/desk/OperatingCalendarSheet'
 
 const KYC_GATE_ID = 'kyc-desk-gate'
 
@@ -678,7 +677,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const [askText, setAskText] = useState('')
   const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
   const [askError, setAskError] = useState('')
-  const [calendarOpen, setCalendarOpen] = useState(false)
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -926,14 +924,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
         </div>
       </div>
       <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
-        <button
-          type="button"
-          className={styles.deskCalendarBtn}
-          aria-label="Open operating calendar"
-          onClick={() => setCalendarOpen(true)}
-        >
-          <Calendar size={18} strokeWidth={2.2} />
-        </button>
         <div className={styles.replyFrame}>
           <textarea
             className={styles.replyInput}
@@ -960,7 +950,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
         </div>
         {askError ? <p className={styles.replyError}>{askError}</p> : null}
       </form>
-      <OperatingCalendarSheet open={calendarOpen} onClose={() => setCalendarOpen(false)} />
     </>
   )
 }
