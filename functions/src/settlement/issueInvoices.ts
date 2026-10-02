@@ -1,5 +1,4 @@
 import * as admin from 'firebase-admin'
-import JSZip from 'jszip'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
 import {
   attachInvoicePdf,
@@ -10,6 +9,7 @@ import {
 } from './invoice'
 import { renderSettlementInvoicePdf, settlementInvoiceFilename } from './invoicePdf'
 import { railByMerchantId, resolveMerchantDescriptor } from './register'
+import { zipBuffers } from './zipBuffers'
 import type { FnbSettlement } from './fnbSettlement'
 import type { CapitecSettlement } from '../inbound/capitecSettlement'
 
@@ -51,12 +51,12 @@ async function buildInvoiceZip(invoices: SettlementInvoice[]): Promise<{
   filename: string
   totalZar: number
 }> {
-  const zip = new JSZip()
+  const files: Array<{ name: string; data: Buffer }> = []
   let totalZar = 0
   for (const invoice of invoices) {
     if (!invoice.storagePath) continue
     const [bytes] = await bucket().file(invoice.storagePath).download()
-    zip.file(settlementInvoiceFilename(invoice), bytes)
+    files.push({ name: settlementInvoiceFilename(invoice), data: bytes })
     totalZar += invoice.totalZar
   }
   const cycle = invoices.find((row) => typeof row.cycleNumber === 'number')?.cycleNumber
@@ -66,7 +66,7 @@ async function buildInvoiceZip(invoices: SettlementInvoice[]): Promise<{
       ? `cycle-${cycle}-invoices.zip`
       : `invoices-${new Date().toISOString().slice(0, 10)}.zip`
   const storagePath = `settlement-invoices/packs/${run}/${filename}`
-  const content = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+  const content = zipBuffers(files)
   await bucket().file(storagePath).save(content, {
     contentType: 'application/zip',
     metadata: { cacheControl: 'private, max-age=0' },
