@@ -132,6 +132,18 @@ import {
   type PathBook,
   type PathWrite,
 } from '../routing/pathEngine'
+import {
+  OPERATING_POLICY_VERSION,
+  buildDeskOpsBrief,
+  emptyContinuityState,
+  evaluateConfirmGate,
+  formatDeskOpsLines,
+  hashPayload,
+  merchantPrincipalOfTerminal,
+  terminalIdFromMachineId,
+  type ContinuityStateV1,
+  type ConfirmInstruction,
+} from '../operatingCalendar'
 
 const inboundSecret = defineSecret('RESEND_INBOUND_SECRET')
 const db = admin.firestore()
@@ -754,6 +766,109 @@ function persistCapital(state: RoutingState) {
   }
 }
 
+/** Additive migration: missing continuity doc → empty OperatingPolicyV1 state. */
+function continuityFromDoc(data: admin.firestore.DocumentData | undefined): ContinuityStateV1 {
+  const raw = data?.operatingContinuity
+  if (raw && typeof raw === 'object' && raw.policyVersion === OPERATING_POLICY_VERSION) {
+    return raw as ContinuityStateV1
+  }
+  return emptyContinuityState({
+    networkState: 'cold_start',
+    workingLiquidityZar: num(data?.authorisedZar, num(data?.availableCapital, 0)),
+  })
+}
+
+function assertConfirmTimingAndPolicy(params: {
+  nowMs: number
+  eventData: admin.firestore.DocumentData | undefined
+  cycleData: admin.firestore.DocumentData | undefined
+  state: RoutingState
+  continuity: ContinuityStateV1
+  plan: CyclePlan
+}): void {
+  const earliestRaw =
+    (typeof params.eventData?.earliestAttemptAt === 'string' && params.eventData.earliestAttemptAt) ||
+    (typeof params.cycleData?.earliestAttemptAt === 'string' && params.cycleData.earliestAttemptAt) ||
+    null
+  const planHash =
+    (typeof params.cycleData?.planHash === 'string' && params.cycleData.planHash) ||
+    (typeof params.eventData?.planHash === 'string' && params.eventData.planHash) ||
+    ''
+  const currentPlanHash =
+    (typeof params.cycleData?.planHash === 'string' && params.cycleData.planHash) || planHash
+
+  for (const row of params.plan.cardAssignments) {
+    const terminalId = terminalIdFromMachineId(row.machineId)
+    if (!terminalId) continue
+    if (terminalId === 'Econometrica') {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'Econometrica is model-eligible but not live-executable until its real Capitec merchant ID is recorded'
+      )
+    }
+    const principal = merchantPrincipalOfTerminal(terminalId)
+    const instruction: ConfirmInstruction = {
+      instructionId: `cycle-${params.plan.cycleNumber}-${row.cardId}-${row.machineId}`,
+      invoiceId:
+        (typeof params.cycleData?.invoiceId === 'string' && params.cycleData.invoiceId) ||
+        `DESK-${params.plan.cycleNumber}-${row.cardId}`,
+      mozambiqueDebtor: `card-${row.cardId}`,
+      cardId: String(row.cardId),
+      issuerBankId: 'desk',
+      merchantPrincipalId: principal,
+      invoiceIssuerId: principal,
+      terminalId,
+      acquirerBankId: terminalId === 'BricsCapitec' ? 'capitec' : 'fnb',
+      zarRecipientId: principal,
+      amountZar: row.amount,
+      legalEligibilityRef: `DESK-ELIG-${row.cardId}-${row.machineId}`,
+      earliestAt: earliestRaw || new Date(0).toISOString(),
+      planHash: planHash || currentPlanHash || 'legacy-unhashed',
+      liveExecutable: true,
+    }
+    const peak = Math.max(params.state.bufferUsed, params.plan.deployedAmount, row.amount)
+    const bufferPct = params.continuity.operatingBufferPct
+    const required = Math.round((peak + peak * bufferPct) * 100) / 100
+    const gate = evaluateConfirmGate({
+      instruction,
+      nowIso: new Date(params.nowMs).toISOString(),
+      currentPlanHash: planHash ? currentPlanHash : instruction.planHash,
+      continuity: params.continuity,
+      requiredWorkingLiquidityZar: required,
+      availableWorkingLiquidityZar: Math.max(
+        params.state.availableCapital,
+        params.continuity.workingLiquidityZar,
+        params.state.authorisedZar || 0
+      ),
+    })
+    if (!gate.ok) {
+      if (gate.code === 'early' || gate.code === 'stale') {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          gate.message,
+          gate.updatedInstruction ? { updatedInstruction: gate.updatedInstruction } : undefined
+        )
+      }
+      if (gate.code === 'live_ineligible' || gate.code === 'liquidity' || gate.code === 'frozen_card') {
+        throw new functions.https.HttpsError('failed-precondition', gate.message)
+      }
+      // commercial/principal checks use desk defaults; do not block legacy tickets on missing invoice fields
+    }
+  }
+
+  // Binding earliestAt even when terminal mapping is absent
+  if (earliestRaw) {
+    const earliest = Date.parse(earliestRaw)
+    if (Number.isFinite(earliest) && params.nowMs < earliest) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `Confirm rejected: attempt is before ${earliestRaw}`,
+        { earliestAttemptAt: earliestRaw }
+      )
+    }
+  }
+}
+
 function shouldStartFreshWindow(data: admin.firestore.DocumentData | undefined): boolean {
   if (!data) return true
   if (data.status === 'completed' || data.status === 'declined' || data.status === 'superseded') {
@@ -997,6 +1112,38 @@ function writeIssuedCycle(
       beliefHint: blocked ? null : beliefHint,
     }
   )
+  const planHash = hashPayload({
+    cycleNumber: plan.cycleNumber,
+    assignments: plan.cardAssignments.map((r) => ({
+      cardId: r.cardId,
+      machineId: r.machineId,
+      amount: r.amount,
+    })),
+    earliestAt: ticketPath.earliestAt,
+  })
+  const peakUnsettled = Math.max(state.bufferUsed, plan.deployedAmount)
+  const opsBrief = buildDeskOpsBrief({
+    monthLabel: sastParts(now.toMillis()).year + '-' + String(sastParts(now.toMillis()).month).padStart(2, '0'),
+    operatingDayIndex: Math.min(state.config.cycleCount, plan.cycleNumber),
+    operatingDayCount: state.config.cycleCount,
+    networkState: state.completedCycles < 3 ? 'cold_start' : 'established',
+    monthPlannedZar: state.authorisedZar || state.availableCapital,
+    monthCompletedZar: state.cumulativeDeployed,
+    peakUnsettledExposureZar: peakUnsettled,
+    continuity: emptyContinuityState({
+      networkState: state.completedCycles < 3 ? 'cold_start' : 'established',
+      workingLiquidityZar: state.authorisedZar || state.availableCapital,
+    }),
+    availableWorkingLiquidityZar: state.authorisedZar || state.availableCapital,
+    earliestAttemptAt: blocked ? null : ticketPath.earliestAt,
+    attemptTimeLabel: blocked ? null : ticketPath.timeLabel,
+    routeReason: beliefHint || plan.selectionReason || null,
+    replanReason: shockLine || null,
+  })
+  const activityBody =
+    blocked || !activity.body
+      ? activity.body
+      : `${activity.body}\n\n${formatDeskOpsLines(opsBrief)}`
   const activityEventId = eventId(testRunId, plan.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
   const cycleRef = testRef.collection('cycles').doc(String(plan.cycleNumber))
@@ -1006,7 +1153,7 @@ function writeIssuedCycle(
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
     title: activity.title,
-    body: activity.body,
+    body: activityBody,
     dropdownTitle: notification.title,
     dropdownBody: notification.body,
     actorType: 'ai_manager',
@@ -1023,6 +1170,9 @@ function writeIssuedCycle(
     deskSpeaker: 'leo',
     earliestAttemptAt: ticketPath.earliestAt,
     ticketPath,
+    planHash,
+    operatingPolicyVersion: OPERATING_POLICY_VERSION,
+    operatingBrief: opsBrief,
     testRunId,
     cycleNumber: plan.cycleNumber,
     createdAt: now,
@@ -1051,6 +1201,9 @@ function writeIssuedCycle(
     spreadRate: state.config.spread,
     quote: liveBook.quote || quotes.quote,
     selectionReason: plan.selectionReason,
+    earliestAttemptAt: ticketPath.earliestAt,
+    planHash,
+    operatingPolicyVersion: OPERATING_POLICY_VERSION,
     status: 'awaiting_execution' as CycleStatus,
     createdAt: now,
     completedAt: null,
@@ -1072,6 +1225,14 @@ function writeIssuedCycle(
       machines: state.machines,
       pairings: state.pairings,
       ...persistCapital({ ...state, window: plan.window ?? state.window }),
+      operatingPolicyVersion: OPERATING_POLICY_VERSION,
+      operatingContinuity: {
+        ...emptyContinuityState({
+          networkState: state.completedCycles < 3 ? 'cold_start' : 'established',
+          workingLiquidityZar: state.authorisedZar || state.availableCapital,
+        }),
+        workingLiquidityZar: state.authorisedZar || state.availableCapital,
+      },
       awaitingCycleNumber: plan.cycleNumber,
       awaitingKind: 'deploy',
       ...persistPathBook({}, persistBook),
@@ -2126,6 +2287,17 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
             'Restock ZAR @ COST is not awaiting execution'
           )
         }
+        const earliestRestock = eventSnap.data()?.earliestAttemptAt
+        if (typeof earliestRestock === 'string') {
+          const earliestMs = Date.parse(earliestRestock)
+          if (Number.isFinite(earliestMs) && now.toMillis() < earliestMs) {
+            throw new functions.https.HttpsError(
+              'failed-precondition',
+              `Confirm rejected: attempt is before ${earliestRestock}`,
+              { earliestAttemptAt: earliestRestock }
+            )
+          }
+        }
         const completedCopy = buildReplenishActivityCopy(
           {
             ...replenish,
@@ -2299,6 +2471,21 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
           'No executable route is available. Reply to restore a card or machine first.'
         )
       }
+
+      const eventRefForGate = db
+        .collection('users')
+        .doc(adminUid)
+        .collection('activityEvents')
+        .doc(currentRoutingEventId(testRunId, cycleNumber, cycleData))
+      const eventSnapForGate = await tx.get(eventRefForGate)
+      assertConfirmTimingAndPolicy({
+        nowMs: now.toMillis(),
+        eventData: eventSnapForGate.data(),
+        cycleData,
+        state,
+        continuity: continuityFromDoc(testData),
+        plan,
+      })
 
       const frozen = plan.cardAssignments[0]?.routingDecision?.quote || book.quote || quotes.quote
       const actualProfit = suppliedProfit ?? zarProfitFromQuote(plan.deployedAmount, frozen)

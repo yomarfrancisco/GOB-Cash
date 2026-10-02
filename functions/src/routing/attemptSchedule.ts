@@ -1,19 +1,21 @@
 /**
  * Per-ticket swipe times for the restock path (SAST).
  * Sell cards stay day-level ("by COB"); clocks live on Amina's swipe list.
+ * Spacing and operating hours come from OperatingPolicyV1 — not a shadow policy.
  */
 import { sastParts, sastToUtcMs } from './routingTime'
 import { railByMachineId } from '../settlement/register'
+import { OPERATING_POLICY_V1 } from '../operatingCalendar/operatingPolicyV1'
 
-/** Short gap when consecutive swipes use different acquirers. */
-export const CROSS_ACQUIRER_GAP_MS = 28 * 60 * 1000
-/** Longer gap when the same acquirer repeats. */
-export const SAME_ACQUIRER_GAP_MS = 2 * 60 * 60 * 1000 + 30 * 60 * 1000
+/** Minimum gap between consecutive path tickets (cross card/POS). */
+export const CROSS_ACQUIRER_GAP_MS = OPERATING_POLICY_V1.card.sameCardSpacingMinutes * 60 * 1000
+/** Same-card / same-POS / same-acquirer gap — policy floor of 120 minutes. */
+export const SAME_ACQUIRER_GAP_MS = OPERATING_POLICY_V1.pos.samePosSpacingMinutes * 60 * 1000
 export const MIN_ATTEMPT_SPACING_MS = CROSS_ACQUIRER_GAP_MS
-export const SAME_ACQUIRER_EXTRA_MS = SAME_ACQUIRER_GAP_MS - CROSS_ACQUIRER_GAP_MS
-export const OPERATING_HOUR_START = 9
-export const OPERATING_HOUR_END = 16
-export const OPERATING_MINUTE_END = 30
+export const SAME_ACQUIRER_EXTRA_MS = Math.max(0, SAME_ACQUIRER_GAP_MS - CROSS_ACQUIRER_GAP_MS)
+export const OPERATING_HOUR_START = OPERATING_POLICY_V1.timing.operatingHourStart
+export const OPERATING_HOUR_END = OPERATING_POLICY_V1.timing.operatingHourEnd
+export const OPERATING_MINUTE_END = OPERATING_POLICY_V1.timing.operatingMinuteEnd
 
 export type TimedTicket = {
   cardId: number

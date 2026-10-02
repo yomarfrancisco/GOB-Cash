@@ -47,7 +47,7 @@ describe('20-cycle compounding', () => {
     assert.equal(state.availableCapital, 0)
     assert.equal(state.authorisedZar, 0)
     assert.deepEqual(Object.keys(DEFAULT_TEST_CONFIG).sort(), ['cycleCount', 'machineCount', 'recycleRate', 'spread'])
-    assert.equal(state.cards.length, 5)
+    assert.equal(state.cards.length, 6)
   })
 
   it('does not invent a next cycle until the current one is completed', () => {
