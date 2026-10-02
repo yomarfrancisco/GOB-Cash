@@ -1,7 +1,7 @@
 /**
  * Cloud Function: getSettlementInvoiceProof
  *
- * Returns the stored settlement invoice PDF for the routing admin.
+ * Returns a settlement invoice PDF or a cycle invoice zip for the routing admin.
  * Reads fresh bytes from Storage (signed URLs on the invoice doc can expire).
  */
 
@@ -23,9 +23,27 @@ export const getSettlementInvoiceProof = functions
       throw new functions.https.HttpsError('permission-denied', 'Routing admin only')
     }
 
+    const zipPath =
+      typeof data?.invoiceZipStoragePath === 'string' && data.invoiceZipStoragePath.trim()
+        ? data.invoiceZipStoragePath.trim()
+        : null
+    const zipFilename =
+      typeof data?.invoiceZipFilename === 'string' && data.invoiceZipFilename.trim()
+        ? data.invoiceZipFilename.trim()
+        : 'invoices.zip'
+
+    if (zipPath) {
+      const [bytes] = await admin.storage().bucket().file(zipPath).download()
+      return {
+        pdfBase64: Buffer.from(bytes).toString('base64'),
+        filename: zipFilename.endsWith('.zip') ? zipFilename : `${zipFilename}.zip`,
+        mimeType: 'application/zip',
+      }
+    }
+
     const invoiceId = data?.invoiceId
     if (!invoiceId || typeof invoiceId !== 'string') {
-      throw new functions.https.HttpsError('invalid-argument', 'invoiceId is required')
+      throw new functions.https.HttpsError('invalid-argument', 'invoiceId or invoiceZipStoragePath is required')
     }
 
     const snap = await admin.firestore().collection(INVOICE_COLLECTION).doc(invoiceId).get()

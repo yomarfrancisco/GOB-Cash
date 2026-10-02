@@ -1,13 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Bookmark, Lock, ChevronRight } from 'lucide-react'
+import { Bookmark, Lock } from 'lucide-react'
 import TopGlassBar from './TopGlassBar'
 import Avatar from './Avatar'
 import styles from './ProfilePreview.module.css'
-import ProductivityHelperSheet from './ProductivityHelperSheet'
 
 interface ProfilePreviewProps {
   userHandle: string
@@ -38,8 +36,6 @@ export default function ProfilePreview({
   socialCredit = 0,
   verified = false,
 }: ProfilePreviewProps) {
-  const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
-  
   return (
     <div className={styles.previewContainer}>
       {/* Backdrop - stays in place */}
@@ -145,10 +141,6 @@ export default function ProfilePreview({
                   style={{ width: `${socialCredit || 0}%` }}
                 />
               </div>
-              <div className={styles.networkLabel} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setIsProductivityHelperOpen(true)}>
-                <span>Compliance</span>
-                <ChevronRight size={16} strokeWidth={2} style={{ color: 'rgba(0, 0, 0, 0.4)' }} />
-              </div>
             </div>
           </div>
 
@@ -204,14 +196,6 @@ export default function ProfilePreview({
         </div>
       </div>
       </div>
-      <ProductivityHelperSheet
-        isOpen={isProductivityHelperOpen}
-        onClose={() => setIsProductivityHelperOpen(false)}
-        onNextPage={() => {
-          // Placeholder for page 2 navigation
-          console.log('[ProductivityHelperSheet] Next page clicked')
-        }}
-      />
     </div>
   )
 }

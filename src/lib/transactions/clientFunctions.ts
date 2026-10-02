@@ -827,7 +827,7 @@ export async function tx_sendMyMonthlySettlementStatement(
   return result.data as { posted: boolean; periodId: string; conversionCount: number }
 }
 
-function triggerPdfDownload(data: { pdfBase64: string; filename: string; mimeType: string }): void {
+function triggerFileDownload(data: { pdfBase64: string; filename: string; mimeType: string }): void {
   const byteCharacters = atob(data.pdfBase64)
   const byteNumbers = new Array(byteCharacters.length)
   for (let i = 0; i < byteCharacters.length; i++) {
@@ -846,6 +846,11 @@ function triggerPdfDownload(data: { pdfBase64: string; filename: string; mimeTyp
   URL.revokeObjectURL(url)
 }
 
+/** @deprecated Use triggerFileDownload */
+function triggerPdfDownload(data: { pdfBase64: string; filename: string; mimeType: string }): void {
+  triggerFileDownload(data)
+}
+
 /**
  * Download MozPaga proof-of-payment PDF for an internal exchange.
  */
@@ -859,13 +864,16 @@ export async function downloadConversionProof(txId: string): Promise<void> {
 
   const fn = httpsCallable(functions, 'getConversionProof')
   const result = await fn({ txId })
-  triggerPdfDownload(result.data as { pdfBase64: string; filename: string; mimeType: string })
+  triggerFileDownload(result.data as { pdfBase64: string; filename: string; mimeType: string })
 }
 
 /**
- * Download a settlement invoice PDF raised on Sam's desk.
+ * Download a settlement invoice PDF or cycle invoice zip raised on Sam's desk.
  */
-export async function downloadSettlementInvoice(invoiceId: string): Promise<void> {
+export async function downloadSettlementInvoice(
+  invoiceId: string,
+  pack?: { invoiceZipStoragePath: string; invoiceZipFilename?: string }
+): Promise<void> {
   const app = getFirebaseApp()
   const functions = getFunctionsInstance()
 
@@ -874,8 +882,14 @@ export async function downloadSettlementInvoice(invoiceId: string): Promise<void
   }
 
   const fn = httpsCallable(functions, 'getSettlementInvoiceProof')
-  const result = await fn({ invoiceId })
-  triggerPdfDownload(result.data as { pdfBase64: string; filename: string; mimeType: string })
+  const payload = pack?.invoiceZipStoragePath
+    ? {
+        invoiceZipStoragePath: pack.invoiceZipStoragePath,
+        invoiceZipFilename: pack.invoiceZipFilename || 'invoices.zip',
+      }
+    : { invoiceId }
+  const result = await fn(payload)
+  triggerFileDownload(result.data as { pdfBase64: string; filename: string; mimeType: string })
 }
 
 /**

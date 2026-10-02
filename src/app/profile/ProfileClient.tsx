@@ -54,15 +54,13 @@ import { usePendingDeposit } from '@/store/usePendingDeposit'
 import CardDepositAccountSheet from '@/components/CardDepositAccountSheet'
 import { openAmaChatWithCardDepositScenario, openAmaChatWithAgentInduction } from '@/lib/cashDeposit/chatOrchestration'
 import { useAgentOnboardingStore } from '@/state/agentOnboarding'
-import { ChevronRight } from 'lucide-react'
-import ProductivityHelperSheet from '@/components/ProductivityHelperSheet'
+import { Calendar } from 'lucide-react'
 import { logout } from '@/lib/logout'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
-import { DEFAULT_COMPLIANCE_PERCENT, formatCompliancePercent } from '@/lib/didit'
-import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import { generateStyledCashIdQr } from '@/lib/qr'
 import Avatar from '@/components/Avatar'
 import cashIdStyles from '@/components/ShareProfileSheet.module.css'
+import OperatingCalendarSheet from '@/components/desk/OperatingCalendarSheet'
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 const PROFILE_QR_AVATAR_SIZE = 40
@@ -74,38 +72,30 @@ export default function ProfileClient() {
   const { hasCompletedAgentOnboarding } = useAgentOnboardingStore()
   const [kycStatus, setKycStatus] = useState<string | null>(null)
   const [kycSessionStatus, setKycSessionStatus] = useState<string | null>(null)
-  const [kycPercent, setKycPercent] = useState<number | null>(null)
   const [cashIdQr, setCashIdQr] = useState<string | null>(null)
+  const [calendarOpen, setCalendarOpen] = useState(false)
 
   useEffect(() => {
     if (!isAuthed) {
       setKycStatus(null)
       setKycSessionStatus(null)
-      setKycPercent(null)
       return
     }
     const uid = getFirebaseAuth().currentUser?.uid
     if (!uid) {
       setKycStatus(null)
       setKycSessionStatus(null)
-      setKycPercent(null)
       return
     }
     return onSnapshot(doc(getFirestoreDb(), 'users', uid), (snap) => {
       const data = snap.data()
       const status = data?.kycStatus
       const sessionStatus = data?.kycSessionStatus
-      const percent = data?.kycPercent
       setKycStatus(typeof status === 'string' ? status : null)
       setKycSessionStatus(typeof sessionStatus === 'string' ? sessionStatus : null)
-      setKycPercent(typeof percent === 'number' && Number.isFinite(percent) ? percent : null)
     })
   }, [isAuthed])
-
-  useEffect(() => {
-    prefetchDiditSdk()
-  }, [])
-  
+ 
   // Redirect unauthenticated users to home (only after auth is ready to prevent race during hydration)
   useEffect(() => {
     if (authReady && !isAuthed) {
@@ -520,7 +510,6 @@ export default function ProfileClient() {
   const [flowType, setFlowType] = useState<'payment' | 'transfer'>('payment')
   const [isPaySomeoneFlow, setIsPaySomeoneFlow] = useState(false) // Track if coming from "Pay someone" button
   // Crypto deposit removed - no longer needed
-  const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
   const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
   const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
   const [withdrawAmountMZN, setWithdrawAmountMZN] = useState(0)
@@ -599,10 +588,6 @@ export default function ProfileClient() {
       setOnSelect(null) // Cleanup on unmount
     }
   }, [openBankDepositAccount, setOnSelect])
-
-  const complianceFill =
-    kycPercent == null ? DEFAULT_COMPLIANCE_PERCENT : Math.max(0, Math.min(100, kycPercent))
-  const complianceLabel = formatCompliancePercent(complianceFill)
 
   const handleDepositProofFile = useCallback(async (file: File) => {
     const country = bankTransferCountry === 'ZA' ? 'ZA' : 'MZ'
@@ -784,26 +769,6 @@ export default function ProfileClient() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                className="profile-stats-card profile-stats-card--compliance"
-                onClick={() => void startDiditVerification()}
-              >
-                <div className="network-pill">
-                  <div className="network-track">
-                    <div
-                      className="network-fill"
-                      style={{ width: `${complianceFill}%` }}
-                    />
-                  </div>
-                  <div className="network-label">
-                    <span>{complianceLabel}</span>
-                    <ChevronRight className="network-chevron" size={16} strokeWidth={2.5} />
-                  </div>
-                </div>
-              </button>
-
-              {/* Buttons */}
               <div className="profile-actions">
                 <button
                   className={`btn profile-edit${hasUnseenActivity ? ' profile-edit--alert' : ''}`}
@@ -819,6 +784,17 @@ export default function ProfileClient() {
                 </button>
                 <button
                   className="btn profile-inbox"
+                  type="button"
+                  aria-label="Open operating calendar"
+                  onClick={() => setCalendarOpen(true)}
+                >
+                  <Calendar size={18} strokeWidth={2.2} style={{ marginRight: 8 }} />
+                  Calendar
+                </button>
+              </div>
+              <div className="profile-actions profile-actions--logout">
+                <button
+                  className="btn profile-logout"
                   type="button"
                   onClick={async (event) => {
                     event.preventDefault()
@@ -1598,13 +1574,7 @@ export default function ProfileClient() {
         open={openAgentInbox}
         onClose={() => setOpenAgentInbox(false)}
       />
-      <ProductivityHelperSheet
-        isOpen={isProductivityHelperOpen}
-        onClose={() => setIsProductivityHelperOpen(false)}
-        onNextPage={() => {
-          console.log('[ProductivityHelperSheet] Next page clicked')
-        }}
-      />
+      <OperatingCalendarSheet open={calendarOpen} onClose={() => setCalendarOpen(false)} />
     </div>
   )
 }

@@ -19,6 +19,10 @@ export type ActivityEventDoc = {
   hasDownloadButton?: boolean
   invoiceId?: string
   invoiceStoragePath?: string
+  invoicePackId?: string
+  invoiceZipStoragePath?: string
+  invoiceZipFilename?: string
+  invoiceIds?: string[]
   dropdownTitle?: string
   dropdownBody?: string
   status?: string
@@ -198,6 +202,21 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       typeof data.invoiceStoragePath === 'string' && data.invoiceStoragePath.trim()
         ? data.invoiceStoragePath.trim()
         : undefined,
+    invoicePackId:
+      typeof data.invoicePackId === 'string' && data.invoicePackId.trim()
+        ? data.invoicePackId.trim()
+        : undefined,
+    invoiceZipStoragePath:
+      typeof data.invoiceZipStoragePath === 'string' && data.invoiceZipStoragePath.trim()
+        ? data.invoiceZipStoragePath.trim()
+        : undefined,
+    invoiceZipFilename:
+      typeof data.invoiceZipFilename === 'string' && data.invoiceZipFilename.trim()
+        ? data.invoiceZipFilename.trim()
+        : undefined,
+    invoiceIds: Array.isArray(data.invoiceIds)
+      ? data.invoiceIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+      : undefined,
     avatarKind: data.avatarKind,
     status: data.status,
     dropdownTitle: data.dropdownTitle,

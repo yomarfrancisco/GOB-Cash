@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
-import { Check, Download, ExternalLink, ArrowUp } from 'lucide-react'
+import { Check, Download, ExternalLink, ArrowUp, Calendar } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -30,6 +30,7 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
+import OperatingCalendarSheet from '@/components/desk/OperatingCalendarSheet'
 
 const KYC_GATE_ID = 'kyc-desk-gate'
 
@@ -208,12 +209,21 @@ function resolveTaskAvatar(item: ActivityItem): string {
 }
 
 function isInvoiceDownloadItem(item: ActivityItem): boolean {
-  return item.routingAction === 'invoice' || Boolean(item.invoiceId)
+  return (
+    item.routingAction === 'invoice' ||
+    Boolean(item.invoiceId) ||
+    Boolean(item.invoicePackId) ||
+    Boolean(item.invoiceZipStoragePath)
+  )
 }
 
 function canDownloadProof(item: ActivityItem): boolean {
   if (isInvoiceDownloadItem(item)) {
-    return item.hasDownloadButton === true || Boolean(item.invoiceId)
+    return (
+      item.hasDownloadButton === true ||
+      Boolean(item.invoiceId) ||
+      Boolean(item.invoiceZipStoragePath)
+    )
   }
   if (!item.txId) return false
   return (
@@ -301,15 +311,24 @@ function ActivityItemCard({
     if (downloadState !== 'idle') return
     const invoiceId = item.invoiceId || (isInvoiceDownloadItem(item) ? item.txId : null)
     if (isInvoiceDownloadItem(item)) {
-      if (!invoiceId) return
+      if (!item.invoiceZipStoragePath && !invoiceId) return
     } else if (!item.txId) {
       return
     }
     setDownloadState('loading')
     const startedAt = Date.now()
     try {
-      if (isInvoiceDownloadItem(item) && invoiceId) {
-        await downloadSettlementInvoice(invoiceId)
+      if (isInvoiceDownloadItem(item)) {
+        if (item.invoiceZipStoragePath) {
+          await downloadSettlementInvoice(item.invoicePackId || invoiceId || 'pack', {
+            invoiceZipStoragePath: item.invoiceZipStoragePath,
+            invoiceZipFilename: item.invoiceZipFilename,
+          })
+        } else if (invoiceId) {
+          await downloadSettlementInvoice(invoiceId)
+        } else {
+          return
+        }
       } else if (item.kind === 'MONTHLY_SETTLEMENT_STATEMENT') {
         await downloadMonthlySettlementProof(item.txId!)
       } else if (item.kind === 'WEEKLY_SETTLEMENT_STATEMENT') {
@@ -576,7 +595,11 @@ function ActivityItemCard({
                 onClick={handleDownload}
               >
                 <Download size={14} strokeWidth={2.4} />
-                {isInvoiceDownloadItem(item) ? 'Download invoice' : 'Download POP'}
+                {isInvoiceDownloadItem(item)
+                  ? item.invoiceZipStoragePath
+                    ? 'Download invoices'
+                    : 'Download invoice'
+                  : 'Download POP'}
               </button>
             )}
             {showExecuted && (
@@ -655,6 +678,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const [askText, setAskText] = useState('')
   const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
   const [askError, setAskError] = useState('')
+  const [calendarOpen, setCalendarOpen] = useState(false)
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -902,6 +926,14 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
         </div>
       </div>
       <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
+        <button
+          type="button"
+          className={styles.deskCalendarBtn}
+          aria-label="Open operating calendar"
+          onClick={() => setCalendarOpen(true)}
+        >
+          <Calendar size={18} strokeWidth={2.2} />
+        </button>
         <div className={styles.replyFrame}>
           <textarea
             className={styles.replyInput}
@@ -928,6 +960,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
         </div>
         {askError ? <p className={styles.replyError}>{askError}</p> : null}
       </form>
+      <OperatingCalendarSheet open={calendarOpen} onClose={() => setCalendarOpen(false)} />
     </>
   )
 }

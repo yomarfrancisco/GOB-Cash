@@ -26,6 +26,10 @@ export type ActivityItem = {
   hasDownloadButton?: boolean
   invoiceId?: string
   invoiceStoragePath?: string
+  invoicePackId?: string
+  invoiceZipStoragePath?: string
+  invoiceZipFilename?: string
+  invoiceIds?: string[]
   avatarKind?: string
   hasKycLink?: boolean
   status?: string

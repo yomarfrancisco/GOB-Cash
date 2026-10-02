@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
-import { Bookmark, ChevronLeft, QrCode, ChevronRight } from 'lucide-react'
+import { Bookmark, ChevronLeft, QrCode } from 'lucide-react'
 import LockOverlay from './LockOverlay'
 import ActionSheet from './ActionSheet'
 import Avatar from './Avatar'
@@ -18,7 +18,6 @@ import { openAmaChatWithPaymentScenario, openAmaChatWithSponsorshipScenario } fr
 import FinancialInboxSheet from './Inbox/FinancialInboxSheet'
 import { useShareProfileSheet } from '@/store/useShareProfileSheet'
 import listStyles from './Inbox/FinancialInboxListSheet.module.css'
-import ProductivityHelperSheet from './ProductivityHelperSheet'
 
 type ProfilePreviewSheetProps = {
   open: boolean
@@ -36,7 +35,6 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
   const [openAmount, setOpenAmount] = useState(false)
   const [amountMode, setAmountMode] = useState<'deposit' | 'withdraw' | 'send' | 'depositCard' | 'convert'>('convert')
   const [openSponsorAmount, setOpenSponsorAmount] = useState(false)
-  const [isProductivityHelperOpen, setIsProductivityHelperOpen] = useState(false)
 
   // Get profile data
   const profile = useMemo<StubProfile | null>(() => {
@@ -213,10 +211,6 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
                       style={{ width: `${profile.socialCredit || 0}%` }}
                     />
                   </div>
-                  <div className="network-label" onClick={() => setIsProductivityHelperOpen(true)}>
-                    <span>Compliance</span>
-                    <ChevronRight className="network-chevron" size={16} strokeWidth={2.5} />
-                  </div>
                 </div>
               </div>
 
@@ -370,14 +364,6 @@ export default function ProfilePreviewSheet({ open, handle, onClose }: ProfilePr
 
       {/* FinancialInboxSheet for Ama chat */}
       <FinancialInboxSheet />
-      <ProductivityHelperSheet
-        isOpen={isProductivityHelperOpen}
-        onClose={() => setIsProductivityHelperOpen(false)}
-        onNextPage={() => {
-          // Placeholder for page 2 navigation
-          console.log('[ProductivityHelperSheet] Next page clicked')
-        }}
-      />
     </>
   )
 }

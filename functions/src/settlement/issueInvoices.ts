@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin'
+import JSZip from 'jszip'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
 import {
   attachInvoicePdf,
@@ -45,42 +46,102 @@ export async function raiseAndStoreCustomerInvoice(
   return storeInvoicePdf(invoice)
 }
 
-export async function publishInvoiceDeskNotice(invoice: SettlementInvoice): Promise<void> {
-  const id = `invoice-${invoice.id}`
+async function buildInvoiceZip(invoices: SettlementInvoice[]): Promise<{
+  storagePath: string
+  filename: string
+  totalZar: number
+}> {
+  const zip = new JSZip()
+  let totalZar = 0
+  for (const invoice of invoices) {
+    if (!invoice.storagePath) continue
+    const [bytes] = await bucket().file(invoice.storagePath).download()
+    zip.file(settlementInvoiceFilename(invoice), bytes)
+    totalZar += invoice.totalZar
+  }
+  const cycle = invoices.find((row) => typeof row.cycleNumber === 'number')?.cycleNumber
+  const run = invoices.find((row) => row.testRunId)?.testRunId || 'pack'
+  const filename =
+    typeof cycle === 'number'
+      ? `cycle-${cycle}-invoices.zip`
+      : `invoices-${new Date().toISOString().slice(0, 10)}.zip`
+  const storagePath = `settlement-invoices/packs/${run}/${filename}`
+  const content = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+  await bucket().file(storagePath).save(content, {
+    contentType: 'application/zip',
+    metadata: { cacheControl: 'private, max-age=0' },
+  })
+  return { storagePath, filename, totalZar: Math.round(totalZar * 100) / 100 }
+}
+
+/** One Sam desk card + one zip for a batch of invoices (not one message per PDF). */
+export async function publishInvoicePackDeskNotice(params: {
+  invoices: SettlementInvoice[]
+  testRunId?: string
+  cycleNumber?: number
+}): Promise<void> {
+  const invoices = params.invoices.filter((row) => row.storagePath)
+  if (!invoices.length) return
+  const packKey =
+    params.testRunId && typeof params.cycleNumber === 'number'
+      ? `${params.testRunId}-c${params.cycleNumber}`
+      : invoices
+          .map((row) => row.id)
+          .sort()
+          .join('-')
+          .slice(0, 80)
+  const id = `invoice-pack-${packKey}`
   const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
   if ((await ref.get()).exists) return
-  const billTo = invoice.billToTradingAs
-    ? `${invoice.billToLegalName} (trading as ${invoice.billToTradingAs})`
-    : invoice.billToLegalName
-  const timing =
-    invoice.raisedTiming === 'raised_after_swipe'
-      ? ' Raised after swipe for reconciliation.'
-      : ' Raised at issue, before the swipe.'
+
+  const zip = await buildInvoiceZip(invoices)
+  const names = [...new Set(invoices.map((row) => row.invoiceNumber))]
+  const body =
+    invoices.length === 1
+      ? `${invoices[0]!.issuerLegalName} billed R${zip.totalZar.toFixed(2)}. Download the invoice zip from the desk card.`
+      : `${invoices.length} invoices raised for R${zip.totalZar.toFixed(2)} (${names.slice(0, 4).join(', ')}${
+          names.length > 4 ? '…' : ''
+        }). Download the zip from the desk card.`
+
   await ref.set({
     id,
     kind: CONVERSION_ROUTING_KIND,
-    title: `Invoice ${invoice.invoiceNumber}`,
-    body: `${invoice.issuerLegalName} billed ${billTo} R${invoice.totalZar.toFixed(2)}.${timing} Download the PDF from the desk card.`,
-    dropdownTitle: invoice.invoiceNumber,
-    dropdownBody: `${invoice.issuerLegalName} → ${billTo}`,
+    title:
+      typeof params.cycleNumber === 'number'
+        ? `Invoices · Cycle ${params.cycleNumber}`
+        : `Invoices · ${invoices.length} PDFs`,
+    body,
+    dropdownTitle: zip.filename,
+    dropdownBody: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · R${zip.totalZar.toFixed(2)}`,
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
     amountCurrency: 'ZAR',
-    amountValue: invoice.totalZar,
+    amountValue: zip.totalZar,
     amountSign: 'debit',
-    txId: invoice.id,
-    hasDownloadButton: Boolean(invoice.storagePath),
-    invoiceId: invoice.id,
-    invoiceStoragePath: invoice.storagePath || null,
+    txId: id,
+    hasDownloadButton: true,
+    invoicePackId: id,
+    invoiceIds: invoices.map((row) => row.id),
+    invoiceZipStoragePath: zip.storagePath,
+    invoiceZipFilename: zip.filename,
     awaitingConfirm: false,
     routingBlocked: false,
     status: 'recorded',
     routingAction: 'invoice',
     deskSpeaker: 'sam',
-    ...(invoice.testRunId ? { testRunId: invoice.testRunId } : {}),
-    ...(typeof invoice.cycleNumber === 'number' ? { cycleNumber: invoice.cycleNumber } : {}),
+    ...(params.testRunId ? { testRunId: params.testRunId } : {}),
+    ...(typeof params.cycleNumber === 'number' ? { cycleNumber: params.cycleNumber } : {}),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     recordingSource: 'SYSTEM',
+  })
+}
+
+/** Single-invoice backfills still go through the pack publisher (one zip, one Sam card). */
+export async function publishInvoiceDeskNotice(invoice: SettlementInvoice): Promise<void> {
+  await publishInvoicePackDeskNotice({
+    invoices: [invoice],
+    testRunId: invoice.testRunId || undefined,
+    cycleNumber: typeof invoice.cycleNumber === 'number' ? invoice.cycleNumber : undefined,
   })
 }
 
@@ -105,7 +166,7 @@ export async function raiseInvoicesForCycle(input: {
       cycleNumber: input.cycleNumber,
       economicPaymentId: row.economicPaymentId || null,
     })
-    await publishInvoiceDeskNotice(invoice)
+    raised.push(invoice)
     if (invoice.issuerId === 'imani') {
       const upstream = await raiseUpstreamInvoice({
         supplierId: 'house_of_exports',
@@ -114,11 +175,15 @@ export async function raiseInvoicesForCycle(input: {
         customerInvoiceId: invoice.id,
         notes: ['HOE supply for Imani wholesale resale.'],
       })
-      await storeInvoicePdf(upstream)
-      await publishInvoiceDeskNotice(upstream)
+      const storedUpstream = await storeInvoicePdf(upstream)
+      raised.push(storedUpstream)
     }
-    raised.push(invoice)
   }
+  await publishInvoicePackDeskNotice({
+    invoices: raised,
+    testRunId: input.testRunId,
+    cycleNumber: input.cycleNumber,
+  })
   return raised
 }
 
@@ -141,7 +206,6 @@ export async function applyCapitecPayoutToInvoices(
 ): Promise<number> {
   const open = await openInvoicesForMerchant(settlement.merchantId, settlement.merchant)
   if (!open.length) return 0
-  // Match by sales total when a single open invoice equals the settlement sales.
   const exact = open.filter((invoice) => Math.abs(invoice.totalZar - settlement.salesZar) < 0.02)
   const targets = exact.length ? exact : open.sort((a, b) => a.invoiceDate.localeCompare(b.invoiceDate))
   let marked = 0

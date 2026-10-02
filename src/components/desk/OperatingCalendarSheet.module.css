@@ -1,0 +1,115 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 4px 24px;
+  color: #111;
+}
+
+.monthSwitch {
+  display: flex;
+  gap: 8px;
+}
+
+.monthIdle,
+.monthActive {
+  flex: 1;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  font: 600 13px/1 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+}
+
+.monthIdle {
+  background: #ececf0;
+  color: #333;
+}
+
+.monthActive {
+  background: #111;
+  color: #fff;
+}
+
+.summary {
+  margin: 0;
+  font: 400 13px/18px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #444;
+}
+
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  text-align: center;
+  font: 600 11px/1 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #888;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.empty {
+  min-height: 64px;
+}
+
+.day {
+  min-height: 64px;
+  border-radius: 12px;
+  padding: 6px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  box-sizing: border-box;
+}
+
+.idle {
+  background: #f4f4f6;
+  color: #999;
+}
+
+.operating {
+  background: #eef8c8;
+  color: #111;
+}
+
+.today {
+  outline: 2px solid #111;
+  outline-offset: -2px;
+}
+
+.dayNum {
+  font: 700 12px/1 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.dayZar {
+  font: 600 10px/1.2 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.dayCount {
+  font: 400 10px/1 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #555;
+}
+
+.list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.list li {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #f7f7f8;
+  font: 500 12px/1.2 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}

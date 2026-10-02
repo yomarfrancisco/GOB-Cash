@@ -210,7 +210,10 @@
   right: 0;
   bottom: 0;
   z-index: 4;
-  padding: 4px 32px calc(8px + env(safe-area-inset-bottom)) 79px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 4px 32px calc(8px + env(safe-area-inset-bottom)) 20px;
 }
 
 .activityContent .conversationList {
