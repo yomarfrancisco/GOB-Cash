@@ -17,7 +17,8 @@
     "backfill:usersToGlobalContacts": "node scripts/backfillUsersToGlobalContacts.js",
     "functions:build": "cd functions && npm run build",
     "functions:serve": "cd functions && npm run serve",
-    "functions:deploy": "firebase deploy --only functions"
+    "functions:deploy": "firebase deploy --only functions",
+    "promote:production": "node scripts/ensureProductionAliases.mjs"
   },
   "dependencies": {
     "@didit-protocol/sdk-web": "^0.2.1",
