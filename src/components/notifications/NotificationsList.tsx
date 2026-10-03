@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Check, Download, ExternalLink, ArrowUp, Calendar } from 'lucide-react'
+import { Check, Download, ExternalLink, ArrowUp } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -288,8 +288,6 @@ function ActivityItemCard({
   onAcceptProposal,
   onDiscardProposal,
   lockDeskActions,
-  onOpenCalendar,
-  isLatestBubble,
   animateEntrance,
   entranceSettled,
   onEntranceComplete,
@@ -300,8 +298,6 @@ function ActivityItemCard({
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
   lockDeskActions?: boolean
-  onOpenCalendar?: () => void
-  isLatestBubble?: boolean
   animateEntrance?: boolean
   entranceSettled?: boolean
   onEntranceComplete?: (id: string) => void
@@ -323,12 +319,6 @@ function ActivityItemCard({
   const [startNextState, setStartNextState] = useState<'idle' | 'loading'>('idle')
   const actionsUnlocked = entranceSettled !== false
   const showDownload = actionsUnlocked && canDownloadProof(item)
-  // Calendar only on the newest bubble — never on earlier cards that still carry the flag.
-  const showCalendar =
-    actionsUnlocked &&
-    isLatestBubble === true &&
-    item.showCalendarButton === true &&
-    Boolean(onOpenCalendar)
   const showStartNextRun = actionsUnlocked && !lockDeskActions && item.startNextRun === true
   const showKycLink = actionsUnlocked && item.hasKycLink === true
   const isKycGate = isKycGateItem(item)
@@ -591,7 +581,6 @@ function ActivityItemCard({
           showContinue ||
           showStartNextRun ||
           showDownload ||
-          showCalendar ||
           showProposalActions ||
           showExecuted ||
           showKycLink) && (
@@ -691,20 +680,6 @@ function ActivityItemCard({
                 </button>
               </>
             )}
-            {showCalendar && (
-              <button
-                type="button"
-                className={styles.calendarButton}
-                aria-label="Open operating calendar"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onOpenCalendar?.()
-                }}
-              >
-                <Calendar size={14} strokeWidth={2.4} />
-                Calendar
-              </button>
-            )}
             {showDownload && (
               <button
                 type="button"
@@ -794,8 +769,6 @@ function ActivitySection({
   onAcceptProposal,
   onDiscardProposal,
   lockDeskActions,
-  onOpenCalendar,
-  calendarBubbleId,
   visibleIds,
   typingId,
   isSettled,
@@ -809,13 +782,12 @@ function ActivitySection({
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
   lockDeskActions?: boolean
-  onOpenCalendar?: () => void
-  calendarBubbleId: string | null
   visibleIds: Set<string>
   typingId: string | null
   isSettled: (id: string) => boolean
   onEntranceComplete: (id: string) => void
 }) {
+  void latestActivityId
   const visibleItems = items.filter((item) => item.thinking === true || visibleIds.has(item.id))
   if (visibleItems.length === 0) return null
 
@@ -832,8 +804,6 @@ function ActivitySection({
             onAcceptProposal={onAcceptProposal}
             onDiscardProposal={onDiscardProposal}
             lockDeskActions={lockDeskActions}
-            onOpenCalendar={onOpenCalendar}
-            isLatestBubble={item.id === calendarBubbleId}
             animateEntrance={item.id === typingId}
             entranceSettled={item.thinking === true || isSettled(item.id)}
             onEntranceComplete={onEntranceComplete}
@@ -855,7 +825,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const [askText, setAskText] = useState('')
   const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
   const [askError, setAskError] = useState('')
-  const openOperatingCalendarFromDesk = useNotificationsStore((s) => s.openOperatingCalendarFromDesk)
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -1057,14 +1026,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     })
   }
 
-  const calendarBubbleId = useMemo(() => {
-    for (let i = pagedItems.length - 1; i >= 0; i--) {
-      const item = pagedItems[i]
-      if (item && item.thinking !== true && item.id !== KYC_GATE_ID) return item.id
-    }
-    return null
-  }, [pagedItems])
-
   const sectionProps = {
     latestAwaitingId,
     latestActivityId,
@@ -1072,8 +1033,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     onAcceptProposal: handleAcceptProposal,
     onDiscardProposal: handleDiscardProposal,
     lockDeskActions: deskBlocked,
-    onOpenCalendar: openOperatingCalendarFromDesk,
-    calendarBubbleId,
     visibleIds: reveal.visibleIds,
     typingId: reveal.typingId,
     isSettled: reveal.isSettled,
