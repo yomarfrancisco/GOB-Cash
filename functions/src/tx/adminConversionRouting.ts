@@ -228,6 +228,7 @@ function storedPlanFromCycle(
     bufferUsedBefore: num(data.bufferUsed, 0),
     bufferActionRequired: data.bufferActionRequired === true,
     selectionReason: typeof data.selectionReason === 'string' ? data.selectionReason : '',
+    holdReason: typeof data.holdReason === 'string' ? data.holdReason : undefined,
   }
 }
 
@@ -1201,6 +1202,8 @@ function writeIssuedCycle(
     spreadRate: state.config.spread,
     quote: liveBook.quote || quotes.quote,
     selectionReason: plan.selectionReason,
+    holdReason: plan.holdReason || null,
+    routingBlocked: blocked,
     earliestAttemptAt: ticketPath.earliestAt,
     planHash,
     operatingPolicyVersion: OPERATING_POLICY_VERSION,
@@ -1438,6 +1441,9 @@ async function voiceDeskCard(params: {
   sellRate?: number
   costRate?: number
   awaitingKind?: string
+  current?: { kind: 'replenish' | 'deploy'; assignments: Array<{ cardId: number; machineId: number; amount: number }>; amountZar: number } | null
+  holdReason?: string | null
+  routingBlocked?: boolean
 }) {
   const nowMs = Date.now()
   const [operator, recentCycles, recentFeedback, bankLines] = await Promise.all([
@@ -1449,7 +1455,10 @@ async function voiceDeskCard(params: {
   const visuals = buildDeskVisuals({
     state: params.state,
     recentCycles,
+    current: params.current || null,
     awaitingKind: params.awaitingKind,
+    holdReason: params.holdReason,
+    routingBlocked: params.routingBlocked,
     sellRate: params.sellRate,
     costRate: params.costRate,
     walletZar: params.walletZar,
@@ -3260,6 +3269,8 @@ export const admin_submitConversionRoutingFeedback = functions
         recentCycles,
         current: openRoute,
         awaitingKind,
+        holdReason: stored.holdReason || null,
+        routingBlocked: openRoute.amountZar <= 0 && awaitingKind === 'deploy',
         sellRate: quotes.sellRate,
         costRate: quotes.costRate,
         walletZar,

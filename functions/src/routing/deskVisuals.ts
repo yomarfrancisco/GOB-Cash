@@ -49,6 +49,8 @@ export function buildDeskVisuals(params: {
   recentCycles?: RecentCycleBrief[]
   current?: { kind: 'replenish' | 'deploy'; assignments: Array<{ cardId: number; machineId: number; amount: number }>; amountZar: number } | null
   awaitingKind?: string
+  holdReason?: string | null
+  routingBlocked?: boolean
   sellRate?: number
   costRate?: number
   walletZar?: number
@@ -68,13 +70,22 @@ export function buildDeskVisuals(params: {
   const projectedRemainingZar =
     cost > 0 && liveSpread > 0 ? roundMoney((residual * liveSpread) / cost) : 0
   const open = params.current
+  const openAmount = roundMoney(Math.max(0, open?.amountZar || 0))
   const awaiting = params.awaitingKind || open?.kind || 'deploy'
-  const nextAction =
-    windowIsFinished(state)
-      ? 'The book is at R0. Sam can open the next window from the ZAR wallet.'
-      : awaiting === 'replenish'
-        ? `Amina is waiting on the restock of ${formatZar(open?.amountZar || state.bufferUsed)}.`
-        : `Leo is waiting on the ZAR sale of ${formatZar(open?.amountZar || 0)}.`
+  const holdNote =
+    (typeof params.holdReason === 'string' && params.holdReason.trim()) ||
+    'No ticket on the desk today. The residual stays open for the next operating day.'
+  const nextAction = windowIsFinished(state)
+    ? 'The book is at R0. Sam can open the next window from the ZAR wallet.'
+    : awaiting === 'replenish'
+      ? openAmount > 0 || state.bufferUsed > 0
+        ? `Amina is waiting on the restock of ${formatZar(openAmount || state.bufferUsed)}.`
+        : `Amina has no restock ticket on the desk. ${holdNote}`
+      : openAmount > 0
+        ? `Leo is waiting on the ZAR sale of ${formatZar(openAmount)}.`
+        : residual > 0
+          ? `Leo has no ZAR sale ticket today — this is a hold, not an empty book. ${formatZar(residual)} still to convert. ${holdNote}`
+          : holdNote
 
   const snapshot = [
     windowIsFinished(state)

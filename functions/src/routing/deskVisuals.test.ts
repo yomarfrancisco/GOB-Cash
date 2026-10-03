@@ -58,4 +58,22 @@ describe('desk visuals', () => {
     assert.deepEqual(suggestVisuals('Sam you there?', visuals), {})
     assert.deepEqual(suggestVisuals('how much capital is left in the wallet', visuals), {})
   })
+
+  it('never narrates a Leo ZAR sale of R0 when residual remains', () => {
+    const state = createInitialState(DEFAULT_TEST_CONFIG, 300_000)
+    state.completedCycles = 3
+    state.cycledZar = 44_822.89
+    state.cumulativeSpread = 6_804.37
+    const visuals = buildDeskVisuals({
+      state,
+      walletZar: 40_000,
+      awaitingKind: 'deploy',
+      current: { kind: 'deploy', assignments: [], amountZar: 0 },
+      holdReason: 'No eligible whole payment today. The book is unchanged.',
+      routingBlocked: true,
+    })
+    assert.doesNotMatch(visuals.snapshot, /ZAR sale of R0/)
+    assert.match(visuals.snapshot, /hold/i)
+    assert.match(visuals.snapshot, /R255,177/)
+  })
 })
