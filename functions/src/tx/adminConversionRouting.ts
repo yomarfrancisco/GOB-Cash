@@ -146,7 +146,7 @@ import {
   type ContinuityStateV1,
   type ConfirmInstruction,
 } from '../operatingCalendar'
-import { expectedMznForOrder, type CyclePhase } from '../routing/continuousCycle'
+import { expectedMznForOrder, stepTitle, type CyclePhase } from '../routing/continuousCycle'
 
 const inboundSecret = defineSecret('RESEND_INBOUND_SECRET')
 const db = admin.firestore()
@@ -991,12 +991,13 @@ function writeIssuedReplenish(
   const testRef = db.collection(TESTS).doc(testRunId)
   const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
 
+  const step5Title = stepTitle(5, `Day ${replenish.cycleNumber} recycle`)
   tx.set(eventRef, {
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
-    title: activity.title,
+    title: step5Title,
     body: activity.body,
-    dropdownTitle: notification.title,
+    dropdownTitle: step5Title,
     dropdownBody: notification.body,
     actorType: 'ai_manager',
     avatarKind: 'convert_mzn',
@@ -1012,6 +1013,7 @@ function writeIssuedReplenish(
     routingAction: 'replenish',
     deskSpeaker: 'amina',
     cyclePhase: 'awaiting_recycle',
+    deskStep: 5,
     earliestAttemptAt: path.earliestAt,
     ticketPath: path,
     testRunId,
@@ -1165,12 +1167,15 @@ function writeIssuedCycle(
   const cycleRef = testRef.collection('cycles').doc(String(plan.cycleNumber))
   const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
 
+  const step4Title = blocked
+    ? stepTitle(4, `Day ${plan.cycleNumber} hold`)
+    : stepTitle(4, `Day ${plan.cycleNumber} send`)
   tx.set(eventRef, {
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
-    title: activity.title,
+    title: step4Title,
     body: activityBody,
-    dropdownTitle: notification.title,
+    dropdownTitle: step4Title,
     dropdownBody: notification.body,
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
@@ -1186,6 +1191,7 @@ function writeIssuedCycle(
     routingAction: 'deploy',
     deskSpeaker: 'leo',
     cyclePhase,
+    deskStep: 4,
     earliestAttemptAt: ticketPath.earliestAt,
     ticketPath,
     planHash,
@@ -1335,13 +1341,13 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
       await continueRef.set({
         id: continueId,
         kind: CONVERSION_ROUTING_KIND,
-        title: `Continue · Day ${cycleNumber}`,
+        title: stepTitle(4, `Day ${cycleNumber} — add ZAR`),
         body: [
           `Order ${formatZar(expectedZar)} is funded in MZN.`,
           `ZAR float is short by ${formatZar(shortfall)}.`,
-          'Add ZAR (or tap $ within the daily ceiling rules) to continue the scheduled send. This does not raise the daily volume ceiling.',
+          'Add ZAR (or tap $ within the daily ceiling). Continue walks the schedule — this does not raise the daily volume ceiling.',
         ].join('\n'),
-        dropdownTitle: 'Continue — add ZAR',
+        dropdownTitle: stepTitle(4, 'Add ZAR'),
         dropdownBody: `Need ${formatZar(shortfall)} more ZAR for order ${cycleNumber}`,
         actorType: 'ai_manager',
         avatarKind: 'convert_zar',
@@ -1359,6 +1365,7 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
         testRunId,
         cycleNumber,
         cyclePhase: 'awaiting_continue',
+        deskStep: 4,
         createdAt: now,
         recordingSource: 'SYSTEM',
       })
@@ -1383,11 +1390,10 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
       routingBlocked: false,
       status: 'awaiting_execution',
       cyclePhase: 'awaiting_send',
-      title: fresh.data()?.expectedOrderZar
-        ? `Send ZAR · Cycle ${cycleNumber}`
-        : eventSnap.data()?.title,
+      deskStep: 4,
+      title: stepTitle(4, `Day ${cycleNumber} send`),
       body:
-        `${formatZar(expectedZar)} scheduled order is funded. ZAR float covers the send. Confirm when ZAR is sent.`,
+        `${formatZar(expectedZar)} scheduled order is funded. ZAR float covers the send. Tap Continue when ZAR has left.`,
     })
     tx.set(
       testRef,
@@ -1801,6 +1807,8 @@ async function issueCycle(
   now: admin.firestore.Timestamp,
   options?: { immediateAttempts?: boolean }
 ): Promise<{ plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' }> {
+  // Continuous desk: first swipe is now — the calendar path must not interrupt Day 0…n.
+  const immediateAttempts = options?.immediateAttempts !== false
   if (windowIsFinished(state)) {
     const walletZar = await zarWalletBalance(adminUid)
     const offer = nextWindowOffer({
@@ -1880,7 +1888,7 @@ async function issueCycle(
         EMPTY_OVERLAY,
         book,
         evidence,
-        options?.immediateAttempts === true
+        immediateAttempts
       )
     ).then(async (issued) => {
       // Continuous order: Sam announces the calendar day first, then Amina invoices.
@@ -1944,30 +1952,30 @@ async function publishSamDayBrief(input: {
       ? input.plan.cardAssignments
       : [{ cardId: 0, machineId: 0, amount: 0 }],
     nowMs: input.now.toMillis(),
-    pendingExposureZar: input.state.bufferUsed,
+    immediate: true,
   })
   const id = `sam-day-brief-${input.testRunId}-c${input.plan.cycleNumber}`
   const ref = db.collection('users').doc(input.adminUid).collection('activityEvents').doc(id)
   if ((await ref.get()).exists) return
-  const first = schedule.tickets[0]
   const body = [
     `Day ${day} of ${input.state.config.cycleCount}.`,
     `Scheduled ZAR order: ${formatZar(input.plan.deployedAmount || 0)}.`,
     `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} window still open.`,
     input.kind === 'replenish'
-      ? `Recycle MZN→ZAR for today's invoice is next. First swipe ${first?.timeLabel || schedule.timeLabel}.`
+      ? 'Step 5 · Recycle is next — Continue advances without waiting on the clock.'
       : input.plan.deployedAmount > 0
-        ? `Order received on the calendar. Amina raises the invoice; Leo sends ZAR after MZN clears.`
+        ? 'Next: Step 2 · Invoice, then Step 3 · MZN, Step 4 · Send, Step 5 · Recycle, Step 6 · Next day.'
         : `Hold day — no new ticket. Residual stays open for the next operating day.`,
   ]
     .filter(Boolean)
     .join('\n')
+  const title = stepTitle(1, `Day ${day} of ${input.state.config.cycleCount}`)
   await ref.create({
     id,
     kind: CONVERSION_ROUTING_KIND,
-    title: `Sam · Day ${day} of ${input.state.config.cycleCount}`,
+    title,
     body,
-    dropdownTitle: `Day ${day} of ${input.state.config.cycleCount}`,
+    dropdownTitle: title,
     dropdownBody: body.split('\n')[0],
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
@@ -1982,6 +1990,7 @@ async function publishSamDayBrief(input: {
     routingAction: 'advice',
     deskSpeaker: 'sam',
     cyclePhase: input.plan.deployedAmount > 0 ? 'order_open' : 'hold',
+    deskStep: 1,
     testRunId: input.testRunId,
     cycleNumber: input.plan.cycleNumber,
     earliestAttemptAt: schedule.earliestAt,
@@ -2396,7 +2405,6 @@ export async function applyAdminCapitalShock(params: {
     },
     { merge: true }
   )
-  // $ keypad mid-run is an admin inject — do not re-arm the swipe clock for later today.
   await issueCycle(adminUid, existingId, state, now, { immediateAttempts: true })
 }
 
@@ -2450,7 +2458,9 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
       typeof data?.cycleNumber === 'number' ? data.cycleNumber : undefined
     const requestedRun = typeof data?.testRunId === 'string' ? data.testRunId : undefined
     const conversionTxId = typeof data?.conversionTxId === 'string' ? data.conversionTxId : undefined
-    const overrideEarliest = data?.overrideEarliest === true
+    // Admin desk continuity: never pause Day n on the swipe clock. Schedule stays
+    // informational; Continue / I've swiped always advance.
+    const overrideEarliest = true
     const suppliedProfit =
       typeof data?.actualProfit === 'number' && Number.isFinite(data.actualProfit)
         ? data.actualProfit
@@ -3021,6 +3031,55 @@ export const admin_submitConversionRoutingFeedback = functions
     const rawMessage = typeof data?.message === 'string' ? data.message.trim() : ''
     if (!rawMessage && !acceptProposalId && !discardProposalId) {
       throw new functions.https.HttpsError('invalid-argument', 'Ask text is required')
+    }
+
+    if (
+      !acceptProposalId &&
+      !discardProposalId &&
+      /^(?:restart(?: the)?(?: desk| system| book| run)?|start over|reset(?: the)? desk)(?:\s*[.!])?$/i.test(
+        rawMessage
+      )
+    ) {
+      const started = await startNewTest(adminUid, true)
+      const newRunId = String(started.testRunId || '')
+      if (!newRunId) {
+        throw new functions.https.HttpsError('internal', 'Desk restart failed to open a run')
+      }
+      const now = admin.firestore.Timestamp.now()
+      const feedbackId = `restart-${now.toMillis()}`
+      const body =
+        'Desk restarted at Day 0. Tap $ and sell ZAR to open Day 1. Then the book walks Steps 1–6 without a clock pause: Order → Invoice → MZN → Send → Recycle → Next day.'
+      await db.runTransaction(async (tx) => {
+        publishAdviceCard(tx, {
+          adminUid,
+          testRunId: newRunId,
+          cycleNumber: 0,
+          feedbackId,
+          now,
+          title: stepTitle(6, 'Restart · Day 0'),
+          body,
+          userReply: rawMessage,
+          routingAction: 'advice',
+          deskSpeaker: 'sam',
+        })
+        tx.set(db.collection(TESTS).doc(newRunId).collection('feedback').doc(feedbackId), {
+          id: feedbackId,
+          adminUserId: adminUid,
+          cycleNumber: 0,
+          rawMessage,
+          interpretationSummary: 'Desk restarted',
+          replyBody: body,
+          status: 'applied',
+          createdAt: now,
+        })
+      })
+      return {
+        testRunId: newRunId,
+        cycleNumber: 0,
+        status: 'applied',
+        acknowledgement: body,
+        interpreter: 'fast_path',
+      }
     }
 
     const requestedRun = typeof data?.testRunId === 'string' ? data.testRunId : undefined

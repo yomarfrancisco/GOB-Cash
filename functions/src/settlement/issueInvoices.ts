@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
+import { stepTitle } from '../routing/continuousCycle'
 import {
   attachInvoicePdf,
   markInvoiceZarAvailable,
@@ -108,8 +109,8 @@ export async function publishInvoicePackDeskNotice(params: {
     kind: CONVERSION_ROUTING_KIND,
     title:
       typeof params.cycleNumber === 'number'
-        ? `Invoices · Cycle ${params.cycleNumber}`
-        : `Invoices · ${invoices.length} PDFs`,
+        ? stepTitle(2, `Day ${params.cycleNumber}`)
+        : stepTitle(2, `${invoices.length} PDFs`),
     body,
     dropdownTitle: zip.filename,
     dropdownBody: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · R${zip.totalZar.toFixed(2)}`,
@@ -130,6 +131,8 @@ export async function publishInvoicePackDeskNotice(params: {
     status: 'recorded',
     routingAction: 'invoice',
     deskSpeaker: 'amina',
+    deskStep: 2,
+    cyclePhase: 'awaiting_mzn',
     ...(params.testRunId ? { testRunId: params.testRunId } : {}),
     ...(typeof params.cycleNumber === 'number' ? { cycleNumber: params.cycleNumber } : {}),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),

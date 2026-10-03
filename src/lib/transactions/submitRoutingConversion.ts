@@ -49,6 +49,8 @@ export async function submitRoutingConversion(params: {
       testRunId: play.testRunId,
       cycleNumber: play.cycleNumber,
       conversionTxId: result.txId,
+      // Admin continuity: keypad confirm must not re-hit the swipe clock.
+      overrideEarliest: true,
     })
   }
 }

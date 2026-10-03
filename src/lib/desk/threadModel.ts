@@ -112,12 +112,6 @@ export type DeskNextStep = {
   item: ActivityItem | null
 }
 
-function isClockGatedItem(item: ActivityItem | null | undefined): boolean {
-  if (!item?.earliestAttemptAt) return false
-  const ms = Date.parse(item.earliestAttemptAt)
-  return Number.isFinite(ms) && Date.now() < ms
-}
-
 const YES_RE = /^(yes|yeah|yep|yup|ok|okay|save(?: that| it)?|do it|confirm|please do)\b/i
 const NO_RE = /^(no|nope|discard|cancel|don'?t|do not)\b/i
 
@@ -338,7 +332,7 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
       body,
       clock: awaiting.routingBlocked ? null : sale ? 'sent' : 'swiped',
       clockLabel: sale ? "I've sent ZAR" : "I've swiped",
-      showContinue: isClockGatedItem(awaiting) && awaiting.routingBlocked !== true,
+      showContinue: awaiting.routingBlocked !== true,
       stillToDeliver: leftover,
       startAgain: false,
       item: awaiting,

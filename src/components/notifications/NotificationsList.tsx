@@ -269,12 +269,6 @@ function confirmTargetForCard(item: ActivityItem): ActivityItem | null {
   return null
 }
 
-function isClockGated(item: ActivityItem | null | undefined): boolean {
-  if (!item?.earliestAttemptAt) return false
-  const ms = Date.parse(item.earliestAttemptAt)
-  return Number.isFinite(ms) && Date.now() < ms
-}
-
 function ActivityItemCard({
   item,
   showRoutingActions,
@@ -317,7 +311,8 @@ function ActivityItemCard({
   const showExecuted = isRoutingInstruction && item.status === 'completed' && !item.thinking
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
   const showConfirm = Boolean(confirmItem) && !lockDeskActions
-  const showContinue = showConfirm && isClockGated(confirmItem) && !lockDeskActions
+  // Continuity only on the latest open step (showRoutingActions already gates that).
+  const showContinue = showConfirm
   const showProposalActions =
     !lockDeskActions &&
     item.routingAction === 'proposal' &&
