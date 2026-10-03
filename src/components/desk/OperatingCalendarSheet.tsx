@@ -70,7 +70,9 @@ export default function OperatingCalendarSheet({ open, onClose }: Props) {
                     .filter(Boolean)
                     .join(' ')}
                 >
-                  <span className={styles.slotTime}>{row.label}</span>
+                  <span className={styles.slotTime}>
+                    {row.payment ? row.payment.timeSast : row.label}
+                  </span>
                   {row.payment ? (
                     <span className={styles.slotPay}>{formatZarShort(row.payment.amountZar)}</span>
                   ) : (
