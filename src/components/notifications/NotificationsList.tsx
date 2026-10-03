@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useEffect, useState, useRef } from 'react'
+import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { Check, Download, ExternalLink, ArrowUp, Calendar } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
@@ -20,6 +20,7 @@ import { formatVisibleSast } from '@/lib/routing/routingTime'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
 import { DESK_TEAM, deskAgentFor, activeDeskAgent, addressedDeskAgent } from '@/lib/desk/threadModel'
+import { useProgressiveReveal } from '@/lib/desk/useProgressiveReveal'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
@@ -32,11 +33,19 @@ import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
 import OperatingCalendarSheet from '@/components/desk/OperatingCalendarSheet'
+import { TypewriterText } from '@/components/desk/TypewriterText'
 
 const KYC_GATE_ID = 'kyc-desk-gate'
 
 const ADMIN_AVATAR_PATH = MOZPAGA_ADMIN_AVATAR
 const ACTIVITY_PAGE_SIZE = 16
+
+function TypewriterCompleteSignal({ onComplete }: { onComplete: () => void }) {
+  useEffect(() => {
+    onComplete()
+  }, [onComplete])
+  return null
+}
 
 function isCopiedActivity(item: ActivityItem): boolean {
   return searchableText(item).includes('copied')
@@ -281,6 +290,9 @@ function ActivityItemCard({
   onDiscardProposal,
   lockDeskActions,
   onOpenCalendar,
+  animateEntrance,
+  entranceSettled,
+  onEntranceComplete,
 }: {
   item: ActivityItem
   showRoutingActions: boolean
@@ -289,6 +301,9 @@ function ActivityItemCard({
   onDiscardProposal: (item: ActivityItem) => Promise<void>
   lockDeskActions?: boolean
   onOpenCalendar?: () => void
+  animateEntrance?: boolean
+  entranceSettled?: boolean
+  onEntranceComplete?: (id: string) => void
 }) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
@@ -305,24 +320,38 @@ function ActivityItemCard({
   const [continueState, setContinueState] = useState<'idle' | 'loading'>('idle')
   const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
   const [startNextState, setStartNextState] = useState<'idle' | 'loading'>('idle')
-  const showDownload = canDownloadProof(item)
-  const showCalendar = item.showCalendarButton === true && Boolean(onOpenCalendar)
-  const showStartNextRun = !lockDeskActions && item.startNextRun === true
-  const showKycLink = item.hasKycLink === true
+  const actionsUnlocked = entranceSettled !== false
+  const showDownload = actionsUnlocked && canDownloadProof(item)
+  const showCalendar = actionsUnlocked && item.showCalendarButton === true && Boolean(onOpenCalendar)
+  const showStartNextRun = actionsUnlocked && !lockDeskActions && item.startNextRun === true
+  const showKycLink = actionsUnlocked && item.hasKycLink === true
   const isKycGate = isKycGateItem(item)
   const kycCta = item.kycAction === 'update' ? 'Update KYC' : 'Start KYC'
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-  const showExecuted = isRoutingInstruction && item.status === 'completed' && !item.thinking
+  const showExecuted = actionsUnlocked && isRoutingInstruction && item.status === 'completed' && !item.thinking
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
   // Continuity only on the latest open step. Sequential Steps 1–3 are Continue-only.
-  const showContinue = Boolean(confirmItem) && !lockDeskActions
+  const showContinue = Boolean(confirmItem) && !lockDeskActions && actionsUnlocked
   const showConfirm = showContinue && !isSequentialStepCard(confirmItem)
   const showProposalActions =
     !lockDeskActions &&
+    actionsUnlocked &&
     item.routingAction === 'proposal' &&
     item.awaitingProposalAccept === true &&
     Boolean(item.proposalId)
   const askCard = isAskCard(item)
+  const typing = animateEntrance === true
+  const [titleDone, setTitleDone] = useState(!typing || !item.title)
+  useEffect(() => {
+    setTitleDone(!typing || !item.title)
+  }, [typing, item.id, item.title])
+  const handleTitleTyped = useCallback(() => {
+    setTitleDone(true)
+    if (!item.body) onEntranceComplete?.(item.id)
+  }, [item.body, item.id, onEntranceComplete])
+  const handleBodyTyped = useCallback(() => {
+    onEntranceComplete?.(item.id)
+  }, [item.id, onEntranceComplete])
 
   const handleDownload = async (event: React.MouseEvent) => {
     event.stopPropagation()
@@ -488,7 +517,18 @@ function ActivityItemCard({
           </div>
         ) : null}
         <div className={styles.activityHeader}>
-          <div className={styles.activityTitle}>{item.title}</div>
+          {typing && item.title ? (
+            <TypewriterText
+              text={item.title}
+              animate
+              className={styles.activityTitle}
+              charsPerTick={5}
+              tickMs={14}
+              onComplete={handleTitleTyped}
+            />
+          ) : (
+            <div className={styles.activityTitle}>{item.title}</div>
+          )}
           <div className={styles.activityTime}>
             {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
               ? formatVisibleSast(item.createdAt)
@@ -514,9 +554,20 @@ function ActivityItemCard({
                 <div className={styles.activityUserReplyBody}>{item.userReply}</div>
               </div>
             ) : null}
-            {item.body ? <div className={styles.activityBody}>{item.body}</div> : null}
-            <DeskCardVisuals item={item} />
-            {!askCard && item.userReply ? (
+            {item.body && (!typing || titleDone) ? (
+              <TypewriterText
+                text={item.body}
+                animate={typing}
+                className={styles.activityBody}
+                charsPerTick={4}
+                tickMs={16}
+                onComplete={typing ? handleBodyTyped : undefined}
+              />
+            ) : typing && !item.body && titleDone ? (
+              <TypewriterCompleteSignal onComplete={handleBodyTyped} />
+            ) : null}
+            {actionsUnlocked ? <DeskCardVisuals item={item} /> : null}
+            {!askCard && item.userReply && actionsUnlocked ? (
               <div className={styles.activityUserReply}>
                 <div className={styles.activityUserReplyLabel}>
                   <span>You</span>
@@ -706,6 +757,28 @@ function ActivityItemCard({
   )
 }
 
+function ThinkingPlaceholder({ speaker }: { speaker?: (typeof DESK_TEAM)[keyof typeof DESK_TEAM] | null }) {
+  const who = speaker || DESK_TEAM.sam
+  return (
+    <article className={styles.activityItem} aria-live="polite">
+      <div className={styles.activityAvatar}>
+        <Image src={who.avatar} alt={who.name} width={36} height={36} className={styles.avatarImg} unoptimized />
+      </div>
+      <div className={styles.activityContent}>
+        <div className={styles.activitySpeaker}>
+          <span>{who.name}</span>
+          <span className={styles.activitySpeakerRole}>{who.role}</span>
+        </div>
+        <div className={styles.thinkingDots} aria-label="Writing">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    </article>
+  )
+}
+
 function ActivitySection({
   title,
   items,
@@ -716,6 +789,10 @@ function ActivitySection({
   onDiscardProposal,
   lockDeskActions,
   onOpenCalendar,
+  visibleIds,
+  typingId,
+  isSettled,
+  onEntranceComplete,
 }: {
   title: string
   items: ActivityItem[]
@@ -726,23 +803,31 @@ function ActivitySection({
   onDiscardProposal: (item: ActivityItem) => Promise<void>
   lockDeskActions?: boolean
   onOpenCalendar?: () => void
+  visibleIds: Set<string>
+  typingId: string | null
+  isSettled: (id: string) => boolean
+  onEntranceComplete: (id: string) => void
 }) {
-  if (items.length === 0) return null
+  const visibleItems = items.filter((item) => item.thinking === true || visibleIds.has(item.id))
+  if (visibleItems.length === 0) return null
 
   return (
     <div className={styles.activitySection}>
       <h2 className={styles.sectionTitle}>{title}</h2>
       <div className={styles.activityList}>
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <ActivityItemCard
             key={item.id}
             item={item}
-            showRoutingActions={!lockDeskActions && item.id === latestAwaitingId}
+            showRoutingActions={!lockDeskActions && item.id === latestAwaitingId && isSettled(item.id)}
             onRoutingAsk={onRoutingAsk}
             onAcceptProposal={onAcceptProposal}
             onDiscardProposal={onDiscardProposal}
             lockDeskActions={lockDeskActions}
             onOpenCalendar={onOpenCalendar}
+            animateEntrance={item.id === typingId}
+            entranceSettled={item.thinking === true || isSettled(item.id)}
+            onEntranceComplete={onEntranceComplete}
           />
         ))}
       </div>
@@ -849,6 +934,20 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     return filteredItems.find((item) => item.thinking !== true)?.id ?? null
   }, [filteredItems, deskBlocked])
 
+  const revealItems = useMemo(
+    () =>
+      pagedItems
+        .filter((item) => item.thinking !== true && item.id !== KYC_GATE_ID)
+        .map((item) => ({ id: item.id, createdAt: item.createdAt })),
+    [pagedItems]
+  )
+  const reveal = useProgressiveReveal(revealItems)
+  const nextRevealSpeaker = useMemo(() => {
+    if (!reveal.showDots) return null
+    const pending = pagedItems.find((item) => !reveal.visibleIds.has(item.id) && item.thinking !== true)
+    return pending ? DESK_TEAM[deskAgentFor(pending)] : DESK_TEAM.sam
+  }, [pagedItems, reveal.showDots, reveal.visibleIds])
+
   useEffect(() => {
     if (skipScrollRef.current) {
       skipScrollRef.current = false
@@ -857,7 +956,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     const feed = listRootRef.current?.closest('[data-desk-feed]')
     if (!(feed instanceof HTMLElement)) return
     feed.scrollTop = feed.scrollHeight
-  }, [latestActivityId, thinkingItem?.id, pagedItems.length])
+  }, [latestActivityId, thinkingItem?.id, pagedItems.length, reveal.typingId, reveal.showDots])
+
   const { today, yesterday, last7Days, last30Days, older } = useMemo(
     () => groupByTimePeriod(pagedItems),
     [pagedItems]
@@ -956,6 +1056,10 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     onDiscardProposal: handleDiscardProposal,
     lockDeskActions: deskBlocked,
     onOpenCalendar: () => setCalendarOpen(true),
+    visibleIds: reveal.visibleIds,
+    typingId: reveal.typingId,
+    isSettled: reveal.isSettled,
+    onEntranceComplete: reveal.onTypingComplete,
   }
 
   const askAnchor =
@@ -1002,6 +1106,11 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
           <ActivitySection title="Last 7 days" items={last7Days} {...sectionProps} />
           <ActivitySection title="Yesterday" items={yesterday} {...sectionProps} />
           <ActivitySection title="Today" items={today} {...sectionProps} />
+          {reveal.showDots && !thinkingItem ? (
+            <div className={styles.activityList}>
+              <ThinkingPlaceholder speaker={nextRevealSpeaker} />
+            </div>
+          ) : null}
           {filteredItems.length === 0 && (
             <p className={styles.emptyState}>
               {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}
