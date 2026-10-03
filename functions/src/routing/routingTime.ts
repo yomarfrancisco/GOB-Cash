@@ -297,6 +297,7 @@ export function isExecutionContinuityAsk(message: string): boolean {
   const text = message.trim().toLowerCase()
   if (!text) return false
   if (isDeskStrategyAsk(message)) return false
+  if (isAdminContinueOverrideAsk(message)) return true
   if (
     /^(?:yes|yeah|yep|yup|ok|okay|do it|go|go ahead|proceed|continue|let'?s go|let'?s proceed|execute|run it|swipe(?:d)?|i'?ve swiped|i have swiped)(?:\s*[.!])?$/.test(
       text
@@ -308,6 +309,24 @@ export function isExecutionContinuityAsk(message: string): boolean {
     /\b(?:proceed|continue|let'?s go|go ahead|do it|execute|keep going)\b/.test(text) &&
     !/\bhow\b/.test(text) &&
     !/\bwhat\b/.test(text)
+  )
+}
+
+/** Admin override of the calendar / earliest-attempt gate — advance now. */
+export function isAdminContinueOverrideAsk(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  if (!text) return false
+  if (
+    /^(?:continue|yes continue|continue now|continue to (?:the )?next day|override|skip (?:the )?wait|force continue|admin continue)(?:\s*[.!])?$/.test(
+      text
+    )
+  ) {
+    return true
+  }
+  return (
+    /\bcontinue to (?:the )?next day\b/.test(text) ||
+    /\bskip (?:the )?(?:clock|wait|schedule|gate)\b/.test(text) ||
+    /\boverride (?:the )?(?:clock|schedule|gate|wait)\b/.test(text)
   )
 }
 

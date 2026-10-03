@@ -11,6 +11,7 @@ import {
   downloadWeeklySettlementProof,
   downloadSettlementInvoice,
   admin_submitConversionRoutingFeedback,
+  admin_confirmConversionRoutingCycle,
 } from '@/lib/transactions/clientFunctions'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
@@ -268,6 +269,12 @@ function confirmTargetForCard(item: ActivityItem): ActivityItem | null {
   return null
 }
 
+function isClockGated(item: ActivityItem | null | undefined): boolean {
+  if (!item?.earliestAttemptAt) return false
+  const ms = Date.parse(item.earliestAttemptAt)
+  return Number.isFinite(ms) && Date.now() < ms
+}
+
 function ActivityItemCard({
   item,
   showRoutingActions,
@@ -297,6 +304,7 @@ function ActivityItemCard({
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
+  const [continueState, setContinueState] = useState<'idle' | 'loading'>('idle')
   const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
   const [startNextState, setStartNextState] = useState<'idle' | 'loading'>('idle')
   const showDownload = canDownloadProof(item)
@@ -309,6 +317,7 @@ function ActivityItemCard({
   const showExecuted = isRoutingInstruction && item.status === 'completed' && !item.thinking
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
   const showConfirm = Boolean(confirmItem) && !lockDeskActions
+  const showContinue = showConfirm && isClockGated(confirmItem) && !lockDeskActions
   const showProposalActions =
     !lockDeskActions &&
     item.routingAction === 'proposal' &&
@@ -397,6 +406,23 @@ function ActivityItemCard({
       cycleNumber: confirmItem.cycleNumber,
       routingAction: isReplenish ? 'replenish' : 'deploy',
     })
+  }
+
+  const handleAdminContinue = async (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (continueState !== 'idle' || !confirmItem) return
+    setContinueState('loading')
+    try {
+      await admin_confirmConversionRoutingCycle({
+        testRunId: confirmItem.testRunId,
+        cycleNumber: confirmItem.cycleNumber,
+        overrideEarliest: true,
+      })
+    } catch (error) {
+      console.error('[Activity] Admin Continue failed:', error)
+    } finally {
+      setContinueState('idle')
+    }
   }
 
   const handleAcceptProposal = async (event: React.MouseEvent) => {
@@ -506,6 +532,7 @@ function ActivityItemCard({
         )}
         {(isKycGate ||
           showConfirm ||
+          showContinue ||
           showStartNextRun ||
           showDownload ||
           showCalendar ||
@@ -523,6 +550,24 @@ function ActivityItemCard({
                 {kycCta}
               </button>
             )}
+            {showContinue && (
+              <button
+                type="button"
+                className={[
+                  styles.confirmButton,
+                  continueState === 'loading' ? styles.confirmButtonLoading : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Override the swipe clock and continue to the next day"
+                aria-busy={continueState !== 'idle'}
+                disabled={continueState !== 'idle' || confirmState !== 'idle'}
+                onClick={handleAdminContinue}
+              >
+                <Check size={16} strokeWidth={2.4} />
+                Continue
+              </button>
+            )}
             {showConfirm && (
               <button
                 type="button"
@@ -538,7 +583,7 @@ function ActivityItemCard({
                     : 'Confirm ZAR was sent after MZN reflected'
                 }
                 aria-busy={confirmState !== 'idle'}
-                disabled={confirmState !== 'idle'}
+                disabled={confirmState !== 'idle' || continueState !== 'idle'}
                 onClick={handleExecuteRouting}
               >
                 <Check size={16} strokeWidth={2.4} />

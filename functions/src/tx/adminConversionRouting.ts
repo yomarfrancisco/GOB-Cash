@@ -37,7 +37,7 @@ import {
   stampAssignmentDecisions,
   type RoutingState,
 } from '../routing/conversionRouter'
-import { scheduleTicketPath } from '../routing/attemptSchedule'
+import { formatDeskClock, scheduleTicketPath } from '../routing/attemptSchedule'
 import { beliefHintForAssignments, rankAssignmentsByBelief } from '../routing/beliefRank'
 import type { RouteEvidence } from '../belief/types'
 import { ROUTE_EVIDENCE_COLLECTION } from '../belief/collections'
@@ -114,6 +114,7 @@ import {
   isNextWindowAsk,
   zarAmountFromMessage,
   isExecutionContinuityAsk,
+  isAdminContinueOverrideAsk,
 } from '../routing/routingTime'
 import { adviseDesk, deskPursueLabel, isDeskChoiceReply, type DeskRouteSnapshot } from '../routing/deskAdvisor'
 import {
@@ -788,6 +789,8 @@ function assertConfirmTimingAndPolicy(params: {
   state: RoutingState
   continuity: ContinuityStateV1
   plan: CyclePlan
+  /** Admin Continue — skip the calendar earliest-attempt gate. */
+  overrideEarliest?: boolean
 }): void {
   const earliestRaw =
     (typeof params.eventData?.earliestAttemptAt === 'string' && params.eventData.earliestAttemptAt) ||
@@ -825,7 +828,9 @@ function assertConfirmTimingAndPolicy(params: {
       zarRecipientId: principal,
       amountZar: row.amount,
       legalEligibilityRef: `DESK-ELIG-${row.cardId}-${row.machineId}`,
-      earliestAt: earliestRaw || new Date(0).toISOString(),
+      earliestAt: params.overrideEarliest
+        ? new Date(0).toISOString()
+        : earliestRaw || new Date(0).toISOString(),
       planHash: planHash || currentPlanHash || 'legacy-unhashed',
       liveExecutable: true,
     }
@@ -860,7 +865,7 @@ function assertConfirmTimingAndPolicy(params: {
   }
 
   // Binding earliestAt even when terminal mapping is absent
-  if (earliestRaw) {
+  if (!params.overrideEarliest && earliestRaw) {
     const earliest = Date.parse(earliestRaw)
     if (Number.isFinite(earliest) && params.nowMs < earliest) {
       throw new functions.https.HttpsError(
@@ -1056,7 +1061,8 @@ function writeIssuedCycle(
   quotes: { sellRate: number; costRate: number; quote?: FrozenQuote },
   overlay = EMPTY_OVERLAY,
   book: PathBook = {},
-  evidence: RouteEvidence[] = []
+  evidence: RouteEvidence[] = [],
+  immediateAttempts = false
 ): { plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' } {
   const liveBook: PathBook = {
     ...book,
@@ -1067,7 +1073,8 @@ function writeIssuedCycle(
     const restockPath = scheduleTicketPath({
       assignments: replenish.cardAssignments,
       nowMs: now.toMillis(),
-      pendingExposureZar: state.bufferUsed,
+      pendingExposureZar: immediateAttempts ? 0 : state.bufferUsed,
+      immediate: immediateAttempts,
     })
     return writeIssuedReplenish(
       tx,
@@ -1096,7 +1103,8 @@ function writeIssuedCycle(
   const ticketPath = scheduleTicketPath({
     assignments: plan.cardAssignments,
     nowMs: now.toMillis(),
-    pendingExposureZar: state.bufferUsed,
+    pendingExposureZar: immediateAttempts ? 0 : state.bufferUsed,
+    immediate: immediateAttempts,
   })
   const beliefHint = beliefHintForAssignments(plan.cardAssignments, evidence, state.bufferUsed)
   const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
@@ -1790,7 +1798,8 @@ async function issueCycle(
   adminUid: string,
   testRunId: string,
   state: RoutingState,
-  now: admin.firestore.Timestamp
+  now: admin.firestore.Timestamp,
+  options?: { immediateAttempts?: boolean }
 ): Promise<{ plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' }> {
   if (windowIsFinished(state)) {
     const walletZar = await zarWalletBalance(adminUid)
@@ -1861,7 +1870,18 @@ async function issueCycle(
   }
   try {
     return await db.runTransaction(async (tx) =>
-      writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, book, evidence)
+      writeIssuedCycle(
+        tx,
+        adminUid,
+        testRunId,
+        quoted.state,
+        now,
+        quoted,
+        EMPTY_OVERLAY,
+        book,
+        evidence,
+        options?.immediateAttempts === true
+      )
     ).then(async (issued) => {
       // Continuous order: Sam announces the calendar day first, then Amina invoices.
       try {
@@ -2376,7 +2396,8 @@ export async function applyAdminCapitalShock(params: {
     },
     { merge: true }
   )
-  await issueCycle(adminUid, existingId, state, now)
+  // $ keypad mid-run is an admin inject — do not re-arm the swipe clock for later today.
+  await issueCycle(adminUid, existingId, state, now, { immediateAttempts: true })
 }
 
 export const admin_startConversionRoutingTest = functions
@@ -2429,6 +2450,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
       typeof data?.cycleNumber === 'number' ? data.cycleNumber : undefined
     const requestedRun = typeof data?.testRunId === 'string' ? data.testRunId : undefined
     const conversionTxId = typeof data?.conversionTxId === 'string' ? data.conversionTxId : undefined
+    const overrideEarliest = data?.overrideEarliest === true
     const suppliedProfit =
       typeof data?.actualProfit === 'number' && Number.isFinite(data.actualProfit)
         ? data.actualProfit
@@ -2507,7 +2529,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
           )
         }
         const earliestRestock = eventSnap.data()?.earliestAttemptAt
-        if (typeof earliestRestock === 'string') {
+        if (!overrideEarliest && typeof earliestRestock === 'string') {
           const earliestMs = Date.parse(earliestRestock)
           if (Number.isFinite(earliestMs) && now.toMillis() < earliestMs) {
             throw new functions.https.HttpsError(
@@ -2702,6 +2724,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
         state,
         continuity: continuityFromDoc(testData),
         plan,
+        overrideEarliest,
       })
 
       const frozen = plan.cardAssignments[0]?.routingDecision?.quote || book.quote || quotes.quote
@@ -2859,7 +2882,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
 }
 
 /** Close an open restock when bank receipts add up to the tickets. */
-export async function tryAutoConfirmOpenRestock(): Promise<boolean> {
+export async function tryAutoConfirmOpenRestock(overrideEarliest = false): Promise<boolean> {
   const adminUid = ROUTING_ADMIN_UID
   const testRunId = await currentTestId(adminUid)
   if (!testRunId) return false
@@ -2902,14 +2925,14 @@ export async function tryAutoConfirmOpenRestock(): Promise<boolean> {
     phase === 'awaiting_recycle' || receiptsCoverRestock(expectedZar, zar.map((row) => row.amount))
   if (!zarOk) return false
   if (!mznCoversRestock(expectedMzn, balance, mznIn)) return false
-  await confirmOpenCycle(adminUid, { testRunId, cycleNumber: cycle })
+  await confirmOpenCycle(adminUid, { testRunId, cycleNumber: cycle, overrideEarliest })
   const mark = `${testRunId}:${cycle}`
   await Promise.all(zar.map((row) => row.ref.set({ matchedRestock: mark }, { merge: true })))
   return true
 }
 
 /** Operator said proceed — advance recycle when MZN covers, even without bank ZAR receipts. */
-async function tryConfirmRecycleOnProceed(): Promise<boolean> {
+async function tryConfirmRecycleOnProceed(overrideEarliest = false): Promise<boolean> {
   const adminUid = ROUTING_ADMIN_UID
   const testRunId = await currentTestId(adminUid)
   if (!testRunId) return false
@@ -2921,8 +2944,29 @@ async function tryConfirmRecycleOnProceed(): Promise<boolean> {
   if (!(cycle > 0) || !(expectedMzn > 0)) return false
   const balance = await mznWalletBalance(adminUid)
   if (!mznCoversRestock(expectedMzn, balance, [])) return false
-  await confirmOpenCycle(adminUid, { testRunId, cycleNumber: cycle })
+  await confirmOpenCycle(adminUid, { testRunId, cycleNumber: cycle, overrideEarliest })
   return true
+}
+
+function earliestAttemptFromDoc(data: FirebaseFirestore.DocumentData | undefined): string | null {
+  const raw = typeof data?.earliestAttemptAt === 'string' ? data.earliestAttemptAt : null
+  if (!raw) return null
+  const ms = Date.parse(raw)
+  return Number.isFinite(ms) ? raw : null
+}
+
+function isBeforeEarliest(earliestRaw: string | null, nowMs: number): boolean {
+  if (!earliestRaw) return false
+  const earliest = Date.parse(earliestRaw)
+  return Number.isFinite(earliest) && nowMs < earliest
+}
+
+function isConfirmTooEarlyError(error: unknown): string | null {
+  if (!(error instanceof functions.https.HttpsError)) return null
+  const details = error.details as { earliestAttemptAt?: string } | undefined
+  if (typeof details?.earliestAttemptAt === 'string') return details.earliestAttemptAt
+  const match = error.message.match(/attempt is before (.+)$/)
+  return match?.[1] || null
 }
 
 /** Opens the next sale when a confirm saved the swipe and then timed out. */
@@ -3462,26 +3506,56 @@ export const admin_submitConversionRoutingFeedback = functions
 
     if (!validIntents.length && isExecutionContinuityAsk(askMessage)) {
       const phase = typeof testData.cyclePhase === 'string' ? testData.cyclePhase : ''
+      const overrideEarliest = isAdminContinueOverrideAsk(askMessage)
       let title = 'Still waiting'
       let body = 'Nothing on the desk was ready to advance from that green light.'
       let advanced = false
 
       if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') {
-        advanced = (await tryAutoConfirmOpenRestock()) || (await tryConfirmRecycleOnProceed())
-        if (advanced) {
-          title = 'Restock confirmed'
-          body =
-            'Restock closed and the book is continuing. The next scheduled day should be on the desk — Sam will brief the order, then Amina’s invoice.'
+        const eventEarliest = earliestAttemptFromDoc(
+          (
+            await db
+              .collection('users')
+              .doc(adminUid)
+              .collection('activityEvents')
+              .doc(replenishEventId(testRunId, cycleNumber))
+              .get()
+          ).data()
+        )
+        if (!overrideEarliest && isBeforeEarliest(eventEarliest, nowMs)) {
+          const label = formatDeskClock(Date.parse(eventEarliest!))
+          title = 'Waiting on the clock'
+          body = `First swipe is scheduled for ${label} SAST. The daily path is paused until then — tap Continue to override as admin and move to the next day.`
         } else {
-          const expectedZar = num(testData.replenishAmountZar, 0)
-          const expectedMzn = num(testData.replenishAmountMzn, 0)
-          const bal = await mznWalletBalance(adminUid)
-          title = 'Swipe to continue'
-          body = [
-            `Restock of ${formatZar(expectedZar)} is still open.`,
-            `Amina needs Mozambican COST cover of about MZN ${roundMoney(expectedMzn).toLocaleString('en-ZA')} (wallet shows MZN ${roundMoney(bal).toLocaleString('en-ZA')}).`,
-            'After the cards are swiped, say proceed again — or tap I’ve swiped on the restock card.',
-          ].join(' ')
+          try {
+            advanced =
+              (await tryAutoConfirmOpenRestock(overrideEarliest)) ||
+              (await tryConfirmRecycleOnProceed(overrideEarliest))
+          } catch (error) {
+            const blockedUntil = isConfirmTooEarlyError(error)
+            if (blockedUntil) {
+              title = 'Waiting on the clock'
+              body = `First swipe is scheduled for ${formatDeskClock(Date.parse(blockedUntil))} SAST. Tap Continue to override as admin and move on.`
+            } else {
+              throw error
+            }
+          }
+          if (advanced) {
+            title = overrideEarliest ? 'Continue — next day' : 'Restock confirmed'
+            body = overrideEarliest
+              ? 'Clock gate overridden. Restock closed and the next scheduled day is opening.'
+              : 'Restock closed and the book is continuing. The next scheduled day should be on the desk — Sam will brief the order, then Amina’s invoice.'
+          } else if (title === 'Still waiting') {
+            const expectedZar = num(testData.replenishAmountZar, 0)
+            const expectedMzn = num(testData.replenishAmountMzn, 0)
+            const bal = await mznWalletBalance(adminUid)
+            title = 'Swipe to continue'
+            body = [
+              `Restock of ${formatZar(expectedZar)} is still open.`,
+              `Amina needs Mozambican COST cover of about MZN ${roundMoney(expectedMzn).toLocaleString('en-ZA')} (wallet shows MZN ${roundMoney(bal).toLocaleString('en-ZA')}).`,
+              'After the cards are swiped, say proceed again — or tap I’ve swiped / Continue on the restock card.',
+            ].join(' ')
+          }
         }
       } else if (phase === 'awaiting_mzn' || phase === 'awaiting_continue') {
         const before = phase
@@ -3502,14 +3576,20 @@ export const admin_submitConversionRoutingFeedback = functions
         }
       } else if (awaitingKind === 'deploy') {
         try {
-          await confirmOpenCycle(adminUid, { testRunId, cycleNumber })
+          await confirmOpenCycle(adminUid, { testRunId, cycleNumber, overrideEarliest })
           advanced = true
-          title = 'Send confirmed'
+          title = overrideEarliest ? 'Continue — send closed' : 'Send confirmed'
           body = 'Sale recorded. Recycle restock is next so the book keeps turning.'
-        } catch {
-          title = 'Confirm the send'
-          body =
-            'Open Leo’s send card and confirm when ZAR has left, or say proceed again after it is done.'
+        } catch (error) {
+          const blockedUntil = isConfirmTooEarlyError(error)
+          if (blockedUntil) {
+            title = 'Waiting on the clock'
+            body = `Send is scheduled for ${formatDeskClock(Date.parse(blockedUntil))} SAST. Tap Continue to override as admin.`
+          } else {
+            title = 'Confirm the send'
+            body =
+              'Open Leo’s send card and confirm when ZAR has left, or say proceed again after it is done.'
+          }
         }
       }
 

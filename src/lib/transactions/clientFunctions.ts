@@ -990,6 +990,8 @@ export async function admin_confirmConversionRoutingCycle(params?: {
   cycleNumber?: number
   actualProfit?: number
   conversionTxId?: string
+  /** Admin Continue — skip earliestAttemptAt / calendar swipe clock. */
+  overrideEarliest?: boolean
 }): Promise<ConversionRoutingSummary> {
   const functions = getFunctionsInstance()
   const fn = httpsCallable(functions, 'admin_confirmConversionRoutingCycle')

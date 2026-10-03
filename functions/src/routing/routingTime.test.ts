@@ -8,6 +8,7 @@ import {
   isBankerQuestion,
   isDeskStrategyAsk,
   isExecutionContinuityAsk,
+  isAdminContinueOverrideAsk,
   isMemoryOrHistoryQuestion,
   isPaceAsk,
   isLedgerFactAsk,
@@ -98,6 +99,14 @@ describe('time phrases', () => {
     assert.equal(isExecutionContinuityAsk("I've swiped"), true)
     assert.equal(isExecutionContinuityAsk("what's next"), false)
     assert.equal(isExecutionContinuityAsk('how do we proceed'), false)
+  })
+
+  it('hears Continue as an admin clock override', () => {
+    assert.equal(isAdminContinueOverrideAsk('continue'), true)
+    assert.equal(isAdminContinueOverrideAsk('continue to the next day'), true)
+    assert.equal(isAdminContinueOverrideAsk('skip the wait'), true)
+    assert.equal(isAdminContinueOverrideAsk('yes proceed'), false)
+    assert.equal(isExecutionContinuityAsk('continue'), true)
   })
 
   it('shows a clock time for same-day activity', () => {

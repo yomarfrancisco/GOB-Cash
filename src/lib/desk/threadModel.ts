@@ -105,9 +105,17 @@ export type DeskNextStep = {
   body: string
   clock: 'sent' | 'swiped' | 'start' | 'kyc' | null
   clockLabel: string
+  /** Admin override when earliestAttemptAt is still in the future. */
+  showContinue: boolean
   stillToDeliver: string | null
   startAgain: boolean
   item: ActivityItem | null
+}
+
+function isClockGatedItem(item: ActivityItem | null | undefined): boolean {
+  if (!item?.earliestAttemptAt) return false
+  const ms = Date.parse(item.earliestAttemptAt)
+  return Number.isFinite(ms) && Date.now() < ms
 }
 
 const YES_RE = /^(yes|yeah|yep|yup|ok|okay|save(?: that| it)?|do it|confirm|please do)\b/i
@@ -293,6 +301,7 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
       body: 'This desk will not move a card until KYC is complete.',
       clock: 'kyc',
       clockLabel: extra.kycLabel || 'Start KYC',
+      showContinue: false,
       stillToDeliver: null,
       startAgain: false,
       item: null,
@@ -329,6 +338,7 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
       body,
       clock: awaiting.routingBlocked ? null : sale ? 'sent' : 'swiped',
       clockLabel: sale ? "I've sent ZAR" : "I've swiped",
+      showContinue: isClockGatedItem(awaiting) && awaiting.routingBlocked !== true,
       stillToDeliver: leftover,
       startAgain: false,
       item: awaiting,
@@ -343,6 +353,7 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
       body: firstSentence(finished.body || 'This 14-weekday window is done.'),
       clock: 'start',
       clockLabel: finished.cycleNumber ? 'Start the window' : 'Start the window',
+      showContinue: false,
       stillToDeliver: leftover,
       startAgain: true,
       item: finished,
@@ -355,6 +366,7 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
       body: leftover,
       clock: null,
       clockLabel: '',
+      showContinue: false,
       stillToDeliver: leftover,
       startAgain: false,
       item: items[0] || null,
@@ -366,6 +378,7 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
     body: 'Tell Sam what happened, or ask what is next.',
     clock: null,
     clockLabel: '',
+    showContinue: false,
     stillToDeliver: null,
     startAgain: false,
     item: items.find((item) => item.testRunId) || items[0] || null,
@@ -373,5 +386,5 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
 }
 
 export function hasLiveStep(next: DeskNextStep): boolean {
-  return Boolean(next.clock || next.stillToDeliver || next.startAgain)
+  return Boolean(next.clock || next.stillToDeliver || next.startAgain || next.showContinue)
 }

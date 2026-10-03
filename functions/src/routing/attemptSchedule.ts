@@ -72,6 +72,8 @@ export function scheduleTicketPath(input: {
   nowMs?: number
   lastAttemptAtMs?: number | null
   pendingExposureZar?: number
+  /** Admin / capital-shock reissue: first swipe is now, not spaced into the afternoon. */
+  immediate?: boolean
 }): TicketPathSchedule {
   const nowMs = input.nowMs ?? Date.now()
   const assignments = input.assignments
@@ -80,15 +82,20 @@ export function scheduleTicketPath(input: {
     return { tickets: [], earliestAt: new Date(nowMs).toISOString(), timeLabel: label, pathSummary: null }
   }
 
-  // Prefer a mid-morning start for the restock path when the day is open.
-  const parts = sastParts(nowMs)
-  let cursor = sastToUtcMs(parts.year, parts.month, parts.day, 10, 12)
-  if (nowMs > cursor) cursor = nowMs
-  if (input.lastAttemptAtMs != null && input.lastAttemptAtMs > 0) {
-    cursor = Math.max(cursor, input.lastAttemptAtMs + CROSS_ACQUIRER_GAP_MS)
-  }
-  if ((input.pendingExposureZar || 0) > 0) {
-    cursor = Math.max(cursor, nowMs + CROSS_ACQUIRER_GAP_MS)
+  let cursor: number
+  if (input.immediate) {
+    cursor = nowMs
+  } else {
+    // Prefer a mid-morning start for the restock path when the day is open.
+    const parts = sastParts(nowMs)
+    cursor = sastToUtcMs(parts.year, parts.month, parts.day, 10, 12)
+    if (nowMs > cursor) cursor = nowMs
+    if (input.lastAttemptAtMs != null && input.lastAttemptAtMs > 0) {
+      cursor = Math.max(cursor, input.lastAttemptAtMs + CROSS_ACQUIRER_GAP_MS)
+    }
+    if ((input.pendingExposureZar || 0) > 0) {
+      cursor = Math.max(cursor, nowMs + CROSS_ACQUIRER_GAP_MS)
+    }
   }
 
   const tickets: TimedTicket[] = []
