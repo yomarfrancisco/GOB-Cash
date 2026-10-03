@@ -80,6 +80,8 @@ export async function publishInvoicePackDeskNotice(params: {
   invoices: SettlementInvoice[]
   testRunId?: string
   cycleNumber?: number
+  /** When true, this pack is the latest Step 2 card and carries Continue. */
+  sequentialContinue?: boolean
 }): Promise<void> {
   const invoices = params.invoices.filter((row) => row.storagePath)
   if (!invoices.length) return
@@ -93,51 +95,68 @@ export async function publishInvoicePackDeskNotice(params: {
           .slice(0, 80)
   const id = `invoice-pack-${packKey}`
   const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
-  if ((await ref.get()).exists) return
+  const existing = await ref.get()
+  if (existing.exists && !params.sequentialContinue) return
 
-  const zip = await buildInvoiceZip(invoices)
+  let totalZar = Number(existing.data()?.amountValue || 0)
+  let storagePath = String(existing.data()?.invoiceZipStoragePath || '')
+  let filename = String(existing.data()?.invoiceZipFilename || 'invoices.zip')
+  if (!existing.exists || !storagePath) {
+    const zip = await buildInvoiceZip(invoices)
+    totalZar = zip.totalZar
+    storagePath = zip.storagePath
+    filename = zip.filename
+  }
   const names = [...new Set(invoices.map((row) => row.invoiceNumber))]
-  const body =
+  const baseBody =
     invoices.length === 1
-      ? `${invoices[0]!.issuerLegalName} billed R${zip.totalZar.toFixed(2)}. Download the invoice zip from the desk card.`
-      : `${invoices.length} invoices raised for R${zip.totalZar.toFixed(2)} (${names.slice(0, 4).join(', ')}${
+      ? `${invoices[0]!.issuerLegalName} billed R${totalZar.toFixed(2)}. Download the invoice zip from the desk card.`
+      : `${invoices.length} invoices raised for R${totalZar.toFixed(2)} (${names.slice(0, 4).join(', ')}${
           names.length > 4 ? '…' : ''
         }). Download the zip from the desk card.`
+  const body = params.sequentialContinue
+    ? `${baseBody}\nTap Continue for Step 3 · MZN.`
+    : baseBody
 
-  await ref.set({
-    id,
-    kind: CONVERSION_ROUTING_KIND,
-    title:
-      typeof params.cycleNumber === 'number'
-        ? stepTitle(2, `Day ${params.cycleNumber}`)
-        : stepTitle(2, `${invoices.length} PDFs`),
-    body,
-    dropdownTitle: zip.filename,
-    dropdownBody: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · R${zip.totalZar.toFixed(2)}`,
-    actorType: 'ai_manager',
-    avatarKind: 'convert_zar',
-    amountCurrency: 'ZAR',
-    amountValue: zip.totalZar,
-    amountSign: 'debit',
-    txId: id,
-    hasDownloadButton: true,
-    showCalendarButton: true,
-    invoicePackId: id,
-    invoiceIds: invoices.map((row) => row.id),
-    invoiceZipStoragePath: zip.storagePath,
-    invoiceZipFilename: zip.filename,
-    awaitingConfirm: false,
-    routingBlocked: false,
-    status: 'recorded',
-    routingAction: 'invoice',
-    deskSpeaker: 'amina',
-    deskStep: 2,
-    cyclePhase: 'awaiting_mzn',
-    ...(params.testRunId ? { testRunId: params.testRunId } : {}),
-    ...(typeof params.cycleNumber === 'number' ? { cycleNumber: params.cycleNumber } : {}),
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    recordingSource: 'SYSTEM',
-  })
+  await ref.set(
+    {
+      id,
+      kind: CONVERSION_ROUTING_KIND,
+      title:
+        typeof params.cycleNumber === 'number'
+          ? stepTitle(2, `Day ${params.cycleNumber}`)
+          : stepTitle(2, `${invoices.length} PDFs`),
+      body,
+      dropdownTitle: filename,
+      dropdownBody: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · R${totalZar.toFixed(2)}`,
+      actorType: 'ai_manager',
+      avatarKind: 'convert_zar',
+      amountCurrency: 'ZAR',
+      amountValue: totalZar,
+      amountSign: 'debit',
+      txId: id,
+      hasDownloadButton: true,
+      showCalendarButton: true,
+      invoicePackId: id,
+      invoiceIds: invoices.map((row) => row.id),
+      invoiceZipStoragePath: storagePath,
+      invoiceZipFilename: filename,
+      awaitingConfirm: params.sequentialContinue === true,
+      routingBlocked: false,
+      status: params.sequentialContinue ? 'awaiting_execution' : 'recorded',
+      routingAction: params.sequentialContinue ? 'step' : 'invoice',
+      deskSpeaker: 'amina',
+      deskStep: 2,
+      cyclePhase: 'awaiting_invoice',
+      ...(params.testRunId ? { testRunId: params.testRunId } : {}),
+      ...(typeof params.cycleNumber === 'number' ? { cycleNumber: params.cycleNumber } : {}),
+      recordingSource: 'SYSTEM',
+      ...(existing.exists
+        ? { updatedAt: admin.firestore.FieldValue.serverTimestamp() }
+        : { createdAt: admin.firestore.FieldValue.serverTimestamp() }),
+    },
+    { merge: true }
+  )
 }
 
 /** Single-invoice backfills still go through the pack publisher (one zip, one Sam card). */
@@ -158,6 +177,7 @@ export async function raiseInvoicesForCycle(input: {
     amount: number
     economicPaymentId?: string
   }>
+  sequentialContinue?: boolean
 }): Promise<SettlementInvoice[]> {
   const raised: SettlementInvoice[] = []
   for (const row of input.assignments) {
@@ -187,6 +207,7 @@ export async function raiseInvoicesForCycle(input: {
     invoices: raised,
     testRunId: input.testRunId,
     cycleNumber: input.cycleNumber,
+    sequentialContinue: input.sequentialContinue === true,
   })
   return raised
 }

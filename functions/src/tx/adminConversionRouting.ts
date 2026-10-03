@@ -996,7 +996,7 @@ function writeIssuedReplenish(
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
     title: step5Title,
-    body: activity.body,
+    body: `${activity.body}\nTap Continue after the COST swipe to open the next day.`,
     dropdownTitle: step5Title,
     dropdownBody: notification.body,
     actorType: 'ai_manager',
@@ -1008,6 +1008,7 @@ function writeIssuedReplenish(
     pairedAmountCurrency: 'ZAR',
     txId: activityEventId,
     hasDownloadButton: false,
+    showCalendarButton: true,
     awaitingConfirm: true,
     status: 'awaiting_execution',
     routingAction: 'replenish',
@@ -1282,6 +1283,7 @@ async function ensureLeoSendEvent(
     amountSign: 'debit',
     txId: activityEventId,
     hasDownloadButton: false,
+    showCalendarButton: true,
     awaitingConfirm: false,
     routingBlocked: true,
     status: 'pending_mzn',
@@ -1330,13 +1332,31 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
   const phase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
   const cycleNumber = num(data.awaitingCycleNumber, 0)
   const deskStep = num(data.deskStep, 0)
+  const awaitingKind = typeof data.awaitingKind === 'string' ? data.awaitingKind : ''
   const now = admin.firestore.Timestamp.now()
   if (!(cycleNumber > 0)) {
     return { title: 'No day open', body: 'Open Day 1 with $ first.', advanced: false, deskStep: 0 }
   }
+  // Recycle / Leo confirm own their Continue — never steal them via a stale deskStep.
+  if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') {
+    return {
+      title: stepTitle(5, `Day ${cycleNumber} recycle`),
+      body: 'Step 5 · Recycle is open — Continue on Amina’s restock card after the COST swipe.',
+      advanced: false,
+      deskStep: 5,
+    }
+  }
+  if (awaitingKind === 'deploy' && (phase === 'awaiting_send' || phase === 'awaiting_continue' || deskStep >= 4)) {
+    return {
+      title: stepTitle(4, `Day ${cycleNumber}`),
+      body: 'Step 4 is already open — Continue / I’ve sent ZAR on Leo’s card.',
+      advanced: false,
+      deskStep: 4,
+    }
+  }
 
   // Step 1 · Order → Step 2 · Invoice
-  if (phase === 'order_open' || deskStep === 1) {
+  if (phase === 'order_open' || (deskStep === 1 && !phase)) {
     await completeStepCard(adminUid, `sam-day-brief-${testRunId}-c${cycleNumber}`, now)
     const cycleSnap = await testRef.collection('cycles').doc(String(cycleNumber)).get()
     const assignments = Array.isArray(cycleSnap.data()?.cardAssignments)
@@ -1347,48 +1367,50 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
           economicPaymentId?: string
         }>)
       : []
+    // One Step 2 card only: the invoice pack itself carries Continue (latest post).
     if (assignments.length) {
       try {
         const { raiseInvoicesForCycle } = await import('../settlement/issueInvoices')
-        await raiseInvoicesForCycle({ testRunId, cycleNumber, assignments })
+        await raiseInvoicesForCycle({
+          testRunId,
+          cycleNumber,
+          assignments,
+          sequentialContinue: true,
+        })
       } catch (error) {
         console.error('[advanceSequential] invoice raise failed', error)
       }
+    } else {
+      const packId = `invoice-pack-${testRunId}-c${cycleNumber}`
+      await db
+        .collection('users')
+        .doc(adminUid)
+        .collection('activityEvents')
+        .doc(packId)
+        .set(
+          {
+            id: packId,
+            kind: CONVERSION_ROUTING_KIND,
+            title: stepTitle(2, `Day ${cycleNumber}`),
+            body: `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.\nTap Continue for Step 3 · MZN.`,
+            awaitingConfirm: true,
+            routingBlocked: false,
+            status: 'awaiting_execution',
+            routingAction: 'step',
+            deskSpeaker: 'amina',
+            cyclePhase: 'awaiting_invoice',
+            deskStep: 2,
+            showCalendarButton: true,
+            testRunId,
+            cycleNumber,
+            createdAt: now,
+            recordingSource: 'SYSTEM',
+          },
+          { merge: true }
+        )
     }
-    const step2Id = `step-invoice-${testRunId}-c${cycleNumber}`
-    const step2Ref = db.collection('users').doc(adminUid).collection('activityEvents').doc(step2Id)
-    if (!(await step2Ref.get()).exists) {
-      await step2Ref.set({
-        id: step2Id,
-        kind: CONVERSION_ROUTING_KIND,
-        title: stepTitle(2, `Day ${cycleNumber}`),
-        body: [
-          `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.`,
-          'Tap Continue for Step 3 · MZN.',
-        ].join('\n'),
-        dropdownTitle: stepTitle(2, `Day ${cycleNumber}`),
-        dropdownBody: 'Continue to MZN gate',
-        actorType: 'ai_manager',
-        avatarKind: 'convert_zar',
-        amountCurrency: 'ZAR',
-        amountValue: num(data.expectedOrderZar, 0),
-        amountSign: 'debit',
-        txId: step2Id,
-        hasDownloadButton: false,
-        showCalendarButton: true,
-        awaitingConfirm: true,
-        routingBlocked: false,
-        status: 'awaiting_execution',
-        routingAction: 'step',
-        deskSpeaker: 'amina',
-        cyclePhase: 'awaiting_invoice',
-        deskStep: 2,
-        testRunId,
-        cycleNumber,
-        createdAt: now,
-        recordingSource: 'SYSTEM',
-      })
-    }
+    // Retire any legacy duplicate Step 2 prompt so Continue lives only on the pack.
+    await completeStepCard(adminUid, `step-invoice-${testRunId}-c${cycleNumber}`, now)
     await testRef.set(
       {
         cyclePhase: 'awaiting_invoice',
@@ -1400,14 +1422,14 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
     )
     return {
       title: stepTitle(2, `Day ${cycleNumber}`),
-      body: 'Step 1 done. Step 2 · Invoice is on the desk — Continue when ready.',
+      body: 'Step 1 done. Step 2 · Invoice is the latest card — Continue there.',
       advanced: true,
       deskStep: 2,
     }
   }
 
   // Step 2 · Invoice → Step 3 · MZN
-  if (phase === 'awaiting_invoice' || deskStep === 2) {
+  if (phase === 'awaiting_invoice' || (deskStep === 2 && !phase)) {
     await completeStepCard(adminUid, `step-invoice-${testRunId}-c${cycleNumber}`, now)
     const invoicePackId = `invoice-pack-${testRunId}-c${cycleNumber}`
     await completeStepCard(adminUid, invoicePackId, now)
@@ -1444,6 +1466,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
           amountSign: 'credit',
           txId: step3Id,
           hasDownloadButton: false,
+          showCalendarButton: true,
           awaitingConfirm: true,
           routingBlocked: false,
           status: 'awaiting_execution',
@@ -1478,7 +1501,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
   }
 
   // Step 3 · MZN → Step 4 · Send
-  if (phase === 'awaiting_mzn' || deskStep === 3) {
+  if (phase === 'awaiting_mzn' || (deskStep === 3 && !phase)) {
     const expectedMzn = num(data.expectedOrderMzn, 0)
     const bal = await mznWalletBalance(adminUid)
     if (!mznCoversRestock(expectedMzn, bal, [])) {
@@ -2193,6 +2216,9 @@ async function publishSamDayBrief(input: {
   kind: 'deploy' | 'replenish'
   now: admin.firestore.Timestamp
 }): Promise<void> {
+  // Recycle is Step 5 on Amina's restock card — never post a fake Step 1 for it.
+  if (input.kind === 'replenish') return
+
   const day = Math.min(
     input.state.config.cycleCount,
     Math.max(1, input.state.completedCycles + (windowIsFinished(input.state) ? 0 : 1))
@@ -2207,51 +2233,58 @@ async function publishSamDayBrief(input: {
   })
   const id = `sam-day-brief-${input.testRunId}-c${input.plan.cycleNumber}`
   const ref = db.collection('users').doc(input.adminUid).collection('activityEvents').doc(id)
-  if ((await ref.get()).exists) return
-  const hold = !(input.plan.deployedAmount > 0) || input.kind === 'replenish'
+  const existing = await ref.get()
+  const existingStatus = String(existing.data()?.status || '')
+  // Already advanced past this Step 1 — leave the completed card alone.
+  if (existing.exists && (existingStatus === 'completed' || existingStatus === 'cancelled')) return
+
+  const hold = !(input.plan.deployedAmount > 0)
   const body = [
     `Day ${day} of ${input.state.config.cycleCount}.`,
     `Scheduled ZAR order: ${formatZar(input.plan.deployedAmount || 0)}.`,
     `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} window still open.`,
-    input.kind === 'replenish'
-      ? 'Step 5 · Recycle is open — Continue after the COST swipe.'
-      : hold
-        ? `Hold day — no new ticket. Residual stays open for the next operating day.`
-        : 'Tap Continue for Step 2 · Invoice.',
+    hold
+      ? `Hold day — no new ticket. Residual stays open for the next operating day.`
+      : 'Tap Continue for Step 2 · Invoice.',
   ]
     .filter(Boolean)
     .join('\n')
   const title = stepTitle(1, `Day ${day} of ${input.state.config.cycleCount}`)
-  await ref.create({
-    id,
-    kind: CONVERSION_ROUTING_KIND,
-    title,
-    body,
-    dropdownTitle: title,
-    dropdownBody: body.split('\n')[0],
-    actorType: 'ai_manager',
-    avatarKind: 'convert_zar',
-    amountCurrency: 'ZAR',
-    amountValue: input.plan.deployedAmount || 0,
-    amountSign: 'debit',
-    txId: id,
-    hasDownloadButton: false,
-    showCalendarButton: true,
-    // Step 1 is the only open continuity control until Continue advances the sequence.
-    awaitingConfirm: !hold && input.kind === 'deploy',
-    routingBlocked: false,
-    status: !hold && input.kind === 'deploy' ? 'awaiting_execution' : 'recorded',
-    routingAction: !hold && input.kind === 'deploy' ? 'step' : 'advice',
-    deskSpeaker: 'sam',
-    cyclePhase: hold ? 'hold' : 'order_open',
-    deskStep: 1,
-    testRunId: input.testRunId,
-    cycleNumber: input.plan.cycleNumber,
-    earliestAttemptAt: schedule.earliestAt,
-    ticketPath: schedule,
-    createdAt: input.now,
-    recordingSource: 'SYSTEM',
-  })
+  // Upsert so a stale recycle-mislabeled brief (no Continue) is repaired on Day n open.
+  await ref.set(
+    {
+      id,
+      kind: CONVERSION_ROUTING_KIND,
+      title,
+      body,
+      dropdownTitle: title,
+      dropdownBody: body.split('\n')[0],
+      actorType: 'ai_manager',
+      avatarKind: 'convert_zar',
+      amountCurrency: 'ZAR',
+      amountValue: input.plan.deployedAmount || 0,
+      amountSign: 'debit',
+      txId: id,
+      hasDownloadButton: false,
+      showCalendarButton: true,
+      awaitingConfirm: !hold,
+      routingBlocked: false,
+      status: hold ? 'recorded' : 'awaiting_execution',
+      routingAction: hold ? 'advice' : 'step',
+      deskSpeaker: 'sam',
+      cyclePhase: hold ? 'hold' : 'order_open',
+      deskStep: 1,
+      testRunId: input.testRunId,
+      cycleNumber: input.plan.cycleNumber,
+      earliestAttemptAt: schedule.earliestAt,
+      ticketPath: schedule,
+      recordingSource: 'SYSTEM',
+      ...(existing.exists
+        ? { updatedAt: input.now }
+        : { createdAt: input.now }),
+    },
+    { merge: true }
+  )
 }
 
 function writeInstructionOnly(
