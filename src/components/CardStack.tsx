@@ -85,13 +85,20 @@ const allCardsData: CardData[] = [
   },
 ]
 
-// Mozambique and South Africa cash cards. Spread credits cashMZN, not a Rewards card.
-const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd', 'yieldSurprise']
+// Mozambique and South Africa cash cards plus the Rewards / PROFIT card.
+// Rewards sits as an extension of ZAR (balance is earnings, not inventory).
+const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd']
 
 function homeCardsForAdmin(isAdmin: boolean): CardData[] {
   const visible = allCardsData.filter((card) => !ALWAYS_HIDDEN_CARD_TYPES.includes(card.type))
-  if (isAdmin) return visible
-  return [...visible].sort((a, b) => Number(b.type === 'mzn') - Number(a.type === 'mzn'))
+  const zarThenRewards = [...visible].sort((a, b) => {
+    const rank = (type: CardType) =>
+      type === 'savings' ? 0 : type === 'yieldSurprise' ? 1 : type === 'mzn' ? 2 : 3
+    return rank(a.type) - rank(b.type)
+  })
+  if (isAdmin) return zarThenRewards
+  // Non-admin home still leads with MZN; Rewards stays after ZAR.
+  return [...zarThenRewards].sort((a, b) => Number(b.type === 'mzn') - Number(a.type === 'mzn'))
 }
 
 // Card labels mapping
