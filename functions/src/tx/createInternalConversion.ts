@@ -64,6 +64,7 @@ async function resolveNamedClient(
 
 export const tx_createInternalConversion = functions
   .region('us-central1')
+  .runWith({ timeoutSeconds: 120, memory: '512MB' })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Login required')
@@ -82,20 +83,26 @@ export const tx_createInternalConversion = functions
       throw new functions.https.HttpsError('invalid-argument', 'sourceAmount must be a positive number')
     }
 
-    const namedClient = await resolveNamedClient(data?.agentCashHandle, userId)
-    const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
-    const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
     const isZarSale = sourceCurrency === 'ZAR' && destinationCurrency === 'MZN'
 
     const { ROUTING_ADMIN_UID } = await import('../routing/conversionRouter')
     const isRoutingAdmin = userId === ROUTING_ADMIN_UID
 
     // `$` on the admin desk sets the window capital. It is not a sale: no wallet
-    // movement, no conversion record, no "ZAR sold" line.
+    // movement, no conversion record, no "ZAR sold" line. Do this before FX so
+    // Day 0 → Day 1 cannot time out waiting on quotes or invoice PDFs.
     if (isRoutingAdmin && data?.capitalShock === true) {
       const { applyAdminCapitalShock } = await import('./adminConversionRouting')
-      const shockZar = roundMajor(sourceCurrency === 'ZAR' ? sourceAmount : sourceAmount / costRate)
-      const shockMzn = roundMajor(sourceCurrency === 'MZN' ? sourceAmount : sourceAmount * sellRate)
+      let shockZar: number
+      let shockMzn: number
+      if (isZarSale) {
+        shockZar = roundMajor(sourceAmount)
+        shockMzn = 0
+      } else {
+        const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
+        shockZar = roundMajor(sourceAmount / costRate)
+        shockMzn = roundMajor(sourceAmount)
+      }
       await applyAdminCapitalShock({
         adminUid: userId,
         kind: isZarSale ? 'sell_zar' : 'add_zar',
@@ -104,6 +111,10 @@ export const tx_createInternalConversion = functions
       })
       return { txId: `shock-${Date.now()}`, capitalShock: true, amountZar: shockZar }
     }
+
+    const namedClient = await resolveNamedClient(data?.agentCashHandle, userId)
+    const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
+    const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
 
     // A desk play must be the current step and must match the ticket total before
     // anything is recorded. Restocks are anchored on the ZAR tickets, not on MZN

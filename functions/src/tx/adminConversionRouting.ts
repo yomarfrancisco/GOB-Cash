@@ -1805,10 +1805,11 @@ async function issueCycle(
   testRunId: string,
   state: RoutingState,
   now: admin.firestore.Timestamp,
-  options?: { immediateAttempts?: boolean }
+  options?: { immediateAttempts?: boolean; skipInvoices?: boolean }
 ): Promise<{ plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' }> {
   // Continuous desk: first swipe is now — the calendar path must not interrupt Day 0…n.
   const immediateAttempts = options?.immediateAttempts !== false
+  const skipInvoices = options?.skipInvoices === true
   if (windowIsFinished(state)) {
     const walletZar = await zarWalletBalance(adminUid)
     const offer = nextWindowOffer({
@@ -1866,15 +1867,18 @@ async function issueCycle(
   const testSnap = await db.collection(TESTS).doc(testRunId).get()
   const book = pathBookFromDoc(testSnap.data() || {}, quoted.quote)
   let evidence: RouteEvidence[] = []
-  try {
-    const snap = await db
-      .collection(ROUTE_EVIDENCE_COLLECTION)
-      .orderBy('eventAt', 'desc')
-      .limit(300)
-      .get()
-    evidence = snap.docs.map((doc) => doc.data() as RouteEvidence).reverse()
-  } catch (error) {
-    console.warn('[issueCycle] route evidence load skipped', error)
+  // Cold open (Day 1) does not need the full belief history — keep `$` under the callable limit.
+  if (state.completedCycles > 0) {
+    try {
+      const snap = await db
+        .collection(ROUTE_EVIDENCE_COLLECTION)
+        .orderBy('eventAt', 'desc')
+        .limit(80)
+        .get()
+      evidence = snap.docs.map((doc) => doc.data() as RouteEvidence).reverse()
+    } catch (error) {
+      console.warn('[issueCycle] route evidence load skipped', error)
+    }
   }
   try {
     return await db.runTransaction(async (tx) =>
@@ -1904,7 +1908,8 @@ async function issueCycle(
       } catch (error) {
         console.warn('[issueCycle] Sam day brief skipped', error)
       }
-      if (issued.kind === 'deploy' && issued.plan.cardAssignments.length > 0) {
+      // `$` Day-0 open skips invoice PDFs so the callable cannot 408. Raise on later steps.
+      if (!skipInvoices && issued.kind === 'deploy' && issued.plan.cardAssignments.length > 0) {
         try {
           const { raiseInvoicesForCycle } = await import('../settlement/issueInvoices')
           await raiseInvoicesForCycle({
@@ -2210,7 +2215,11 @@ async function startNewTest(
       started: false,
     })
   }
-  const issued = await issueCycle(adminUid, testRunId, state, now)
+  // Window open from `$` must return before invoice PDF work or the client 408s.
+  const issued = await issueCycle(adminUid, testRunId, state, now, {
+    immediateAttempts: true,
+    skipInvoices: true,
+  })
   const notification =
     issued.kind === 'replenish'
       ? buildReplenishNotificationCopy({
