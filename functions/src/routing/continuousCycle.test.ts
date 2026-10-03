@@ -19,9 +19,12 @@ describe('continuousCycle', () => {
     assert.equal(isLeoSendPhase('awaiting_mzn', 'deploy'), false)
   })
 
-  it('labels Steps 1–6', () => {
+  it('labels Steps 1–6 in order', () => {
     assert.equal(stepTitle(1, 'Day 1 of 14'), 'Step 1 · Order · Day 1 of 14')
-    assert.equal(stepForPhase('awaiting_recycle'), 5)
+    assert.equal(stepForPhase('order_open'), 1)
+    assert.equal(stepForPhase('awaiting_invoice'), 2)
+    assert.equal(stepForPhase('awaiting_mzn'), 3)
     assert.equal(stepForPhase('awaiting_send'), 4)
+    assert.equal(stepForPhase('awaiting_recycle'), 5)
   })
 })

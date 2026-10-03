@@ -1112,24 +1112,8 @@ function writeIssuedCycle(
   const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
   const orderZar = blocked ? 0 : plan.deployedAmount
   const orderMzn = expectedMznForOrder(orderZar, quotes.sellRate)
-  const cyclePhase: CyclePhase = blocked ? 'hold' : 'awaiting_mzn'
-  const notification = blocked
-    ? { title: `Sell ZAR · Cycle ${plan.cycleNumber}`, body: 'No valid route under current constraints\nAsk to restore a card or POS' }
-    : buildNotificationCopy(plan, state.config.cycleCount)
-  const activity = buildActivityCopy(
-    plan,
-    state.config.cycleCount,
-    'awaiting_execution',
-    state.config.spread,
-    quotes,
-    {
-      state,
-      overlay,
-      revisionReason: shockLine,
-      ticketPath: blocked ? null : ticketPath,
-      beliefHint: blocked ? null : beliefHint,
-    }
-  )
+  // Sequential desk: Day open is Step 1 only. Leo's Step 4 card is created later.
+  const cyclePhase: CyclePhase = blocked ? 'hold' : 'order_open'
   const planHash = hashPayload({
     cycleNumber: plan.cycleNumber,
     assignments: plan.cardAssignments.map((r) => ({
@@ -1158,50 +1142,10 @@ function writeIssuedCycle(
     routeReason: beliefHint || plan.selectionReason || null,
     replanReason: shockLine || null,
   })
-  const activityBody =
-    blocked || !activity.body
-      ? activity.body
-      : `${activity.body}\n\n${formatDeskOpsLines(opsBrief)}`
   const activityEventId = eventId(testRunId, plan.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
   const cycleRef = testRef.collection('cycles').doc(String(plan.cycleNumber))
-  const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
 
-  const step4Title = blocked
-    ? stepTitle(4, `Day ${plan.cycleNumber} hold`)
-    : stepTitle(4, `Day ${plan.cycleNumber} send`)
-  tx.set(eventRef, {
-    id: activityEventId,
-    kind: CONVERSION_ROUTING_KIND,
-    title: step4Title,
-    body: activityBody,
-    dropdownTitle: step4Title,
-    dropdownBody: notification.body,
-    actorType: 'ai_manager',
-    avatarKind: 'convert_zar',
-    amountCurrency: 'ZAR',
-    amountValue: plan.deployedAmount,
-    amountSign: 'debit',
-    txId: activityEventId,
-    hasDownloadButton: false,
-    // Continuous cycle: Leo confirm stays closed until MZN batch clears (and ZAR float covers).
-    awaitingConfirm: false,
-    routingBlocked: true,
-    status: blocked ? 'awaiting_execution' : 'pending_mzn',
-    routingAction: 'deploy',
-    deskSpeaker: 'leo',
-    cyclePhase,
-    deskStep: 4,
-    earliestAttemptAt: ticketPath.earliestAt,
-    ticketPath,
-    planHash,
-    operatingPolicyVersion: OPERATING_POLICY_VERSION,
-    operatingBrief: opsBrief,
-    testRunId,
-    cycleNumber: plan.cycleNumber,
-    createdAt: now,
-    recordingSource: 'SYSTEM',
-  })
   tx.set(cycleRef, firestoreSafe({
     testRunId,
     cycleNumber: plan.cycleNumber,
@@ -1228,15 +1172,20 @@ function writeIssuedCycle(
     holdReason: plan.holdReason || null,
     routingBlocked: true,
     cyclePhase,
+    deskStep: blocked ? 4 : 1,
     expectedOrderZar: orderZar,
     expectedOrderMzn: orderMzn,
     earliestAttemptAt: ticketPath.earliestAt,
+    ticketPath,
     planHash,
     operatingPolicyVersion: OPERATING_POLICY_VERSION,
+    operatingBrief: opsBrief,
+    beliefHint: beliefHint || null,
     status: 'awaiting_execution' as CycleStatus,
     createdAt: now,
     completedAt: null,
-    activityEventId,
+    activityEventId: null,
+    leoEventPending: !blocked,
   }))
   tx.set(
     testRef,
@@ -1263,8 +1212,9 @@ function writeIssuedCycle(
         workingLiquidityZar: state.authorisedZar || state.availableCapital,
       },
       awaitingCycleNumber: plan.cycleNumber,
-      awaitingKind: 'deploy',
+      awaitingKind: blocked ? 'deploy' : 'step',
       cyclePhase,
+      deskStep: blocked ? 4 : 1,
       expectedOrderZar: orderZar,
       expectedOrderMzn: orderMzn,
       orderSellRate: quotes.sellRate,
@@ -1287,6 +1237,302 @@ async function mznWalletBalance(adminUid: string): Promise<number> {
   return roundMoney(Number(snap.exists ? snap.data()?.fiatBalance || 0 : 0))
 }
 
+async function completeStepCard(adminUid: string, cardId: string, now: admin.firestore.Timestamp) {
+  const ref = db.collection('users').doc(adminUid).collection('activityEvents').doc(cardId)
+  const snap = await ref.get()
+  if (!snap.exists) return
+  await ref.set(
+    {
+      awaitingConfirm: false,
+      routingBlocked: false,
+      status: 'completed',
+      completedAt: now,
+      updatedAt: now,
+    },
+    { merge: true }
+  )
+}
+
+/** Create Leo's Step 4 card from the stored cycle plan (only when Steps 1–3 are done). */
+async function ensureLeoSendEvent(
+  adminUid: string,
+  testRunId: string,
+  cycleNumber: number,
+  now: admin.firestore.Timestamp
+): Promise<FirebaseFirestore.DocumentReference> {
+  const activityEventId = eventId(testRunId, cycleNumber)
+  const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
+  if ((await eventRef.get()).exists) return eventRef
+
+  const cycleSnap = await db.collection(TESTS).doc(testRunId).collection('cycles').doc(String(cycleNumber)).get()
+  const cycle = cycleSnap.data() || {}
+  const amountZar = num(cycle.deployedAmount, num(cycle.expectedOrderZar, 0))
+  const title = stepTitle(4, `Day ${cycleNumber} send`)
+  await eventRef.set({
+    id: activityEventId,
+    kind: CONVERSION_ROUTING_KIND,
+    title,
+    body: `${formatZar(amountZar)} scheduled order is ready for Leo once MZN and ZAR float cover it.`,
+    dropdownTitle: title,
+    dropdownBody: `${formatZar(amountZar)} send`,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_zar',
+    amountCurrency: 'ZAR',
+    amountValue: amountZar,
+    amountSign: 'debit',
+    txId: activityEventId,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: true,
+    status: 'pending_mzn',
+    routingAction: 'deploy',
+    deskSpeaker: 'leo',
+    cyclePhase: 'awaiting_mzn',
+    deskStep: 4,
+    earliestAttemptAt: typeof cycle.earliestAttemptAt === 'string' ? cycle.earliestAttemptAt : null,
+    ticketPath: cycle.ticketPath || null,
+    planHash: cycle.planHash || null,
+    operatingPolicyVersion: OPERATING_POLICY_VERSION,
+    operatingBrief: cycle.operatingBrief || null,
+    testRunId,
+    cycleNumber,
+    createdAt: now,
+    recordingSource: 'SYSTEM',
+  })
+  await db
+    .collection(TESTS)
+    .doc(testRunId)
+    .collection('cycles')
+    .doc(String(cycleNumber))
+    .set({ activityEventId, leoEventPending: false, updatedAt: now }, { merge: true })
+  return eventRef
+}
+
+/**
+ * Walk Steps 1→2→3→4 one Continue at a time. Never jumps ahead.
+ */
+export async function advanceSequentialStep(adminUid: string): Promise<{
+  title: string
+  body: string
+  advanced: boolean
+  deskStep: number
+}> {
+  const testRunId = await currentTestId(adminUid)
+  if (!testRunId) {
+    return { title: 'No desk', body: 'No active desk run.', advanced: false, deskStep: 0 }
+  }
+  const testRef = db.collection(TESTS).doc(testRunId)
+  const snap = await testRef.get()
+  const data = snap.data() || {}
+  if (data.status !== 'active') {
+    return { title: 'Desk closed', body: 'This desk run is not active.', advanced: false, deskStep: 0 }
+  }
+  const phase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
+  const cycleNumber = num(data.awaitingCycleNumber, 0)
+  const deskStep = num(data.deskStep, 0)
+  const now = admin.firestore.Timestamp.now()
+  if (!(cycleNumber > 0)) {
+    return { title: 'No day open', body: 'Open Day 1 with $ first.', advanced: false, deskStep: 0 }
+  }
+
+  // Step 1 · Order → Step 2 · Invoice
+  if (phase === 'order_open' || deskStep === 1) {
+    await completeStepCard(adminUid, `sam-day-brief-${testRunId}-c${cycleNumber}`, now)
+    const cycleSnap = await testRef.collection('cycles').doc(String(cycleNumber)).get()
+    const assignments = Array.isArray(cycleSnap.data()?.cardAssignments)
+      ? (cycleSnap.data()?.cardAssignments as Array<{
+          cardId: number
+          machineId: number
+          amount: number
+          economicPaymentId?: string
+        }>)
+      : []
+    if (assignments.length) {
+      try {
+        const { raiseInvoicesForCycle } = await import('../settlement/issueInvoices')
+        await raiseInvoicesForCycle({ testRunId, cycleNumber, assignments })
+      } catch (error) {
+        console.error('[advanceSequential] invoice raise failed', error)
+      }
+    }
+    const step2Id = `step-invoice-${testRunId}-c${cycleNumber}`
+    const step2Ref = db.collection('users').doc(adminUid).collection('activityEvents').doc(step2Id)
+    if (!(await step2Ref.get()).exists) {
+      await step2Ref.set({
+        id: step2Id,
+        kind: CONVERSION_ROUTING_KIND,
+        title: stepTitle(2, `Day ${cycleNumber}`),
+        body: [
+          `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.`,
+          'Tap Continue for Step 3 · MZN.',
+        ].join('\n'),
+        dropdownTitle: stepTitle(2, `Day ${cycleNumber}`),
+        dropdownBody: 'Continue to MZN gate',
+        actorType: 'ai_manager',
+        avatarKind: 'convert_zar',
+        amountCurrency: 'ZAR',
+        amountValue: num(data.expectedOrderZar, 0),
+        amountSign: 'debit',
+        txId: step2Id,
+        hasDownloadButton: false,
+        showCalendarButton: true,
+        awaitingConfirm: true,
+        routingBlocked: false,
+        status: 'awaiting_execution',
+        routingAction: 'step',
+        deskSpeaker: 'amina',
+        cyclePhase: 'awaiting_invoice',
+        deskStep: 2,
+        testRunId,
+        cycleNumber,
+        createdAt: now,
+        recordingSource: 'SYSTEM',
+      })
+    }
+    await testRef.set(
+      {
+        cyclePhase: 'awaiting_invoice',
+        deskStep: 2,
+        awaitingKind: 'step',
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+    return {
+      title: stepTitle(2, `Day ${cycleNumber}`),
+      body: 'Step 1 done. Step 2 · Invoice is on the desk — Continue when ready.',
+      advanced: true,
+      deskStep: 2,
+    }
+  }
+
+  // Step 2 · Invoice → Step 3 · MZN
+  if (phase === 'awaiting_invoice' || deskStep === 2) {
+    await completeStepCard(adminUid, `step-invoice-${testRunId}-c${cycleNumber}`, now)
+    const invoicePackId = `invoice-pack-${testRunId}-c${cycleNumber}`
+    await completeStepCard(adminUid, invoicePackId, now)
+    const expectedMzn = num(data.expectedOrderMzn, 0)
+    const bal = await mznWalletBalance(adminUid)
+    const step3Id = `step-mzn-${testRunId}-c${cycleNumber}`
+    const covered = mznCoversRestock(expectedMzn, bal, [])
+    await db
+      .collection('users')
+      .doc(adminUid)
+      .collection('activityEvents')
+      .doc(step3Id)
+      .set(
+        {
+          id: step3Id,
+          kind: CONVERSION_ROUTING_KIND,
+          title: stepTitle(3, `Day ${cycleNumber}`),
+          body: covered
+            ? [
+                `MZN cover is on the books (need ~MZN ${roundMoney(expectedMzn).toLocaleString('en-ZA')}; wallet MZN ${roundMoney(bal).toLocaleString('en-ZA')}).`,
+                'Tap Continue for Step 4 · Send.',
+              ].join('\n')
+            : [
+                `Waiting for full MZN cover (~MZN ${roundMoney(expectedMzn).toLocaleString('en-ZA')}).`,
+                `Wallet shows MZN ${roundMoney(bal).toLocaleString('en-ZA')}.`,
+                'When the batch is in, tap Continue for Step 4 · Send.',
+              ].join('\n'),
+          dropdownTitle: stepTitle(3, `Day ${cycleNumber}`),
+          dropdownBody: covered ? 'MZN covered — Continue to send' : 'Waiting on MZN',
+          actorType: 'ai_manager',
+          avatarKind: 'convert_mzn',
+          amountCurrency: 'MZN',
+          amountValue: expectedMzn,
+          amountSign: 'credit',
+          txId: step3Id,
+          hasDownloadButton: false,
+          awaitingConfirm: true,
+          routingBlocked: false,
+          status: 'awaiting_execution',
+          routingAction: 'step',
+          deskSpeaker: 'amina',
+          cyclePhase: 'awaiting_mzn',
+          deskStep: 3,
+          testRunId,
+          cycleNumber,
+          createdAt: now,
+          recordingSource: 'SYSTEM',
+        },
+        { merge: true }
+      )
+    await testRef.set(
+      {
+        cyclePhase: 'awaiting_mzn',
+        deskStep: 3,
+        awaitingKind: 'step',
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+    return {
+      title: stepTitle(3, `Day ${cycleNumber}`),
+      body: covered
+        ? 'Step 2 done. Step 3 · MZN is covered — Continue to open Leo’s send.'
+        : 'Step 2 done. Step 3 · MZN is waiting on full cover — Continue when funded.',
+      advanced: true,
+      deskStep: 3,
+    }
+  }
+
+  // Step 3 · MZN → Step 4 · Send
+  if (phase === 'awaiting_mzn' || deskStep === 3) {
+    const expectedMzn = num(data.expectedOrderMzn, 0)
+    const bal = await mznWalletBalance(adminUid)
+    if (!mznCoversRestock(expectedMzn, bal, [])) {
+      return {
+        title: stepTitle(3, `Day ${cycleNumber}`),
+        body: `Still short on MZN (need ~${roundMoney(expectedMzn).toLocaleString('en-ZA')}; wallet ${roundMoney(bal).toLocaleString('en-ZA')}). Fund then Continue.`,
+        advanced: false,
+        deskStep: 3,
+      }
+    }
+    await completeStepCard(adminUid, `step-mzn-${testRunId}-c${cycleNumber}`, now)
+    await ensureLeoSendEvent(adminUid, testRunId, cycleNumber, now)
+    await testRef.set(
+      {
+        cyclePhase: 'awaiting_mzn',
+        deskStep: 4,
+        awaitingKind: 'deploy',
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+    await tryAdvanceContinuousCycle()
+    const after = (await testRef.get()).data() || {}
+    const afterPhase = String(after.cyclePhase || '')
+    return {
+      title: stepTitle(4, `Day ${cycleNumber}`),
+      body:
+        afterPhase === 'awaiting_send'
+          ? 'Step 3 done. Step 4 · Send is open — Continue when ZAR has left.'
+          : afterPhase === 'awaiting_continue'
+            ? 'Step 3 done. ZAR float is short — add ZAR, then Continue on Step 4.'
+            : 'Step 3 done. Opening Step 4 · Send.',
+      advanced: true,
+      deskStep: 4,
+    }
+  }
+
+  if (phase === 'awaiting_send' || phase === 'awaiting_continue') {
+    return {
+      title: stepTitle(4, `Day ${cycleNumber}`),
+      body: 'Step 4 is already open — Continue / I’ve sent ZAR on Leo’s card.',
+      advanced: false,
+      deskStep: 4,
+    }
+  }
+
+  return {
+    title: 'Nothing to advance',
+    body: 'No sequential step is waiting on Continue.',
+    advanced: false,
+    deskStep: deskStep || 0,
+  }
+}
+
 /**
  * Continuous cycle advance:
  * awaiting_mzn → (MZN in full) → ZAR float check → awaiting_send | awaiting_continue
@@ -1301,15 +1547,18 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
   const data = snap.data() || {}
   if (data.status !== 'active') return
   const phase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
+  // Only unlock Leo after Step 3 Continue (deskStep >= 4). Legacy runs use deskStep 0.
+  const deskStep = num(data.deskStep, 0)
   if (phase !== 'awaiting_mzn' && phase !== 'awaiting_continue') return
+  if (deskStep >= 1 && deskStep < 4) return
 
   const cycleNumber = num(data.awaitingCycleNumber, 0)
   const expectedZar = num(data.expectedOrderZar, 0)
   const expectedMzn = num(data.expectedOrderMzn, 0)
   if (!(cycleNumber > 0) || !(expectedZar > 0)) return
 
-  const eventIdForCycle = eventId(testRunId, cycleNumber)
-  const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(eventIdForCycle)
+  const nowGate = admin.firestore.Timestamp.now()
+  const eventRef = await ensureLeoSendEvent(adminUid, testRunId, cycleNumber, nowGate)
   const eventSnap = await eventRef.get()
   if (!eventSnap.exists) return
   const issuedAt = eventSnap.data()?.createdAt
@@ -1895,7 +2144,7 @@ async function issueCycle(
         immediateAttempts
       )
     ).then(async (issued) => {
-      // Continuous order: Sam announces the calendar day first, then Amina invoices.
+      // Continuous order: Sam Step 1 only. Leo / invoices wait for Continue.
       try {
         await publishSamDayBrief({
           adminUid,
@@ -1908,29 +2157,26 @@ async function issueCycle(
       } catch (error) {
         console.warn('[issueCycle] Sam day brief skipped', error)
       }
-      // `$` Day-0 open skips invoice PDFs so the callable cannot 408. Raise on later steps.
-      if (!skipInvoices && issued.kind === 'deploy' && issued.plan.cardAssignments.length > 0) {
-        try {
-          const { raiseInvoicesForCycle } = await import('../settlement/issueInvoices')
-          await raiseInvoicesForCycle({
-            testRunId,
-            cycleNumber: issued.plan.cycleNumber,
-            assignments: issued.plan.cardAssignments.map((row) => ({
-              cardId: row.cardId,
-              machineId: row.machineId,
-              amount: row.amount,
-              economicPaymentId: row.economicPaymentId,
-            })),
-          })
-        } catch (error) {
-          console.error('[issueCycle] invoice raise failed', error)
+      // Retire any premature Leo card so Step 4 cannot appear before Step 1.
+      if (issued.kind === 'deploy') {
+        const leoId = eventId(testRunId, issued.plan.cycleNumber)
+        const leoRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(leoId)
+        const leoSnap = await leoRef.get()
+        if (leoSnap.exists && leoSnap.data()?.status !== 'completed') {
+          await leoRef.set(
+            {
+              awaitingConfirm: false,
+              routingBlocked: true,
+              status: 'cancelled',
+              title: stepTitle(4, `Day ${issued.plan.cycleNumber} — waiting on Steps 1–3`),
+              body: 'Step 4 unlocks after Step 1 → 2 → 3 Continue.',
+              updatedAt: now,
+            },
+            { merge: true }
+          )
         }
       }
-      try {
-        await tryAdvanceContinuousCycle()
-      } catch (error) {
-        console.warn('[issueCycle] continuous advance skipped', error)
-      }
+      void skipInvoices
       return issued
     })
   } catch (error) {
@@ -1962,15 +2208,16 @@ async function publishSamDayBrief(input: {
   const id = `sam-day-brief-${input.testRunId}-c${input.plan.cycleNumber}`
   const ref = db.collection('users').doc(input.adminUid).collection('activityEvents').doc(id)
   if ((await ref.get()).exists) return
+  const hold = !(input.plan.deployedAmount > 0) || input.kind === 'replenish'
   const body = [
     `Day ${day} of ${input.state.config.cycleCount}.`,
     `Scheduled ZAR order: ${formatZar(input.plan.deployedAmount || 0)}.`,
     `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} window still open.`,
     input.kind === 'replenish'
-      ? 'Step 5 · Recycle is next — Continue advances without waiting on the clock.'
-      : input.plan.deployedAmount > 0
-        ? 'Next: Step 2 · Invoice, then Step 3 · MZN, Step 4 · Send, Step 5 · Recycle, Step 6 · Next day.'
-        : `Hold day — no new ticket. Residual stays open for the next operating day.`,
+      ? 'Step 5 · Recycle is open — Continue after the COST swipe.'
+      : hold
+        ? `Hold day — no new ticket. Residual stays open for the next operating day.`
+        : 'Tap Continue for Step 2 · Invoice.',
   ]
     .filter(Boolean)
     .join('\n')
@@ -1990,11 +2237,13 @@ async function publishSamDayBrief(input: {
     txId: id,
     hasDownloadButton: false,
     showCalendarButton: true,
-    awaitingConfirm: false,
-    status: 'recorded',
-    routingAction: 'advice',
+    // Step 1 is the only open continuity control until Continue advances the sequence.
+    awaitingConfirm: !hold && input.kind === 'deploy',
+    routingBlocked: false,
+    status: !hold && input.kind === 'deploy' ? 'awaiting_execution' : 'recorded',
+    routingAction: !hold && input.kind === 'deploy' ? 'step' : 'advice',
     deskSpeaker: 'sam',
-    cyclePhase: input.plan.deployedAmount > 0 ? 'order_open' : 'hold',
+    cyclePhase: hold ? 'hold' : 'order_open',
     deskStep: 1,
     testRunId: input.testRunId,
     cycleNumber: input.plan.cycleNumber,
@@ -2487,6 +2736,30 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
         'failed-precondition',
         'That instruction was from a retired desk run and has been cleared. Tap $ and sell ZAR to open Day 1.'
       )
+    }
+
+    // Steps 1–3 use Continue to walk the sequence — not Leo confirm.
+    {
+      const gateSnap = await db.collection(TESTS).doc(testRunId).get()
+      const gate = gateSnap.data() || {}
+      const gatePhase = typeof gate.cyclePhase === 'string' ? gate.cyclePhase : ''
+      const gateStep = num(gate.deskStep, 0)
+      if (
+        gatePhase === 'order_open' ||
+        gatePhase === 'awaiting_invoice' ||
+        (gatePhase === 'awaiting_mzn' && gateStep >= 1 && gateStep < 4)
+      ) {
+        const stepped = await advanceSequentialStep(adminUid)
+        const state = stateFromDoc((await db.collection(TESTS).doc(testRunId).get()).data() || {})
+        return publicSummary(state, {
+          testRunId,
+          status: 'active',
+          cycleNumber: num(gate.awaitingCycleNumber, 0),
+          deskStep: stepped.deskStep,
+          acknowledgement: stepped.body,
+          sequential: true,
+        })
+      }
     }
 
     const quotes = await applyLiveQuotes(createInitialState())
@@ -3574,12 +3847,22 @@ export const admin_submitConversionRoutingFeedback = functions
 
     if (!validIntents.length && isExecutionContinuityAsk(askMessage)) {
       const phase = typeof testData.cyclePhase === 'string' ? testData.cyclePhase : ''
+      const deskStepNow = num(testData.deskStep, 0)
       const overrideEarliest = isAdminContinueOverrideAsk(askMessage)
       let title = 'Still waiting'
       let body = 'Nothing on the desk was ready to advance from that green light.'
       let advanced = false
 
-      if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') {
+      if (
+        phase === 'order_open' ||
+        phase === 'awaiting_invoice' ||
+        (phase === 'awaiting_mzn' && deskStepNow >= 1 && deskStepNow < 4)
+      ) {
+        const stepped = await advanceSequentialStep(adminUid)
+        title = stepped.title
+        body = stepped.body
+        advanced = stepped.advanced
+      } else if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') {
         const eventEarliest = earliestAttemptFromDoc(
           (
             await db
@@ -3625,24 +3908,19 @@ export const admin_submitConversionRoutingFeedback = functions
             ].join(' ')
           }
         }
-      } else if (phase === 'awaiting_mzn' || phase === 'awaiting_continue') {
+      } else if (phase === 'awaiting_continue') {
         const before = phase
         await tryAdvanceContinuousCycle()
         const afterPhase = String((await testRef.get()).data()?.cyclePhase || '')
         advanced = afterPhase !== before
         if (afterPhase === 'awaiting_send') {
           title = 'Leo can send'
-          body = 'MZN and ZAR float cover the scheduled order. Confirm Leo’s send when ZAR has left.'
-        } else if (afterPhase === 'awaiting_continue') {
-          title = 'Need ZAR to continue'
-          body =
-            'Order is funded in MZN, but ZAR float is short. Add ZAR (or tap $ within the daily ceiling) then say proceed again.'
+          body = 'ZAR float now covers the send. Continue on Step 4 when ZAR has left.'
         } else if (!advanced) {
-          title = 'Waiting on MZN'
-          body =
-            'The scheduled order is still gated on MZN cover for Amina’s invoice. Once funded, say proceed again.'
+          title = 'Need ZAR to continue'
+          body = 'Add ZAR (or tap $ within the daily ceiling), then Continue on Step 4.'
         }
-      } else if (awaitingKind === 'deploy') {
+      } else if (awaitingKind === 'deploy' || phase === 'awaiting_send') {
         try {
           await confirmOpenCycle(adminUid, { testRunId, cycleNumber, overrideEarliest })
           advanced = true

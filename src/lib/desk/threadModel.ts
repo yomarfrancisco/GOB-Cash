@@ -305,6 +305,7 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
   const awaiting = items.find(isAwaitingClock) || null
   if (awaiting) {
     const leftover = leftoverLine(awaiting.body || '')
+    const stepCard = awaiting.routingAction === 'step'
     const sale = awaiting.routingAction !== 'replenish'
     const brief = awaiting.operatingBrief
     const opsBits: string[] = []
@@ -326,13 +327,15 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
       humanizeDeskText(awaiting.body || awaiting.title) || firstSentence(awaiting.body || awaiting.title)
     const body = opsBits.length ? `${base}\n\n${opsBits.join(' · ')}` : base
     return {
-      title: sale
-        ? `Cycle ${awaiting.cycleNumber || ''} · send ZAR`.replace('Cycle  ·', 'Cycle')
-        : `Cycle ${awaiting.cycleNumber || ''} · restock`.replace('Cycle  ·', 'Cycle'),
+      title: stepCard
+        ? awaiting.title || 'Continue'
+        : sale
+          ? `Cycle ${awaiting.cycleNumber || ''} · send ZAR`.replace('Cycle  ·', 'Cycle')
+          : `Cycle ${awaiting.cycleNumber || ''} · restock`.replace('Cycle  ·', 'Cycle'),
       body,
-      clock: awaiting.routingBlocked ? null : sale ? 'sent' : 'swiped',
-      clockLabel: sale ? "I've sent ZAR" : "I've swiped",
-      showContinue: awaiting.routingBlocked !== true,
+      clock: awaiting.routingBlocked || stepCard ? null : sale ? 'sent' : 'swiped',
+      clockLabel: stepCard ? 'Continue' : sale ? "I've sent ZAR" : "I've swiped",
+      showContinue: stepCard || awaiting.routingBlocked !== true,
       stillToDeliver: leftover,
       startAgain: false,
       item: awaiting,

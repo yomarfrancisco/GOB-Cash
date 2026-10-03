@@ -11,8 +11,9 @@
  */
 
 export type CyclePhase =
-  | 'order_open' // Step 1
-  | 'awaiting_mzn' // Steps 2–3
+  | 'order_open' // Step 1 — Sam order; Continue → invoice
+  | 'awaiting_invoice' // Step 2 — invoices on desk; Continue → MZN gate
+  | 'awaiting_mzn' // Step 3 — waiting for MZN cover; Continue → send
   | 'awaiting_continue' // Step 4 short ZAR
   | 'awaiting_send' // Step 4 ready
   | 'awaiting_recycle' // Step 5
@@ -41,8 +42,10 @@ export function stepForPhase(phase: string | undefined | null): DeskStepNumber |
   switch (phase) {
     case 'order_open':
       return 1
-    case 'awaiting_mzn':
+    case 'awaiting_invoice':
       return 2
+    case 'awaiting_mzn':
+      return 3
     case 'awaiting_continue':
     case 'awaiting_send':
       return 4

@@ -255,6 +255,10 @@ function isAwaitingRoutingItem(item: ActivityItem): boolean {
   )
 }
 
+function isSequentialStepCard(item: ActivityItem | null | undefined): boolean {
+  return item?.routingAction === 'step'
+}
+
 function isAskCard(item: ActivityItem): boolean {
   return item.routingAction === 'advice' || item.routingAction === 'proposal'
 }
@@ -310,9 +314,9 @@ function ActivityItemCard({
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
   const showExecuted = isRoutingInstruction && item.status === 'completed' && !item.thinking
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
-  const showConfirm = Boolean(confirmItem) && !lockDeskActions
-  // Continuity only on the latest open step (showRoutingActions already gates that).
-  const showContinue = showConfirm
+  // Continuity only on the latest open step. Sequential Steps 1–3 are Continue-only.
+  const showContinue = Boolean(confirmItem) && !lockDeskActions
+  const showConfirm = showContinue && !isSequentialStepCard(confirmItem)
   const showProposalActions =
     !lockDeskActions &&
     item.routingAction === 'proposal' &&
