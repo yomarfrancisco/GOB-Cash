@@ -18,6 +18,12 @@
   display: none;
 }
 
+/* Operating calendar day drill-down uses a custom chevron header */
+.as-sheet.operating-calendar-day .as-header,
+.as-sheet.operating-calendar-day .as-close-only {
+  display: none;
+}
+
 .send-details-sheet {
   display: flex;
   flex-direction: column;

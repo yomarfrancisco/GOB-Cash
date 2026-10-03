@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import ActionSheet from '@/components/ActionSheet'
 import {
   activeOperatingMonth,
@@ -10,6 +11,7 @@ import {
   type OperatingDayView,
 } from '@/lib/desk/operatingCalendarView'
 import styles from './OperatingCalendarSheet.module.css'
+import '@/styles/send-details-sheet.css'
 
 type Props = {
   open: boolean
@@ -40,28 +42,40 @@ export default function OperatingCalendarSheet({ open, onClose }: Props) {
   const halfHours = useMemo(() => dayHalfHourSlots(selectedDay), [selectedDay])
   const today = new Date()
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const sheetTitle = selectedDate ? formatDayTitle(selectedDate) : month.label
+  const inDayView = Boolean(selectedDate)
 
   useEffect(() => {
     if (!open) setSelectedDate(null)
   }, [open])
 
-  const handleClose = () => {
-    if (selectedDate) {
-      setSelectedDate(null)
-      return
-    }
-    onClose()
-  }
-
   return (
-    <ActionSheet open={open} onClose={handleClose} title={sheetTitle} size="tall">
+    <ActionSheet
+      open={open}
+      onClose={onClose}
+      title={inDayView ? '' : month.label}
+      className={inDayView ? 'operating-calendar-day' : ''}
+      size="tall"
+    >
+      {inDayView ? (
+        <div className={`send-details-header ${styles.dayHeader}`}>
+          <button
+            type="button"
+            className="send-details-back"
+            onClick={() => setSelectedDate(null)}
+            aria-label="Back to month"
+          >
+            <Image src="/assets/back_ui.svg" alt="" width={24} height={24} />
+          </button>
+          <h3 className="send-details-title">{formatDayTitle(selectedDate!)}</h3>
+          <button type="button" className="send-details-close" onClick={onClose} aria-label="Close">
+            <Image src="/assets/clear.svg" alt="" width={18} height={18} />
+          </button>
+        </div>
+      ) : null}
+
       <div className={styles.root}>
-        {selectedDate ? (
+        {inDayView ? (
           <div className={styles.dayView}>
-            <button type="button" className={styles.backBtn} onClick={() => setSelectedDate(null)}>
-              ← {month.label}
-            </button>
             <div className={styles.timeline}>
               {halfHours.map((row) => (
                 <div
