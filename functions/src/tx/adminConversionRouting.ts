@@ -1772,6 +1772,7 @@ async function publishSamDayBrief(input: {
     amountSign: 'debit',
     txId: id,
     hasDownloadButton: false,
+    showCalendarButton: true,
     awaitingConfirm: false,
     status: 'recorded',
     routingAction: 'advice',
@@ -2343,9 +2344,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
           status: 'completed',
           awaitingConfirm: false,
           completedAt: now,
-          ...(conversionTxId
-            ? { txId: conversionTxId, hasDownloadButton: true }
-            : {}),
+          ...(conversionTxId ? { txId: conversionTxId } : {}),
         })
         tx.set(
           testRef,
@@ -2428,7 +2427,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
             status: 'completed',
             awaitingConfirm: false,
             completedAt: now,
-            ...(conversionTxId ? { txId: conversionTxId, hasDownloadButton: true } : {}),
+            ...(conversionTxId ? { txId: conversionTxId } : {}),
           })
         }
         tx.set(
@@ -2522,9 +2521,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
         status: 'completed',
         awaitingConfirm: false,
         completedAt: now,
-        ...(conversionTxId
-          ? { txId: conversionTxId, hasDownloadButton: true }
-          : {}),
+        ...(conversionTxId ? { txId: conversionTxId } : {}),
       })
 
       let nextCycle: CyclePlan | null = null
@@ -2606,6 +2603,19 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
     })
 
     let nextCycle = result.nextCycle
+    if (conversionTxId) {
+      try {
+        const { publishPopPackDeskNotice } = await import('../settlement/publishPopPack')
+        await publishPopPackDeskNotice({
+          conversionTxIds: [conversionTxId],
+          testRunId,
+          cycleNumber: result.cycleNumber,
+          adminUid,
+        })
+      } catch (error) {
+        console.warn('[confirm] POP pack desk notice skipped', error)
+      }
+    }
     if (result.issueNext && !result.testComplete) {
       try {
         const issued = await issueCycle(

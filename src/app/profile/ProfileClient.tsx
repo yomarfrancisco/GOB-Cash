@@ -61,7 +61,7 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import { generateStyledCashIdQr } from '@/lib/qr'
 import Avatar from '@/components/Avatar'
 import cashIdStyles from '@/components/ShareProfileSheet.module.css'
-import OperatingCalendarSheet from '@/components/desk/OperatingCalendarSheet'
+import { logout } from '@/lib/logout'
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
 const PROFILE_QR_AVATAR_SIZE = 40
@@ -75,7 +75,6 @@ export default function ProfileClient() {
   const [kycSessionStatus, setKycSessionStatus] = useState<string | null>(null)
   const [kycPercent, setKycPercent] = useState<number | null>(null)
   const [cashIdQr, setCashIdQr] = useState<string | null>(null)
-  const [calendarOpen, setCalendarOpen] = useState(false)
 
   useEffect(() => {
     if (!isAuthed) {
@@ -819,10 +818,13 @@ export default function ProfileClient() {
                 <button
                   className="btn profile-inbox"
                   type="button"
-                  aria-label="Open operating calendar"
-                  onClick={() => setCalendarOpen(true)}
+                  onClick={async (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    await logout()
+                  }}
                 >
-                  Calendar
+                  Log out
                 </button>
               </div>
 
@@ -1594,7 +1596,6 @@ export default function ProfileClient() {
         open={openAgentInbox}
         onClose={() => setOpenAgentInbox(false)}
       />
-      <OperatingCalendarSheet open={calendarOpen} onClose={() => setCalendarOpen(false)} />
     </div>
   )
 }

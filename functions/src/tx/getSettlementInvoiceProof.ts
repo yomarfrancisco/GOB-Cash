@@ -41,9 +41,30 @@ export const getSettlementInvoiceProof = functions
       }
     }
 
+    const proofZipPath =
+      typeof data?.proofZipStoragePath === 'string' && data.proofZipStoragePath.trim()
+        ? data.proofZipStoragePath.trim()
+        : null
+    const proofZipFilename =
+      typeof data?.proofZipFilename === 'string' && data.proofZipFilename.trim()
+        ? data.proofZipFilename.trim()
+        : 'pops.zip'
+
+    if (proofZipPath) {
+      const [bytes] = await admin.storage().bucket().file(proofZipPath).download()
+      return {
+        pdfBase64: Buffer.from(bytes).toString('base64'),
+        filename: proofZipFilename.endsWith('.zip') ? proofZipFilename : `${proofZipFilename}.zip`,
+        mimeType: 'application/zip',
+      }
+    }
+
     const invoiceId = data?.invoiceId
     if (!invoiceId || typeof invoiceId !== 'string') {
-      throw new functions.https.HttpsError('invalid-argument', 'invoiceId or invoiceZipStoragePath is required')
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'invoiceId, invoiceZipStoragePath, or proofZipStoragePath is required'
+      )
     }
 
     const snap = await admin.firestore().collection(INVOICE_COLLECTION).doc(invoiceId).get()

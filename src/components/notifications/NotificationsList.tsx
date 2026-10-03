@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
-import { Check, Download, ExternalLink, ArrowUp } from 'lucide-react'
+import { Check, Download, ExternalLink, ArrowUp, Calendar } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -30,6 +30,7 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
+import OperatingCalendarSheet from '@/components/desk/OperatingCalendarSheet'
 
 const KYC_GATE_ID = 'kyc-desk-gate'
 
@@ -216,6 +217,10 @@ function isInvoiceDownloadItem(item: ActivityItem): boolean {
   )
 }
 
+function isPopPackDownloadItem(item: ActivityItem): boolean {
+  return item.routingAction === 'pop_pack' || Boolean(item.proofZipStoragePath)
+}
+
 function canDownloadProof(item: ActivityItem): boolean {
   if (isInvoiceDownloadItem(item)) {
     return (
@@ -223,6 +228,9 @@ function canDownloadProof(item: ActivityItem): boolean {
       Boolean(item.invoiceId) ||
       Boolean(item.invoiceZipStoragePath)
     )
+  }
+  if (isPopPackDownloadItem(item)) {
+    return item.hasDownloadButton === true || Boolean(item.proofZipStoragePath)
   }
   if (!item.txId) return false
   return (
@@ -267,6 +275,7 @@ function ActivityItemCard({
   onAcceptProposal,
   onDiscardProposal,
   lockDeskActions,
+  onOpenCalendar,
 }: {
   item: ActivityItem
   showRoutingActions: boolean
@@ -274,6 +283,7 @@ function ActivityItemCard({
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
   lockDeskActions?: boolean
+  onOpenCalendar?: () => void
 }) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
@@ -290,6 +300,7 @@ function ActivityItemCard({
   const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
   const [startNextState, setStartNextState] = useState<'idle' | 'loading'>('idle')
   const showDownload = canDownloadProof(item)
+  const showCalendar = item.showCalendarButton === true && Boolean(onOpenCalendar)
   const showStartNextRun = !lockDeskActions && item.startNextRun === true
   const showKycLink = item.hasKycLink === true
   const isKycGate = isKycGateItem(item)
@@ -311,6 +322,8 @@ function ActivityItemCard({
     const invoiceId = item.invoiceId || (isInvoiceDownloadItem(item) ? item.txId : null)
     if (isInvoiceDownloadItem(item)) {
       if (!item.invoiceZipStoragePath && !invoiceId) return
+    } else if (isPopPackDownloadItem(item)) {
+      if (!item.proofZipStoragePath) return
     } else if (!item.txId) {
       return
     }
@@ -328,6 +341,11 @@ function ActivityItemCard({
         } else {
           return
         }
+      } else if (isPopPackDownloadItem(item) && item.proofZipStoragePath) {
+        await downloadSettlementInvoice(item.txId || 'pop-pack', {
+          proofZipStoragePath: item.proofZipStoragePath,
+          proofZipFilename: item.proofZipFilename,
+        })
       } else if (item.kind === 'MONTHLY_SETTLEMENT_STATEMENT') {
         await downloadMonthlySettlementProof(item.txId!)
       } else if (item.kind === 'WEEKLY_SETTLEMENT_STATEMENT') {
@@ -490,6 +508,7 @@ function ActivityItemCard({
           showConfirm ||
           showStartNextRun ||
           showDownload ||
+          showCalendar ||
           showProposalActions ||
           showExecuted ||
           showKycLink) && (
@@ -571,6 +590,20 @@ function ActivityItemCard({
                 </button>
               </>
             )}
+            {showCalendar && (
+              <button
+                type="button"
+                className={styles.calendarButton}
+                aria-label="Open operating calendar"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onOpenCalendar?.()
+                }}
+              >
+                <Calendar size={14} strokeWidth={2.4} />
+                Calendar
+              </button>
+            )}
             {showDownload && (
               <button
                 type="button"
@@ -582,12 +615,14 @@ function ActivityItemCard({
                   .join(' ')}
                 aria-label={
                   isInvoiceDownloadItem(item)
-                    ? 'Download invoice'
-                    : item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
-                      ? 'Download monthly settlement statement'
-                      : item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
-                        ? 'Download weekly settlement statement'
-                        : 'Download proof of payment'
+                    ? 'Download invoices'
+                    : isPopPackDownloadItem(item)
+                      ? 'Download proofs of payment'
+                      : item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
+                        ? 'Download monthly settlement statement'
+                        : item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
+                          ? 'Download weekly settlement statement'
+                          : 'Download proof of payment'
                 }
                 aria-busy={downloadState !== 'idle'}
                 disabled={downloadState !== 'idle'}
@@ -598,7 +633,9 @@ function ActivityItemCard({
                   ? item.invoiceZipStoragePath
                     ? 'Download invoices'
                     : 'Download invoice'
-                  : 'Download POP'}
+                  : isPopPackDownloadItem(item)
+                    ? 'Download POPs'
+                    : 'Download POP'}
               </button>
             )}
             {showExecuted && (
@@ -634,6 +671,7 @@ function ActivitySection({
   onAcceptProposal,
   onDiscardProposal,
   lockDeskActions,
+  onOpenCalendar,
 }: {
   title: string
   items: ActivityItem[]
@@ -643,6 +681,7 @@ function ActivitySection({
   onAcceptProposal: (item: ActivityItem) => Promise<void>
   onDiscardProposal: (item: ActivityItem) => Promise<void>
   lockDeskActions?: boolean
+  onOpenCalendar?: () => void
 }) {
   if (items.length === 0) return null
 
@@ -659,6 +698,7 @@ function ActivitySection({
             onAcceptProposal={onAcceptProposal}
             onDiscardProposal={onDiscardProposal}
             lockDeskActions={lockDeskActions}
+            onOpenCalendar={onOpenCalendar}
           />
         ))}
       </div>
@@ -677,6 +717,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const [askText, setAskText] = useState('')
   const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
   const [askError, setAskError] = useState('')
+  const [calendarOpen, setCalendarOpen] = useState(false)
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -870,6 +911,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     onAcceptProposal: handleAcceptProposal,
     onDiscardProposal: handleDiscardProposal,
     lockDeskActions: deskBlocked,
+    onOpenCalendar: () => setCalendarOpen(true),
   }
 
   const askAnchor =
@@ -950,6 +992,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
         </div>
         {askError ? <p className={styles.replyError}>{askError}</p> : null}
       </form>
+      <OperatingCalendarSheet open={calendarOpen} onClose={() => setCalendarOpen(false)} />
     </>
   )
 }

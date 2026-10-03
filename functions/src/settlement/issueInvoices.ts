@@ -120,6 +120,7 @@ export async function publishInvoicePackDeskNotice(params: {
     amountSign: 'debit',
     txId: id,
     hasDownloadButton: true,
+    showCalendarButton: true,
     invoicePackId: id,
     invoiceIds: invoices.map((row) => row.id),
     invoiceZipStoragePath: zip.storagePath,

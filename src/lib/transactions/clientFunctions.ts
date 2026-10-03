@@ -872,7 +872,12 @@ export async function downloadConversionProof(txId: string): Promise<void> {
  */
 export async function downloadSettlementInvoice(
   invoiceId: string,
-  pack?: { invoiceZipStoragePath: string; invoiceZipFilename?: string }
+  pack?: {
+    invoiceZipStoragePath?: string
+    invoiceZipFilename?: string
+    proofZipStoragePath?: string
+    proofZipFilename?: string
+  }
 ): Promise<void> {
   const app = getFirebaseApp()
   const functions = getFunctionsInstance()
@@ -882,12 +887,17 @@ export async function downloadSettlementInvoice(
   }
 
   const fn = httpsCallable(functions, 'getSettlementInvoiceProof')
-  const payload = pack?.invoiceZipStoragePath
+  const payload = pack?.proofZipStoragePath
     ? {
-        invoiceZipStoragePath: pack.invoiceZipStoragePath,
-        invoiceZipFilename: pack.invoiceZipFilename || 'invoices.zip',
+        proofZipStoragePath: pack.proofZipStoragePath,
+        proofZipFilename: pack.proofZipFilename || 'pops.zip',
       }
-    : { invoiceId }
+    : pack?.invoiceZipStoragePath
+      ? {
+          invoiceZipStoragePath: pack.invoiceZipStoragePath,
+          invoiceZipFilename: pack.invoiceZipFilename || 'invoices.zip',
+        }
+      : { invoiceId }
   const result = await fn(payload)
   triggerFileDownload(result.data as { pdfBase64: string; filename: string; mimeType: string })
 }
