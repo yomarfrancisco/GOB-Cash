@@ -7,6 +7,7 @@ import {
   hasFutureTimeConstraint,
   isBankerQuestion,
   isDeskStrategyAsk,
+  isExecutionContinuityAsk,
   isMemoryOrHistoryQuestion,
   isPaceAsk,
   isLedgerFactAsk,
@@ -88,6 +89,15 @@ describe('time phrases', () => {
     assert.equal(isDeskStrategyAsk('what happens if no cards are possible for at least 2 months?'), true)
     assert.equal(wantsNewRoutingRun("what's next"), false)
     assert.equal(wantsNewRoutingRun('start the next run'), true)
+  })
+
+  it('hears proceed / let’s go as execution continuity, not advice-only', () => {
+    assert.equal(isExecutionContinuityAsk('proceed'), true)
+    assert.equal(isExecutionContinuityAsk("let's go"), true)
+    assert.equal(isExecutionContinuityAsk('go ahead'), true)
+    assert.equal(isExecutionContinuityAsk("I've swiped"), true)
+    assert.equal(isExecutionContinuityAsk("what's next"), false)
+    assert.equal(isExecutionContinuityAsk('how do we proceed'), false)
   })
 
   it('shows a clock time for same-day activity', () => {

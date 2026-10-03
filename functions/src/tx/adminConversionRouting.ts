@@ -113,6 +113,7 @@ import {
   addressedDeskAgent,
   isNextWindowAsk,
   zarAmountFromMessage,
+  isExecutionContinuityAsk,
 } from '../routing/routingTime'
 import { adviseDesk, deskPursueLabel, isDeskChoiceReply, type DeskRouteSnapshot } from '../routing/deskAdvisor'
 import {
@@ -2858,21 +2859,21 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
 }
 
 /** Close an open restock when bank receipts add up to the tickets. */
-export async function tryAutoConfirmOpenRestock(): Promise<void> {
+export async function tryAutoConfirmOpenRestock(): Promise<boolean> {
   const adminUid = ROUTING_ADMIN_UID
   const testRunId = await currentTestId(adminUid)
-  if (!testRunId) return
+  if (!testRunId) return false
   const snap = await db.collection(TESTS).doc(testRunId).get()
   const data = snap.data() || {}
-  if (data.status !== 'active' || data.awaitingKind !== 'replenish') return
+  if (data.status !== 'active' || data.awaitingKind !== 'replenish') return false
   const expectedZar = num(data.replenishAmountZar, 0)
   const expectedMzn = num(data.replenishAmountMzn, 0)
   const cycle = num(data.awaitingCycleNumber, 0)
-  if (!(expectedZar > 0) || cycle <= 0) return
+  if (!(expectedZar > 0) || cycle <= 0) return false
   const issued = await db.collection('users').doc(adminUid).collection('activityEvents').doc(replenishEventId(testRunId, cycle)).get()
   const issuedAt = issued.data()?.createdAt
   const issuedMs = typeof issuedAt?.toMillis === 'function' ? issuedAt.toMillis() : 0
-  if (!(issuedMs > 0)) return
+  if (!(issuedMs > 0)) return false
   const [fnb, capitec, mznSnap, mznEvents] = await Promise.all([
     db.collection('bankFnbEvents').limit(40).get(),
     db.collection('bankCapitecEvents').limit(40).get(),
@@ -2894,11 +2895,34 @@ export async function tryAutoConfirmOpenRestock(): Promise<void> {
     .filter((doc) => !doc.data().matchedRestock && Date.parse(String(doc.data().createdAt || '')) >= issuedMs)
     .map((doc) => Number(doc.data().amountMzn || 0))
   const balance = Number(mznSnap.data()?.fiatBalance || 0)
-  if (!receiptsCoverRestock(expectedZar, zar.map((row) => row.amount))) return
-  if (!mznCoversRestock(expectedMzn, balance, mznIn)) return
+  const phase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
+  // Continuous recycle: MZN already on the books is enough to continue; ZAR POS
+  // receipts are not required to unblock the next calendar day.
+  const zarOk =
+    phase === 'awaiting_recycle' || receiptsCoverRestock(expectedZar, zar.map((row) => row.amount))
+  if (!zarOk) return false
+  if (!mznCoversRestock(expectedMzn, balance, mznIn)) return false
   await confirmOpenCycle(adminUid, { testRunId, cycleNumber: cycle })
   const mark = `${testRunId}:${cycle}`
   await Promise.all(zar.map((row) => row.ref.set({ matchedRestock: mark }, { merge: true })))
+  return true
+}
+
+/** Operator said proceed — advance recycle when MZN covers, even without bank ZAR receipts. */
+async function tryConfirmRecycleOnProceed(): Promise<boolean> {
+  const adminUid = ROUTING_ADMIN_UID
+  const testRunId = await currentTestId(adminUid)
+  if (!testRunId) return false
+  const snap = await db.collection(TESTS).doc(testRunId).get()
+  const data = snap.data() || {}
+  if (data.status !== 'active' || data.awaitingKind !== 'replenish') return false
+  const expectedMzn = num(data.replenishAmountMzn, 0)
+  const cycle = num(data.awaitingCycleNumber, 0)
+  if (!(cycle > 0) || !(expectedMzn > 0)) return false
+  const balance = await mznWalletBalance(adminUid)
+  if (!mznCoversRestock(expectedMzn, balance, [])) return false
+  await confirmOpenCycle(adminUid, { testRunId, cycleNumber: cycle })
+  return true
 }
 
 /** Opens the next sale when a confirm saved the swipe and then timed out. */
@@ -3433,6 +3457,95 @@ export const admin_submitConversionRoutingFeedback = functions
         status: 'applied',
         acknowledgement,
         interpreter: interpreted.interpreter,
+      }
+    }
+
+    if (!validIntents.length && isExecutionContinuityAsk(askMessage)) {
+      const phase = typeof testData.cyclePhase === 'string' ? testData.cyclePhase : ''
+      let title = 'Still waiting'
+      let body = 'Nothing on the desk was ready to advance from that green light.'
+      let advanced = false
+
+      if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') {
+        advanced = (await tryAutoConfirmOpenRestock()) || (await tryConfirmRecycleOnProceed())
+        if (advanced) {
+          title = 'Restock confirmed'
+          body =
+            'Restock closed and the book is continuing. The next scheduled day should be on the desk — Sam will brief the order, then Amina’s invoice.'
+        } else {
+          const expectedZar = num(testData.replenishAmountZar, 0)
+          const expectedMzn = num(testData.replenishAmountMzn, 0)
+          const bal = await mznWalletBalance(adminUid)
+          title = 'Swipe to continue'
+          body = [
+            `Restock of ${formatZar(expectedZar)} is still open.`,
+            `Amina needs Mozambican COST cover of about MZN ${roundMoney(expectedMzn).toLocaleString('en-ZA')} (wallet shows MZN ${roundMoney(bal).toLocaleString('en-ZA')}).`,
+            'After the cards are swiped, say proceed again — or tap I’ve swiped on the restock card.',
+          ].join(' ')
+        }
+      } else if (phase === 'awaiting_mzn' || phase === 'awaiting_continue') {
+        const before = phase
+        await tryAdvanceContinuousCycle()
+        const afterPhase = String((await testRef.get()).data()?.cyclePhase || '')
+        advanced = afterPhase !== before
+        if (afterPhase === 'awaiting_send') {
+          title = 'Leo can send'
+          body = 'MZN and ZAR float cover the scheduled order. Confirm Leo’s send when ZAR has left.'
+        } else if (afterPhase === 'awaiting_continue') {
+          title = 'Need ZAR to continue'
+          body =
+            'Order is funded in MZN, but ZAR float is short. Add ZAR (or tap $ within the daily ceiling) then say proceed again.'
+        } else if (!advanced) {
+          title = 'Waiting on MZN'
+          body =
+            'The scheduled order is still gated on MZN cover for Amina’s invoice. Once funded, say proceed again.'
+        }
+      } else if (awaitingKind === 'deploy') {
+        try {
+          await confirmOpenCycle(adminUid, { testRunId, cycleNumber })
+          advanced = true
+          title = 'Send confirmed'
+          body = 'Sale recorded. Recycle restock is next so the book keeps turning.'
+        } catch {
+          title = 'Confirm the send'
+          body =
+            'Open Leo’s send card and confirm when ZAR has left, or say proceed again after it is done.'
+        }
+      }
+
+      await db.runTransaction(async (tx) => {
+        publishAdviceCard(tx, {
+          adminUid,
+          testRunId,
+          cycleNumber,
+          feedbackId,
+          now,
+          title,
+          body,
+          userReply: askMessage,
+          routingAction: 'advice',
+          deskSpeaker: addressedDeskAgent(askMessage),
+        })
+        tx.set(testRef.collection('feedback').doc(feedbackId), {
+          id: feedbackId,
+          adminUserId: adminUid,
+          cycleNumber,
+          rawMessage: askMessage,
+          askIntent: classification,
+          interpretationSummary: title,
+          replyBody: body,
+          deskSpeaker: addressedDeskAgent(askMessage),
+          status: advanced ? 'applied' : 'advice',
+          createdAt: now,
+        })
+        tx.set(testRef, { updatedAt: now }, { merge: true })
+      })
+      return {
+        testRunId,
+        cycleNumber,
+        status: advanced ? 'applied' : 'advice',
+        acknowledgement: body,
+        interpreter: 'fast_path',
       }
     }
 

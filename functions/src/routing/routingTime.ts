@@ -292,6 +292,25 @@ export function isDeskStrategyAsk(message: string): boolean {
   )
 }
 
+/** Operator green-light to advance the open desk step (not a strategy question). */
+export function isExecutionContinuityAsk(message: string): boolean {
+  const text = message.trim().toLowerCase()
+  if (!text) return false
+  if (isDeskStrategyAsk(message)) return false
+  if (
+    /^(?:yes|yeah|yep|yup|ok|okay|do it|go|go ahead|proceed|continue|let'?s go|let'?s proceed|execute|run it|swipe(?:d)?|i'?ve swiped|i have swiped)(?:\s*[.!])?$/.test(
+      text
+    )
+  ) {
+    return true
+  }
+  return (
+    /\b(?:proceed|continue|let'?s go|go ahead|do it|execute|keep going)\b/.test(text) &&
+    !/\bhow\b/.test(text) &&
+    !/\bwhat\b/.test(text)
+  )
+}
+
 /** "Leo, ..." / "Amina, ..." picks who answers. Anything else is Sam. */
 export function addressedDeskAgent(message: string): 'sam' | 'leo' | 'amina' {
   const text = message.trim().toLowerCase()
