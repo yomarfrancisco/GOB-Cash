@@ -243,9 +243,15 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     pairedAmountValue: data.pairedAmountValue,
     feedbackAck: typeof data.feedbackAck === 'string' ? data.feedbackAck : undefined,
     routingBlocked: data.routingBlocked === true,
-    awaitingConfirm: data.status === 'superseded' || data.status === 'completed' || data.status === 'cancelled'
-      ? false
-      : data.awaitingConfirm === true || data.status === 'awaiting_execution',
+    awaitingConfirm:
+      data.status === 'superseded' ||
+      data.status === 'completed' ||
+      data.status === 'cancelled' ||
+      data.status === 'pending_mzn'
+        ? false
+        : data.awaitingConfirm === false
+          ? false
+          : data.awaitingConfirm === true || data.status === 'awaiting_execution',
     routingRevision: data.routingRevision === true,
     userReply: typeof data.userReply === 'string' && data.userReply.trim() ? data.userReply.trim() : undefined,
     userRepliedAt: data.userRepliedAt ? createdAtMs(data.userRepliedAt) : undefined,

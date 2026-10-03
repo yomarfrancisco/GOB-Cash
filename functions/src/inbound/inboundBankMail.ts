@@ -19,7 +19,7 @@ import { applyCapitecPayoutToInvoices, applyFnbGrossSettlementToInvoices } from 
 import { imageText } from './mznImageText'
 import { mznNoticeCopy, parseMznProof, type MznProof } from './mznProofParse'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
-import { tryAutoConfirmOpenRestock } from '../tx/adminConversionRouting'
+import { tryAutoConfirmOpenRestock, tryAdvanceContinuousCycle } from '../tx/adminConversionRouting'
 import {
   EVIDENCE_COLLECTION,
   INGRESS_COLLECTION,
@@ -302,6 +302,7 @@ async function recordMznProof(
   safeLog.info('mzn_recorded', { emailId, reason: proof.layout })
   await publishMznNotice(docId, proof)
   await tryAutoConfirmOpenRestock()
+  await tryAdvanceContinuousCycle()
 }
 
 async function publishMznNotice(docId: string, proof: MznProof): Promise<void> {
@@ -328,7 +329,7 @@ async function publishMznNotice(docId: string, proof: MznProof): Promise<void> {
     routingBlocked: false,
     status: 'recorded',
     routingAction: 'bank_notice',
-    deskSpeaker: 'sam',
+    deskSpeaker: 'amina',
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     recordingSource: 'SYSTEM',
   })

@@ -129,7 +129,7 @@ export async function publishInvoicePackDeskNotice(params: {
     routingBlocked: false,
     status: 'recorded',
     routingAction: 'invoice',
-    deskSpeaker: 'sam',
+    deskSpeaker: 'amina',
     ...(params.testRunId ? { testRunId: params.testRunId } : {}),
     ...(typeof params.cycleNumber === 'number' ? { cycleNumber: params.cycleNumber } : {}),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),

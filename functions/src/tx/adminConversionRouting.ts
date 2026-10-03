@@ -144,6 +144,7 @@ import {
   type ContinuityStateV1,
   type ConfirmInstruction,
 } from '../operatingCalendar'
+import { expectedMznForOrder, type CyclePhase } from '../routing/continuousCycle'
 
 const inboundSecret = defineSecret('RESEND_INBOUND_SECRET')
 const db = admin.firestore()
@@ -1004,6 +1005,7 @@ function writeIssuedReplenish(
     status: 'awaiting_execution',
     routingAction: 'replenish',
     deskSpeaker: 'amina',
+    cyclePhase: 'awaiting_recycle',
     earliestAttemptAt: path.earliestAt,
     ticketPath: path,
     testRunId,
@@ -1029,6 +1031,7 @@ function writeIssuedReplenish(
       ...persistCapital(state),
       awaitingCycleNumber: replenish.cycleNumber,
       awaitingKind: 'replenish',
+      cyclePhase: 'awaiting_recycle' as CyclePhase,
       replenishAmountMzn: replenish.amountMzn,
       replenishAmountZar: replenish.amountZar,
       replenishCostRate: replenish.costRate,
@@ -1096,6 +1099,9 @@ function writeIssuedCycle(
   })
   const beliefHint = beliefHintForAssignments(plan.cardAssignments, evidence, state.bufferUsed)
   const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
+  const orderZar = blocked ? 0 : plan.deployedAmount
+  const orderMzn = expectedMznForOrder(orderZar, quotes.sellRate)
+  const cyclePhase: CyclePhase = blocked ? 'hold' : 'awaiting_mzn'
   const notification = blocked
     ? { title: `Sell ZAR · Cycle ${plan.cycleNumber}`, body: 'No valid route under current constraints\nAsk to restore a card or POS' }
     : buildNotificationCopy(plan, state.config.cycleCount)
@@ -1164,11 +1170,13 @@ function writeIssuedCycle(
     amountSign: 'debit',
     txId: activityEventId,
     hasDownloadButton: false,
-    awaitingConfirm: !blocked,
-    routingBlocked: blocked,
-    status: 'awaiting_execution',
+    // Continuous cycle: Leo confirm stays closed until MZN batch clears (and ZAR float covers).
+    awaitingConfirm: false,
+    routingBlocked: true,
+    status: blocked ? 'awaiting_execution' : 'pending_mzn',
     routingAction: 'deploy',
     deskSpeaker: 'leo',
+    cyclePhase,
     earliestAttemptAt: ticketPath.earliestAt,
     ticketPath,
     planHash,
@@ -1203,7 +1211,10 @@ function writeIssuedCycle(
     quote: liveBook.quote || quotes.quote,
     selectionReason: plan.selectionReason,
     holdReason: plan.holdReason || null,
-    routingBlocked: blocked,
+    routingBlocked: true,
+    cyclePhase,
+    expectedOrderZar: orderZar,
+    expectedOrderMzn: orderMzn,
     earliestAttemptAt: ticketPath.earliestAt,
     planHash,
     operatingPolicyVersion: OPERATING_POLICY_VERSION,
@@ -1238,6 +1249,10 @@ function writeIssuedCycle(
       },
       awaitingCycleNumber: plan.cycleNumber,
       awaitingKind: 'deploy',
+      cyclePhase,
+      expectedOrderZar: orderZar,
+      expectedOrderMzn: orderMzn,
+      orderSellRate: quotes.sellRate,
       ...persistPathBook({}, persistBook),
       updatedAt: now,
     }),
@@ -1250,6 +1265,156 @@ function writeIssuedCycle(
 async function zarWalletBalance(adminUid: string): Promise<number> {
   const snap = await db.collection('users').doc(adminUid).collection('wallets').doc('cashZAR').get()
   return roundMoney(Number(snap.exists ? snap.data()?.fiatBalance || 0 : 0))
+}
+
+async function mznWalletBalance(adminUid: string): Promise<number> {
+  const snap = await db.collection('users').doc(adminUid).collection('wallets').doc('cashMZN').get()
+  return roundMoney(Number(snap.exists ? snap.data()?.fiatBalance || 0 : 0))
+}
+
+/**
+ * Continuous cycle advance:
+ * awaiting_mzn → (MZN in full) → ZAR float check → awaiting_send | awaiting_continue
+ * awaiting_continue → (ZAR injected) → awaiting_send
+ */
+export async function tryAdvanceContinuousCycle(): Promise<void> {
+  const adminUid = ROUTING_ADMIN_UID
+  const testRunId = await currentTestId(adminUid)
+  if (!testRunId) return
+  const testRef = db.collection(TESTS).doc(testRunId)
+  const snap = await testRef.get()
+  const data = snap.data() || {}
+  if (data.status !== 'active') return
+  const phase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
+  if (phase !== 'awaiting_mzn' && phase !== 'awaiting_continue') return
+
+  const cycleNumber = num(data.awaitingCycleNumber, 0)
+  const expectedZar = num(data.expectedOrderZar, 0)
+  const expectedMzn = num(data.expectedOrderMzn, 0)
+  if (!(cycleNumber > 0) || !(expectedZar > 0)) return
+
+  const eventIdForCycle = eventId(testRunId, cycleNumber)
+  const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(eventIdForCycle)
+  const eventSnap = await eventRef.get()
+  if (!eventSnap.exists) return
+  const issuedAt = eventSnap.data()?.createdAt
+  const issuedMs = typeof issuedAt?.toMillis === 'function' ? issuedAt.toMillis() : 0
+
+  if (phase === 'awaiting_mzn') {
+    const [mznBal, mznEvents] = await Promise.all([
+      mznWalletBalance(adminUid),
+      db.collection('bankMznEvents').limit(80).get(),
+    ])
+    const received = mznEvents.docs
+      .filter((doc) => {
+        if (doc.data().matchedCycle) return false
+        const at = Date.parse(String(doc.data().createdAt || ''))
+        return Number.isFinite(at) && (!issuedMs || at >= issuedMs)
+      })
+      .map((doc) => Number(doc.data().amountMzn || 0))
+    if (!mznCoversRestock(expectedMzn, mznBal, received)) return
+  }
+
+  const zarBal = await zarWalletBalance(adminUid)
+  const now = admin.firestore.Timestamp.now()
+
+  if (zarBal + 0.5 < expectedZar) {
+    const continueId = `continue-zar-${testRunId}-c${cycleNumber}`
+    const continueRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(continueId)
+    if (!(await continueRef.get()).exists) {
+      const shortfall = roundMoney(expectedZar - zarBal)
+      await continueRef.set({
+        id: continueId,
+        kind: CONVERSION_ROUTING_KIND,
+        title: `Continue · Day ${cycleNumber}`,
+        body: [
+          `Order ${formatZar(expectedZar)} is funded in MZN.`,
+          `ZAR float is short by ${formatZar(shortfall)}.`,
+          'Add ZAR (or tap $ within the daily ceiling rules) to continue the scheduled send. This does not raise the daily volume ceiling.',
+        ].join('\n'),
+        dropdownTitle: 'Continue — add ZAR',
+        dropdownBody: `Need ${formatZar(shortfall)} more ZAR for order ${cycleNumber}`,
+        actorType: 'ai_manager',
+        avatarKind: 'convert_zar',
+        amountCurrency: 'ZAR',
+        amountValue: shortfall,
+        amountSign: 'debit',
+        txId: continueId,
+        hasDownloadButton: false,
+        showCalendarButton: true,
+        awaitingConfirm: false,
+        routingBlocked: true,
+        status: 'recorded',
+        routingAction: 'advice',
+        deskSpeaker: 'sam',
+        testRunId,
+        cycleNumber,
+        cyclePhase: 'awaiting_continue',
+        createdAt: now,
+        recordingSource: 'SYSTEM',
+      })
+    }
+    await testRef.set(
+      {
+        cyclePhase: 'awaiting_continue',
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+    return
+  }
+
+  // Unlock Leo send for the scheduled order.
+  await db.runTransaction(async (tx) => {
+    const fresh = await tx.get(testRef)
+    const freshPhase = fresh.data()?.cyclePhase
+    if (freshPhase !== 'awaiting_mzn' && freshPhase !== 'awaiting_continue') return
+    tx.update(eventRef, {
+      awaitingConfirm: true,
+      routingBlocked: false,
+      status: 'awaiting_execution',
+      cyclePhase: 'awaiting_send',
+      title: fresh.data()?.expectedOrderZar
+        ? `Send ZAR · Cycle ${cycleNumber}`
+        : eventSnap.data()?.title,
+      body:
+        `${formatZar(expectedZar)} scheduled order is funded. ZAR float covers the send. Confirm when ZAR is sent.`,
+    })
+    tx.set(
+      testRef,
+      {
+        cyclePhase: 'awaiting_send',
+        awaitingKind: 'deploy',
+        awaitingCycleNumber: cycleNumber,
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+    tx.set(
+      testRef.collection('cycles').doc(String(cycleNumber)),
+      {
+        cyclePhase: 'awaiting_send',
+        routingBlocked: false,
+        status: 'awaiting_execution',
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+  })
+
+  // Mark recent MZN receipts as matched to this cycle (best-effort).
+  const mark = `${testRunId}:${cycleNumber}`
+  const mznEvents = await db.collection('bankMznEvents').limit(80).get()
+  await Promise.all(
+    mznEvents.docs
+      .filter((doc) => {
+        if (doc.data().matchedCycle) return false
+        const at = Date.parse(String(doc.data().createdAt || ''))
+        return Number.isFinite(at) && (!issuedMs || at >= issuedMs)
+      })
+      .slice(0, 20)
+      .map((doc) => doc.ref.set({ matchedCycle: mark }, { merge: true }))
+  )
 }
 
 async function loadFnbDeskLines(): Promise<string> {
@@ -1697,6 +1862,19 @@ async function issueCycle(
     return await db.runTransaction(async (tx) =>
       writeIssuedCycle(tx, adminUid, testRunId, quoted.state, now, quoted, EMPTY_OVERLAY, book, evidence)
     ).then(async (issued) => {
+      // Continuous order: Sam announces the calendar day first, then Amina invoices.
+      try {
+        await publishSamDayBrief({
+          adminUid,
+          testRunId,
+          state: quoted.state,
+          plan: issued.plan,
+          kind: issued.kind,
+          now,
+        })
+      } catch (error) {
+        console.warn('[issueCycle] Sam day brief skipped', error)
+      }
       if (issued.kind === 'deploy' && issued.plan.cardAssignments.length > 0) {
         try {
           const { raiseInvoicesForCycle } = await import('../settlement/issueInvoices')
@@ -1715,16 +1893,9 @@ async function issueCycle(
         }
       }
       try {
-        await publishSamDayBrief({
-          adminUid,
-          testRunId,
-          state: quoted.state,
-          plan: issued.plan,
-          kind: issued.kind,
-          now,
-        })
+        await tryAdvanceContinuousCycle()
       } catch (error) {
-        console.warn('[issueCycle] Sam day brief skipped', error)
+        console.warn('[issueCycle] continuous advance skipped', error)
       }
       return issued
     })
@@ -1760,10 +1931,13 @@ async function publishSamDayBrief(input: {
   const first = schedule.tickets[0]
   const body = [
     `Day ${day} of ${input.state.config.cycleCount}.`,
-    `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} window still to convert.`,
+    `Scheduled ZAR order: ${formatZar(input.plan.deployedAmount || 0)}.`,
+    `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} window still open.`,
     input.kind === 'replenish'
-      ? `Amina has the restock. First swipe ${first?.timeLabel || schedule.timeLabel}.`
-      : `Leo has today's sale — by COB.`,
+      ? `Recycle MZN→ZAR for today's invoice is next. First swipe ${first?.timeLabel || schedule.timeLabel}.`
+      : input.plan.deployedAmount > 0
+        ? `Order received on the calendar. Amina raises the invoice; Leo sends ZAR after MZN clears.`
+        : `Hold day — no new ticket. Residual stays open for the next operating day.`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -1786,6 +1960,7 @@ async function publishSamDayBrief(input: {
     status: 'recorded',
     routingAction: 'advice',
     deskSpeaker: 'sam',
+    cyclePhase: input.plan.deployedAmount > 0 ? 'order_open' : 'hold',
     testRunId: input.testRunId,
     cycleNumber: input.plan.cycleNumber,
     earliestAttemptAt: schedule.earliestAt,
@@ -2074,6 +2249,7 @@ export async function assertRoutingPlayMatches(
   }
   const awaitingCycle = num(data.awaitingCycleNumber, 0)
   const awaitingKind = typeof data.awaitingKind === 'string' ? data.awaitingKind : 'deploy'
+  const cyclePhase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
   if (awaitingCycle !== play.cycleNumber || awaitingKind !== play.action) {
     const step = awaitingKind === 'replenish' ? 'the restock' : 'the sale'
     throw new functions.https.HttpsError(
@@ -2081,6 +2257,21 @@ export async function assertRoutingPlayMatches(
       awaitingCycle > 0
         ? `That card is no longer the current step. The desk is waiting on ${step} for cycle ${awaitingCycle}.`
         : 'That card is no longer the current step. Open the desk for the next instruction.'
+    )
+  }
+  if (
+    play.action === 'deploy' &&
+    cyclePhase &&
+    cyclePhase !== 'awaiting_send' &&
+    cyclePhase !== 'hold'
+  ) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      cyclePhase === 'awaiting_mzn'
+        ? 'MZN for this invoice has not cleared yet. Wait for the batch receipt before sending ZAR.'
+        : cyclePhase === 'awaiting_continue'
+          ? 'ZAR float is short for this scheduled order. Add ZAR to continue.'
+          : 'This order is not ready for the ZAR send yet.'
     )
   }
 
@@ -2153,6 +2344,23 @@ export async function applyAdminCapitalShock(params: {
 
   const now = admin.firestore.Timestamp.now()
   const data = existing.data() || {}
+  const phase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
+  // Continue path: inject ZAR into the open scheduled order — do not cancel Day n.
+  if ((phase === 'awaiting_continue' || phase === 'awaiting_mzn') && (kind === 'add_zar' || kind === 'add_mzn')) {
+    const state = applyCapitalShock(stateFromDoc(data), { kind, amountZar: amount, amountMzn: mzn })
+    await db.collection(TESTS).doc(existingId).set(
+      {
+        availableCapital: state.availableCapital,
+        ...persistCapital(state),
+        lastShockLine: shockLine,
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+    await tryAdvanceContinuousCycle()
+    return
+  }
+
   const state = applyCapitalShock(stateFromDoc(data), { kind, amountZar: amount, amountMzn: mzn })
   const awaiting = num(data.awaitingCycleNumber, 0)
   if (awaiting > 0) {
