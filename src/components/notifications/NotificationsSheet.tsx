@@ -5,6 +5,7 @@ import ActionSheet from '../ActionSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useActivityUnreadStore } from '@/store/activityUnread'
 import { NotificationsList } from './NotificationsList'
+import OperatingCalendarSheet from '@/components/desk/OperatingCalendarSheet'
 import { DESK_RING, DESK_TEAM, type DeskAgent } from '@/lib/desk/threadModel'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
@@ -41,7 +42,10 @@ function DeskFace({ src, className, speaking }: { src: string; className: string
 }
 
 export default function NotificationsSheet() {
-  const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
+  const isNotificationsOpen = useNotificationsStore((s) => s.isNotificationsOpen)
+  const isOperatingCalendarOpen = useNotificationsStore((s) => s.isOperatingCalendarOpen)
+  const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
+  const closeOperatingCalendar = useNotificationsStore((s) => s.closeOperatingCalendar)
   const active = useDeskSpeakerStore((s) => s.active)
   const speaker = DESK_TEAM[active]
 
@@ -54,37 +58,40 @@ export default function NotificationsSheet() {
   }, [isNotificationsOpen])
 
   return (
-    <ActionSheet
-      open={isNotificationsOpen}
-      onClose={closeNotifications}
-      title=""
-      size="tall"
-      className={`${listStyles.financialInboxSheet} inboxTallSheet`}
-    >
-      <div className={`${listStyles.content} ${listStyles.activityContent}`}>
-        <div className={listStyles.deskHeaderChrome} aria-hidden />
-        <div className={listStyles.activitySearchOverlay}>
-          <div className={listStyles.deskHeader}>
-            <div className={listStyles.deskTeamStack} aria-hidden>
-              {DESK_RING.map((id) => (
-                <DeskFace
-                  key={id}
-                  src={DESK_TEAM[id].avatar}
-                  className={slotFor(id, active)}
-                  speaking={id === active}
-                />
-              ))}
+    <>
+      <ActionSheet
+        open={isNotificationsOpen}
+        onClose={closeNotifications}
+        title=""
+        size="tall"
+        className={`${listStyles.financialInboxSheet} inboxTallSheet`}
+      >
+        <div className={`${listStyles.content} ${listStyles.activityContent}`}>
+          <div className={listStyles.deskHeaderChrome} aria-hidden />
+          <div className={listStyles.activitySearchOverlay}>
+            <div className={listStyles.deskHeader}>
+              <div className={listStyles.deskTeamStack} aria-hidden>
+                {DESK_RING.map((id) => (
+                  <DeskFace
+                    key={id}
+                    src={DESK_TEAM[id].avatar}
+                    className={slotFor(id, active)}
+                    speaking={id === active}
+                  />
+                ))}
+              </div>
+              <p key={`${active}-name`} className={`${listStyles.deskHeaderName} ${listStyles.deskHeaderSwap}`}>
+                {speaker.name}
+              </p>
+              <p key={`${active}-role`} className={`${listStyles.deskHeaderRole} ${listStyles.deskHeaderSwap}`}>
+                {speaker.role}
+              </p>
             </div>
-            <p key={`${active}-name`} className={`${listStyles.deskHeaderName} ${listStyles.deskHeaderSwap}`}>
-              {speaker.name}
-            </p>
-            <p key={`${active}-role`} className={`${listStyles.deskHeaderRole} ${listStyles.deskHeaderSwap}`}>
-              {speaker.role}
-            </p>
           </div>
+          <NotificationsList />
         </div>
-        <NotificationsList />
-      </div>
-    </ActionSheet>
+      </ActionSheet>
+      <OperatingCalendarSheet open={isOperatingCalendarOpen} onClose={closeOperatingCalendar} />
+    </>
   )
 }

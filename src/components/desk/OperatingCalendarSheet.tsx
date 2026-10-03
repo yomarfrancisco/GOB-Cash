@@ -53,7 +53,7 @@ export default function OperatingCalendarSheet({ open, onClose }: Props) {
       open={open}
       onClose={onClose}
       title={inDayView ? '' : month.label}
-      className={inDayView ? 'operating-calendar-day' : ''}
+      className={`operating-calendar-sheet${inDayView ? ' operating-calendar-day' : ''}`}
       size="tall"
     >
       {inDayView ? (

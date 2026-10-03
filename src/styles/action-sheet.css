@@ -24,6 +24,11 @@
   z-index: 10020;
 }
 
+/* Operating calendar opens above the desk (desk dismisses while it is up). */
+.as-root:has(.operating-calendar-sheet) {
+  z-index: 10030;
+}
+
 .as-overlay {
   position: absolute;
   inset: 0;

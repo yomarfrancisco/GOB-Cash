@@ -32,7 +32,6 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
-import OperatingCalendarSheet from '@/components/desk/OperatingCalendarSheet'
 import { TypewriterText } from '@/components/desk/TypewriterText'
 
 const KYC_GATE_ID = 'kyc-desk-gate'
@@ -290,6 +289,7 @@ function ActivityItemCard({
   onDiscardProposal,
   lockDeskActions,
   onOpenCalendar,
+  isLatestBubble,
   animateEntrance,
   entranceSettled,
   onEntranceComplete,
@@ -301,6 +301,7 @@ function ActivityItemCard({
   onDiscardProposal: (item: ActivityItem) => Promise<void>
   lockDeskActions?: boolean
   onOpenCalendar?: () => void
+  isLatestBubble?: boolean
   animateEntrance?: boolean
   entranceSettled?: boolean
   onEntranceComplete?: (id: string) => void
@@ -322,7 +323,12 @@ function ActivityItemCard({
   const [startNextState, setStartNextState] = useState<'idle' | 'loading'>('idle')
   const actionsUnlocked = entranceSettled !== false
   const showDownload = actionsUnlocked && canDownloadProof(item)
-  const showCalendar = actionsUnlocked && item.showCalendarButton === true && Boolean(onOpenCalendar)
+  // Calendar only on the newest bubble — never on earlier cards that still carry the flag.
+  const showCalendar =
+    actionsUnlocked &&
+    isLatestBubble === true &&
+    item.showCalendarButton === true &&
+    Boolean(onOpenCalendar)
   const showStartNextRun = actionsUnlocked && !lockDeskActions && item.startNextRun === true
   const showKycLink = actionsUnlocked && item.hasKycLink === true
   const isKycGate = isKycGateItem(item)
@@ -789,6 +795,7 @@ function ActivitySection({
   onDiscardProposal,
   lockDeskActions,
   onOpenCalendar,
+  calendarBubbleId,
   visibleIds,
   typingId,
   isSettled,
@@ -803,6 +810,7 @@ function ActivitySection({
   onDiscardProposal: (item: ActivityItem) => Promise<void>
   lockDeskActions?: boolean
   onOpenCalendar?: () => void
+  calendarBubbleId: string | null
   visibleIds: Set<string>
   typingId: string | null
   isSettled: (id: string) => boolean
@@ -825,6 +833,7 @@ function ActivitySection({
             onDiscardProposal={onDiscardProposal}
             lockDeskActions={lockDeskActions}
             onOpenCalendar={onOpenCalendar}
+            isLatestBubble={item.id === calendarBubbleId}
             animateEntrance={item.id === typingId}
             entranceSettled={item.thinking === true || isSettled(item.id)}
             onEntranceComplete={onEntranceComplete}
@@ -846,7 +855,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const [askText, setAskText] = useState('')
   const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
   const [askError, setAskError] = useState('')
-  const [calendarOpen, setCalendarOpen] = useState(false)
+  const openOperatingCalendarFromDesk = useNotificationsStore((s) => s.openOperatingCalendarFromDesk)
   
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -1048,6 +1057,14 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     })
   }
 
+  const calendarBubbleId = useMemo(() => {
+    for (let i = pagedItems.length - 1; i >= 0; i--) {
+      const item = pagedItems[i]
+      if (item && item.thinking !== true && item.id !== KYC_GATE_ID) return item.id
+    }
+    return null
+  }, [pagedItems])
+
   const sectionProps = {
     latestAwaitingId,
     latestActivityId,
@@ -1055,7 +1072,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     onAcceptProposal: handleAcceptProposal,
     onDiscardProposal: handleDiscardProposal,
     lockDeskActions: deskBlocked,
-    onOpenCalendar: () => setCalendarOpen(true),
+    onOpenCalendar: openOperatingCalendarFromDesk,
+    calendarBubbleId,
     visibleIds: reveal.visibleIds,
     typingId: reveal.typingId,
     isSettled: reveal.isSettled,
@@ -1145,7 +1163,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
         </div>
         {askError ? <p className={styles.replyError}>{askError}</p> : null}
       </form>
-      <OperatingCalendarSheet open={calendarOpen} onClose={() => setCalendarOpen(false)} />
     </>
   )
 }
