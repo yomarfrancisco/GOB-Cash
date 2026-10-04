@@ -77,9 +77,21 @@ import {
 import {
   ASK_INTENT_MIN_CONFIDENCE,
   classifyAskIntent,
+  mayAmendSchedule,
   mayMutateRoute,
   type AskClassification,
 } from '../routing/askIntent'
+import {
+  applySalesScheduleAmendment,
+  beliefFingerprint,
+  dailyCapForDate,
+  formatPlanRevisedBody,
+  parseSalesScheduleAmendment,
+  replanScopeForStep,
+  salesScheduleFromDoc,
+  sastIsoDate,
+  type SalesScheduleState,
+} from '../routing/salesScheduleAmendment'
 import { interpretAdminFeedback, llmApiKey } from '../routing/interpretFeedback'
 import {
   converseAtDesk,
@@ -135,6 +147,7 @@ import {
   type PathWrite,
 } from '../routing/pathEngine'
 import {
+  OPERATING_POLICY_V1,
   OPERATING_POLICY_VERSION,
   buildDeskOpsBrief,
   emptyContinuityState,
@@ -146,7 +159,7 @@ import {
   type ContinuityStateV1,
   type ConfirmInstruction,
 } from '../operatingCalendar'
-import { expectedMznForOrder, type CyclePhase } from '../routing/continuousCycle'
+import { expectedMznForOrder, stepForPhase, type CyclePhase } from '../routing/continuousCycle'
 import { askCardTitle, sideCardTitle, stepCardTitle, windowCardTitle } from '../routing/deskTitles'
 
 const inboundSecret = defineSecret('RESEND_INBOUND_SECRET')
@@ -1220,6 +1233,7 @@ function writeIssuedCycle(
       expectedOrderZar: orderZar,
       expectedOrderMzn: orderMzn,
       orderSellRate: quotes.sellRate,
+      salesCommittedZar: 0,
       ...persistPathBook({}, persistBook),
       updatedAt: now,
     }),
@@ -3073,6 +3087,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
         .doc(currentRoutingEventId(testRunId, cycleNumber, cycleData))
       const testComplete = nextState.completedCycles >= nextState.config.cycleCount
 
+      const soldZar = plan.cardAssignments.reduce((sum, row) => sum + (row.amount || 0), 0)
       tx.update(cycleRef, {
         status: 'completed' as CycleStatus,
         actualProfit,
@@ -3100,6 +3115,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
             testRunId,
             adminUid,
             status: 'completed',
+            salesCommittedZar: soldZar,
             awaitingCycleNumber: null,
             awaitingKind: null,
             constraints: remainingConstraints,
@@ -3140,6 +3156,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
             cards: nextState.cards,
             machines: nextState.machines,
             pairings: nextState.pairings,
+            salesCommittedZar: soldZar,
             awaitingCycleNumber: null,
             awaitingKind: null,
             constraints: remainingConstraints,
@@ -3293,6 +3310,395 @@ function isConfirmTooEarlyError(error: unknown): string | null {
   if (typeof details?.earliestAttemptAt === 'string') return details.earliestAttemptAt
   const match = error.message.match(/attempt is before (.+)$/)
   return match?.[1] || null
+}
+
+function scaleAssignmentsToAmount(
+  assignments: Array<{ cardId: number; machineId: number; amount: number }>,
+  targetZar: number
+): Array<{ cardId: number; machineId: number; amount: number }> {
+  if (!(targetZar > 0) || !assignments.length) return []
+  const total = assignments.reduce((s, row) => s + (row.amount || 0), 0)
+  if (!(total > 0)) return assignments.map((row) => ({ ...row, amount: 0 }))
+  const scaled = assignments.map((row) => ({
+    ...row,
+    amount: Math.round(((row.amount || 0) / total) * targetZar * 100) / 100,
+  }))
+  const drift = Math.round((targetZar - scaled.reduce((s, row) => s + row.amount, 0)) * 100) / 100
+  if (scaled[0]) scaled[0] = { ...scaled[0], amount: Math.round((scaled[0].amount + drift) * 100) / 100 }
+  return scaled.filter((row) => row.amount > 0)
+}
+
+async function applySalesScheduleAmendmentOnDesk(params: {
+  adminUid: string
+  testRunId: string
+  testRef: FirebaseFirestore.DocumentReference
+  testData: FirebaseFirestore.DocumentData
+  cycleRef: FirebaseFirestore.DocumentReference
+  cycleSnap: FirebaseFirestore.DocumentSnapshot
+  cycleNumber: number
+  askMessage: string
+  liveState: RoutingState
+  nowMs: number
+  awaitingKind: string
+}): Promise<{
+  testRunId: string
+  cycleNumber: number
+  status: string
+  acknowledgement: string
+  planVersion?: number
+}> {
+  const {
+    adminUid,
+    testRunId,
+    testRef,
+    testData,
+    cycleRef,
+    cycleSnap,
+    cycleNumber,
+    askMessage,
+    liveState,
+    nowMs,
+    awaitingKind,
+  } = params
+
+  const schedule = salesScheduleFromDoc(testData as Record<string, unknown>)
+  const idempotencyKeyHint = `${askMessage.trim().toLowerCase().replace(/\s+/g, ' ')}|v${schedule.planVersion}`
+  const priorAmendments = Array.isArray(testData.salesScheduleAmendments)
+    ? (testData.salesScheduleAmendments as Array<Record<string, unknown>>)
+    : []
+  const priorHit = priorAmendments.find((row) => row.idempotencyKey === idempotencyKeyHint || row.rawMessageNorm === idempotencyKeyHint.split('|')[0] && row.expectedPlanVersion === schedule.planVersion)
+  if (priorHit && typeof priorHit.replyBody === 'string') {
+    return {
+      testRunId,
+      cycleNumber,
+      status: 'idempotent',
+      acknowledgement: priorHit.replyBody,
+      planVersion: schedule.planVersion,
+    }
+  }
+
+  const parsed = parseSalesScheduleAmendment(askMessage, {
+    nowMs,
+    expectedPlanVersion: schedule.planVersion,
+  })
+  if ('clarification' in parsed) {
+    const now = admin.firestore.Timestamp.now()
+    const feedbackId = testRef.collection('feedback').doc().id
+    const body = parsed.clarification
+    await db.runTransaction(async (tx) => {
+      publishAdviceCard(tx, {
+        adminUid,
+        testRunId,
+        cycleNumber,
+        feedbackId,
+        now,
+        title: 'Clarify',
+        body,
+        userReply: askMessage,
+        routingAction: 'advice',
+        deskSpeaker: 'sam',
+      })
+      tx.set(testRef.collection('feedback').doc(feedbackId), {
+        id: feedbackId,
+        adminUserId: adminUid,
+        cycleNumber,
+        rawMessage: askMessage,
+        replyBody: body,
+        status: 'question',
+        askIntent: 'schedule_amendment',
+        createdAt: now,
+      })
+    })
+    return { testRunId, cycleNumber, status: 'question', acknowledgement: body }
+  }
+
+  const deskStep = num(testData.deskStep, stepForPhase(String(testData.cyclePhase || '')) || 1)
+  const scope = replanScopeForStep(deskStep)
+  const cycleData = cycleSnap.exists ? cycleSnap.data() || {} : {}
+  const previousDaily = num(
+    cycleData.deployedAmount,
+    num(testData.expectedOrderZar, num(liveState.window?.snapshot.days.at(-1)?.recommendedZar, 25_000))
+  )
+  const committedZar = num(testData.salesCommittedZar, 0)
+  const beliefBefore = beliefFingerprint({
+    pathResiduals: testData.pathResiduals,
+    pairings: liveState.pairings,
+    routeEvidenceVersion: testData.routeEvidenceVersion as string | number | null,
+  })
+
+  let effectiveProposal = parsed
+  if (scope.applyFromNextDay && effectiveProposal.effectiveDate === sastIsoDate(nowMs)) {
+    // Step 6: push to next open operating day if they said "today" after close.
+    const tomorrow = sastIsoDate(nowMs + 86_400_000)
+    effectiveProposal = {
+      ...effectiveProposal,
+      effectiveDate: tomorrow,
+      dateOverrides: Object.fromEntries(
+        Object.entries(effectiveProposal.dateOverrides).map(([k, v]) =>
+          k === sastIsoDate(nowMs) ? [tomorrow, v] : [k, v]
+        )
+      ),
+    }
+  }
+
+  const result = applySalesScheduleAmendment(effectiveProposal, {
+    nowMs,
+    plan: schedule,
+    floor: {
+      deskStep,
+      cyclePhase: typeof testData.cyclePhase === 'string' ? testData.cyclePhase : null,
+      expectedOrderZar: num(testData.expectedOrderZar, previousDaily),
+      deployedAmount: num(cycleData.deployedAmount, previousDaily),
+      committedZar,
+      cycleStatus: typeof cycleData.status === 'string' ? cycleData.status : null,
+    },
+    previousDailyAmountZar: dailyCapForDate(schedule, effectiveProposal.effectiveDate, previousDaily),
+    safeDailyCeilingZar: OPERATING_POLICY_V1.network.establishedDailyCeilingZar,
+    beliefFingerprintBefore: beliefBefore,
+  })
+
+  if (!result.ok) {
+    const now = admin.firestore.Timestamp.now()
+    const feedbackId = testRef.collection('feedback').doc().id
+    const body = result.clarification
+    await db.runTransaction(async (tx) => {
+      publishAdviceCard(tx, {
+        adminUid,
+        testRunId,
+        cycleNumber,
+        feedbackId,
+        now,
+        title: result.status === 'stale_version' ? 'Plan revised' : 'Clarify',
+        body,
+        userReply: askMessage,
+        routingAction: 'advice',
+        deskSpeaker: 'sam',
+      })
+      tx.set(testRef.collection('feedback').doc(feedbackId), {
+        id: feedbackId,
+        adminUserId: adminUid,
+        cycleNumber,
+        rawMessage: askMessage,
+        replyBody: body,
+        status: result.status,
+        askIntent: 'schedule_amendment',
+        expectedPlanVersion: effectiveProposal.expectedPlanVersion,
+        currentPlanVersion: result.currentPlanVersion,
+        createdAt: now,
+      })
+    })
+    return { testRunId, cycleNumber, status: result.status, acknowledgement: body, planVersion: result.currentPlanVersion }
+  }
+
+  const todayIso = sastIsoDate(nowMs)
+  const revisesToday =
+    effectiveProposal.effectiveDate === todayIso ||
+    Object.prototype.hasOwnProperty.call(result.nextPlan.dateOverrides, todayIso)
+  const nextOrderZar = revisesToday
+    ? dailyCapForDate(result.nextPlan, todayIso, result.revisedDailyAmountZar)
+    : num(testData.expectedOrderZar, previousDaily)
+  const remaining = Math.max(0, nextOrderZar - committedZar)
+  const priorAssignments = Array.isArray(cycleData.cardAssignments)
+    ? (cycleData.cardAssignments as Array<{ cardId: number; machineId: number; amount: number }>)
+    : []
+  const nextAssignments =
+    revisesToday && (awaitingKind === 'deploy' || awaitingKind === 'step') && cycleSnap.exists
+      ? scaleAssignmentsToAmount(priorAssignments, remaining > 0 ? remaining : nextOrderZar)
+      : priorAssignments
+
+  const now = admin.firestore.Timestamp.now()
+  const feedbackId = testRef.collection('feedback').doc().id
+  const planMomentId = `${feedbackId}-plan`
+  const samBody = result.explanation
+  const planBody = formatPlanRevisedBody(result)
+  const amendmentRecord = {
+    id: feedbackId,
+    action: 'revise_sales_schedule',
+    rawMessage: askMessage,
+    rawMessageNorm: askMessage.trim().toLowerCase().replace(/\s+/g, ' '),
+    idempotencyKey: effectiveProposal.idempotencyKey || idempotencyKeyHint,
+    expectedPlanVersion: effectiveProposal.expectedPlanVersion,
+    oldPlanVersion: result.previousPlan.planVersion,
+    newPlanVersion: result.nextPlan.planVersion,
+    effectiveDate: result.effectiveDate,
+    previousDailyAmountZar: result.previousDailyAmountZar,
+    revisedDailyAmountZar: result.revisedDailyAmountZar,
+    committedFloorZar: result.committedFloorZar,
+    remainingToScheduleZar: result.remainingToScheduleZar,
+    residualBeforeZar: result.residualBeforeZar,
+    residualAfterZar: result.residualAfterZar,
+    previousProjectedCompletionDate: result.previousProjectedCompletionDate,
+    revisedProjectedCompletionDate: result.revisedProjectedCompletionDate,
+    supersededInstructionIds: result.supersededInstructionIds,
+    newlyPlannedInstructionIds: result.newlyPlannedInstructionIds,
+    reasonClass: effectiveProposal.reasonClass,
+    parsedProposal: effectiveProposal,
+    replyBody: samBody,
+    planBody,
+    actor: adminUid,
+    policyVersion: result.nextPlan.policyVersion,
+    stateHash: result.nextPlan.stateHash,
+    beliefFingerprintBefore: beliefBefore,
+    beliefFingerprintAfter: result.beliefFingerprintAfter,
+    touchedBeliefs: false,
+    deskStep,
+    createdAtMs: nowMs,
+  }
+
+  await db.runTransaction(async (tx) => {
+    // Sam conversational reply
+    publishAdviceCard(tx, {
+      adminUid,
+      testRunId,
+      cycleNumber,
+      feedbackId,
+      now,
+      title: 'Schedule',
+      body: samBody,
+      userReply: askMessage,
+      routingAction: 'advice',
+      deskSpeaker: 'sam',
+    })
+    // Compact Plan revised moment (separate card)
+    publishAdviceCard(tx, {
+      adminUid,
+      testRunId,
+      cycleNumber,
+      feedbackId: planMomentId,
+      now,
+      title: 'Plan revised',
+      body: planBody,
+      userReply: '',
+      routingAction: 'advice',
+      deskSpeaker: 'sam',
+    })
+
+    const nextSchedule: SalesScheduleState = result.nextPlan
+    tx.set(
+      testRef,
+      {
+        salesSchedule: nextSchedule,
+        salesScheduleAmendments: [...priorAmendments.slice(-40), amendmentRecord],
+        ...(revisesToday
+          ? {
+              expectedOrderZar: nextOrderZar,
+              expectedOrderMzn: expectedMznForOrder(
+                nextOrderZar,
+                num(cycleData.sellRate, 0) ||
+                  num((testData.frozenQuote as { sellRate?: number } | undefined)?.sellRate, 0)
+              ),
+            }
+          : {}),
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+
+    if (revisesToday && cycleSnap.exists && (scope.mayRebuildFullDay || scope.preserveCommitted)) {
+      const previousEventId = currentRoutingEventId(testRunId, cycleNumber, cycleData)
+      if (previousEventId && nextAssignments.length >= 0 && awaitingKind === 'deploy') {
+        const revisionCount = num(cycleData.revisionCount, 0)
+        const blocked = nextOrderZar <= 0 || (remaining <= 0 && committedZar <= 0)
+        const published = publishAgentRevision(tx, {
+          adminUid,
+          testRunId,
+          cycleNumber,
+          previousEventId,
+          revisionCount,
+          now,
+          title: stepCardTitle(4),
+          body: [
+            samBody,
+            '',
+            nextOrderZar > 0
+              ? `Revised day order ${formatZar(nextOrderZar)} (${formatZar(committedZar)} committed · ${formatZar(remaining)} still to schedule).`
+              : 'No further ZAR intake scheduled for this day.',
+          ].join('\n'),
+          dropdownTitle: stepCardTitle(4),
+          dropdownBody: `Revised to ${formatZar(nextOrderZar)}`,
+          amountValue: Math.max(remaining, committedZar > 0 ? committedZar : nextOrderZar),
+          awaitingConfirm: !blocked && remaining > 0 && deskStep >= 4,
+          routingBlocked: blocked,
+          userReply: askMessage,
+        })
+        tx.update(cycleRef, {
+          cardAssignments: nextAssignments,
+          machineAssignments: nextAssignments.map((row) => ({
+            machineId: row.machineId,
+            cardId: row.cardId,
+            amount: row.amount,
+          })),
+          deployedAmount: nextOrderZar,
+          expectedOrderZar: nextOrderZar,
+          activityEventId: published.activityEventId,
+          revisionCount: published.revisionCount,
+          planVersion: nextSchedule.planVersion,
+          status: 'awaiting_execution',
+          supersededPlanVersion: result.previousPlan.planVersion,
+          updatedAt: now,
+        })
+      } else {
+        tx.set(
+          cycleRef,
+          {
+            expectedOrderZar: nextOrderZar,
+            deployedAmount: nextOrderZar,
+            cardAssignments: nextAssignments.length ? nextAssignments : priorAssignments,
+            planVersion: nextSchedule.planVersion,
+            supersededPlanVersion: result.previousPlan.planVersion,
+            updatedAt: now,
+          },
+          { merge: true }
+        )
+        // Supersede open Step 1–3 cards' amounts via a Sam day brief-style update when present.
+        const stepEventId =
+          typeof cycleData.activityEventId === 'string'
+            ? cycleData.activityEventId
+            : `sam-day-brief-${testRunId}-c${cycleNumber}`
+        const stepRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(stepEventId)
+        tx.set(
+          stepRef,
+          {
+            amountValue: nextOrderZar,
+            body:
+              deskStep <= 1
+                ? `Scheduled ZAR order: ${formatZar(nextOrderZar)}. Plan v${nextSchedule.planVersion}.`
+                : undefined,
+            dropdownBody: `Order ${formatZar(nextOrderZar)}`,
+            planVersion: nextSchedule.planVersion,
+            updatedAt: now,
+          },
+          { merge: true }
+        )
+      }
+    }
+
+    tx.set(testRef.collection('feedback').doc(feedbackId), {
+      ...amendmentRecord,
+      createdAt: now,
+      status: 'applied',
+      askIntent: 'schedule_amendment',
+    })
+    tx.set(testRef.collection('planVersions').doc(String(nextSchedule.planVersion)), {
+      ...nextSchedule,
+      amendmentId: feedbackId,
+      createdAt: now,
+      status: 'current',
+    })
+    tx.set(
+      testRef.collection('planVersions').doc(String(result.previousPlan.planVersion)),
+      { status: 'superseded', supersededAt: now, supersededBy: nextSchedule.planVersion },
+      { merge: true }
+    )
+  })
+
+  return {
+    testRunId,
+    cycleNumber,
+    status: 'applied',
+    acknowledgement: samBody,
+    planVersion: result.nextPlan.planVersion,
+  }
 }
 
 /** Opens the next sale when a confirm saved the swipe and then timed out. */
@@ -3644,6 +4050,24 @@ export const admin_submitConversionRoutingFeedback = functions
           status: 'advice',
           acknowledgement: answered.body,
         }
+      }
+      if (
+        mayAmendSchedule(classification.intent) &&
+        classification.confidence >= ASK_INTENT_MIN_CONFIDENCE
+      ) {
+        return applySalesScheduleAmendmentOnDesk({
+          adminUid,
+          testRunId,
+          testRef,
+          testData,
+          cycleRef,
+          cycleSnap,
+          cycleNumber,
+          askMessage,
+          liveState,
+          nowMs,
+          awaitingKind,
+        })
       }
       const allowConstraintIntents =
         mayMutateRoute(classification.intent) && classification.confidence >= ASK_INTENT_MIN_CONFIDENCE

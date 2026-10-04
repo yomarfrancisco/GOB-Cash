@@ -19,6 +19,7 @@ import {
   wantsNewRoutingRun,
   isNextWindowAsk,
 } from './routingTime'
+import { looksLikeSalesScheduleAmendment } from './salesScheduleAmendment'
 
 export function isDeskConversationAsk(message: string): boolean {
   const text = stem(message)
@@ -52,6 +53,7 @@ export type AskIntent =
   | 'current_route_question'
   | 'constraint_request'
   | 'path_write'
+  | 'schedule_amendment'
   | 'execution_status'
   | 'next_window'
   | 'conversation'
@@ -77,6 +79,7 @@ const INTENTS: AskIntent[] = [
   'current_route_question',
   'constraint_request',
   'path_write',
+  'schedule_amendment',
   'execution_status',
   'next_window',
   'conversation',
@@ -155,6 +158,9 @@ export function classifyAskIntentFast(
   if (namesObviousConstraint(message) && !isInterrogativeAsk(message)) {
     return classified('constraint_request', message, 0.92, 'explicit constraint verb')
   }
+  if (looksLikeSalesScheduleAmendment(message) && !isInterrogativeAsk(message)) {
+    return classified('schedule_amendment', message, 0.93, 'ZAR sales schedule amendment')
+  }
   if (isNextWindowAsk(message)) {
     return classified('next_window', message, 0.92, 'fund or reopen the window')
   }
@@ -228,6 +234,7 @@ friction_question — review risk, merchant age, BIM/Capitec cases, unusual vs b
 current_route_question — explain the open restock or sale, or what's next on that instruction
 constraint_request — the admin is changing inventory: rest, exclude, restore, cap, prefer, park, use X next
 path_write — confirmed rail outcome: freeze, rail_up, decline, unpaid, delay. Not a pair assignment.
+schedule_amendment — revise ZAR daily sales amounts / days (reduce today, no sales Wednesday, cap Thu/Fri, from tomorrow R20k/day). Not a card/POS constraint and not payment authorisation.
 execution_status — start the next run, or whether a swipe/sale is awaiting
 next_window — the window is finished or they ask how to inject capital, add ZAR, or start again
 conversation — greeting, "are you there", who am I / who are you, small talk that should stay on the desk
@@ -238,6 +245,7 @@ Rules:
 - Naming a card or POS is not a constraint by itself.
 - Questions (why/when/have/did/is) are never constraint_request unless they also command a change (park, rest, don't use, restore, cap, prefer).
 - "Use Ginav next time" is constraint_request.
+- "Reduce today’s ZAR sale to R12,000", "No ZAR sales on Wednesday", "Cap Thursday and Friday at R15,000 each" are schedule_amendment.
 - "Capitec declined", "FNB IMANI froze", "that swipe did not land" are path_write.
 - "Why did we choose FNB IMANI for Ginav last time?" is historical_explanation.
 - "Have we been leaning too heavily on any one POS today?" is ledger_aggregate.
@@ -301,6 +309,10 @@ export async function classifyAskIntent(
 
 export function mayMutateRoute(intent: AskIntent): boolean {
   return intent === 'constraint_request' || intent === 'path_write'
+}
+
+export function mayAmendSchedule(intent: AskIntent): boolean {
+  return intent === 'schedule_amendment'
 }
 
 export function enforceReadOnlyAdvice<T extends { kind: string; options?: unknown; recommendedOptionId?: unknown }>(
