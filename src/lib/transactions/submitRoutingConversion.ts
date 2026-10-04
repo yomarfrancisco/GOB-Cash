@@ -3,6 +3,8 @@ import { admin_confirmConversionRoutingCycle } from '@/lib/transactions/clientFu
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useNotificationsStore } from '@/state/notifications'
+import { useDeskPlanStore } from '@/store/deskPlan'
+import { useDeskFocusStore } from '@/store/deskFocus'
 
 export async function submitRoutingConversion(params: {
   amountZAR: number
@@ -55,12 +57,23 @@ export async function submitRoutingConversion(params: {
     suppressDeskActivity: true,
   })
   if (routingPlay && play) {
-    await admin_confirmConversionRoutingCycle({
+    const summary = await admin_confirmConversionRoutingCycle({
       testRunId: routingPlay.testRunId,
       cycleNumber: routingPlay.cycleNumber,
       conversionTxId: result.txId,
       // Admin continuity: keypad confirm must not re-hit the swipe clock.
       overrideEarliest: true,
     })
+    if (summary?.deskMode === 'planned' || typeof summary?.plannedClockMs === 'number') {
+      useDeskPlanStore.getState().applySummary(summary)
+      if (typeof summary.plannedClockMs === 'number' && summary.plannedClockMs > 0) {
+        useDeskFocusStore
+          .getState()
+          .setFocus(
+            summary.plannedClockMs,
+            typeof summary.cycleNumber === 'number' ? summary.cycleNumber : null
+          )
+      }
+    }
   }
 }

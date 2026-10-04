@@ -3426,6 +3426,15 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
       }
     }
 
+    // Keypad pauses split a day across several Next 24h taps — advance the
+    // Planned header when a cycle actually completes (next day issued).
+    let plannedClockMs: number | null = null
+    if (result.issueNext && nextCycle) {
+      plannedClockMs = await bumpPlannedClockIfNeeded(testRef, adminUid, testRunId)
+    }
+    const modeSnap = await testRef.get()
+    const deskMode = modeSnap.data()?.deskMode === 'planned' ? 'planned' : 'live'
+
     return publicSummary(result.nextState, {
       testRunId,
       status: result.testComplete ? 'completed' : 'active',
@@ -3433,6 +3442,8 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
       cycleNumber: nextCycle?.cycleNumber ?? result.nextState.completedCycles,
       nextDeployedAmount: nextCycle?.deployedAmount ?? null,
       completed: result.testComplete,
+      deskMode,
+      ...(plannedClockMs ? { plannedClockMs } : {}),
     })
 }
 
@@ -5217,16 +5228,32 @@ async function restoreLiveCheckpoint(
 function keypadGateFromDoc(data: admin.firestore.DocumentData): 'send' | 'restock' | null {
   const phase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
   const awaitingKind = typeof data.awaitingKind === 'string' ? data.awaitingKind : ''
-  const deskStep = num(data.deskStep, 0)
   if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') return 'restock'
-  if (
-    awaitingKind === 'deploy' ||
-    phase === 'awaiting_send' ||
-    (phase === 'awaiting_mzn' && deskStep >= 4)
-  ) {
-    return 'send'
-  }
+  // Only when Leo’s send is actually unlocked — not merely deskStep >= 4.
+  if (awaitingKind === 'deploy' || phase === 'awaiting_send') return 'send'
   return null
+}
+
+async function bumpPlannedClockIfNeeded(
+  testRef: FirebaseFirestore.DocumentReference,
+  adminUid: string,
+  testRunId: string
+): Promise<number | null> {
+  const snap = await testRef.get()
+  const data = snap.data() || {}
+  if (data.deskMode !== 'planned') return null
+  const prev = num(data.plannedClockMs, 0)
+  const next = (prev > 0 ? prev : Date.now()) + 24 * 60 * 60 * 1000
+  const now = admin.firestore.Timestamp.now()
+  await testRef.set({ plannedClockMs: next, updatedAt: now }, { merge: true })
+  await db
+    .collection('users')
+    .doc(adminUid)
+    .collection('activityEvents')
+    .doc(`planned-day-${testRunId}`)
+    .set({ plannedClockMs: next, updatedAt: now }, { merge: true })
+    .catch(() => undefined)
+  return next
 }
 
 export async function simulateNextDeskDay(adminUid: string): Promise<Record<string, unknown>> {
@@ -5261,13 +5288,19 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     { merge: true }
   )
 
-  const startGate = keypadGateFromDoc(start)
+  let startGate = keypadGateFromDoc(start)
   // Already on Send/Restock — do not bump the day clock or spam another Planned marker.
+  if (startGate === 'send') {
+    await ensureSimulatedZarCover(adminUid, num(start.expectedOrderZar, 0))
+    await tryAdvanceContinuousCycle()
+    startGate = keypadGateFromDoc((await testRef.get()).data() || {}) || startGate
+  }
   if (startGate) {
-    const state = stateFromDoc(start)
+    const fresh = (await testRef.get()).data() || {}
+    const state = stateFromDoc(fresh)
     return publicSummary(state, {
       testRunId,
-      status: start.status || 'active',
+      status: fresh.status || 'active',
       cycleNumber: startCycle,
       deskMode: 'planned',
       plannedClockMs,
@@ -5277,17 +5310,17 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       awaitingKeypad: startGate,
       keypadAmountZar:
         startGate === 'send'
-          ? num(start.expectedOrderZar, 0)
-          : num(start.replenishAmountZar, num(start.expectedOrderZar, 0)),
+          ? num(fresh.expectedOrderZar, num(start.expectedOrderZar, 0))
+          : num(fresh.replenishAmountZar, num(start.replenishAmountZar, 0)),
       keypadAmountMzn:
         startGate === 'restock'
-          ? num(start.replenishAmountMzn, num(start.expectedOrderMzn, 0))
-          : num(start.expectedOrderMzn, 0),
+          ? num(fresh.replenishAmountMzn, num(start.replenishAmountMzn, 0))
+          : num(fresh.expectedOrderMzn, num(start.expectedOrderMzn, 0)),
       acknowledgement:
         startGate === 'send'
           ? `Day ${startCycle}: Send ZAR is still open — use the keypad, then Next 24h can finish the day.`
           : `Day ${startCycle}: Restock is still open — use the keypad, then Next 24h can open the next day.`,
-      completed: start.status === 'completed',
+      completed: fresh.status === 'completed',
     })
   }
 
@@ -5367,14 +5400,26 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
         continue
       }
 
-      if (
-        awaitingKind === 'deploy' ||
-        phase === 'awaiting_send' ||
-        (phase === 'awaiting_mzn' && deskStep >= 4)
-      ) {
+      if (awaitingKind === 'deploy' || phase === 'awaiting_send') {
+        await ensureSimulatedZarCover(adminUid, num(data.expectedOrderZar, 0))
+        await tryAdvanceContinuousCycle()
+        const unlocked = (await testRef.get()).data() || {}
+        if (keypadGateFromDoc(unlocked) !== 'send') {
+          stopped = 'blocked_send_unlock'
+          steps.push(`send-unlock-blocked:${cycleNumber}`)
+          break
+        }
         stopped = 'awaiting_keypad_send'
         steps.push(`send-open:${cycleNumber}`)
         break
+      }
+
+      // Step 3 done but Leo not unlocked yet — fund + unlock, do not open keypad early.
+      if (phase === 'awaiting_mzn' && deskStep >= 4) {
+        await ensureSimulatedZarCover(adminUid, num(data.expectedOrderZar, 0))
+        await tryAdvanceContinuousCycle()
+        steps.push(`unlock-send:${cycleNumber}`)
+        continue
       }
 
       if (phase === 'awaiting_mzn' || (deskStep === 3 && !phase)) {
@@ -5391,7 +5436,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
             break
           }
         }
-        // Next loop iteration will pause on the open Send keypad card.
+        // Next loop iteration unlocks Send, then pauses for the keypad.
         continue
       }
 

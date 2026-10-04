@@ -147,8 +147,6 @@ export default function NotificationsSheet() {
       void admin_getConversionRoutingStatus()
         .then((row) => {
           if (cancelled) return
-          // Never re-enter Planned from a poll — sims are started only via Next 24h.
-          if (row?.deskMode === 'planned') return
           setSummary(row)
           applyPlanSummary(row)
         })

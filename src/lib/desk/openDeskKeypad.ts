@@ -8,11 +8,10 @@ import { useRoutingPlaybackStore, type RoutingPlayback } from '@/store/routingPl
  */
 export function openDeskKeypad(play: RoutingPlayback): void {
   holdDeskReveal()
+  // Set play before closing the desk so auto-submit never races a null play
+  // (null play was falling through to capitalShock → "Conversion failed").
+  useRoutingPlaybackStore.getState().requestPlay(play)
   useNotificationsStore.getState().closeNotifications()
-  // Let the sheet start closing before the keypad mounts so the pop-in is visible.
-  window.setTimeout(() => {
-    useRoutingPlaybackStore.getState().requestPlay(play)
-  }, 180)
 }
 
 /** Cancel/dismiss path: clear play and bring the desk back after the keypad animates out. */
