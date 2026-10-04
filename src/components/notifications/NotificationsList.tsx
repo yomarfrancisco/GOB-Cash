@@ -21,7 +21,7 @@ import { formatVisibleSast } from '@/lib/routing/routingTime'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
 import { DESK_TEAM, deskAgentFor, activeDeskAgent, addressedDeskAgent } from '@/lib/desk/threadModel'
-import { useProgressiveReveal } from '@/lib/desk/useProgressiveReveal'
+import { DESK_CATCHUP_MS, useProgressiveReveal } from '@/lib/desk/useProgressiveReveal'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { useDeskFocusStore } from '@/store/deskFocus'
 import { useDeskPlanStore } from '@/store/deskPlan'
@@ -940,11 +940,18 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     setVisibleCount(ACTIVITY_PAGE_SIZE)
   }, [searchQuery])
   const isSearching = searchQuery.trim().length > 0
+  const catchupCount = useMemo(() => {
+    const cutoff = Date.now() - DESK_CATCHUP_MS
+    return filteredItems.filter(
+      (item) => item.thinking !== true && item.id !== KYC_GATE_ID && (item.createdAt || 0) >= cutoff
+    ).length
+  }, [filteredItems])
   const pagedItems = useMemo(() => {
-    const newestWindow = isSearching ? filteredItems : filteredItems.slice(0, visibleCount)
+    const windowSize = isSearching ? filteredItems.length : Math.max(visibleCount, catchupCount)
+    const newestWindow = filteredItems.slice(0, windowSize)
     return [...newestWindow].sort((a, b) => a.createdAt - b.createdAt)
-  }, [filteredItems, isSearching, visibleCount])
-  const hasMore = !isSearching && visibleCount < filteredItems.length
+  }, [filteredItems, isSearching, visibleCount, catchupCount])
+  const hasMore = !isSearching && Math.max(visibleCount, catchupCount) < filteredItems.length
   const listRootRef = useRef<HTMLDivElement>(null)
   const skipScrollRef = useRef(false)
   const latestAwaitingId = useMemo(

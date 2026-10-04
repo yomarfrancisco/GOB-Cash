@@ -19,16 +19,21 @@ export type ProgressiveRevealState = {
 
 const DOTS_MS = 520
 const BETWEEN_MS = 180
+/** On hard refresh / first desk open, replay this window so the user catches up. */
+export const DESK_CATCHUP_MS = 24 * 60 * 60 * 1000
 
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+/** One catch-up replay per page load (close/reopen sheet does not re-play). */
+let catchupConsumedForPageLoad = false
+
 /**
  * Reveal desk bubbles one at a time: dots → typewriter → next.
- * First snapshot seeds as settled so history does not replay on open.
- * Older pagination (lower createdAt) settles instantly.
+ * First snapshot settles anything older than 24h; the last day replays as catch-up.
+ * Older pagination (createdAt at or below the seed watermark) settles instantly.
  */
 export function useProgressiveReveal(items: RevealItem[]): ProgressiveRevealState {
   const [settled, setSettled] = useState<Set<string>>(() => new Set())
@@ -76,10 +81,35 @@ export function useProgressiveReveal(items: RevealItem[]): ProgressiveRevealStat
 
     if (!seededRef.current) {
       seededRef.current = true
-      const seed = new Set(items.map((row) => row.id))
+      const cutoff = Date.now() - DESK_CATCHUP_MS
+      const history = items.filter((row) => (row.createdAt || 0) < cutoff)
+      const catchup = items
+        .filter((row) => (row.createdAt || 0) >= cutoff)
+        .sort((a, b) => a.createdAt - b.createdAt)
+
+      const seed = new Set(history.map((row) => row.id))
+      seedMaxCreatedAtRef.current = history.reduce(
+        (max, row) => Math.max(max, row.createdAt || 0),
+        cutoff - 1
+      )
+
+      const skipCatchup = catchupConsumedForPageLoad || prefersReducedMotion() || !catchup.length
+      if (skipCatchup) {
+        for (const row of catchup) seed.add(row.id)
+        seedMaxCreatedAtRef.current = items.reduce(
+          (max, row) => Math.max(max, row.createdAt || 0),
+          seedMaxCreatedAtRef.current
+        )
+        settledRef.current = seed
+        setSettled(seed)
+        return
+      }
+
+      catchupConsumedForPageLoad = true
       settledRef.current = seed
-      seedMaxCreatedAtRef.current = items.reduce((max, row) => Math.max(max, row.createdAt || 0), 0)
       setSettled(seed)
+      queueRef.current.push(...catchup.map((row) => row.id))
+      pump()
       return
     }
 
