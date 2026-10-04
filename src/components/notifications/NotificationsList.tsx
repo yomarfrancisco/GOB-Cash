@@ -36,6 +36,7 @@ import {
   displayDeskBody,
   displayDeskTitle,
   enrichRecycleBodyWithLiveCost,
+  enrichSendBodyWithLiveSpread,
   executedPillLabel,
 } from '@/lib/desk/deskCopy'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
@@ -443,9 +444,13 @@ function ActivityItemCard({
   const title = displayDeskTitle(item.title)
   const isRecycleCard =
     item.routingAction === 'replenish' || /^Step\s*5\b/i.test(title) || /^Restock ZAR\b/i.test(item.title || '')
+  const isSendCard =
+    item.routingAction === 'deploy' || /^Step\s*4\b/i.test(title) || /^Sell ZAR\b/i.test(item.title || '')
   const body = isRecycleCard
     ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar)
-    : displayDeskBody(item.body)
+    : isSendCard
+      ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
+      : displayDeskBody(item.body)
   const [titleDone, setTitleDone] = useState(!typing || !title)
   useEffect(() => {
     setTitleDone(!typing || !title)

@@ -1,12 +1,18 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { EMPTY_OVERLAY } from './constraints'
-import { applyCapitalShock, createInitialState, DEFAULT_TEST_CONFIG, planCycle, planReplenish } from './conversionRouter'
+import {
+  applyCapitalShock,
+  createInitialState,
+  DEFAULT_TEST_CONFIG,
+  planCycle,
+  planReplenish,
+  weightedBankCostEconomics,
+} from './conversionRouter'
 import { answerHistoricalExplanation } from './historicalAsk'
 import {
   applyPathWrites,
   classifyPathWrite,
-  expectedSpreadMzn,
   fallbackQuote,
   frozenQuoteFromSell,
   pickQBestPair,
@@ -106,10 +112,12 @@ describe('pathEngine Q-best', () => {
     const quote = frozenQuoteFromSell(5.5, 1)
     const state = createInitialState(DEFAULT_TEST_CONFIG, 100_000)
     const sale = planCycle(state, EMPTY_OVERLAY, bookWith({ quote }))
+    const weighted = weightedBankCostEconomics(sale.cardAssignments, quote.sellRate, quote.costRate)
     assert.equal(sale.quote?.sellRate, 5.5)
     assert.equal(sale.quote?.costRate, quote.costRate)
-    assert.equal(sale.expectedProfit, expectedSpreadMzn(sale.deployedAmount, quote))
-    assert.ok(Math.abs(sale.expectedProfit - sale.deployedAmount * (quote.sellRate - quote.costRate)) < 0.02)
+    assert.equal(sale.expectedProfit, weighted.grossProfitMzn)
+    assert.ok(weighted.weightedCost >= quote.costRate)
+    assert.ok(Math.abs(sale.expectedProfit - weighted.grossProfitMzn) < 0.02)
     assert.notEqual(sale.expectedProfit, sale.deployedAmount * 0.1)
 
     state.bufferUsed = sale.deployedAmount

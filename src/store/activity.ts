@@ -57,6 +57,8 @@ export type ActivityItem = {
   recommendedOptionId?: string
   startNextRun?: boolean
   kycAction?: 'start' | 'update'
+  /** Step 4 ticket weights for live bank-COST spread / profit. */
+  ticketSplits?: Array<{ cardId: number; amountZar: number; bankShort: string }>
   deskTable?: {
     id: string
     title: string

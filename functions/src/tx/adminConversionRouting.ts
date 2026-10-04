@@ -29,6 +29,7 @@ import {
   roundMoney,
   planReplenish,
   previewAskImpact,
+  weightedBankCostEconomics,
   type CyclePlan,
   type ReplenishPlan,
   type RoutingConfig,
@@ -37,6 +38,7 @@ import {
   stampAssignmentDecisions,
   type RoutingState,
 } from '../routing/conversionRouter'
+import { payerDisplay } from '../settlement/railDisplay'
 import { formatDeskClock, scheduleTicketPath } from '../routing/attemptSchedule'
 import { beliefHintForAssignments, rankAssignmentsByBelief } from '../routing/beliefRank'
 import type { RouteEvidence } from '../belief/types'
@@ -969,6 +971,19 @@ async function applyLiveQuotes(state: RoutingState): Promise<{
   }
 }
 
+/** Compact ticket weights so the desk can reprice Step 4 spread/COST live. */
+function ticketSplitsFromAssignments(
+  assignments: Array<{ cardId: number; amount: number }>
+): Array<{ cardId: number; amountZar: number; bankShort: string }> {
+  return assignments
+    .filter((row) => row.cardId > 0 && row.amount > 0)
+    .map((row) => ({
+      cardId: row.cardId,
+      amountZar: roundMoney(row.amount),
+      bankShort: payerDisplay(row.cardId).bankShort,
+    }))
+}
+
 function writeIssuedReplenish(
   tx: admin.firestore.Transaction,
   adminUid: string,
@@ -1317,15 +1332,46 @@ async function ensureLeoSendEvent(
   const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
   if ((await eventRef.get()).exists) return eventRef
 
-  const cycleSnap = await db.collection(TESTS).doc(testRunId).collection('cycles').doc(String(cycleNumber)).get()
+  const [cycleSnap, testSnap] = await Promise.all([
+    db.collection(TESTS).doc(testRunId).collection('cycles').doc(String(cycleNumber)).get(),
+    db.collection(TESTS).doc(testRunId).get(),
+  ])
   const cycle = cycleSnap.data() || {}
   const amountZar = num(cycle.deployedAmount, num(cycle.expectedOrderZar, 0))
+  const assignments = Array.isArray(cycle.cardAssignments)
+    ? (cycle.cardAssignments as CyclePlan['cardAssignments'])
+    : []
+  const ticketSplits = ticketSplitsFromAssignments(assignments)
+  const state = stateFromDoc(testSnap.data() || {})
+  const quotes = await applyLiveQuotes(state)
+  const econ =
+    assignments.length > 0
+      ? weightedBankCostEconomics(assignments, quotes.sellRate, quotes.costRate)
+      : null
+  const plan = {
+    cycleNumber,
+    availableCapital: num(cycle.availableCapital, state.availableCapital),
+    deployedAmount: amountZar,
+    idleCapital: num(cycle.idleCapital, 0),
+    expectedProfit: econ?.grossProfitMzn ?? num(cycle.expectedProfit, 0),
+    expectedZarProfit: num(cycle.expectedZarProfit, 0),
+    cardCountUsed: assignments.length,
+    cardAssignments: assignments,
+    restingCardIds: Array.isArray(cycle.restingCardIds) ? cycle.restingCardIds : [],
+    restingMachineIds: Array.isArray(cycle.restingMachineIds) ? cycle.restingMachineIds : [],
+    bufferUsedBefore: num(cycle.bufferUsed, state.bufferUsed),
+    bufferActionRequired: false,
+    selectionReason: typeof cycle.selectionReason === 'string' ? cycle.selectionReason : '',
+  } as CyclePlan
+  const activity = buildActivityCopy(plan, state.config.cycleCount, 'awaiting_execution', state.config.spread, quotes, {
+    state,
+  })
   const title = stepCardTitle(4)
   await eventRef.set({
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
     title,
-    body: `${formatZar(amountZar)} scheduled order is ready for Leo once MZN and ZAR float cover it.`,
+    body: `${activity.body} Send ZAR opens the keypad once MZN and ZAR float cover it.`,
     dropdownTitle: title,
     dropdownBody: `${formatZar(amountZar)} send`,
     actorType: 'ai_manager',
@@ -1347,6 +1393,7 @@ async function ensureLeoSendEvent(
     planHash: cycle.planHash || null,
     operatingPolicyVersion: OPERATING_POLICY_VERSION,
     operatingBrief: cycle.operatingBrief || null,
+    ticketSplits,
     testRunId,
     cycleNumber,
     createdAt: now,
@@ -1702,7 +1749,45 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
     return
   }
 
-  // Unlock Leo send for the scheduled order.
+  // Unlock Leo send for the scheduled order — rewrite body with live weighted bank COST.
+  const cycleSnapForUnlock = await testRef.collection('cycles').doc(String(cycleNumber)).get()
+  const cycleForUnlock = cycleSnapForUnlock.data() || {}
+  const unlockAssignments = Array.isArray(cycleForUnlock.cardAssignments)
+    ? (cycleForUnlock.cardAssignments as CyclePlan['cardAssignments'])
+    : []
+  const unlockSplits = ticketSplitsFromAssignments(unlockAssignments)
+  const unlockState = stateFromDoc(data)
+  const unlockQuotes = await applyLiveQuotes(unlockState)
+  const unlockEcon =
+    unlockAssignments.length > 0
+      ? weightedBankCostEconomics(unlockAssignments, unlockQuotes.sellRate, unlockQuotes.costRate)
+      : null
+  const unlockPlan = {
+    cycleNumber,
+    availableCapital: num(cycleForUnlock.availableCapital, unlockState.availableCapital),
+    deployedAmount: expectedZar,
+    idleCapital: num(cycleForUnlock.idleCapital, 0),
+    expectedProfit: unlockEcon?.grossProfitMzn ?? num(cycleForUnlock.expectedProfit, 0),
+    expectedZarProfit: num(cycleForUnlock.expectedZarProfit, 0),
+    cardCountUsed: unlockAssignments.length,
+    cardAssignments: unlockAssignments,
+    restingCardIds: Array.isArray(cycleForUnlock.restingCardIds) ? cycleForUnlock.restingCardIds : [],
+    restingMachineIds: Array.isArray(cycleForUnlock.restingMachineIds)
+      ? cycleForUnlock.restingMachineIds
+      : [],
+    bufferUsedBefore: num(cycleForUnlock.bufferUsed, unlockState.bufferUsed),
+    bufferActionRequired: false,
+    selectionReason: typeof cycleForUnlock.selectionReason === 'string' ? cycleForUnlock.selectionReason : '',
+  } as CyclePlan
+  const unlockCopy = buildActivityCopy(
+    unlockPlan,
+    unlockState.config.cycleCount,
+    'awaiting_execution',
+    unlockState.config.spread,
+    unlockQuotes,
+    { state: unlockState }
+  )
+
   await db.runTransaction(async (tx) => {
     const fresh = await tx.get(testRef)
     const freshPhase = fresh.data()?.cyclePhase
@@ -1714,8 +1799,8 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
       cyclePhase: 'awaiting_send',
       deskStep: 4,
       title: stepCardTitle(4),
-      body:
-        `${formatZar(expectedZar)} scheduled order is funded. ZAR float covers the send. Send ZAR opens the keypad — then Next 24h can finish the day.`,
+      body: `${unlockCopy.body} Send ZAR opens the keypad — then Next 24h can finish the day.`,
+      ticketSplits: unlockSplits,
     })
     tx.set(
       testRef,
@@ -2556,6 +2641,7 @@ function writeInstructionOnly(
       routingBlocked: plan.deployedAmount <= 0,
       status: 'awaiting_execution',
       routingAction: 'deploy',
+      ticketSplits: ticketSplitsFromAssignments(plan.cardAssignments),
       testRunId,
       cycleNumber: plan.cycleNumber,
       createdAt: now,

@@ -42,6 +42,29 @@ export function restockMznForAssignments(
   )
 }
 
+/** ZAR-weighted bank COST / spread / gross profit for a Step 4 ticket set. */
+export function weightedBankCostEconomics(
+  assignments: Array<{ cardId: number; amount: number }>,
+  sellRate: number,
+  baseCostRate: number
+): {
+  amountZar: number
+  sellMzn: number
+  restockMzn: number
+  weightedCost: number
+  spreadPerZar: number
+  grossProfitMzn: number
+} {
+  const amountZar = roundMoney(assignments.reduce((sum, row) => sum + (row.amount || 0), 0))
+  const restockMzn = restockMznForAssignments(assignments, baseCostRate)
+  const sellMzn = roundMoney(amountZar * Math.max(0, sellRate))
+  const weightedCost =
+    amountZar > 0 && restockMzn > 0 ? roundMoney(restockMzn / amountZar) : roundMoney(baseCostRate)
+  const spreadPerZar = roundMoney(Math.max(0, sellRate - weightedCost))
+  const grossProfitMzn = roundMoney(Math.max(0, sellMzn - restockMzn))
+  return { amountZar, sellMzn, restockMzn, weightedCost, spreadPerZar, grossProfitMzn }
+}
+
 /**
  * Desk configuration. Ticket sizes, card counts and capital come from the
  * Throughput kernel's absorbing book; only the spread fallback, the window
@@ -1003,9 +1026,12 @@ export function planCycle(
       : undefined
   const usedCardIds = new Set(cardAssignments.map((row) => row.cardId))
   const usedMachineIds = new Set(cardAssignments.map((row) => row.machineId))
-  const expectedProfit = quote
-    ? expectedSpreadMzn(deployedForPlan, quote)
-    : roundMoney(deployedForPlan * state.config.spread)
+  const expectedProfit =
+    quote && cardAssignments.length > 0
+      ? weightedBankCostEconomics(cardAssignments, quote.sellRate, quote.costRate).grossProfitMzn
+      : quote
+        ? expectedSpreadMzn(deployedForPlan, quote)
+        : roundMoney(deployedForPlan * state.config.spread)
   const expectedZarProfit = quote
     ? zarProfitFromQuote(deployedForPlan, quote)
     : roundMoney(deployedForPlan * state.config.spread)
@@ -1325,17 +1351,25 @@ export function buildActivityCopy(
   }
   const sell = quotes && quotes.sellRate > 0 ? quotes.sellRate : null
   const cost = quotes && quotes.costRate > 0 ? quotes.costRate : null
+  const econ =
+    sell && cost && plan.cardAssignments.length > 0
+      ? weightedBankCostEconomics(plan.cardAssignments, sell, cost)
+      : null
   const lines: string[] = []
   if (sell) {
-    const mzn = formatMznAmount(roundMoney(plan.deployedAmount * sell))
+    const sellMzn = econ ? econ.sellMzn : roundMoney(plan.deployedAmount * sell)
     lines.push(
-      `By COB, sell ${formatZar(plan.deployedAmount)} for ${mzn} at Mt/R ${sell.toFixed(2)}. Send the ZAR once the MZN has landed.`
+      `By COB, sell ${formatZar(plan.deployedAmount)} for ${formatMznAmount(sellMzn)} at Mt/R ${sell.toFixed(2)}. Send the ZAR once the MZN has landed.`
     )
   } else {
     lines.push(`By COB, sell ${formatZar(plan.deployedAmount)}. Send the ZAR once the MZN has landed.`)
   }
   if (extra?.revisionReason) lines.push(extra.revisionReason)
-  if (sell && cost) {
+  if (econ) {
+    lines.push(
+      `Spread ${econ.spreadPerZar.toFixed(2)} Mt/R over COST ${econ.weightedCost.toFixed(2)} · That's ${formatMznAmount(econ.grossProfitMzn)} gross profit.`
+    )
+  } else if (sell && cost) {
     lines.push(
       `Spread ${roundMoney(Math.max(0, sell - cost)).toFixed(2)} Mt/R over COST ${cost.toFixed(2)} · That's ${formatMznAmount(plan.expectedProfit)} gross profit.`
     )

@@ -1,4 +1,4 @@
-import { costMznPerZarForBank } from '@/lib/mznZar'
+import { costMznPerZarForBank, weightedBankCostFromSplits } from '@/lib/mznZar'
 
 /** Strip day counters / legacy sell-restock scraps — header owns Day n of 14. */
 export function displayDeskTitle(title: string | undefined | null): string {
@@ -106,6 +106,41 @@ export function enrichRecycleBodyWithLiveCost(
       return `${total[1]}${total[2]}${total[3]}${totalMt} MZN${total[5]}`
     })
     .join('\n')
+}
+
+function formatMznAmountUs(amount: number): string {
+  const rounded = Math.round(amount * 100) / 100
+  return `${rounded.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} MZN`
+}
+
+/**
+ * Step 4 · Send: replace Spread / COST / gross profit (and sell MZN / Mt/R)
+ * with live ZAR-weighted bank COST economics.
+ */
+export function enrichSendBodyWithLiveSpread(
+  body: string | undefined | null,
+  sellQuoteMznPerZar: number | null | undefined,
+  ticketSplits?: Array<{ amountZar: number; bankShort?: string | null }> | null
+): string {
+  const base = displayDeskBody(body)
+  if (!base || !(typeof sellQuoteMznPerZar === 'number') || !(sellQuoteMznPerZar > 0)) return base
+  if (!ticketSplits?.length) return base
+  const econ = weightedBankCostFromSplits(ticketSplits, sellQuoteMznPerZar)
+  if (!econ) return base
+
+  let out = base
+  out = out.replace(
+    /for [\d,.]+ MZN at Mt\/R [\d.]+/i,
+    `for ${formatMznAmountUs(econ.sellMzn)} at Mt/R ${econ.sellRate.toFixed(2)}`
+  )
+  out = out.replace(
+    /Spread [\d.]+ Mt\/R over COST [\d.]+ · That's [\d,.]+ MZN gross profit\./i,
+    `Spread ${econ.spreadPerZar.toFixed(2)} Mt/R over COST ${econ.weightedCost.toFixed(2)} · That's ${formatMznAmountUs(econ.grossProfitMzn)} gross profit.`
+  )
+  return out
 }
 
 /**

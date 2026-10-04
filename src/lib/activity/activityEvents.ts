@@ -62,6 +62,21 @@ export type ActivityEventDoc = {
   earliestAttemptAt?: string
   operatingPolicyVersion?: string
   operatingBrief?: ActivityItem['operatingBrief']
+  ticketSplits?: Array<{ cardId?: number; amountZar?: number; bankShort?: string }>
+}
+
+function asTicketSplits(
+  raw: ActivityEventDoc['ticketSplits']
+): ActivityItem['ticketSplits'] {
+  if (!Array.isArray(raw) || !raw.length) return undefined
+  const rows = raw.flatMap((row) => {
+    const cardId = Number(row?.cardId)
+    const amountZar = Number(row?.amountZar)
+    const bankShort = typeof row?.bankShort === 'string' ? row.bankShort : ''
+    if (!(cardId > 0) || !(amountZar > 0) || !bankShort) return []
+    return [{ cardId, amountZar, bankShort }]
+  })
+  return rows.length ? rows : undefined
 }
 
 function asDeskTable(raw: ActivityEventDoc['deskTable']): ActivityItem['deskTable'] {
@@ -266,6 +281,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     startNextRun: data.startNextRun === true,
     deskTable: asDeskTable(data.deskTable),
     deskChart: asDeskChart(data.deskChart),
+    ticketSplits: asTicketSplits(data.ticketSplits),
     earliestAttemptAt:
       typeof data.earliestAttemptAt === 'string' && data.earliestAttemptAt.trim()
         ? data.earliestAttemptAt.trim()

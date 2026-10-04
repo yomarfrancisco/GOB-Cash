@@ -34,6 +34,52 @@ export function costMznPerZarForBank(
   return mid * costMarkupFromBankShort(bankShort)
 }
 
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+/** Live ZAR-weighted bank COST economics for a Step 4 ticket set. */
+export function weightedBankCostFromSplits(
+  splits: Array<{ amountZar: number; bankShort?: string | null }>,
+  sellQuoteMznPerZar: number
+): {
+  amountZar: number
+  sellMzn: number
+  restockMzn: number
+  weightedCost: number
+  spreadPerZar: number
+  grossProfitMzn: number
+  sellRate: number
+} | null {
+  const sell =
+    Number.isFinite(sellQuoteMznPerZar) && sellQuoteMznPerZar > 0
+      ? sellQuoteMznPerZar
+      : 0
+  if (!(sell > 0) || !splits.length) return null
+  let amountZar = 0
+  let restockMzn = 0
+  for (const row of splits) {
+    const zar = Number(row.amountZar)
+    if (!(zar > 0)) continue
+    amountZar += zar
+    restockMzn += zar * costMznPerZarForBank(sell, row.bankShort)
+  }
+  amountZar = roundMoney(amountZar)
+  restockMzn = roundMoney(restockMzn)
+  if (!(amountZar > 0)) return null
+  const sellMzn = roundMoney(amountZar * sell)
+  const weightedCost = roundMoney(restockMzn / amountZar)
+  return {
+    amountZar,
+    sellMzn,
+    restockMzn,
+    weightedCost,
+    spreadPerZar: roundMoney(Math.max(0, sell - weightedCost)),
+    grossProfitMzn: roundMoney(Math.max(0, sellMzn - restockMzn)),
+    sellRate: sell,
+  }
+}
+
 export function quoteMznPerZar(apiMznPerZar: number, markup = MZN_ZAR_MARKUP): number {
   if (!Number.isFinite(apiMznPerZar) || apiMznPerZar <= 0) {
     return MZN_ZAR_API_RATE_AT_CALIBRATION * markup

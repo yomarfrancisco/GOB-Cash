@@ -4,6 +4,7 @@ import {
   displayDeskBody,
   displayDeskTitle,
   enrichRecycleBodyWithLiveCost,
+  enrichSendBodyWithLiveSpread,
   executedPillLabel,
   parseDeskZarAmount,
 } from './deskCopy'
@@ -75,5 +76,19 @@ describe('desk copy display', () => {
     assert.match(out, new RegExp(`Vidrotec \\(Millennium BIM\\).+\\(=Mt ${bimMt} @COST\\)`))
     assert.match(out, new RegExp(`Wolf \\(BCI\\).+\\(=Mt ${bciMt} @COST\\)`))
     assert.match(out, /Total R18,993\.12 · [\d,.]+ MZN out\./)
+  })
+
+  it('overlays live weighted bank COST on Step 4 spread copy', () => {
+    const mid = 4
+    const sell = mid * MZN_ZAR_MARKUP
+    const body =
+      'By COB, sell R10,000.00 for 46,200.00 MZN at Mt/R 4.62. Send the ZAR once the MZN has landed. Spread 0.42 Mt/R over COST 4.20 · That\'s 4,200.00 MZN gross profit. Status: Awaiting execution'
+    const out = enrichSendBodyWithLiveSpread(body, sell, [
+      { amountZar: 6000, bankShort: 'FNB Moz' },
+      { amountZar: 4000, bankShort: 'BCI' },
+    ])
+    // Weighted COST = (6000*4.24 + 4000*4.20) / 10000 = 4.224
+    assert.match(out, /for 46,200\.00 MZN at Mt\/R 4\.62/)
+    assert.match(out, /Spread 0\.40 Mt\/R over COST 4\.22 · That's 3,960\.00 MZN gross profit\./)
   })
 })
