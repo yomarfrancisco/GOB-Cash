@@ -91,7 +91,7 @@ export function fnbSettlementCopy(settlement: FnbSettlement): { title: string; b
   const who = settlement.merchantName ? ` (${settlement.merchantName.trim()})` : ''
   const when = settlement.statementDate ? ` Statement ${settlement.statementDate}.` : ''
   return {
-    title: `FNB settled ${gross}`,
+    title: 'Bank · FNB settled',
     body: `FNB Merchant Services settled ${gross} gross to the merchant account${who}.${when}${fee} zar_available opens on the gross.`,
   }
 }

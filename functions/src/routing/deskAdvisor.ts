@@ -864,7 +864,7 @@ function answerClassifiedAsk(params: {
             ? 'Bank profile'
             : pending === 'decline_followup'
               ? 'Decline on file'
-              : 'How did that swipe go?',
+              : 'Friction · Swipe check',
         body: prior?.summary || 'Answer the last question first — cleared, documents requested, or declined.',
         questionKind: pending,
       }
@@ -964,7 +964,7 @@ function answerClassifiedAsk(params: {
           ? 'Bank profile'
           : pending === 'decline_followup'
             ? 'Decline on file'
-            : 'How did that swipe go?',
+            : 'Friction · Swipe check',
       body: prior?.summary || 'Answer the last question first — cleared, documents requested, or declined.',
       questionKind: pending,
     }

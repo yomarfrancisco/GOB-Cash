@@ -69,7 +69,7 @@ export function capitecSettlementCopy(settlement: CapitecSettlement): { title: s
   const when = settlement.payoutOn ? ` on ${settlement.payoutOn}` : ''
   const ref = settlement.reference ? ` Reference ${settlement.reference}.` : ''
   return {
-    title: `Capitec paid out ${net}`,
+    title: 'Bank · Capitec paid out',
     body: `Capitec settlement paid out ${net}${when}.${sales}${fee}.${ref} zar_available opens on the net payout. Fees were deducted on settlement.`,
   }
 }

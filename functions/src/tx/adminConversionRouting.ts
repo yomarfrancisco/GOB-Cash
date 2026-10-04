@@ -146,7 +146,8 @@ import {
   type ContinuityStateV1,
   type ConfirmInstruction,
 } from '../operatingCalendar'
-import { expectedMznForOrder, stepTitle, type CyclePhase } from '../routing/continuousCycle'
+import { expectedMznForOrder, type CyclePhase } from '../routing/continuousCycle'
+import { askCardTitle, sideCardTitle, stepCardTitle, windowCardTitle } from '../routing/deskTitles'
 
 const inboundSecret = defineSecret('RESEND_INBOUND_SECRET')
 const db = admin.firestore()
@@ -674,13 +675,14 @@ function publishAdviceCard(
     .doc(params.adminUid)
     .collection('activityEvents')
     .doc(activityEventId)
+  const title = sideCardTitle(params.routingAction, params.title)
   tx.set(eventRef, {
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
-    title: params.title,
+    title,
     body: params.body,
-    dropdownTitle: params.title,
-    dropdownBody: params.body.split('\n')[0] || params.title,
+    dropdownTitle: title,
+    dropdownBody: params.body.split('\n')[0] || title,
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
     amountCurrency: 'ZAR',
@@ -991,7 +993,7 @@ function writeIssuedReplenish(
   const testRef = db.collection(TESTS).doc(testRunId)
   const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
 
-  const step5Title = stepTitle(5, `Day ${replenish.cycleNumber} recycle`)
+  const step5Title = stepCardTitle(5)
   tx.set(eventRef, {
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
@@ -1267,7 +1269,7 @@ async function ensureLeoSendEvent(
   const cycleSnap = await db.collection(TESTS).doc(testRunId).collection('cycles').doc(String(cycleNumber)).get()
   const cycle = cycleSnap.data() || {}
   const amountZar = num(cycle.deployedAmount, num(cycle.expectedOrderZar, 0))
-  const title = stepTitle(4, `Day ${cycleNumber} send`)
+  const title = stepCardTitle(4)
   await eventRef.set({
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
@@ -1338,7 +1340,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
   // Recycle / Leo confirm own their Continue — never steal them via a stale deskStep.
   if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') {
     return {
-      title: stepTitle(5, `Day ${cycleNumber} recycle`),
+      title: stepCardTitle(5),
       body: 'Step 5 · Recycle is open — Continue on Amina’s restock card after the COST swipe.',
       advanced: false,
       deskStep: 5,
@@ -1346,7 +1348,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
   }
   if (awaitingKind === 'deploy' && (phase === 'awaiting_send' || phase === 'awaiting_continue' || deskStep >= 4)) {
     return {
-      title: stepTitle(4, `Day ${cycleNumber}`),
+      title: stepCardTitle(4),
       body: 'Step 4 is already open — Continue / I’ve sent ZAR on Leo’s card.',
       advanced: false,
       deskStep: 4,
@@ -1389,7 +1391,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
           {
             id: packId,
             kind: CONVERSION_ROUTING_KIND,
-            title: stepTitle(2, `Day ${cycleNumber}`),
+            title: stepCardTitle(2),
             body: `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.\nTap Continue for Step 3 · MZN.`,
             awaitingConfirm: true,
             routingBlocked: false,
@@ -1418,7 +1420,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
       { merge: true }
     )
     return {
-      title: stepTitle(2, `Day ${cycleNumber}`),
+      title: stepCardTitle(2),
       body: 'Step 1 done. Step 2 · Invoice is the latest card — Continue there.',
       advanced: true,
       deskStep: 2,
@@ -1443,7 +1445,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
         {
           id: step3Id,
           kind: CONVERSION_ROUTING_KIND,
-          title: stepTitle(3, `Day ${cycleNumber}`),
+          title: stepCardTitle(3),
           body: covered
             ? [
                 `MZN cover is on the books (need ~MZN ${roundMoney(expectedMzn).toLocaleString('en-ZA')}; wallet MZN ${roundMoney(bal).toLocaleString('en-ZA')}).`,
@@ -1454,7 +1456,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
                 `Wallet shows MZN ${roundMoney(bal).toLocaleString('en-ZA')}.`,
                 'When the batch is in, tap Continue for Step 4 · Send.',
               ].join('\n'),
-          dropdownTitle: stepTitle(3, `Day ${cycleNumber}`),
+          dropdownTitle: stepCardTitle(3),
           dropdownBody: covered ? 'MZN covered — Continue to send' : 'Waiting on MZN',
           actorType: 'ai_manager',
           avatarKind: 'convert_mzn',
@@ -1487,7 +1489,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
       { merge: true }
     )
     return {
-      title: stepTitle(3, `Day ${cycleNumber}`),
+      title: stepCardTitle(3),
       body: covered
         ? 'Step 2 done. Step 3 · MZN is covered — Continue to open Leo’s send.'
         : 'Step 2 done. Step 3 · MZN is waiting on full cover — Continue when funded.',
@@ -1502,7 +1504,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
     const bal = await mznWalletBalance(adminUid)
     if (!mznCoversRestock(expectedMzn, bal, [])) {
       return {
-        title: stepTitle(3, `Day ${cycleNumber}`),
+        title: stepCardTitle(3),
         body: `Still short on MZN (need ~${roundMoney(expectedMzn).toLocaleString('en-ZA')}; wallet ${roundMoney(bal).toLocaleString('en-ZA')}). Fund then Continue.`,
         advanced: false,
         deskStep: 3,
@@ -1523,7 +1525,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
     const after = (await testRef.get()).data() || {}
     const afterPhase = String(after.cyclePhase || '')
     return {
-      title: stepTitle(4, `Day ${cycleNumber}`),
+      title: stepCardTitle(4),
       body:
         afterPhase === 'awaiting_send'
           ? 'Step 3 done. Step 4 · Send is open — Continue when ZAR has left.'
@@ -1537,7 +1539,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
 
   if (phase === 'awaiting_send' || phase === 'awaiting_continue') {
     return {
-      title: stepTitle(4, `Day ${cycleNumber}`),
+      title: stepCardTitle(4),
       body: 'Step 4 is already open — Continue / I’ve sent ZAR on Leo’s card.',
       advanced: false,
       deskStep: 4,
@@ -1609,13 +1611,13 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
       await continueRef.set({
         id: continueId,
         kind: CONVERSION_ROUTING_KIND,
-        title: stepTitle(4, `Day ${cycleNumber} — add ZAR`),
+        title: stepCardTitle(4, 'Add ZAR'),
         body: [
           `Order ${formatZar(expectedZar)} is funded in MZN.`,
           `ZAR float is short by ${formatZar(shortfall)}.`,
           'Add ZAR (or tap $ within the daily ceiling). Continue walks the schedule — this does not raise the daily volume ceiling.',
         ].join('\n'),
-        dropdownTitle: stepTitle(4, 'Add ZAR'),
+        dropdownTitle: stepCardTitle(4, 'Add ZAR'),
         dropdownBody: `Need ${formatZar(shortfall)} more ZAR for order ${cycleNumber}`,
         actorType: 'ai_manager',
         avatarKind: 'convert_zar',
@@ -1658,7 +1660,7 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
       status: 'awaiting_execution',
       cyclePhase: 'awaiting_send',
       deskStep: 4,
-      title: stepTitle(4, `Day ${cycleNumber} send`),
+      title: stepCardTitle(4),
       body:
         `${formatZar(expectedZar)} scheduled order is funded. ZAR float covers the send. Tap Continue when ZAR has left.`,
     })
@@ -1956,7 +1958,7 @@ async function publishNextWindowCard(params: {
       await writeNextWindowAdvice({
         ...params,
         speaker,
-        title: spoken.title || 'Add ZAR before the next window',
+        title: spoken.title ? sideCardTitle('advice', spoken.title) : windowCardTitle('Add ZAR'),
         body: spoken.body,
         canOpen: false,
         recommendedZar: offer.recommendedZar,
@@ -1964,7 +1966,7 @@ async function publishNextWindowCard(params: {
         deskTable: spoken.table,
         deskChart: spoken.chart,
       })
-      return { title: spoken.title || 'Add ZAR before the next window', body: spoken.body, recommendedZar: offer.recommendedZar, canOpen: false }
+      return { title: spoken.title ? sideCardTitle('advice', spoken.title) : windowCardTitle('Add ZAR'), body: spoken.body, recommendedZar: offer.recommendedZar, canOpen: false }
     }
     await startNewTest(
       params.adminUid,
@@ -1973,7 +1975,7 @@ async function publishNextWindowCard(params: {
       `Window opened: ${formatZar(amount)} to convert over 14 weekdays.`
     )
     const body = `Next window opened at ${formatZar(amount)}. Day 1 is on the desk.`
-    return { title: 'Next window opened', body, recommendedZar: amount, canOpen: true }
+    return { title: windowCardTitle('Opened'), body, recommendedZar: amount, canOpen: true }
   }
   const fact = finished
     ? offer.body
@@ -1987,7 +1989,11 @@ async function publishNextWindowCard(params: {
     walletZar: params.walletZar,
     fact,
   })
-  const title = spoken.title || (finished ? offer.title : 'Window still open')
+  const title = spoken.title
+    ? sideCardTitle('advice', spoken.title)
+    : finished
+      ? windowCardTitle(offer.canOpen ? 'Opened' : 'Add ZAR')
+      : askCardTitle('Window')
   await writeNextWindowAdvice({
     ...params,
     speaker,
@@ -2186,7 +2192,7 @@ async function issueCycle(
               awaitingConfirm: false,
               routingBlocked: true,
               status: 'cancelled',
-              title: stepTitle(4, `Day ${issued.plan.cycleNumber} — waiting on Steps 1–3`),
+              title: stepCardTitle(4, 'Waiting'),
               body: 'Step 4 unlocks after Step 1 → 2 → 3 Continue.',
               updatedAt: now,
             },
@@ -2243,7 +2249,7 @@ async function publishSamDayBrief(input: {
   ]
     .filter(Boolean)
     .join('\n')
-  const title = stepTitle(1)
+  const title = stepCardTitle(1)
   // Upsert so a stale recycle-mislabeled brief (no Continue) is repaired on Day n open.
   await ref.set(
     {
@@ -2312,7 +2318,7 @@ function writeInstructionOnly(
       kind: CONVERSION_ROUTING_KIND,
       title: activity.title,
       body: activity.body,
-      dropdownTitle: `Sell ZAR · Cycle ${plan.cycleNumber}`,
+      dropdownTitle: stepCardTitle(4),
       dropdownBody: buildNotificationCopy(plan, state.config.cycleCount).body,
       actorType: 'ai_manager',
       avatarKind: 'convert_zar',
@@ -3364,7 +3370,7 @@ export const admin_submitConversionRoutingFeedback = functions
           cycleNumber: 0,
           feedbackId,
           now,
-          title: stepTitle(6, 'Restart · Day 0'),
+          title: stepCardTitle(6),
           body,
           userReply: rawMessage,
           routingAction: 'advice',
@@ -3475,7 +3481,7 @@ export const admin_submitConversionRoutingFeedback = functions
           cycleNumber: finishedCycle || state.config.cycleCount,
           feedbackId,
           now,
-          title: spoken.title || (residual > 0 ? 'Window closed — residual open' : 'Window closed'),
+          title: spoken.title ? sideCardTitle('advice', spoken.title) : windowCardTitle('Closed'),
           body: spoken.body,
           userReply: rawMessage,
           routingAction: 'advice',
@@ -3771,7 +3777,7 @@ export const admin_submitConversionRoutingFeedback = functions
           const activity = buildAgentReplyCopy(plan, liveState.config.cycleCount, acknowledgement, blocked)
           const notification = blocked
             ? {
-                title: `Sell ZAR · Cycle ${plan.cycleNumber}`,
+                title: stepCardTitle(4),
                 body: 'Hold. No live legal pair under current residuals and freezes.',
               }
             : buildNotificationCopy(plan, liveState.config.cycleCount)

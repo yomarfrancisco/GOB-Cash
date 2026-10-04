@@ -312,7 +312,7 @@ async function publishMznNotice(docId: string, proof: MznProof): Promise<void> {
   const existing = await ref.get()
   if (existing.exists) return
   const copy = mznNoticeCopy(proof)
-  const title = stepTitle(3, copy.title)
+  const title = stepTitle(3)
   await ref.set({
     id,
     kind: CONVERSION_ROUTING_KIND,

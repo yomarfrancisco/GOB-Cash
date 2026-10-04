@@ -95,7 +95,7 @@ export function bankNoticeCopy(
   if (event.kind === 'card_spend') {
     const amount = `R${event.amountZar.toFixed(2)}`
     return {
-      title: `FNB reserved ${amount}`,
+      title: 'Bank · FNB reserved',
       body: `FNB reserved ${amount} on card ${event.cardLast4} at ${event.merchant}. Current account ending ${event.accountLast4}${event.reservedOn ? `, ${event.reservedOn}` : ''}. ${via}`,
     }
   }
@@ -106,7 +106,7 @@ export function bankNoticeCopy(
     .filter(Boolean)
     .join(', ')
   return {
-    title: `FNB approved ${amount}`,
+    title: 'Bank · FNB approved',
     body: `FNB approved ${amount}${where}${card}${event.occurredAt ? `, ${event.occurredAt}` : ''}. ${refs ? `${refs}. ` : ''}${via}`,
   }
 }

@@ -122,10 +122,7 @@ export async function publishInvoicePackDeskNotice(params: {
     {
       id,
       kind: CONVERSION_ROUTING_KIND,
-      title:
-        typeof params.cycleNumber === 'number'
-          ? stepTitle(2, `Day ${params.cycleNumber}`)
-          : stepTitle(2, `${invoices.length} PDFs`),
+      title: stepTitle(2),
       body,
       dropdownTitle: filename,
       dropdownBody: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · R${totalZar.toFixed(2)}`,

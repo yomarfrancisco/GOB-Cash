@@ -1227,11 +1227,11 @@ export function formatAskImpactBody(params: {
 
 export function buildNotificationCopy(
   plan: CyclePlan,
-  cycleCount: number
+  _cycleCount: number
 ): { title: string; body: string } {
-  const when = dayLabel(dayRecord(plan), plan.cycleNumber, cycleCount)
+  void _cycleCount
   return {
-    title: `Sell ZAR · ${when}`,
+    title: plan.deployedAmount > 0 ? 'Step 4 · Send' : 'Step 4 · Send · Hold',
     body: `Send ${formatZar(plan.deployedAmount)} once the MZN has landed`,
   }
 }
@@ -1240,18 +1240,19 @@ export function buildReplenishNotificationCopy(
   replenish: ReplenishPlan
 ): { title: string; body: string } {
   const rows = replenish.cardAssignments
-  const title = 'Restock ZAR at COST'
+  const title = 'Step 5 · Recycle'
   if (!rows.length) return { title, body: `Restock ${formatZar(replenish.amountZar)} at COST` }
   return { title, body: rows.map((row) => `Swipe ${swipeInstruction(row)}`).join('\n') }
 }
 
 export function buildAgentReplyCopy(
   plan: CyclePlan,
-  cycleCount: number,
+  _cycleCount: number,
   acknowledgement: string,
   blocked: boolean
 ): { title: string; body: string } {
-  const title = `Sell ZAR · ${dayLabel(dayRecord(plan), plan.cycleNumber, cycleCount)}`
+  void _cycleCount
+  const title = plan.deployedAmount > 0 ? 'Step 4 · Send' : 'Step 4 · Send · Hold'
   if (blocked) {
     return {
       title,
@@ -1285,9 +1286,10 @@ export function buildActivityCopy(
   void extra?.ticketPath
   void extra?.beliefHint
   void extra?.overlay
+  void cycleCount // day / cycle labels belong in the desk header, not the bubble title
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
   const ref = dayRecord(plan, extra?.state)
-  const title = `Sell ZAR · ${dayLabel(ref, plan.cycleNumber, cycleCount)}`
+  const title = plan.deployedAmount > 0 ? 'Step 4 · Send' : 'Step 4 · Send · Hold'
   if (plan.deployedAmount <= 0) {
     return {
       title,
@@ -1364,7 +1366,7 @@ export function buildReplenishActivityCopy(
   lines.push(`Next: sell ZAR on ${nextLabel}.`)
   lines.push(`Status: ${statusLabel}`)
   return {
-    title: `Restock ZAR at COST · ${sold ? `${sold.weekday}'s tickets` : `before cycle ${replenish.cycleNumber}`}`,
+    title: 'Step 5 · Recycle',
     body: lines.join('\n'),
   }
 }

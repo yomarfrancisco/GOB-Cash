@@ -127,7 +127,7 @@ describe('20-cycle compounding', () => {
     assert.equal(replenish?.amountZar, sale.deployedAmount)
     assert.equal(replenish?.amountMzn, roundMoney(sale.deployedAmount * 4.32))
     const copy = buildReplenishNotificationCopy(replenish!)
-    assert.equal(copy.title, 'Restock ZAR at COST')
+    assert.equal(copy.title, 'Step 5 · Recycle')
     assert.match(copy.body, /Swipe /)
     assert.doesNotMatch(copy.body, /each Moz/)
     assert.ok((replenish?.cardAssignments.length || 0) > 0)

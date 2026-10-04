@@ -224,13 +224,13 @@ export function nextNoteQuestion(params: {
     if (proposedCard && declinedCard && proposedCard !== declinedCard) {
       return {
         questionKind: 'decline_followup',
-        title: 'Do not switch cards',
+        title: 'Friction · Decline',
         body: `${cardShortName(declinedCard)} was declined this week. Do not swipe ${cardShortName(proposedCard)} to work around that. Say how to proceed on ${cardShortName(declinedCard)}, or that the bank cleared it.`,
       }
     }
     return {
       questionKind: 'decline_followup',
-      title: 'Decline on file',
+      title: 'Friction · Decline',
       body: `${cardShortName(declinedCard || proposedCard || 0)} was declined this week. How do you want to proceed? Do not switch cards unless you say so.`,
     }
   }
@@ -242,7 +242,7 @@ export function nextNoteQuestion(params: {
     const ageDays = Math.max(1, Math.round((params.nowMs - due.atMs) / DAY))
     return {
       questionKind: 'swipe_outcome',
-      title: 'How did that swipe go?',
+      title: 'Friction · Swipe check',
       body: `Did ${cardShortName(due.cardId)} on ${machineShortName(due.machineId)} (${formatZar(due.amount)}, ${ageDays} day${ageDays === 1 ? '' : 's'} ago) clear, get documents requested, or decline?`,
     }
   }
@@ -251,7 +251,7 @@ export function nextNoteQuestion(params: {
   if (!hasProfile && monthValue >= 200_000) {
     return {
       questionKind: 'declared_month',
-      title: 'Bank profile',
+      title: 'Friction · Bank profile',
       body: `This month is already ${formatZar(monthValue)} through the POS. What monthly ZAR have you told the bank to expect?`,
     }
   }

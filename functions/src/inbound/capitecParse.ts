@@ -53,12 +53,12 @@ export function capitecNoticeCopy(receipt: CapitecReceipt): { title: string; bod
   const auth = receipt.authCode ? ` Auth ${receipt.authCode}.` : ''
   if (receipt.status === 'declined') {
     return {
-      title: `Capitec declined ${amount}`,
+      title: 'Bank · Capitec declined',
       body: `Capitec declined ${amount}${where}${card}${when}.${ref}${auth} Declined, so the ZAR card is unchanged.`,
     }
   }
   return {
-    title: `Capitec approved ${amount}`,
+    title: 'Bank · Capitec approved',
     body: `Capitec approved ${amount}${where}${card}${when}.${ref}${auth} This conversion adds ${amount} to the ZAR card.`,
   }
 }
