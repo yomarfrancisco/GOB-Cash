@@ -82,12 +82,18 @@ export async function publishInvoicePackDeskNotice(params: {
   cycleNumber?: number
   /** When true, this pack is the latest Step 2 card and carries Continue. */
   sequentialContinue?: boolean
+  /** Append-only day ticket revision (schedule amendment replay). */
+  revision?: number
+  /** Rebuild zip + amounts even if a pack card already exists. */
+  forceRebuild?: boolean
 }): Promise<void> {
   const invoices = params.invoices.filter((row) => row.storagePath)
   if (!invoices.length) return
+  const rev = Math.max(1, Math.floor(Number(params.revision) || 1))
+  const revTag = rev > 1 ? `-v${rev}` : ''
   const packKey =
     params.testRunId && typeof params.cycleNumber === 'number'
-      ? `${params.testRunId}-c${params.cycleNumber}`
+      ? `${params.testRunId}-c${params.cycleNumber}${revTag}`
       : invoices
           .map((row) => row.id)
           .sort()
@@ -96,12 +102,12 @@ export async function publishInvoicePackDeskNotice(params: {
   const id = `invoice-pack-${packKey}`
   const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
   const existing = await ref.get()
-  if (existing.exists && !params.sequentialContinue) return
+  if (existing.exists && !params.sequentialContinue && !params.forceRebuild) return
 
   let totalZar = Number(existing.data()?.amountValue || 0)
   let storagePath = String(existing.data()?.invoiceZipStoragePath || '')
   let filename = String(existing.data()?.invoiceZipFilename || 'invoices.zip')
-  if (!existing.exists || !storagePath) {
+  if (!existing.exists || !storagePath || params.forceRebuild) {
     const zip = await buildInvoiceZip(invoices)
     totalZar = zip.totalZar
     storagePath = zip.storagePath
@@ -174,8 +180,11 @@ export async function raiseInvoicesForCycle(input: {
     economicPaymentId?: string
   }>
   sequentialContinue?: boolean
+  revision?: number
+  forceRebuild?: boolean
 }): Promise<SettlementInvoice[]> {
   const raised: SettlementInvoice[] = []
+  const rev = Math.max(1, Math.floor(Number(input.revision) || 1))
   for (const row of input.assignments) {
     const invoice = await raiseAndStoreCustomerInvoice({
       machineId: row.machineId,
@@ -184,7 +193,11 @@ export async function raiseInvoicesForCycle(input: {
       raisedTiming: 'at_issue',
       testRunId: input.testRunId,
       cycleNumber: input.cycleNumber,
-      economicPaymentId: row.economicPaymentId || null,
+      // New economic id per revision so amended tickets are distinct invoices.
+      economicPaymentId:
+        row.economicPaymentId && rev <= 1
+          ? row.economicPaymentId
+          : `${row.economicPaymentId || `${input.testRunId}-c${input.cycleNumber}-${row.cardId}-${row.machineId}`}-v${rev}`,
     })
     raised.push(invoice)
     if (invoice.issuerId === 'imani') {
@@ -204,6 +217,8 @@ export async function raiseInvoicesForCycle(input: {
     testRunId: input.testRunId,
     cycleNumber: input.cycleNumber,
     sequentialContinue: input.sequentialContinue === true,
+    revision: rev,
+    forceRebuild: input.forceRebuild === true,
   })
   return raised
 }

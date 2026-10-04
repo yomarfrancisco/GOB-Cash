@@ -363,6 +363,7 @@ describe('sales schedule amendment — policy + goldens', () => {
 
   it('looksLikeSalesScheduleAmendment detects operator phrases', () => {
     assert.equal(looksLikeSalesScheduleAmendment('Reduce today’s ZAR sale to R12,000.'), true)
+    assert.equal(looksLikeSalesScheduleAmendment('ok i need to change this cycles ZAR sales to R20000'), true)
     assert.equal(looksLikeSalesScheduleAmendment('Park Ginav until cleared'), false)
   })
 

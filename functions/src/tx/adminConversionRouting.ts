@@ -1269,6 +1269,43 @@ async function completeStepCard(adminUid: string, cardId: string, now: admin.fir
   )
 }
 
+function dayTicketRevision(data: FirebaseFirestore.DocumentData | Record<string, unknown> | undefined): number {
+  return Math.max(1, Math.floor(num(data?.dayTicketRevision, 1)))
+}
+
+function dayTicketIds(testRunId: string, cycleNumber: number, revision: number) {
+  const tag = revision > 1 ? `-v${revision}` : ''
+  return {
+    order: `sam-day-brief-${testRunId}-c${cycleNumber}${tag}`,
+    invoicePack: `invoice-pack-${testRunId}-c${cycleNumber}${tag}`,
+    invoicePrompt: `step-invoice-${testRunId}-c${cycleNumber}${tag}`,
+    mzn: `step-mzn-${testRunId}-c${cycleNumber}${tag}`,
+  }
+}
+
+async function supersedeDayTicketCard(
+  adminUid: string,
+  cardId: string,
+  now: admin.firestore.Timestamp,
+  reason: string
+) {
+  const ref = db.collection('users').doc(adminUid).collection('activityEvents').doc(cardId)
+  const snap = await ref.get()
+  if (!snap.exists) return
+  const status = String(snap.data()?.status || '')
+  if (status === 'superseded' || status === 'cancelled') return
+  await ref.set(
+    {
+      awaitingConfirm: false,
+      routingBlocked: false,
+      status: 'superseded',
+      supersedeReason: reason,
+      updatedAt: now,
+    },
+    { merge: true }
+  )
+}
+
 /** Create Leo's Step 4 card from the stored cycle plan (only when Steps 1–3 are done). */
 async function ensureLeoSendEvent(
   adminUid: string,
@@ -1369,9 +1406,11 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
     }
   }
 
+  const tickets = dayTicketIds(testRunId, cycleNumber, dayTicketRevision(data))
+
   // Step 1 · Order → Step 2 · Invoice
   if (phase === 'order_open' || (deskStep === 1 && !phase)) {
-    await completeStepCard(adminUid, `sam-day-brief-${testRunId}-c${cycleNumber}`, now)
+    await completeStepCard(adminUid, tickets.order, now)
     const cycleSnap = await testRef.collection('cycles').doc(String(cycleNumber)).get()
     const assignments = Array.isArray(cycleSnap.data()?.cardAssignments)
       ? (cycleSnap.data()?.cardAssignments as Array<{
@@ -1390,12 +1429,13 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
           cycleNumber,
           assignments,
           sequentialContinue: true,
+          revision: dayTicketRevision(data),
         })
       } catch (error) {
         console.error('[advanceSequential] invoice raise failed', error)
       }
     } else {
-      const packId = `invoice-pack-${testRunId}-c${cycleNumber}`
+      const packId = tickets.invoicePack
       await db
         .collection('users')
         .doc(adminUid)
@@ -1423,7 +1463,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
         )
     }
     // Retire any legacy duplicate Step 2 prompt so Continue lives only on the pack.
-    await completeStepCard(adminUid, `step-invoice-${testRunId}-c${cycleNumber}`, now)
+    await completeStepCard(adminUid, tickets.invoicePrompt, now)
     await testRef.set(
       {
         cyclePhase: 'awaiting_invoice',
@@ -1443,12 +1483,11 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
 
   // Step 2 · Invoice → Step 3 · MZN
   if (phase === 'awaiting_invoice' || (deskStep === 2 && !phase)) {
-    await completeStepCard(adminUid, `step-invoice-${testRunId}-c${cycleNumber}`, now)
-    const invoicePackId = `invoice-pack-${testRunId}-c${cycleNumber}`
-    await completeStepCard(adminUid, invoicePackId, now)
+    await completeStepCard(adminUid, tickets.invoicePrompt, now)
+    await completeStepCard(adminUid, tickets.invoicePack, now)
     const expectedMzn = num(data.expectedOrderMzn, 0)
     const bal = await mznWalletBalance(adminUid)
-    const step3Id = `step-mzn-${testRunId}-c${cycleNumber}`
+    const step3Id = tickets.mzn
     const covered = mznCoversRestock(expectedMzn, bal, [])
     await db
       .collection('users')
@@ -1524,7 +1563,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
         deskStep: 3,
       }
     }
-    await completeStepCard(adminUid, `step-mzn-${testRunId}-c${cycleNumber}`, now)
+    await completeStepCard(adminUid, tickets.mzn, now)
     await ensureLeoSendEvent(adminUid, testRunId, cycleNumber, now)
     await testRef.set(
       {
@@ -2230,14 +2269,12 @@ async function publishSamDayBrief(input: {
   plan: CyclePlan
   kind: 'deploy' | 'replenish'
   now: admin.firestore.Timestamp
+  revision?: number
+  forceReplay?: boolean
 }): Promise<void> {
   // Recycle is Step 5 on Amina's restock card — never post a fake Step 1 for it.
   if (input.kind === 'replenish') return
 
-  const day = Math.min(
-    input.state.config.cycleCount,
-    Math.max(1, input.state.completedCycles + (windowIsFinished(input.state) ? 0 : 1))
-  )
   const residual = residualToTarget(input.state)
   const schedule = scheduleTicketPath({
     assignments: input.plan.cardAssignments.length
@@ -2246,12 +2283,19 @@ async function publishSamDayBrief(input: {
     nowMs: input.now.toMillis(),
     immediate: true,
   })
-  const id = `sam-day-brief-${input.testRunId}-c${input.plan.cycleNumber}`
+  const rev = Math.max(1, Math.floor(Number(input.revision) || 1))
+  const id = dayTicketIds(input.testRunId, input.plan.cycleNumber, rev).order
   const ref = db.collection('users').doc(input.adminUid).collection('activityEvents').doc(id)
   const existing = await ref.get()
   const existingStatus = String(existing.data()?.status || '')
-  // Already advanced past this Step 1 — leave the completed card alone.
-  if (existing.exists && (existingStatus === 'completed' || existingStatus === 'cancelled')) return
+  // Already advanced past this Step 1 — leave the completed card alone (unless schedule replay).
+  if (
+    !input.forceReplay &&
+    existing.exists &&
+    (existingStatus === 'completed' || existingStatus === 'cancelled' || existingStatus === 'superseded')
+  ) {
+    return
+  }
 
   const hold = !(input.plan.deployedAmount > 0)
   const body = [
@@ -2287,17 +2331,184 @@ async function publishSamDayBrief(input: {
       deskSpeaker: 'sam',
       cyclePhase: hold ? 'hold' : 'order_open',
       deskStep: 1,
+      dayTicketRevision: rev,
       testRunId: input.testRunId,
       cycleNumber: input.plan.cycleNumber,
       earliestAttemptAt: schedule.earliestAt,
       ticketPath: schedule,
       recordingSource: 'SYSTEM',
-      ...(existing.exists
-        ? { updatedAt: input.now }
-        : { createdAt: input.now }),
+      createdAt: input.now,
+      updatedAt: input.now,
     },
     { merge: true }
   )
+}
+
+/**
+ * After a same-day schedule amendment with nothing irrevocable committed:
+ * supersede prior Order/Invoice/MZN(/unconfirmed Send) tickets and replay them
+ * at the revised amounts up to the step the desk had reached — like a hard refresh.
+ */
+async function replayDayTicketsAfterScheduleAmendment(params: {
+  adminUid: string
+  testRunId: string
+  testRef: FirebaseFirestore.DocumentReference
+  cycleRef: FirebaseFirestore.DocumentReference
+  cycleNumber: number
+  liveState: RoutingState
+  nextOrderZar: number
+  nextAssignments: Array<{ cardId: number; machineId: number; amount: number; economicPaymentId?: string }>
+  sellRate: number
+  previousDeskStep: number
+  planVersion: number
+  now: admin.firestore.Timestamp
+}): Promise<{ replayedToStep: number }> {
+  const {
+    adminUid,
+    testRunId,
+    testRef,
+    cycleRef,
+    cycleNumber,
+    liveState,
+    nextOrderZar,
+    nextAssignments,
+    sellRate,
+    previousDeskStep,
+    planVersion,
+    now,
+  } = params
+
+  const testSnap = await testRef.get()
+  const priorRev = dayTicketRevision(testSnap.data() || {})
+  const nextRev = Math.max(priorRev + 1, planVersion)
+  const oldIds = dayTicketIds(testRunId, cycleNumber, priorRev)
+  const legacyIds = dayTicketIds(testRunId, cycleNumber, 1)
+  const reason = `Schedule amendment plan v${planVersion}`
+
+  for (const id of [
+    oldIds.order,
+    oldIds.invoicePack,
+    oldIds.invoicePrompt,
+    oldIds.mzn,
+    legacyIds.order,
+    legacyIds.invoicePack,
+    legacyIds.invoicePrompt,
+    legacyIds.mzn,
+    eventId(testRunId, cycleNumber),
+  ]) {
+    await supersedeDayTicketCard(adminUid, id, now, reason)
+  }
+
+  const orderMzn = expectedMznForOrder(nextOrderZar, sellRate)
+  const targetStep = Math.min(Math.max(1, previousDeskStep || 1), 4)
+
+  await cycleRef.set(
+    {
+      cardAssignments: nextAssignments,
+      machineAssignments: nextAssignments.map((row) => ({
+        machineId: row.machineId,
+        cardId: row.cardId,
+        amount: row.amount,
+      })),
+      deployedAmount: nextOrderZar,
+      expectedOrderZar: nextOrderZar,
+      planVersion,
+      dayTicketRevision: nextRev,
+      status: 'awaiting_execution',
+      updatedAt: now,
+    },
+    { merge: true }
+  )
+
+  await testRef.set(
+    {
+      expectedOrderZar: nextOrderZar,
+      expectedOrderMzn: orderMzn,
+      orderSellRate: sellRate,
+      dayTicketRevision: nextRev,
+      cyclePhase: 'order_open',
+      deskStep: 1,
+      awaitingKind: 'step',
+      awaitingCycleNumber: cycleNumber,
+      updatedAt: now,
+    },
+    { merge: true }
+  )
+
+  const plan: CyclePlan = {
+    cycleNumber,
+    availableCapital: liveState.availableCapital,
+    deployedAmount: nextOrderZar,
+    idleCapital: Math.max(0, liveState.availableCapital - nextOrderZar),
+    expectedProfit: 0,
+    cardCountUsed: nextAssignments.length,
+    cardAssignments: nextAssignments,
+    restingCardIds: [],
+    restingMachineIds: [],
+    bufferUsedBefore: liveState.bufferUsed,
+    bufferActionRequired: false,
+    selectionReason: reason,
+  }
+
+  await publishSamDayBrief({
+    adminUid,
+    testRunId,
+    state: liveState,
+    plan,
+    kind: 'deploy',
+    now,
+    revision: nextRev,
+    forceReplay: true,
+  })
+
+  // Auto-advance through the same phase chain the desk had already reached.
+  for (let step = 1; step < targetStep; step++) {
+    const advanced = await advanceSequentialStep(adminUid)
+    if (!advanced.advanced && advanced.deskStep < targetStep) break
+  }
+
+  // If we need Step 4 open, supersede any stale Leo card so ensureLeo can rewrite amounts.
+  if (targetStep >= 4) {
+    await supersedeDayTicketCard(adminUid, eventId(testRunId, cycleNumber), now, reason)
+    // Clear the existence guard by writing a fresh Leo card via ensure after phase unlock.
+    const leoRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(eventId(testRunId, cycleNumber))
+    const leoSnap = await leoRef.get()
+    if (leoSnap.exists && String(leoSnap.data()?.status) === 'superseded') {
+      // ensureLeoSendEvent returns early if exists — delete is not allowed; write updated body on superseded→awaiting
+      const cycleSnap = await cycleRef.get()
+      const amountZar = num(cycleSnap.data()?.deployedAmount, nextOrderZar)
+      await leoRef.set(
+        {
+          status: 'awaiting_execution',
+          awaitingConfirm: true,
+          routingBlocked: false,
+          amountValue: amountZar,
+          title: stepCardTitle(4),
+          body: `${formatZar(amountZar)} scheduled order is funded. ZAR float covers the send. Tap Continue when ZAR has left.`,
+          dropdownBody: `${formatZar(amountZar)} send`,
+          dayTicketRevision: nextRev,
+          planVersion,
+          updatedAt: now,
+          createdAt: now,
+        },
+        { merge: true }
+      )
+      await testRef.set(
+        {
+          cyclePhase: 'awaiting_send',
+          deskStep: 4,
+          awaitingKind: 'deploy',
+          updatedAt: now,
+        },
+        { merge: true }
+      )
+    } else {
+      await ensureLeoSendEvent(adminUid, testRunId, cycleNumber, now)
+    }
+  }
+
+  const after = (await testRef.get()).data() || {}
+  return { replayedToStep: num(after.deskStep, targetStep) }
 }
 
 function writeInstructionOnly(
@@ -3545,6 +3756,26 @@ async function applySalesScheduleAmendmentOnDesk(params: {
     createdAtMs: nowMs,
   }
 
+  const sellRate =
+    num(cycleData.sellRate, 0) ||
+    num((testData.frozenQuote as { sellRate?: number } | undefined)?.sellRate, 0) ||
+    num(testData.orderSellRate, 0)
+  const shouldReplayDayTickets =
+    revisesToday &&
+    cycleSnap.exists &&
+    committedZar <= 0 &&
+    deskStep >= 1 &&
+    deskStep <= 4 &&
+    (scope.mayRebuildFullDay || deskStep <= 3)
+
+  const replayNote = shouldReplayDayTickets
+    ? ' I’ve replayed today’s Order → Invoice → MZN tickets at the revised amounts (prior drafts superseded).'
+    : ''
+  const samBodyWithReplay = `${samBody}${replayNote}`
+  const planBodyWithReplay = shouldReplayDayTickets
+    ? `${planBody}\nDay tickets replayed through Step ${Math.min(deskStep, 4)}.`
+    : planBody
+
   await db.runTransaction(async (tx) => {
     // Sam conversational reply
     publishAdviceCard(tx, {
@@ -3554,7 +3785,7 @@ async function applySalesScheduleAmendmentOnDesk(params: {
       feedbackId,
       now,
       title: 'Schedule',
-      body: samBody,
+      body: samBodyWithReplay,
       userReply: askMessage,
       routingAction: 'advice',
       deskSpeaker: 'sam',
@@ -3567,7 +3798,7 @@ async function applySalesScheduleAmendmentOnDesk(params: {
       feedbackId: planMomentId,
       now,
       title: 'Plan revised',
-      body: planBody,
+      body: planBodyWithReplay,
       userReply: '',
       routingAction: 'advice',
       deskSpeaker: 'sam',
@@ -3578,15 +3809,14 @@ async function applySalesScheduleAmendmentOnDesk(params: {
       testRef,
       {
         salesSchedule: nextSchedule,
-        salesScheduleAmendments: [...priorAmendments.slice(-40), amendmentRecord],
+        salesScheduleAmendments: [
+          ...priorAmendments.slice(-40),
+          { ...amendmentRecord, replyBody: samBodyWithReplay, planBody: planBodyWithReplay, dayTicketsReplayed: shouldReplayDayTickets },
+        ],
         ...(revisesToday
           ? {
               expectedOrderZar: nextOrderZar,
-              expectedOrderMzn: expectedMznForOrder(
-                nextOrderZar,
-                num(cycleData.sellRate, 0) ||
-                  num((testData.frozenQuote as { sellRate?: number } | undefined)?.sellRate, 0)
-              ),
+              expectedOrderMzn: expectedMznForOrder(nextOrderZar, sellRate),
             }
           : {}),
         updatedAt: now,
@@ -3594,11 +3824,28 @@ async function applySalesScheduleAmendmentOnDesk(params: {
       { merge: true }
     )
 
-    if (revisesToday && cycleSnap.exists && (scope.mayRebuildFullDay || scope.preserveCommitted)) {
+    // Persist cycle amounts now; full ticket replay runs after the transaction.
+    if (revisesToday && cycleSnap.exists) {
+      tx.set(
+        cycleRef,
+        {
+          expectedOrderZar: nextOrderZar,
+          deployedAmount: nextOrderZar,
+          cardAssignments: nextAssignments.length ? nextAssignments : priorAssignments,
+          planVersion: nextSchedule.planVersion,
+          supersededPlanVersion: result.previousPlan.planVersion,
+          updatedAt: now,
+        },
+        { merge: true }
+      )
+    }
+
+    // If something is already committed, only revise the uncommitted Leo remainder (no full rewind).
+    if (revisesToday && cycleSnap.exists && committedZar > 0 && awaitingKind === 'deploy') {
       const previousEventId = currentRoutingEventId(testRunId, cycleNumber, cycleData)
-      if (previousEventId && nextAssignments.length >= 0 && awaitingKind === 'deploy') {
+      if (previousEventId) {
         const revisionCount = num(cycleData.revisionCount, 0)
-        const blocked = nextOrderZar <= 0 || (remaining <= 0 && committedZar <= 0)
+        const blocked = remaining <= 0
         const published = publishAgentRevision(tx, {
           adminUid,
           testRunId,
@@ -3608,73 +3855,31 @@ async function applySalesScheduleAmendmentOnDesk(params: {
           now,
           title: stepCardTitle(4),
           body: [
-            samBody,
+            samBodyWithReplay,
             '',
-            nextOrderZar > 0
-              ? `Revised day order ${formatZar(nextOrderZar)} (${formatZar(committedZar)} committed · ${formatZar(remaining)} still to schedule).`
-              : 'No further ZAR intake scheduled for this day.',
+            `Revised day order ${formatZar(nextOrderZar)} (${formatZar(committedZar)} committed · ${formatZar(remaining)} still to schedule).`,
           ].join('\n'),
           dropdownTitle: stepCardTitle(4),
           dropdownBody: `Revised to ${formatZar(nextOrderZar)}`,
-          amountValue: Math.max(remaining, committedZar > 0 ? committedZar : nextOrderZar),
-          awaitingConfirm: !blocked && remaining > 0 && deskStep >= 4,
+          amountValue: Math.max(remaining, committedZar),
+          awaitingConfirm: !blocked && remaining > 0,
           routingBlocked: blocked,
           userReply: askMessage,
         })
         tx.update(cycleRef, {
-          cardAssignments: nextAssignments,
-          machineAssignments: nextAssignments.map((row) => ({
-            machineId: row.machineId,
-            cardId: row.cardId,
-            amount: row.amount,
-          })),
-          deployedAmount: nextOrderZar,
-          expectedOrderZar: nextOrderZar,
           activityEventId: published.activityEventId,
           revisionCount: published.revisionCount,
-          planVersion: nextSchedule.planVersion,
           status: 'awaiting_execution',
-          supersededPlanVersion: result.previousPlan.planVersion,
           updatedAt: now,
         })
-      } else {
-        tx.set(
-          cycleRef,
-          {
-            expectedOrderZar: nextOrderZar,
-            deployedAmount: nextOrderZar,
-            cardAssignments: nextAssignments.length ? nextAssignments : priorAssignments,
-            planVersion: nextSchedule.planVersion,
-            supersededPlanVersion: result.previousPlan.planVersion,
-            updatedAt: now,
-          },
-          { merge: true }
-        )
-        // Supersede open Step 1–3 cards' amounts via a Sam day brief-style update when present.
-        const stepEventId =
-          typeof cycleData.activityEventId === 'string'
-            ? cycleData.activityEventId
-            : `sam-day-brief-${testRunId}-c${cycleNumber}`
-        const stepRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(stepEventId)
-        tx.set(
-          stepRef,
-          {
-            amountValue: nextOrderZar,
-            body:
-              deskStep <= 1
-                ? `Scheduled ZAR order: ${formatZar(nextOrderZar)}. Plan v${nextSchedule.planVersion}.`
-                : undefined,
-            dropdownBody: `Order ${formatZar(nextOrderZar)}`,
-            planVersion: nextSchedule.planVersion,
-            updatedAt: now,
-          },
-          { merge: true }
-        )
       }
     }
 
     tx.set(testRef.collection('feedback').doc(feedbackId), {
       ...amendmentRecord,
+      replyBody: samBodyWithReplay,
+      planBody: planBodyWithReplay,
+      dayTicketsReplayed: shouldReplayDayTickets,
       createdAt: now,
       status: 'applied',
       askIntent: 'schedule_amendment',
@@ -3692,11 +3897,35 @@ async function applySalesScheduleAmendmentOnDesk(params: {
     )
   })
 
+  if (shouldReplayDayTickets) {
+    try {
+      await replayDayTicketsAfterScheduleAmendment({
+        adminUid,
+        testRunId,
+        testRef,
+        cycleRef,
+        cycleNumber,
+        liveState,
+        nextOrderZar,
+        nextAssignments: (nextAssignments.length ? nextAssignments : priorAssignments).map((row) => ({
+          ...row,
+          economicPaymentId: `sched-${testRunId}-c${cycleNumber}-${row.cardId}-${row.machineId}`,
+        })),
+        sellRate,
+        previousDeskStep: deskStep,
+        planVersion: result.nextPlan.planVersion,
+        now,
+      })
+    } catch (error) {
+      console.error('[scheduleAmendment] day ticket replay failed', error)
+    }
+  }
+
   return {
     testRunId,
     cycleNumber,
     status: 'applied',
-    acknowledgement: samBody,
+    acknowledgement: samBodyWithReplay,
     planVersion: result.nextPlan.planVersion,
   }
 }
