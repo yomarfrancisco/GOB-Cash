@@ -24,6 +24,20 @@
   z-index: 10020;
 }
 
+/* FX Desk uses its own header close control. */
+.as-sheet.fxDeskSheet .as-close-only,
+.as-sheet.fxDeskSheet .as-header {
+  display: none;
+}
+
+.as-sheet.fxDeskSheet .as-body {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
 .as-overlay {
   position: absolute;
   inset: 0;
