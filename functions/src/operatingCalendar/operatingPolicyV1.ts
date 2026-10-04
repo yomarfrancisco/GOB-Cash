@@ -42,16 +42,27 @@ export const OPERATING_POLICY_V1 = {
     coldPosNetworkDays: 7,
     maxValuePerDayZar: 15_000,
     samePosSpacingMinutes: 120,
+    /** Apply over rolling 7 calendar days and over the calendar month (§4.4). */
     maxShareCount: 0.35,
     maxShareValue: 0.35,
+    shareMeasurementWindows: ['rolling_7d', 'calendar_month'] as const,
   },
 
   acquirer: {
-    /** Live guardrail (hard max). */
+    /**
+     * Minority acquirer subject to the hard ceiling.
+     * Do not apply maxShare to FNB while only two acquirers are live — that would
+     * make allocation mathematically impossible (2 × 35% = 70%).
+     */
+    minorityAcquirerId: 'capitec' as const,
+    /** Hard max on Capitec aggregate count and value (live). */
     maxShare: 0.35,
-    /** Reference-fixture only balancing band for clean Month 1. */
+    /** Reference-fixture balancing band for Capitec (clean Month 1/2). */
     referenceCapitecMinShare: 0.25,
     referenceCapitecMaxShare: 0.35,
+    /** Expected FNB residual with the current two-acquirer network (not a hard 35% cap). */
+    referenceFnbMinShare: 0.65,
+    referenceFnbMaxShare: 0.75,
   },
 
   continuity: {

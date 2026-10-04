@@ -309,6 +309,16 @@ describe('OperatingPolicyV1 constraints', () => {
     assert.equal(slice.monthPaymentCount, 129)
   })
 
+  it('acquirer ceiling applies only to Capitec; FNB is residual majority', () => {
+    assert.equal(OPERATING_POLICY_V1.acquirer.minorityAcquirerId, 'capitec')
+    assert.equal(OPERATING_POLICY_V1.acquirer.maxShare, 0.35)
+    assert.equal(OPERATING_POLICY_V1.acquirer.referenceCapitecMinShare, 0.25)
+    assert.equal(OPERATING_POLICY_V1.acquirer.referenceCapitecMaxShare, 0.35)
+    assert.equal(OPERATING_POLICY_V1.acquirer.referenceFnbMinShare, 0.65)
+    assert.equal(OPERATING_POLICY_V1.acquirer.referenceFnbMaxShare, 0.75)
+    assert.deepEqual(OPERATING_POLICY_V1.pos.shareMeasurementWindows, ['rolling_7d', 'calendar_month'])
+  })
+
   it('legacy Day-1 golden planner regression remains intact', () => {
     // Full ~R10,192.70 / 2-card golden lives in conversionRouter.test.ts.
     // Here we only assert the 14-day desk surface stays and policy goldens are separate.

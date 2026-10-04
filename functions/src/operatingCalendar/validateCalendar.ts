@@ -142,18 +142,23 @@ export function validateOperatingCalendar(params: {
   }
   push('pos_limits', posOk, 'daily+spacing+35% share')
 
-  // 8 acquirer
-  const capitec = payments.filter((p) => p.acquirerBankId === 'capitec')
-  const capShareV = capitec.reduce((s, p) => s + p.amountZar, 0) / totalV
-  const capShareN = capitec.length / totalN
-  const acqOk = capShareV <= policy.acquirer.maxShare + 1e-9 && capShareN <= policy.acquirer.maxShare + 1e-9
+  // 8 acquirer — Capitec-only ceiling. FNB is residual majority; never apply maxShare to it.
+  const minority = policy.acquirer.minorityAcquirerId
+  const minorityRows = payments.filter((p) => p.acquirerBankId === minority)
+  const minShareV = minorityRows.reduce((s, p) => s + p.amountZar, 0) / totalV
+  const minShareN = minorityRows.length / totalN
+  const acqOk = minShareV <= policy.acquirer.maxShare + 1e-9 && minShareN <= policy.acquirer.maxShare + 1e-9
   const bandOk =
     !params.enforceReferenceCapitecBand ||
-    (capShareV >= policy.acquirer.referenceCapitecMinShare - 1e-9 &&
-      capShareV <= policy.acquirer.referenceCapitecMaxShare + 1e-9 &&
-      capShareN >= policy.acquirer.referenceCapitecMinShare - 1e-9 &&
-      capShareN <= policy.acquirer.referenceCapitecMaxShare + 1e-9)
-  push('acquirer_concentration', acqOk && bandOk, `capitecV=${(capShareV * 100).toFixed(1)}% N=${(capShareN * 100).toFixed(1)}%`)
+    (minShareV >= policy.acquirer.referenceCapitecMinShare - 1e-9 &&
+      minShareV <= policy.acquirer.referenceCapitecMaxShare + 1e-9 &&
+      minShareN >= policy.acquirer.referenceCapitecMinShare - 1e-9 &&
+      minShareN <= policy.acquirer.referenceCapitecMaxShare + 1e-9)
+  push(
+    'acquirer_concentration',
+    acqOk && bandOk,
+    `${minority}V=${(minShareV * 100).toFixed(1)}% N=${(minShareN * 100).toFixed(1)}% (FNB residual expected ${policy.acquirer.referenceFnbMinShare * 100}–${policy.acquirer.referenceFnbMaxShare * 100}%)`
+  )
 
   // 9 time buckets monthly value
   const buckets = new Map<string, number>()

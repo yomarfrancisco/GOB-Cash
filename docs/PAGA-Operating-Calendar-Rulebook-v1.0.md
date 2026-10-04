@@ -5,6 +5,12 @@
 **Reference months:** October 2026 (Month 1) and November 2026 (Month 2)  
 **Purpose:** Allow another implementation agent to reproduce PAGA's operating-calendar logic, Month 1 reference result, Month 2 continuation, validation gates and carry-forward state.
 
+**Scope split (do not collapse):**
+
+1. **Rules** — what calendars are permitted (this document §§1–7, 11–15).
+2. **Fixture** — the exact October / November calendars to reproduce (§§8–10, hashes, books, tie-breaks).
+3. **Desk presentation** — how the FX Desk shows a rolling operating-day view and advances conversation UX. Desk sequence, copy and animation are out of scope here; a 14-operating-day desk surface is a view over continuous monthly state, not a capital-cycle reset.
+
 ---
 
 ## 1. The operating doctrine
@@ -136,14 +142,23 @@ Because both Lemon terminals share one principal, using the same card on Lemon F
 | Attempts/POS/day after sufficient clean evidence | 3 |
 | Value/POS/day | R15,000 |
 | Same-POS spacing | At least 120 minutes |
-| Maximum POS share of rolling or monthly count | 35% |
-| Maximum POS share of rolling or monthly value | 35% |
+| Maximum POS share of count | 35% |
+| Maximum POS share of value | 35% |
 
-### 4.5 Acquirer limit
+**Measurement windows for POS share:** evaluate both (a) the trailing rolling **7 calendar days** and (b) the **calendar month** to date / full month in reference fixtures. A calendar fails if either window exceeds 35% by count or by value for any single POS.
 
-In the clean reference simulation, combined Capitec count and value must remain between 25% and 35% of the month. This includes both `BricsCapitec` and `Econometrica`.
+### 4.5 Acquirer limits
 
-In live operation, 35% remains a maximum concentration guardrail. The 25% lower bound is a reference-fixture balancing condition and must not force traffic onto a degraded route.
+Concentration is **not** a uniform 35% cap on every acquirer. With only FNB and Capitec live, capping both at 35% can cover only 70% and is mathematically impossible.
+
+| Domain | Rule |
+|---|---|
+| Individual POS | Maximum 35% by count and value over the POS measurement windows in §4.4 |
+| Capitec aggregate (`BricsCapitec` + `Econometrica`) | Reference target **25–35%** of the month by count and by value; hard maximum **35%** while Capitec is the minority acquirer |
+| FNB aggregate | Expected residual **65–75%** with the current two-acquirer network; **no** contradictory 35% cap on FNB |
+| Future network | Revisit acquirer caps when a third acquirer becomes live |
+
+In live operation, the 35% Capitec ceiling remains the hard guardrail. The 25% Capitec lower bound is a reference-fixture balancing condition and must not force traffic onto a degraded route.
 
 ### 4.6 Route continuity
 
@@ -240,6 +255,32 @@ The planner must output:
 - required working liquidity;
 - usable liquidity remaining;
 - effect of a delayed or reversed payment.
+
+---
+
+## 6A. Corridor economics accounting
+
+Quoted corridor rates (units: MZN per ZAR) may be expressed as:
+
+```text
+COST = MID × 1.05
+SELL = COST × 1.10
+```
+
+Those formulas are internally coherent for **quoted** MZN/ZAR. They are not a substitute for realised books.
+
+For every economic payment (and for any month-end / growth decision), record separately:
+
+| Ledger line | Meaning |
+|---|---|
+| Quoted MZN due | Invoice / cover obligation at the quoted SELL (or applicable quote) |
+| Actual MZN received | MZN that actually landed and is reserved / cleared |
+| Actual ZAR credited as usable | Amount that reached lifecycle state `zar_available` |
+| ZAR paid out | Amount released onward after usable credit (if any) |
+| Realised spread | Economics after usable credit, fees and reversals — not merely quoted SELL − COST |
+| Fees and reversals | Explicit compensating lines; never erase history |
+
+Do **not** describe the next planning target as “authorised ZAR plus spread.” Growth and reopen capacity are derived only from **realised, usable and reconciled** amounts under the available-liquidity constraint (§6 and §11). Authorised-but-unexecuted or unsettled authority is not earned capital.
 
 ---
 
@@ -573,6 +614,9 @@ The Month 2 reproduction passes only if:
 For any later month:
 
 ```text
+priorMonthFinalUsableValue =
+  sum(ZAR that reached zar_available and remains reconciled after fees/reversals)
+
 candidateTarget = priorMonthFinalUsableValue * (1 + authorisedGrowthRate)
 
 monthTarget = min(
@@ -591,9 +635,11 @@ Rules:
 
 - `authorisedGrowthRate` defaults to zero.
 - It may be set as high as 10% only after an explicit review or configured authority.
+- Base growth only on realised, reconciled settlement and realised margin (§6A). Do not add unsettled authority or merely quoted spread.
 - A new card or POS adds redundancy first, not automatic volume.
 - A deteriorating route, unresolved exposure or reduced liquidity holds or lowers the target.
 - When the R30,000 daily network ceiling binds, additional cards improve resilience but do not increase gross movement.
+- Before treating a month (or planning window) as closed for growth, every issued instruction must be final (`zar_available`) or explicitly resolved, and the books must reconcile.
 
 ---
 
