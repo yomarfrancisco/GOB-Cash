@@ -2776,7 +2776,7 @@ export async function assertRoutingPlayMatches(
   play: RoutingPlayRequest,
   amountZar: number,
   amountMzn?: number
-): Promise<{ expectedZar: number }> {
+): Promise<{ expectedZar: number; expectedMzn: number | null }> {
   const now = admin.firestore.Timestamp.now()
   const currentRun = await currentTestId(adminUid)
   if (!currentRun || play.testRunId !== currentRun) {
@@ -2821,8 +2821,11 @@ export async function assertRoutingPlayMatches(
   }
 
   let expected = 0
+  let expectedMzn: number | null = null
   if (play.action === 'replenish') {
     expected = num(data.replenishAmountZar, 0)
+    const ticketMzn = roundMoney(num(data.replenishAmountMzn, 0))
+    expectedMzn = ticketMzn > 0 ? ticketMzn : null
   } else {
     const cycleSnap = await testRef.collection('cycles').doc(String(play.cycleNumber)).get()
     expected = num(cycleSnap.data()?.deployedAmount, 0)
@@ -2830,14 +2833,12 @@ export async function assertRoutingPlayMatches(
   }
   const entered = roundMoney(amountZar)
   if (expected > 0 && Math.abs(expected - entered) > 0.005) {
-    // A restock keypad types the card's MZN and converts it at the live COST
-    // rate, which drifts from the frozen ticket ZAR. The card's MZN is the
-    // tickets; record those rather than the repriced figure.
+    // A restock keypad types the card's bank-COST MZN total; that may not
+    // invert cleanly through a single live COST rate back to ticket ZAR.
     if (play.action === 'replenish') {
-      const ticketMzn = roundMoney(num(data.replenishAmountMzn, 0))
       const typedMzn = typeof amountMzn === 'number' ? roundMoney(amountMzn) : 0
-      if (ticketMzn > 0 && typedMzn > 0 && Math.abs(ticketMzn - typedMzn) <= 0.02) {
-        return { expectedZar: expected }
+      if (expectedMzn != null && typedMzn > 0 && Math.abs(expectedMzn - typedMzn) <= 0.02) {
+        return { expectedZar: expected, expectedMzn }
       }
     }
     const diff = roundMoney(expected - entered)
@@ -2846,7 +2847,7 @@ export async function assertRoutingPlayMatches(
       `Tickets total ${formatZar(expected)} but ${formatZar(entered)} was entered — ${formatZar(Math.abs(diff))} ${diff > 0 ? 'short' : 'over'}. Enter the ticket total exactly.`
     )
   }
-  return { expectedZar: expected > 0 ? expected : entered }
+  return { expectedZar: expected > 0 ? expected : entered, expectedMzn }
 }
 
 export async function applyAdminCapitalShock(params: {

@@ -39,7 +39,6 @@ import {
   executedPillLabel,
 } from '@/lib/desk/deskCopy'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
-import { costMznPerZar } from '@/lib/mznZar'
 import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
 import Avatar from '@/components/Avatar'
@@ -378,7 +377,7 @@ function ActivityItemCard({
   catchupActive,
   onNext24h,
   onRealtime,
-  liveCostMznPerZar,
+  liveSellMznPerZar,
 }: {
   item: ActivityItem
   showRoutingActions: boolean
@@ -395,7 +394,7 @@ function ActivityItemCard({
   catchupActive?: boolean
   onNext24h?: () => void
   onRealtime?: () => void
-  liveCostMznPerZar?: number | null
+  liveSellMznPerZar?: number | null
 }) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
@@ -445,7 +444,7 @@ function ActivityItemCard({
   const isRecycleCard =
     item.routingAction === 'replenish' || /^Step\s*5\b/i.test(title) || /^Restock ZAR\b/i.test(item.title || '')
   const body = isRecycleCard
-    ? enrichRecycleBodyWithLiveCost(item.body, liveCostMznPerZar)
+    ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar)
     : displayDeskBody(item.body)
   const [titleDone, setTitleDone] = useState(!typing || !title)
   useEffect(() => {
@@ -1049,7 +1048,7 @@ function ActivitySection({
   catchupActive,
   onNext24h,
   onRealtime,
-  liveCostMznPerZar,
+  liveSellMznPerZar,
 }: {
   title: string
   items: ActivityItem[]
@@ -1068,7 +1067,7 @@ function ActivitySection({
   catchupActive: boolean
   onNext24h: () => void
   onRealtime: () => void
-  liveCostMznPerZar?: number | null
+  liveSellMznPerZar?: number | null
 }) {
   const visibleItems = items.filter((item) => item.thinking === true || visibleIds.has(item.id))
   if (visibleItems.length === 0) return null
@@ -1101,7 +1100,7 @@ function ActivitySection({
               catchupActive={catchupActive}
               onNext24h={onNext24h}
               onRealtime={onRealtime}
-              liveCostMznPerZar={liveCostMznPerZar}
+              liveSellMznPerZar={liveSellMznPerZar}
             />
           )
         })}
@@ -1115,9 +1114,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const all = useActivityStore((s) => s.all)
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const { rates: fxRates } = useFxRates(['MZN'], { refreshMs: 30_000 })
-  const liveMzn =
-    typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : 0
-  const liveCostMznPerZar = liveMzn > 0 ? costMznPerZar(liveMzn) : null
+  const liveSellMznPerZar =
+    typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : null
   const { deskBlocked, kycCta } = useSignedInKycAccess()
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
@@ -1472,7 +1470,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     catchupActive: reveal.catchupActive,
     onNext24h: () => void handleNext24h(),
     onRealtime: () => void handleRealtime(),
-    liveCostMznPerZar,
+    liveSellMznPerZar,
   }
 
   const askAnchor =

@@ -121,6 +121,7 @@ export const tx_createInternalConversion = functions
     // anything is recorded. Restocks are anchored on the ZAR tickets, not on MZN
     // at a rate that may have moved since the card was printed.
     let anchoredZar: number | null = null
+    let anchoredMzn: number | null = null
     if (isRoutingAdmin && data?.routingPlay) {
       const { assertRoutingPlayMatches, parseRoutingPlay } = await import('./adminConversionRouting')
       const play = parseRoutingPlay(data.routingPlay)
@@ -131,19 +132,23 @@ export const tx_createInternalConversion = functions
           : Number.isFinite(destinationAmount) && destinationAmount > 0
             ? roundMajor(destinationAmount)
             : roundMajor(sourceAmount / costRate)
-        const { expectedZar } = await assertRoutingPlayMatches(
+        const matched = await assertRoutingPlayMatches(
           userId,
           play,
           enteredZar,
           isZarSale ? undefined : sourceAmount
         )
-        anchoredZar = expectedZar
+        anchoredZar = matched.expectedZar
+        anchoredMzn = matched.expectedMzn
       }
     }
 
+    // Restock uses the bank-weighted ticket MZN (Σ ZAR × bank COST), not a single mid×1.05 reprice.
     const sourceAmountMajor =
       anchoredZar != null && sourceCurrency === 'MZN'
-        ? roundMajor(anchoredZar * costRate)
+        ? anchoredMzn != null && anchoredMzn > 0
+          ? roundMajor(anchoredMzn)
+          : roundMajor(anchoredZar * costRate)
         : roundMajor(sourceAmount)
     const sourceAmountMinor = Math.round(sourceAmountMajor * 100)
     const settlementMajor =
@@ -155,7 +160,11 @@ export const tx_createInternalConversion = functions
     const reportedDestMajor = isZarSale
       ? roundMajor(sourceAmountMajor * sellRate)
       : settlementMajor
-    const fxRateMZNperZAR = isZarSale ? sellRate : costRate
+    const restockBlendedCost =
+      !isZarSale && anchoredZar != null && anchoredZar > 0
+        ? roundMajor(sourceAmountMajor / anchoredZar)
+        : costRate
+    const fxRateMZNperZAR = isZarSale ? sellRate : restockBlendedCost
     // Inventory receives the full converted leg: SELL into Moz on a ZAR sale,
     // COST into SA on a restock. Spread stays inside cashMZN (not Rewards).
     const expectedDestinationMajor = isZarSale ? reportedDestMajor : settlementMajor
@@ -234,8 +243,8 @@ export const tx_createInternalConversion = functions
         expectedDestinationAmountMinor: expectedDestinationMinor,
         actualDestinationAmountMinor: null,
         quotedRate: fxRateMZNperZAR,
-        buyRateMZNperZAR: costRate,
-        costRateMZNperZAR: costRate,
+        buyRateMZNperZAR: isZarSale ? costRate : restockBlendedCost,
+        costRateMZNperZAR: isZarSale ? costRate : restockBlendedCost,
         sellRateMZNperZAR: sellRate,
         // Audit-only: spread already sits inside cashMZN on ZAR sales.
         rewardsMznMinor: rewardsMznMinor || null,

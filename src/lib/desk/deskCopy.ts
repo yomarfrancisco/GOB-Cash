@@ -1,3 +1,5 @@
+import { costMznPerZarForBank } from '@/lib/mznZar'
+
 /** Strip day counters / legacy sell-restock scraps — header owns Day n of 14. */
 export function displayDeskTitle(title: string | undefined | null): string {
   if (!title) return ''
@@ -57,51 +59,51 @@ function formatLiveCostMt(amountMzn: number): string {
 const LIVE_COST_SUFFIX = /\s*\(=Mt [\d\s.,-]+ @COST\)/g
 
 /**
- * Recycle / restock bodies keep frozen ZAR tickets. Overlay live COST Mt so a
- * Planned sim still shows what each swipe costs in MZN right now.
+ * Recycle / restock bodies keep frozen ZAR tickets. Overlay live bank COST Mt
+ * so a Planned sim still shows what each swipe costs in MZN right now.
+ * `sellQuoteMznPerZar` is the `/api/fx/latest` MZN quote (SELL).
  */
 export function enrichRecycleBodyWithLiveCost(
   body: string | undefined | null,
-  costMznPerZar: number | null | undefined
+  sellQuoteMznPerZar: number | null | undefined
 ): string {
   const base = displayDeskBody(body)
-  if (!base || !(typeof costMznPerZar === 'number') || !(costMznPerZar > 0)) return base
+  if (!base || !(typeof sellQuoteMznPerZar === 'number') || !(sellQuoteMznPerZar > 0)) return base
 
-  const rateLabel = costMznPerZar.toFixed(2)
-  let totalZar = 0
+  let totalMzn = 0
   let sawSwipe = false
 
   const lines = base.split('\n').map((line) => {
-    const intro = line.match(/^(Swipe .+ at COST)\s+\d+(?:\.\d+)?(\.?)$/i)
-    if (intro) return `${intro[1]} ${rateLabel}${intro[2] || ''}`
+    const intro = line.match(/^(Swipe .+ at )(?:bank )?COST(?:\s+\d+(?:\.\d+)?)?(\.?)$/i)
+    if (intro) return `${intro[1]}bank COST${intro[2] || ''}`
 
     const swipe = line.match(
-      /^(- (?:\d{1,2}h\d{2}: )?Swipe .+ for )(R[\d\s.,]+)(?:\s*\(=Mt [\d\s.,-]+ @COST\))?(.*)$/
+      /^(- (?:\d{1,2}h\d{2}: )?Swipe .+ \(([^)]+)\) on .+ for )(R[\d\s.,]+)(?:\s*\(=Mt [\d\s.,-]+ @COST\))?(.*)$/
     )
     if (!swipe) return line.replace(LIVE_COST_SUFFIX, '')
 
-    const zar = parseDeskZarAmount(swipe[2])
+    const zar = parseDeskZarAmount(swipe[3])
     if (!(typeof zar === 'number') || !(zar > 0)) return line.replace(LIVE_COST_SUFFIX, '')
+    const cost = costMznPerZarForBank(sellQuoteMznPerZar, swipe[2])
+    if (!(cost > 0)) return line.replace(LIVE_COST_SUFFIX, '')
     sawSwipe = true
-    totalZar += zar
-    const mt = formatLiveCostMt(Math.round(zar * costMznPerZar * 100) / 100)
-    return `${swipe[1]}${swipe[2]} (=${mt} @COST)${swipe[3] || ''}`
+    const lineMzn = Math.round(zar * cost * 100) / 100
+    totalMzn += lineMzn
+    const mt = formatLiveCostMt(lineMzn)
+    return `${swipe[1]}${swipe[3]} (=${mt} @COST)${swipe[4] || ''}`
   })
 
   if (!sawSwipe) return base
 
+  const totalMt = (Math.round(totalMzn * 100) / 100).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
   return lines
     .map((line) => {
       const total = line.match(/^(Total\s+)(R[\d\s.,]+)(\s*·\s*)([\d\s.,]+)\s*MZN(\s+out\.)$/i)
       if (!total) return line
-      const zar = parseDeskZarAmount(total[2])
-      const sourceZar = typeof zar === 'number' && zar > 0 ? zar : totalZar
-      if (!(sourceZar > 0)) return line
-      const mt = (Math.round(sourceZar * costMznPerZar * 100) / 100).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-      return `${total[1]}${total[2]}${total[3]}${mt} MZN${total[5]}`
+      return `${total[1]}${total[2]}${total[3]}${totalMt} MZN${total[5]}`
     })
     .join('\n')
 }

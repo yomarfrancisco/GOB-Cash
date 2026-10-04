@@ -125,7 +125,8 @@ describe('20-cycle compounding', () => {
     const replenish = planReplenish(state, 4.32)
     assert.ok(replenish)
     assert.equal(replenish?.amountZar, sale.deployedAmount)
-    assert.equal(replenish?.amountMzn, roundMoney(sale.deployedAmount * 4.32))
+    // Day-1 tickets are FNB + Std Bank → both mid×1.06 vs base mid×1.05.
+    assert.equal(replenish?.amountMzn, roundMoney(sale.deployedAmount * 4.32 * (1.06 / 1.05)))
     const copy = buildReplenishNotificationCopy(replenish!)
     assert.equal(copy.title, 'Step 5 · Recycle')
     assert.match(copy.body, /Swipe /)
@@ -186,7 +187,7 @@ describe('20-cycle compounding', () => {
     const row = replenish!.cardAssignments[0]
     assert.match(row.posReason || '', /→/)
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state)
-    assert.match(copy.body, /^Swipe .+ tickets back into the SA float at COST 4\.32\./)
+    assert.match(copy.body, /^Swipe .+ tickets back into the SA float at bank COST\./)
     assert.doesNotMatch(copy.body, /Window capital/)
     assert.match(copy.body, /^- Swipe \S+ \(.+\) on .+ for R/m)
     assert.match(copy.body, /Next: sell ZAR on /)
@@ -208,7 +209,7 @@ describe('20-cycle compounding', () => {
     assert.ok((replenish!.cardAssignments.length || 0) > 1)
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state)
     assert.equal(copy.body.match(/^- Swipe .+ on .+ for R/gm)?.length, replenish!.cardAssignments.length)
-    assert.match(copy.body, /at COST 4\.15\./)
+    assert.match(copy.body, /at bank COST\./)
     assert.match(copy.body, /^Total R10,192\.70 · [\d,.]+ MZN out\.$/m)
     assert.match(copy.body, /Next: sell ZAR on /)
     assert.doesNotMatch(copy.body, /each Moz debit card/)

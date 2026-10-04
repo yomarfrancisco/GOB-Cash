@@ -3,6 +3,8 @@
  * POS merchants invoice Mozambique buyers. HOE is upstream only — no rail.
  */
 
+import { costMarkupFromIssuingBank } from '../fx/quotedMznZar'
+
 export type PartyKind = 'pos_merchant' | 'moz_buyer' | 'upstream_supplier'
 
 export type AcquirerId = 'fnb' | 'capitec'
@@ -335,6 +337,11 @@ export function buyerByCardLast4(last4: string): BuyerCardRecord | null {
 
 export function buyerByDeskCardId(deskCardId: number): BuyerCardRecord | null {
   return BUYER_CARDS.find((row) => row.deskCardId === deskCardId) || null
+}
+
+/** COST markup for a desk card's Moz issuing bank. */
+export function costMarkupForDeskCardId(deskCardId: number): number {
+  return costMarkupFromIssuingBank(buyerByDeskCardId(deskCardId)?.issuingBank)
 }
 
 export function resolveMerchantDescriptor(descriptor: string | null | undefined): CompanyRecord | null {

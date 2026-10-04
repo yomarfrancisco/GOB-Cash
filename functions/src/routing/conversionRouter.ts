@@ -23,8 +23,24 @@ import {
 import { assignmentsFromRoutes, markWindowRestocked, resolveWindow, shockWindowCapital } from './throughputPlan'
 import type { ProspectiveBranch } from '../throughput/prospective/types'
 import { cardShortName, DEFAULT_CARDS, isForbiddenPair, machineShortName } from './inventory'
+import { costRateForBankMarkup } from '../fx/quotedMznZar'
+import { costMarkupForDeskCardId } from '../settlement/register'
 import { formatSellTicketLine, formatSwipeTicketLine } from '../settlement/railDisplay'
 import { type TicketPathSchedule } from './attemptSchedule'
+
+/** Restock MZN out = Σ ticket ZAR × bank COST (baseCostRate is mid×1.05 / BCI). */
+export function restockMznForAssignments(
+  assignments: Array<{ cardId: number; amount: number }>,
+  baseCostRate: number
+): number {
+  if (!(baseCostRate > 0) || !assignments.length) return 0
+  return roundMoney(
+    assignments.reduce((sum, row) => {
+      const rate = costRateForBankMarkup(baseCostRate, costMarkupForDeskCardId(row.cardId))
+      return sum + row.amount * rate
+    }, 0)
+  )
+}
 
 /**
  * Desk configuration. Ticket sizes, card counts and capital come from the
@@ -1166,10 +1182,13 @@ export function planReplenish(
   const nextSell = planCycle(state, overlay, liveBook)
   if (!nextSell.bufferActionRequired || state.bufferUsed <= 0 || !(costRate > 0)) return null
   const amountZar = nextSell.deployedAmount > 0 ? nextSell.deployedAmount : state.bufferUsed
+  const amountMzn = nextSell.cardAssignments.length
+    ? restockMznForAssignments(nextSell.cardAssignments, costRate)
+    : roundMoney(amountZar * costRate)
   return {
     cycleNumber: nextSell.cycleNumber,
     amountZar,
-    amountMzn: roundMoney(amountZar * costRate),
+    amountMzn,
     costRate,
     cardAssignments: nextSell.cardAssignments,
     restingCardIds: nextSell.restingCardIds,
@@ -1350,9 +1369,7 @@ export function buildReplenishActivityCopy(
     : `Cycle ${replenish.cycleNumber} of ${cycleCount}`
   const rows = replenish.cardAssignments
   const lines: string[] = [
-    replenish.costRate > 0
-      ? `Swipe ${soldLabel} tickets back into the SA float at COST ${replenish.costRate.toFixed(2)}.`
-      : `Swipe ${soldLabel} tickets back into the SA float at COST.`,
+    `Swipe ${soldLabel} tickets back into the SA float at bank COST.`,
     '',
   ]
   if (rows.length) {

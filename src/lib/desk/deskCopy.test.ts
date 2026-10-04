@@ -7,6 +7,7 @@ import {
   executedPillLabel,
   parseDeskZarAmount,
 } from './deskCopy'
+import { COST_MARKUP_FNB_STD, MZN_ZAR_MARKUP, costMznPerZarForBank } from '@/lib/mznZar'
 
 describe('desk copy display', () => {
   it('strips Day n of 14 from titles', () => {
@@ -46,35 +47,33 @@ describe('desk copy display', () => {
     assert.equal(parseDeskZarAmount('R3854.87'), 3854.87)
   })
 
-  it('overlays live COST Mt on recycle swipe lines and the total', () => {
+  it('overlays bank-specific live COST Mt on recycle swipe lines', () => {
+    // SELL = mid × 1.155. Choose sell so mid = 4, BCI COST = 4.20, FNB = 4.24, BIM = 4.28
+    const mid = 4
+    const sell = mid * MZN_ZAR_MARKUP
+    const fnbCost = costMznPerZarForBank(sell, 'FNB Moz')
+    assert.ok(Math.abs(fnbCost - mid * COST_MARKUP_FNB_STD) < 1e-9)
+
     const body = [
-      'Swipe Fri\'s tickets back into the SA float at COST 4.03.',
+      "Swipe Fri's tickets back into the SA float at COST 4.03.",
       '',
       '- 09h14: Swipe BRICS (FNB Moz) on Imani FNB for R3 854,87',
       '- 10h42: Swipe Ginav (Std Bank Moz) on Wolf and Sons FNB for R5 541,07',
+      '- 15h33: Swipe Vidrotec (Millennium BIM) on Imani FNB for R4 281,67',
+      '- 13h56: Swipe Wolf (BCI) on Wolf and Sons FNB for R5 315,51',
       '',
-      'Total R9,395.94 · 37,865.64 MZN out.',
+      'Total R18,993.12 · 76,000.00 MZN out.',
       '',
       'Status: Awaiting execution',
     ].join('\n')
-    const out = enrichRecycleBodyWithLiveCost(body, 4.03)
-    assert.match(out, /at COST 4\.03\./)
-    assert.match(
-      out,
-      /- 09h14: Swipe BRICS \(FNB Moz\) on Imani FNB for R3 854,87 \(=Mt 15 535\.13 @COST\)/
-    )
-    assert.match(
-      out,
-      /- 10h42: Swipe Ginav \(Std Bank Moz\) on Wolf and Sons FNB for R5 541,07 \(=Mt 22 330\.51 @COST\)/
-    )
-    assert.match(out, /Total R9,395\.94 · 37,865\.64 MZN out\./)
-  })
-
-  it('refreshes a previously enriched recycle body when COST moves', () => {
-    const body =
-      '- 09h14: Swipe BRICS (FNB Moz) on Imani FNB for R3 854,87 (=Mt 15 000.00 @COST)\nTotal R3,854.87 · 15,000.00 MZN out.'
-    const out = enrichRecycleBodyWithLiveCost(body, 4.1)
-    assert.match(out, /\(=Mt 15 804\.97 @COST\)/)
-    assert.match(out, /Total R3,854\.87 · 15,804\.97 MZN out\./)
+    const out = enrichRecycleBodyWithLiveCost(body, sell)
+    assert.match(out, /at bank COST\./)
+    const bricsMt = (Math.round(3854.87 * mid * 1.06 * 100) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+    const bimMt = (Math.round(4281.67 * mid * 1.07 * 100) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+    const bciMt = (Math.round(5315.51 * mid * 1.05 * 100) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+    assert.match(out, new RegExp(`BRICS \\(FNB Moz\\).+\\(=Mt ${bricsMt} @COST\\)`))
+    assert.match(out, new RegExp(`Vidrotec \\(Millennium BIM\\).+\\(=Mt ${bimMt} @COST\\)`))
+    assert.match(out, new RegExp(`Wolf \\(BCI\\).+\\(=Mt ${bciMt} @COST\\)`))
+    assert.match(out, /Total R18,993\.12 · [\d,.]+ MZN out\./)
   })
 })

@@ -1,15 +1,44 @@
 /**
  * Quoted MZN per ZAR = ExchangeRate-API mid × corridor markup.
- * COST is 5% above mid. SELL is a 10% spread on that cost (change MARGIN_ON_COST to retune).
+ *
+ * SELL (all cards): mid × 1.05 × 1.10
+ * COST by Moz issuing bank (restock source):
+ *   BCI            → mid × 1.05
+ *   FNB / Standard → mid × 1.06
+ *   Millennium BIM → mid × 1.07
+ *
+ * Base COST (BCI) is the reference; higher bank COST shrinks that card's spread.
  */
 
 import * as functions from 'firebase-functions'
 
 export const MZN_ZAR_MARKUP_RECEIVE_MZN = 1.05
+export const COST_MARKUP_BCI = 1.05
+export const COST_MARKUP_FNB_STD = 1.06
+export const COST_MARKUP_BIM = 1.07
 export const MARGIN_ON_COST = 0.10
 export const MZN_ZAR_MARKUP = MZN_ZAR_MARKUP_RECEIVE_MZN * (1 + MARGIN_ON_COST)
 export const MZN_ZAR_API_RATE_AT_CALIBRATION = 3.98793
 export const MZN_PER_ZAR_FALLBACK = MZN_ZAR_API_RATE_AT_CALIBRATION * MZN_ZAR_MARKUP
+
+/** Map Moz issuing-bank label → COST markup on API mid. */
+export function costMarkupFromIssuingBank(issuingBank: string | null | undefined): number {
+  const text = String(issuingBank || '')
+  if (/BIM|Millennium/i.test(text)) return COST_MARKUP_BIM
+  if (/Standard/i.test(text)) return COST_MARKUP_FNB_STD
+  if (/FNB/i.test(text)) return COST_MARKUP_FNB_STD
+  if (/BCI/i.test(text)) return COST_MARKUP_BCI
+  return COST_MARKUP_BCI
+}
+
+/**
+ * Scale a base (BCI / mid×1.05) COST quote to another bank's markup.
+ * `baseCostRate` must be mid × COST_MARKUP_BCI.
+ */
+export function costRateForBankMarkup(baseCostRate: number, bankMarkup: number): number {
+  if (!(baseCostRate > 0) || !(bankMarkup > 0)) return 0
+  return baseCostRate * (bankMarkup / MZN_ZAR_MARKUP_RECEIVE_MZN)
+}
 
 const CACHE_MS = 2 * 60 * 1000
 
