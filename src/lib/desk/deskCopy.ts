@@ -34,3 +34,29 @@ export function displayDeskBody(body: string | undefined | null): string {
     .replace(/\nDay\s+\d+\s+of\s+\d+\.\s*/gi, '\n')
     .trim()
 }
+
+/**
+ * Done-state pill for a completed desk card.
+ * Auto-executed steps still need a confirmation label — but never default to "ZAR sent".
+ */
+export function executedPillLabel(input: {
+  title?: string | null
+  routingAction?: string | null
+}): string | null {
+  const action = input.routingAction || ''
+  if (action === 'replenish') return 'Card swiped'
+  if (action === 'deploy') return 'ZAR sent'
+  if (action === 'invoice') return 'Invoices raised'
+  if (action === 'bank_notice') return 'Recorded'
+  if (action === 'advice' || action === 'proposal') return null
+
+  const title = displayDeskTitle(input.title)
+  if (/^Step\s*1\b/i.test(title)) return 'Order posted'
+  if (/^Step\s*2\b/i.test(title)) return 'Invoices raised'
+  if (/^Step\s*3\b/i.test(title)) return 'MZN covered'
+  if (/^Step\s*4\b/i.test(title)) return 'ZAR sent'
+  if (/^Step\s*5\b/i.test(title)) return 'Card swiped'
+  if (/^Step\s*6\b/i.test(title)) return 'Day advanced'
+  if (action === 'step') return 'Done'
+  return 'Done'
+}

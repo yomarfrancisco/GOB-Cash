@@ -25,7 +25,7 @@ import { DESK_CATCHUP_MS, useProgressiveReveal } from '@/lib/desk/useProgressive
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { useDeskFocusStore } from '@/store/deskFocus'
 import { useDeskPlanStore } from '@/store/deskPlan'
-import { displayDeskBody, displayDeskTitle } from '@/lib/desk/deskCopy'
+import { displayDeskBody, displayDeskTitle, executedPillLabel } from '@/lib/desk/deskCopy'
 import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
 import Avatar from '@/components/Avatar'
@@ -338,7 +338,11 @@ function ActivityItemCard({
   const isKycGate = isKycGateItem(item)
   const kycCta = item.kycAction === 'update' ? 'Update KYC' : 'Start KYC'
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-  const showExecuted = actionsUnlocked && isRoutingInstruction && item.status === 'completed' && !item.thinking
+  const executedLabel =
+    actionsUnlocked && isRoutingInstruction && item.status === 'completed' && !item.thinking
+      ? executedPillLabel({ title: item.title, routingAction: item.routingAction })
+      : null
+  const showExecuted = Boolean(executedLabel)
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
   // Live desk: only human-attest ZAR send. Recycle closes on bank receipts; no Continue / I've swiped.
   const showConfirm =
@@ -739,10 +743,10 @@ function ActivityItemCard({
                     : 'Download POP'}
               </button>
             )}
-            {showExecuted && (
+            {showExecuted && executedLabel && (
               <span className={styles.executedLabel}>
                 <Check size={16} strokeWidth={2.4} />
-                {item.routingAction === 'replenish' ? 'Card swiped' : 'ZAR sent'}
+                {executedLabel}
               </span>
             )}
             {showKycLink && (

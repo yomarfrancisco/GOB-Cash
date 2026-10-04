@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { displayDeskBody, displayDeskTitle } from './deskCopy'
+import { displayDeskBody, displayDeskTitle, executedPillLabel } from './deskCopy'
 
 describe('desk copy display', () => {
   it('strips Day n of 14 from titles', () => {
@@ -22,5 +22,15 @@ describe('desk copy display', () => {
       displayDeskBody('Day 9 of 14.\nScheduled ZAR order: R20,178.19.'),
       'Scheduled ZAR order: R20,178.19.'
     )
+  })
+
+  it('maps completed desk cards to step-specific confirmation pills', () => {
+    assert.equal(executedPillLabel({ title: 'Step 1 · Order', routingAction: 'step' }), 'Order posted')
+    assert.equal(executedPillLabel({ title: 'Step 2 · Invoice', routingAction: 'step' }), 'Invoices raised')
+    assert.equal(executedPillLabel({ title: 'Step 3 · MZN', routingAction: 'step' }), 'MZN covered')
+    assert.equal(executedPillLabel({ title: 'Step 4 · Send', routingAction: 'step' }), 'ZAR sent')
+    assert.equal(executedPillLabel({ title: 'Step 5 · Recycle', routingAction: 'step' }), 'Card swiped')
+    assert.equal(executedPillLabel({ title: 'Sell ZAR · Tue,', routingAction: 'deploy' }), 'ZAR sent')
+    assert.equal(executedPillLabel({ title: 'Restock ZAR at COST', routingAction: 'replenish' }), 'Card swiped')
   })
 })
