@@ -61,7 +61,7 @@
   left: 0;
   right: 0;
   z-index: 3;
-  padding: 52px 0 96px;
+  padding: 52px 0 118px;
   pointer-events: none;
   border-radius: 32px 32px 0 0;
   /* Solid behind the faces and the name, then a long fade so the thread
