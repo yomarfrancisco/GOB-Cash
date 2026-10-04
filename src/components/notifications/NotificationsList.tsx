@@ -11,7 +11,6 @@ import {
   downloadWeeklySettlementProof,
   downloadSettlementInvoice,
   admin_submitConversionRoutingFeedback,
-  admin_confirmConversionRoutingCycle,
   admin_simulateNextDeskDay,
   admin_exitDeskPlan,
 } from '@/lib/transactions/clientFunctions'
@@ -330,7 +329,6 @@ function ActivityItemCard({
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
-  const [continueState, setContinueState] = useState<'idle' | 'loading'>('idle')
   const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
   const [startNextState, setStartNextState] = useState<'idle' | 'loading'>('idle')
   const actionsUnlocked = entranceSettled !== false
@@ -342,9 +340,13 @@ function ActivityItemCard({
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
   const showExecuted = actionsUnlocked && isRoutingInstruction && item.status === 'completed' && !item.thinking
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
-  // Continuity only on the latest open step. Sequential Steps 1–3 are Continue-only.
-  const showContinue = Boolean(confirmItem) && !lockDeskActions && actionsUnlocked
-  const showConfirm = showContinue && !isSequentialStepCard(confirmItem)
+  // Live desk: only human-attest ZAR send. Recycle closes on bank receipts; no Continue / I've swiped.
+  const showConfirm =
+    Boolean(confirmItem) &&
+    !lockDeskActions &&
+    actionsUnlocked &&
+    confirmItem?.routingAction === 'deploy' &&
+    !isSequentialStepCard(confirmItem)
   const showProposalActions =
     !lockDeskActions &&
     actionsUnlocked &&
@@ -430,41 +432,19 @@ function ActivityItemCard({
 
   const handleExecuteRouting = (event: React.MouseEvent) => {
     event.stopPropagation()
-    if (confirmState !== 'idle' || !confirmItem) return
-    const isReplenish = confirmItem.routingAction === 'replenish'
-    const amountZAR = isReplenish ? confirmItem.pairedAmountValue : confirmItem.amount?.value
-    const amountMZN = isReplenish ? confirmItem.amount?.value : confirmItem.pairedAmountValue
-    if (isReplenish) {
-      if (!(typeof amountMZN === 'number') || amountMZN <= 0) return
-    } else if (!(typeof amountZAR === 'number') || amountZAR <= 0) {
-      return
-    }
+    if (confirmState !== 'idle' || !confirmItem || confirmItem.routingAction !== 'deploy') return
+    const amountZAR = confirmItem.amount?.value
+    const amountMZN = confirmItem.pairedAmountValue
+    if (!(typeof amountZAR === 'number') || amountZAR <= 0) return
     setConfirmState('loading')
     useRoutingPlaybackStore.getState().requestPlay({
-      destination: isReplenish ? 'ZAR' : 'MZN',
-      amountZAR: amountZAR || 0,
-      amountMZN: amountMZN || 0,
+      destination: 'MZN',
+      amountZAR,
+      amountMZN: typeof amountMZN === 'number' ? amountMZN : 0,
       testRunId: confirmItem.testRunId,
       cycleNumber: confirmItem.cycleNumber,
-      routingAction: isReplenish ? 'replenish' : 'deploy',
+      routingAction: 'deploy',
     })
-  }
-
-  const handleAdminContinue = async (event: React.MouseEvent) => {
-    event.stopPropagation()
-    if (continueState !== 'idle' || !confirmItem) return
-    setContinueState('loading')
-    try {
-      await admin_confirmConversionRoutingCycle({
-        testRunId: confirmItem.testRunId,
-        cycleNumber: confirmItem.cycleNumber,
-        overrideEarliest: true,
-      })
-    } catch (error) {
-      console.error('[Activity] Admin Continue failed:', error)
-    } finally {
-      setContinueState('idle')
-    }
   }
 
   const handleAcceptProposal = async (event: React.MouseEvent) => {
@@ -610,7 +590,6 @@ function ActivityItemCard({
         )}
         {(isKycGate ||
           showConfirm ||
-          showContinue ||
           showStartNextRun ||
           showDownload ||
           showProposalActions ||
@@ -629,24 +608,6 @@ function ActivityItemCard({
                 {kycCta}
               </button>
             )}
-            {showContinue && (
-              <button
-                type="button"
-                className={[
-                  styles.confirmButton,
-                  continueState === 'loading' ? styles.confirmButtonLoading : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Override the swipe clock and continue to the next day"
-                aria-busy={continueState !== 'idle'}
-                disabled={continueState !== 'idle' || confirmState !== 'idle'}
-                onClick={handleAdminContinue}
-              >
-                <Check size={16} strokeWidth={2.4} />
-                Continue
-              </button>
-            )}
             {showConfirm && (
               <button
                 type="button"
@@ -656,17 +617,13 @@ function ActivityItemCard({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label={
-                  confirmItem?.routingAction === 'replenish'
-                    ? 'Confirm the Moz card was swiped on a SA POS'
-                    : 'Confirm ZAR was sent after MZN reflected'
-                }
+                aria-label="Confirm ZAR was sent after MZN reflected"
                 aria-busy={confirmState !== 'idle'}
-                disabled={confirmState !== 'idle' || continueState !== 'idle'}
+                disabled={confirmState !== 'idle' || planBusy === true}
                 onClick={handleExecuteRouting}
               >
                 <Check size={16} strokeWidth={2.4} />
-                {confirmItem?.routingAction === 'replenish' ? "I've swiped" : "I've sent ZAR"}
+                I've sent ZAR
               </button>
             )}
             {showStartNextRun && (
@@ -722,7 +679,7 @@ function ActivityItemCard({
                   .join(' ')}
                 aria-label="Simulate the next 24 hours on the desk"
                 aria-busy={planBusy === true}
-                disabled={planBusy === true || continueState !== 'idle' || confirmState !== 'idle'}
+                disabled={planBusy === true || confirmState !== 'idle'}
                 onClick={(event) => {
                   event.stopPropagation()
                   onNext24h?.()

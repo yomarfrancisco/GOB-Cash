@@ -328,14 +328,15 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
     const body = opsBits.length ? `${base}\n\n${opsBits.join(' · ')}` : base
     return {
       title: stepCard
-        ? awaiting.title || 'Continue'
+        ? awaiting.title || 'On the desk'
         : sale
           ? `Cycle ${awaiting.cycleNumber || ''} · send ZAR`.replace('Cycle  ·', 'Cycle')
           : `Cycle ${awaiting.cycleNumber || ''} · restock`.replace('Cycle  ·', 'Cycle'),
       body,
-      clock: awaiting.routingBlocked || stepCard ? null : sale ? 'sent' : 'swiped',
-      clockLabel: stepCard ? 'Continue' : sale ? "I've sent ZAR" : "I've swiped",
-      showContinue: stepCard || awaiting.routingBlocked !== true,
+      // Only ZAR send needs a human tap; recycle waits on bank receipts. No Continue.
+      clock: awaiting.routingBlocked || stepCard || !sale ? null : 'sent',
+      clockLabel: sale && !stepCard ? "I've sent ZAR" : '',
+      showContinue: false,
       stillToDeliver: leftover,
       startAgain: false,
       item: awaiting,

@@ -5,10 +5,7 @@ import Image from 'next/image'
 import { ArrowUp, Check } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
-import {
-  admin_confirmConversionRoutingCycle,
-  admin_submitConversionRoutingFeedback,
-} from '@/lib/transactions/clientFunctions'
+import { admin_submitConversionRoutingFeedback } from '@/lib/transactions/clientFunctions'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
@@ -81,16 +78,12 @@ function DayCard({ row }: { row: DeskDayRow }) {
 function StepCard({
   next,
   clockState,
-  continueState,
   onClock,
-  onContinue,
   onStartAgain,
 }: {
   next: DeskNextStep
   clockState: 'idle' | 'loading'
-  continueState: 'idle' | 'loading'
   onClock: () => void
-  onContinue: () => void
   onStartAgain: () => void
 }) {
   return (
@@ -98,19 +91,8 @@ function StepCard({
       <h3 className={styles.dayTitle}>{next.title}</h3>
       <p className={styles.dayResult}>{next.body}</p>
       {next.stillToDeliver && <p className={styles.leftover}>Still to deliver · {next.stillToDeliver}</p>}
-      {(next.clock || next.startAgain || next.showContinue) && (
+      {(next.clock || next.startAgain) && (
         <div className={styles.nextActions}>
-          {next.showContinue && (
-            <button
-              type="button"
-              className={styles.clock}
-              disabled={continueState !== 'idle' || clockState !== 'idle'}
-              onClick={onContinue}
-            >
-              <Check size={14} strokeWidth={2.4} />
-              Continue
-            </button>
-          )}
           {next.clock && (
             <button
               type="button"
@@ -143,7 +125,6 @@ export function FxDeskThread() {
   const [draft, setDraft] = useState('')
   const [sendState, setSendState] = useState<'idle' | 'loading'>('idle')
   const [clockState, setClockState] = useState<'idle' | 'loading'>('idle')
-  const [continueState, setContinueState] = useState<'idle' | 'loading'>('idle')
   const [error, setError] = useState('')
   const [visibleCount, setVisibleCount] = useState(PAGE)
   const threadRef = useRef<HTMLDivElement>(null)
@@ -260,39 +241,19 @@ export function FxDeskThread() {
       return
     }
     const item = next.item
-    if (!item || clockState !== 'idle') return
-    const isReplenish = item.routingAction === 'replenish'
-    const amountZAR = isReplenish ? item.pairedAmountValue : item.amount?.value
-    const amountMZN = isReplenish ? item.amount?.value : item.pairedAmountValue
-    if (isReplenish && (!(typeof amountMZN === 'number') || amountMZN <= 0)) return
-    if (!isReplenish && (!(typeof amountZAR === 'number') || amountZAR <= 0)) return
+    if (!item || clockState !== 'idle' || item.routingAction !== 'deploy') return
+    const amountZAR = item.amount?.value
+    const amountMZN = item.pairedAmountValue
+    if (!(typeof amountZAR === 'number') || amountZAR <= 0) return
     setClockState('loading')
     useRoutingPlaybackStore.getState().requestPlay({
-      destination: isReplenish ? 'ZAR' : 'MZN',
-      amountZAR: amountZAR || 0,
-      amountMZN: amountMZN || 0,
+      destination: 'MZN',
+      amountZAR,
+      amountMZN: typeof amountMZN === 'number' ? amountMZN : 0,
       testRunId: item.testRunId,
       cycleNumber: item.cycleNumber,
-      routingAction: isReplenish ? 'replenish' : 'deploy',
+      routingAction: 'deploy',
     })
-  }
-
-  const handleContinue = async () => {
-    const item = next.item
-    if (!item || continueState !== 'idle') return
-    setContinueState('loading')
-    setError('')
-    try {
-      await admin_confirmConversionRoutingCycle({
-        testRunId: item.testRunId,
-        cycleNumber: item.cycleNumber,
-        overrideEarliest: true,
-      })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Continue failed.')
-    } finally {
-      setContinueState('idle')
-    }
   }
 
   return (
@@ -370,9 +331,7 @@ export function FxDeskThread() {
           <StepCard
             next={next}
             clockState={clockState}
-            continueState={continueState}
             onClock={handleClock}
-            onContinue={() => void handleContinue()}
             onStartAgain={() => void sendAsk('start the next run')}
           />
         )}

@@ -998,7 +998,7 @@ function writeIssuedReplenish(
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
     title: step5Title,
-    body: `${activity.body}\nTap Continue after the COST swipe to open the next day.`,
+    body: `${activity.body}\nBank receipts close this restock automatically when cover is in.`,
     dropdownTitle: step5Title,
     dropdownBody: notification.body,
     actorType: 'ai_manager',
@@ -4467,6 +4467,95 @@ async function clearPlanMarkers(adminUid: string, testRunId: string): Promise<vo
   )
 }
 
+type LiveCheckpoint = {
+  atMs: number
+  test: Record<string, unknown>
+  cycles: Record<string, Record<string, unknown>>
+  eventIds: string[]
+  cashZar: number
+  cashMzn: number
+}
+
+async function captureLiveCheckpoint(adminUid: string, testRunId: string): Promise<LiveCheckpoint> {
+  const testRef = db.collection(TESTS).doc(testRunId)
+  const [testSnap, cyclesSnap, eventsSnap, zarSnap, mznSnap] = await Promise.all([
+    testRef.get(),
+    testRef.collection('cycles').get(),
+    db.collection('users').doc(adminUid).collection('activityEvents').where('testRunId', '==', testRunId).get(),
+    db.collection('users').doc(adminUid).collection('wallets').doc('cashZAR').get(),
+    db.collection('users').doc(adminUid).collection('wallets').doc('cashMZN').get(),
+  ])
+  const test = { ...(testSnap.data() || {}) } as Record<string, unknown>
+  delete test.liveCheckpoint
+  delete test.deskMode
+  delete test.plannedClockMs
+  const cycles: Record<string, Record<string, unknown>> = {}
+  cyclesSnap.docs.forEach((doc) => {
+    cycles[doc.id] = { ...(doc.data() || {}) }
+  })
+  return {
+    atMs: Date.now(),
+    test,
+    cycles,
+    eventIds: eventsSnap.docs.map((doc) => doc.id),
+    cashZar: roundMoney(Number(zarSnap.exists ? zarSnap.data()?.fiatBalance || 0 : 0)),
+    cashMzn: roundMoney(Number(mznSnap.exists ? mznSnap.data()?.fiatBalance || 0 : 0)),
+  }
+}
+
+async function restoreLiveCheckpoint(
+  adminUid: string,
+  testRunId: string,
+  checkpoint: LiveCheckpoint
+): Promise<void> {
+  const testRef = db.collection(TESTS).doc(testRunId)
+  const now = admin.firestore.Timestamp.now()
+  const cyclesSnap = await testRef.collection('cycles').get()
+  await Promise.all(
+    cyclesSnap.docs.map(async (doc) => {
+      if (checkpoint.cycles[doc.id]) return
+      await doc.ref.delete()
+    })
+  )
+  await Promise.all(
+    Object.entries(checkpoint.cycles).map(([id, data]) =>
+      testRef.collection('cycles').doc(id).set(data, { merge: false })
+    )
+  )
+
+  const keep = new Set(checkpoint.eventIds)
+  const eventsSnap = await db
+    .collection('users')
+    .doc(adminUid)
+    .collection('activityEvents')
+    .where('testRunId', '==', testRunId)
+    .get()
+  await Promise.all(
+    eventsSnap.docs
+      .filter((doc) => !keep.has(doc.id))
+      .map((doc) => doc.ref.delete())
+  )
+  await clearPlanMarkers(adminUid, testRunId)
+
+  await db.collection('users').doc(adminUid).collection('wallets').doc('cashZAR').set(
+    { fiatBalance: checkpoint.cashZar, updatedAt: new Date().toISOString() },
+    { merge: true }
+  )
+  await db.collection('users').doc(adminUid).collection('wallets').doc('cashMZN').set(
+    { fiatBalance: checkpoint.cashMzn, updatedAt: new Date().toISOString() },
+    { merge: true }
+  )
+
+  const restored = {
+    ...checkpoint.test,
+    deskMode: 'live' as const,
+    plannedClockMs: null,
+    updatedAt: now,
+  }
+  delete (restored as { liveCheckpoint?: unknown }).liveCheckpoint
+  await testRef.set(restored, { merge: false })
+}
+
 /**
  * Next 24h — auto-walk the open day (Continue + synthetic bank cover) in Planned mode.
  * Stops when the next operating day opens, the window closes, or a hard stop.
@@ -4486,11 +4575,17 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
   const prevClock = num(start.plannedClockMs, 0)
   const plannedClockMs = (prevClock > 0 ? prevClock : Date.now()) + 24 * 60 * 60 * 1000
   const now = admin.firestore.Timestamp.now()
+  // First entry into Planned freezes live desk + wallets so Real time can rewind the sim.
+  const alreadyPlanned = start.deskMode === 'planned' && start.liveCheckpoint
+  const liveCheckpoint = alreadyPlanned
+    ? (start.liveCheckpoint as LiveCheckpoint)
+    : await captureLiveCheckpoint(adminUid, testRunId)
 
   await testRef.set(
     {
       deskMode: 'planned',
       plannedClockMs,
+      liveCheckpoint,
       updatedAt: now,
     },
     { merge: true }
@@ -4508,7 +4603,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       id: markerId,
       kind: CONVERSION_ROUTING_KIND,
       title: 'Ask · Planned day',
-      body: `Simulating the next 24 hours from Day ${startCycle}. Bank cover is assumed so the desk can walk Steps 1–5. Tap Real time to leave Planned.`,
+      body: `Simulating the next 24 hours from Day ${startCycle}. Bank cover is assumed so the desk can walk the day. Tap Real time to restore the live desk and remove this simulation.`,
       dropdownTitle: 'Ask · Planned day',
       dropdownBody: `Planned · Day ${startCycle}`,
       actorType: 'ai_manager',
@@ -4657,18 +4752,26 @@ export async function exitDeskPlan(adminUid: string): Promise<Record<string, unk
   if (!snap.exists) {
     return { status: 'none', deskMode: 'live' }
   }
-  const now = admin.firestore.Timestamp.now()
-  await clearPlanMarkers(adminUid, testRunId)
-  await testRef.set({ deskMode: 'live', plannedClockMs: null, updatedAt: now }, { merge: true })
-  const data = (await testRef.get()).data() || {}
-  const state = stateFromDoc(data)
+  const data = snap.data() || {}
+  const checkpoint = data.liveCheckpoint as LiveCheckpoint | undefined
+  if (checkpoint && typeof checkpoint.atMs === 'number' && Array.isArray(checkpoint.eventIds)) {
+    await restoreLiveCheckpoint(adminUid, testRunId, checkpoint)
+  } else {
+    await clearPlanMarkers(adminUid, testRunId)
+    await testRef.set(
+      { deskMode: 'live', plannedClockMs: null, liveCheckpoint: admin.firestore.FieldValue.delete(), updatedAt: admin.firestore.Timestamp.now() },
+      { merge: true }
+    )
+  }
+  const after = (await testRef.get()).data() || {}
+  const state = stateFromDoc(after)
   return publicSummary(state, {
     testRunId,
-    status: data.status || 'active',
-    cycleNumber: data.awaitingCycleNumber || state.completedCycles,
+    status: after.status || 'active',
+    cycleNumber: after.awaitingCycleNumber || state.completedCycles,
     deskMode: 'live',
     plannedClockMs: null,
-    acknowledgement: 'Live desk clock restored.',
+    acknowledgement: 'Live desk restored — Planned simulation removed.',
   })
 }
 
