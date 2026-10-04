@@ -21,6 +21,20 @@ export const MZN_ZAR_MARKUP = MZN_ZAR_MARKUP_RECEIVE_MZN * (1 + MARGIN_ON_COST)
 export const MZN_ZAR_API_RATE_AT_CALIBRATION = 3.98793
 export const MZN_PER_ZAR_FALLBACK = MZN_ZAR_API_RATE_AT_CALIBRATION * MZN_ZAR_MARKUP
 
+/** Map desk `mozBankId` → COST markup on API mid. */
+export function costMarkupFromMozBankId(mozBankId: string | null | undefined): number {
+  switch (String(mozBankId || '').toLowerCase()) {
+    case 'bim':
+      return COST_MARKUP_BIM
+    case 'fnb':
+    case 'standard':
+      return COST_MARKUP_FNB_STD
+    case 'bci':
+    default:
+      return COST_MARKUP_BCI
+  }
+}
+
 /** Map Moz issuing-bank label → COST markup on API mid. */
 export function costMarkupFromIssuingBank(issuingBank: string | null | undefined): number {
   const text = String(issuingBank || '')

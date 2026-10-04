@@ -3,7 +3,11 @@
  * POS merchants invoice Mozambique buyers. HOE is upstream only — no rail.
  */
 
-import { costMarkupFromIssuingBank } from '../fx/quotedMznZar'
+import {
+  costMarkupFromIssuingBank,
+  costMarkupFromMozBankId,
+} from '../fx/quotedMznZar'
+import { DEFAULT_CARDS } from '../routing/inventory'
 
 export type PartyKind = 'pos_merchant' | 'moz_buyer' | 'upstream_supplier'
 
@@ -310,6 +314,15 @@ export const BUYER_CARDS: BuyerCardRecord[] = [
     cardLast4: '0922',
     masked: '441279******0922',
   },
+  {
+    deskCardId: 6,
+    shortName: 'Kayman',
+    companyId: 'brics_ai_ei',
+    issuingBank: 'FNB Mozambique',
+    cardBin6: '478705',
+    cardLast4: '0000',
+    masked: '478705******0000',
+  },
 ]
 
 export function companyOf(id: string): CompanyRecord {
@@ -339,8 +352,10 @@ export function buyerByDeskCardId(deskCardId: number): BuyerCardRecord | null {
   return BUYER_CARDS.find((row) => row.deskCardId === deskCardId) || null
 }
 
-/** COST markup for a desk card's Moz issuing bank. */
+/** COST markup for a desk card's Moz issuing bank (inventory first, then buyer register). */
 export function costMarkupForDeskCardId(deskCardId: number): number {
+  const inventoryBank = DEFAULT_CARDS.find((row) => row.id === deskCardId)?.mozBankId
+  if (inventoryBank) return costMarkupFromMozBankId(inventoryBank)
   return costMarkupFromIssuingBank(buyerByDeskCardId(deskCardId)?.issuingBank)
 }
 
