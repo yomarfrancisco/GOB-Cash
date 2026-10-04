@@ -1273,6 +1273,8 @@ export default function ProfileClient() {
           void run.catch((error: any) => {
             useRoutingPlaybackStore.getState().clear()
             const message = String(error?.message || '')
+            // Duplicate keypad auto-submit while the first conversion is still running.
+            if (/already in progress/i.test(message)) return
             useNotificationStore.getState().pushNotification({
               kind: 'payment_failed',
               title: play ? 'Cycle did not advance' : 'Conversion failed',

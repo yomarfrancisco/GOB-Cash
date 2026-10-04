@@ -14,7 +14,14 @@ import {
   admin_simulateNextDeskDay,
   admin_exitDeskPlan,
 } from '@/lib/transactions/clientFunctions'
-import { openDeskKeypad } from '@/lib/desk/openDeskKeypad'
+import { isConversionInFlight } from '@/lib/transactions/submitInternalConversion'
+import {
+  markDeskKeypadOffered,
+  openDeskKeypad,
+  routingKeypadOfferKey,
+  wasDeskKeypadOffered,
+} from '@/lib/desk/openDeskKeypad'
+import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { formatVisibleSast } from '@/lib/routing/routingTime'
@@ -308,14 +315,11 @@ function isCatchupKeypadCard(item: ActivityItem): boolean {
   return typeof item.amount?.value === 'number' && item.amount.value > 0
 }
 
-/** One auto keypad offer per card id (dismiss does not re-pop; button still works). */
-const deskKeypadAutoOffered = new Set<string>()
-
 function openCatchupPlaybackKeypad(item: ActivityItem): boolean {
   if (item.routingAction === 'deploy') {
     const amountZAR = item.amount?.value
     if (!(typeof amountZAR === 'number') || amountZAR <= 0) return false
-    openDeskKeypad({
+    return openDeskKeypad({
       destination: 'MZN',
       amountZAR,
       amountMZN: typeof item.pairedAmountValue === 'number' ? item.pairedAmountValue : 0,
@@ -324,12 +328,11 @@ function openCatchupPlaybackKeypad(item: ActivityItem): boolean {
       routingAction: 'deploy',
       playbackOnly: true,
     })
-    return true
   }
   if (item.routingAction === 'replenish') {
     const amountMZN = item.amount?.value
     if (!(typeof amountMZN === 'number') || amountMZN <= 0) return false
-    openDeskKeypad({
+    return openDeskKeypad({
       destination: 'ZAR',
       amountZAR: typeof item.pairedAmountValue === 'number' ? item.pairedAmountValue : 0,
       amountMZN,
@@ -338,7 +341,6 @@ function openCatchupPlaybackKeypad(item: ActivityItem): boolean {
       routingAction: 'replenish',
       playbackOnly: true,
     })
-    return true
   }
   return false
 }
@@ -507,11 +509,12 @@ function ActivityItemCard({
 
   const openSendZarKeypad = useCallback(() => {
     if (confirmState !== 'idle' || !confirmItem || confirmItem.routingAction !== 'deploy') return false
+    if (isConversionInFlight() || useRoutingPlaybackStore.getState().play) return false
     const amountZAR = confirmItem.amount?.value
     const amountMZN = confirmItem.pairedAmountValue
     if (!(typeof amountZAR === 'number') || amountZAR <= 0) return false
     setConfirmState('loading')
-    openDeskKeypad({
+    const opened = openDeskKeypad({
       destination: 'MZN',
       amountZAR,
       amountMZN: typeof amountMZN === 'number' ? amountMZN : 0,
@@ -519,17 +522,19 @@ function ActivityItemCard({
       cycleNumber: confirmItem.cycleNumber,
       routingAction: 'deploy',
     })
+    if (opened) markDeskKeypadOffered(confirmItem.id)
     window.setTimeout(() => setConfirmState('idle'), 400)
-    return true
+    return opened
   }, [confirmItem, confirmState])
 
   const openRestockKeypad = useCallback(() => {
     if (confirmState !== 'idle' || !isRestockKeypadCard(item)) return false
+    if (isConversionInFlight() || useRoutingPlaybackStore.getState().play) return false
     const amountMZN = item.amount?.value
     const amountZAR = item.pairedAmountValue
     if (!(typeof amountMZN === 'number') || amountMZN <= 0) return false
     setConfirmState('loading')
-    openDeskKeypad({
+    const opened = openDeskKeypad({
       destination: 'ZAR',
       amountZAR: typeof amountZAR === 'number' ? amountZAR : 0,
       amountMZN,
@@ -537,17 +542,19 @@ function ActivityItemCard({
       cycleNumber: item.cycleNumber,
       routingAction: 'replenish',
     })
+    if (opened) markDeskKeypadOffered(item.id)
     window.setTimeout(() => setConfirmState('idle'), 400)
-    return true
+    return opened
   }, [confirmState, item])
 
   const openFundMznKeypad = useCallback(() => {
     if (confirmState !== 'idle' || !isMznShortStepCard(item)) return false
+    if (isConversionInFlight() || useRoutingPlaybackStore.getState().play) return false
     const amountMZN = item.amount?.value
     if (!(typeof amountMZN === 'number') || amountMZN <= 0) return false
     const amountZAR = typeof item.pairedAmountValue === 'number' ? item.pairedAmountValue : 0
     setConfirmState('loading')
-    openDeskKeypad({
+    const opened = openDeskKeypad({
       destination: 'MZN',
       amountZAR,
       amountMZN,
@@ -555,8 +562,9 @@ function ActivityItemCard({
       cycleNumber: item.cycleNumber,
       routingAction: 'mzn_fund',
     })
+    if (opened) markDeskKeypadOffered(item.id)
     window.setTimeout(() => setConfirmState('idle'), 400)
-    return true
+    return opened
   }, [confirmState, item])
 
   const handleSendZarKeypad = (event: React.MouseEvent) => {
@@ -577,14 +585,36 @@ function ActivityItemCard({
   // After the bubble finishes typing, pop the keypad once (live confirm or catch-up playback).
   useEffect(() => {
     if (planBusy || !actionsUnlocked || lockDeskActions) return
+    // Desk restore mid-submit must not re-open the keypad (causes "already in progress").
+    if (isConversionInFlight() || useRoutingPlaybackStore.getState().play) return
     const live =
       showSendKeypad || showRestockKeypad || showFundMznKeypad
     const catchupPlayback =
       catchupActive === true && !live && isCatchupKeypadCard(item)
     if (!live && !catchupPlayback) return
     const targetId = showSendKeypad ? confirmItem?.id || item.id : item.id
-    if (!targetId || deskKeypadAutoOffered.has(targetId)) return
+    const cycleKey = routingKeypadOfferKey(
+      showSendKeypad && confirmItem
+        ? {
+            testRunId: confirmItem.testRunId,
+            cycleNumber: confirmItem.cycleNumber,
+            routingAction: confirmItem.routingAction === 'deploy' ? 'deploy' : undefined,
+          }
+        : {
+            testRunId: item.testRunId,
+            cycleNumber: item.cycleNumber,
+            routingAction:
+              item.routingAction === 'deploy' ||
+              item.routingAction === 'replenish' ||
+              item.routingAction === 'mzn_fund'
+                ? item.routingAction
+                : undefined,
+          }
+    )
+    if (!targetId || wasDeskKeypadOffered(targetId) || wasDeskKeypadOffered(cycleKey)) return
     const timer = window.setTimeout(() => {
+      if (isConversionInFlight() || useRoutingPlaybackStore.getState().play) return
+      if (wasDeskKeypadOffered(targetId) || wasDeskKeypadOffered(cycleKey)) return
       const opened = showSendKeypad
         ? openSendZarKeypad()
         : showRestockKeypad
@@ -594,13 +624,16 @@ function ActivityItemCard({
             : catchupPlayback
               ? openCatchupPlaybackKeypad(item)
               : false
-      if (opened) deskKeypadAutoOffered.add(targetId)
+      if (opened) {
+        markDeskKeypadOffered(targetId)
+        markDeskKeypadOffered(cycleKey)
+      }
     }, 320)
     return () => window.clearTimeout(timer)
   }, [
     actionsUnlocked,
     catchupActive,
-    confirmItem?.id,
+    confirmItem,
     item,
     lockDeskActions,
     openFundMznKeypad,

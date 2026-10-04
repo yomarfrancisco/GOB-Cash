@@ -11,6 +11,12 @@ let conversionInFlight = false
 const FAB_DROP_MS = 850
 const FAB_HOLD_MS = 4500
 
+export function isConversionInFlight(): boolean {
+  return conversionInFlight
+}
+
+export const CONVERSION_IN_FLIGHT_MESSAGE = 'Conversion already in progress.'
+
 function waitRemaining(startedAt: number, minMs: number) {
   const remaining = minMs - (Date.now() - startedAt)
   if (remaining <= 0) return Promise.resolve()
@@ -29,7 +35,7 @@ export async function submitInternalConversion(params: {
   suppressDeskActivity?: boolean
 }): Promise<{ txId: string; capitalShock?: boolean }> {
   if (conversionInFlight) {
-    throw new Error('Conversion already in progress.')
+    throw new Error(CONVERSION_IN_FLIGHT_MESSAGE)
   }
   conversionInFlight = true
   const sourceCurrency = params.destination === 'ZAR' ? 'MZN' : 'ZAR'

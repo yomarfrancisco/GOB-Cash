@@ -22,8 +22,22 @@ type RoutingPlaybackState = {
   clear: () => void
 }
 
+function sameRoutingPlay(a: RoutingPlayback, b: RoutingPlayback): boolean {
+  return (
+    a.destination === b.destination &&
+    a.amountZAR === b.amountZAR &&
+    a.amountMZN === b.amountMZN &&
+    a.testRunId === b.testRunId &&
+    a.cycleNumber === b.cycleNumber &&
+    a.routingAction === b.routingAction &&
+    Boolean(a.playbackOnly) === Boolean(b.playbackOnly)
+  )
+}
+
 export const useRoutingPlaybackStore = create<RoutingPlaybackState>((set) => ({
   play: null,
-  requestPlay: (play) => set({ play }),
+  // Avoid remounting AmountSheet autoPlay when Next 24h and the card both open the same play.
+  requestPlay: (play) =>
+    set((state) => (state.play && sameRoutingPlay(state.play, play) ? state : { play })),
   clear: () => set({ play: null }),
 }))
