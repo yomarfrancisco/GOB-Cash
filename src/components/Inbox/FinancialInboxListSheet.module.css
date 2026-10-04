@@ -158,12 +158,6 @@
   transition: width 320ms ease;
 }
 
-.deskProgressLabel {
-  margin: 0;
-  font: 500 11px/14px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: rgba(0, 0, 0, 0.42);
-  text-align: center;
-}
 
 .deskStackFace {
   position: absolute;

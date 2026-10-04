@@ -97,6 +97,12 @@ export function formatVisibleSast(ms: number, nowMs = Date.now()): string {
   return `${p.day} ${MONTHS[p.month - 1].slice(0, 3)} ${hhmm}`
 }
 
+/** e.g. Sunday 4 October */
+export function formatSastDayLabel(ms: number = Date.now()): string {
+  const p = sastParts(ms)
+  return `${WEEKDAYS[p.weekday]} ${p.day} ${MONTHS[p.month - 1]}`
+}
+
 export function formatRoutingClock(nowMs: number): RoutingClock {
   const p = sastParts(nowMs)
   const hh = String(p.hour).padStart(2, '0')

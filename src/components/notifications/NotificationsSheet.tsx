@@ -8,6 +8,7 @@ import { NotificationsList } from './NotificationsList'
 import { DESK_RING, DESK_TEAM, type DeskAgent } from '@/lib/desk/threadModel'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
+import { formatSastDayLabel } from '@/lib/routing/routingTime'
 import type { ActivityItem } from '@/store/activity'
 import {
   admin_getConversionRoutingStatus,
@@ -59,9 +60,9 @@ export default function NotificationsSheet() {
   const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const active = useDeskSpeakerStore((s) => s.active)
-  const speaker = DESK_TEAM[active]
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [summary, setSummary] = useState<ConversionRoutingSummary | null>(null)
+  const dayLabel = formatSastDayLabel()
 
   useEffect(() => {
     if (!isNotificationsOpen) return
@@ -123,12 +124,8 @@ export default function NotificationsSheet() {
                 />
               ))}
             </div>
-            <p key={`${active}-name`} className={`${listStyles.deskHeaderName} ${listStyles.deskHeaderSwap}`}>
-              {speaker.name}
-            </p>
-            <p key={`${active}-role`} className={`${listStyles.deskHeaderRole} ${listStyles.deskHeaderSwap}`}>
-              {speaker.role}
-            </p>
+            <p className={listStyles.deskHeaderName}>FX Desk</p>
+            <p className={listStyles.deskHeaderRole}>{dayLabel}</p>
             <p className={listStyles.deskHeaderStatus}>
               {header.dayLabel}
               {' · '}
@@ -138,7 +135,6 @@ export default function NotificationsSheet() {
               <div className={listStyles.deskProgressTrack}>
                 <div className={listStyles.deskProgressFill} style={{ width: `${header.progressPct}%` }} />
               </div>
-              <p className={listStyles.deskProgressLabel}>{header.progressLabel}</p>
             </div>
           </div>
         </div>
