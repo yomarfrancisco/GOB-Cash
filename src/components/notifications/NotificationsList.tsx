@@ -91,9 +91,17 @@ function searchableText(item: ActivityItem): string {
   return `${item.title} ${item.body ?? ''} ${item.userReply ?? ''} ${item.actor.name ?? ''}`.toLowerCase()
 }
 
+function isStandaloneConversionPop(item: ActivityItem): boolean {
+  if (item.deskHidden === true) return true
+  if (item.routingAction === 'pop_pack') return true
+  if (item.kind === 'CONVERSION_INSTRUCTED') return true
+  if (item.kind === 'proof_of_payment') return true
+  return /^(ZAR sold at SELL|ZAR sourced at COST)\b/i.test(item.title || '')
+}
+
 function isPaymentActivity(item: ActivityItem): boolean {
-  // Sam POP-pack cards are retired — bank MZN cover/receipt lives on Step 3.
-  if (item.routingAction === 'pop_pack') return false
+  // Conversion POPs live on Step 4/5 as a zip, not as extra bubbles.
+  if (isStandaloneConversionPop(item)) return false
   if (
     item.kind &&
     [

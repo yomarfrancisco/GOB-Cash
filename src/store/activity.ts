@@ -32,6 +32,7 @@ export type ActivityItem = {
   invoiceIds?: string[]
   proofZipStoragePath?: string
   proofZipFilename?: string
+  deskHidden?: boolean
   avatarKind?: string
   hasKycLink?: boolean
   status?: string

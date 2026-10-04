@@ -25,6 +25,7 @@ export type ActivityEventDoc = {
   invoiceIds?: string[]
   proofZipStoragePath?: string
   proofZipFilename?: string
+  deskHidden?: boolean
   dropdownTitle?: string
   dropdownBody?: string
   status?: string
@@ -227,6 +228,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       typeof data.proofZipFilename === 'string' && data.proofZipFilename.trim()
         ? data.proofZipFilename.trim()
         : undefined,
+    deskHidden: data.deskHidden === true,
     avatarKind: data.avatarKind,
     status: data.status,
     dropdownTitle: data.dropdownTitle,

@@ -3398,8 +3398,20 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
     })
 
     let nextCycle = result.nextCycle
-    // Do not publish a Sam "POPs · Cycle N" card here. Desk keypad conversions
-    // are already narrated by Step 4/5; bank MZN cover/receipt lives on Step 3.
+    if (conversionTxId && (result.confirmedKind === 'deploy' || result.confirmedKind === 'replenish')) {
+      try {
+        const { publishPopPackDeskNotice } = await import('../settlement/publishPopPack')
+        await publishPopPackDeskNotice({
+          conversionTxIds: [conversionTxId],
+          testRunId,
+          cycleNumber: result.cycleNumber,
+          adminUid,
+          attachAction: result.confirmedKind,
+        })
+      } catch (error) {
+        console.warn('[confirm] POP zip on step card skipped', error)
+      }
+    }
     if (result.issueNext && !result.testComplete) {
       try {
         const issued = await issueCycle(
