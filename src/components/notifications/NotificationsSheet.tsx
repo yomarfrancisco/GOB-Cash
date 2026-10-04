@@ -11,12 +11,14 @@ import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import { formatSastDayLabel } from '@/lib/routing/routingTime'
 import type { ActivityItem } from '@/store/activity'
 import {
+  admin_exitDeskPlan,
   admin_getConversionRoutingStatus,
   type ConversionRoutingSummary,
 } from '@/lib/transactions/clientFunctions'
 import { buildDeskHeaderStatus } from '@/lib/desk/deskHeaderStatus'
 import { useDeskFocusStore } from '@/store/deskFocus'
 import { useDeskPlanStore } from '@/store/deskPlan'
+import { resetDeskRevealForLiveRestore } from '@/lib/desk/useProgressiveReveal'
 import { useAuthStore } from '@/store/auth'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
@@ -68,8 +70,10 @@ export default function NotificationsSheet() {
   const planMode = useDeskPlanStore((s) => s.mode)
   const plannedClockMs = useDeskPlanStore((s) => s.plannedClockMs)
   const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
+  const setLive = useDeskPlanStore((s) => s.setLive)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [summary, setSummary] = useState<ConversionRoutingSummary | null>(null)
+  const [deskLiveReady, setDeskLiveReady] = useState(false)
   const planned = planMode === 'planned' || summary?.deskMode === 'planned'
   const dayLabel = formatSastDayLabel(
     planned ? plannedClockMs || focusAt || Date.now() : focusAt ?? Date.now()
@@ -83,21 +87,61 @@ export default function NotificationsSheet() {
     document.body.scrollTop = 0
   }, [isNotificationsOpen])
 
+  // Planned / Next 24h is session-only: restore live before catch-up seeds.
   useEffect(() => {
     if (!isNotificationsOpen || !isAuthed) {
+      setDeskLiveReady(false)
       setRemoteItems([])
       return
     }
-    return subscribeToActivityEvents(setRemoteItems)
-  }, [isNotificationsOpen, isAuthed])
+    let cancelled = false
+    setDeskLiveReady(false)
+    void (async () => {
+      try {
+        const row = await admin_getConversionRoutingStatus()
+        if (cancelled) return
+        if (row?.deskMode === 'planned') {
+          const live = await admin_exitDeskPlan()
+          if (cancelled) return
+          resetDeskRevealForLiveRestore()
+          setSummary(live)
+          applyPlanSummary(live)
+          setLive()
+        } else {
+          setSummary(row)
+          applyPlanSummary(row)
+        }
+      } catch {
+        if (!cancelled) {
+          setSummary(null)
+          setLive()
+        }
+      } finally {
+        if (!cancelled) setDeskLiveReady(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isNotificationsOpen, isAuthed, applyPlanSummary, setLive])
 
   useEffect(() => {
-    if (!isNotificationsOpen || !isAuthed) return
+    if (!isNotificationsOpen || !isAuthed || !deskLiveReady) {
+      if (!isNotificationsOpen || !isAuthed) setRemoteItems([])
+      return
+    }
+    return subscribeToActivityEvents(setRemoteItems)
+  }, [isNotificationsOpen, isAuthed, deskLiveReady])
+
+  useEffect(() => {
+    if (!isNotificationsOpen || !isAuthed || !deskLiveReady) return
     let cancelled = false
     const load = () => {
       void admin_getConversionRoutingStatus()
         .then((row) => {
           if (cancelled) return
+          // Never re-enter Planned from a poll — sims are started only via Next 24h.
+          if (row?.deskMode === 'planned') return
           setSummary(row)
           applyPlanSummary(row)
         })
@@ -111,7 +155,7 @@ export default function NotificationsSheet() {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [isNotificationsOpen, isAuthed, remoteItems.length])
+  }, [isNotificationsOpen, isAuthed, deskLiveReady, remoteItems.length, applyPlanSummary])
 
   const header = useMemo(
     () => buildDeskHeaderStatus(summary, remoteItems, { focusAt, focusCycle, planned }),
@@ -154,7 +198,7 @@ export default function NotificationsSheet() {
             </div>
           </div>
         </div>
-        <NotificationsList />
+        {deskLiveReady ? <NotificationsList /> : null}
       </div>
     </ActionSheet>
   )

@@ -92,6 +92,8 @@ function searchableText(item: ActivityItem): string {
 }
 
 function isPaymentActivity(item: ActivityItem): boolean {
+  // Sam POP-pack cards are retired — bank MZN cover/receipt lives on Step 3.
+  if (item.routingAction === 'pop_pack') return false
   if (
     item.kind &&
     [
@@ -291,8 +293,47 @@ function isRestockKeypadCard(item: ActivityItem): boolean {
   )
 }
 
+/** Send / Restock cards that should animate the keypad during 1-day catch-up. */
+function isCatchupKeypadCard(item: ActivityItem): boolean {
+  if (item.thinking === true || item.routingBlocked === true) return false
+  if (item.routingAction !== 'deploy' && item.routingAction !== 'replenish') return false
+  return typeof item.amount?.value === 'number' && item.amount.value > 0
+}
+
 /** One auto keypad offer per card id (dismiss does not re-pop; button still works). */
 const deskKeypadAutoOffered = new Set<string>()
+
+function openCatchupPlaybackKeypad(item: ActivityItem): boolean {
+  if (item.routingAction === 'deploy') {
+    const amountZAR = item.amount?.value
+    if (!(typeof amountZAR === 'number') || amountZAR <= 0) return false
+    openDeskKeypad({
+      destination: 'MZN',
+      amountZAR,
+      amountMZN: typeof item.pairedAmountValue === 'number' ? item.pairedAmountValue : 0,
+      testRunId: item.testRunId,
+      cycleNumber: item.cycleNumber,
+      routingAction: 'deploy',
+      playbackOnly: true,
+    })
+    return true
+  }
+  if (item.routingAction === 'replenish') {
+    const amountMZN = item.amount?.value
+    if (!(typeof amountMZN === 'number') || amountMZN <= 0) return false
+    openDeskKeypad({
+      destination: 'ZAR',
+      amountZAR: typeof item.pairedAmountValue === 'number' ? item.pairedAmountValue : 0,
+      amountMZN,
+      testRunId: item.testRunId,
+      cycleNumber: item.cycleNumber,
+      routingAction: 'replenish',
+      playbackOnly: true,
+    })
+    return true
+  }
+  return false
+}
 
 function latestAwaitingRoutingId(items: ActivityItem[]): string | null {
   return items.find(isAwaitingRoutingItem)?.id ?? null
@@ -317,6 +358,7 @@ function ActivityItemCard({
   showNext24h,
   showRealtime,
   planBusy,
+  catchupActive,
   onNext24h,
   onRealtime,
 }: {
@@ -332,6 +374,7 @@ function ActivityItemCard({
   showNext24h?: boolean
   showRealtime?: boolean
   planBusy?: boolean
+  catchupActive?: boolean
   onNext24h?: () => void
   onRealtime?: () => void
 }) {
@@ -523,14 +566,15 @@ function ActivityItemCard({
     openFundMznKeypad()
   }
 
-  // After the bubble finishes typing (Next 24h / catch-up replay), pop the keypad once.
+  // After the bubble finishes typing, pop the keypad once (live confirm or catch-up playback).
   useEffect(() => {
     if (planBusy || !actionsUnlocked || lockDeskActions) return
-    const targetId = showSendKeypad
-      ? confirmItem?.id
-      : showRestockKeypad || showFundMznKeypad
-        ? item.id
-        : null
+    const live =
+      showSendKeypad || showRestockKeypad || showFundMznKeypad
+    const catchupPlayback =
+      catchupActive === true && !live && isCatchupKeypadCard(item)
+    if (!live && !catchupPlayback) return
+    const targetId = showSendKeypad ? confirmItem?.id || item.id : item.id
     if (!targetId || deskKeypadAutoOffered.has(targetId)) return
     const timer = window.setTimeout(() => {
       const opened = showSendKeypad
@@ -539,14 +583,17 @@ function ActivityItemCard({
           ? openRestockKeypad()
           : showFundMznKeypad
             ? openFundMznKeypad()
-            : false
+            : catchupPlayback
+              ? openCatchupPlaybackKeypad(item)
+              : false
       if (opened) deskKeypadAutoOffered.add(targetId)
     }, 320)
     return () => window.clearTimeout(timer)
   }, [
     actionsUnlocked,
+    catchupActive,
     confirmItem?.id,
-    item.id,
+    item,
     lockDeskActions,
     openFundMznKeypad,
     openRestockKeypad,
@@ -945,6 +992,7 @@ function ActivitySection({
   onEntranceComplete,
   planMode,
   planBusy,
+  catchupActive,
   onNext24h,
   onRealtime,
 }: {
@@ -962,6 +1010,7 @@ function ActivitySection({
   onEntranceComplete: (id: string) => void
   planMode: 'live' | 'planned'
   planBusy: boolean
+  catchupActive: boolean
   onNext24h: () => void
   onRealtime: () => void
 }) {
@@ -993,6 +1042,7 @@ function ActivitySection({
               showNext24h={!lockDeskActions && isPlanHost}
               showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
               planBusy={planBusy}
+              catchupActive={catchupActive}
               onNext24h={onNext24h}
               onRealtime={onRealtime}
             />
@@ -1333,6 +1383,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     onEntranceComplete: reveal.onTypingComplete,
     planMode,
     planBusy,
+    catchupActive: reveal.catchupActive,
     onNext24h: () => void handleNext24h(),
     onRealtime: () => void handleRealtime(),
   }

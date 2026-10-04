@@ -686,6 +686,8 @@ export async function tx_createInternalConversion(params: {
   destinationAmount?: number
   /** Desk card this conversion executes. Server rejects stale cards and wrong totals before writing. */
   routingPlay?: { testRunId: string; cycleNumber: number; action: 'deploy' | 'replenish' } | null
+  /** Skip CONVERSION_INSTRUCTED / POP activity on the desk feed. */
+  suppressDeskActivity?: boolean
 }): Promise<{ txId: string; capitalShock?: boolean; amountZar?: number }> {
   const app = getFirebaseApp()
   const functions = getFunctionsInstance()

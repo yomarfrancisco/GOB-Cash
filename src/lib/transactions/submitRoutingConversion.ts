@@ -1,3 +1,4 @@
+import { releaseDeskReveal } from '@/lib/desk/deskRevealGate'
 import { admin_confirmConversionRoutingCycle } from '@/lib/transactions/clientFunctions'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
@@ -43,12 +44,15 @@ export async function submitRoutingConversion(params: {
     useRoutingPlaybackStore.getState().clear()
     await new Promise((resolve) => setTimeout(resolve, 220))
     useNotificationsStore.getState().openNotifications()
+    window.setTimeout(() => releaseDeskReveal(), 40)
   }
   const result = await submitInternalConversion({
     destination,
     amountMZN,
     amountZAR,
     routingPlay,
+    // Desk keypad already has the step card — do not also post CONVERSION_INSTRUCTED / POP toasts.
+    suppressDeskActivity: true,
   })
   if (routingPlay && play) {
     await admin_confirmConversionRoutingCycle({

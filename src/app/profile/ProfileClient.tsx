@@ -1254,6 +1254,10 @@ export default function ProfileClient() {
         onCardSubmit={amountEntryPoint === 'conversionKeypad' ? ({ amountMZN, amountZAR }) => {
           const play = useRoutingPlaybackStore.getState().play || clockPlayRef.current
           clockPlayRef.current = null
+          if (play?.playbackOnly) {
+            useRoutingPlaybackStore.getState().clear()
+            return
+          }
           // Claim play before onClose so dismiss-restore does not race the submit path.
           if (play) useRoutingPlaybackStore.getState().clear()
           const run = play
@@ -1395,6 +1399,7 @@ export default function ProfileClient() {
           }
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
+        playbackOnly={Boolean(routingPlay?.playbackOnly)}
         autoPlayAmount={
           routingPlay && amountEntryPoint === 'conversionKeypad'
             ? routingPlay.destination === 'ZAR'

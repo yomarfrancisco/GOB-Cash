@@ -73,6 +73,8 @@ type AmountSheetProps = {
   agentCash?: boolean // agent QR conversion: header says "Cash" instead of wallet balance
   agentCashHandle?: string | null // scanned Cash ID handle, shown as Cash@[handle]
   autoPlayAmount?: number
+  /** Desk catch-up: animate keys then dismiss without converting. */
+  playbackOnly?: boolean
 }
 
 export default function AmountSheet({
@@ -103,6 +105,7 @@ export default function AmountSheet({
   agentCash = false,
   agentCashHandle = null,
   autoPlayAmount,
+  playbackOnly = false,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
   const [conversionBusy, setConversionBusy] = useState(false)
@@ -174,6 +177,11 @@ export default function AmountSheet({
     }
     conversionBusyRef.current = true
     setConversionBusy(true)
+    // Catch-up replay: show the key animation only — never post a conversion.
+    if (playbackOnly) {
+      onClose()
+      return
+    }
     // Submit first so routing can claim the play; then close. Dismiss-only
     // onClose restores the desk when play is still pending.
     void Promise.resolve(

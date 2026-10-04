@@ -9,6 +9,11 @@ export type RoutingPlayback = {
   cycleNumber?: number
   /** deploy / replenish confirm the open desk card; mzn_fund only tops up the MZN wallet. */
   routingAction?: 'replenish' | 'deploy' | 'mzn_fund'
+  /**
+   * Catch-up / replay: animate the keypad then dismiss without submitting.
+   * Live awaiting cards leave this unset so Sell confirms the open step.
+   */
+  playbackOnly?: boolean
 }
 
 type RoutingPlaybackState = {

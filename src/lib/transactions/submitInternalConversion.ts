@@ -25,6 +25,8 @@ export async function submitInternalConversion(params: {
   agentCashHandle?: string | null
   capitalShock?: boolean
   routingPlay?: { testRunId: string; cycleNumber: number; action: 'deploy' | 'replenish' } | null
+  /** Desk step already owns the narrative — skip conversion activity + POP toast. */
+  suppressDeskActivity?: boolean
 }): Promise<{ txId: string; capitalShock?: boolean }> {
   if (conversionInFlight) {
     throw new Error('Conversion already in progress.')
@@ -44,11 +46,12 @@ export async function submitInternalConversion(params: {
       agentCashHandle: params.agentCash ? params.agentCashHandle : null,
       capitalShock: params.capitalShock === true,
       routingPlay: params.routingPlay ?? null,
+      suppressDeskActivity: params.suppressDeskActivity === true || Boolean(params.routingPlay),
     })
 
     // A desk play returns to the conversation immediately. The exchange-button
     // hold is for a keypad the user is staying on.
-    const deskPlay = Boolean(params.routingPlay)
+    const deskPlay = Boolean(params.routingPlay) || params.suppressDeskActivity === true
     const fabStartedAt = Date.now()
     if (!deskPlay) {
       await waitRemaining(Date.now(), 220)
@@ -93,23 +96,25 @@ export async function submitInternalConversion(params: {
       return result
     }
 
-    useNotificationStore.getState().pushNotification({
-      id: result.txId,
-      kind: 'proof_of_payment',
-      title: isZarSale ? 'ZAR sold at SELL' : 'ZAR sourced at COST',
-      body: `${sourceLabel} to ${destLabel}`,
-      amount: {
-        currency: sourceCurrency,
-        value: -sourceAmount,
-      },
-      direction: 'down',
-      actor: {
-        type: 'ai_manager',
-        avatar,
-        name: 'Ama',
-      },
-      routeOnTap: '/profile?activity=1',
-    })
+    if (!deskPlay) {
+      useNotificationStore.getState().pushNotification({
+        id: result.txId,
+        kind: 'proof_of_payment',
+        title: isZarSale ? 'ZAR sold at SELL' : 'ZAR sourced at COST',
+        body: `${sourceLabel} to ${destLabel}`,
+        amount: {
+          currency: sourceCurrency,
+          value: -sourceAmount,
+        },
+        direction: 'down',
+        actor: {
+          type: 'ai_manager',
+          avatar,
+          name: 'Ama',
+        },
+        routeOnTap: '/profile?activity=1',
+      })
+    }
 
     return result
   } catch (error) {

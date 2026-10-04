@@ -958,6 +958,7 @@ function HomeContent() {
         withdrawOnly={amountMode === 'withdraw'}
         flowType={flowType}
         balanceMZN={0}
+        playbackOnly={Boolean(routingPlay?.playbackOnly)}
         autoPlayAmount={
           routingPlay && amountEntryPoint === 'conversionKeypad'
             ? routingPlay.destination === 'ZAR'
@@ -1049,6 +1050,10 @@ function HomeContent() {
         onCardSubmit={amountEntryPoint === 'conversionKeypad' ? ({ amountMZN, amountZAR }) => {
           const play = useRoutingPlaybackStore.getState().play || clockPlayRef.current
           clockPlayRef.current = null
+          if (play?.playbackOnly) {
+            useRoutingPlaybackStore.getState().clear()
+            return
+          }
           // Claim play before onClose so dismiss-restore does not race the submit path.
           if (play) useRoutingPlaybackStore.getState().clear()
           const run = play

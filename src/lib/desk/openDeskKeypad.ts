@@ -1,3 +1,4 @@
+import { holdDeskReveal, releaseDeskReveal } from '@/lib/desk/deskRevealGate'
 import { useNotificationsStore } from '@/state/notifications'
 import { useRoutingPlaybackStore, type RoutingPlayback } from '@/store/routingPlayback'
 
@@ -6,6 +7,7 @@ import { useRoutingPlaybackStore, type RoutingPlayback } from '@/store/routingPl
  * routingPlayback and opens; on dismiss/submit the desk is restored.
  */
 export function openDeskKeypad(play: RoutingPlayback): void {
+  holdDeskReveal()
   useNotificationsStore.getState().closeNotifications()
   // Let the sheet start closing before the keypad mounts so the pop-in is visible.
   window.setTimeout(() => {
@@ -18,5 +20,7 @@ export function resumeDeskAfterKeypad(): void {
   useRoutingPlaybackStore.getState().clear()
   window.setTimeout(() => {
     useNotificationsStore.getState().openNotifications()
+    // Resume catch-up after the desk sheet remounts.
+    window.setTimeout(() => releaseDeskReveal(), 40)
   }, 220)
 }

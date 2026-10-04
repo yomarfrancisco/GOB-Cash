@@ -271,21 +271,27 @@ export const tx_createInternalConversion = functions
         updatedAt: now,
       })
 
-      t.set(db.collection('users').doc(userId).collection('activityEvents').doc(txId), {
-        id: txId,
-        kind: 'CONVERSION_INSTRUCTED',
-        title: activityTitle,
-        body: activityBody,
-        actorType: 'ai_manager',
-        avatarKind: sourceCurrency === 'ZAR' ? 'convert_zar' : 'convert_mzn',
-        amountCurrency: sourceCurrency,
-        amountValue: sourceAmountMajor,
-        amountSign: 'debit',
-        txId,
-        hasDownloadButton: true,
-        createdAt: now,
-        recordingSource: 'USER_UI',
-      })
+      // Desk Send/Restock/Fund already own the step narrative — do not also
+      // drop a CONVERSION_INSTRUCTED / POP card into the feed.
+      const suppressDesk =
+        data?.suppressDeskActivity === true || Boolean(data?.routingPlay)
+      if (!suppressDesk) {
+        t.set(db.collection('users').doc(userId).collection('activityEvents').doc(txId), {
+          id: txId,
+          kind: 'CONVERSION_INSTRUCTED',
+          title: activityTitle,
+          body: activityBody,
+          actorType: 'ai_manager',
+          avatarKind: sourceCurrency === 'ZAR' ? 'convert_zar' : 'convert_mzn',
+          amountCurrency: sourceCurrency,
+          amountValue: sourceAmountMajor,
+          amountSign: 'debit',
+          txId,
+          hasDownloadButton: true,
+          createdAt: now,
+          recordingSource: 'USER_UI',
+        })
+      }
     })
 
     try {
