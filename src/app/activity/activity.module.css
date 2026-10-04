@@ -124,9 +124,9 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
-  margin: 0 0 4px;
-  font-size: 13px;
-  line-height: 17px;
+  margin: 0 0 2px;
+  font-size: 12px;
+  line-height: 16px;
   font-weight: 600;
   color: #111;
 }
@@ -144,10 +144,9 @@
 }
 
 .activityTitle {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 23px;
-  letter-spacing: -0.02em;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
   color: #000;
   flex: 1;
   min-width: 0;
@@ -159,20 +158,20 @@
   font-size: 12px;
   font-weight: 400;
   color: rgba(0, 0, 0, 0.5);
-  line-height: 23px;
+  line-height: 18px;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .activityBody {
   font-weight: 400;
-  font-size: 15px;
-  line-height: 21px;
+  font-size: 13px;
+  line-height: 18px;
   color: rgba(0, 0, 0, 0.72);
-  letter-spacing: -0.15px;
+  letter-spacing: -0.2px;
   white-space: pre-line;
   overflow-wrap: anywhere;
-  margin: 4px 0 0;
+  margin: 0;
   padding: 0;
 }
 

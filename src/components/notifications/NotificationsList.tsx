@@ -22,6 +22,8 @@ import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
 import { DESK_TEAM, deskAgentFor, activeDeskAgent, addressedDeskAgent } from '@/lib/desk/threadModel'
 import { useProgressiveReveal } from '@/lib/desk/useProgressiveReveal'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
+import { useDeskFocusStore } from '@/store/deskFocus'
+import { displayDeskBody, displayDeskTitle } from '@/lib/desk/deskCopy'
 import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
 import Avatar from '@/components/Avatar'
@@ -338,14 +340,16 @@ function ActivityItemCard({
     Boolean(item.proposalId)
   const askCard = isAskCard(item)
   const typing = animateEntrance === true
-  const [titleDone, setTitleDone] = useState(!typing || !item.title)
+  const title = displayDeskTitle(item.title)
+  const body = displayDeskBody(item.body)
+  const [titleDone, setTitleDone] = useState(!typing || !title)
   useEffect(() => {
-    setTitleDone(!typing || !item.title)
-  }, [typing, item.id, item.title])
+    setTitleDone(!typing || !title)
+  }, [typing, item.id, title])
   const handleTitleTyped = useCallback(() => {
     setTitleDone(true)
-    if (!item.body) onEntranceComplete?.(item.id)
-  }, [item.body, item.id, onEntranceComplete])
+    if (!body) onEntranceComplete?.(item.id)
+  }, [body, item.id, onEntranceComplete])
   const handleBodyTyped = useCallback(() => {
     onEntranceComplete?.(item.id)
   }, [item.id, onEntranceComplete])
@@ -484,7 +488,11 @@ function ActivityItemCard({
   }
 
   return (
-    <article className={styles.activityItem}>
+    <article
+      className={styles.activityItem}
+      data-desk-item-at={item.createdAt}
+      data-desk-item-cycle={typeof item.cycleNumber === 'number' ? item.cycleNumber : undefined}
+    >
       <div className={styles.activityAvatar}>
         {showUserPlaceholder ? (
           <Avatar
@@ -514,9 +522,9 @@ function ActivityItemCard({
           </div>
         ) : null}
         <div className={styles.activityHeader}>
-          {typing && item.title ? (
+          {typing && title ? (
             <TypewriterText
-              text={item.title}
+              text={title}
               animate
               className={styles.activityTitle}
               figureClassName={styles.activityFigure}
@@ -527,7 +535,7 @@ function ActivityItemCard({
             />
           ) : (
             <div className={styles.activityTitle}>
-              {highlightDeskText(item.title || '', styles.activityFigure)}
+              {highlightDeskText(title, styles.activityFigure)}
             </div>
           )}
           <div className={styles.activityTime}>
@@ -557,9 +565,9 @@ function ActivityItemCard({
                 </div>
               </div>
             ) : null}
-            {item.body && (!typing || titleDone) ? (
+            {body && (!typing || titleDone) ? (
               <TypewriterText
-                text={item.body}
+                text={body}
                 animate={typing}
                 className={styles.activityBody}
                 figureClassName={styles.activityFigure}
@@ -568,7 +576,7 @@ function ActivityItemCard({
                 tickMs={16}
                 onComplete={typing ? handleBodyTyped : undefined}
               />
-            ) : typing && !item.body && titleDone ? (
+            ) : typing && !body && titleDone ? (
               <TypewriterCompleteSignal onComplete={handleBodyTyped} />
             ) : null}
             {actionsUnlocked ? <DeskCardVisuals item={item} /> : null}
@@ -931,11 +939,75 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     [pagedItems]
   )
   const reveal = useProgressiveReveal(revealItems)
+  const setDeskFocus = useDeskFocusStore((s) => s.setFocus)
   const nextRevealSpeaker = useMemo(() => {
     if (!reveal.showDots) return null
     const pending = pagedItems.find((item) => !reveal.visibleIds.has(item.id) && item.thinking !== true)
     return pending ? DESK_TEAM[deskAgentFor(pending)] : DESK_TEAM.sam
   }, [pagedItems, reveal.showDots, reveal.visibleIds])
+
+  const applyFocusFromItem = useCallback(
+    (item: ActivityItem | null | undefined) => {
+      if (!item) return
+      setDeskFocus(item.createdAt, typeof item.cycleNumber === 'number' ? item.cycleNumber : null)
+    },
+    [setDeskFocus]
+  )
+
+  // Replay: header date/progress track the bubble currently typing or about to appear.
+  useEffect(() => {
+    if (reveal.typingId) {
+      applyFocusFromItem(pagedItems.find((item) => item.id === reveal.typingId))
+      return
+    }
+    if (reveal.showDots) {
+      const pending = pagedItems.find((item) => !reveal.visibleIds.has(item.id) && item.thinking !== true)
+      applyFocusFromItem(pending)
+    }
+  }, [applyFocusFromItem, pagedItems, reveal.showDots, reveal.typingId, reveal.visibleIds])
+
+  // Settled + manual scroll: pick the bubble nearest the lower focus line of the feed.
+  useEffect(() => {
+    const feed = listRootRef.current?.closest('[data-desk-feed]')
+    if (!(feed instanceof HTMLElement)) return
+
+    let frame = 0
+    const syncFromScroll = () => {
+      if (reveal.typingId || reveal.showDots) return
+      const nodes = feed.querySelectorAll<HTMLElement>('[data-desk-item-at]')
+      if (!nodes.length) return
+      const feedRect = feed.getBoundingClientRect()
+      const focusY = feedRect.top + feed.clientHeight * 0.72
+      let bestAt: number | null = null
+      let bestCycle: number | null = null
+      let bestDist = Number.POSITIVE_INFINITY
+      nodes.forEach((node) => {
+        const rect = node.getBoundingClientRect()
+        const mid = rect.top + rect.height / 2
+        const dist = Math.abs(mid - focusY)
+        if (dist >= bestDist) return
+        const at = Number(node.getAttribute('data-desk-item-at'))
+        if (!Number.isFinite(at)) return
+        const cycleRaw = node.getAttribute('data-desk-item-cycle')
+        const cycle = cycleRaw ? Number(cycleRaw) : NaN
+        bestDist = dist
+        bestAt = at
+        bestCycle = Number.isFinite(cycle) && cycle > 0 ? cycle : null
+      })
+      if (bestAt != null) setDeskFocus(bestAt, bestCycle)
+    }
+
+    const onScroll = () => {
+      if (frame) cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(syncFromScroll)
+    }
+    feed.addEventListener('scroll', onScroll, { passive: true })
+    syncFromScroll()
+    return () => {
+      feed.removeEventListener('scroll', onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [pagedItems.length, reveal.showDots, reveal.typingId, setDeskFocus])
 
   useEffect(() => {
     if (skipScrollRef.current) {

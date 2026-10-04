@@ -2235,7 +2235,6 @@ async function publishSamDayBrief(input: {
 
   const hold = !(input.plan.deployedAmount > 0)
   const body = [
-    `Day ${day} of ${input.state.config.cycleCount}.`,
     `Scheduled ZAR order: ${formatZar(input.plan.deployedAmount || 0)}.`,
     `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} window still open.`,
     hold
@@ -2244,7 +2243,7 @@ async function publishSamDayBrief(input: {
   ]
     .filter(Boolean)
     .join('\n')
-  const title = stepTitle(1, `Day ${day} of ${input.state.config.cycleCount}`)
+  const title = stepTitle(1)
   // Upsert so a stale recycle-mislabeled brief (no Continue) is repaired on Day n open.
   await ref.set(
     {

@@ -15,6 +15,7 @@ import {
   type ConversionRoutingSummary,
 } from '@/lib/transactions/clientFunctions'
 import { buildDeskHeaderStatus } from '@/lib/desk/deskHeaderStatus'
+import { useDeskFocusStore } from '@/store/deskFocus'
 import { useAuthStore } from '@/store/auth'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
@@ -60,9 +61,11 @@ export default function NotificationsSheet() {
   const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const active = useDeskSpeakerStore((s) => s.active)
+  const focusAt = useDeskFocusStore((s) => s.focusAt)
+  const focusCycle = useDeskFocusStore((s) => s.focusCycle)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [summary, setSummary] = useState<ConversionRoutingSummary | null>(null)
-  const dayLabel = formatSastDayLabel()
+  const dayLabel = formatSastDayLabel(focusAt ?? Date.now())
 
   useEffect(() => {
     if (!isNotificationsOpen) return
@@ -100,7 +103,10 @@ export default function NotificationsSheet() {
     }
   }, [isNotificationsOpen, isAuthed, remoteItems.length])
 
-  const header = useMemo(() => buildDeskHeaderStatus(summary, remoteItems), [summary, remoteItems])
+  const header = useMemo(
+    () => buildDeskHeaderStatus(summary, remoteItems, { focusAt, focusCycle }),
+    [summary, remoteItems, focusAt, focusCycle]
+  )
 
   return (
     <ActionSheet

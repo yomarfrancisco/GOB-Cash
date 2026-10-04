@@ -34,8 +34,17 @@ export const DESK_STEP: Record<
   6: { n: 6, short: 'Next day', title: 'Step 6 · Next day' },
 }
 
-export function stepTitle(step: DeskStepNumber, detail: string): string {
-  return `${DESK_STEP[step].title} · ${detail}`
+export function stepTitle(step: DeskStepNumber, detail?: string): string {
+  const base = DESK_STEP[step].title
+  const d = (detail || '').trim()
+  if (!d) return base
+  // Pure day counters belong in the desk header, not the bubble title.
+  if (/^Day\s+\d+(\s+of\s+\d+)?(\s+(recycle|send))?$/i.test(d)) return base
+  const cleaned = d
+    .replace(/^Day\s+\d+(\s+of\s+\d+)?\s*[—-]?\s*/i, '')
+    .replace(/\s*Day\s+\d+(\s+of\s+\d+)?$/i, '')
+    .trim()
+  return cleaned ? `${base} · ${cleaned}` : base
 }
 
 export function stepForPhase(phase: string | undefined | null): DeskStepNumber | null {
