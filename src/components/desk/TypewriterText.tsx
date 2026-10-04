@@ -1,11 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { highlightDeskText } from '@/lib/desk/highlightDeskText'
 
 type Props = {
   text: string
   animate: boolean
   className?: string
+  figureClassName?: string
+  /** Bold amounts / key figures inside the text. */
+  highlightFigures?: boolean
   /** Characters advanced per tick. */
   charsPerTick?: number
   /** Tick interval in ms. */
@@ -20,6 +24,8 @@ export function TypewriterText({
   text,
   animate,
   className,
+  figureClassName,
+  highlightFigures = false,
   charsPerTick = 4,
   tickMs = 18,
   onComplete,
@@ -71,9 +77,11 @@ export function TypewriterText({
     return () => window.clearInterval(id)
   }, [text, animate, charsPerTick, tickMs])
 
+  const content = highlightFigures ? highlightDeskText(displayed, figureClassName) : displayed
+
   return (
     <div className={className} aria-label={text}>
-      {displayed}
+      {content}
       {animate && displayed.length < text.length ? (
         <span aria-hidden="true" style={{ opacity: 0.35, marginLeft: 1 }}>
           |

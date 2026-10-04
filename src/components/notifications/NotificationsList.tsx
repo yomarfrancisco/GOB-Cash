@@ -33,6 +33,7 @@ import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
 import { TypewriterText } from '@/components/desk/TypewriterText'
+import { highlightDeskText } from '@/lib/desk/highlightDeskText'
 
 const KYC_GATE_ID = 'kyc-desk-gate'
 
@@ -518,12 +519,16 @@ function ActivityItemCard({
               text={item.title}
               animate
               className={styles.activityTitle}
+              figureClassName={styles.activityFigure}
+              highlightFigures
               charsPerTick={5}
               tickMs={14}
               onComplete={handleTitleTyped}
             />
           ) : (
-            <div className={styles.activityTitle}>{item.title}</div>
+            <div className={styles.activityTitle}>
+              {highlightDeskText(item.title || '', styles.activityFigure)}
+            </div>
           )}
           <div className={styles.activityTime}>
             {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
@@ -547,7 +552,9 @@ function ActivityItemCard({
                     <span className={styles.activityUserReplyTime}>{formatVisibleSast(item.userRepliedAt)}</span>
                   ) : null}
                 </div>
-                <div className={styles.activityUserReplyBody}>{item.userReply}</div>
+                <div className={styles.activityUserReplyBody}>
+                  {highlightDeskText(item.userReply, styles.activityFigure)}
+                </div>
               </div>
             ) : null}
             {item.body && (!typing || titleDone) ? (
@@ -555,6 +562,8 @@ function ActivityItemCard({
                 text={item.body}
                 animate={typing}
                 className={styles.activityBody}
+                figureClassName={styles.activityFigure}
+                highlightFigures
                 charsPerTick={4}
                 tickMs={16}
                 onComplete={typing ? handleBodyTyped : undefined}
@@ -571,7 +580,9 @@ function ActivityItemCard({
                     <span className={styles.activityUserReplyTime}>{formatVisibleSast(item.userRepliedAt)}</span>
                   ) : null}
                 </div>
-                <div className={styles.activityUserReplyBody}>{item.userReply}</div>
+                <div className={styles.activityUserReplyBody}>
+                  {highlightDeskText(item.userReply, styles.activityFigure)}
+                </div>
               </div>
             ) : null}
           </>
