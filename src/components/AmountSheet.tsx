@@ -174,7 +174,8 @@ export default function AmountSheet({
     }
     conversionBusyRef.current = true
     setConversionBusy(true)
-    onClose()
+    // Submit first so routing can claim the play; then close. Dismiss-only
+    // onClose restores the desk when play is still pending.
     void Promise.resolve(
       onCardSubmit?.({
         amountMZN: nextMZN,
@@ -183,6 +184,7 @@ export default function AmountSheet({
         mode: 'convert',
       })
     )
+    onClose()
   }
 
   useEffect(() => {

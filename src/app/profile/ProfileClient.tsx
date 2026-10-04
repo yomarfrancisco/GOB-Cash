@@ -44,9 +44,10 @@ import { type ConversionDestination } from '@/store/usePayIntoSheet'
 import PayIntoSheet from '@/components/PayIntoSheet'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { submitRoutingConversion } from '@/lib/transactions/submitRoutingConversion'
+import { resumeDeskAfterKeypad } from '@/lib/desk/openDeskKeypad'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
-import { costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
+import { costMznPerZar, mznToZar, sellMznPerZar } from '@/lib/mznZar'
 import { useCardDepositAccountSheet } from '@/store/useCardDepositAccountSheet'
 import { useCardDetailsSheet } from '@/store/useCardDetailsSheet'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
@@ -1180,6 +1181,11 @@ export default function ProfileClient() {
           } else {
             setOpenAmount(false)
             setAmountEntryPoint(undefined) // Reset entry point when closing
+            // Dismiss path: keypad out, then desk text resumes. Submit clears play first.
+            if (useRoutingPlaybackStore.getState().play || clockPlayRef.current) {
+              clockPlayRef.current = null
+              resumeDeskAfterKeypad()
+            }
           }
         }}
         mode={amountMode}
@@ -1248,6 +1254,8 @@ export default function ProfileClient() {
         onCardSubmit={amountEntryPoint === 'conversionKeypad' ? ({ amountMZN, amountZAR }) => {
           const play = useRoutingPlaybackStore.getState().play || clockPlayRef.current
           clockPlayRef.current = null
+          // Claim play before onClose so dismiss-restore does not race the submit path.
+          if (play) useRoutingPlaybackStore.getState().clear()
           const run = play
             ? submitRoutingConversion({ amountZAR, amountMZN, play })
             : submitInternalConversion({
@@ -1391,7 +1399,14 @@ export default function ProfileClient() {
           routingPlay && amountEntryPoint === 'conversionKeypad'
             ? routingPlay.destination === 'ZAR'
               ? routingPlay.amountMZN
-              : routingPlay.amountZAR
+              : routingPlay.amountZAR > 0
+                ? routingPlay.amountZAR
+                : routingPlay.routingAction === 'mzn_fund' && routingPlay.amountMZN > 0
+                  ? mznToZar(
+                      routingPlay.amountMZN,
+                      sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
+                    )
+                  : undefined
             : undefined
         }
         initialAmount={

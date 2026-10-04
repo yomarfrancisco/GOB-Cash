@@ -10,6 +10,7 @@ export async function submitRoutingConversion(params: {
 }): Promise<void> {
   const play = params.play || useRoutingPlaybackStore.getState().play
   const destination = play?.destination || 'MZN'
+  const fundMznOnly = play?.routingAction === 'mzn_fund'
   // The keypad converts the other leg at the live rate. A restock types the
   // card's MZN and would submit a ZAR figure that no longer matches the frozen
   // tickets. When the typed source is still the card's source, send the card.
@@ -22,20 +23,25 @@ export async function submitRoutingConversion(params: {
     Math.abs(typedSource - cardSource) <= 0.02
   const amountZAR = play && cardUntouched && play.amountZAR > 0 ? play.amountZAR : params.amountZAR
   const amountMZN = play && cardUntouched && play.amountMZN > 0 ? play.amountMZN : params.amountMZN
+  const action =
+    play?.routingAction === 'replenish' || play?.routingAction === 'deploy'
+      ? play.routingAction
+      : destination === 'ZAR'
+        ? ('replenish' as const)
+        : ('deploy' as const)
   const routingPlay =
-    play?.testRunId && typeof play.cycleNumber === 'number'
+    !fundMznOnly && play?.testRunId && typeof play.cycleNumber === 'number'
       ? {
           testRunId: play.testRunId,
           cycleNumber: play.cycleNumber,
-          action: play.routingAction || (destination === 'ZAR' ? ('replenish' as const) : ('deploy' as const)),
+          action,
         }
       : null
   if (play) {
-    // The keypad is already closing. Bring the desk back now, and let the
-    // conversion and the next card arrive into it. Waiting for the server
-    // left the profile sitting there for seconds, and a failed confirm
-    // never reopened the desk at all.
+    // Keypad already called onClose. Restore the desk only after a short beat so
+    // the sheet finishes dismissing before bubbles resume.
     useRoutingPlaybackStore.getState().clear()
+    await new Promise((resolve) => setTimeout(resolve, 220))
     useNotificationsStore.getState().openNotifications()
   }
   const result = await submitInternalConversion({
@@ -44,10 +50,10 @@ export async function submitRoutingConversion(params: {
     amountZAR,
     routingPlay,
   })
-  if (play) {
+  if (routingPlay && play) {
     await admin_confirmConversionRoutingCycle({
-      testRunId: play.testRunId,
-      cycleNumber: play.cycleNumber,
+      testRunId: routingPlay.testRunId,
+      cycleNumber: routingPlay.cycleNumber,
       conversionTxId: result.txId,
       // Admin continuity: keypad confirm must not re-hit the swipe clock.
       overrideEarliest: true,

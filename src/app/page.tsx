@@ -54,6 +54,7 @@ import { type ConversionDestination } from '@/store/usePayIntoSheet'
 import PayIntoSheet from '@/components/PayIntoSheet'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { submitRoutingConversion } from '@/lib/transactions/submitRoutingConversion'
+import { resumeDeskAfterKeypad } from '@/lib/desk/openDeskKeypad'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
@@ -945,6 +946,11 @@ function HomeContent() {
           setConversionPrefill(undefined)
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
+          // Dismiss path: keypad out, then desk text resumes. Submit clears play first.
+          if (useRoutingPlaybackStore.getState().play || clockPlayRef.current) {
+            clockPlayRef.current = null
+            resumeDeskAfterKeypad()
+          }
         }}
         agentCash={agentCashKeypad}
         agentCashHandle={agentCashHandle}
@@ -956,7 +962,14 @@ function HomeContent() {
           routingPlay && amountEntryPoint === 'conversionKeypad'
             ? routingPlay.destination === 'ZAR'
               ? routingPlay.amountMZN
-              : routingPlay.amountZAR
+              : routingPlay.amountZAR > 0
+                ? routingPlay.amountZAR
+                : routingPlay.routingAction === 'mzn_fund' && routingPlay.amountMZN > 0
+                  ? mznToZar(
+                      routingPlay.amountMZN,
+                      sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
+                    )
+                  : undefined
             : undefined
         }
         initialAmount={
@@ -1036,6 +1049,8 @@ function HomeContent() {
         onCardSubmit={amountEntryPoint === 'conversionKeypad' ? ({ amountMZN, amountZAR }) => {
           const play = useRoutingPlaybackStore.getState().play || clockPlayRef.current
           clockPlayRef.current = null
+          // Claim play before onClose so dismiss-restore does not race the submit path.
+          if (play) useRoutingPlaybackStore.getState().clear()
           const run = play
             ? submitRoutingConversion({ amountZAR, amountMZN, play })
             : submitInternalConversion({

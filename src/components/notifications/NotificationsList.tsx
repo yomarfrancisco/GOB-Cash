@@ -14,7 +14,7 @@ import {
   admin_simulateNextDeskDay,
   admin_exitDeskPlan,
 } from '@/lib/transactions/clientFunctions'
-import { useRoutingPlaybackStore } from '@/store/routingPlayback'
+import { openDeskKeypad } from '@/lib/desk/openDeskKeypad'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { formatVisibleSast } from '@/lib/routing/routingTime'
@@ -276,6 +276,21 @@ function isAskCard(item: ActivityItem): boolean {
   return item.routingAction === 'advice' || item.routingAction === 'proposal'
 }
 
+function isMznShortStepCard(item: ActivityItem): boolean {
+  if (!isSequentialStepCard(item) || !isAwaitingRoutingItem(item)) return false
+  if (!/^Step\s*3\b/i.test(item.title || '')) return false
+  const text = `${item.body || ''}\n${item.dropdownBody || ''}`
+  return /waiting for full mzn|still short on mzn|waiting on mzn/i.test(text)
+}
+
+function isRestockKeypadCard(item: ActivityItem): boolean {
+  return (
+    isAwaitingRoutingItem(item) &&
+    item.routingBlocked !== true &&
+    item.routingAction === 'replenish'
+  )
+}
+
 function latestAwaitingRoutingId(items: ActivityItem[]): string | null {
   return items.find(isAwaitingRoutingItem)?.id ?? null
 }
@@ -344,13 +359,15 @@ function ActivityItemCard({
       : null
   const showExecuted = Boolean(executedLabel)
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
-  // Live desk: only human-attest ZAR send. Recycle closes on bank receipts; no Continue / I've swiped.
-  const showConfirm =
+  // Cash moves open the conversion keypad (desk closes first; keypad dismisses before bubbles resume).
+  const showSendKeypad =
     Boolean(confirmItem) &&
     !lockDeskActions &&
     actionsUnlocked &&
     confirmItem?.routingAction === 'deploy' &&
     !isSequentialStepCard(confirmItem)
+  const showRestockKeypad = !lockDeskActions && actionsUnlocked && isRestockKeypadCard(item)
+  const showFundMznKeypad = !lockDeskActions && actionsUnlocked && isMznShortStepCard(item)
   const showProposalActions =
     !lockDeskActions &&
     actionsUnlocked &&
@@ -434,14 +451,14 @@ function ActivityItemCard({
     void startDiditVerification()
   }
 
-  const handleExecuteRouting = (event: React.MouseEvent) => {
+  const handleSendZarKeypad = (event: React.MouseEvent) => {
     event.stopPropagation()
     if (confirmState !== 'idle' || !confirmItem || confirmItem.routingAction !== 'deploy') return
     const amountZAR = confirmItem.amount?.value
     const amountMZN = confirmItem.pairedAmountValue
     if (!(typeof amountZAR === 'number') || amountZAR <= 0) return
     setConfirmState('loading')
-    useRoutingPlaybackStore.getState().requestPlay({
+    openDeskKeypad({
       destination: 'MZN',
       amountZAR,
       amountMZN: typeof amountMZN === 'number' ? amountMZN : 0,
@@ -449,6 +466,43 @@ function ActivityItemCard({
       cycleNumber: confirmItem.cycleNumber,
       routingAction: 'deploy',
     })
+    window.setTimeout(() => setConfirmState('idle'), 400)
+  }
+
+  const handleRestockKeypad = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (confirmState !== 'idle' || !isRestockKeypadCard(item)) return
+    const amountMZN = item.amount?.value
+    const amountZAR = item.pairedAmountValue
+    if (!(typeof amountMZN === 'number') || amountMZN <= 0) return
+    setConfirmState('loading')
+    openDeskKeypad({
+      destination: 'ZAR',
+      amountZAR: typeof amountZAR === 'number' ? amountZAR : 0,
+      amountMZN,
+      testRunId: item.testRunId,
+      cycleNumber: item.cycleNumber,
+      routingAction: 'replenish',
+    })
+    window.setTimeout(() => setConfirmState('idle'), 400)
+  }
+
+  const handleFundMznKeypad = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (confirmState !== 'idle' || !isMznShortStepCard(item)) return
+    const amountMZN = item.amount?.value
+    if (!(typeof amountMZN === 'number') || amountMZN <= 0) return
+    const amountZAR = typeof item.pairedAmountValue === 'number' ? item.pairedAmountValue : 0
+    setConfirmState('loading')
+    openDeskKeypad({
+      destination: 'MZN',
+      amountZAR,
+      amountMZN,
+      testRunId: item.testRunId,
+      cycleNumber: item.cycleNumber,
+      routingAction: 'mzn_fund',
+    })
+    window.setTimeout(() => setConfirmState('idle'), 400)
   }
 
   const handleAcceptProposal = async (event: React.MouseEvent) => {
@@ -593,7 +647,9 @@ function ActivityItemCard({
           </>
         )}
         {(isKycGate ||
-          showConfirm ||
+          showSendKeypad ||
+          showRestockKeypad ||
+          showFundMznKeypad ||
           showStartNextRun ||
           showDownload ||
           showProposalActions ||
@@ -612,7 +668,7 @@ function ActivityItemCard({
                 {kycCta}
               </button>
             )}
-            {showConfirm && (
+            {showFundMznKeypad && (
               <button
                 type="button"
                 className={[
@@ -621,13 +677,46 @@ function ActivityItemCard({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Confirm ZAR was sent after MZN reflected"
+                aria-label="Open keypad to fund MZN cover"
                 aria-busy={confirmState !== 'idle'}
                 disabled={confirmState !== 'idle' || planBusy === true}
-                onClick={handleExecuteRouting}
+                onClick={handleFundMznKeypad}
               >
-                <Check size={16} strokeWidth={2.4} />
-                I've sent ZAR
+                Fund MZN
+              </button>
+            )}
+            {showSendKeypad && (
+              <button
+                type="button"
+                className={[
+                  styles.confirmButton,
+                  confirmState === 'loading' ? styles.confirmButtonLoading : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Open keypad to send ZAR"
+                aria-busy={confirmState !== 'idle'}
+                disabled={confirmState !== 'idle' || planBusy === true}
+                onClick={handleSendZarKeypad}
+              >
+                Send ZAR
+              </button>
+            )}
+            {showRestockKeypad && (
+              <button
+                type="button"
+                className={[
+                  styles.confirmButton,
+                  confirmState === 'loading' ? styles.confirmButtonLoading : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Open keypad to restock at COST"
+                aria-busy={confirmState !== 'idle'}
+                disabled={confirmState !== 'idle' || planBusy === true}
+                onClick={handleRestockKeypad}
+              >
+                Restock
               </button>
             )}
             {showStartNextRun && (

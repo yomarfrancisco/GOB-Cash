@@ -6,7 +6,7 @@ import { ArrowUp, Check } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import { admin_submitConversionRoutingFeedback } from '@/lib/transactions/clientFunctions'
-import { useRoutingPlaybackStore } from '@/store/routingPlayback'
+import { openDeskKeypad } from '@/lib/desk/openDeskKeypad'
 import { useAuthStore } from '@/store/auth'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { useSignedInKycAccess } from '@/lib/restrictions'
@@ -246,7 +246,7 @@ export function FxDeskThread() {
     const amountMZN = item.pairedAmountValue
     if (!(typeof amountZAR === 'number') || amountZAR <= 0) return
     setClockState('loading')
-    useRoutingPlaybackStore.getState().requestPlay({
+    openDeskKeypad({
       destination: 'MZN',
       amountZAR,
       amountMZN: typeof amountMZN === 'number' ? amountMZN : 0,
@@ -254,6 +254,7 @@ export function FxDeskThread() {
       cycleNumber: item.cycleNumber,
       routingAction: 'deploy',
     })
+    window.setTimeout(() => setClockState('idle'), 400)
   }
 
   return (

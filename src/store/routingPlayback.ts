@@ -7,7 +7,8 @@ export type RoutingPlayback = {
   amountMZN: number
   testRunId?: string
   cycleNumber?: number
-  routingAction?: 'replenish' | 'deploy'
+  /** deploy / replenish confirm the open desk card; mzn_fund only tops up the MZN wallet. */
+  routingAction?: 'replenish' | 'deploy' | 'mzn_fund'
 }
 
 type RoutingPlaybackState = {
