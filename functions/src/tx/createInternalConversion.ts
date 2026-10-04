@@ -2,9 +2,10 @@
  * Cloud Function: tx_createInternalConversion
  *
  * Immediately converts the caller's own MZN↔ZAR wallets at the quoted rate.
- * ZAR→MZN moves COST into cashMZN; SELL−COST spread credits the Rewards
- * (earnings) card so inventory stays principal-only. Status stays INITIATED
- * until an operator confirms evidence. Cards move now.
+ * ZAR→MZN credits the full SELL amount into cashMZN (COST + spread) so home
+ * Moz inventory — and the $ keypad that reads it — rises after each sale.
+ * Spread is still recorded on the tx as rewardsMznMinor for proofs. Status
+ * stays INITIATED until an operator confirms evidence. Cards move now.
  */
 
 import * as functions from 'firebase-functions'
@@ -155,7 +156,9 @@ export const tx_createInternalConversion = functions
       ? roundMajor(sourceAmountMajor * sellRate)
       : settlementMajor
     const fxRateMZNperZAR = isZarSale ? sellRate : costRate
-    const expectedDestinationMajor = settlementMajor
+    // Inventory receives the full converted leg: SELL into Moz on a ZAR sale,
+    // COST into SA on a restock. Spread stays inside cashMZN (not Rewards).
+    const expectedDestinationMajor = isZarSale ? reportedDestMajor : settlementMajor
     const expectedDestinationMinor = Math.round(expectedDestinationMajor * 100)
     const rewardsMznMajor = isZarSale
       ? mznRewardsFromZar(sourceAmountMajor, sellRate, costRate)
@@ -166,7 +169,6 @@ export const tx_createInternalConversion = functions
     const destinationWalletId = destinationCurrency === 'MZN' ? 'cashMZN' : 'cashZAR'
     const sourceWalletRef = db.collection('users').doc(userId).collection('wallets').doc(sourceWalletId)
     const destinationWalletRef = db.collection('users').doc(userId).collection('wallets').doc(destinationWalletId)
-    const earningsWalletRef = db.collection('users').doc(userId).collection('wallets').doc('earnings')
     const txRef = db.collection('transactions').doc()
     const txId = txRef.id
     const now = admin.firestore.Timestamp.now()
@@ -182,7 +184,6 @@ export const tx_createInternalConversion = functions
     await db.runTransaction(async (t) => {
       const sourceSnap = await t.get(sourceWalletRef)
       const destSnap = await t.get(destinationWalletRef)
-      const earningsSnap = rewardsMznMinor > 0 ? await t.get(earningsWalletRef) : null
       const sourceData = sourceSnap.exists ? sourceSnap.data()! : { fiatBalance: 0 }
       const destData = destSnap.exists ? destSnap.data()! : { fiatBalance: 0 }
       const available = Number(sourceData.fiatBalance || 0)
@@ -195,7 +196,6 @@ export const tx_createInternalConversion = functions
         )
       }
 
-      // Inventory wallets move at COST / source amount only. Spread is last-out on Rewards.
       t.update(sourceWalletRef, {
         fiatBalance: (availableMinor - sourceAmountMinor) / 100,
         updatedAt: now,
@@ -214,27 +214,6 @@ export const tx_createInternalConversion = functions
           fiatBalance: (Math.round(Number(destData.fiatBalance || 0) * 100) + expectedDestinationMinor) / 100,
           updatedAt: now,
         })
-      }
-
-      if (rewardsMznMinor > 0) {
-        const earningsData = earningsSnap?.exists ? earningsSnap.data()! : { fiatBalance: 0 }
-        const nextEarnings = (Math.round(Number(earningsData.fiatBalance || 0) * 100) + rewardsMznMinor) / 100
-        if (!earningsSnap?.exists) {
-          t.set(earningsWalletRef, {
-            walletId: 'earnings',
-            kind: 'earnings',
-            displayCurrency: 'MZN',
-            fiatBalance: nextEarnings,
-            usdtBalance: 0,
-            updatedAt: now,
-          })
-        } else {
-          t.update(earningsWalletRef, {
-            fiatBalance: nextEarnings,
-            displayCurrency: 'MZN',
-            updatedAt: now,
-          })
-        }
       }
 
       t.set(txRef, {
@@ -258,6 +237,7 @@ export const tx_createInternalConversion = functions
         buyRateMZNperZAR: costRate,
         costRateMZNperZAR: costRate,
         sellRateMZNperZAR: sellRate,
+        // Audit-only: spread already sits inside cashMZN on ZAR sales.
         rewardsMznMinor: rewardsMznMinor || null,
         clientDestinationAmountMinor: Math.round(reportedDestMajor * 100),
         amountMzn: sourceCurrency === 'MZN' ? sourceAmountMajor : reportedDestMajor,

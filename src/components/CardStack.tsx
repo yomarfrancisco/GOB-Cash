@@ -85,7 +85,7 @@ const allCardsData: CardData[] = [
   },
 ]
 
-// Mozambique and South Africa cash cards. Spread credits earnings; Rewards stays off Home.
+// Mozambique and South Africa cash cards. ZAR→MZN spread stays on Moz inventory.
 const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd', 'yieldSurprise']
 
 function homeCardsForAdmin(isAdmin: boolean): CardData[] {
