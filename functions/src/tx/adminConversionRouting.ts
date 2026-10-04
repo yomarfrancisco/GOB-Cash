@@ -4447,6 +4447,26 @@ async function ensureSimulatedZarCover(adminUid: string, need: number): Promise<
   await creditWallet(adminUid, 'cashZAR', roundMoney(need - bal + 1))
 }
 
+/** Remove Planned / Real time notice bubbles for this run (including legacy future-dated ids). */
+async function clearPlanMarkers(adminUid: string, testRunId: string): Promise<void> {
+  const col = db.collection('users').doc(adminUid).collection('activityEvents')
+  await col.doc(`planned-day-${testRunId}`).delete().catch(() => undefined)
+  const snap = await col.where('testRunId', '==', testRunId).where('routingAction', '==', 'advice').limit(80).get()
+  await Promise.all(
+    snap.docs
+      .filter((doc) => {
+        const title = String(doc.data()?.title || '')
+        return (
+          title === 'Ask · Planned day' ||
+          title === 'Ask · Real time' ||
+          doc.id.startsWith(`planned-day-${testRunId}`) ||
+          doc.id.startsWith(`realtime-${testRunId}`)
+        )
+      })
+      .map((doc) => doc.ref.delete())
+  )
+}
+
 /**
  * Next 24h — auto-walk the open day (Continue + synthetic bank cover) in Planned mode.
  * Stops when the next operating day opens, the window closes, or a hard stop.
@@ -4476,7 +4496,9 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     { merge: true }
   )
 
-  const markerId = `planned-day-${testRunId}-${plannedClockMs}`
+  // One notice bubble for the run — wall-clock createdAt so it sits in the log, not pinned by a future stamp.
+  await clearPlanMarkers(adminUid, testRunId)
+  const markerId = `planned-day-${testRunId}`
   await db
     .collection('users')
     .doc(adminUid)
@@ -4505,7 +4527,8 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       plannedClockMs,
       testRunId,
       cycleNumber: startCycle,
-      createdAt: admin.firestore.Timestamp.fromMillis(plannedClockMs),
+      createdAt: now,
+      updatedAt: now,
       recordingSource: 'SYSTEM',
     })
 
@@ -4635,46 +4658,16 @@ export async function exitDeskPlan(adminUid: string): Promise<Record<string, unk
     return { status: 'none', deskMode: 'live' }
   }
   const now = admin.firestore.Timestamp.now()
-  await testRef.set({ deskMode: 'live', updatedAt: now }, { merge: true })
-  const data = snap.data() || {}
+  await clearPlanMarkers(adminUid, testRunId)
+  await testRef.set({ deskMode: 'live', plannedClockMs: null, updatedAt: now }, { merge: true })
+  const data = (await testRef.get()).data() || {}
   const state = stateFromDoc(data)
-  const markerId = `realtime-${testRunId}-${now.toMillis()}`
-  await db
-    .collection('users')
-    .doc(adminUid)
-    .collection('activityEvents')
-    .doc(markerId)
-    .set({
-      id: markerId,
-      kind: CONVERSION_ROUTING_KIND,
-      title: 'Ask · Real time',
-      body: 'Back on the live desk clock. Planned days stay in the thread as history.',
-      dropdownTitle: 'Ask · Real time',
-      dropdownBody: 'Live desk',
-      actorType: 'ai_manager',
-      avatarKind: 'convert_zar',
-      amountCurrency: 'ZAR',
-      amountValue: 0,
-      amountSign: 'debit',
-      txId: markerId,
-      hasDownloadButton: false,
-      awaitingConfirm: false,
-      routingBlocked: false,
-      status: 'recorded',
-      routingAction: 'advice',
-      deskSpeaker: 'sam',
-      deskMode: 'live',
-      testRunId,
-      cycleNumber: num(data.awaitingCycleNumber, state.completedCycles),
-      createdAt: now,
-      recordingSource: 'SYSTEM',
-    })
   return publicSummary(state, {
     testRunId,
     status: data.status || 'active',
     cycleNumber: data.awaitingCycleNumber || state.completedCycles,
     deskMode: 'live',
-    plannedClockMs: num(data.plannedClockMs, 0) || null,
+    plannedClockMs: null,
     acknowledgement: 'Live desk clock restored.',
   })
 }

@@ -23,5 +23,5 @@ export const useDeskPlanStore = create<DeskPlanState>((set) => ({
           : null,
     }),
   setBusy: (busy) => set({ busy }),
-  setLive: () => set({ mode: 'live' }),
+  setLive: () => set({ mode: 'live', plannedClockMs: null }),
 }))

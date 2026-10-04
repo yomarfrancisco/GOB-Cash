@@ -871,8 +871,11 @@ function ActivitySection({
       <h2 className={styles.sectionTitle}>{title}</h2>
       <div className={styles.activityList}>
         {visibleItems.map((item) => {
-          const isLatest = item.id === latestActivityId
           const settled = item.thinking === true || isSettled(item.id)
+          // Plan pills ride the open step card when one exists; else the latest bubble.
+          // Do not wait on typewriter settle — that was dropping Real time mid-reveal.
+          const planHostId = latestAwaitingId || latestActivityId
+          const isPlanHost = Boolean(planHostId) && item.id === planHostId && item.thinking !== true
           return (
             <ActivityItemCard
               key={item.id}
@@ -885,10 +888,8 @@ function ActivitySection({
               animateEntrance={item.id === typingId}
               entranceSettled={settled}
               onEntranceComplete={onEntranceComplete}
-              showNext24h={!lockDeskActions && isLatest && settled && item.thinking !== true}
-              showRealtime={
-                !lockDeskActions && isLatest && settled && item.thinking !== true && planMode === 'planned'
-              }
+              showNext24h={!lockDeskActions && isPlanHost}
+              showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
               planBusy={planBusy}
               onNext24h={onNext24h}
               onRealtime={onRealtime}
