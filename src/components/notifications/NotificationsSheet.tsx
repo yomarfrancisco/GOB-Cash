@@ -24,6 +24,9 @@ import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
 const DESK_FACES = DESK_RING.map((id) => DESK_TEAM[id].avatar)
 
+/** One Planned→live restore per page load; mid-session Next 24h must survive desk close/open. */
+let plannedExitOnPageLoadDone = false
+
 if (typeof window !== 'undefined') {
   DESK_FACES.forEach((src) => {
     const preload = new window.Image()
@@ -87,7 +90,8 @@ export default function NotificationsSheet() {
     document.body.scrollTop = 0
   }, [isNotificationsOpen])
 
-  // Planned / Next 24h is session-only: restore live before catch-up seeds.
+  // On first desk open after a hard refresh, drop last session's Planned sim.
+  // Later opens in this page load keep an in-progress Next 24h.
   useEffect(() => {
     if (!isNotificationsOpen || !isAuthed) {
       setDeskLiveReady(false)
@@ -100,7 +104,9 @@ export default function NotificationsSheet() {
       try {
         const row = await admin_getConversionRoutingStatus()
         if (cancelled) return
-        if (row?.deskMode === 'planned') {
+        const exitStalePlanned = row?.deskMode === 'planned' && !plannedExitOnPageLoadDone
+        plannedExitOnPageLoadDone = true
+        if (exitStalePlanned) {
           const live = await admin_exitDeskPlan()
           if (cancelled) return
           resetDeskRevealForLiveRestore()
@@ -113,6 +119,7 @@ export default function NotificationsSheet() {
         }
       } catch {
         if (!cancelled) {
+          plannedExitOnPageLoadDone = true
           setSummary(null)
           setLive()
         }

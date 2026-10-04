@@ -1357,6 +1357,31 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       if (typeof summary.plannedClockMs === 'number' && summary.plannedClockMs > 0) {
         setDeskFocus(summary.plannedClockMs, typeof summary.cycleNumber === 'number' ? summary.cycleNumber : null)
       }
+      // Landed on Send/Restock (or already there): pop the keypad so Next 24h is not a no-op.
+      const gate = summary.awaitingKeypad
+      if (gate === 'send' || gate === 'restock') {
+        const amountZAR = Number(summary.keypadAmountZar || 0)
+        const amountMZN = Number(summary.keypadAmountMzn || 0)
+        if (gate === 'send' && amountZAR > 0) {
+          openDeskKeypad({
+            destination: 'MZN',
+            amountZAR,
+            amountMZN,
+            testRunId: summary.testRunId,
+            cycleNumber: summary.cycleNumber,
+            routingAction: 'deploy',
+          })
+        } else if (gate === 'restock' && amountMZN > 0) {
+          openDeskKeypad({
+            destination: 'ZAR',
+            amountZAR,
+            amountMZN,
+            testRunId: summary.testRunId,
+            cycleNumber: summary.cycleNumber,
+            routingAction: 'replenish',
+          })
+        }
+      }
     } catch (error) {
       console.error('[Activity] Next 24h failed:', error)
     } finally {

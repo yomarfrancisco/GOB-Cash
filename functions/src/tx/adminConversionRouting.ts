@@ -1446,7 +1446,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
             id: packId,
             kind: CONVERSION_ROUTING_KIND,
             title: stepCardTitle(2),
-            body: `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.\nTap Continue for Step 3 · MZN.`,
+            body: `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.\nNext 24h opens Step 3 · MZN.`,
             awaitingConfirm: true,
             routingBlocked: false,
             status: 'awaiting_execution',
@@ -1502,15 +1502,15 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
           body: covered
             ? [
                 `MZN cover is on the books (need ~MZN ${roundMoney(expectedMzn).toLocaleString('en-ZA')}; wallet MZN ${roundMoney(bal).toLocaleString('en-ZA')}).`,
-                'Tap Continue for Step 4 · Send.',
+                'Next 24h opens Step 4 · Send (keypad).',
               ].join('\n')
             : [
                 `Waiting for full MZN cover (~MZN ${roundMoney(expectedMzn).toLocaleString('en-ZA')}).`,
                 `Wallet shows MZN ${roundMoney(bal).toLocaleString('en-ZA')}.`,
-                'When the batch is in, tap Continue for Step 4 · Send.',
+                'Fund MZN when short, then Next 24h opens Step 4 · Send.',
               ].join('\n'),
           dropdownTitle: stepCardTitle(3),
-          dropdownBody: covered ? 'MZN covered — Continue to send' : 'Waiting on MZN',
+          dropdownBody: covered ? 'MZN covered — Next 24h to send' : 'Waiting on MZN',
           actorType: 'ai_manager',
           avatarKind: 'convert_mzn',
           amountCurrency: 'MZN',
@@ -1715,7 +1715,7 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
       deskStep: 4,
       title: stepCardTitle(4),
       body:
-        `${formatZar(expectedZar)} scheduled order is funded. ZAR float covers the send. Send ZAR opens the keypad when it has left.`,
+        `${formatZar(expectedZar)} scheduled order is funded. ZAR float covers the send. Send ZAR opens the keypad — then Next 24h can finish the day.`,
     })
     tx.set(
       testRef,
@@ -2303,7 +2303,7 @@ async function publishSamDayBrief(input: {
     `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} window still open.`,
     hold
       ? `Hold day — no new ticket. Residual stays open for the next operating day.`
-      : 'Tap Continue for Step 2 · Invoice.',
+      : 'Next 24h opens Step 2 · Invoice.',
   ]
     .filter(Boolean)
     .join('\n')
@@ -2484,7 +2484,7 @@ async function replayDayTicketsAfterScheduleAmendment(params: {
           routingBlocked: false,
           amountValue: amountZar,
           title: stepCardTitle(4),
-          body: `${formatZar(amountZar)} scheduled order is funded. ZAR float covers the send. Send ZAR opens the keypad when it has left.`,
+          body: `${formatZar(amountZar)} scheduled order is funded. ZAR float covers the send. Send ZAR opens the keypad — then Next 24h can finish the day.`,
           dropdownBody: `${formatZar(amountZar)} send`,
           dayTicketRevision: nextRev,
           planVersion,
@@ -5214,6 +5214,21 @@ async function restoreLiveCheckpoint(
  * Next 24h — auto-walk the open day (Continue + synthetic bank cover) in Planned mode.
  * Stops when the next operating day opens, the window closes, or a hard stop.
  */
+function keypadGateFromDoc(data: admin.firestore.DocumentData): 'send' | 'restock' | null {
+  const phase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
+  const awaitingKind = typeof data.awaitingKind === 'string' ? data.awaitingKind : ''
+  const deskStep = num(data.deskStep, 0)
+  if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') return 'restock'
+  if (
+    awaitingKind === 'deploy' ||
+    phase === 'awaiting_send' ||
+    (phase === 'awaiting_mzn' && deskStep >= 4)
+  ) {
+    return 'send'
+  }
+  return null
+}
+
 export async function simulateNextDeskDay(adminUid: string): Promise<Record<string, unknown>> {
   const testRunId = await currentTestId(adminUid)
   if (!testRunId) {
@@ -5227,7 +5242,8 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
   const start = startSnap.data() || {}
   const startCycle = num(start.awaitingCycleNumber, 0) || num(start.completedCycles, 0) + 1
   const prevClock = num(start.plannedClockMs, 0)
-  const plannedClockMs = (prevClock > 0 ? prevClock : Date.now()) + 24 * 60 * 60 * 1000
+  // Do not jump the header clock until a day actually completes.
+  const plannedClockMs = prevClock > 0 ? prevClock : Date.now()
   const now = admin.firestore.Timestamp.now()
   // First entry into Planned freezes live desk + wallets so Real time can rewind the sim.
   const alreadyPlanned = start.deskMode === 'planned' && start.liveCheckpoint
@@ -5245,6 +5261,36 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     { merge: true }
   )
 
+  const startGate = keypadGateFromDoc(start)
+  // Already on Send/Restock — do not bump the day clock or spam another Planned marker.
+  if (startGate) {
+    const state = stateFromDoc(start)
+    return publicSummary(state, {
+      testRunId,
+      status: start.status || 'active',
+      cycleNumber: startCycle,
+      deskMode: 'planned',
+      plannedClockMs,
+      simulatedFromCycle: startCycle,
+      simulatedToCycle: startCycle,
+      simulatedSteps: [`${startGate}-open:${startCycle}`],
+      awaitingKeypad: startGate,
+      keypadAmountZar:
+        startGate === 'send'
+          ? num(start.expectedOrderZar, 0)
+          : num(start.replenishAmountZar, num(start.expectedOrderZar, 0)),
+      keypadAmountMzn:
+        startGate === 'restock'
+          ? num(start.replenishAmountMzn, num(start.expectedOrderMzn, 0))
+          : num(start.expectedOrderMzn, 0),
+      acknowledgement:
+        startGate === 'send'
+          ? `Day ${startCycle}: Send ZAR is still open — use the keypad, then Next 24h can finish the day.`
+          : `Day ${startCycle}: Restock is still open — use the keypad, then Next 24h can open the next day.`,
+      completed: start.status === 'completed',
+    })
+  }
+
   // One notice bubble for the run — wall-clock createdAt so it sits in the log, not pinned by a future stamp.
   await clearPlanMarkers(adminUid, testRunId)
   const markerId = `planned-day-${testRunId}`
@@ -5257,7 +5303,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       id: markerId,
       kind: CONVERSION_ROUTING_KIND,
       title: 'Ask · Planned day',
-      body: `Simulating the next 24 hours from Day ${startCycle}. Bank cover is assumed through Order → Invoice → MZN; Send ZAR and Restock pause for the keypad. Tap Real time to restore the live desk and remove this simulation.`,
+      body: `Simulating the next 24 hours from Day ${startCycle}. Bank cover is assumed through Order → Invoice → MZN; Send ZAR and Restock open the keypad. The day clock advances only after that day finishes. Tap Real time to restore the live desk and remove this simulation.`,
       dropdownTitle: 'Ask · Planned day',
       dropdownBody: `Planned · Day ${startCycle}`,
       actorType: 'ai_manager',
@@ -5380,30 +5426,51 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
   const end = endSnap.data() || {}
   const state = stateFromDoc(end)
   const endCycle = num(end.awaitingCycleNumber, state.completedCycles)
-  const endPhase = typeof end.cyclePhase === 'string' ? end.cyclePhase : ''
-  const endAwaiting = typeof end.awaitingKind === 'string' ? end.awaitingKind : ''
+  const endGate = keypadGateFromDoc(end)
+  const dayAdvanced = stopped === 'next_day' || endCycle > startCycle
+  let outClock = plannedClockMs
+  if (dayAdvanced) {
+    outClock = plannedClockMs + 24 * 60 * 60 * 1000
+    await testRef.set({ plannedClockMs: outClock, updatedAt: admin.firestore.Timestamp.now() }, { merge: true })
+    await db
+      .collection('users')
+      .doc(adminUid)
+      .collection('activityEvents')
+      .doc(`planned-day-${testRunId}`)
+      .set({ plannedClockMs: outClock, updatedAt: admin.firestore.Timestamp.now() }, { merge: true })
+      .catch(() => undefined)
+  }
   const keypadAck =
-    stopped === 'awaiting_keypad_send' ||
-    endAwaiting === 'deploy' ||
-    endPhase === 'awaiting_send'
-      ? `Day ${startCycle}: Send ZAR is open — keypad, then the desk continues.`
-      : stopped === 'awaiting_keypad_restock' ||
-          endAwaiting === 'replenish' ||
-          endPhase === 'awaiting_recycle'
-        ? `Day ${startCycle}: Restock is open — keypad, then the desk continues.`
+    endGate === 'send'
+      ? `Day ${startCycle}: Send ZAR is open — keypad, then Next 24h can finish the day.`
+      : endGate === 'restock'
+        ? `Day ${startCycle}: Restock is open — keypad, then Next 24h can open the next day.`
         : null
   return publicSummary(state, {
     testRunId,
     status: end.status || 'active',
     cycleNumber: endCycle,
     deskMode: 'planned',
-    plannedClockMs,
+    plannedClockMs: outClock,
     simulatedFromCycle: startCycle,
     simulatedToCycle: endCycle,
     simulatedSteps: steps,
+    awaitingKeypad: endGate,
+    keypadAmountZar:
+      endGate === 'send'
+        ? num(end.expectedOrderZar, 0)
+        : endGate === 'restock'
+          ? num(end.replenishAmountZar, num(end.expectedOrderZar, 0))
+          : 0,
+    keypadAmountMzn:
+      endGate === 'restock'
+        ? num(end.replenishAmountMzn, num(end.expectedOrderMzn, 0))
+        : endGate === 'send'
+          ? num(end.expectedOrderMzn, 0)
+          : 0,
     acknowledgement:
       keypadAck ||
-      (stopped === 'next_day' || endCycle > startCycle
+      (dayAdvanced
         ? `Planned Day ${startCycle} complete. Day ${endCycle} is on the desk.`
         : stopped === 'window_closed'
           ? 'Planned run reached the end of the window.'

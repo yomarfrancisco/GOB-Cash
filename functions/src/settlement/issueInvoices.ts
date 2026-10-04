@@ -121,7 +121,7 @@ export async function publishInvoicePackDeskNotice(params: {
           names.length > 4 ? '…' : ''
         }). Download the zip from the desk card.`
   const body = params.sequentialContinue
-    ? `${baseBody}\nTap Continue for Step 3 · MZN.`
+    ? `${baseBody}\nNext 24h opens Step 3 · MZN.`
     : baseBody
 
   await ref.set(

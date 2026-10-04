@@ -966,6 +966,10 @@ export type ConversionRoutingSummary = {
   deskMode?: 'live' | 'planned'
   plannedClockMs?: number | null
   acknowledgement?: string
+  /** Next 24h paused for desk keypad — client should pop it. */
+  awaitingKeypad?: 'send' | 'restock' | null
+  keypadAmountZar?: number
+  keypadAmountMzn?: number
 }
 
 export async function admin_startConversionRoutingTest(
