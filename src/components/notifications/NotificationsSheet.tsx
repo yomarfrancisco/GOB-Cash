@@ -1,12 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ActionSheet from '../ActionSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useActivityUnreadStore } from '@/store/activityUnread'
 import { NotificationsList } from './NotificationsList'
 import { DESK_RING, DESK_TEAM, type DeskAgent } from '@/lib/desk/threadModel'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
+import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
+import type { ActivityItem } from '@/store/activity'
+import {
+  admin_getConversionRoutingStatus,
+  type ConversionRoutingSummary,
+} from '@/lib/transactions/clientFunctions'
+import { buildDeskHeaderStatus } from '@/lib/desk/deskHeaderStatus'
+import { useAuthStore } from '@/store/auth'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
 const DESK_FACES = DESK_RING.map((id) => DESK_TEAM[id].avatar)
@@ -40,10 +48,20 @@ function DeskFace({ src, className, speaking }: { src: string; className: string
   )
 }
 
+function statusClass(tone: ReturnType<typeof buildDeskHeaderStatus>['statusTone']): string {
+  if (tone === 'ok') return listStyles.deskHeaderStatusOk
+  if (tone === 'review') return listStyles.deskHeaderStatusReview
+  if (tone === 'restock') return listStyles.deskHeaderStatusRestock
+  return listStyles.deskHeaderStatusMuted
+}
+
 export default function NotificationsSheet() {
   const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
+  const isAuthed = useAuthStore((s) => s.isAuthed)
   const active = useDeskSpeakerStore((s) => s.active)
   const speaker = DESK_TEAM[active]
+  const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
+  const [summary, setSummary] = useState<ConversionRoutingSummary | null>(null)
 
   useEffect(() => {
     if (!isNotificationsOpen) return
@@ -52,6 +70,36 @@ export default function NotificationsSheet() {
     document.documentElement.scrollTop = 0
     document.body.scrollTop = 0
   }, [isNotificationsOpen])
+
+  useEffect(() => {
+    if (!isNotificationsOpen || !isAuthed) {
+      setRemoteItems([])
+      return
+    }
+    return subscribeToActivityEvents(setRemoteItems)
+  }, [isNotificationsOpen, isAuthed])
+
+  useEffect(() => {
+    if (!isNotificationsOpen || !isAuthed) return
+    let cancelled = false
+    const load = () => {
+      void admin_getConversionRoutingStatus()
+        .then((row) => {
+          if (!cancelled) setSummary(row)
+        })
+        .catch(() => {
+          if (!cancelled) setSummary(null)
+        })
+    }
+    load()
+    const timer = window.setInterval(load, 20_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [isNotificationsOpen, isAuthed, remoteItems.length])
+
+  const header = useMemo(() => buildDeskHeaderStatus(summary, remoteItems), [summary, remoteItems])
 
   return (
     <ActionSheet
@@ -81,6 +129,17 @@ export default function NotificationsSheet() {
             <p key={`${active}-role`} className={`${listStyles.deskHeaderRole} ${listStyles.deskHeaderSwap}`}>
               {speaker.role}
             </p>
+            <p className={listStyles.deskHeaderStatus}>
+              {header.dayLabel}
+              {' · '}
+              <span className={statusClass(header.statusTone)}>{header.statusLabel}</span>
+            </p>
+            <div className={listStyles.deskProgress} aria-label={header.progressLabel}>
+              <div className={listStyles.deskProgressTrack}>
+                <div className={listStyles.deskProgressFill} style={{ width: `${header.progressPct}%` }} />
+              </div>
+              <p className={listStyles.deskProgressLabel}>{header.progressLabel}</p>
+            </div>
           </div>
         </div>
         <NotificationsList />
