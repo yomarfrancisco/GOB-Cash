@@ -291,6 +291,9 @@ function isRestockKeypadCard(item: ActivityItem): boolean {
   )
 }
 
+/** One auto keypad offer per card id (dismiss does not re-pop; button still works). */
+const deskKeypadAutoOffered = new Set<string>()
+
 function latestAwaitingRoutingId(items: ActivityItem[]): string | null {
   return items.find(isAwaitingRoutingItem)?.id ?? null
 }
@@ -451,12 +454,11 @@ function ActivityItemCard({
     void startDiditVerification()
   }
 
-  const handleSendZarKeypad = (event: React.MouseEvent) => {
-    event.stopPropagation()
-    if (confirmState !== 'idle' || !confirmItem || confirmItem.routingAction !== 'deploy') return
+  const openSendZarKeypad = useCallback(() => {
+    if (confirmState !== 'idle' || !confirmItem || confirmItem.routingAction !== 'deploy') return false
     const amountZAR = confirmItem.amount?.value
     const amountMZN = confirmItem.pairedAmountValue
-    if (!(typeof amountZAR === 'number') || amountZAR <= 0) return
+    if (!(typeof amountZAR === 'number') || amountZAR <= 0) return false
     setConfirmState('loading')
     openDeskKeypad({
       destination: 'MZN',
@@ -467,14 +469,14 @@ function ActivityItemCard({
       routingAction: 'deploy',
     })
     window.setTimeout(() => setConfirmState('idle'), 400)
-  }
+    return true
+  }, [confirmItem, confirmState])
 
-  const handleRestockKeypad = (event: React.MouseEvent) => {
-    event.stopPropagation()
-    if (confirmState !== 'idle' || !isRestockKeypadCard(item)) return
+  const openRestockKeypad = useCallback(() => {
+    if (confirmState !== 'idle' || !isRestockKeypadCard(item)) return false
     const amountMZN = item.amount?.value
     const amountZAR = item.pairedAmountValue
-    if (!(typeof amountMZN === 'number') || amountMZN <= 0) return
+    if (!(typeof amountMZN === 'number') || amountMZN <= 0) return false
     setConfirmState('loading')
     openDeskKeypad({
       destination: 'ZAR',
@@ -485,13 +487,13 @@ function ActivityItemCard({
       routingAction: 'replenish',
     })
     window.setTimeout(() => setConfirmState('idle'), 400)
-  }
+    return true
+  }, [confirmState, item])
 
-  const handleFundMznKeypad = (event: React.MouseEvent) => {
-    event.stopPropagation()
-    if (confirmState !== 'idle' || !isMznShortStepCard(item)) return
+  const openFundMznKeypad = useCallback(() => {
+    if (confirmState !== 'idle' || !isMznShortStepCard(item)) return false
     const amountMZN = item.amount?.value
-    if (!(typeof amountMZN === 'number') || amountMZN <= 0) return
+    if (!(typeof amountMZN === 'number') || amountMZN <= 0) return false
     const amountZAR = typeof item.pairedAmountValue === 'number' ? item.pairedAmountValue : 0
     setConfirmState('loading')
     openDeskKeypad({
@@ -503,7 +505,57 @@ function ActivityItemCard({
       routingAction: 'mzn_fund',
     })
     window.setTimeout(() => setConfirmState('idle'), 400)
+    return true
+  }, [confirmState, item])
+
+  const handleSendZarKeypad = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    openSendZarKeypad()
   }
+
+  const handleRestockKeypad = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    openRestockKeypad()
+  }
+
+  const handleFundMznKeypad = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    openFundMznKeypad()
+  }
+
+  // After the bubble finishes typing (Next 24h / catch-up replay), pop the keypad once.
+  useEffect(() => {
+    if (planBusy || !actionsUnlocked || lockDeskActions) return
+    const targetId = showSendKeypad
+      ? confirmItem?.id
+      : showRestockKeypad || showFundMznKeypad
+        ? item.id
+        : null
+    if (!targetId || deskKeypadAutoOffered.has(targetId)) return
+    const timer = window.setTimeout(() => {
+      const opened = showSendKeypad
+        ? openSendZarKeypad()
+        : showRestockKeypad
+          ? openRestockKeypad()
+          : showFundMznKeypad
+            ? openFundMznKeypad()
+            : false
+      if (opened) deskKeypadAutoOffered.add(targetId)
+    }, 320)
+    return () => window.clearTimeout(timer)
+  }, [
+    actionsUnlocked,
+    confirmItem?.id,
+    item.id,
+    lockDeskActions,
+    openFundMznKeypad,
+    openRestockKeypad,
+    openSendZarKeypad,
+    planBusy,
+    showFundMznKeypad,
+    showRestockKeypad,
+    showSendKeypad,
+  ])
 
   const handleAcceptProposal = async (event: React.MouseEvent) => {
     event.stopPropagation()

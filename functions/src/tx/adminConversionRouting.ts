@@ -1715,7 +1715,7 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
       deskStep: 4,
       title: stepCardTitle(4),
       body:
-        `${formatZar(expectedZar)} scheduled order is funded. ZAR float covers the send. Tap Continue when ZAR has left.`,
+        `${formatZar(expectedZar)} scheduled order is funded. ZAR float covers the send. Send ZAR opens the keypad when it has left.`,
     })
     tx.set(
       testRef,
@@ -2484,7 +2484,7 @@ async function replayDayTicketsAfterScheduleAmendment(params: {
           routingBlocked: false,
           amountValue: amountZar,
           title: stepCardTitle(4),
-          body: `${formatZar(amountZar)} scheduled order is funded. ZAR float covers the send. Tap Continue when ZAR has left.`,
+          body: `${formatZar(amountZar)} scheduled order is funded. ZAR float covers the send. Send ZAR opens the keypad when it has left.`,
           dropdownBody: `${formatZar(amountZar)} send`,
           dayTicketRevision: nextRev,
           planVersion,
@@ -5256,7 +5256,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       id: markerId,
       kind: CONVERSION_ROUTING_KIND,
       title: 'Ask · Planned day',
-      body: `Simulating the next 24 hours from Day ${startCycle}. Bank cover is assumed so the desk can walk the day. Tap Real time to restore the live desk and remove this simulation.`,
+      body: `Simulating the next 24 hours from Day ${startCycle}. Bank cover is assumed through Order → Invoice → MZN; Send ZAR and Restock pause for the keypad. Tap Real time to restore the live desk and remove this simulation.`,
       dropdownTitle: 'Ask · Planned day',
       dropdownBody: `Planned · Day ${startCycle}`,
       actorType: 'ai_manager',
@@ -5304,12 +5304,13 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     }
 
     try {
+      // Cash moves stay on the desk for the conversion keypad — do not auto-confirm.
       if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') {
         const need = num(data.replenishAmountMzn, num(data.expectedOrderMzn, 0))
         await ensureSimulatedMznCover(adminUid, need)
-        await confirmOpenCycle(adminUid, { testRunId, cycleNumber, overrideEarliest: true })
-        steps.push(`recycle:${cycleNumber}`)
-        continue
+        stopped = 'awaiting_keypad_restock'
+        steps.push(`restock-open:${cycleNumber}`)
+        break
       }
 
       if (phase === 'awaiting_continue') {
@@ -5324,9 +5325,9 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
         phase === 'awaiting_send' ||
         (phase === 'awaiting_mzn' && deskStep >= 4)
       ) {
-        await confirmOpenCycle(adminUid, { testRunId, cycleNumber, overrideEarliest: true })
-        steps.push(`send:${cycleNumber}`)
-        continue
+        stopped = 'awaiting_keypad_send'
+        steps.push(`send-open:${cycleNumber}`)
+        break
       }
 
       if (phase === 'awaiting_mzn' || (deskStep === 3 && !phase)) {
@@ -5343,6 +5344,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
             break
           }
         }
+        // Next loop iteration will pause on the open Send keypad card.
         continue
       }
 
@@ -5361,9 +5363,10 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
         continue
       }
 
-      // Fallback: try confirm for whatever is open
-      await confirmOpenCycle(adminUid, { testRunId, cycleNumber, overrideEarliest: true })
-      steps.push(`confirm:${cycleNumber}`)
+      // Unknown open state — leave it for the desk rather than force-confirming a cash move.
+      stopped = 'blocked_unknown'
+      steps.push(`halt:${phase || awaitingKind || deskStep}:${cycleNumber}`)
+      break
     } catch (error) {
       console.error('[simulateNextDeskDay] step failed', error)
       stopped = 'error'
@@ -5376,6 +5379,18 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
   const end = endSnap.data() || {}
   const state = stateFromDoc(end)
   const endCycle = num(end.awaitingCycleNumber, state.completedCycles)
+  const endPhase = typeof end.cyclePhase === 'string' ? end.cyclePhase : ''
+  const endAwaiting = typeof end.awaitingKind === 'string' ? end.awaitingKind : ''
+  const keypadAck =
+    stopped === 'awaiting_keypad_send' ||
+    endAwaiting === 'deploy' ||
+    endPhase === 'awaiting_send'
+      ? `Day ${startCycle}: Send ZAR is open — keypad, then the desk continues.`
+      : stopped === 'awaiting_keypad_restock' ||
+          endAwaiting === 'replenish' ||
+          endPhase === 'awaiting_recycle'
+        ? `Day ${startCycle}: Restock is open — keypad, then the desk continues.`
+        : null
   return publicSummary(state, {
     testRunId,
     status: end.status || 'active',
@@ -5386,11 +5401,12 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     simulatedToCycle: endCycle,
     simulatedSteps: steps,
     acknowledgement:
-      stopped === 'next_day' || endCycle > startCycle
+      keypadAck ||
+      (stopped === 'next_day' || endCycle > startCycle
         ? `Planned Day ${startCycle} complete. Day ${endCycle} is on the desk.`
         : stopped === 'window_closed'
           ? 'Planned run reached the end of the window.'
-          : `Planned advance paused (${stopped.replace(/_/g, ' ')}).`,
+          : `Planned advance paused (${stopped.replace(/_/g, ' ')}).`),
     completed: end.status === 'completed',
   })
 }
