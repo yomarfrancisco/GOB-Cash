@@ -264,10 +264,14 @@ export function looksLikeSalesScheduleAmendment(message: string): boolean {
   }
   if (
     /\b(reduce|increase|cap|change|revise|amend|set|only sell|can only sell|sell only)\b/.test(text) &&
-    /\b(r\s?[\d]|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|schedule|per day|daily)\b/.test(
+    /\b(r\s?[\d]|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|schedule|per day|daily|zar\s+sales?|sales?\s+to)\b/.test(
       text
     )
   ) {
+    return true
+  }
+  // "change this cycle's ZAR sales to R20000"
+  if (/\bzar\s+sales?\b/.test(text) && /\b(change|reduce|increase|set|cap)\b/.test(text) && /r\s*[\d]/.test(text)) {
     return true
   }
   if (/\b(extend the schedule|from tomorrow|next week)\b/.test(text) && /\b(r\s?[\d]|accept|sell|only)\b/.test(text)) {
