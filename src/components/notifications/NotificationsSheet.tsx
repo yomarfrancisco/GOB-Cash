@@ -16,6 +16,7 @@ import {
 } from '@/lib/transactions/clientFunctions'
 import { buildDeskHeaderStatus } from '@/lib/desk/deskHeaderStatus'
 import { useDeskFocusStore } from '@/store/deskFocus'
+import { useDeskPlanStore } from '@/store/deskPlan'
 import { useAuthStore } from '@/store/auth'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
@@ -54,6 +55,7 @@ function statusClass(tone: ReturnType<typeof buildDeskHeaderStatus>['statusTone'
   if (tone === 'ok') return listStyles.deskHeaderStatusOk
   if (tone === 'review') return listStyles.deskHeaderStatusReview
   if (tone === 'restock') return listStyles.deskHeaderStatusRestock
+  if (tone === 'planned') return listStyles.deskHeaderStatusPlanned
   return listStyles.deskHeaderStatusMuted
 }
 
@@ -63,9 +65,15 @@ export default function NotificationsSheet() {
   const active = useDeskSpeakerStore((s) => s.active)
   const focusAt = useDeskFocusStore((s) => s.focusAt)
   const focusCycle = useDeskFocusStore((s) => s.focusCycle)
+  const planMode = useDeskPlanStore((s) => s.mode)
+  const plannedClockMs = useDeskPlanStore((s) => s.plannedClockMs)
+  const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [summary, setSummary] = useState<ConversionRoutingSummary | null>(null)
-  const dayLabel = formatSastDayLabel(focusAt ?? Date.now())
+  const planned = planMode === 'planned' || summary?.deskMode === 'planned'
+  const dayLabel = formatSastDayLabel(
+    planned ? plannedClockMs || focusAt || Date.now() : focusAt ?? Date.now()
+  )
 
   useEffect(() => {
     if (!isNotificationsOpen) return
@@ -89,7 +97,9 @@ export default function NotificationsSheet() {
     const load = () => {
       void admin_getConversionRoutingStatus()
         .then((row) => {
-          if (!cancelled) setSummary(row)
+          if (cancelled) return
+          setSummary(row)
+          applyPlanSummary(row)
         })
         .catch(() => {
           if (!cancelled) setSummary(null)
@@ -104,8 +114,8 @@ export default function NotificationsSheet() {
   }, [isNotificationsOpen, isAuthed, remoteItems.length])
 
   const header = useMemo(
-    () => buildDeskHeaderStatus(summary, remoteItems, { focusAt, focusCycle }),
-    [summary, remoteItems, focusAt, focusCycle]
+    () => buildDeskHeaderStatus(summary, remoteItems, { focusAt, focusCycle, planned }),
+    [summary, remoteItems, focusAt, focusCycle, planned]
   )
 
   return (

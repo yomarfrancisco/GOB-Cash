@@ -4,7 +4,7 @@ import type { ConversionRoutingSummary } from '@/lib/transactions/clientFunction
 export type DeskHeaderStatus = {
   dayLabel: string
   statusLabel: string
-  statusTone: 'ok' | 'review' | 'restock' | 'muted'
+  statusTone: 'ok' | 'review' | 'restock' | 'muted' | 'planned'
   progressPct: number
   progressLabel: string
   /** Calendar day for the focused bubble (ms). */
@@ -71,11 +71,12 @@ export function progressThroughFocus(
 export function buildDeskHeaderStatus(
   summary: ConversionRoutingSummary | null | undefined,
   items: ActivityItem[],
-  focus?: { focusAt: number | null; focusCycle: number | null }
+  focus?: { focusAt: number | null; focusCycle: number | null; planned?: boolean }
 ): DeskHeaderStatus {
   const dayCount = Number(summary?.cycleCount) > 0 ? Number(summary?.cycleCount) : 14
   const focusAt = focus?.focusAt ?? null
   const focusCycle = focus?.focusCycle ?? null
+  const planned = focus?.planned === true || summary?.deskMode === 'planned'
 
   const dayFromFocus =
     focusCycle && focusCycle > 0
@@ -111,6 +112,18 @@ export function buildDeskHeaderStatus(
       statusLabel: 'Window closed',
       statusTone: 'muted',
       progressPct: focusAt ? progressPct : 100,
+      progressLabel: '',
+      focusAt,
+    }
+  }
+
+  // Planned mode owns the status chip; otherwise live desk attention.
+  if (planned) {
+    return {
+      dayLabel: day > 0 ? `Day ${day} of ${dayCount}` : `Day — of ${dayCount}`,
+      statusLabel: 'Planned',
+      statusTone: 'planned',
+      progressPct,
       progressLabel: '',
       focusAt,
     }

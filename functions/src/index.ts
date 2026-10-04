@@ -70,5 +70,7 @@ export {
   admin_resumeRoutingCycle,
   admin_getConversionRoutingStatus,
   admin_submitConversionRoutingFeedback,
+  admin_simulateNextDeskDay,
+  admin_exitDeskPlan,
 } from './tx/adminConversionRouting'
 

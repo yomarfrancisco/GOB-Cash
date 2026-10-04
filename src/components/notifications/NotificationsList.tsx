@@ -12,6 +12,8 @@ import {
   downloadSettlementInvoice,
   admin_submitConversionRoutingFeedback,
   admin_confirmConversionRoutingCycle,
+  admin_simulateNextDeskDay,
+  admin_exitDeskPlan,
 } from '@/lib/transactions/clientFunctions'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
@@ -23,6 +25,7 @@ import { DESK_TEAM, deskAgentFor, activeDeskAgent, addressedDeskAgent } from '@/
 import { useProgressiveReveal } from '@/lib/desk/useProgressiveReveal'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { useDeskFocusStore } from '@/store/deskFocus'
+import { useDeskPlanStore } from '@/store/deskPlan'
 import { displayDeskBody, displayDeskTitle } from '@/lib/desk/deskCopy'
 import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
@@ -294,6 +297,11 @@ function ActivityItemCard({
   animateEntrance,
   entranceSettled,
   onEntranceComplete,
+  showNext24h,
+  showRealtime,
+  planBusy,
+  onNext24h,
+  onRealtime,
 }: {
   item: ActivityItem
   showRoutingActions: boolean
@@ -304,6 +312,11 @@ function ActivityItemCard({
   animateEntrance?: boolean
   entranceSettled?: boolean
   onEntranceComplete?: (id: string) => void
+  showNext24h?: boolean
+  showRealtime?: boolean
+  planBusy?: boolean
+  onNext24h?: () => void
+  onRealtime?: () => void
 }) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
@@ -602,7 +615,9 @@ function ActivityItemCard({
           showDownload ||
           showProposalActions ||
           showExecuted ||
-          showKycLink) && (
+          showKycLink ||
+          showNext24h ||
+          showRealtime) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
               <button
@@ -699,6 +714,40 @@ function ActivityItemCard({
                 </button>
               </>
             )}
+            {showNext24h && (
+              <button
+                type="button"
+                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Simulate the next 24 hours on the desk"
+                aria-busy={planBusy === true}
+                disabled={planBusy === true || continueState !== 'idle' || confirmState !== 'idle'}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onNext24h?.()
+                }}
+              >
+                Next 24h
+              </button>
+            )}
+            {showRealtime && (
+              <button
+                type="button"
+                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Return to the live desk clock"
+                aria-busy={planBusy === true}
+                disabled={planBusy === true}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onRealtime?.()
+                }}
+              >
+                Real time
+              </button>
+            )}
             {showDownload && (
               <button
                 type="button"
@@ -792,6 +841,10 @@ function ActivitySection({
   typingId,
   isSettled,
   onEntranceComplete,
+  planMode,
+  planBusy,
+  onNext24h,
+  onRealtime,
 }: {
   title: string
   items: ActivityItem[]
@@ -805,8 +858,11 @@ function ActivitySection({
   typingId: string | null
   isSettled: (id: string) => boolean
   onEntranceComplete: (id: string) => void
+  planMode: 'live' | 'planned'
+  planBusy: boolean
+  onNext24h: () => void
+  onRealtime: () => void
 }) {
-  void latestActivityId
   const visibleItems = items.filter((item) => item.thinking === true || visibleIds.has(item.id))
   if (visibleItems.length === 0) return null
 
@@ -814,20 +870,31 @@ function ActivitySection({
     <div className={styles.activitySection}>
       <h2 className={styles.sectionTitle}>{title}</h2>
       <div className={styles.activityList}>
-        {visibleItems.map((item) => (
-          <ActivityItemCard
-            key={item.id}
-            item={item}
-            showRoutingActions={!lockDeskActions && item.id === latestAwaitingId && isSettled(item.id)}
-            onRoutingAsk={onRoutingAsk}
-            onAcceptProposal={onAcceptProposal}
-            onDiscardProposal={onDiscardProposal}
-            lockDeskActions={lockDeskActions}
-            animateEntrance={item.id === typingId}
-            entranceSettled={item.thinking === true || isSettled(item.id)}
-            onEntranceComplete={onEntranceComplete}
-          />
-        ))}
+        {visibleItems.map((item) => {
+          const isLatest = item.id === latestActivityId
+          const settled = item.thinking === true || isSettled(item.id)
+          return (
+            <ActivityItemCard
+              key={item.id}
+              item={item}
+              showRoutingActions={!lockDeskActions && item.id === latestAwaitingId && settled}
+              onRoutingAsk={onRoutingAsk}
+              onAcceptProposal={onAcceptProposal}
+              onDiscardProposal={onDiscardProposal}
+              lockDeskActions={lockDeskActions}
+              animateEntrance={item.id === typingId}
+              entranceSettled={settled}
+              onEntranceComplete={onEntranceComplete}
+              showNext24h={!lockDeskActions && isLatest && settled && item.thinking !== true}
+              showRealtime={
+                !lockDeskActions && isLatest && settled && item.thinking !== true && planMode === 'planned'
+              }
+              planBusy={planBusy}
+              onNext24h={onNext24h}
+              onRealtime={onRealtime}
+            />
+          )
+        })}
       </div>
     </div>
   )
@@ -940,6 +1007,10 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   )
   const reveal = useProgressiveReveal(revealItems)
   const setDeskFocus = useDeskFocusStore((s) => s.setFocus)
+  const planMode = useDeskPlanStore((s) => s.mode)
+  const planBusy = useDeskPlanStore((s) => s.busy)
+  const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
+  const setPlanBusy = useDeskPlanStore((s) => s.setBusy)
   const nextRevealSpeaker = useMemo(() => {
     if (!reveal.showDots) return null
     const pending = pagedItems.find((item) => !reveal.visibleIds.has(item.id) && item.thinking !== true)
@@ -1109,6 +1180,36 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     })
   }
 
+  const handleNext24h = async () => {
+    if (deskBlocked || planBusy) return
+    setPlanBusy(true)
+    try {
+      const summary = await admin_simulateNextDeskDay()
+      applyPlanSummary(summary)
+      if (typeof summary.plannedClockMs === 'number' && summary.plannedClockMs > 0) {
+        setDeskFocus(summary.plannedClockMs, typeof summary.cycleNumber === 'number' ? summary.cycleNumber : null)
+      }
+    } catch (error) {
+      console.error('[Activity] Next 24h failed:', error)
+    } finally {
+      setPlanBusy(false)
+    }
+  }
+
+  const handleRealtime = async () => {
+    if (planBusy) return
+    setPlanBusy(true)
+    try {
+      const summary = await admin_exitDeskPlan()
+      applyPlanSummary(summary)
+    } catch (error) {
+      console.error('[Activity] Real time exit failed:', error)
+      useDeskPlanStore.getState().setLive()
+    } finally {
+      setPlanBusy(false)
+    }
+  }
+
   const sectionProps = {
     latestAwaitingId,
     latestActivityId,
@@ -1120,6 +1221,10 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     typingId: reveal.typingId,
     isSettled: reveal.isSettled,
     onEntranceComplete: reveal.onTypingComplete,
+    planMode,
+    planBusy,
+    onNext24h: () => void handleNext24h(),
+    onRealtime: () => void handleRealtime(),
   }
 
   const askAnchor =

@@ -124,6 +124,10 @@
   font-weight: 700;
 }
 
+.deskHeaderStatusPlanned {
+  color: #6b5b2e;
+}
+
 .deskHeaderStatusRestock {
   color: #1d4f91;
   font-weight: 700;

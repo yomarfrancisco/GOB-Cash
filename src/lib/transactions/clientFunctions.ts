@@ -960,6 +960,10 @@ export type ConversionRoutingSummary = {
   activityEventId?: string
   dropdownTitle?: string
   dropdownBody?: string
+  /** live = wall clock; planned = Next 24h simulation */
+  deskMode?: 'live' | 'planned'
+  plannedClockMs?: number | null
+  acknowledgement?: string
 }
 
 export async function admin_startConversionRoutingTest(
@@ -996,6 +1000,22 @@ export async function admin_confirmConversionRoutingCycle(params?: {
   const functions = getFunctionsInstance()
   const fn = httpsCallable(functions, 'admin_confirmConversionRoutingCycle')
   const result = await fn(params || {})
+  return result.data as ConversionRoutingSummary
+}
+
+/** Auto-walk the open day under Planned mode (synthetic bank cover as needed). */
+export async function admin_simulateNextDeskDay(): Promise<ConversionRoutingSummary> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'admin_simulateNextDeskDay')
+  const result = await fn({})
+  return result.data as ConversionRoutingSummary
+}
+
+/** Leave Planned mode and restore the live desk clock. */
+export async function admin_exitDeskPlan(): Promise<ConversionRoutingSummary> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'admin_exitDeskPlan')
+  const result = await fn({})
   return result.data as ConversionRoutingSummary
 }
 

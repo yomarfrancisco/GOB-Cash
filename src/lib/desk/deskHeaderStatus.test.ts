@@ -66,4 +66,23 @@ describe('buildDeskHeaderStatus', () => {
     const late = progressThroughFocus(items, base + 3 * 60_000, 3, 14)
     assert.ok(late > early)
   })
+
+  it('shows Planned when the desk is in simulation mode', () => {
+    const status = buildDeskHeaderStatus(
+      { status: 'active', cycleNumber: 9, cycleCount: 14, deskMode: 'planned' },
+      [
+        item({
+          id: 'open',
+          title: 'Step 1 · Order',
+          cycleNumber: 9,
+          awaitingConfirm: true,
+          routingAction: 'step',
+          status: 'awaiting_execution',
+        }),
+      ],
+      { focusAt: null, focusCycle: 9, planned: true }
+    )
+    assert.equal(status.statusLabel, 'Planned')
+    assert.equal(status.statusTone, 'planned')
+  })
 })

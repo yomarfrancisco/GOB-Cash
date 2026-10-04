@@ -2734,6 +2734,8 @@ export const admin_getConversionRoutingStatus = functions
       cards: state.cards,
       machines: state.machines,
       pairings: state.pairings,
+      deskMode: data.deskMode === 'planned' ? 'planned' : 'live',
+      plannedClockMs: num(data.plannedClockMs, 0) || null,
     })
   })
 
@@ -4408,3 +4410,280 @@ export const admin_submitConversionRoutingFeedback = functions
       cardAssignments: plan.cardAssignments,
     }
   })
+
+async function creditWallet(
+  adminUid: string,
+  walletId: 'cashMZN' | 'cashZAR',
+  amount: number
+): Promise<void> {
+  if (!(amount > 0)) return
+  const ref = db.collection('users').doc(adminUid).collection('wallets').doc(walletId)
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    const current = Number(snap.exists ? snap.data()?.fiatBalance || 0 : 0)
+    tx.set(
+      ref,
+      {
+        fiatBalance: roundMoney(current + amount),
+        updatedAt: new Date().toISOString(),
+        plannedTopUp: true,
+      },
+      { merge: true }
+    )
+  })
+}
+
+async function ensureSimulatedMznCover(adminUid: string, need: number): Promise<void> {
+  if (!(need > 0)) return
+  const bal = await mznWalletBalance(adminUid)
+  if (mznCoversRestock(need, bal, [])) return
+  await creditWallet(adminUid, 'cashMZN', roundMoney(need - bal + 1))
+}
+
+async function ensureSimulatedZarCover(adminUid: string, need: number): Promise<void> {
+  if (!(need > 0)) return
+  const bal = await zarWalletBalance(adminUid)
+  if (bal + 0.5 >= need) return
+  await creditWallet(adminUid, 'cashZAR', roundMoney(need - bal + 1))
+}
+
+/**
+ * Next 24h — auto-walk the open day (Continue + synthetic bank cover) in Planned mode.
+ * Stops when the next operating day opens, the window closes, or a hard stop.
+ */
+export async function simulateNextDeskDay(adminUid: string): Promise<Record<string, unknown>> {
+  const testRunId = await currentTestId(adminUid)
+  if (!testRunId) {
+    throw new functions.https.HttpsError('not-found', 'No conversion routing test is active')
+  }
+  const testRef = db.collection(TESTS).doc(testRunId)
+  const startSnap = await testRef.get()
+  if (!startSnap.exists || startSnap.data()?.status !== 'active') {
+    throw new functions.https.HttpsError('failed-precondition', 'Desk run is not active')
+  }
+  const start = startSnap.data() || {}
+  const startCycle = num(start.awaitingCycleNumber, 0) || num(start.completedCycles, 0) + 1
+  const prevClock = num(start.plannedClockMs, 0)
+  const plannedClockMs = (prevClock > 0 ? prevClock : Date.now()) + 24 * 60 * 60 * 1000
+  const now = admin.firestore.Timestamp.now()
+
+  await testRef.set(
+    {
+      deskMode: 'planned',
+      plannedClockMs,
+      updatedAt: now,
+    },
+    { merge: true }
+  )
+
+  const markerId = `planned-day-${testRunId}-${plannedClockMs}`
+  await db
+    .collection('users')
+    .doc(adminUid)
+    .collection('activityEvents')
+    .doc(markerId)
+    .set({
+      id: markerId,
+      kind: CONVERSION_ROUTING_KIND,
+      title: 'Ask · Planned day',
+      body: `Simulating the next 24 hours from Day ${startCycle}. Bank cover is assumed so the desk can walk Steps 1–5. Tap Real time to leave Planned.`,
+      dropdownTitle: 'Ask · Planned day',
+      dropdownBody: `Planned · Day ${startCycle}`,
+      actorType: 'ai_manager',
+      avatarKind: 'convert_zar',
+      amountCurrency: 'ZAR',
+      amountValue: 0,
+      amountSign: 'debit',
+      txId: markerId,
+      hasDownloadButton: false,
+      awaitingConfirm: false,
+      routingBlocked: false,
+      status: 'recorded',
+      routingAction: 'advice',
+      deskSpeaker: 'sam',
+      deskMode: 'planned',
+      plannedClockMs,
+      testRunId,
+      cycleNumber: startCycle,
+      createdAt: admin.firestore.Timestamp.fromMillis(plannedClockMs),
+      recordingSource: 'SYSTEM',
+    })
+
+  const steps: string[] = []
+  let stopped = 'max_steps'
+  for (let i = 0; i < 14; i++) {
+    const snap = await testRef.get()
+    const data = snap.data() || {}
+    if (data.status !== 'active') {
+      stopped = 'window_closed'
+      break
+    }
+    const phase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
+    const awaitingKind = typeof data.awaitingKind === 'string' ? data.awaitingKind : ''
+    const cycleNumber = num(data.awaitingCycleNumber, 0)
+    const deskStep = num(data.deskStep, 0)
+
+    if (cycleNumber > startCycle && (phase === 'order_open' || deskStep === 1)) {
+      stopped = 'next_day'
+      break
+    }
+    if (!(cycleNumber > 0)) {
+      stopped = 'no_day'
+      break
+    }
+
+    try {
+      if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') {
+        const need = num(data.replenishAmountMzn, num(data.expectedOrderMzn, 0))
+        await ensureSimulatedMznCover(adminUid, need)
+        await confirmOpenCycle(adminUid, { testRunId, cycleNumber, overrideEarliest: true })
+        steps.push(`recycle:${cycleNumber}`)
+        continue
+      }
+
+      if (phase === 'awaiting_continue') {
+        await ensureSimulatedZarCover(adminUid, num(data.expectedOrderZar, 0))
+        await tryAdvanceContinuousCycle()
+        steps.push(`fund-zar:${cycleNumber}`)
+        continue
+      }
+
+      if (
+        awaitingKind === 'deploy' ||
+        phase === 'awaiting_send' ||
+        (phase === 'awaiting_mzn' && deskStep >= 4)
+      ) {
+        await confirmOpenCycle(adminUid, { testRunId, cycleNumber, overrideEarliest: true })
+        steps.push(`send:${cycleNumber}`)
+        continue
+      }
+
+      if (phase === 'awaiting_mzn' || (deskStep === 3 && !phase)) {
+        await ensureSimulatedMznCover(adminUid, num(data.expectedOrderMzn, 0))
+        const stepped = await advanceSequentialStep(adminUid)
+        steps.push(`mzn:${cycleNumber}:${stepped.advanced}`)
+        if (!stepped.advanced) {
+          // Retry once after funding Leo unlock path
+          await tryAdvanceContinuousCycle()
+          const again = await advanceSequentialStep(adminUid)
+          steps.push(`mzn-retry:${again.advanced}`)
+          if (!again.advanced && awaitingKind !== 'deploy') {
+            stopped = 'blocked_mzn'
+            break
+          }
+        }
+        continue
+      }
+
+      if (
+        phase === 'order_open' ||
+        phase === 'awaiting_invoice' ||
+        deskStep === 1 ||
+        deskStep === 2
+      ) {
+        const stepped = await advanceSequentialStep(adminUid)
+        steps.push(`step:${deskStep || phase}:${stepped.advanced}`)
+        if (!stepped.advanced) {
+          stopped = 'blocked_step'
+          break
+        }
+        continue
+      }
+
+      // Fallback: try confirm for whatever is open
+      await confirmOpenCycle(adminUid, { testRunId, cycleNumber, overrideEarliest: true })
+      steps.push(`confirm:${cycleNumber}`)
+    } catch (error) {
+      console.error('[simulateNextDeskDay] step failed', error)
+      stopped = 'error'
+      steps.push(`error:${error instanceof Error ? error.message : 'failed'}`)
+      break
+    }
+  }
+
+  const endSnap = await testRef.get()
+  const end = endSnap.data() || {}
+  const state = stateFromDoc(end)
+  const endCycle = num(end.awaitingCycleNumber, state.completedCycles)
+  return publicSummary(state, {
+    testRunId,
+    status: end.status || 'active',
+    cycleNumber: endCycle,
+    deskMode: 'planned',
+    plannedClockMs,
+    simulatedFromCycle: startCycle,
+    simulatedToCycle: endCycle,
+    simulatedSteps: steps,
+    acknowledgement:
+      stopped === 'next_day' || endCycle > startCycle
+        ? `Planned Day ${startCycle} complete. Day ${endCycle} is on the desk.`
+        : stopped === 'window_closed'
+          ? 'Planned run reached the end of the window.'
+          : `Planned advance paused (${stopped.replace(/_/g, ' ')}).`,
+    completed: end.status === 'completed',
+  })
+}
+
+export async function exitDeskPlan(adminUid: string): Promise<Record<string, unknown>> {
+  const testRunId = await currentTestId(adminUid)
+  if (!testRunId) {
+    return { status: 'none', deskMode: 'live' }
+  }
+  const testRef = db.collection(TESTS).doc(testRunId)
+  const snap = await testRef.get()
+  if (!snap.exists) {
+    return { status: 'none', deskMode: 'live' }
+  }
+  const now = admin.firestore.Timestamp.now()
+  await testRef.set({ deskMode: 'live', updatedAt: now }, { merge: true })
+  const data = snap.data() || {}
+  const state = stateFromDoc(data)
+  const markerId = `realtime-${testRunId}-${now.toMillis()}`
+  await db
+    .collection('users')
+    .doc(adminUid)
+    .collection('activityEvents')
+    .doc(markerId)
+    .set({
+      id: markerId,
+      kind: CONVERSION_ROUTING_KIND,
+      title: 'Ask · Real time',
+      body: 'Back on the live desk clock. Planned days stay in the thread as history.',
+      dropdownTitle: 'Ask · Real time',
+      dropdownBody: 'Live desk',
+      actorType: 'ai_manager',
+      avatarKind: 'convert_zar',
+      amountCurrency: 'ZAR',
+      amountValue: 0,
+      amountSign: 'debit',
+      txId: markerId,
+      hasDownloadButton: false,
+      awaitingConfirm: false,
+      routingBlocked: false,
+      status: 'recorded',
+      routingAction: 'advice',
+      deskSpeaker: 'sam',
+      deskMode: 'live',
+      testRunId,
+      cycleNumber: num(data.awaitingCycleNumber, state.completedCycles),
+      createdAt: now,
+      recordingSource: 'SYSTEM',
+    })
+  return publicSummary(state, {
+    testRunId,
+    status: data.status || 'active',
+    cycleNumber: data.awaitingCycleNumber || state.completedCycles,
+    deskMode: 'live',
+    plannedClockMs: num(data.plannedClockMs, 0) || null,
+    acknowledgement: 'Live desk clock restored.',
+  })
+}
+
+export const admin_simulateNextDeskDay = functions
+  .region('us-central1')
+  .runWith({ timeoutSeconds: 300, memory: '1GB' })
+  .https.onCall(async (_data, context) => simulateNextDeskDay(assertRoutingAdmin(context)))
+
+export const admin_exitDeskPlan = functions
+  .region('us-central1')
+  .https.onCall(async (_data, context) => exitDeskPlan(assertRoutingAdmin(context)))
