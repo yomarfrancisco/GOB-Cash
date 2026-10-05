@@ -15,9 +15,6 @@ import { useTweenNumber } from '@/lib/animations/useTweenNumber'
 import { useTwoStageTween } from '@/lib/animations/useTwoStageTween'
 import clsx from 'clsx'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
-import { BASE_USDT_ADDRESS } from '@/config/addresses'
-import { useNotificationStore } from '@/store/notifications'
-import { useUserProfileStore } from '@/store/userProfile'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { applyFeeToRate } from '@/lib/exchangeRates/applyFeeToRate'
 import { useZarPayoutRiskBar } from '@/lib/fx/useMznRepricingRisk'
@@ -139,113 +136,6 @@ export default function CardStackCard({
   showRatePill = true,
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
-  const pushNotification = useNotificationStore((state) => state.pushNotification)
-
-  // Long-press detection for copying USDT address
-  const longPressTimeoutRef = useRef<number | null>(null)
-  const longPressActiveRef = useRef(false)
-  const pressStartRef = useRef<number | null>(null)
-  const hasLongPressAttemptRef = useRef(false)
-
-  const cancelLongPress = () => {
-    longPressActiveRef.current = false
-    pressStartRef.current = null
-    hasLongPressAttemptRef.current = false
-    if (longPressTimeoutRef.current !== null) {
-      window.clearTimeout(longPressTimeoutRef.current)
-      longPressTimeoutRef.current = null
-    }
-  }
-
-  const handlePressStart = (e?: React.TouchEvent | React.MouseEvent) => {
-    // Only allow for the top card
-    if (!isTop) return
-    if (!BASE_USDT_ADDRESS) {
-      // Optional: dev-only warning
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[CARD LONGPRESS] BASE_USDT_ADDRESS is not set')
-      }
-      return
-    }
-
-    // Prevent native long-press context menu
-    if (e) {
-      e.preventDefault?.()
-    }
-
-    // Cancel any existing timeout for safety
-    if (longPressTimeoutRef.current !== null) {
-      window.clearTimeout(longPressTimeoutRef.current)
-      longPressTimeoutRef.current = null
-    }
-
-    // Mark start time
-    pressStartRef.current = Date.now()
-    longPressActiveRef.current = true
-  }
-
-  const handlePressEnd = async () => {
-    if (!isTop || !BASE_USDT_ADDRESS) {
-      cancelLongPress()
-      return
-    }
-
-    const startedAt = pressStartRef.current
-    pressStartRef.current = null
-
-    if (!startedAt) {
-      cancelLongPress()
-      return
-    }
-
-    const duration = Date.now() - startedAt
-
-    // Threshold: 550ms
-    if (duration < 550) {
-      cancelLongPress()
-      return
-    }
-
-    // Only one attempt per press
-    if (hasLongPressAttemptRef.current) {
-      cancelLongPress()
-      return
-    }
-
-    hasLongPressAttemptRef.current = true
-    console.log('[CARD LONGPRESS] Attempting clipboard copy from gesture end')
-
-    try {
-      await navigator.clipboard.writeText(BASE_USDT_ADDRESS)
-      const { profile } = useUserProfileStore.getState()
-      pushNotification({
-        kind: 'payment_sent',
-        title: 'USDT address copied',
-        body: 'Base USDT address copied to clipboard',
-        actor: {
-          type: 'user',
-          avatar: profile.avatarUrl || undefined,
-          name: profile.fullName,
-        },
-      })
-    } catch (err) {
-      console.error('[CARD LONGPRESS] Failed to copy USDT address', err)
-      pushNotification({
-        kind: 'payment_failed',
-        title: 'Failed to copy USDT address',
-        body: 'Unable to copy address, please try again',
-      })
-    } finally {
-      cancelLongPress()
-    }
-  }
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      cancelLongPress()
-    }
-  }, [])
 
   // Get allocation cents for this card
   // For authed users: read directly from Firestore wallets to avoid demo values
@@ -555,34 +445,10 @@ export default function CardStackCard({
       key={index}
       className={finalClassName}
       onClick={onClick}
-      onTouchStart={(e) => {
-        onTouchStart?.(e)
-        handlePressStart(e)
-      }}
-      onTouchEnd={(e) => {
-        onTouchEnd?.(e)
-        handlePressEnd()
-      }}
-      onTouchCancel={(e) => {
-        cancelLongPress()
-      }}
-      onMouseDown={(e) => {
-        if (e.button === 0) {
-          // Only for left-click
-          handlePressStart(e)
-        }
-      }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
       onContextMenu={(e) => {
-        // Prevent native context menu on long-press
         e.preventDefault()
-      }}
-      onMouseUp={(e) => {
-        if (e.button === 0) {
-          handlePressEnd()
-        }
-      }}
-      onMouseLeave={(e) => {
-        cancelLongPress()
       }}
       style={style}
     >

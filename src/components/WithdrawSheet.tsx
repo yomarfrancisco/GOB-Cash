@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { Landmark, Wallet } from 'lucide-react'
+import { Landmark } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 import '@/styles/send-details-sheet.css'
@@ -9,12 +9,12 @@ import '@/styles/send-details-sheet.css'
 type Props = {
   open: boolean
   onClose: () => void
-  onSelect?: (method: 'bank' | 'card' | 'crypto' | 'atm' | 'agent') => void
+  onSelect?: (method: 'bank' | 'card' | 'atm' | 'agent') => void
   onBack?: () => void // Callback for back button
 }
 
 export default function WithdrawSheet({ open, onClose, onSelect, onBack }: Props) {
-  const handleSelect = (method: 'bank' | 'card' | 'crypto' | 'atm' | 'agent') => {
+  const handleSelect = (method: 'bank' | 'card' | 'atm' | 'agent') => {
     if (onSelect) {
       onSelect(method)
     }
@@ -52,13 +52,6 @@ export default function WithdrawSheet({ open, onClose, onSelect, onBack }: Props
         caption="Convert MZN and send ZAR to your linked bank account."
         onClick={() => handleSelect('bank')}
       />
-      <ActionSheetItem
-        icon={<Wallet size={22} strokeWidth={2} />}
-        title="External crypto wallet"
-        caption="Convert MZN and send USDT to an external wallet."
-        onClick={() => handleSelect('crypto')}
-      />
     </ActionSheet>
   )
 }
-

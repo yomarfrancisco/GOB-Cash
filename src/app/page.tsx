@@ -7,13 +7,11 @@ import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
-import WithdrawTronUsdtSheet from '@/components/WithdrawTronUsdtSheet'
-import WithdrawCryptoAddressSheet from '@/components/WithdrawCryptoAddressSheet'
 import { useTransactSheet } from '@/store/useTransactSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
-import { formatUSDT, formatZARWithDot } from '@/lib/money'
+import { formatZARWithDot } from '@/lib/money'
 import { zarToMzn, mznToZar, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
@@ -31,9 +29,7 @@ import { ScanQrSheet } from '@/components/ScanQrSheet'
 import WalletHelperSheet from '@/components/WalletHelperSheet'
 import MapHelperSheet from '@/components/MapHelperSheet'
 import InternalTransferSheet from '@/components/InternalTransferSheet'
-import DepositCryptoWalletSheet, { type DepositCryptoWallet } from '@/components/DepositCryptoWalletSheet'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
-import CryptoDepositAddressSheet from '@/components/CryptoDepositAddressSheet'
 import { useNotificationStore } from '@/store/notifications'
 import HomeStreamSection from '@/components/HomeStreamSection'
 import { DEMO_ANIMATIONS_ENABLED } from '@/lib/flags'
@@ -123,9 +119,6 @@ function HomeContent() {
   }, [])
 
   const [openWithdraw, setOpenWithdraw] = useState(false)
-  const [openWithdrawTronUsdt, setOpenWithdrawTronUsdt] = useState(false)
-  const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
-  const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
   const [withdrawAmountMZN, setWithdrawAmountMZN] = useState(0)
   const [withdrawAmountZAR, setWithdrawAmountZAR] = useState(0) // Store keypad amount for bank withdrawals
   const [openAmount, setOpenAmount] = useState(false)
@@ -200,10 +193,8 @@ function HomeContent() {
     openConversionKeypad(true, fromQuery)
   }, [authReady, isAuthed, openConversionKeypad, router])
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
-  const [sendAmountUSDT, setSendAmountUSDT] = useState(0)
-  const [depositAmountUSDT, setDepositAmountUSDT] = useState(0)
   const [sendRecipient, setSendRecipient] = useState('')
-  const [sendMethod, setSendMethod] = useState<'email' | 'wallet' | 'brics' | null>(null)
+  const [sendMethod, setSendMethod] = useState<'email' | 'brics' | null>(null)
   const [flowType, setFlowType] = useState<'payment' | 'transfer'>('payment')
   const [depositAmountZAR, setDepositAmountZAR] = useState(0)
   const [isPaySomeoneFlow, setIsPaySomeoneFlow] = useState(false) // Track if coming from "Pay someone" button
@@ -211,9 +202,6 @@ function HomeContent() {
   const [openInternalTransfer, setOpenInternalTransfer] = useState(false)
   const [transferFromWalletId, setTransferFromWalletId] = useState<'savings' | 'zwd' | 'yield' | 'mzn' | 'btc'>('savings')
   const [transferToWalletId, setTransferToWalletId] = useState<'savings' | 'zwd' | 'yield' | 'mzn' | 'btc'>('zwd')
-  const [openDepositCryptoWallet, setOpenDepositCryptoWallet] = useState(false)
-  const [selectedCryptoDepositWallet, setSelectedCryptoDepositWallet] = useState<DepositCryptoWallet | null>(null)
-  const [showCryptoAddressSheet, setShowCryptoAddressSheet] = useState(false)
   // Convert cash flow state
   const [convertNotificationState, setConvertNotificationState] = useState<{
     type: 'request_sent' | 'request_accepted'
@@ -268,23 +256,10 @@ function HomeContent() {
     setOpenSendSuccess(false)
     setSendRecipient('')
     setSendAmountZAR(0)
-    setSendAmountUSDT(0)
     setFlowType('payment') // Reset to default
   }, [])
   const closeInternalTransfer = useCallback(() => {
     setOpenInternalTransfer(false)
-  }, [])
-  const closeDepositCryptoWallet = useCallback(() => {
-    setOpenDepositCryptoWallet(false)
-  }, [])
-  const handleSelectCryptoDepositWallet = useCallback((wallet: DepositCryptoWallet) => {
-    setSelectedCryptoDepositWallet(wallet)
-    setOpenDepositCryptoWallet(false)
-    setTimeout(() => setShowCryptoAddressSheet(true), 220)
-  }, [])
-  const closeCryptoAddressSheet = useCallback(() => {
-    setShowCryptoAddressSheet(false)
-    setSelectedCryptoDepositWallet(null)
   }, [])
   const handleTransferNext = useCallback((fromWalletId: 'savings' | 'zwd' | 'yield' | 'mzn' | 'btc', toWalletId: 'savings' | 'zwd' | 'yield' | 'mzn' | 'btc') => {
     setTransferFromWalletId(fromWalletId)
@@ -294,7 +269,7 @@ function HomeContent() {
   }, [])
 
   const handleDirectSelect = useCallback((method: 'bank' | 'card' | 'crypto' | 'email' | 'wallet' | 'brics' | 'atm' | 'agent') => {
-    if (method === 'email' || method === 'wallet' || method === 'brics') {
+    if (method === 'email' || method === 'brics') {
       setAmountMode('send')
       setSendMethod(method)
       setOpenDirectPayment(false)
@@ -305,9 +280,6 @@ function HomeContent() {
   const handleAmountSubmit = useCallback((amountZAR: number) => {
     if (amountMode === 'send' || flowType === 'transfer') {
       setSendAmountZAR(amountZAR)
-      // Calculate USDT amount (using same rate as AmountSheet: 18.1)
-      const fxRateZARperUSDT = 18.1
-      setSendAmountUSDT(amountZAR / fxRateZARperUSDT)
       setOpenAmount(false)
       
       // For transfers, skip SendDetailsSheet and go directly to success
@@ -793,23 +765,7 @@ function HomeContent() {
           setTimeout(() => setOpenAmount(true), 220)
         } : undefined}
         onSelect={(method) => {
-          console.log('[WithdrawSheet] onSelect called with method:', method, 'amountUSDT:', withdrawCryptoAmountUSDT)
-          if (method === 'crypto') {
-            // Open crypto address modal
-            // If amountUSDT is 0, we need to get it from the last amount entered
-            // This can happen if user came from deposit keypad flow
-            if (withdrawCryptoAmountUSDT === 0) {
-              console.warn('[WithdrawSheet] withdrawCryptoAmountUSDT is 0, cannot proceed with crypto withdrawal')
-              // TODO: Could try to get amount from depositAmountUSDT or other state
-              // For now, we'll let the backend handle validation
-            }
-            console.log('[WithdrawSheet] Opening crypto address sheet, amountUSDT:', withdrawCryptoAmountUSDT)
-            setOpenWithdraw(false)
-            setTimeout(() => {
-              console.log('[WithdrawSheet] Setting openWithdrawCryptoAddress to true')
-              setOpenWithdrawCryptoAddress(true)
-            }, 220)
-          } else if (method === 'bank') {
+          if (method === 'bank') {
             // Open Banking Details sheet in withdrawal mode with keypad amount
             if (withdrawAmountZAR <= 0) {
               console.error('[WithdrawSheet] No withdrawal amount available')
@@ -828,115 +784,6 @@ function HomeContent() {
             setTimeout(() => setOpenAmount(true), 220)
           }
         }}
-      />
-      <WithdrawTronUsdtSheet
-        open={openWithdrawTronUsdt}
-        onClose={() => setOpenWithdrawTronUsdt(false)}
-        onBack={() => {
-          setOpenWithdrawTronUsdt(false)
-          setOpenWithdraw(true)
-        }}
-        onSuccess={(result) => {
-          // Show success message or notification
-          const { pushNotification } = useNotificationStore.getState()
-          // Hard fail mode: always full fill or failure
-          pushNotification({
-            kind: 'transfer',
-            title: 'USDT Withdrawal Sent',
-            body: `${result.sentAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
-            amount: {
-              currency: 'USDT',
-              value: result.sentAmountUSDT,
-            },
-            direction: 'down',
-            actor: { type: 'system', name: 'GoBankless' },
-          })
-        }}
-      />
-      <WithdrawCryptoAddressSheet
-        open={openWithdrawCryptoAddress}
-        onClose={() => setOpenWithdrawCryptoAddress(false)}
-        onBack={() => {
-          setOpenWithdrawCryptoAddress(false)
-          setTimeout(() => setOpenWithdraw(true), 220)
-        }}
-        onSubmit={async (address, network) => {
-          const { pushNotification } = useNotificationStore.getState()
-          const { tx_withdrawTronUSDT } = await import('@/lib/transactions/clientFunctions')
-          const { generateRequestId } = await import('@/lib/utils/requestId')
-          
-          // Generate requestId for idempotency
-          const requestId = generateRequestId()
-          
-          try {
-            const result = await tx_withdrawTronUSDT({
-              toAddress: address,
-              amountUSDT: withdrawCryptoAmountUSDT,
-              requestId,
-            })
-            
-            // Success notification
-            pushNotification({
-              kind: 'transfer',
-              title: 'USDT Withdrawal Sent',
-              body: `${result.sentAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
-              amount: {
-                currency: 'USDT',
-                value: result.sentAmountUSDT,
-              },
-              direction: 'down',
-              actor: { type: 'system', name: 'GoBankless' },
-            })
-            
-            setOpenWithdrawCryptoAddress(false)
-            // Balance updates automatically via Firestore subscription
-          } catch (error: any) {
-            // Log full error for debugging
-            console.error('[WithdrawCryptoAddressSheet] Error details:', {
-              code: error?.code,
-              message: error?.message,
-              details: error?.details,
-              stack: error?.stack,
-            })
-
-            // Map Firebase error codes to user-friendly messages
-            // Show "Not allowed" for failed-precondition, "Server error" for internal
-            if (error?.code === 'functions/failed-precondition') {
-              if (error.message?.includes('Insufficient treasury') || error.message?.includes('treasury') || error.message?.includes('Treasury')) {
-                throw new Error(`Not allowed: Treasury has insufficient balance. Requested ${withdrawCryptoAmountUSDT.toFixed(6)} USDT.`)
-              } else if (error.message?.includes('Insufficient user balance') || error.message?.includes('user balance') || error.message?.includes('Insufficient balance')) {
-                throw new Error('Not allowed: Insufficient USDT balance. Please check your balance and try again.')
-              } else if (error.message?.includes('in progress') || error.message?.includes('already in progress')) {
-                throw new Error('Not allowed: Withdrawal already in progress. Please wait and try again.')
-              } else if (error.message?.includes('Invalid TRON address') || error.message?.includes('Invalid address')) {
-                throw new Error('Not allowed: Invalid TRON address format.')
-              } else {
-                // Generic failed-precondition
-                throw new Error(`Not allowed: ${error.message || 'Withdrawal cannot be processed at this time.'}`)
-              }
-            } else if (error?.code === 'functions/invalid-argument') {
-              throw new Error(`Not allowed: ${error.message || 'Invalid request parameters.'}`)
-            } else if (error?.code === 'functions/internal') {
-              if (error.message?.includes('broadcast') || error.message?.includes('Broadcast')) {
-                throw new Error('Server error: Transaction failed to broadcast. Please try again or contact support.')
-              } else {
-                throw new Error(`Server error: ${error.message || 'Withdrawal could not be processed. Please try again.'}`)
-              }
-            } else if (error?.code === 'functions/unauthenticated') {
-              throw new Error('Not allowed: You must be logged in to withdraw.')
-            } else if (error?.code === 'functions/permission-denied') {
-              throw new Error('Not allowed: You do not have permission to perform this action.')
-            } else if (error?.message?.includes('CORS') || error?.message?.includes('cors')) {
-              // CORS error should not happen with httpsCallable, but handle it if it does
-              console.error('[WithdrawCryptoAddressSheet] CORS error detected - this should not happen with httpsCallable')
-              throw new Error('Network error: Please check your connection and try again.')
-            } else {
-              // Unknown error - show generic message but log full details
-              throw new Error(`Error: ${error?.message || 'Failed to process withdrawal. Please try again.'}`)
-            }
-          }
-        }}
-        amountUSDT={withdrawCryptoAmountUSDT}
       />
       <AmountSheet
         open={openAmount}
@@ -982,8 +829,8 @@ function HomeContent() {
                 ? sendAmountZAR
                 : undefined
         }
-        ctaLabel={amountMode === 'depositCard' ? 'Deposit' : amountMode === 'deposit' ? 'Transfer USDT' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
-        showDualButtons={amountMode === 'convert' && !amountEntryPoint} // Legacy support: only if entryPoint not set
+        ctaLabel={amountMode === 'depositCard' ? 'Deposit' : amountMode === 'deposit' ? 'Deposit' : amountMode === 'send' ? (flowType === 'transfer' ? 'Transfer' : 'Send') : 'Continue'}
+        showDualButtons={false}
         entryPoint={amountEntryPoint}
         conversionDestination={conversionDestination}
         onToggleConversion={amountEntryPoint === 'conversionKeypad' ? () => {
@@ -1089,18 +936,6 @@ function HomeContent() {
           setTimeout(() => {
             openPaymentDetails('pay', amountMZN, amountZAR)
           }, 220)
-        } : amountMode === 'convert' ? ({ amountZAR, amountUSDT }) => {
-          // Legacy card payment flow: close keypad, then show SendDetailsSheet
-          setSendAmountZAR(amountZAR)
-          setSendAmountUSDT(amountUSDT || 0)
-          setDepositAmountZAR(amountZAR) // Also set for card success sheet
-          setDepositAmountUSDT(amountUSDT || 0) // Also set for card success sheet
-          setSendMethod(null) // Default to email/phone input for "Pay someone"
-          setIsPaySomeoneFlow(true) // Mark as "Pay someone" flow
-          setOpenAmount(false)
-          setAmountEntryPoint(undefined)
-          // Open SendDetailsSheet instead of going directly to success
-          setTimeout(() => setOpenSendDetails(true), 220)
         } : undefined}
         onHelicopterWithdraw={
           amountMode === 'convert' && amountEntryPoint === 'helicopter'
@@ -1115,30 +950,20 @@ function HomeContent() {
               }
             : undefined
         }
-        onSubmit={amountMode === 'withdraw' ? ({ amountMZN, amountZAR, amountUSDT }) => {
-          // Store amounts for withdrawals
+        onSubmit={amountMode === 'withdraw' ? ({ amountMZN, amountZAR }) => {
+          // Store amounts for bank withdrawals
           setWithdrawAmountMZN(amountMZN)
           setWithdrawAmountZAR(amountZAR)
-          if (amountUSDT) {
-            setWithdrawCryptoAmountUSDT(amountUSDT)
-          }
           // Close keypad and open withdraw method sheet
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           setTimeout(() => setOpenWithdraw(true), 220)
-        } : amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR, amountUSDT }) => {
-          // Store amount even in deposit mode, in case user navigates to withdraw
-          // This handles the case where user enters amount in deposit keypad, then opens WithdrawSheet
-          if (amountUSDT) {
-            setWithdrawCryptoAmountUSDT(amountUSDT)
-            setDepositAmountUSDT(amountUSDT) // Also store for deposit flow
-          }
+        } : amountMode !== 'send' && amountMode !== 'convert' ? ({ amountZAR }) => {
           if (amountZAR) {
             setDepositAmountZAR(amountZAR)
           }
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
-          console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}
       />
@@ -1146,7 +971,6 @@ function HomeContent() {
         open={openSendDetails}
         onClose={closeSendDetails}
         amountZAR={sendAmountZAR}
-        amountUSDT={sendAmountUSDT}
         sendMethod={sendMethod}
         flowType={flowType}
         onBackToAmount={isPaySomeoneFlow ? () => {
@@ -1176,7 +1000,7 @@ function HomeContent() {
       <SuccessSheet
         open={openSendSuccess}
         onClose={closeSendSuccess}
-        amountZAR={sendMethod === 'wallet' ? formatUSDT(sendAmountUSDT) : `R ${sendAmountZAR.toLocaleString('en-ZA', {
+        amountZAR={`R ${sendAmountZAR.toLocaleString('en-ZA', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`}
@@ -1189,13 +1013,11 @@ function HomeContent() {
         onClose={() => {
           setOpenCardSuccess(false)
           setDepositAmountZAR(0)
-          setDepositAmountUSDT(0)
         }}
         amountZAR={`R ${depositAmountZAR.toLocaleString('en-ZA', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`}
-        amountUSDT={depositAmountUSDT > 0 ? formatUSDT(depositAmountUSDT) : undefined}
         recipient=""
         kind="card"
       />
@@ -1231,18 +1053,6 @@ function HomeContent() {
         onNext={handleTransferNext}
         defaultFromWalletId={transferFromWalletId}
       />
-      <DepositCryptoWalletSheet
-        open={openDepositCryptoWallet}
-        onClose={closeDepositCryptoWallet}
-        onSelectCryptoDepositWallet={handleSelectCryptoDepositWallet}
-      />
-      {selectedCryptoDepositWallet && (
-        <CryptoDepositAddressSheet
-          open={showCryptoAddressSheet}
-          onClose={closeCryptoAddressSheet}
-          wallet={selectedCryptoDepositWallet}
-        />
-      )}
       <FinancialInboxSheet />
       <PayIntoSheet
         onConfirm={(destination) => {

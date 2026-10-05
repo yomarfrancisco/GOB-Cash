@@ -7,7 +7,6 @@ import TopGlassBar from '@/components/TopGlassBar'
 import BottomGlassBar from '@/components/BottomGlassBar'
 import DepositSheet from '@/components/DepositSheet'
 import WithdrawSheet from '@/components/WithdrawSheet'
-import WithdrawCryptoAddressSheet from '@/components/WithdrawCryptoAddressSheet'
 // CashInOutSheet removed - Cash-in/out button now opens AmountSheet directly
 import CountrySelectSheet from '@/components/CountrySelectSheet'
 import BankSelectSheet, { type SelectedBank } from '@/components/BankSelectSheet'
@@ -519,9 +518,6 @@ export default function ProfileClient() {
   const [sendMethod, setSendMethod] = useState<'email' | 'wallet' | 'brics' | null>(null)
   const [flowType, setFlowType] = useState<'payment' | 'transfer'>('payment')
   const [isPaySomeoneFlow, setIsPaySomeoneFlow] = useState(false) // Track if coming from "Pay someone" button
-  // Crypto deposit removed - no longer needed
-  const [openWithdrawCryptoAddress, setOpenWithdrawCryptoAddress] = useState(false)
-  const [withdrawCryptoAmountUSDT, setWithdrawCryptoAmountUSDT] = useState(0)
   const [withdrawAmountMZN, setWithdrawAmountMZN] = useState(0)
   const [withdrawAmountZAR, setWithdrawAmountZAR] = useState(0) // Converted ZAR payout
 
@@ -1018,13 +1014,7 @@ export default function ProfileClient() {
           // Withdraw flow: close sheet (no keypad to return to from Cash-in/out entry point)
         }}
         onSelect={(method) => {
-          if (method === 'crypto') {
-            // Open crypto address modal
-            setOpenWithdraw(false)
-            setTimeout(() => {
-              setOpenWithdrawCryptoAddress(true)
-            }, 220)
-          } else if (method === 'bank') {
+          if (method === 'bank') {
             // Open Banking Details sheet in withdrawal mode with keypad amount
             if (withdrawAmountZAR <= 0) {
               console.error('[WithdrawSheet] No withdrawal amount available')
@@ -1035,132 +1025,11 @@ export default function ProfileClient() {
               openBankingDetails('withdraw', null, withdrawAmountZAR, undefined, withdrawAmountMZN)
             }, 220)
           } else {
-            // Other methods - existing behavior (shouldn't happen with current options)
             setOpenWithdraw(false)
             setAmountMode('withdraw')
             setTimeout(() => setOpenAmount(true), 220)
           }
         }}
-      />
-      <WithdrawCryptoAddressSheet
-        open={openWithdrawCryptoAddress}
-        onClose={() => setOpenWithdrawCryptoAddress(false)}
-        onBack={() => {
-          setOpenWithdrawCryptoAddress(false)
-          setTimeout(() => setOpenWithdraw(true), 220)
-        }}
-        onSubmit={async (address, network) => {
-          const { pushNotification } = useNotificationStore.getState()
-          const { tx_withdrawTronUSDT } = await import('@/lib/transactions/clientFunctions')
-          
-          // Open chat immediately with null txId (shows local typing bubble, no Firestore listeners yet)
-          setOpenWithdrawCryptoAddress(false)
-          setDepositChatTxId(null) // Start with null - will be updated when we have valid txId
-          setDepositChatError(null) // Clear any previous errors
-          setOpenDepositChat(true)
-          
-          // Track if we got a result (for timeout check)
-          let hasResult = false
-          
-          // Set timeout fallback (15 seconds)
-          const timeoutId = setTimeout(() => {
-            if (!hasResult) {
-              setDepositChatError('Still processing—please wait or try again.')
-            }
-          }, 15000)
-          
-          try {
-            const result = await tx_withdrawTronUSDT({
-              toAddress: address,
-              amountUSDT: withdrawCryptoAmountUSDT,
-              // requestId is optional, will be generated in clientFunctions if not provided
-            })
-            
-            hasResult = true
-            clearTimeout(timeoutId)
-            
-            // Only start Firestore listeners if we have a valid txId and successful status
-            if (result.txId && result.status === 'BROADCAST_FULL') {
-              // Update txId - this will trigger Firestore listeners in DepositChatSheet
-              setDepositChatTxId(result.txId)
-              
-              // Success notification
-              pushNotification({
-                kind: 'transfer',
-                title: 'USDT Withdrawal Sent',
-                body: `${result.sentAmountUSDT.toFixed(6)} USDT sent to TRON address${result.txId ? ` (TxID: ${result.txId.slice(0, 8)}...)` : ''}`,
-                amount: {
-                  currency: 'USDT',
-                  value: result.sentAmountUSDT,
-                },
-                direction: 'down',
-                actor: { type: 'system', name: 'GoBankless' },
-              })
-            } else {
-              // Failed status - show error in chat (no Firestore listeners)
-              let errorMessage = 'Withdrawal failed. Please try again or contact support.'
-              if (result.status === 'FAILED_INSUFFICIENT_TREASURY' || result.status === 'FAILED_ZERO_TREASURY') {
-                errorMessage = 'Withdrawal failed: Treasury has insufficient balance. Please try again later or contact support.'
-              } else if (result.status === 'FAILED_TREASURY_NO_TRX') {
-                errorMessage = 'Withdrawal failed: Treasury lacks TRX to execute the transaction. Please contact support.'
-              } else if (result.status === 'FAILED_BROADCAST') {
-                errorMessage = 'Withdrawal failed: Transaction could not be broadcast. Please try again or contact support.'
-              }
-              setDepositChatError(errorMessage)
-            }
-            
-            // Balance updates automatically via Firestore subscription
-          } catch (error: any) {
-            hasResult = true
-            clearTimeout(timeoutId)
-            
-            // Log full error for debugging
-            console.error('[WithdrawCryptoAddressSheet] Error details:', {
-              code: error?.code,
-              message: error?.message,
-              details: error?.details,
-              stack: error?.stack,
-            })
-
-            // Map Firebase error codes to user-friendly messages for chat display
-            let errorMessage = 'Withdrawal failed. Please try again or contact support.'
-            
-            if (error?.code === 'functions/failed-precondition') {
-              if (error.message?.includes('Insufficient treasury') || error.message?.includes('treasury') || error.message?.includes('Treasury')) {
-                errorMessage = `Treasury has insufficient balance. Requested ${withdrawCryptoAmountUSDT.toFixed(6)} USDT. Please try again later or contact support.`
-              } else if (error.message?.includes('Insufficient user balance') || error.message?.includes('user balance') || error.message?.includes('Insufficient balance')) {
-                errorMessage = 'Insufficient USDT balance. Please check your balance and try again.'
-              } else if (error.message?.includes('in progress') || error.message?.includes('already in progress')) {
-                errorMessage = 'Withdrawal already in progress. Please wait and try again.'
-              } else if (error.message?.includes('Invalid TRON address') || error.message?.includes('Invalid address')) {
-                errorMessage = 'Invalid TRON address format. Please check the address and try again.'
-              } else {
-                errorMessage = error.message || 'Withdrawal cannot be processed at this time. Please try again.'
-              }
-            } else if (error?.code === 'functions/invalid-argument') {
-              errorMessage = error.message || 'Invalid request parameters. Please try again.'
-            } else if (error?.code === 'functions/internal') {
-              if (error.message?.includes('broadcast') || error.message?.includes('Broadcast')) {
-                errorMessage = 'Transaction failed to broadcast. Please try again or contact support.'
-              } else {
-                errorMessage = error.message || 'Withdrawal could not be processed. Please try again.'
-              }
-            } else if (error?.code === 'functions/unauthenticated') {
-              errorMessage = 'You must be logged in to withdraw. Please log in and try again.'
-            } else if (error?.code === 'functions/permission-denied') {
-              errorMessage = 'You do not have permission to perform this action. Please contact support.'
-            } else if (error?.message?.includes('CORS') || error?.message?.includes('cors')) {
-              console.error('[WithdrawCryptoAddressSheet] CORS error detected - this should not happen with httpsCallable')
-              errorMessage = 'Network error: Please check your connection and try again.'
-            } else if (error?.message) {
-              errorMessage = error.message
-            }
-            
-            // Show error in chat (no Firestore listeners, chat is already open)
-            setDepositChatError(errorMessage)
-          }
-        }}
-        amountUSDT={withdrawCryptoAmountUSDT}
       />
       <AmountSheet
         open={openAmount}
@@ -1242,13 +1111,10 @@ export default function ProfileClient() {
           setTimeout(() => {
             openPaymentDetails('request', amountMZN, amountZAR)
           }, 220)
-        } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountMZN, amountZAR, amountUSDT }) => {
+        } : amountMode === 'deposit' && amountEntryPoint === 'depositKeypad' ? ({ amountMZN, amountZAR }) => {
           // Deposit keypad: "Withdraw" button - store amount and open withdraw sheet
           setWithdrawAmountMZN(amountMZN)
           setWithdrawAmountZAR(amountZAR) // Store ZAR amount for bank withdrawals
-          if (amountUSDT) {
-            setWithdrawCryptoAmountUSDT(amountUSDT)
-          }
           setOpenAmount(false)
           setAmountEntryPoint(undefined)
           setTimeout(() => {
@@ -1316,14 +1182,11 @@ export default function ProfileClient() {
             openDepositSheet()
           }, 220)
         } : undefined}
-        onSubmit={amountMode !== 'send' && amountMode !== 'convert' ? ({ amountMZN, amountZAR, amountUSDT }) => {
+        onSubmit={amountMode !== 'send' && amountMode !== 'convert' ? ({ amountMZN, amountZAR }) => {
           // Withdraw mode: store amount and open withdraw method sheet
           if (amountMode === 'withdraw') {
             setWithdrawAmountMZN(amountMZN)
             setWithdrawAmountZAR(amountZAR)
-            if (amountUSDT) {
-              setWithdrawCryptoAmountUSDT(amountUSDT)
-            }
             setOpenAmount(false)
             setTimeout(() => {
               openBankingDetails('withdraw', null, amountZAR, undefined, amountMZN, () => {
@@ -1401,7 +1264,7 @@ export default function ProfileClient() {
             // Other deposit methods (ATM, agent, etc.) - keep existing behavior
             setOpenAmount(false)
             setAmountEntryPoint(undefined)
-            console.log('Amount chosen', { amountZAR, amountUSDT, mode: amountMode })
+            console.log('Amount chosen', { amountZAR, mode: amountMode })
           }
         } : undefined}
         onAmountSubmit={(amountMode === 'send' || flowType === 'transfer') ? handleAmountSubmit : undefined}

@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { MailPlus, Globe, AtSign, Landmark, CreditCard, Receipt, Users } from 'lucide-react'
+import { AtSign, Landmark, CreditCard } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import ActionSheetItem from './ActionSheetItem'
 import '@/styles/send-details-sheet.css'
@@ -23,7 +23,7 @@ export default function DepositSheet({ open, onClose, onSelect, variant = 'depos
   }
 
   // Text content based on variant
-  const title = variant === 'direct-payment' ? 'Direct USDT Payment' : 'Deposit method'
+  const title = variant === 'direct-payment' ? 'Direct payment' : 'Deposit method'
   
   const options = variant === 'direct-payment' 
     ? [
@@ -41,12 +41,6 @@ export default function DepositSheet({ open, onClose, onSelect, variant = 'depos
               unoptimized
             />
           )
-        },
-        {
-          title: 'USDT Wallet',
-          caption: 'Transfer to any wallet on Tron, Ethereum, or Solana.',
-          method: 'wallet' as const,
-          icon: <Globe size={22} strokeWidth={2} />
         },
         {
           title: 'GoBankless Handle',
