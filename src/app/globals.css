@@ -1067,7 +1067,7 @@ body {
 
 /* PROFILE */
 .profile-header {
-  margin-top: 84px; /* Increased from 64px to 84px (64px + 20px) to move everything below glass down further */
+  margin-top: 64px; /* Was 84px; lift QR + actions 20px without moving chrome/backdrop */
   display: flex;
   flex-direction: column;
   align-items: center;
