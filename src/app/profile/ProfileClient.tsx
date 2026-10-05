@@ -787,6 +787,10 @@ export default function ProfileClient() {
                 type="button"
                 className="profile-stats-card profile-stats-card--compliance"
                 onClick={() => void startDiditVerification()}
+                // Hidden for now; keep reserved height so profile actions do not jump.
+                style={{ visibility: 'hidden', pointerEvents: 'none' }}
+                aria-hidden
+                tabIndex={-1}
               >
                 <div className="network-pill">
                   <div className="network-track">
