@@ -76,6 +76,24 @@ describe('desk copy display', () => {
     assert.match(out, new RegExp(`Vidrotec \\(Millennium BIM\\).+\\(=Mt ${bimMt} @COST\\)`))
     assert.match(out, new RegExp(`Wolf \\(BCI\\).+\\(=Mt ${bciMt} @COST\\)`))
     assert.match(out, /Total R18,993\.12 · [\d,.]+ MZN out\./)
+    assert.match(out, /- 09h14: Swipe BRICS/)
+  })
+
+  it('restores swipe times from ticketPath when the body lost them', () => {
+    const sell = 4 * MZN_ZAR_MARKUP
+    const body = [
+      "Swipe Fri's tickets back into the SA float at bank COST.",
+      '',
+      '- Swipe BRICS (FNB Moz) on Imani FNB for R3 854,87',
+      '- Swipe Ginav (Std Bank Moz) on Wolf and Sons FNB for R5 541,07',
+      '',
+      'Status: Executed',
+    ].join('\n')
+    const out = enrichRecycleBodyWithLiveCost(body, sell, {
+      tickets: [{ timeLabel: '09h14' }, { timeLabel: '10h42' }],
+    })
+    assert.match(out, /- 09h14: Swipe BRICS/)
+    assert.match(out, /- 10h42: Swipe Ginav/)
   })
 
   it('overlays live weighted bank COST on Step 4 spread copy', () => {

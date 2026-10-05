@@ -3191,6 +3191,19 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
             )
           }
         }
+        const storedTicketPath = eventSnap.data()?.ticketPath as
+          | Parameters<typeof buildReplenishActivityCopy>[4]
+          | undefined
+        const completedPath =
+          storedTicketPath &&
+          Array.isArray(storedTicketPath.tickets) &&
+          storedTicketPath.tickets.length > 0
+            ? storedTicketPath
+            : scheduleTicketPath({
+                assignments,
+                nowMs: now.toMillis(),
+                pendingExposureZar: 0,
+              })
         const completedCopy = buildReplenishActivityCopy(
           {
             ...replenish,
@@ -3204,7 +3217,8 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
           },
           state.config.cycleCount,
           'completed',
-          state
+          state,
+          completedPath
         )
         const contacted = applyCardPosContact(state, assignments, cycleNumber)
         const nowMs = now.toMillis()
@@ -3233,6 +3247,13 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
         tx.update(eventRef, {
           title: completedCopy.title,
           body: completedCopy.body,
+          // Keep scheduled swipe times on the step card after Confirm / Planned finish.
+          dropdownBody: completedCopy.body
+            .split('\n')
+            .filter((line) => /^- \d{1,2}h\d{2}:/.test(line) || /^- Swipe /.test(line))
+            .join('\n')
+            .slice(0, 500),
+          ticketPath: completedPath,
           status: 'completed',
           awaitingConfirm: false,
           completedAt: now,

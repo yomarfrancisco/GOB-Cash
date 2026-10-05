@@ -447,7 +447,7 @@ function ActivityItemCard({
   const isSendCard =
     item.routingAction === 'deploy' || /^Step\s*4\b/i.test(title) || /^Sell ZAR\b/i.test(item.title || '')
   const body = isRecycleCard
-    ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar)
+    ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
     : isSendCard
       ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
       : displayDeskBody(item.body)

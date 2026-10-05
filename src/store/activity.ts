@@ -73,6 +73,8 @@ export type ActivityItem = {
   }
   /** Binding Confirm earliest time (ISO). */
   earliestAttemptAt?: string
+  /** Scheduled swipe clocks for Step 5 (kept after Planned / Confirm). */
+  ticketPath?: { tickets?: Array<{ timeLabel?: string | null }> | null } | null
   operatingPolicyVersion?: string
   operatingBrief?: {
     monthLabel?: string

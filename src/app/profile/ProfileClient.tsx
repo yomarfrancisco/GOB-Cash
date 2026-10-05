@@ -655,7 +655,7 @@ export default function ProfileClient() {
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
             <div className="overlay-glass-inner">
-              <TopGlassBar />
+              <TopGlassBar hideLogo />
               <BottomGlassBar 
                 currentPath="/profile" 
                 conversionDestination={conversionDestination}

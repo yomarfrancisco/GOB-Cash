@@ -58,6 +58,31 @@ function formatLiveCostMt(amountMzn: number): string {
 
 const LIVE_COST_SUFFIX = /\s*\(=Mt [\d\s.,-]+ @COST\)/g
 
+/** Re-attach scheduled swipe clocks when a completed rewrite dropped them. */
+export function restoreRecycleSwipeTimes(
+  body: string,
+  ticketPath?: { tickets?: Array<{ timeLabel?: string | null }> | null } | null
+): string {
+  const labels = (ticketPath?.tickets || [])
+    .map((row) => (typeof row?.timeLabel === 'string' ? row.timeLabel.trim() : ''))
+    .filter(Boolean)
+  if (!labels.length) return body
+  let swipeIndex = 0
+  return body
+    .split('\n')
+    .map((line) => {
+      if (/^- \d{1,2}h\d{2}:\s*Swipe /i.test(line)) {
+        swipeIndex += 1
+        return line
+      }
+      if (!/^- Swipe /i.test(line)) return line
+      const label = labels[swipeIndex++]
+      if (!label) return line
+      return line.replace(/^- Swipe /i, `- ${label}: Swipe `)
+    })
+    .join('\n')
+}
+
 /**
  * Recycle / restock bodies keep frozen ZAR tickets. Overlay live bank COST Mt
  * so a Planned sim still shows what each swipe costs in MZN right now.
@@ -65,9 +90,10 @@ const LIVE_COST_SUFFIX = /\s*\(=Mt [\d\s.,-]+ @COST\)/g
  */
 export function enrichRecycleBodyWithLiveCost(
   body: string | undefined | null,
-  sellQuoteMznPerZar: number | null | undefined
+  sellQuoteMznPerZar: number | null | undefined,
+  ticketPath?: { tickets?: Array<{ timeLabel?: string | null }> | null } | null
 ): string {
-  const base = displayDeskBody(body)
+  const base = restoreRecycleSwipeTimes(displayDeskBody(body), ticketPath)
   if (!base || !(typeof sellQuoteMznPerZar === 'number') || !(sellQuoteMznPerZar > 0)) return base
 
   let totalMzn = 0
