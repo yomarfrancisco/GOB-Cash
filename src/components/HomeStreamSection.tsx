@@ -16,7 +16,7 @@ const COMMERCIAL_AGENT_AVATARS = [
   '/assets/avatar_agent13.png',
   '/assets/avatar_agent14.png',
   '/assets/avatar_agent15.png',
-  '/assets/avatar-ariel.png',
+  '/assets/avatar_agent9.png',
 ]
 
 // Helper to get avatars for a commercial card deterministically based on card index

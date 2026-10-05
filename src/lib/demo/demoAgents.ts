@@ -17,7 +17,7 @@ export const DEMO_AGENTS: DemoAgent[] = [
     id: 'demo-naledi',
     name: 'Naledi',
     handle: '@naledi',
-    avatar: '/generated-avatars/avatar_naledi.png',
+    avatar: '/assets/avatar_agent1.png',
     lat: -26.2041,
     lng: 28.0473, // Johannesburg
   },
@@ -33,7 +33,7 @@ export const DEMO_AGENTS: DemoAgent[] = [
     id: 'demo-thabo',
     name: 'Thabo',
     handle: '@thabo',
-    avatar: '/generated-avatars/avatar_thabo.png',
+    avatar: '/assets/avatar_agent9.png',
     lat: -33.9249,
     lng: 18.4241, // Cape Town
   },

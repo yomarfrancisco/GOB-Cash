@@ -9,7 +9,7 @@ export { GOB_ADMIN_AVATAR, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from 
 export { isUserPlaceholderAvatar } from '@/lib/avatarAssets'
 
 const CO_OP_AVATAR = MOZPAGA_ADMIN_AVATAR
-const AI_MANAGER_AVATAR = '/assets/Brics-girl-blue.png'
+const AI_MANAGER_AVATAR = '/assets/avatar_agent1.png'
 
 /**
  * Resolves the avatar URL for a given actor identity.

@@ -1,8 +1,8 @@
 /** Unique faces for live payment activity. Each action keeps one avatar. */
 
 export const TASK_AVATARS = {
-  convertMzn: '/assets/Brics-girl-blue.png',
-  convertZar: '/assets/avatar-ariel.png',
+  convertMzn: '/assets/avatar_agent1.png',
+  convertZar: '/assets/avatar_agent9.png',
   deposit: '/assets/avatar - profile (4).png',
   withdraw: '/assets/avatar - profile (2).png',
   cashAgent: '/assets/avatar - profile (1).png',

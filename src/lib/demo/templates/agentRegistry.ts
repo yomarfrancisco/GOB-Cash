@@ -227,7 +227,7 @@ export const AGENT_REGISTRY: AgentProfile[] = [
     handle: '@ariel',
     city: 'Johannesburg',
     country: 'South Africa',
-    avatar: '/assets/avatar-ariel.png',
+    avatar: '/assets/avatar_agent9.png',
     lat: -26.2041,
     lng: 28.0473,
     productivity: 93,

@@ -37,13 +37,13 @@ const FALLBACK_CONTACTS: PaymentContact[] = [
     id: 'ama',
     handle: '$ama',
     subtitle: 'AI yield manager',
-    avatarSrc: '/assets/Brics-girl-blue.png',
+    avatarSrc: '/assets/avatar_agent1.png',
   },
   {
     id: 'ariel',
     handle: '$ariel',
     subtitle: 'AI cash agent',
-    avatarSrc: '/assets/avatar-ariel.png',
+    avatarSrc: '/assets/avatar_agent9.png',
   },
 ]
 

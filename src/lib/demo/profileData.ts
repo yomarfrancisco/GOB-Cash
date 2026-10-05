@@ -24,7 +24,7 @@ export const STUB_PROFILES: Record<string, StubProfile> = {
   ama: {
     userHandle: '@ama',
     fullName: 'Ama',
-    avatarUrl: '/assets/Brics-girl-blue.png',
+    avatarUrl: '/assets/avatar_agent1.png',
     location: 'South Africa',
     joinDate: 'Joined Feb 2024',
     rating: 4.8,
@@ -37,7 +37,7 @@ export const STUB_PROFILES: Record<string, StubProfile> = {
   ariel: {
     userHandle: '@ariel',
     fullName: 'Ariel',
-    avatarUrl: '/assets/avatar-ariel.png',
+    avatarUrl: '/assets/avatar_agent9.png',
     location: 'South Africa',
     joinDate: 'Joined Feb 2024',
     rating: 4.8,

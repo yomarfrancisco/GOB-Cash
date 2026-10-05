@@ -24,8 +24,8 @@ const DROPDOWN_KINDS = new Set([
 ])
 const DEPOSIT_AVATAR = '/assets/avatar - profile (4).png'
 const WITHDRAW_AVATAR = '/assets/avatar - profile (2).png'
-const ARIEL_AVATAR = '/assets/avatar-ariel.png'
-const CONVERT_MZN_AVATAR = '/assets/Brics-girl-blue.png'
+const ARIEL_AVATAR = '/assets/avatar_agent9.png'
+const CONVERT_MZN_AVATAR = '/assets/avatar_agent1.png'
 const toastedWeeklyIds = new Set<string>()
 const toastedRoutingIds = new Set<string>()
 
