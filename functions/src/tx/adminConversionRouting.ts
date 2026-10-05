@@ -41,6 +41,10 @@ import {
 import { payerDisplay } from '../settlement/railDisplay'
 import { formatDeskClock, scheduleTicketPath } from '../routing/attemptSchedule'
 import { beliefHintForAssignments, rankAssignmentsByBelief } from '../routing/beliefRank'
+import {
+  assignmentsFingerprint,
+  shouldReplayDayAfterFlowRevision,
+} from '../routing/flowScore'
 import type { RouteEvidence } from '../belief/types'
 import { ROUTE_EVIDENCE_COLLECTION } from '../belief/collections'
 import { mznCoversRestock, receiptsCoverRestock } from '../inbound/restockMatch'
@@ -1084,6 +1088,20 @@ function writeIssuedReplenish(
   return { plan, activityEventId, kind: 'replenish' }
 }
 
+async function loadRecentRouteEvidence(limit = 80): Promise<RouteEvidence[]> {
+  try {
+    const snap = await db
+      .collection(ROUTE_EVIDENCE_COLLECTION)
+      .orderBy('eventAt', 'desc')
+      .limit(limit)
+      .get()
+    return snap.docs.map((doc) => doc.data() as RouteEvidence).reverse()
+  } catch (error) {
+    console.warn('[routeEvidence] load skipped', error)
+    return []
+  }
+}
+
 function writeIssuedCycle(
   tx: admin.firestore.Transaction,
   adminUid: string,
@@ -1124,7 +1142,14 @@ function writeIssuedCycle(
   const planned = planCycle(state, overlay, liveBook)
   const rankedAssignments =
     evidence.length > 0 && planned.cardAssignments.length > 0
-      ? rankAssignmentsByBelief(planned.cardAssignments, evidence, state.bufferUsed)
+      ? rankAssignmentsByBelief(planned.cardAssignments, evidence, {
+          pendingExposureZar: state.bufferUsed,
+          sellRate: quotes.sellRate,
+          baseCostRate: quotes.costRate,
+          state,
+          notes: liveBook.notes,
+          residuals: liveBook.residuals,
+        })
       : planned.cardAssignments
   const shockLine = liveBook.lastShockLine
   const persistBook: PathBook = { ...liveBook, lastShockLine: undefined }
@@ -2277,20 +2302,8 @@ async function issueCycle(
   const quoted = await applyLiveQuotes(state)
   const testSnap = await db.collection(TESTS).doc(testRunId).get()
   const book = pathBookFromDoc(testSnap.data() || {}, quoted.quote)
-  let evidence: RouteEvidence[] = []
   // Cold open (Day 1) does not need the full belief history — keep `$` under the callable limit.
-  if (state.completedCycles > 0) {
-    try {
-      const snap = await db
-        .collection(ROUTE_EVIDENCE_COLLECTION)
-        .orderBy('eventAt', 'desc')
-        .limit(80)
-        .get()
-      evidence = snap.docs.map((doc) => doc.data() as RouteEvidence).reverse()
-    } catch (error) {
-      console.warn('[issueCycle] route evidence load skipped', error)
-    }
-  }
+  const evidence = state.completedCycles > 0 ? await loadRecentRouteEvidence(80) : []
   try {
     return await db.runTransaction(async (tx) =>
       writeIssuedCycle(
@@ -4524,9 +4537,33 @@ export const admin_submitConversionRoutingFeedback = functions
         quotes.costRate,
         nextBook
       )
+      const evidenceForFlow = await loadRecentRouteEvidence(80)
+      const rawPlan = preview.nextPlan || planCycle(liveState, overlay, nextBook)
+      const flowRankedAssignments =
+        rawPlan.cardAssignments.length > 0
+          ? rankAssignmentsByBelief(rawPlan.cardAssignments, evidenceForFlow, {
+              pendingExposureZar: liveState.bufferUsed,
+              sellRate: quotes.sellRate,
+              baseCostRate: quotes.costRate,
+              state: liveState,
+              notes: nextBook.notes,
+              residuals: nextBook.residuals,
+            })
+          : rawPlan.cardAssignments
+      const plan: CyclePlan = { ...rawPlan, cardAssignments: flowRankedAssignments }
+      const priorFingerprint = assignmentsFingerprint(stored.cardAssignments)
+      const nextFingerprint = assignmentsFingerprint(plan.cardAssignments)
+      const deskStepNow = num(testData.deskStep, stepForPhase(String(testData.cyclePhase || '')) || 1)
+      const committedZar = num(testData.salesCommittedZar, 0)
+      const replayDay = shouldReplayDayAfterFlowRevision({
+        deskStep: deskStepNow,
+        cyclePhase: typeof testData.cyclePhase === 'string' ? testData.cyclePhase : null,
+        committedZar,
+        assignmentsChanged: priorFingerprint !== nextFingerprint,
+        awaitingKind,
+      })
       await db.runTransaction(async (tx) => {
-        if (canReviseDeploy) {
-          const plan = preview.nextPlan || planCycle(liveState, overlay, nextBook)
+        if (canReviseDeploy && !replayDay) {
           const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
           const activity = buildAgentReplyCopy(plan, liveState.config.cycleCount, acknowledgement, blocked)
           const notification = blocked
@@ -4572,27 +4609,72 @@ export const admin_submitConversionRoutingFeedback = functions
             revisionReason: acknowledgement,
             updatedAt: now,
           })
+        } else if (canReviseDeploy && replayDay) {
+          tx.update(cycleRef, {
+            cardAssignments: plan.cardAssignments,
+            machineAssignments: plan.cardAssignments.map((row) => ({
+              machineId: row.machineId,
+              cardId: row.cardId,
+              amount: row.amount,
+            })),
+            deployedAmount: plan.deployedAmount,
+            idleCapital: plan.idleCapital,
+            expectedProfit: plan.expectedProfit,
+            restingCardIds: plan.restingCardIds,
+            restingMachineIds: plan.restingMachineIds,
+            selectionReason: plan.selectionReason,
+            quote: nextBook.quote || quotes.quote,
+            sellRate: quotes.sellRate,
+            costRate: quotes.costRate,
+            revisionReason: acknowledgement,
+            flowRevisionReplay: true,
+            updatedAt: now,
+          })
+          tx.set(
+            testRef,
+            {
+              expectedOrderZar: plan.deployedAmount,
+              expectedOrderMzn: expectedMznForOrder(plan.deployedAmount, quotes.sellRate),
+              updatedAt: now,
+            },
+            { merge: true }
+          )
         } else if (awaitingKind === 'replenish') {
           const restock = planReplenish(liveState, quotes.costRate, overlay, nextBook)
           if (restock) {
-            writeIssuedReplenish(tx, adminUid, testRunId, liveState, restock, now, overlay, nextBook)
+            const rankedRestock = {
+              ...restock,
+              cardAssignments: rankAssignmentsByBelief(restock.cardAssignments, evidenceForFlow, {
+                pendingExposureZar: liveState.bufferUsed,
+                sellRate: quotes.sellRate,
+                baseCostRate: quotes.costRate,
+                state: liveState,
+                notes: nextBook.notes,
+                residuals: nextBook.residuals,
+              }),
+            }
+            writeIssuedReplenish(tx, adminUid, testRunId, liveState, rankedRestock, now, overlay, nextBook)
           }
         }
+        const impactBody = formatAskImpactBody({
+          acknowledgement,
+          currentPlan,
+          preview: { ...preview, nextPlan: plan },
+          proposal: false,
+          state: liveState,
+          overlay,
+        })
+        const adviceBody = replayDay
+          ? `${impactBody}\n\nI’ve noted the route change and will replay today’s Order → Invoice → MZN → Send tickets with the revised pairs.`
+          : impactBody
         publishAdviceCard(tx, {
           adminUid,
           testRunId,
           cycleNumber,
           feedbackId,
           now,
-          title: 'Outcome recorded',
-          body: formatAskImpactBody({
-            acknowledgement,
-            currentPlan,
-            preview,
-            proposal: false,
-            state: liveState,
-            overlay,
-          }),
+          title: replayDay ? 'Plan revised' : 'Outcome recorded',
+          body: adviceBody,
           userReply: askMessage,
           routingAction: 'advice',
         })
@@ -4604,6 +4686,7 @@ export const admin_submitConversionRoutingFeedback = functions
           askIntent: classification,
           interpretationSummary: acknowledgement,
           status: 'applied',
+          dayTicketsReplayed: replayDay,
           createdAt: now,
         })
         tx.set(
@@ -4622,11 +4705,36 @@ export const admin_submitConversionRoutingFeedback = functions
         )
         tx.set(testRef, persistPathBook({ constraints, updatedAt: now }, nextBook), { merge: true })
       })
+      if (replayDay && canReviseDeploy) {
+        try {
+          await replayDayTicketsAfterScheduleAmendment({
+            adminUid,
+            testRunId,
+            testRef,
+            cycleRef,
+            cycleNumber,
+            liveState,
+            nextOrderZar: plan.deployedAmount,
+            nextAssignments: plan.cardAssignments.map((row) => ({
+              ...row,
+              economicPaymentId: residualPaymentId(cycleNumber, row.cardId, row.machineId),
+            })),
+            sellRate: quotes.sellRate,
+            previousDeskStep: deskStepNow,
+            planVersion: num(testData.dayTicketRevision, 0) + 1,
+            now,
+          })
+        } catch (error) {
+          console.error('[flowRevision] day ticket replay failed', error)
+        }
+      }
       return {
         testRunId,
         cycleNumber,
         status: 'applied',
-        acknowledgement,
+        acknowledgement: replayDay
+          ? `${acknowledgement} Day tickets replayed through Step ${Math.min(deskStepNow, 4)}.`
+          : acknowledgement,
         interpreter: interpreted.interpreter,
       }
     }

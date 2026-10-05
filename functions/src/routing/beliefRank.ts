@@ -1,11 +1,15 @@
 /**
- * Rank planned tickets using route beliefs (settlement history).
- * Does not change Confirm UX — only order / soft preference among legal tickets.
+ * Rank planned tickets using remaining-flow score (belief × live COST/SELL × structural prior).
+ * Does not change Confirm UX — order / soft preference among legal tickets only.
  */
 import { assembleDecisionState } from '../belief/decision'
 import { resolveRouteBelief } from '../belief/fold'
 import type { RouteBeliefSnapshot, RouteEvidence } from '../belief/types'
 import { buyerByDeskCardId, railByMachineId } from '../settlement/register'
+import { pairTightness } from './pathEngine'
+import type { ExhaustionNote, PathResidual } from './pathEngine'
+import type { RoutingState } from './conversionRouter'
+import { scoreFlowTicket } from './flowScore'
 
 export type RankableAssignment = {
   cardId: number
@@ -13,35 +17,14 @@ export type RankableAssignment = {
   amount: number
 }
 
-function interrupted(belief: RouteBeliefSnapshot | null): boolean {
-  if (!belief) return false
-  return (
-    belief.reviewState === 'under_review' ||
-    belief.reviewState === 'delayed' ||
-    belief.reviewState === 'pending'
-  )
-}
-
-function scoreAssignment(
-  row: RankableAssignment,
-  belief: RouteBeliefSnapshot | null,
-  pendingExposureZar: number
-): number {
-  const settle = belief?.finalSettlementRate ?? 0.45
-  const margin = row.amount * 0.1
-  let reviewPenalty = 0
-  if (belief?.reviewState === 'under_review') reviewPenalty = 0.55
-  else if (belief?.reviewState === 'delayed') reviewPenalty = 0.35
-  else if (belief?.reviewState === 'pending') reviewPenalty = 0.2
-  const ticketFit =
-    belief?.largestRecentSuccessfulTicketZar != null
-      ? row.amount <= belief.largestRecentSuccessfulTicketZar * 1.05
-        ? 1
-        : 0.65
-      : 0.85
-  const pendingDrag = pendingExposureZar > 20_000 ? (pendingExposureZar / 40_000) * margin * 0.1 : 0
-  if (interrupted(belief)) return -1_000 + margin * 0.05
-  return margin * settle * ticketFit - reviewPenalty * margin - pendingDrag
+export type FlowRankOptions = {
+  sellRate?: number
+  baseCostRate?: number
+  pendingExposureZar?: number
+  /** When set, structural tightness enters the cold-start side of λ. */
+  state?: RoutingState | null
+  notes?: ExhaustionNote[]
+  residuals?: PathResidual[]
 }
 
 function routeKeys(row: RankableAssignment) {
@@ -66,13 +49,35 @@ function routeKeys(row: RankableAssignment) {
   }
 }
 
-/** Stable re-rank: higher belief score first; ties keep original order. */
+function tightnessFor(
+  row: RankableAssignment,
+  options: FlowRankOptions
+): number | null {
+  if (!options.state) return null
+  return pairTightness({
+    state: options.state,
+    cardId: row.cardId,
+    machineId: row.machineId,
+    notes: options.notes,
+    residuals: options.residuals,
+  }).tightness
+}
+
+/** Stable re-rank: higher flow score first; ties keep original order. */
 export function rankAssignmentsByBelief<T extends RankableAssignment>(
   assignments: T[],
   evidence: RouteEvidence[],
-  pendingExposureZar = 0
+  pendingExposureZarOrOptions: number | FlowRankOptions = 0
 ): T[] {
   if (!assignments.length) return assignments
+  const options: FlowRankOptions =
+    typeof pendingExposureZarOrOptions === 'number'
+      ? { pendingExposureZar: pendingExposureZarOrOptions }
+      : pendingExposureZarOrOptions || {}
+  const pendingExposureZar = options.pendingExposureZar ?? 0
+  const sellRate = options.sellRate && options.sellRate > 0 ? options.sellRate : 0
+  const baseCostRate = options.baseCostRate && options.baseCostRate > 0 ? options.baseCostRate : 0
+
   const state = assembleDecisionState({
     evidence,
     usableZar: 1,
@@ -81,7 +86,16 @@ export function rankAssignmentsByBelief<T extends RankableAssignment>(
   })
   const scored = assignments.map((row, index) => {
     const belief = resolveRouteBelief(state.beliefs, routeKeys(row))
-    return { row, index, score: scoreAssignment(row, belief, pendingExposureZar) }
+    const breakdown = scoreFlowTicket({
+      amountZar: row.amount,
+      cardId: row.cardId,
+      belief,
+      sellRate: sellRate || 4.62,
+      baseCostRate: baseCostRate || 4.2,
+      pendingExposureZar,
+      tightness: tightnessFor(row, options),
+    })
+    return { row, index, score: breakdown.score }
   })
   scored.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
@@ -119,3 +133,5 @@ export function beliefHintForAssignments(
   }
   return null
 }
+
+export type { RouteBeliefSnapshot }
