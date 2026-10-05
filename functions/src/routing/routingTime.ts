@@ -80,6 +80,14 @@ export function sastToUtcMs(
   return Date.UTC(year, month - 1, day, hour, minute, second) - SAST_OFFSET_MS
 }
 
+/** Same local SAST clock time, one calendar day later. */
+export function addOneSastCalendarDay(fromMs: number): number {
+  const parts = sastParts(fromMs > 0 ? fromMs : Date.now())
+  const utcNoon = sastToUtcMs(parts.year, parts.month, parts.day, 12, 0) + 86_400_000
+  const next = sastParts(utcNoon)
+  return sastToUtcMs(next.year, next.month, next.day, parts.hour, parts.minute)
+}
+
 export function formatSast(ms: number): string {
   const p = sastParts(ms)
   const hh = String(p.hour).padStart(2, '0')

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+  addOneSastCalendarDay,
   formatRoutingClock,
   formatVisibleSast,
   hasCalendarTimeReference,
@@ -15,6 +16,7 @@ import {
   isSettlementAsk,
   isWhatIfAsk,
   resolveExpiryFromMessage,
+  sastParts,
   sastToUtcMs,
   shouldNotApplyAskIntents,
   wantsNewRoutingRun,
@@ -23,6 +25,20 @@ import {
 } from './routingTime'
 
 const THURSDAY_0015_SAST = sastToUtcMs(2026, 9, 10, 0, 15)
+
+describe('addOneSastCalendarDay', () => {
+  it('moves Monday morning to Tuesday morning, not Wednesday', () => {
+    const monday = sastToUtcMs(2026, 10, 5, 9, 40)
+    const next = addOneSastCalendarDay(monday)
+    const parts = sastParts(next)
+    assert.equal(parts.year, 2026)
+    assert.equal(parts.month, 10)
+    assert.equal(parts.day, 6)
+    assert.equal(parts.hour, 9)
+    assert.equal(parts.minute, 40)
+    assert.equal(parts.weekday, 2) // Tuesday
+  })
+})
 
 describe('routing clock', () => {
   it('labels Now in SAST', () => {

@@ -117,6 +117,7 @@ import {
   type RecentFeedbackBrief,
 } from '../routing/interpretContext'
 import {
+  addOneSastCalendarDay,
   firestoreTimestampMs,
   formatSast,
   formatVisibleSast,
@@ -3512,6 +3513,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
         console.warn('[confirm] POP zip on step card skipped', error)
       }
     }
+    let issuedKind: 'deploy' | 'replenish' | null = null
     if (result.issueNext && !result.testComplete) {
       try {
         const issued = await issueCycle(
@@ -3521,16 +3523,28 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
           now
         )
         nextCycle = issued.plan
+        issuedKind = issued.kind
       } catch (error) {
         console.error('[confirm] next instruction failed after cycle completed', error)
       }
     }
 
-    // Keypad pauses split a day across several Next 24h taps — advance the
-    // Planned header when a cycle actually completes (next day issued).
+    // Planned header advances one calendar day only when the *next sale* opens
+    // (restock complete → new Order). Do not bump when Send opens same-day Restock —
+    // that was jumping Mon → Wed (+24h twice).
     let plannedClockMs: number | null = null
-    if (result.issueNext && nextCycle) {
-      plannedClockMs = await bumpPlannedClockIfNeeded(testRef, adminUid, testRunId)
+    if (
+      result.issueNext &&
+      nextCycle &&
+      issuedKind === 'deploy' &&
+      result.confirmedKind === 'replenish'
+    ) {
+      plannedClockMs = await bumpPlannedClockIfNeeded(
+        testRef,
+        adminUid,
+        testRunId,
+        result.cycleNumber
+      )
     }
     const modeSnap = await testRef.get()
     const deskMode = modeSnap.data()?.deskMode === 'planned' ? 'planned' : 'live'
@@ -5429,18 +5443,34 @@ function keypadGateFromDoc(data: admin.firestore.DocumentData): 'send' | 'restoc
   return null
 }
 
+/**
+ * Bump Planned desk clock once per completed sale cycle.
+ * Idempotent on `completedCycle` so confirm + Next 24h cannot double-jump.
+ */
 async function bumpPlannedClockIfNeeded(
   testRef: FirebaseFirestore.DocumentReference,
   adminUid: string,
-  testRunId: string
+  testRunId: string,
+  completedCycle?: number
 ): Promise<number | null> {
   const snap = await testRef.get()
   const data = snap.data() || {}
   if (data.deskMode !== 'planned') return null
   const prev = num(data.plannedClockMs, 0)
-  const next = (prev > 0 ? prev : Date.now()) + 24 * 60 * 60 * 1000
+  const base = prev > 0 ? prev : Date.now()
+  if (completedCycle && completedCycle > 0 && num(data.plannedClockBumpedForCycle, 0) === completedCycle) {
+    return prev > 0 ? prev : base
+  }
+  const next = addOneSastCalendarDay(base)
   const now = admin.firestore.Timestamp.now()
-  await testRef.set({ plannedClockMs: next, updatedAt: now }, { merge: true })
+  await testRef.set(
+    {
+      plannedClockMs: next,
+      ...(completedCycle && completedCycle > 0 ? { plannedClockBumpedForCycle: completedCycle } : {}),
+      updatedAt: now,
+    },
+    { merge: true }
+  )
   await db
     .collection('users')
     .doc(adminUid)
@@ -5669,16 +5699,11 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
   const endGate = keypadGateFromDoc(end)
   const dayAdvanced = stopped === 'next_day' || endCycle > startCycle
   let outClock = plannedClockMs
+  // Only bump here if confirm did not already (e.g. day rolled without keypad).
+  // Idempotent on startCycle — never +48h for one completed day.
   if (dayAdvanced) {
-    outClock = plannedClockMs + 24 * 60 * 60 * 1000
-    await testRef.set({ plannedClockMs: outClock, updatedAt: admin.firestore.Timestamp.now() }, { merge: true })
-    await db
-      .collection('users')
-      .doc(adminUid)
-      .collection('activityEvents')
-      .doc(`planned-day-${testRunId}`)
-      .set({ plannedClockMs: outClock, updatedAt: admin.firestore.Timestamp.now() }, { merge: true })
-      .catch(() => undefined)
+    const bumped = await bumpPlannedClockIfNeeded(testRef, adminUid, testRunId, startCycle)
+    if (bumped != null) outClock = bumped
   }
   const keypadAck =
     endGate === 'send'
