@@ -1282,12 +1282,13 @@ export function buildNotificationCopy(
 }
 
 export function buildReplenishNotificationCopy(
-  replenish: ReplenishPlan
+  replenish: ReplenishPlan,
+  ticketPath?: TicketPathSchedule | null
 ): { title: string; body: string } {
   const rows = replenish.cardAssignments
   const title = 'Step 5 · Recycle'
   if (!rows.length) return { title, body: `Restock ${formatZar(replenish.amountZar)} at COST` }
-  return { title, body: rows.map((row) => `Swipe ${swipeInstruction(row)}`).join('\n') }
+  return { title, body: ticketLines(rows, 'swipe', ticketPath).join('\n') }
 }
 
 export function buildAgentReplyCopy(

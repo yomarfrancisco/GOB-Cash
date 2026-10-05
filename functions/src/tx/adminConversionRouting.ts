@@ -1014,7 +1014,7 @@ function writeIssuedReplenish(
           nowMs: now.toMillis(),
           pendingExposureZar: 0,
         })
-  const notification = buildReplenishNotificationCopy(issued)
+  const notification = buildReplenishNotificationCopy(issued, path)
   const activity = buildReplenishActivityCopy(
     issued,
     state.config.cycleCount,
