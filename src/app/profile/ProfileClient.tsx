@@ -787,8 +787,8 @@ export default function ProfileClient() {
                 type="button"
                 className="profile-stats-card profile-stats-card--compliance"
                 onClick={() => void startDiditVerification()}
-                // Hidden for now; keep reserved height so profile actions do not jump.
-                style={{ visibility: 'hidden', pointerEvents: 'none' }}
+                // Hidden for now; keep most of the reserved height, tighten ~20px.
+                style={{ visibility: 'hidden', pointerEvents: 'none', marginBottom: -20 }}
                 aria-hidden
                 tabIndex={-1}
               >

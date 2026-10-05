@@ -698,7 +698,7 @@ function HomeContent() {
 
           {/* Scrollable content */}
           <div ref={scrollContentRef} className="scroll-content">
-            <div className="content">
+            <div className="content home-content">
               {/* Card section with shared shell */}
               <div className="sectionShell">
                 <div className="frame-parent">

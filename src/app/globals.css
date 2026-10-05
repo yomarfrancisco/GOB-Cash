@@ -428,6 +428,11 @@ body {
   margin-top: 0; /* Explicit - prevent any inherited margins */
 }
 
+/* Home only: push Inventory / Total / cards down; chrome stays fixed */
+.content.home-content {
+  padding-top: 24px;
+}
+
 /* Shared section shell - used by both card and map sections */
 .sectionShell {
   width: 100%;
