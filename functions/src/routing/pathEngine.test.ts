@@ -204,8 +204,9 @@ describe('pathEngine flow', () => {
     const plan = planCycle(after)
     assert.equal(plan.window?.openingAmountZar, 100_000)
     assert.equal(plan.window?.snapshot.days.at(-1)?.day, 1)
-    // Golden matches conversionRouter.simulateRun Day-1 absorbing print (seed 21 / R100k).
-    assert.ok(Math.abs(plan.deployedAmount - 10_192.7) < 0.02)
+    // Golden matches conversionRouter.simulateRun Day-1 absorbing print (seed 21 / R100k) under R15k ceiling.
+    assert.ok(Math.abs(plan.deployedAmount - 19_354.18) < 0.02)
     assert.equal(plan.cardAssignments.length, 2)
+    assert.ok(plan.cardAssignments.every((row) => row.amount <= 15_000))
   })
 })

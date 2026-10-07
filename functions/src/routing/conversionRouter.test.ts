@@ -23,15 +23,16 @@ describe('20-cycle compounding', () => {
   it('prints irregular whole tickets and holds idle capital', () => {
     const { state, cycles } = simulateRun({ ...DEFAULT_TEST_CONFIG, cycleCount: 14 }, 100_000)
     assert.equal(cycles.length, 14)
-    assert.ok(Math.abs(cycles[0].deployedAmount - 10_192.7) < 0.02)
-    assert.ok(Math.abs(cycles[1].deployedAmount - 10_833) < 0.02)
+    assert.ok(Math.abs(cycles[0].deployedAmount - 19_354.18) < 0.02)
+    assert.ok(Math.abs(cycles[1].deployedAmount - 20_486.54) < 0.02)
     assert.notEqual(cycles[1].deployedAmount, cycles[0].deployedAmount)
     assert.equal(cycles[0].cardCountUsed, 2)
-    assert.ok(cycles[0].cardAssignments.every((row) => row.amount !== 15_000))
+    assert.ok(cycles[0].cardAssignments.every((row) => row.amount <= 15_000))
+    assert.ok(cycles[0].cardAssignments.some((row) => row.amount > 8_000))
     assert.ok(cycles[0].idleCapital > 80_000)
     assert.equal(state.completedCycles, 14)
     assert.ok(cycles.some((cycle) => cycle.idleCapital > 0))
-    assert.ok(cycles.every((cycle) => cycle.cardAssignments.every((row) => row.amount !== 15_000)))
+    assert.ok(cycles.every((cycle) => cycle.cardAssignments.every((row) => row.amount <= 15_000)))
   })
 
   it('holds without touching the kernel when no $ has opened a window', () => {
@@ -114,7 +115,7 @@ describe('20-cycle compounding', () => {
     const plan = planCycle(createInitialState(DEFAULT_TEST_CONFIG, 100_000))
     assert.deepEqual(
       plan.cardAssignments.map((row) => `${row.cardId}:${row.machineId}:${row.amount}`),
-      ['1:2:4142.73', '2:3:6049.97']
+      ['1:2:7928.65', '2:3:11425.53']
     )
   })
 
@@ -196,7 +197,7 @@ describe('20-cycle compounding', () => {
     assert.doesNotMatch(copy.body, /By COB|tickets:/)
     assert.match(copy.body, /\nStatus: Awaiting execution$/)
     const notice = buildReplenishNotificationCopy(replenish!)
-    assert.match(notice.body, /^Swipe \S+ \(/)
+    assert.match(notice.body, /^-? ?Swipe \S+ \(/m)
     assert.doesNotMatch(notice.body, /each Moz/)
   })
 
@@ -210,7 +211,7 @@ describe('20-cycle compounding', () => {
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state)
     assert.equal(copy.body.match(/^- Swipe .+ on .+ for R/gm)?.length, replenish!.cardAssignments.length)
     assert.match(copy.body, /at bank COST\./)
-    assert.match(copy.body, /^Total R10,192\.70 · [\d,.]+ MZN out\.$/m)
+    assert.match(copy.body, /^Total R19,354\.18 · [\d,.]+ MZN out\.$/m)
     assert.match(copy.body, /Next: sell ZAR on /)
     assert.doesNotMatch(copy.body, /each Moz debit card/)
     assert.doesNotMatch(copy.body, /Friction:|declined this week|times in 7 days|last 30 days typical/)

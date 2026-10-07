@@ -3024,6 +3024,26 @@ export async function applyAdminCapitalShock(params: {
   await issueCycle(adminUid, existingId, state, now, { immediateAttempts: true })
 }
 
+/** Script/admin helper: supersede the active run and open Day 1 under current policy. */
+export async function forceFreshDeskRun(params?: {
+  capitalZar?: number
+  note?: string
+}): Promise<Record<string, unknown>> {
+  const adminUid = ROUTING_ADMIN_UID
+  const capital = params?.capitalZar && params.capitalZar > 0 ? params.capitalZar : 100_000
+  try {
+    await exitDeskPlan(adminUid)
+  } catch {
+    // No planned sim — continue with force-new.
+  }
+  return startNewTest(
+    adminUid,
+    true,
+    capital,
+    params?.note || `Fresh desk · max R${OPERATING_POLICY_V1.payment.maxAmountZar.toLocaleString('en-ZA')}`
+  )
+}
+
 export const admin_startConversionRoutingTest = functions
   .region('us-central1')
   .https.onCall(async (data, context) => {

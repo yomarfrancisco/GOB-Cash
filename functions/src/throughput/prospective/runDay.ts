@@ -7,6 +7,7 @@ import { createSlice0Scenario } from "../model/slice0Scenario";
 import { simulate } from "../model/simulation";
 import { cloneState, createInitialState } from "../model/state";
 import type { CoreTicket, Scenario, SimState } from "../model/types";
+import { OPERATING_POLICY_V1 } from "../../operatingCalendar/operatingPolicyV1";
 import { identitiesFromScenario } from "./identities";
 import { formatExactZar } from "./format";
 import { formatInstitutionLabel, formatRailLabel } from "./labels";
@@ -57,6 +58,9 @@ export function prospectiveScenario(input: {
   scenario.initialCardNames = baseNames.slice(0, initialCards)
   scenario.initialPos = initialPos
   scenario.expectedTicketMinZar = PROSPECTIVE_TICKET_MIN_ZAR
+  // Desk Next-24h book: hard ceiling = operating policy; mode raised so days use fewer, larger whole tickets.
+  scenario.expectedTicketMaxZar = OPERATING_POLICY_V1.payment.maxAmountZar
+  scenario.avgTicketZar = 8_000
   if (scenario.avgTicketZar < scenario.expectedTicketMinZar) {
     scenario.avgTicketZar = scenario.expectedTicketMinZar
   }

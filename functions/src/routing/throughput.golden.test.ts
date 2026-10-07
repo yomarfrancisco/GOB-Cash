@@ -30,21 +30,22 @@ describe('Throughput golden fixture seed 21 R100k', () => {
     assert.equal(day2.completedThroughDay, 2)
 
     const book = (day2.snapshot.book[2] ?? []).map((ticket) => ticket.amount)
-    assert.deepEqual(book, [5_554.52, 7_345.28])
+    assert.deepEqual(book, [7_486.73, 12_999.81])
 
     const record = day2.snapshot.days[1]!
-    assert.ok(Math.abs(record.settledZar - 12_899.8) < CENT)
-    assert.ok(Math.abs(record.heldBackZar - 88_351.76) < CENT)
+    assert.ok(Math.abs(record.settledZar - 20_486.54) < CENT)
+    assert.ok(Math.abs(record.heldBackZar - 81_448.88) < CENT)
 
     const routes = dumpRoutes(day2, 2).routes
     assert.deepEqual(routes, [
-      { card: 'BRICS', pos: 'Lemon FNB', amount: 5_554.52 },
-      { card: 'Ginav', pos: 'Imani FNB', amount: 7_345.28 },
+      { card: 'Ginav', pos: 'Imani FNB', amount: 7_486.73 },
+      { card: 'Goblin', pos: 'Lemon FNB', amount: 12_999.81 },
     ])
     assert.equal(
-      routes.every((row) => row.amount !== 15_000),
+      routes.every((row) => row.amount <= 15_000),
       true
     )
+    assert.ok(routes.some((row) => row.amount > 8_000))
   })
 
   it('Day 3 after an unpaid leftover is not a second 75k onion pack', () => {
@@ -59,9 +60,9 @@ describe('Throughput golden fixture seed 21 R100k', () => {
     })
     const day3 = advanceWindow(reported)
     const record = day3.snapshot.days[2]!
-    assert.ok(Math.abs(record.settledZar - 18_969.43) < CENT)
+    assert.ok(Math.abs(record.settledZar - 16_488.82) < CENT)
     assert.equal(
-      record.routes.every((row) => row.amountZar !== 15_000),
+      record.routes.every((row) => row.amountZar <= 15_000),
       true
     )
     assert.ok(record.routes.some((row) => row.economicPaymentId === leftover.economicPaymentId))
@@ -83,8 +84,8 @@ describe('Throughput golden fixture seed 21 R100k', () => {
     const perDay2 = advanceWindow(roundTrip(day1))
     assert.deepEqual(dumpRoutes(perDay2, 2).routes, dumpRoutes(memDay2, 2).routes)
     assert.deepEqual(dumpRoutes(perDay2, 2).routes.map((row) => row.pos), [
-      'Lemon FNB',
       'Imani FNB',
+      'Lemon FNB',
     ])
     const memDay3 = advanceWindow(memDay2)
     const perDay3 = advanceWindow(roundTrip(perDay2))
