@@ -267,6 +267,7 @@ export function createDefaultScenario(): Scenario {
     throughputStepZar: 5_000,
     avgTicketZar: 2_500,
     expectedTicketMinZar: 1_000,
+    /** Hard ceiling; keep in lockstep with OPERATING_POLICY_V1.payment.maxAmountZar. */
     expectedTicketMaxZar: 15_000,
     meanDailyCoreTickets: 4,
     weeklyEnsemblePaths: 16,

@@ -115,6 +115,8 @@ These are PAGA internal controls, not published bank or card-network safe harbou
 
 Days 1-3 apply to a genuinely cold network, not automatically to the first three dates of every calendar month.
 
+**Prospective modeled books (planning only).** When PAGA generates a synthetic invoice book for desk planning, mature established-route invoices are drawn from a deterministic triangular distribution with minimum R8,000, mode R11,500 and maximum R15,000 (target mean about R11,000–R11,500). Cold cards, POSs and routes still use stage A (≤R5,000) and stage B (≤R6,500) before the mature band. Actual live invoices are never enlarged, merged, split or rewritten — modeled invoices stay separate from receivables. Payment counts are not a target; whole invoices are packed under the daily ceilings (typically about two payments per day).
+
 ### 4.2 Card limits
 
 | Rule | Limit |

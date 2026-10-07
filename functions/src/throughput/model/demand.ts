@@ -114,6 +114,19 @@ export function drawTicketSize(rng: () => number, scenario: Scenario): number {
   return roundMoney(sampleTriangular(rng, min, max, mode));
 }
 
+/** Deterministic triangular draw for prospective modeled invoices (not live receivables). */
+export function drawTriangularZar(
+  rng: () => number,
+  minZar: number,
+  modeZar: number,
+  maxZar: number
+): number {
+  const min = Math.max(1, minZar);
+  const max = Math.max(min, maxZar);
+  const mode = Math.min(max, Math.max(min, modeZar));
+  return roundMoney(sampleTriangular(rng, min, max, mode));
+}
+
 function drawMeanPreservingSpike(rng: () => number, mean: number, pZero = 0.35): number {
   if (mean <= 1e-9) return 0;
   const p = Math.min(0.9, Math.max(0, pZero));

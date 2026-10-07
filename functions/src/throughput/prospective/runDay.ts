@@ -8,6 +8,7 @@ import { simulate } from "../model/simulation";
 import { cloneState, createInitialState } from "../model/state";
 import type { CoreTicket, Scenario, SimState } from "../model/types";
 import { OPERATING_POLICY_V1 } from "../../operatingCalendar/operatingPolicyV1";
+import { MATURE_MODELED_INVOICE } from "../model/prospectiveBook";
 import { identitiesFromScenario } from "./identities";
 import { formatExactZar } from "./format";
 import { formatInstitutionLabel, formatRailLabel } from "./labels";
@@ -59,10 +60,20 @@ export function prospectiveScenario(input: {
   }
   scenario.initialCardNames = baseNames.slice(0, initialCards)
   scenario.initialPos = initialPos
-  scenario.expectedTicketMinZar = PROSPECTIVE_TICKET_MIN_ZAR
-  // Desk Next-24h book: hard ceiling = operating policy; mode raised so days use fewer, larger whole tickets.
-  scenario.expectedTicketMaxZar = OPERATING_POLICY_V1.payment.maxAmountZar
-  scenario.avgTicketZar = 8_000
+  // No production-policy minimum — genuine smaller invoices remain valid.
+  // Month prospective books use the mature triangular band; 14-day goldens keep the prior floor.
+  if (horizonDays >= 27) {
+    scenario.expectedTicketMinZar = MATURE_MODELED_INVOICE.minZar
+    scenario.expectedTicketMaxZar = Math.min(
+      MATURE_MODELED_INVOICE.maxZar,
+      OPERATING_POLICY_V1.payment.maxAmountZar
+    )
+    scenario.avgTicketZar = MATURE_MODELED_INVOICE.modeZar
+  } else {
+    scenario.expectedTicketMinZar = PROSPECTIVE_TICKET_MIN_ZAR
+    scenario.expectedTicketMaxZar = OPERATING_POLICY_V1.payment.maxAmountZar
+    scenario.avgTicketZar = 8_000
+  }
   if (scenario.avgTicketZar < scenario.expectedTicketMinZar) {
     scenario.avgTicketZar = scenario.expectedTicketMinZar
   }

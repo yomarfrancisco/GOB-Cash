@@ -16,7 +16,7 @@ import {
 
 export const KERNEL_SEED = WINDOW_SEED
 /** Persisted on each desk run. Ensure starts a new window when this does not match. */
-export const ROUTING_ENGINE_ID = 'absorbing-tickets-v5-month619'
+export const ROUTING_ENGINE_ID = 'absorbing-tickets-v6-month619-tri'
 
 export { DESK_MONTH_HORIZON_DAYS, DESK_MONTH_OPERATING_DAYS, DESK_MONTH_TARGET_ZAR }
 
