@@ -86,6 +86,14 @@ export const DEFAULT_TEST_CONFIG: RoutingConfig = {
   cycleCount: 14,
 }
 
+/** Live desk month window — R619.7k over October operating days. */
+export const PRODUCTION_DESK_CONFIG: RoutingConfig = {
+  machineCount: 4,
+  spread: 0.10,
+  recycleRate: 1,
+  cycleCount: 27,
+}
+
 export type CardState = {
   id: number
   activeCycles: number

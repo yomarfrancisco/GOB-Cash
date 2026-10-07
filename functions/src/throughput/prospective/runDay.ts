@@ -31,9 +31,11 @@ export function prospectiveScenario(input: {
   initialPos?: number
   /** Override installed card count (default PROSPECTIVE_INITIAL_CARDS). */
   initialCards?: number
+  horizonDays?: number
 }): Scenario {
   const initialPos = input.initialPos ?? PROSPECTIVE_INITIAL_POS
   const initialCards = input.initialCards ?? PROSPECTIVE_INITIAL_CARDS
+  const horizonDays = input.horizonDays && input.horizonDays > 0 ? input.horizonDays : PROSPECTIVE_HORIZON_DAYS
   const scenario = disableOrganic(
     createSlice0Scenario({
       quotedMznPerZar: PROSPECTIVE_QUOTE_MZN_PER_ZAR,
@@ -41,12 +43,12 @@ export function prospectiveScenario(input: {
       initialPos,
       demandTargetZar: 10_000_000,
       supplyCapacityZar: 10_000_000,
-      demandExpiresAtDay: PROSPECTIVE_HORIZON_DAYS,
-      supplyExpiresAtDay: PROSPECTIVE_HORIZON_DAYS,
+      demandExpiresAtDay: horizonDays,
+      supplyExpiresAtDay: horizonDays,
     }),
   )
   scenario.startingCapitalZar = Math.max(0, input.availableZar)
-  scenario.horizonDays = PROSPECTIVE_HORIZON_DAYS
+  scenario.horizonDays = horizonDays
   scenario.initialCards = initialCards
   const baseNames = scenario.initialCardNames?.length
     ? [...scenario.initialCardNames]
@@ -89,6 +91,7 @@ export function runProspectiveDay(input: {
   maxPrintZar?: number;
   initialPos?: number;
   initialCards?: number;
+  horizonDays?: number;
 }): { record: ProspectiveDayRecord; endingState: SimState; availableZar: number } {
   const tickets = ticketsWithinPrintCap(input.tickets, input.maxPrintZar);
   const initialPos = input.initialPos ?? input.previousState?.pos?.length;
@@ -98,6 +101,7 @@ export function runProspectiveDay(input: {
     availableZar: input.availableZar,
     initialPos,
     initialCards,
+    horizonDays: input.horizonDays,
   });
   const starting = input.previousState
     ? cloneState(input.previousState)

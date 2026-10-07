@@ -10,6 +10,7 @@ import * as admin from 'firebase-admin'
 import {
   CONVERSION_ROUTING_KIND,
   DEFAULT_TEST_CONFIG,
+  PRODUCTION_DESK_CONFIG,
   ROUTING_ADMIN_UID,
   buildActivityCopy,
   buildAgentReplyCopy,
@@ -48,7 +49,13 @@ import {
 import type { RouteEvidence } from '../belief/types'
 import { ROUTE_EVIDENCE_COLLECTION } from '../belief/collections'
 import { mznCoversRestock, receiptsCoverRestock } from '../inbound/restockMatch'
-import { applyWindowPathWrite, hydrateWindow, persistWindow, ROUTING_ENGINE_ID } from '../routing/throughputPlan'
+import {
+  applyWindowPathWrite,
+  DESK_MONTH_TARGET_ZAR,
+  hydrateWindow,
+  persistWindow,
+  ROUTING_ENGINE_ID,
+} from '../routing/throughputPlan'
 import {
   parseFrictionNote,
   swipeIdFor,
@@ -2783,7 +2790,7 @@ async function startNewTest(
 
   const testRunId = db.collection(TESTS).doc().id
   const state = createInitialState(
-    DEFAULT_TEST_CONFIG,
+    PRODUCTION_DESK_CONFIG,
     typeof startingCapital === 'number' && startingCapital > 0 ? startingCapital : 0
   )
   await db.collection(TESTS).doc(testRunId).set({
@@ -3030,7 +3037,8 @@ export async function forceFreshDeskRun(params?: {
   note?: string
 }): Promise<Record<string, unknown>> {
   const adminUid = ROUTING_ADMIN_UID
-  const capital = params?.capitalZar && params.capitalZar > 0 ? params.capitalZar : 100_000
+  const capital =
+    params?.capitalZar && params.capitalZar > 0 ? params.capitalZar : DESK_MONTH_TARGET_ZAR
   try {
     await exitDeskPlan(adminUid)
   } catch {
@@ -3040,7 +3048,8 @@ export async function forceFreshDeskRun(params?: {
     adminUid,
     true,
     capital,
-    params?.note || `Fresh desk · max R${OPERATING_POLICY_V1.payment.maxAmountZar.toLocaleString('en-ZA')}`
+    params?.note ||
+      `October month desk · R${DESK_MONTH_TARGET_ZAR.toLocaleString('en-ZA')} · max R${OPERATING_POLICY_V1.payment.maxAmountZar.toLocaleString('en-ZA')}`
   )
 }
 

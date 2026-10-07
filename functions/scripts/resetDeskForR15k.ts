@@ -13,18 +13,20 @@ async function main() {
   // Import after admin init — module captures firestore() at load.
   const { forceFreshDeskRun } = await import('../src/tx/adminConversionRouting')
   const { OPERATING_POLICY_V1 } = await import('../src/operatingCalendar/operatingPolicyV1')
+  const { DESK_MONTH_TARGET_ZAR } = await import('../src/routing/deskMonth')
 
   const summary = await forceFreshDeskRun({
-    capitalZar: 100_000,
-    note: `Fresh R15k desk · max ${OPERATING_POLICY_V1.payment.maxAmountZar}`,
+    capitalZar: DESK_MONTH_TARGET_ZAR,
+    note: `October R${DESK_MONTH_TARGET_ZAR} month · max R${OPERATING_POLICY_V1.payment.maxAmountZar}`,
   })
   console.log(
     JSON.stringify(
       {
         ok: true,
+        monthTargetZar: DESK_MONTH_TARGET_ZAR,
         maxPaymentZar: OPERATING_POLICY_V1.payment.maxAmountZar,
         summary,
-        instruction: 'Pull to refresh on all devices, then tap Next 24h.',
+        instruction: 'Pull to refresh on all devices, then tap Next 24h through the month.',
       },
       null,
       2

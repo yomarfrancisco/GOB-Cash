@@ -4,8 +4,8 @@ import { mergeDayTickets, residualTickets } from "./outcomes";
 import { prospectiveScenario, runProspectiveDay, ticketsWithinPrintCap } from "./runDay";
 import { jsonClone } from "./snapshot";
 import {
+  horizonOf,
   nextDayAfter,
-  PROSPECTIVE_HORIZON_DAYS,
   type ProspectiveBranch,
   type ProspectiveDayPreview,
   type ProspectiveProposedAction,
@@ -14,11 +14,12 @@ import {
 } from "./types";
 
 export function previewNextDay(branch: ProspectiveBranch): ProspectiveDayPreview | null {
-  const day = nextDayAfter(branch.completedThroughDay);
+  const day = nextDayAfter(branch.completedThroughDay, horizonOf(branch));
   if (day == null) return null;
   const shock = matchingPending(branch, day);
   const availableZar = shock?.kind === "capital" ? shock.amountZar : branch.availableZar;
   const tickets = ticketsForShock(branch, day, shock, availableZar);
+  const horizonDays = horizonOf(branch)
   const ran = runProspectiveDay({
     day,
     availableZar,
@@ -26,6 +27,7 @@ export function previewNextDay(branch: ProspectiveBranch): ProspectiveDayPreview
     seed: branch.seed,
     previousState: branch.snapshot.endingState,
     maxPrintZar: shock?.kind === "print" ? shock.amountZar : undefined,
+    horizonDays,
   });
   return { day, recommendedZar: ran.record.recommendedZar, availableZar };
 }
@@ -36,9 +38,13 @@ export function matchingPending(branch: ProspectiveBranch, day: number): Prospec
   return pending;
 }
 
-export function shockDayAllowed(completedThroughDay: number, expectedDay: number): boolean {
+export function shockDayAllowed(
+  completedThroughDay: number,
+  expectedDay: number,
+  horizonDays?: number
+): boolean {
   if (expectedDay === completedThroughDay && completedThroughDay > 0) return true;
-  return nextDayAfter(completedThroughDay) === expectedDay;
+  return nextDayAfter(completedThroughDay, horizonDays) === expectedDay;
 }
 
 export function shockFromAction(
@@ -137,9 +143,13 @@ function ticketsForShock(
     const currentSum = current.reduce((sum, ticket) => sum + ticket.amount, 0);
     if (shock.printMode === "raise" && shock.amountZar > currentSum + 1e-9) {
       book = rebuildRemainingBook({
-        scenario: prospectiveScenario({ seed: branch.seed, availableZar: Math.max(availableZar, shock.amountZar) }),
+        scenario: prospectiveScenario({
+          seed: branch.seed,
+          availableZar: Math.max(availableZar, shock.amountZar),
+          horizonDays: horizonOf(branch),
+        }),
         availableZar: Math.max(availableZar, shock.amountZar),
-        horizonDays: PROSPECTIVE_HORIZON_DAYS,
+        horizonDays: horizonOf(branch),
         fromDay: day,
         existing: book,
       });
@@ -154,10 +164,11 @@ export function withRebuiltRemaining(
   fromDay: number,
   availableZar: number,
 ): ProspectiveBranch["snapshot"]["book"] {
+  const horizonDays = horizonOf(branch)
   return rebuildRemainingBook({
-    scenario: prospectiveScenario({ seed: branch.seed, availableZar }),
+    scenario: prospectiveScenario({ seed: branch.seed, availableZar, horizonDays }),
     availableZar,
-    horizonDays: PROSPECTIVE_HORIZON_DAYS,
+    horizonDays,
     fromDay,
     existing: branch.snapshot.book,
   });

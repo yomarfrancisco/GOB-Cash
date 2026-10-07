@@ -8,10 +8,22 @@ import {
   WINDOW_SEED,
 } from '../throughput/prospective/window'
 import type { ProspectiveBranch, ProspectiveRoute } from '../throughput/prospective/types'
+import {
+  DESK_MONTH_HORIZON_DAYS,
+  DESK_MONTH_OPERATING_DAYS,
+  DESK_MONTH_TARGET_ZAR,
+} from './deskMonth'
 
 export const KERNEL_SEED = WINDOW_SEED
 /** Persisted on each desk run. Ensure starts a new window when this does not match. */
-export const ROUTING_ENGINE_ID = 'absorbing-tickets-v4'
+export const ROUTING_ENGINE_ID = 'absorbing-tickets-v5-month619'
+
+export { DESK_MONTH_HORIZON_DAYS, DESK_MONTH_OPERATING_DAYS, DESK_MONTH_TARGET_ZAR }
+
+/** Month product uses a 31-day horizon; smaller test windows keep the 14-day golden. */
+function horizonForDeskCapital(amountZar: number): number | undefined {
+  return amountZar >= DESK_MONTH_TARGET_ZAR * 0.9 ? DESK_MONTH_HORIZON_DAYS : undefined
+}
 
 type PersistedSnapshot = ProspectiveBranch['snapshot'] & {
   endingState?: unknown
@@ -129,9 +141,13 @@ export function resolveWindow(state: {
   const initialPos = state.config?.machineCount
   const initialCards = state.config?.cardCount
   if (!window) {
+    const openZar = amount > 0 ? amount : state.availableCapital
     return startWindow({
-      availableZar: amount > 0 ? amount : state.availableCapital,
+      availableZar: openZar,
       seed: KERNEL_SEED,
+      ...(horizonForDeskCapital(openZar) != null
+        ? { horizonDays: horizonForDeskCapital(openZar) }
+        : {}),
       ...(initialPos && initialPos > 0 ? { initialPos } : {}),
       ...(initialCards && initialCards > 0 ? { initialCards } : {}),
     })
@@ -151,7 +167,12 @@ export function openWindowAtCapital<T extends {
 }>(state: T, amountZar: number): T {
   const amount = money(amountZar)
   if (!(amount > 0)) return state
-  const window = startWindow({ availableZar: amount, seed: KERNEL_SEED })
+  const horizonDays = horizonForDeskCapital(amount)
+  const window = startWindow({
+    availableZar: amount,
+    seed: KERNEL_SEED,
+    ...(horizonDays != null ? { horizonDays } : {}),
+  })
   return {
     ...state,
     authorisedZar: amount,

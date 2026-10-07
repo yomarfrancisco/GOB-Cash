@@ -5,6 +5,7 @@ import { prospectiveScenario, runProspectiveDay } from './runDay'
 import { jsonClone } from './snapshot'
 import { applyPendingToRun, withRebuiltRemaining } from './shocks'
 import {
+  horizonOf,
   nextDayAfter,
   phaseForCompletedDay,
   PROSPECTIVE_HORIZON_DAYS,
@@ -59,20 +60,24 @@ export function startWindow(input: {
   at?: string
   initialPos?: number
   initialCards?: number
+  /** Calendar-day absorbing horizon. Defaults to the 14-day golden; production desk uses 31. */
+  horizonDays?: number
 }): ProspectiveBranch {
   const amountZar = roundMoney(input.availableZar)
   if (!(amountZar > 0)) throw new Error('opening amount must be a positive ZAR figure')
   const seed = input.seed ?? PROSPECTIVE_SEED
+  const horizonDays = input.horizonDays && input.horizonDays > 0 ? input.horizonDays : PROSPECTIVE_HORIZON_DAYS
   const scenario = prospectiveScenario({
     seed,
     availableZar: amountZar,
     initialPos: input.initialPos,
     initialCards: input.initialCards,
+    horizonDays,
   })
   const book = buildAbsorbingPaymentBook({
     scenario,
     availableZar: amountZar,
-    horizonDays: PROSPECTIVE_HORIZON_DAYS,
+    horizonDays,
   })
   const first = runProspectiveDay({
     day: 1,
@@ -82,17 +87,19 @@ export function startWindow(input: {
     previousState: null,
     initialPos: input.initialPos,
     initialCards: input.initialCards,
+    horizonDays,
   })
   const at = input.at ?? nowIso()
   return {
-    branchId: `window:${seed}:${amountZar}`,
+    branchId: `window:${seed}:${amountZar}:h${horizonDays}`,
     cycleId: 'desk',
     operatorId: 'za',
     openingAmountZar: amountZar,
     quotedMznPerZar: PROSPECTIVE_QUOTE_MZN_PER_ZAR,
     seed,
+    horizonDays,
     completedThroughDay: 1,
-    phase: phaseForCompletedDay(1),
+    phase: phaseForCompletedDay(1, horizonDays),
     availableZar: first.availableZar,
     snapshot: jsonClone({
       ...emptySnapshot(amountZar),
@@ -111,7 +118,8 @@ export function advanceWindow(branch: ProspectiveBranch, at = nowIso()): Prospec
   if (branch.completedThroughDay <= 0) {
     throw new Error('start Day 1 before advancing')
   }
-  const next = nextDayAfter(branch.completedThroughDay)
+  const horizonDays = horizonOf(branch)
+  const next = nextDayAfter(branch.completedThroughDay, horizonDays)
   if (next == null) return branch
   const pending = applyPendingToRun(branch, next)
   const day = runProspectiveDay({
@@ -121,6 +129,7 @@ export function advanceWindow(branch: ProspectiveBranch, at = nowIso()): Prospec
     seed: branch.seed,
     previousState: branch.snapshot.endingState,
     maxPrintZar: pending.maxPrintZar,
+    horizonDays,
   })
   const days = [...branch.snapshot.days, day.record]
   const residuals = reconcileResiduals(branch.snapshot.residuals ?? [], day.record.routes, next)
@@ -131,8 +140,9 @@ export function advanceWindow(branch: ProspectiveBranch, at = nowIso()): Prospec
       : branch.snapshot.book
   return {
     ...branch,
+    horizonDays,
     completedThroughDay: next,
-    phase: phaseForCompletedDay(next),
+    phase: phaseForCompletedDay(next, horizonDays),
     availableZar: day.availableZar,
     snapshot: jsonClone({
       ...branch.snapshot,
@@ -158,7 +168,7 @@ export function setWindowCapital(
 ): ProspectiveBranch {
   const nextAmount = roundMoney(amountZar)
   if (!(nextAmount > 0)) throw new Error('window capital must be a positive ZAR figure')
-  const next = nextDayAfter(branch.completedThroughDay)
+  const next = nextDayAfter(branch.completedThroughDay, horizonOf(branch))
   if (next == null) {
     return { ...branch, availableZar: nextAmount, updatedAt: at }
   }

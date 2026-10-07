@@ -177,6 +177,8 @@ export interface ProspectiveBranch {
   branchId: string;
   cycleId: string;
   operatorId: string;
+  /** Absorbing-book calendar horizon; defaults to PROSPECTIVE_HORIZON_DAYS when omitted. */
+  horizonDays?: number;
   openingAmountZar: number;
   quotedMznPerZar: number;
   seed: number;
@@ -188,15 +190,25 @@ export interface ProspectiveBranch {
   updatedAt: string;
 }
 
-export function phaseForCompletedDay(day: number): ProspectivePhase {
+export function phaseForCompletedDay(day: number, horizonDays = PROSPECTIVE_HORIZON_DAYS): ProspectivePhase {
   if (day <= 0) return "day_0_ready";
-  if (day >= 14) return "day_14_complete";
+  if (day >= horizonDays) {
+    return horizonDays <= 14 ? "day_14_complete" : (`day_${horizonDays}_complete` as ProspectivePhase);
+  }
   return `day_${day}_complete` as ProspectivePhase;
 }
 
-export function nextDayAfter(completedThroughDay: number): number | null {
-  if (completedThroughDay >= 14) return null;
+export function nextDayAfter(
+  completedThroughDay: number,
+  horizonDays = PROSPECTIVE_HORIZON_DAYS
+): number | null {
+  if (completedThroughDay >= horizonDays) return null;
   return completedThroughDay + 1;
+}
+
+export function horizonOf(branch: { horizonDays?: number } | null | undefined): number {
+  const h = branch?.horizonDays;
+  return typeof h === "number" && h > 0 ? h : PROSPECTIVE_HORIZON_DAYS;
 }
 
 export function emptyConversation(): ProspectiveConversation {
