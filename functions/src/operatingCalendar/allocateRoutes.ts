@@ -78,6 +78,8 @@ export function allocateRoutes(params: {
   const rollingPrincipal = new Map<string, string[]>() // card|principal -> dates
 
   const newCardClean = new Map<CardId, number>()
+  /** Econometrica (and any cold route) graduates through the same R5k/R6.5k stages before the R15k ceiling. */
+  const ecmClean = { n: 0 }
 
   function key(...parts: Array<string | number>) {
     return parts.join('|')
@@ -103,20 +105,30 @@ export function allocateRoutes(params: {
     return policy.card.establishedAttemptsPerDay
   }
 
-  function maxPosAttemptsToday(networkDay1: number): number {
+  function maxPosAttemptsToday(networkDay1: number, terminalId: TerminalId): number {
+    // Econometrica stage A/B: tighter attempt cadence while graduating to the R15k ceiling.
+    if (terminalId === 'Econometrica') {
+      if (ecmClean.n < policy.newCard.stageA.maxCleanOutcomesExclusive) return policy.newCard.stageA.attemptsPerDay
+      if (ecmClean.n < policy.newCard.stageB.maxCleanOutcomesExclusive) return policy.newCard.stageB.attemptsPerDay
+    }
     if (networkState === 'cold_start' && networkDay1 <= policy.pos.coldPosNetworkDays) {
       return policy.pos.coldAttemptsPerDay
     }
     return policy.pos.establishedAttemptsPerDay
   }
 
-  function maxAttemptZar(cardId: CardId): number {
+  function maxAttemptZar(cardId: CardId, terminalId: TerminalId): number {
+    let max: number = policy.payment.maxAmountZar
     if (params.includeNewCardRamp && cardId === 'NEW_CARD_M2') {
       const clean = newCardClean.get(cardId) || 0
-      if (clean < policy.newCard.stageA.maxCleanOutcomesExclusive) return policy.newCard.stageA.maxAttemptZar
-      if (clean < policy.newCard.stageB.maxCleanOutcomesExclusive) return policy.newCard.stageB.maxAttemptZar
+      if (clean < policy.newCard.stageA.maxCleanOutcomesExclusive) max = Math.min(max, policy.newCard.stageA.maxAttemptZar)
+      else if (clean < policy.newCard.stageB.maxCleanOutcomesExclusive) max = Math.min(max, policy.newCard.stageB.maxAttemptZar)
     }
-    return policy.payment.maxAmountZar
+    if (terminalId === 'Econometrica') {
+      if (ecmClean.n < policy.newCard.stageA.maxCleanOutcomesExclusive) max = Math.min(max, policy.newCard.stageA.maxAttemptZar)
+      else if (ecmClean.n < policy.newCard.stageB.maxCleanOutcomesExclusive) max = Math.min(max, policy.newCard.stageB.maxAttemptZar)
+    }
+    return max
   }
 
   function scorePair(
@@ -149,6 +161,10 @@ export function allocateRoutes(params: {
     const bricsCapN = termUses.get('BricsCapitec') || 0
     if (terminalId === 'Econometrica' && ecmN < bricsCapN) s -= 35
     if (terminalId === 'BricsCapitec' && bricsCapN > ecmN + 2) s += 40
+    // While Econometrica is still staging, prefer fitting small invoices onto it.
+    if (terminalId === 'Econometrica' && ecmClean.n < policy.newCard.stageB.maxCleanOutcomesExclusive) {
+      if (amount <= maxAttemptZar(cardId, 'Econometrica')) s -= 60
+    }
     // New card: prefer early diversity of principals
     if (cardId === 'NEW_CARD_M2') s -= 10
     s += amount * 0.0001
@@ -163,7 +179,7 @@ export function allocateRoutes(params: {
     networkDay1: number
   ): boolean {
     const amount = slot.amountZar
-    if (amount > maxAttemptZar(cardId)) return false
+    if (amount > maxAttemptZar(cardId, terminalId)) return false
     if (amount > policy.payment.maxAmountZar) return false
 
     const dCard = key(slot.date, cardId)
@@ -172,10 +188,23 @@ export function allocateRoutes(params: {
     const dPrin = key(slot.date, cardId, principal)
 
     if ((dayCardCount.get(dCard) || 0) >= maxCardAttemptsToday(networkDay1, cardId)) return false
-    if ((dayCardValue.get(dCard) || 0) + amount > policy.card.maxValuePerDayZar + 0.05) return false
+    const cardDayCap =
+      params.includeNewCardRamp &&
+      cardId === 'NEW_CARD_M2' &&
+      (newCardClean.get(cardId) || 0) >= policy.newCard.stageA.maxCleanOutcomesExclusive &&
+      (newCardClean.get(cardId) || 0) < policy.newCard.stageB.maxCleanOutcomesExclusive
+        ? policy.newCard.stageB.maxDayZar
+        : policy.card.maxValuePerDayZar
+    if ((dayCardValue.get(dCard) || 0) + amount > cardDayCap + 0.05) return false
     if ((dayPrincipal.get(dPrin) || 0) >= policy.cardPrincipal.maxPerLocalDay) return false
-    if ((dayPosCount.get(dPos) || 0) >= maxPosAttemptsToday(networkDay1)) return false
-    if ((dayPosValue.get(dPos) || 0) + amount > policy.pos.maxValuePerDayZar + 0.05) return false
+    if ((dayPosCount.get(dPos) || 0) >= maxPosAttemptsToday(networkDay1, terminalId)) return false
+    const posDayCap =
+      terminalId === 'Econometrica' &&
+      ecmClean.n >= policy.newCard.stageA.maxCleanOutcomesExclusive &&
+      ecmClean.n < policy.newCard.stageB.maxCleanOutcomesExclusive
+        ? policy.newCard.stageB.maxDayZar
+        : policy.pos.maxValuePerDayZar
+    if ((dayPosValue.get(dPos) || 0) + amount > posDayCap + 0.05) return false
 
     const cardRoll = rollingCount(rollingCardDates.get(cardId), slot.date, 7)
     if (cardRoll >= policy.card.maxAttemptsRolling7Days) return false
@@ -298,6 +327,9 @@ export function allocateRoutes(params: {
     // Reference fixture models every planned payment as eventually usable for Month 1→2 carry
     if (params.includeNewCardRamp && pick.cardId === 'NEW_CARD_M2') {
       newCardClean.set(pick.cardId, (newCardClean.get(pick.cardId) || 0) + 1)
+    }
+    if (pick.terminalId === 'Econometrica') {
+      ecmClean.n += 1
     }
 
     void segmentOf

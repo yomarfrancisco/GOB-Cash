@@ -3,6 +3,8 @@ import {
   FIVE_PAYMENT_PATTERNS_M1,
   FIVE_PAYMENT_PATTERNS_M2,
   FOUR_PAYMENT_PATTERNS,
+  THREE_PAYMENT_PATTERNS,
+  TWO_PAYMENT_PATTERNS,
   type DayTarget,
 } from './monthFixtures'
 import { OPERATING_POLICY_V1 } from './operatingPolicyV1'
@@ -34,18 +36,20 @@ function dayOfMonth(iso: string): number {
   return Number(iso.slice(8, 10))
 }
 
+function patternsForCount(paymentCount: number, month: 1 | 2): readonly (readonly number[])[] {
+  if (paymentCount === 2) return TWO_PAYMENT_PATTERNS
+  if (paymentCount === 3) return THREE_PAYMENT_PATTERNS
+  if (paymentCount === 4) return FOUR_PAYMENT_PATTERNS
+  return month === 1 ? FIVE_PAYMENT_PATTERNS_M1 : FIVE_PAYMENT_PATTERNS_M2
+}
+
 export function buildDayAmounts(
   targetZar: number,
   paymentCount: number,
   operatingDayIndex0: number,
   month: 1 | 2
 ): number[] {
-  const patterns =
-    paymentCount === 4
-      ? FOUR_PAYMENT_PATTERNS
-      : month === 1
-        ? FIVE_PAYMENT_PATTERNS_M1
-        : FIVE_PAYMENT_PATTERNS_M2
+  const patterns = patternsForCount(paymentCount, month)
   const pattern = patterns[operatingDayIndex0 % patterns.length]!
   const rotated = [...pattern.slice(operatingDayIndex0 % paymentCount), ...pattern.slice(0, operatingDayIndex0 % paymentCount)].slice(
     0,
@@ -74,14 +78,11 @@ export function buildDayAmounts(
 export function buildDayTimes(date: string, paymentCount: number): number[] {
   const dom = dayOfMonth(date)
   const odd = dom % 2 === 1
-  const base =
-    paymentCount === 4
-      ? odd
-        ? BASE_TIMES.four_odd
-        : BASE_TIMES.four_even
-      : odd
-        ? BASE_TIMES.five_odd
-        : BASE_TIMES.five_even
+  let base: readonly number[]
+  if (paymentCount === 2) base = odd ? BASE_TIMES.two_odd : BASE_TIMES.two_even
+  else if (paymentCount === 3) base = odd ? BASE_TIMES.three_odd : BASE_TIMES.three_even
+  else if (paymentCount === 4) base = odd ? BASE_TIMES.four_odd : BASE_TIMES.four_even
+  else base = odd ? BASE_TIMES.five_odd : BASE_TIMES.five_even
   return base.map((t, i) => {
     const jitter = ((dom * 7 + i * 11) % 9) - 4
     return t + jitter

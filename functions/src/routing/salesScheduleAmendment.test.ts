@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { OPERATING_POLICY_V1 } from '../operatingCalendar/operatingPolicyV1'
+import { MONTH1_OCTOBER_2026 } from '../operatingCalendar/monthFixtures'
 import { planReferenceMonth } from '../operatingCalendar/monthPlanner'
 import {
   applySalesScheduleAmendment,
@@ -357,7 +358,7 @@ describe('sales schedule amendment — policy + goldens', () => {
   it('operating-policy calendar goldens remain green', () => {
     const cal = planReferenceMonth(1)
     assert.equal(cal.gates.ok, true)
-    assert.equal(cal.paymentCount, 129)
+    assert.equal(cal.paymentCount, MONTH1_OCTOBER_2026.payments)
     assert.equal(cal.totalZar, 660_000)
   })
 

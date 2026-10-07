@@ -12,7 +12,8 @@ export const OPERATING_POLICY_V1 = {
   timezone: 'Africa/Johannesburg',
 
   payment: {
-    maxAmountZar: 8_000,
+    /** Maximum whole-invoice payment — ceiling only, not a target or minimum. */
+    maxAmountZar: 15_000,
   },
 
   network: {

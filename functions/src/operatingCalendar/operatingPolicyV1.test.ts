@@ -58,14 +58,16 @@ describe('OperatingPolicyV1 reference months', () => {
   it('reproduces Month 1 October 2026 fixture', () => {
     const cal = planReferenceMonth(1)
     assert.equal(cal.gates.ok, true, cal.gates.gates.filter((g) => !g.pass).map((g) => g.id).join(','))
-    assert.equal(cal.paymentCount, 129)
+    assert.equal(cal.paymentCount, MONTH1_OCTOBER_2026.payments)
     assert.equal(cal.totalZar, 660_000)
     assert.equal(cal.operatingDayCount, 27)
     assert.equal(new Set(cal.payments.map((p) => p.cardId)).size, 6)
     assert.equal(new Set(cal.payments.map((p) => p.terminalId)).size, 5)
     assert.equal(new Set(cal.payments.map((p) => p.merchantPrincipalId)).size, 4)
     assert.equal(new Set(cal.payments.map((p) => p.acquirerBankId)).size, 2)
-    assert.ok(cal.payments.every((p) => p.amountZar <= 8_000))
+    assert.equal(OPERATING_POLICY_V1.payment.maxAmountZar, 15_000)
+    assert.ok(cal.payments.every((p) => p.amountZar <= OPERATING_POLICY_V1.payment.maxAmountZar))
+    assert.ok(cal.payments.some((p) => p.amountZar > 8_000), 'R15k ceiling should allow invoices above the prior R8k max')
     assert.ok(cal.payments.every((p) => p.terminalId !== 'Econometrica' || p.liveExecutable === false))
     // deterministic replay
     const again = planReferenceMonth(1)
@@ -77,7 +79,7 @@ describe('OperatingPolicyV1 reference months', () => {
     const m1 = planReferenceMonth(1)
     const m2 = planReferenceMonth(2, m1.continuity)
     assert.equal(m2.gates.ok, true, m2.gates.gates.filter((g) => !g.pass).map((g) => g.id).join(','))
-    assert.equal(m2.paymentCount, 125)
+    assert.equal(m2.paymentCount, MONTH2_NOVEMBER_2026.payments)
     assert.equal(m2.totalZar, 726_000)
     assert.equal(m2.operatingDayCount, 25)
     assert.ok(m2.payments.some((p) => p.cardId === 'NEW_CARD_M2'))
@@ -306,7 +308,7 @@ describe('OperatingPolicyV1 constraints', () => {
     assert.equal(slice.viewDays, 14)
     assert.ok(slice.payments.length > 0)
     assert.ok(slice.payments.length < cal.paymentCount)
-    assert.equal(slice.monthPaymentCount, 129)
+    assert.equal(slice.monthPaymentCount, MONTH1_OCTOBER_2026.payments)
   })
 
   it('acquirer ceiling applies only to Capitec; FNB is residual majority', () => {

@@ -267,7 +267,7 @@ export function createDefaultScenario(): Scenario {
     throughputStepZar: 5_000,
     avgTicketZar: 2_500,
     expectedTicketMinZar: 1_000,
-    expectedTicketMaxZar: 8_000,
+    expectedTicketMaxZar: 15_000,
     meanDailyCoreTickets: 4,
     weeklyEnsemblePaths: 16,
 

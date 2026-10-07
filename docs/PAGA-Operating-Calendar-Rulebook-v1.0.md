@@ -107,7 +107,7 @@ These are PAGA internal controls, not published bank or card-network safe harbou
 
 | Rule | Limit |
 |---|---:|
-| Maximum payment | R8,000 |
+| Maximum payment | R15,000 |
 | Cold-network daily value, Days 1-3 | R25,000 |
 | Established-network daily value | R30,000 |
 | Network attempts per operating day | 5 |
@@ -300,7 +300,7 @@ For each operating day:
 4. Rotate the pattern by the operating-day index modulo the payment count.
 5. Round the first `n - 1` amounts to the nearest R100.
 6. Make the final amount the exact residual required to reach the daily target.
-7. Reject the book if any payment is above R8,000 or is not backed by a genuine invoice in live mode.
+7. Reject the book if any payment is above R15,000 or is not backed by a genuine invoice in live mode.
 
 Month 1 weight patterns:
 
@@ -407,56 +407,56 @@ terminals: 5
 merchant_principals: 4
 acquirers: 2
 operating_days: 27
-payments: 129
+payments: 95
 planned_value_zar: 660000
 arithmetic_ceiling_zar: 795000
-reference_ledger_sha256: d2ceef9eb3ca50059fa8ae15d8568c97ecbee848b91bc1e8903a9e332b62d7bf
+reference_ledger_sha256: 0d7c1e06653a013491305f320353cb35d53c9c69db2efbfca8320189b5914102
 ```
 
 ### 8.2 Daily targets and payment counts
 
-The first six operating days use four payments/day so that no POS exceeds six attempts in the first rolling seven days. Every later operating day uses five payments.
+Under the R15,000 whole-invoice ceiling, early operating days keep denser books so Econometrica can graduate through the R5,000 / R6,500 stages; later days use fewer payments for the same daily targets. Payment counts are not a target — they follow genuine invoice sizes under the ceiling.
 
 | Date | Target | Payments |
 |---|---:|---:|
-| 2026-10-01 | R20,400 | 4 |
-| 2026-10-02 | R19,700 | 4 |
-| 2026-10-03 | R22,200 | 4 |
-| 2026-10-05 | R24,600 | 4 |
-| 2026-10-06 | R25,300 | 4 |
-| 2026-10-07 | R23,900 | 4 |
+| 2026-10-01 | R20,400 | 5 |
+| 2026-10-02 | R19,700 | 5 |
+| 2026-10-03 | R22,200 | 5 |
+| 2026-10-05 | R24,600 | 5 |
+| 2026-10-06 | R25,300 | 5 |
+| 2026-10-07 | R23,900 | 5 |
 | 2026-10-08 | R26,700 | 5 |
-| 2026-10-09 | R24,800 | 5 |
-| 2026-10-10 | R25,900 | 5 |
-| 2026-10-12 | R23,100 | 5 |
-| 2026-10-13 | R26,400 | 5 |
-| 2026-10-14 | R24,600 | 5 |
-| 2026-10-15 | R25,200 | 5 |
-| 2026-10-16 | R25,500 | 5 |
-| 2026-10-17 | R23,800 | 5 |
-| 2026-10-19 | R25,700 | 5 |
-| 2026-10-20 | R24,100 | 5 |
-| 2026-10-21 | R25,900 | 5 |
-| 2026-10-22 | R24,700 | 5 |
-| 2026-10-23 | R25,800 | 5 |
-| 2026-10-24 | R23,600 | 5 |
-| 2026-10-26 | R26,100 | 5 |
-| 2026-10-27 | R24,900 | 5 |
-| 2026-10-28 | R25,200 | 5 |
-| 2026-10-29 | R23,300 | 5 |
-| 2026-10-30 | R25,800 | 5 |
-| 2026-10-31 | R22,800 | 5 |
+| 2026-10-09 | R24,800 | 3 |
+| 2026-10-10 | R25,900 | 3 |
+| 2026-10-12 | R23,100 | 3 |
+| 2026-10-13 | R26,400 | 3 |
+| 2026-10-14 | R24,600 | 3 |
+| 2026-10-15 | R25,200 | 3 |
+| 2026-10-16 | R25,500 | 3 |
+| 2026-10-17 | R23,800 | 3 |
+| 2026-10-19 | R25,700 | 3 |
+| 2026-10-20 | R24,100 | 3 |
+| 2026-10-21 | R25,900 | 3 |
+| 2026-10-22 | R24,700 | 3 |
+| 2026-10-23 | R25,800 | 3 |
+| 2026-10-24 | R23,600 | 3 |
+| 2026-10-26 | R26,100 | 3 |
+| 2026-10-27 | R24,900 | 3 |
+| 2026-10-28 | R25,200 | 3 |
+| 2026-10-29 | R23,300 | 3 |
+| 2026-10-30 | R25,800 | 3 |
+| 2026-10-31 | R22,800 | 3 |
 
 ### 8.3 Reference output gates
 
 The Month 1 reproduction passes only if:
 
 - total value is exactly R660,000;
-- payment count is exactly 129;
+- payment count is exactly 95;
 - operating-day count is exactly 27;
 - all Sundays have zero new intake;
 - daily values equal the table above;
-- every payment is no more than R8,000;
+- every payment is no more than R15,000;
 - every invoice and instruction ID is unique;
 - every card uses all five terminals, four principals and two acquirers;
 - Econometrica appears in all five calendar segments;
@@ -527,14 +527,14 @@ terminals: 5
 merchant_principals: 4
 acquirers: 2
 operating_days: 25
-payments: 125
+payments: 95
 planned_value_zar: 726000
 arithmetic_ceiling_zar: 750000
 ```
 
 ### 10.3 Daily targets
 
-Every operating day uses five whole-invoice payments.
+Early Month 2 days keep denser books for `NEW_CARD_M2` stage A/B; later days use fewer whole-invoice payments under the R15,000 ceiling.
 
 | Date | Target | Payments |
 |---|---:|---:|
@@ -548,21 +548,21 @@ Every operating day uses five whole-invoice payments.
 | 2026-11-10 | R28,540 | 5 |
 | 2026-11-11 | R29,740 | 5 |
 | 2026-11-12 | R28,740 | 5 |
-| 2026-11-13 | R29,540 | 5 |
-| 2026-11-14 | R28,440 | 5 |
-| 2026-11-16 | R29,240 | 5 |
-| 2026-11-17 | R28,240 | 5 |
-| 2026-11-18 | R29,940 | 5 |
-| 2026-11-19 | R28,940 | 5 |
-| 2026-11-20 | R29,390 | 5 |
-| 2026-11-21 | R28,590 | 5 |
-| 2026-11-23 | R29,690 | 5 |
-| 2026-11-24 | R28,790 | 5 |
-| 2026-11-25 | R29,790 | 5 |
-| 2026-11-26 | R28,490 | 5 |
-| 2026-11-27 | R29,140 | 5 |
-| 2026-11-28 | R28,140 | 5 |
-| 2026-11-30 | R28,540 | 5 |
+| 2026-11-13 | R29,540 | 3 |
+| 2026-11-14 | R28,440 | 3 |
+| 2026-11-16 | R29,240 | 3 |
+| 2026-11-17 | R28,240 | 3 |
+| 2026-11-18 | R29,940 | 3 |
+| 2026-11-19 | R28,940 | 3 |
+| 2026-11-20 | R29,390 | 3 |
+| 2026-11-21 | R28,590 | 3 |
+| 2026-11-23 | R29,690 | 3 |
+| 2026-11-24 | R28,790 | 3 |
+| 2026-11-25 | R29,790 | 3 |
+| 2026-11-26 | R28,490 | 3 |
+| 2026-11-27 | R29,140 | 3 |
+| 2026-11-28 | R28,140 | 3 |
+| 2026-11-30 | R28,540 | 3 |
 
 ### 10.4 New-card ramp
 
@@ -596,7 +596,7 @@ The Month 2 reproduction passes only if:
 
 - Month 1 trailing state is loaded before 2 November planning;
 - total value is exactly R726,000;
-- payment count is exactly 125;
+- payment count is exactly 95;
 - daily values equal the table above;
 - every Sunday has zero new intake;
 - the network does not repeat cold-network Days 1-3;
