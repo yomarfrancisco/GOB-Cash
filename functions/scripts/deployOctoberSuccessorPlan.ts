@@ -28,6 +28,74 @@ import { nextDayAfter, horizonOf, type ProspectiveBranch } from '../src/throughp
 import { roundMoney, sum } from '../src/throughput/model/math'
 import { OPERATING_POLICY_V1 } from '../src/operatingCalendar/operatingPolicyV1'
 import { residualTickets, mergeDayTickets } from '../src/throughput/prospective/outcomes'
+import type { SimState } from '../src/throughput/model/types'
+import { emptyRolling } from '../src/throughput/model/rolling'
+
+/** Expand carried evidence mesh with Moza cards + Econometrica POS without rewriting history. */
+function ensureLiveMesh(state: SimState | null | undefined, installedOnDay: number): SimState | null {
+  if (!state) return null
+  const next = structuredClone(state)
+  const addCard = (index: number, name: string) => {
+    if (next.cards.some((c) => c.id === `card-${index}` || c.name === name)) return
+    next.cards.push({
+      id: `card-${index}`,
+      name,
+      kind: 'card',
+      installedOnDay,
+      daysActive: 0,
+      lifetimeCount: 0,
+      lifetimeVolume: 0,
+      activeTradingDays: 0,
+      cleanHistoryDays: 0,
+      interruptionCount: 0,
+      downUntilDay: null,
+      frozenCapital: 0,
+      coreVolume: 0,
+      organicRevenueVolume: 0,
+      organicExpenseVolume: 0,
+      importedHistoryVolume: 0,
+      coreTransactionCount: 0,
+      organicTransactionCount: 0,
+      importedHistoryCount: 0,
+      rolling: emptyRolling(),
+      consecutiveOperatingActiveDays: 0,
+      cardOrigin: 'international',
+    })
+  }
+  const addPos = (index: number, name: string) => {
+    if (next.pos.some((p) => p.id === `pos-${index}`)) return
+    next.pos.push({
+      id: `pos-${index}`,
+      name,
+      kind: 'pos',
+      installedOnDay,
+      daysActive: 0,
+      lifetimeCount: 0,
+      lifetimeVolume: 0,
+      activeTradingDays: 0,
+      cleanHistoryDays: 0,
+      interruptionCount: 0,
+      downUntilDay: null,
+      frozenCapital: 0,
+      coreVolume: 0,
+      organicRevenueVolume: 0,
+      organicExpenseVolume: 0,
+      importedHistoryVolume: 0,
+      coreTransactionCount: 0,
+      organicTransactionCount: 0,
+      importedHistoryCount: 0,
+      rolling: emptyRolling(),
+      consecutiveOperatingActiveDays: 0,
+      pinCapableFlow: true,
+      cardPresentFlow: true,
+    })
+  }
+  // Desk inventory: 7=WolfMoza, 8=GoblinMoza, machine 5=Econometrica.
+  addCard(7, 'WolfMoza')
+  addCard(8, 'GoblinMoza')
+  addPos(5, 'Econometrica')
+  return next
+}
 
 const PROJECT = 'gobankless-dev'
 const OUT = path.resolve(process.cwd(), '../tmp/october-2026-successor-plan.json')
@@ -105,6 +173,83 @@ async function main() {
     rebuiltBook[fromDay] = mergeDayTickets(rebuiltBook[fromDay]!, residuals)
   }
 
+  // Re-pin Moza cold-start inventory onto the earliest future operating days
+  // (does not touch sealed days; does not invent new ZAR — only reorders future tickets).
+  {
+    const stageB = OPERATING_POLICY_V1.newCard.stageB.maxAttemptZar
+    const rampNeed = OPERATING_POLICY_V1.newCard.stageB.maxCleanOutcomesExclusive * 2
+    const futureDays = Array.from({ length: DESK_MONTH_HORIZON_DAYS }, (_, i) => i + 1).filter(
+      (d) => d >= fromDay && ((d - 1) % 7) + 1 !== 7 // not Sunday in day-index model: day%7===0
+    )
+    // Prospective book uses calendar day numbers with weekends empty already.
+    const operatingFuture = Array.from({ length: DESK_MONTH_HORIZON_DAYS }, (_, i) => i + 1).filter(
+      (d) => d >= fromDay && (rebuiltBook[d]?.length || 0) >= 0 && d % 7 !== 0
+    )
+    const pool: Array<{ amount: number; timeMinutes: number; economicPaymentId: string; supportingInvoicePresent: boolean }> =
+      []
+    for (const d of operatingFuture) {
+      const keep: typeof pool = []
+      for (const t of rebuiltBook[d] || []) {
+        if (t.amount <= stageB + 1e-9 && pool.length < rampNeed) pool.push({ ...t })
+        else keep.push({ ...t })
+      }
+      rebuiltBook[d] = keep as never
+    }
+    // Place one stage ticket per early day (spread across both Moza ladders).
+    let pi = 0
+    for (const d of operatingFuture) {
+      if (pi >= pool.length) break
+      const dayTickets = [...(rebuiltBook[d] || [])]
+      const ceiling =
+        d <= OPERATING_POLICY_V1.network.coldNetworkDays
+          ? OPERATING_POLICY_V1.network.coldDailyCeilingZar
+          : OPERATING_POLICY_V1.network.establishedDailyCeilingZar
+      const daySum = money(sum(dayTickets.map((t) => t.amount)))
+      const next = pool[pi]!
+      if (
+        dayTickets.length < OPERATING_POLICY_V1.network.maxAttemptsPerOperatingDay &&
+        daySum + next.amount <= ceiling + 0.05
+      ) {
+        dayTickets.unshift({
+          ...next,
+          timeMinutes: 9 * 60 + 20,
+          economicPaymentId: `pro:${d}:moza-ramp-${pi + 1}`,
+        })
+        rebuiltBook[d] = dayTickets as never
+        pi += 1
+      }
+    }
+    // Any unused ramp tickets return to the first future day with room.
+    while (pi < pool.length) {
+      const next = pool[pi]!
+      let placed = false
+      for (const d of operatingFuture) {
+        const dayTickets = [...(rebuiltBook[d] || [])]
+        const ceiling =
+          d <= OPERATING_POLICY_V1.network.coldNetworkDays
+            ? OPERATING_POLICY_V1.network.coldDailyCeilingZar
+            : OPERATING_POLICY_V1.network.establishedDailyCeilingZar
+        const daySum = money(sum(dayTickets.map((t) => t.amount)))
+        if (
+          dayTickets.length < OPERATING_POLICY_V1.network.maxAttemptsPerOperatingDay &&
+          daySum + next.amount <= ceiling + 0.05
+        ) {
+          dayTickets.push({
+            ...next,
+            timeMinutes: 15 * 60 + 5,
+            economicPaymentId: `pro:${d}:moza-ramp-${pi + 1}`,
+          })
+          rebuiltBook[d] = dayTickets as never
+          placed = true
+          break
+        }
+      }
+      if (!placed) break
+      pi += 1
+    }
+    void futureDays
+  }
+
   const total = bookTotalZar(rebuiltBook)
   // Trim/pad only future days to hit R619,700 exactly without touching sealed days.
   let drift = money(DESK_MONTH_TARGET_ZAR - total)
@@ -159,13 +304,17 @@ async function main() {
     )
   }
 
+  const expandedState = ensureLiveMesh(window.snapshot.endingState, fromDay)
+
   // Preview first future day routes to report Econometrica / Moza placements.
   const preview = runProspectiveDay({
     day: fromDay,
     availableZar: remainingZar,
     tickets: rebuiltBook[fromDay] || [],
     seed: window.seed || KERNEL_SEED,
-    previousState: window.snapshot.endingState,
+    previousState: expandedState,
+    initialCards: 8,
+    initialPos: 5,
     horizonDays: DESK_MONTH_HORIZON_DAYS,
   })
 
@@ -176,7 +325,8 @@ async function main() {
     snapshot: {
       ...window.snapshot,
       book: rebuiltBook,
-      // Keep endingState / residuals / shocks / days history intact.
+      endingState: expandedState,
+      // Keep residuals / shocks / days history intact — do not fabricate sealed days.
       residuals: (window.snapshot.residuals || []).map((r) =>
         r.status === 'open' ? { ...r, status: 'rerouted' as const } : r
       ),
@@ -226,20 +376,50 @@ async function main() {
   const stageB = OPERATING_POLICY_V1.newCard.stageB.maxAttemptZar
   const smallFuture = futureTickets.filter((t) => t.amount <= stageB + 1e-9)
 
-  const day1Routes = preview.record.routes || []
-  const assignments = assignmentsFromRoutes(day1Routes as never)
-  const firstEcm =
-    assignments.find((a) => a.machineId === 5) ||
-    day1Routes.find((r) => /Econometrica/i.test(String(r.railLabel || r.posName || '')))
-  const firstWolfMoza = assignments.find((a) => a.cardId === 7)
-  const firstGoblinMoza = assignments.find((a) => a.cardId === 8)
+  type Hit = {
+    day: number
+    cardId: number
+    machineId: number
+    amount: number
+    cardName?: string
+    railLabel?: string
+    economicPaymentId?: string
+  }
+  const asHit = (day: number, a: ReturnType<typeof assignmentsFromRoutes>[number]): Hit => ({
+    day,
+    cardId: a.cardId,
+    machineId: a.machineId,
+    amount: a.amount,
+    cardName: a.cardName,
+    railLabel: a.railLabel,
+    economicPaymentId: a.economicPaymentId,
+  })
 
-  // Walk subsequent days until Moza/ECM appear if not on fromDay.
-  let walkEcm = firstEcm
-    ? { day: fromDay, ...firstEcm }
-    : null
-  let walkWolfMoza = firstWolfMoza ? { day: fromDay, ...firstWolfMoza } : null
-  let walkGoblinMoza = firstGoblinMoza ? { day: fromDay, ...firstGoblinMoza } : null
+  const pickEcm = (day: number, assigns: ReturnType<typeof assignmentsFromRoutes>) => {
+    const hit = assigns.find(
+      (a) => a.machineId === 5 || /econometrica/i.test(String(a.railLabel || ''))
+    )
+    return hit ? asHit(day, hit) : null
+  }
+  const pickMoza = (day: number, assigns: ReturnType<typeof assignmentsFromRoutes>, which: 'WolfMoza' | 'GoblinMoza') => {
+    const id = which === 'WolfMoza' ? 7 : 8
+    const hit = assigns.find(
+      (a) => a.cardId === id || String(a.cardName || '').toLowerCase() === which.toLowerCase()
+    )
+    return hit ? asHit(day, hit) : null
+  }
+
+  let walkEcm = pickEcm(fromDay, assignmentsFromRoutes((preview.record.routes || []) as never))
+  let walkWolfMoza = pickMoza(
+    fromDay,
+    assignmentsFromRoutes((preview.record.routes || []) as never),
+    'WolfMoza'
+  )
+  let walkGoblinMoza = pickMoza(
+    fromDay,
+    assignmentsFromRoutes((preview.record.routes || []) as never),
+    'GoblinMoza'
+  )
   let state = preview.endingState
   let avail = preview.availableZar
   for (let d = fromDay + 1; d <= DESK_MONTH_HORIZON_DAYS && (!walkEcm || !walkWolfMoza || !walkGoblinMoza); d++) {
@@ -251,21 +431,14 @@ async function main() {
       tickets,
       seed: window.seed || KERNEL_SEED,
       previousState: state,
+      initialCards: 8,
+      initialPos: 5,
       horizonDays: DESK_MONTH_HORIZON_DAYS,
     })
     const assigns = assignmentsFromRoutes((ran.record.routes || []) as never)
-    if (!walkEcm) {
-      const hit = assigns.find((a) => a.machineId === 5)
-      if (hit) walkEcm = { day: d, ...hit }
-    }
-    if (!walkWolfMoza) {
-      const hit = assigns.find((a) => a.cardId === 7)
-      if (hit) walkWolfMoza = { day: d, ...hit }
-    }
-    if (!walkGoblinMoza) {
-      const hit = assigns.find((a) => a.cardId === 8)
-      if (hit) walkGoblinMoza = { day: d, ...hit }
-    }
+    if (!walkEcm) walkEcm = pickEcm(d, assigns)
+    if (!walkWolfMoza) walkWolfMoza = pickMoza(d, assigns, 'WolfMoza')
+    if (!walkGoblinMoza) walkGoblinMoza = pickMoza(d, assigns, 'GoblinMoza')
     state = ran.endingState
     avail = ran.availableZar
   }

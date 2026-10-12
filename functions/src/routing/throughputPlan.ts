@@ -84,7 +84,17 @@ function nestArrayElements(value: unknown): unknown {
   return out
 }
 
-export function kernelCardId(cardId: string): number {
+/** Map prospective card ids/names onto desk inventory card numbers. */
+export function kernelCardId(cardId: string, cardName?: string): number {
+  const name = String(cardName || '').toLowerCase()
+  if (name === 'wolfmoza' || name === 'wolf moza') return 7
+  if (name === 'goblinmoza' || name === 'goblin moza') return 8
+  if (name === 'brics') return 1
+  if (name === 'ginav') return 2
+  if (name === 'vidrotec') return 3
+  if (name === 'wolf') return 4
+  if (name === 'goblin') return 5
+  if (name === 'kayman') return 6
   const n = Number(cardId.match(/(\d+)$/)?.[1])
   return Number.isFinite(n) && n > 0 ? n : 0
 }
@@ -101,7 +111,7 @@ export function money(value: number): number {
 export function assignmentsFromRoutes(routes: ProspectiveRoute[]) {
   return routes
     .map((route) => {
-      const cardId = kernelCardId(route.cardId)
+      const cardId = kernelCardId(route.cardId, route.cardName)
       const machineId = kernelMachineId(route.posId)
       if (!(cardId > 0) || !(machineId > 0)) return null
       return {
@@ -110,6 +120,8 @@ export function assignmentsFromRoutes(routes: ProspectiveRoute[]) {
         amount: route.amountZar,
         economicPaymentId: route.economicPaymentId,
         posReason: `${route.cardName} → ${route.railLabel}`,
+        cardName: route.cardName,
+        railLabel: route.railLabel,
       }
     })
     .filter((row): row is NonNullable<typeof row> => row != null)
