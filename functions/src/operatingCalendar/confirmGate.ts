@@ -179,7 +179,7 @@ export function evaluateConfirmGate(params: {
 
 /**
  * Map live desk machine id → operating-calendar terminal when known.
- * Machine 5 (Econometrica) is model-only until MID is recorded.
+ * Machine 5 (Econometrica) is live when its Capitec MID/TID are on the rail register.
  */
 export function terminalIdFromMachineId(machineId: number): TerminalId | null {
   if (machineId === 1) return 'BricsFNB'

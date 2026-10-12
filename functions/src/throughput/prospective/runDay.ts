@@ -53,9 +53,9 @@ export function prospectiveScenario(input: {
   scenario.initialCards = initialCards
   const baseNames = scenario.initialCardNames?.length
     ? [...scenario.initialCardNames]
-    : ['BRICS', 'Ginav', 'Vidrotec', 'Wolf', 'Goblin']
+    : ['BRICS', 'Ginav', 'Vidrotec', 'Wolf', 'Goblin', 'WolfMoza', 'GoblinMoza']
   while (baseNames.length < initialCards) {
-    if (baseNames.length === 5) baseNames.push('Kayman')
+    if (baseNames.length === 7) baseNames.push('Kayman')
     else baseNames.push(`Card ${baseNames.length + 1}`)
   }
   scenario.initialCardNames = baseNames.slice(0, initialCards)

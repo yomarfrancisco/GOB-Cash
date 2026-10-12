@@ -42,20 +42,23 @@ function ticket(
 }
 
 /**
- * Cold-route staged invoices so Econometrica (and similar) can graduate through
- * R5k / R6.5k before receiving mature R8k–R15k modeled amounts.
+ * Card cold-start inventory (Moza / NEW_CARD), not POS staging.
+ * Econometrica is fully eligible at the R15k ceiling.
+ * Default: one full seven-clean ladder per Moza twin (WolfMoza + GoblinMoza).
  */
-function buildStagedColdInvoices(rng: () => number): number[] {
+function buildStagedColdInvoices(rng: () => number, ladders = 2): number[] {
   const stageA = OPERATING_POLICY_V1.newCard.stageA
   const stageB = OPERATING_POLICY_V1.newCard.stageB
   const out: number[] = []
-  for (let i = 0; i < stageA.maxCleanOutcomesExclusive; i++) {
-    out.push(drawTriangularZar(rng, 3_500, 4_500, stageA.maxAttemptZar))
-  }
-  for (let i = stageA.maxCleanOutcomesExclusive; i < stageB.maxCleanOutcomesExclusive; i++) {
-    out.push(
-      drawTriangularZar(rng, stageA.maxAttemptZar + 100, 6_000, stageB.maxAttemptZar)
-    )
+  for (let ladder = 0; ladder < ladders; ladder++) {
+    for (let i = 0; i < stageA.maxCleanOutcomesExclusive; i++) {
+      out.push(drawTriangularZar(rng, 3_500, 4_500, stageA.maxAttemptZar))
+    }
+    for (let i = stageA.maxCleanOutcomesExclusive; i < stageB.maxCleanOutcomesExclusive; i++) {
+      out.push(
+        drawTriangularZar(rng, stageA.maxAttemptZar + 100, 6_000, stageB.maxAttemptZar)
+      )
+    }
   }
   return out.map((a) => roundMoney(a))
 }
@@ -68,12 +71,17 @@ function buildStagedColdInvoices(rng: () => number): number[] {
 export function generateModeledInvoiceStream(input: {
   scenario: Scenario
   authorisedZar: number
+  /** When true (default for month books), reserve Moza cold-start ladders (2×7 cleans). */
   includeColdRouteStages?: boolean
+  /** Number of Moza-style seven-clean ladders to front-load (default 2). */
+  mozaColdStartLadders?: number
 }): number[] {
   const authorised = roundMoney(Math.max(0, input.authorisedZar))
   if (!(authorised > 0)) return []
   const rng = streamRng(input.scenario, 0, `modeled-invoices:${authorised}`)
-  const staged = input.includeColdRouteStages === false ? [] : buildStagedColdInvoices(rng)
+  const ladders = Math.max(0, input.mozaColdStartLadders ?? 2)
+  const staged =
+    input.includeColdRouteStages === false ? [] : buildStagedColdInvoices(rng, ladders)
   const invoices: number[] = [...staged]
   let filled = roundMoney(sum(invoices))
   let guard = 0
@@ -118,76 +126,58 @@ export function allocateInvoicesToDays(input: {
   )
   const maxAttempts = OPERATING_POLICY_V1.network.maxAttemptsPerOperatingDay
   const stageCeiling = OPERATING_POLICY_V1.newCard.stageB.maxAttemptZar
+  /** Front-load up to two Moza seven-clean ladders (14) before mature fill. */
+  const mozaRampCap = OPERATING_POLICY_V1.newCard.stageB.maxCleanOutcomesExclusive * 2
   const staged: number[] = []
   const mature: number[] = []
   for (const amount of input.invoices) {
-    if (amount <= stageCeiling + 1e-9 && staged.length < OPERATING_POLICY_V1.newCard.stageB.maxCleanOutcomesExclusive) {
+    if (amount <= stageCeiling + 1e-9 && staged.length < mozaRampCap) {
       staged.push(amount)
     } else {
       mature.push(amount)
     }
   }
 
-  // Spread stage A/B invoices across early operating days (≤2/day) so Econometrica can ramp
-  // without dumping five small payments onto Day 1.
-  let stageIdx = 0
-  for (const day of weekdays) {
-    if (stageIdx >= staged.length) break
-    if (day > OPERATING_POLICY_V1.network.coldNetworkDays + 4) break
-    const ceiling = dayNetworkCeilingZar(day)
-    const dayTickets = book[day]!
-    let daySum = 0
-    let placed = 0
-    while (stageIdx < staged.length && placed < 2 && dayTickets.length < maxAttempts) {
-      const next = staged[stageIdx]!
-      if (daySum + next > ceiling + 1e-9) break
-      dayTickets.push(ticket(next, day, dayTickets.length))
-      daySum = roundMoney(daySum + next)
-      stageIdx += 1
-      placed += 1
-    }
-  }
-  // Largest mature first so R14k-class invoices claim day capacity before smaller ones fill the gaps.
-  const queue = [...staged.slice(stageIdx), ...[...mature].sort((a, b) => b - a)]
+  // Preserve draw order — never largest-first (that produced a descending R13.6k→R9.5k calendar).
+  // Keep any staged (card cold-start) invoices at the front of the queue.
+  const queue = [...staged, ...mature]
   const unscheduled: number[] = []
 
-  // Fill each day under its ceiling. Skip a head invoice that will not fit and try a smaller one
-  // on the same day (residual continues later — never split, never pad a third payment for pattern).
-  for (const day of weekdays) {
-    if (!queue.length) break
-    const ceiling = dayNetworkCeilingZar(day)
-    const dayTickets = book[day]!
-    let daySum = roundMoney(sum(dayTickets.map((t) => t.amount)))
-    let guarded = 0
-    while (queue.length && dayTickets.length < maxAttempts && guarded < queue.length) {
-      const next = queue[0]!
-      if (daySum + next > ceiling + 1e-9) {
-        queue.push(queue.shift()!)
-        guarded += 1
-        continue
-      }
-      queue.shift()
-      dayTickets.push(ticket(next, day, dayTickets.length))
-      daySum = roundMoney(daySum + next)
-      guarded = 0
-    }
+  /**
+   * Spread across the full horizon: mostly two/day; enough threes for residual.
+   * Soft-cap only — never pad a day to force a pattern.
+   */
+  const caps = new Map<number, number>()
+  for (const day of weekdays) caps.set(day, 2)
+  const threeNeed = Math.max(0, queue.length - 2 * weekdays.length)
+  const established = weekdays.filter((d) => d > OPERATING_POLICY_V1.network.coldNetworkDays)
+  for (let i = 0; i < threeNeed && i < established.length; i++) {
+    const idx = Math.floor(((i + 0.5) * established.length) / Math.max(1, threeNeed))
+    caps.set(established[Math.min(established.length - 1, idx)]!, 3)
   }
 
-  // Gap fill: place leftovers into earlier residual capacity (whole invoice only — never split).
   while (queue.length) {
-    const next = queue[0]!
-    let placed = false
-    for (const day of weekdays) {
-      const dayTickets = book[day]!
-      if (dayTickets.length >= maxAttempts) continue
-      const daySum = roundMoney(sum(dayTickets.map((t) => t.amount)))
-      if (daySum + next > dayNetworkCeilingZar(day) + 1e-9) continue
-      queue.shift()
-      dayTickets.push(ticket(next, day, dayTickets.length))
-      placed = true
-      break
+    const next = queue.shift()!
+    let bestDay: number | null = null
+    let bestRoom = -1
+    for (let pass = 0; pass < 2 && bestDay == null; pass++) {
+      for (const day of weekdays) {
+        const dayTickets = book[day]!
+        const limit = pass === 0 ? Math.min(maxAttempts, caps.get(day) ?? 2) : maxAttempts
+        if (dayTickets.length >= limit) continue
+        const room = dayNetworkCeilingZar(day) - roundMoney(sum(dayTickets.map((t) => t.amount)))
+        if (room + 1e-9 < next) continue
+        if (room > bestRoom) {
+          bestRoom = room
+          bestDay = day
+        }
+      }
     }
-    if (!placed) unscheduled.push(queue.shift()!)
+    if (bestDay == null) {
+      unscheduled.push(next)
+      continue
+    }
+    book[bestDay]!.push(ticket(next, bestDay, book[bestDay]!.length))
   }
 
   for (const day of weekdays) {
@@ -219,7 +209,9 @@ export function buildAbsorbingPaymentBook(input: {
     const invoices = generateModeledInvoiceStream({
       scenario: input.scenario,
       authorisedZar: authorised,
+      // Econometrica is fully eligible; staged amounts are Moza card cold-start inventory only.
       includeColdRouteStages: true,
+      mozaColdStartLadders: 2,
     })
     const { book } = allocateInvoicesToDays({
       invoices,

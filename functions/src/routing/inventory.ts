@@ -58,6 +58,22 @@ export const DEFAULT_CARDS: NamedResource[] = [
     mozBankId: 'fnb',
     aliases: ['kayman', 'kayman fnb', 'cayman'],
   },
+  {
+    id: 7,
+    name: 'Wolf Moza',
+    shortName: 'WolfMoza',
+    mozBank: 'Moza',
+    mozBankId: 'moza',
+    aliases: ['wolf moza', 'wolfmoza', 'moza wolf'],
+  },
+  {
+    id: 8,
+    name: 'Goblin Moza',
+    shortName: 'GoblinMoza',
+    mozBank: 'Moza',
+    mozBankId: 'moza',
+    aliases: ['goblin moza', 'goblinmoza', 'moza goblin'],
+  },
 ]
 
 export const DEFAULT_MACHINES: NamedResource[] = [

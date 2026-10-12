@@ -16,6 +16,12 @@ export type UnsignedSlot = {
   amountZar: number
   attemptMin: number
   timeSast: string
+  /**
+   * Payer family that owns this invoice. When set, only cards from the payer
+   * registry for that family are eligible. When omitted, any modeled card may route
+   * (legacy reference fixtures).
+   */
+  payerFamilyId?: import('./payerCardRegistry').PayerFamilyId
 }
 
 function money(n: number) {

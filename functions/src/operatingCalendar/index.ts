@@ -27,6 +27,19 @@ export {
 export { MONTH1_OCTOBER_2026, MONTH2_NOVEMBER_2026, type DayTarget } from './monthFixtures'
 export { buildUnsignedMonthBook, buildDayAmounts, buildDayTimes, type UnsignedSlot } from './paymentBook'
 export { allocateRoutes, cardsForMonth, type PlannedPayment } from './allocateRoutes'
+export { allocateDeskRoutes, cardsForOctoberDesk } from './allocateDeskRoutes'
+export {
+  PAYER_FAMILIES,
+  OCTOBER_ACTIVE_PAYER_FAMILIES,
+  EXTERNAL_DAILY_CAPACITY_MZN,
+  FAMILY_CARD_SPLIT,
+  eligibleCardsForPayer,
+  payerFamilyOf,
+  payerFamilyOfCard,
+  isMozaCard,
+  type PayerFamilyId,
+  type PayerFamilyRecord,
+} from './payerCardRegistry'
 export { validateOperatingCalendar, computeLiquidity, type GateResult } from './validateCalendar'
 export {
   emptyContinuityState,

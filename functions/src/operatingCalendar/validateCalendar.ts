@@ -140,7 +140,24 @@ export function validateOperatingCalendar(params: {
     const shareN = list.length / totalN
     if (shareV > policy.pos.maxShareValue + 1e-9 || shareN > policy.pos.maxShareCount + 1e-9) posOk = false
   }
-  push('pos_limits', posOk, 'daily+spacing+35% share')
+  // Rolling-7 POS concentration (count + value) ≤ 35% once the window is thick enough.
+  for (const d of days) {
+    const asOf = Date.parse(d.date + 'T12:00:00Z')
+    const cut = asOf - 6 * 86400000
+    const window = payments.filter(
+      (p) => Date.parse(p.date + 'T12:00:00Z') >= cut && p.date <= d.date
+    )
+    if (window.length < 10) continue
+    const wV = money(window.reduce((s, p) => s + p.amountZar, 0))
+    for (const term of REFERENCE_TERMINALS) {
+      const list = window.filter((p) => p.terminalId === term.terminalId)
+      if (list.length / window.length > policy.pos.maxShareCount + 1e-9) posOk = false
+      if (wV > 0 && list.reduce((s, p) => s + p.amountZar, 0) / wV > policy.pos.maxShareValue + 1e-9) {
+        posOk = false
+      }
+    }
+  }
+  push('pos_limits', posOk, 'daily+spacing+35% month+rolling7')
 
   // 8 acquirer — Capitec-only ceiling. FNB is residual majority; never apply maxShare to it.
   const minority = policy.acquirer.minorityAcquirerId
@@ -169,11 +186,13 @@ export function validateOperatingCalendar(params: {
   const maxBucket = Math.max(...buckets.values(), 0) / totalV
   push('time_bucket_month', maxBucket <= policy.timing.maxMonthBucketShareOfValue + 1e-9, `maxBucketShare=${(maxBucket * 100).toFixed(1)}%`)
 
-  // 10 continuity
+  // 10 continuity — Moza cold-start cards are exempt until ≥ stageB cleans.
   let contOk = true
   const cards = [...new Set(payments.map((p) => p.cardId))]
   for (const cardId of cards) {
     const mine = payments.filter((p) => p.cardId === cardId)
+    const isMoza = cardId === 'WolfMoza' || cardId === 'GoblinMoza'
+    if (isMoza && mine.length < policy.newCard.stageB.maxCleanOutcomesExclusive) continue
     const terms = new Set(mine.map((p) => p.terminalId))
     const prins = new Set(mine.map((p) => p.merchantPrincipalId))
     const acqs = new Set(mine.map((p) => p.acquirerBankId))
@@ -213,9 +232,18 @@ export function validateOperatingCalendar(params: {
     'BricsFNB/BricsCapitec -> lemon_economics'
   )
 
-  // Econometrica live ineligible
+  // Econometrica: require MID before live-executable payments
+  const ecmTerm = REFERENCE_TERMINALS.find((t) => t.terminalId === 'Econometrica')
   const ecmLive = payments.filter((p) => p.terminalId === 'Econometrica' && p.liveExecutable)
-  push('econometrica_not_live_without_mid', ecmLive.length === 0, 'modeled only until MID recorded')
+  if (ecmTerm?.liveExecutable && ecmTerm.liveMerchantId) {
+    push(
+      'econometrica_mid_recorded',
+      true,
+      `MID=${ecmTerm.liveMerchantId} TID=${ecmTerm.liveTerminalId || 'n/a'}`
+    )
+  } else {
+    push('econometrica_not_live_without_mid', ecmLive.length === 0, 'modeled only until MID recorded')
+  }
 
   // totals
   push('month_total', Math.abs(totalV - params.expectedTotalZar) < 0.05, `total=${totalV}`)

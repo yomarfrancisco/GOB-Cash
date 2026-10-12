@@ -339,6 +339,12 @@ export function allocateRoutes(params: {
 }
 
 export function cardsForMonth(month: 1 | 2): CardRecord[] {
-  if (month === 1) return [...REFERENCE_CARDS_M1]
-  return [...REFERENCE_CARDS_M1, NEW_CARD_M2]
+  const base = REFERENCE_CARDS_M1.filter(
+    (c) => c.cardId !== 'WolfMoza' && c.cardId !== 'GoblinMoza'
+  )
+  if (month === 1) return base.filter((c) => c.cardId !== 'Kayman')
+  return [...base, NEW_CARD_M2]
 }
+
+/** October desk mesh — use allocateDeskRoutes with these cards. */
+export { cardsForOctoberDesk } from './allocateDeskRoutes'

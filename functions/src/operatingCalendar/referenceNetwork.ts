@@ -1,6 +1,6 @@
 /**
  * Reference network for OperatingPolicyV1.
- * Econometrica is model-eligible throughout Month 1/2 but live-ineligible until a real Capitec MID is recorded.
+ * Econometrica (machine 5) is live-executable once its Capitec MID/TID are on the rail register.
  */
 import type { AcquirerId, CardId, MerchantPrincipalId, TerminalId } from './operatingPolicyV1'
 import { acquirerOfTerminal, merchantPrincipalOfTerminal } from './operatingPolicyV1'
@@ -10,10 +10,12 @@ export type TerminalRecord = {
   terminalId: TerminalId
   merchantPrincipalId: MerchantPrincipalId
   acquirerBankId: AcquirerId
-  /** Production machine id when mapped (1–4 live rails; 5 = Econometrica model-only). */
+  /** Production machine id when mapped (1–5 live rails). */
   machineId: number
   /** Live execution requires a non-empty real merchant MID on the acquirer. */
   liveMerchantId: string | null
+  /** Acquirer terminal / TID when recorded. */
+  liveTerminalId: string | null
   modeledEligible: boolean
   liveExecutable: boolean
   legalName: string
@@ -32,6 +34,9 @@ export const REFERENCE_CARDS_M1: CardRecord[] = [
   { cardId: 'Wolf', issuerBankId: 'BCI', inventoryCardId: 4 },
   { cardId: 'Goblin', issuerBankId: 'BCI', inventoryCardId: 5 },
   { cardId: 'Kayman', issuerBankId: 'FNB Mozambique', inventoryCardId: 6 },
+  /** Equivalent-capacity Moza twins for Wolf / Goblin payer families (desk ids 7–8). */
+  { cardId: 'WolfMoza', issuerBankId: 'Moza', inventoryCardId: 7 },
+  { cardId: 'GoblinMoza', issuerBankId: 'Moza', inventoryCardId: 8 },
 ]
 
 export const NEW_CARD_M2: CardRecord = {
@@ -40,15 +45,25 @@ export const NEW_CARD_M2: CardRecord = {
   inventoryCardId: null,
 }
 
+function railForMachine(machineId: number) {
+  return (
+    RAILS.find((r) => {
+      if (machineId === 1) return r.id === 'lemon_fnb'
+      if (machineId === 2) return r.id === 'imani_fnb'
+      if (machineId === 3) return r.id === 'lemon_capitec'
+      if (machineId === 4) return r.id === 'wolf_fnb'
+      if (machineId === 5) return r.id === 'econometrica_capitec'
+      return false
+    }) || null
+  )
+}
+
 function liveMidForMachine(machineId: number): string | null {
-  const rail = RAILS.find((r) => {
-    if (machineId === 1) return r.id === 'lemon_fnb'
-    if (machineId === 2) return r.id === 'imani_fnb'
-    if (machineId === 3) return r.id === 'lemon_capitec'
-    if (machineId === 4) return r.id === 'wolf_fnb'
-    return false
-  })
-  return rail?.merchantId || null
+  return railForMachine(machineId)?.merchantId || null
+}
+
+function liveTidForMachine(machineId: number): string | null {
+  return railForMachine(machineId)?.terminalId || null
 }
 
 export const REFERENCE_TERMINALS: TerminalRecord[] = [
@@ -58,6 +73,7 @@ export const REFERENCE_TERMINALS: TerminalRecord[] = [
     acquirerBankId: 'fnb',
     machineId: 4,
     liveMerchantId: liveMidForMachine(4),
+    liveTerminalId: liveTidForMachine(4),
     modeledEligible: true,
     liveExecutable: Boolean(liveMidForMachine(4)),
     legalName: COMPANIES.wolf_and_sons?.legalName || 'Wolf and Sons',
@@ -68,6 +84,7 @@ export const REFERENCE_TERMINALS: TerminalRecord[] = [
     acquirerBankId: 'fnb',
     machineId: 1,
     liveMerchantId: liveMidForMachine(1),
+    liveTerminalId: liveTidForMachine(1),
     modeledEligible: true,
     liveExecutable: Boolean(liveMidForMachine(1)),
     legalName: COMPANIES.lemon_economics?.legalName || 'Lemon Economics',
@@ -78,6 +95,7 @@ export const REFERENCE_TERMINALS: TerminalRecord[] = [
     acquirerBankId: 'capitec',
     machineId: 3,
     liveMerchantId: liveMidForMachine(3),
+    liveTerminalId: liveTidForMachine(3),
     modeledEligible: true,
     liveExecutable: Boolean(liveMidForMachine(3)),
     legalName: COMPANIES.lemon_economics?.legalName || 'Lemon Economics',
@@ -88,6 +106,7 @@ export const REFERENCE_TERMINALS: TerminalRecord[] = [
     acquirerBankId: 'fnb',
     machineId: 2,
     liveMerchantId: liveMidForMachine(2),
+    liveTerminalId: liveTidForMachine(2),
     modeledEligible: true,
     liveExecutable: Boolean(liveMidForMachine(2)),
     legalName: COMPANIES.imani?.legalName || 'Imani Beauty Distributors',
@@ -97,11 +116,11 @@ export const REFERENCE_TERMINALS: TerminalRecord[] = [
     merchantPrincipalId: 'econometrica',
     acquirerBankId: 'capitec',
     machineId: 5,
-    /** Do not invent a MID — live execution remains blocked until recorded. */
-    liveMerchantId: null,
+    liveMerchantId: liveMidForMachine(5),
+    liveTerminalId: liveTidForMachine(5),
     modeledEligible: true,
-    liveExecutable: false,
-    legalName: 'Econometrica (Pty) Ltd',
+    liveExecutable: Boolean(liveMidForMachine(5)),
+    legalName: COMPANIES.econometrica?.legalName || 'Econometrica',
   },
 ]
 

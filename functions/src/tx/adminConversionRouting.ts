@@ -169,6 +169,7 @@ import {
   formatDeskOpsLines,
   hashPayload,
   merchantPrincipalOfTerminal,
+  terminalById,
   terminalIdFromMachineId,
   type ContinuityStateV1,
   type ConfirmInstruction,
@@ -836,10 +837,13 @@ function assertConfirmTimingAndPolicy(params: {
     const terminalId = terminalIdFromMachineId(row.machineId)
     if (!terminalId) continue
     if (terminalId === 'Econometrica') {
-      throw new functions.https.HttpsError(
-        'failed-precondition',
-        'Econometrica is model-eligible but not live-executable until its real Capitec merchant ID is recorded'
-      )
+      const ecm = terminalById('Econometrica')
+      if (!ecm.liveExecutable || !ecm.liveMerchantId) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Econometrica is model-eligible but not live-executable until its real Capitec merchant ID is recorded'
+        )
+      }
     }
     const principal = merchantPrincipalOfTerminal(terminalId)
     const instruction: ConfirmInstruction = {
@@ -853,7 +857,8 @@ function assertConfirmTimingAndPolicy(params: {
       merchantPrincipalId: principal,
       invoiceIssuerId: principal,
       terminalId,
-      acquirerBankId: terminalId === 'BricsCapitec' ? 'capitec' : 'fnb',
+      acquirerBankId:
+        terminalId === 'BricsCapitec' || terminalId === 'Econometrica' ? 'capitec' : 'fnb',
       zarRecipientId: principal,
       amountZar: row.amount,
       legalEligibilityRef: `DESK-ELIG-${row.cardId}-${row.machineId}`,

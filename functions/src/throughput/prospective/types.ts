@@ -3,8 +3,10 @@ import type { CoreTicket, SimState } from "../model/types";
 export const PROSPECTIVE_QUOTE_MZN_PER_ZAR = 4.6;
 export const PROSPECTIVE_HORIZON_DAYS = 14;
 export const PROSPECTIVE_SEED = 21;
-export const PROSPECTIVE_INITIAL_CARDS = 5;
-export const PROSPECTIVE_INITIAL_POS = 4;
+/** Five payer families + Wolf Moza + Goblin Moza (equivalent-capacity twins). */
+export const PROSPECTIVE_INITIAL_CARDS = 7;
+/** Five live POS including Econometrica Capitec. */
+export const PROSPECTIVE_INITIAL_POS = 5;
 /** Genuine-ticket floor for the live desk. Typical size is lifted to this when it would sit below. */
 export const PROSPECTIVE_TICKET_MIN_ZAR = 3_000;
 

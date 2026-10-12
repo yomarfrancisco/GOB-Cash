@@ -12,14 +12,17 @@ import {
 } from './register'
 
 describe('settlement register', () => {
-  it('maps four rails to Lemon, Imani, Lemon Capitec and Wolf', () => {
+  it('maps five rails including Econometrica Capitec', () => {
     assert.equal(railByMachineId(1)?.companyId, 'lemon_economics')
     assert.equal(railByMachineId(2)?.companyId, 'imani')
     assert.equal(railByMachineId(3)?.companyId, 'lemon_economics')
     assert.equal(railByMachineId(4)?.companyId, 'wolf_and_sons')
+    assert.equal(railByMachineId(5)?.companyId, 'econometrica')
     assert.equal(railByMerchantId('150000001004090')?.id, 'lemon_fnb')
     assert.equal(railByMerchantId('100000002904331')?.descriptor, 'WandSons')
     assert.equal(railByMerchantId('000000103951778')?.acquirer, 'capitec')
+    assert.equal(railByMerchantId('000000104294327')?.id, 'econometrica_capitec')
+    assert.equal(railByMachineId(5)?.terminalId, 'NN223576')
   })
 
   it('resolves legacy BRICS AI descriptors to Lemon Economics', () => {

@@ -43,11 +43,40 @@ export const OPERATING_POLICY_V1 = {
     coldPosNetworkDays: 7,
     maxValuePerDayZar: 15_000,
     samePosSpacingMinutes: 120,
-    /** Apply over rolling 7 calendar days and over the calendar month (§4.4). */
+    /**
+     * Calendar-month concentration for every live, legally eligible, operationally clean POS.
+     * Apply over rolling 7 calendar days and over the calendar month (§4.4).
+     */
+    minShareCount: 0.15,
+    minShareValue: 0.15,
     maxShareCount: 0.35,
     maxShareValue: 0.35,
     shareMeasurementWindows: ['rolling_7d', 'calendar_month'] as const,
   },
+
+  /** Merchant-principal month share — terminals of the same principal aggregate. */
+  principal: {
+    maxShareCount: 0.35,
+    maxShareValue: 0.35,
+  },
+
+  /**
+   * Month planning targets for live POS (count and value). Floors remain minShare*;
+   * ceilings remain maxShare*. Targets guide scoring; floors/ceilings are hard.
+   */
+  posPlanningTargets: {
+    WolfFNB: 0.25,
+    Imani: 0.24,
+    BricsFNB: 0.2,
+    Econometrica: 0.16,
+    BricsCapitec: 0.15,
+  } as const,
+
+  /**
+   * Econometrica Capitec activation — no payments dated before this ISO day.
+   * MID/TID are live; terminal is fully eligible at the R15k ceiling (no POS staging).
+   */
+  econometricaActivatedOn: '2026-10-01',
 
   acquirer: {
     /**
@@ -135,7 +164,16 @@ export type MerchantPrincipalId = 'wolf_and_sons' | 'lemon_economics' | 'imani' 
 
 export type TerminalId = 'WolfFNB' | 'BricsFNB' | 'BricsCapitec' | 'Imani' | 'Econometrica'
 
-export type CardId = 'BRICS' | 'Ginav' | 'Goblin' | 'Kayman' | 'Vidrotec' | 'Wolf' | 'NEW_CARD_M2'
+export type CardId =
+  | 'BRICS'
+  | 'Ginav'
+  | 'Goblin'
+  | 'Kayman'
+  | 'Vidrotec'
+  | 'Wolf'
+  | 'WolfMoza'
+  | 'GoblinMoza'
+  | 'NEW_CARD_M2'
 
 export type NetworkColdState = 'cold_start' | 'established'
 

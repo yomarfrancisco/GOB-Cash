@@ -68,7 +68,12 @@ describe('OperatingPolicyV1 reference months', () => {
     assert.equal(OPERATING_POLICY_V1.payment.maxAmountZar, 15_000)
     assert.ok(cal.payments.every((p) => p.amountZar <= OPERATING_POLICY_V1.payment.maxAmountZar))
     assert.ok(cal.payments.some((p) => p.amountZar > 8_000), 'R15k ceiling should allow invoices above the prior R8k max')
-    assert.ok(cal.payments.every((p) => p.terminalId !== 'Econometrica' || p.liveExecutable === false))
+    const ecm = REFERENCE_TERMINALS.find((t) => t.terminalId === 'Econometrica')!
+    assert.ok(
+      cal.payments.every(
+        (p) => p.terminalId !== 'Econometrica' || p.liveExecutable === ecm.liveExecutable
+      )
+    )
     // deterministic replay
     const again = planReferenceMonth(1)
     assert.equal(again.outputHash, cal.outputHash)
@@ -115,13 +120,14 @@ describe('OperatingPolicyV1 constraints', () => {
     }
   })
 
-  it('marks Econometrica modeled-eligible but live-ineligible without MID', () => {
+  it('marks Econometrica live-executable once Capitec MID/TID are recorded', () => {
     const ecm = REFERENCE_TERMINALS.find((t) => t.terminalId === 'Econometrica')!
     assert.equal(ecm.modeledEligible, true)
-    assert.equal(ecm.liveExecutable, false)
-    assert.equal(ecm.liveMerchantId, null)
-    assert.throws(() => assertLiveExecutable('Econometrica'))
-    assert.ok(modeledEligiblePairs().some((p) => p.terminalId === 'Econometrica' && !p.liveExecutable))
+    assert.equal(ecm.liveMerchantId, '000000104294327')
+    assert.equal(ecm.liveTerminalId, 'NN223576')
+    assert.equal(ecm.liveExecutable, true)
+    assert.doesNotThrow(() => assertLiveExecutable('Econometrica'))
+    assert.ok(modeledEligiblePairs().some((p) => p.terminalId === 'Econometrica' && p.liveExecutable))
   })
 
   it('enforces card and POS spacing of at least 120 minutes in attempt schedule', () => {

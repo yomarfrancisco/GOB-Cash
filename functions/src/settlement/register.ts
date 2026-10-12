@@ -13,7 +13,7 @@ export type PartyKind = 'pos_merchant' | 'moz_buyer' | 'upstream_supplier'
 
 export type AcquirerId = 'fnb' | 'capitec'
 
-export type RailId = 'lemon_fnb' | 'imani_fnb' | 'wolf_fnb' | 'lemon_capitec'
+export type RailId = 'lemon_fnb' | 'imani_fnb' | 'wolf_fnb' | 'lemon_capitec' | 'econometrica_capitec'
 
 export type CompanyRecord = {
   id: string
@@ -90,6 +90,21 @@ export const COMPANIES: Record<string, CompanyRecord> = {
     supplyCategory: 'Premium hair, wigs and beauty supplies (wholesale).',
     logoAsset: 'imani-beauty.png',
     invoicePrefix: 'IBD',
+  },
+  econometrica: {
+    id: 'econometrica',
+    kind: 'pos_merchant',
+    legalName: 'Econometrica',
+    tradingAs: 'ECONOMETRICA',
+    registrationNumber: null,
+    taxNumber: null,
+    nuit: null,
+    addressLines: [],
+    country: 'ZA',
+    relatedPartyNote: 'Capitec acquiring rail (machine 5); live MID/TID recorded from device.',
+    supplyCategory: 'Professional and analytical services.',
+    logoAsset: null,
+    invoicePrefix: 'ECM',
   },
   wolf_and_sons: {
     id: 'wolf_and_sons',
@@ -214,7 +229,7 @@ export const COMPANIES: Record<string, CompanyRecord> = {
   },
 }
 
-/** Machine ids stay 1–4 for the live kernel. Rail 4 is Wolf FNB (was Capitec). */
+/** Machine ids 1–5 for the live kernel. Rail 5 is Econometrica Capitec. */
 export const RAILS: RailRecord[] = [
   {
     id: 'lemon_fnb',
@@ -256,6 +271,18 @@ export const RAILS: RailRecord[] = [
     descriptor: 'WandSons',
     companyId: 'wolf_and_sons',
     zarAvailableRule: 'fnb_gross_settlement',
+  },
+  {
+    id: 'econometrica_capitec',
+    machineId: 5,
+    acquirer: 'capitec',
+    /** Card acceptor ID from device. */
+    merchantId: '000000104294327',
+    /** Terminal ID from device (serial 9310223576). */
+    terminalId: 'NN223576',
+    descriptor: 'ECONOMETRICA',
+    companyId: 'econometrica',
+    zarAvailableRule: 'capitec_net_payout',
   },
 ]
 
@@ -322,6 +349,24 @@ export const BUYER_CARDS: BuyerCardRecord[] = [
     cardBin6: '478705',
     cardLast4: '0000',
     masked: '478705******0000',
+  },
+  {
+    deskCardId: 7,
+    shortName: 'WolfMoza',
+    companyId: 'wolf_digital',
+    issuingBank: 'Moza Banco',
+    cardBin6: '000000',
+    cardLast4: '0007',
+    masked: '000000******0007',
+  },
+  {
+    deskCardId: 8,
+    shortName: 'GoblinMoza',
+    companyId: 'goblin',
+    issuingBank: 'Moza Banco',
+    cardBin6: '000000',
+    cardLast4: '0008',
+    masked: '000000******0008',
   },
 ]
 

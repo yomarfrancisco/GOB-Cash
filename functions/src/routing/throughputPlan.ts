@@ -16,7 +16,8 @@ import {
 
 export const KERNEL_SEED = WINDOW_SEED
 /** Persisted on each desk run. Ensure starts a new window when this does not match. */
-export const ROUTING_ENGINE_ID = 'absorbing-tickets-v6-month619-tri'
+/** Bump when POS/card mesh or month book contract changes (forces fresh window). */
+export const ROUTING_ENGINE_ID = 'absorbing-tickets-v7-moza-ecm-live'
 
 export { DESK_MONTH_HORIZON_DAYS, DESK_MONTH_OPERATING_DAYS, DESK_MONTH_TARGET_ZAR }
 
