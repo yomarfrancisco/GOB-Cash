@@ -61,7 +61,8 @@ describe('OperatingPolicyV1 reference months', () => {
     assert.equal(cal.paymentCount, MONTH1_OCTOBER_2026.payments)
     assert.equal(cal.totalZar, 660_000)
     assert.equal(cal.operatingDayCount, 27)
-    assert.equal(new Set(cal.payments.map((p) => p.cardId)).size, 6)
+    // Month 1 mesh excludes Kayman (and Moza twins); five established payers.
+    assert.equal(new Set(cal.payments.map((p) => p.cardId)).size, 5)
     assert.equal(new Set(cal.payments.map((p) => p.terminalId)).size, 5)
     assert.equal(new Set(cal.payments.map((p) => p.merchantPrincipalId)).size, 4)
     assert.equal(new Set(cal.payments.map((p) => p.acquirerBankId)).size, 2)

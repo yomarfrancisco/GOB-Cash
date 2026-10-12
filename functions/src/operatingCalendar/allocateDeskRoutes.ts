@@ -16,6 +16,11 @@ import {
   payerFamilyOfCard,
   type PayerFamilyId,
 } from './payerCardRegistry'
+import {
+  assertFinalDeskLedger,
+  assignmentPreservesFinalCountBands,
+  repairRolling7PosConcentration,
+} from './finalLedgerConstraints'
 
 export type PlannedPayment = UnsignedSlot & {
   invoiceId: string
@@ -76,11 +81,25 @@ export function allocateDeskRoutes(params: {
    * Reference fixtures keep modeled-eligible terminals even if MID is pending.
    */
   requireLiveExecutable?: boolean
+  /**
+   * A/B observation mode: ignore payer-family exclusivity and Moza stage amount
+   * caps; chase roughly even card count/value shares. POS/principal/acquirer
+   * month bands still bind on the finished ledger.
+   */
+  equitableCardShares?: boolean
+  /**
+   * When true with requireLiveExecutable, still run R7 repair but skip the
+   * fail-closed final ledger assert (caller must assert after any post-repair).
+   */
+  skipFinalLedgerAssert?: boolean
 }): PlannedPayment[] {
   const { slots, networkState, cards, monthLabel } = params
+  const equitable = !!params.equitableCardShares
   const policy = OPERATING_POLICY_V1
   const terminals = REFERENCE_TERMINALS.filter((t) => t.modeledEligible).map((t) => t.terminalId)
   const cardIds = cards.map((c) => c.cardId)
+  const cardTargetN = Math.max(1, Math.round((slots.length + (params.sealedPayments?.length || 0)) / Math.max(1, cardIds.length)))
+  const cardTargetShare = 1 / Math.max(1, cardIds.length)
   const liveCleanPos = REFERENCE_TERMINALS.filter((t) => t.modeledEligible && t.liveExecutable).map(
     (t) => t.terminalId
   )
@@ -157,7 +176,8 @@ export function allocateDeskRoutes(params: {
       if (clean < policy.newCard.stageB.maxCleanOutcomesExclusive) return policy.newCard.stageB.attemptsPerDay
       return policy.card.establishedAttemptsPerDay
     }
-    if (isMozaCard(cardId)) {
+    // Equitable A/B mode: Moza uses the same daily attempt band as established cards.
+    if (!equitable && isMozaCard(cardId)) {
       const clean = mozaStageClean(cardId)
       if (clean < policy.newCard.stageA.maxCleanOutcomesExclusive) return policy.newCard.stageA.attemptsPerDay
       if (clean < policy.newCard.stageB.maxCleanOutcomesExclusive) return policy.newCard.stageB.attemptsPerDay
@@ -192,7 +212,8 @@ export function allocateDeskRoutes(params: {
         max = Math.min(max, policy.newCard.stageB.maxAttemptZar)
     }
     // Moza cold-start only — after graduation, same R15k ceiling as BCI.
-    if (isMozaCard(cardId)) {
+    // Equitable A/B mode lifts Moza stage caps so every card can take mature invoices.
+    if (!equitable && isMozaCard(cardId)) {
       const clean = mozaStageClean(cardId)
       if (clean < policy.newCard.stageA.maxCleanOutcomesExclusive) max = Math.min(max, policy.newCard.stageA.maxAttemptZar)
       else if (clean < policy.newCard.stageB.maxCleanOutcomesExclusive)
@@ -209,6 +230,8 @@ export function allocateDeskRoutes(params: {
   }
 
   function cardsForSlot(slot: UnsignedSlot): CardId[] {
+    // Equitable A/B: every live card may take any invoice (no payer-family lock).
+    if (equitable) return cardIds
     if (slot.payerFamilyId) {
       return eligibleCardsForPayer(slot.payerFamilyId).filter((c) => cardIds.includes(c))
     }
@@ -265,23 +288,36 @@ export function allocateDeskRoutes(params: {
     const famN = fam ? familyUses.get(fam.payerFamilyId) || 0 : cardN
     const activeFamilies = Math.max(1, new Set([...familyUses.keys()]).size || 5)
     const famTarget = Math.max(1, Math.round((slots.length + payments.length) / activeFamilies))
+    const cardV = payments.filter((p) => p.cardId === cardId).reduce((s, p) => s + p.amountZar, 0)
+    const cardShareV = cardV / totalV
+    const cardShareN = cardN / totalN
 
-    // Family demand first (do not double-count Moza as extra payer demand).
-    let s = Math.abs(famN - famTarget) * 80
-    s += ctN * 900 + Math.abs(shareV - ideal) * 4000 + Math.abs(shareN - ideal) * 3000
-
-    // Within-family 40–60% BCI/Moza when both cards are live (value + count).
-    if (fam && fam.cardIds.length >= 2) {
-      const aN = cardUses.get(fam.cardIds[0]!) || 0
-      const bN = cardUses.get(fam.cardIds[1]!) || 0
-      const famTotalN = Math.max(1, aN + bN)
-      const thisN = cardUses.get(cardId) || 0
-      const thisShareN = thisN / famTotalN
-      if (thisShareN < FAMILY_CARD_SPLIT.minShare) s -= (FAMILY_CARD_SPLIT.minShare - thisShareN) * 12000
-      if (thisShareN > FAMILY_CARD_SPLIT.maxShare) s += (thisShareN - FAMILY_CARD_SPLIT.maxShare) * 12000
-      if (isMozaCard(cardId) && thisN === 0) s -= 800
+    let s = 0
+    if (equitable) {
+      // Card equity first — not family exclusivity. Soft band around 1/N cards.
+      s += Math.abs(cardN - cardTargetN) * 220
+      s += Math.abs(cardShareV - cardTargetShare) * 18000
+      s += Math.abs(cardShareN - cardTargetShare) * 12000
+      if (cardN === 0) s -= 1200
+      s += ctN * 400 + Math.abs(shareV - ideal) * 4000 + Math.abs(shareN - ideal) * 3000
     } else {
-      s += Math.abs(cardN - Math.round(slots.length / Math.max(1, cardIds.length))) * 25
+      // Family demand first (do not double-count Moza as extra payer demand).
+      s = Math.abs(famN - famTarget) * 80
+      s += ctN * 900 + Math.abs(shareV - ideal) * 4000 + Math.abs(shareN - ideal) * 3000
+
+      // Within-family 40–60% BCI/Moza when both cards are live (value + count).
+      if (fam && fam.cardIds.length >= 2) {
+        const aN = cardUses.get(fam.cardIds[0]!) || 0
+        const bN = cardUses.get(fam.cardIds[1]!) || 0
+        const famTotalN = Math.max(1, aN + bN)
+        const thisN = cardUses.get(cardId) || 0
+        const thisShareN = thisN / famTotalN
+        if (thisShareN < FAMILY_CARD_SPLIT.minShare) s -= (FAMILY_CARD_SPLIT.minShare - thisShareN) * 12000
+        if (thisShareN > FAMILY_CARD_SPLIT.maxShare) s += (thisShareN - FAMILY_CARD_SPLIT.maxShare) * 12000
+        if (isMozaCard(cardId) && thisN === 0) s -= 800
+      } else {
+        s += Math.abs(cardN - Math.round(slots.length / Math.max(1, cardIds.length))) * 25
+      }
     }
 
     if (liveCleanPos.includes(terminalId)) {
@@ -325,7 +361,7 @@ export function allocateDeskRoutes(params: {
       if (shareN < policy.pos.minShareCount) s -= (policy.pos.minShareCount - shareN) * 18000
     }
 
-    if (isMozaCard(cardId)) {
+    if (!equitable && isMozaCard(cardId)) {
       const clean = mozaStageClean(cardId)
       if (clean < policy.newCard.stageB.maxCleanOutcomesExclusive) {
         if (amount <= maxAttemptZar(cardId, terminalId)) s -= 200
@@ -343,37 +379,36 @@ export function allocateDeskRoutes(params: {
     return s
   }
 
-  function feasible(
+  function rejectReason(
     slot: UnsignedSlot,
     cardId: CardId,
     terminalId: TerminalId,
     networkDay1: number
-  ): boolean {
+  ): string | null {
     const amount = slot.amountZar
-    if (amount > maxAttemptZar(cardId, terminalId)) return false
-    if (amount > policy.payment.maxAmountZar) return false
-
-    if (terminalId === 'Econometrica' && slot.date < ecmActivatedOn) return false
+    if (amount > maxAttemptZar(cardId, terminalId)) return 'stageCap'
+    if (amount > policy.payment.maxAmountZar) return 'maxAmount'
+    if (terminalId === 'Econometrica' && slot.date < ecmActivatedOn) return 'ecmActivation'
     const term = REFERENCE_TERMINALS.find((t) => t.terminalId === terminalId)
-    if (!term?.modeledEligible) return false
-    // Never force volume onto a non-live route merely to hit a quota (desk only).
-    if (params.requireLiveExecutable && !term.liveExecutable) return false
+    if (!term?.modeledEligible) return 'notModeled'
+    if (params.requireLiveExecutable && !term.liveExecutable) return 'notLive'
 
     const dCard = key(slot.date, cardId)
     const dPos = key(slot.date, terminalId)
     const principal = merchantPrincipalOfTerminal(terminalId)
     const dPrin = key(slot.date, cardId, principal)
 
-    if ((dayCardCount.get(dCard) || 0) >= maxCardAttemptsToday(networkDay1, cardId)) return false
+    if ((dayCardCount.get(dCard) || 0) >= maxCardAttemptsToday(networkDay1, cardId)) return 'cardDayN'
     const cardDayCap =
+      !equitable &&
       isMozaCard(cardId) &&
       mozaStageClean(cardId) >= policy.newCard.stageA.maxCleanOutcomesExclusive &&
       mozaStageClean(cardId) < policy.newCard.stageB.maxCleanOutcomesExclusive
         ? policy.newCard.stageB.maxDayZar
         : policy.card.maxValuePerDayZar
-    if ((dayCardValue.get(dCard) || 0) + amount > cardDayCap + 0.05) return false
-    if ((dayPrincipal.get(dPrin) || 0) >= policy.cardPrincipal.maxPerLocalDay) return false
-    if ((dayPosCount.get(dPos) || 0) >= maxPosAttemptsToday(networkDay1, terminalId)) return false
+    if ((dayCardValue.get(dCard) || 0) + amount > cardDayCap + 0.05) return 'cardDayV'
+    if ((dayPrincipal.get(dPrin) || 0) >= policy.cardPrincipal.maxPerLocalDay) return 'cardPrinDay'
+    if ((dayPosCount.get(dPos) || 0) >= maxPosAttemptsToday(networkDay1, terminalId)) return 'posDayN'
     const posDayCap =
       !params.requireLiveExecutable &&
       terminalId === 'Econometrica' &&
@@ -381,17 +416,19 @@ export function allocateDeskRoutes(params: {
       ecmClean.n < policy.newCard.stageB.maxCleanOutcomesExclusive
         ? policy.newCard.stageB.maxDayZar
         : policy.pos.maxValuePerDayZar
-    if ((dayPosValue.get(dPos) || 0) + amount > posDayCap + 0.05) return false
+    if ((dayPosValue.get(dPos) || 0) + amount > posDayCap + 0.05) return 'posDayV'
 
     const cardRoll = rollingCount(rollingCardDates.get(cardId), slot.date, 7)
-    if (cardRoll >= policy.card.maxAttemptsRolling7Days) return false
+    if (cardRoll >= policy.card.maxAttemptsRolling7Days) return `cardR7=${cardRoll}`
     const prinRoll = rollingCount(rollingPrincipal.get(key(cardId, principal)), slot.date, 7)
-    if (prinRoll >= policy.cardPrincipal.maxRolling7Days) return false
+    if (prinRoll >= policy.cardPrincipal.maxRolling7Days) return `prinR7=${prinRoll}`
 
     const lastC = lastCardMin.get(dCard)
-    if (lastC != null && Math.abs(slot.attemptMin - lastC) < policy.card.sameCardSpacingMinutes) return false
+    if (lastC != null && Math.abs(slot.attemptMin - lastC) < policy.card.sameCardSpacingMinutes)
+      return 'cardSpacing'
     const lastP = lastPosMin.get(dPos)
-    if (lastP != null && Math.abs(slot.attemptMin - lastP) < policy.pos.samePosSpacingMinutes) return false
+    if (lastP != null && Math.abs(slot.attemptMin - lastP) < policy.pos.samePosSpacingMinutes)
+      return 'posSpacing'
 
     const pairKey = key(cardId, terminalId)
     if (params.requireLiveExecutable) {
@@ -399,13 +436,13 @@ export function allocateDeskRoutes(params: {
       if (prevPairDate) {
         const gapDays =
           (Date.parse(slot.date + 'T12:00:00Z') - Date.parse(prevPairDate + 'T12:00:00Z')) / 86400000
-        if (gapDays > 0 && gapDays < 2 - 1e-9) return false
+        if (gapDays > 0 && gapDays < 2 - 1e-9) return `pairGap=${gapDays}`
       }
     }
 
     const prev = payments[payments.length - 1]
     if (prev && prev.date === slot.date && Math.abs(slot.attemptMin - prev.attemptMin) < 120) {
-      if (prev.cardId === cardId || prev.terminalId === terminalId) return false
+      if (prev.cardId === cardId || prev.terminalId === terminalId) return 'adjacentSame'
     }
 
     const totalSoFar = payments.reduce((s, p) => s + p.amountZar, 0) + amount
@@ -413,51 +450,63 @@ export function allocateDeskRoutes(params: {
     const tn = (termUses.get(terminalId) || 0) + 1
     const pv = (principalValue.get(principal) || 0) + amount
     const pn = (principalUses.get(principal) || 0) + 1
-
     if (params.requireLiveExecutable) {
-      const monthProgress = slots.length > 0 ? (payments.length + 1) / (payments.length + slots.length) : 1
-      if (monthProgress >= 0.45) {
-        if (tv / totalSoFar > policy.pos.maxShareValue + 1e-9) return false
-        if (tn / (payments.length + 1) > policy.pos.maxShareCount + 1e-9) return false
-        if (pv / totalSoFar > policy.principal.maxShareValue + 1e-9) return false
-        if (pn / (payments.length + 1) > policy.principal.maxShareCount + 1e-9) return false
+      if (tv / deskTotalV > policy.pos.maxShareValue + 1e-9) return 'posMonthV'
+      if (pv / deskTotalV > policy.principal.maxShareValue + 1e-9) return 'prinMonthV'
+      if (tn > Math.floor(policy.pos.maxShareCount * deskTotalN + 1e-12)) return 'posMonthN'
+      if (pn > Math.floor(policy.principal.maxShareCount * deskTotalN + 1e-12)) return 'prinMonthN'
+      if (
+        !assignmentPreservesFinalCountBands({
+          totalN: deskTotalN,
+          assignedCounts: termUses,
+          assignedSoFar: payments.length,
+          nextTerminalId: terminalId,
+        })
+      ) {
+        return 'finalBands'
       }
-      const asOfMs = Date.parse(slot.date + 'T12:00:00Z')
-      const cut = asOfMs - 6 * 86400000
-      const rollWindow = payments.filter(
-        (p) => Date.parse(p.date + 'T12:00:00Z') >= cut && p.date <= slot.date
-      )
-      const rollN = rollWindow.length + 1
-      const rollV = rollWindow.reduce((s, p) => s + p.amountZar, 0) + amount
-      if (rollN >= 10 && rollV > 0) {
-        const termRollN = rollWindow.filter((p) => p.terminalId === terminalId).length + 1
-        const termRollV =
-          rollWindow.filter((p) => p.terminalId === terminalId).reduce((s, p) => s + p.amountZar, 0) +
-          amount
-        if (termRollN / rollN > policy.pos.maxShareCount + 1e-9) return false
-        if (termRollV / rollV > policy.pos.maxShareValue + 1e-9) return false
-      }
+      // Rolling-7 POS concentration is enforced on the finished ledger via
+      // repairRolling7PosConcentration + validateOperatingCalendar — not as a
+      // mid-schedule hard cut that can box the month bands into a dead end.
     } else if (totalSoFar > 50_000 && tv / totalSoFar > policy.pos.maxShareValue + 0.02) {
-      // Reference fixtures: soft POS headroom only (legacy Month 1 behaviour).
-      return false
+      return 'refPosHeadroom'
     }
 
     const acq = acquirerOfTerminal(terminalId)
-    if (acq === 'capitec' && totalSoFar > 30_000) {
+    if (acq === 'capitec') {
       const capV =
         payments.filter((p) => p.acquirerBankId === 'capitec').reduce((s, p) => s + p.amountZar, 0) +
         amount
       const capN = payments.filter((p) => p.acquirerBankId === 'capitec').length + 1
-      const capCeil = params.requireLiveExecutable ? policy.acquirer.maxShare : 0.34
-      if (capV / totalSoFar > capCeil + 1e-9) return false
-      if (capN / (payments.length + 1) > capCeil + 1e-9) return false
+      if (params.requireLiveExecutable) {
+        if (capV / deskTotalV > policy.acquirer.maxShare + 1e-9) return 'capMonthV'
+        if (capN > Math.floor(policy.acquirer.maxShare * deskTotalN + 1e-12)) return 'capMonthN'
+      } else if (totalSoFar > 30_000) {
+        if (capV / totalSoFar > 0.34 + 1e-9) return 'refCapV'
+        if (capN / (payments.length + 1) > 0.34 + 1e-9) return 'refCapN'
+      }
     }
+    return null
+  }
 
-    return true
+  function feasible(
+    slot: UnsignedSlot,
+    cardId: CardId,
+    terminalId: TerminalId,
+    networkDay1: number
+  ): boolean {
+    return rejectReason(slot, cardId, terminalId, networkDay1) == null
   }
 
   seedFromSealed()
   const sealedIds = new Set(payments.map((p) => p.invoiceId))
+  /** Finished month size — sealed history + remaining unsigned slots. */
+  const deskTotalN = payments.length + slots.length
+  /** Finished month value — sealed + remaining slot amounts (hard value-ceiling denominator). */
+  const deskTotalV = Math.max(
+    1e-9,
+    payments.reduce((s, p) => s + p.amountZar, 0) + slots.reduce((s, x) => s + x.amountZar, 0)
+  )
   let seq = payments.length
 
   for (const slot of slots) {
@@ -492,26 +541,40 @@ export function allocateDeskRoutes(params: {
       if (ecmOnly.length) candidates = ecmOnly
     }
 
-    // Desk only: prefer under-floor live POS when any candidate sits there (count first).
-    if (params.requireLiveExecutable && payments.length >= 8 && candidates.length) {
-      const totalNNow = Math.max(1, payments.length)
-      const totalVNow = Math.max(1, payments.reduce((s, p) => s + p.amountZar, 0))
-      const countShort = candidates.filter((c) => {
+    // Desk only: prefer POS still short of final count floors / Econometrica 16% target.
+    // Maturity is only a score tie-breaker later — floors bind via feasible() lookahead.
+    if (params.requireLiveExecutable && candidates.length) {
+      const remainingIncluding = deskTotalN - payments.length
+      const shortFinal = candidates.filter((c) => {
         if (!liveCleanPos.includes(c.terminalId)) return false
-        return (termUses.get(c.terminalId) || 0) / totalNNow < policy.pos.minShareCount
+        const have = termUses.get(c.terminalId) || 0
+        const need =
+          c.terminalId === 'Econometrica'
+            ? Math.ceil(policy.posPlanningTargets.Econometrica * deskTotalN - 1e-12)
+            : Math.ceil(policy.pos.minShareCount * deskTotalN - 1e-12)
+        return have < need
       })
-      const underFloor = candidates.filter((c) => {
-        if (!liveCleanPos.includes(c.terminalId)) return false
-        const n = (termUses.get(c.terminalId) || 0) / totalNNow
-        const v = (termValue.get(c.terminalId) || 0) / totalVNow
-        return n < policy.pos.minShareCount || v < policy.pos.minShareValue
-      })
-      if (countShort.length) candidates = countShort
-      else if (underFloor.length) candidates = underFloor
+      const capShort =
+        remainingIncluding > 0 &&
+        (() => {
+          const capHave =
+            (termUses.get('BricsCapitec') || 0) + (termUses.get('Econometrica') || 0)
+          const capNeed = Math.ceil(policy.acquirer.referenceCapitecMinShare * deskTotalN - 1e-12)
+          return capHave < capNeed
+        })()
+      const capitecOnly = candidates.filter(
+        (c) => c.terminalId === 'Econometrica' || c.terminalId === 'BricsCapitec'
+      )
+      if (shortFinal.length) candidates = shortFinal
+      else if (capShort && capitecOnly.length) candidates = capitecOnly
     }
 
     // Moza staging: prefer Moza on stage-sized family invoices until graduated.
-    if (slot.payerFamilyId === 'wolf' || slot.payerFamilyId === 'goblin') {
+    // Skipped in equitable A/B mode — card equity preference below owns selection.
+    if (
+      !equitable &&
+      (slot.payerFamilyId === 'wolf' || slot.payerFamilyId === 'goblin')
+    ) {
       const mozaId = slot.payerFamilyId === 'wolf' ? 'WolfMoza' : 'GoblinMoza'
       const clean = mozaStageClean(mozaId as CardId)
       if (
@@ -523,9 +586,49 @@ export function allocateDeskRoutes(params: {
       }
     }
 
+    // Equitable A/B: prefer cards still short of 1/N count (then value).
+    if (equitable && candidates.length) {
+      const totalNNow = Math.max(1, payments.length)
+      const totalVNow = Math.max(1, payments.reduce((s, p) => s + p.amountZar, 0))
+      const shortCount = candidates.filter((c) => {
+        const n = cardUses.get(c.cardId) || 0
+        return n / totalNNow < cardTargetShare - 0.02 || n < cardTargetN
+      })
+      const shortValue = candidates.filter((c) => {
+        const v = payments.filter((p) => p.cardId === c.cardId).reduce((s, p) => s + p.amountZar, 0)
+        return v / totalVNow < cardTargetShare - 0.02
+      })
+      if (shortCount.length) candidates = shortCount
+      else if (shortValue.length) candidates = shortValue
+    }
+
     if (!candidates.length) {
+      const liveCounts = liveCleanPos
+        .map((t) => {
+          const have = termUses.get(t) || 0
+          const need =
+            t === 'Econometrica'
+              ? Math.ceil(policy.posPlanningTargets.Econometrica * deskTotalN - 1e-12)
+              : Math.ceil(policy.pos.minShareCount * deskTotalN - 1e-12)
+          const v = termValue.get(t) || 0
+          const dayN = dayPosCount.get(key(slot.date, t)) || 0
+          const dayV = dayPosValue.get(key(slot.date, t)) || 0
+          return `${t}:n=${have}/${need} v=${Math.round(v)}/${Math.round(policy.pos.maxShareValue * deskTotalV)} day=${dayN}/${dayV}`
+        })
+        .join(' | ')
+      const capHave =
+        (termUses.get('BricsCapitec') || 0) + (termUses.get('Econometrica') || 0)
+      const why = eligibleCards
+        .flatMap((cardId) =>
+          terminals.map((terminalId) => {
+            const reason = rejectReason(slot, cardId, terminalId, networkDay1)
+            return reason ? `${cardId}×${terminalId}:${reason}` : null
+          })
+        )
+        .filter(Boolean)
+        .slice(0, 12)
       throw new Error(
-        `No feasible (card, terminal) for ${slot.date} ${slot.timeSast} amount=${slot.amountZar} payer=${slot.payerFamilyId || 'any'} (assigned ${payments.length})`
+        `No feasible (card, terminal) for ${slot.date} ${slot.timeSast} amount=${slot.amountZar} payer=${slot.payerFamilyId || 'any'} (assigned ${payments.length}/${deskTotalN}) — final POS/principal bands unreachable without bypass · ${liveCounts} · capitec=${capHave}/${Math.ceil(policy.acquirer.referenceCapitecMinShare * deskTotalN - 1e-12)} lemon=${(termUses.get('BricsFNB') || 0) + (termUses.get('BricsCapitec') || 0)}/${Math.floor(policy.principal.maxShareCount * deskTotalN + 1e-12)} · blocked=${why.join(',')}`
       )
     }
     candidates.sort((a, b) => {
@@ -623,6 +726,19 @@ export function allocateDeskRoutes(params: {
 
     void segmentOf
     void pairUses
+  }
+
+  // Fail closed on the finished scheduled ledger — scoring cannot paper over this.
+  if (params.requireLiveExecutable) {
+    const repaired = repairRolling7PosConcentration(payments)
+    payments.length = 0
+    payments.push(...repaired)
+    if (!params.skipFinalLedgerAssert) {
+      assertFinalDeskLedger(payments, {
+        enforceReferenceCapitecBand: true,
+        label: `allocateDeskRoutes(${monthLabel})`,
+      })
+    }
   }
 
   return payments

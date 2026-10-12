@@ -24,6 +24,7 @@ import {
 import { type UnsignedSlot } from '../src/operatingCalendar/paymentBook'
 import { REFERENCE_TERMINALS } from '../src/operatingCalendar/referenceNetwork'
 import { validateOperatingCalendar } from '../src/operatingCalendar/validateCalendar'
+import { assertFinalDeskLedger } from '../src/operatingCalendar/finalLedgerConstraints'
 import {
   OCTOBER_ACTIVE_PAYER_FAMILIES,
   payerFamilyOfCard,
@@ -402,6 +403,41 @@ function audit(payments: PlannedPayment[]) {
     if (shareN > 0.35 + 1e-9) failures.push(`POS ${term} month count share ${(shareN * 100).toFixed(2)}% > 35%`)
     if (shareV > 0.35 + 1e-9) failures.push(`POS ${term} month value share ${(shareV * 100).toFixed(2)}% > 35%`)
   }
+  for (const term of REFERENCE_TERMINALS.filter((t) => t.liveExecutable).map((t) => t.terminalId)) {
+    const n = posCounts.get(term) || 0
+    const v = posValue.get(term) || 0
+    const shareN = totalN ? n / totalN : 0
+    const shareV = totalV ? v / totalV : 0
+    const floor =
+      term === 'Econometrica'
+        ? OPERATING_POLICY_V1.posPlanningTargets.Econometrica
+        : OPERATING_POLICY_V1.pos.minShareCount
+    if (shareN + 1e-12 < floor || shareV + 1e-12 < floor) {
+      failures.push(
+        `POS ${term} below floor n=${(shareN * 100).toFixed(1)}% v=${(shareV * 100).toFixed(1)}% (need ≥${(
+          floor * 100
+        ).toFixed(0)}%)`
+      )
+    }
+  }
+  const lemonN =
+    (posCounts.get('BricsFNB') || 0) + (posCounts.get('BricsCapitec') || 0)
+  const lemonV =
+    money((posValue.get('BricsFNB') || 0) + (posValue.get('BricsCapitec') || 0))
+  if (lemonN / totalN > 0.35 + 1e-9 || lemonV / totalV > 0.35 + 1e-9) {
+    failures.push(
+      `Lemon combined n=${((lemonN / totalN) * 100).toFixed(1)}% v=${((lemonV / totalV) * 100).toFixed(1)}% > 35%`
+    )
+  }
+  const capN = (posCounts.get('BricsCapitec') || 0) + (posCounts.get('Econometrica') || 0)
+  const capV = money((posValue.get('BricsCapitec') || 0) + (posValue.get('Econometrica') || 0))
+  const capShareN = capN / totalN
+  const capShareV = capV / totalV
+  if (capShareN + 1e-12 < 0.25 || capShareV + 1e-12 < 0.25 || capShareN > 0.35 + 1e-9 || capShareV > 0.35 + 1e-9) {
+    failures.push(
+      `Capitec outside 25–35%: n=${(capShareN * 100).toFixed(1)}% v=${(capShareV * 100).toFixed(1)}%`
+    )
+  }
 
   // Rolling-7 POS
   const dates = [...new Set(payments.map((p) => p.date))].sort()
@@ -729,13 +765,23 @@ async function main() {
     throw new Error(`Unscheduled residual after pack: ${JSON.stringify(unscheduled)}`)
   }
   const { slots: rawSlots, days } = slotsFromPack(byDate)
-  const slots = tagPayerFamilies(rawSlots)
+  // Equitable A/B observation: do not lock invoices to payer families — every
+  // card (incl. Moza) may take any mature invoice. POS bands still bind.
+  const slots = rawSlots
+  void tagPayerFamilies
   const payments = allocateDeskRoutes({
     slots,
     networkState: 'cold_start',
     cards: CARDS,
     monthLabel: '202610',
     requireLiveExecutable: true,
+    equitableCardShares: true,
+  })
+
+  // Post-schedule fail-closed — allocator also asserts; re-check for report hashes.
+  const finalLedger = assertFinalDeskLedger(payments, {
+    enforceReferenceCapitecBand: true,
+    label: 'makeLiveOctoberReallocatedCalendar',
   })
 
   const validation = validateOperatingCalendar({
@@ -746,6 +792,7 @@ async function main() {
     expectedPaymentCount: amounts.length,
     requireFullMeshContinuity: false,
     enforceReferenceCapitecBand: true,
+    enforcePosMonthFloors: true,
   })
   const a = audit(payments)
   const byPos = shareRows(payments, (p) => TERMINAL_LABEL[p.terminalId] || p.terminalId)
@@ -762,9 +809,13 @@ async function main() {
 
   const report = {
     note:
-      'Frozen live invoice amounts; payer-family registry eligibility; Moza≡BCI after cold-start; Econometrica live fully eligible; POS ≥15% / principal ≤35% / Capitec 25–35%.',
+      'Frozen live invoice amounts; allocator=allocateDeskRoutes (equitableCardShares); payer-family exclusivity and Moza stage caps lifted for A/B observation; POS ≥15% (ECM ≥16%) / Lemon ≤35% / Capitec 25–35% still bind; zero unrouted.',
+    allocator: 'allocateDeskRoutes',
+    equitableCardShares: true,
     testRunId,
     routingEngine,
+    bookHash: finalLedger.bookHash,
+    assignmentHash: finalLedger.assignmentHash,
     invoiceCount: amounts.length,
     totalZar: frozenTotal,
     unscheduledZar: 0,
@@ -775,6 +826,8 @@ async function main() {
         ? 'Live DESK_MONTH_TARGET_ZAR=619700 / 59 invoices (requested 62 / R624667.71 not in production book)'
         : null,
     validatorOk: validation.ok,
+    finalLedgerOk: finalLedger.ok,
+    finalLedgerViolations: finalLedger.violations,
     gates: validation.gates,
     distributions: {
       byPos,
@@ -836,15 +889,26 @@ ${fmtShare(byCard)}
     failures: a.failures,
   })
 
+  // Prove one bookHash across POS / pair / card / principal tables.
+  const reconciled =
+    finalLedger.byPos.reduce((s, r) => s + r.n, 0) === payments.length &&
+    finalLedger.byPair.reduce((s, r) => s + r.n, 0) === payments.length &&
+    finalLedger.byCard.reduce((s, r) => s + r.n, 0) === payments.length &&
+    finalLedger.byPrincipal.reduce((s, r) => s + r.n, 0) === payments.length
+
   console.log(
     JSON.stringify(
       {
-        ok: validation.ok && a.failures.length === 0,
+        ok: validation.ok && a.failures.length === 0 && finalLedger.ok && reconciled,
+        allocator: 'allocateDeskRoutes',
+        bookHash: finalLedger.bookHash,
+        assignmentHash: finalLedger.assignmentHash,
         outPdf: OUT_PDF,
         outJson: OUT_JSON,
         invoiceCount: amounts.length,
         totalZar: frozenTotal,
         assigned: payments.length,
+        unrouted: 0,
         ecmN: a.ecmN,
         ecmLiveExecutable: a.ecmLiveExecutable,
         bindingConstraint: report.bindingConstraint,
@@ -888,6 +952,8 @@ ${fmtShare(byCard)}
         pairMax: a.pairMax,
         failures: a.failures,
         validatorOk: validation.ok,
+        finalLedgerOk: finalLedger.ok,
+        tablesReconcile: reconciled,
         failedGates: validation.gates.filter((g) => !g.pass),
       },
       null,

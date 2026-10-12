@@ -1481,15 +1481,25 @@ export function packCoreTickets(state: SimState, scenario: Scenario, tickets: Co
     tickets,
   });
   const keys = new Set(cover.pairs.map((p) => pairKey(p.cardId, p.posId)));
-  const baseline =
-    keys.size === 0
-      ? packTicketsOnKeys(
-          state,
-          scenario,
-          tickets,
-          new Set(allocatePairsOnKeys(state, scenario, total, defaultPairWeight, "core").pairs.map((p) => pairKey(p.cardId, p.posId))),
-        )
-      : packTicketsOnKeys(state, scenario, tickets, keys);
+  const forcedFromTickets = new Map<string, string>();
+  for (const ticket of tickets) {
+    if (!ticket.economicPaymentId || !ticket.forcedCardId || !ticket.forcedPosId) continue;
+    const key = pairKey(ticket.forcedCardId, ticket.forcedPosId);
+    forcedFromTickets.set(ticket.economicPaymentId, key);
+    keys.add(key);
+  }
+  if (keys.size === 0) {
+    for (const p of allocatePairsOnKeys(state, scenario, total, defaultPairWeight, "core").pairs) {
+      keys.add(pairKey(p.cardId, p.posId));
+    }
+  }
+  const baseline = packTicketsOnKeys(
+    state,
+    scenario,
+    tickets,
+    keys,
+    forcedFromTickets.size ? forcedFromTickets : undefined,
+  );
   return betaAwareDegradedReroute(state, scenario, tickets, baseline);
 }
 

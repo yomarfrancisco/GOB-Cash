@@ -62,6 +62,8 @@ export function startWindow(input: {
   initialCards?: number
   /** Calendar-day absorbing horizon. Defaults to the 14-day golden; production desk uses 31. */
   horizonDays?: number
+  /** Optional pre-built absorbing book (e.g. equitable desk calendar). */
+  book?: ReturnType<typeof buildAbsorbingPaymentBook>
 }): ProspectiveBranch {
   const amountZar = roundMoney(input.availableZar)
   if (!(amountZar > 0)) throw new Error('opening amount must be a positive ZAR figure')
@@ -74,11 +76,13 @@ export function startWindow(input: {
     initialCards: input.initialCards,
     horizonDays,
   })
-  const book = buildAbsorbingPaymentBook({
-    scenario,
-    availableZar: amountZar,
-    horizonDays,
-  })
+  const book =
+    input.book ||
+    buildAbsorbingPaymentBook({
+      scenario,
+      availableZar: amountZar,
+      horizonDays,
+    })
   const first = runProspectiveDay({
     day: 1,
     availableZar: amountZar,

@@ -391,6 +391,12 @@ export interface CoreTicket {
   supportingInvoicePresent?: boolean;
   /** Demand-side beneficiary the ticket is payable to. Unset tickets are unrestricted. */
   beneficiaryId?: string | null;
+  /**
+   * Optional desk-calendar force: pack this ticket only on cardId|posId
+   * (e.g. card-1|pos-5). Hard bank rules still apply.
+   */
+  forcedCardId?: string;
+  forcedPosId?: string;
 }
 
 export type TransactionSource = "core" | "organic-revenue" | "organic-expense";

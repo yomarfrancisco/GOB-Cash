@@ -228,6 +228,7 @@ function parseConfig(raw: unknown): RoutingConfig {
     spread: num(data.spread, DEFAULT_TEST_CONFIG.spread),
     recycleRate: num(data.recycleRate, DEFAULT_TEST_CONFIG.recycleRate),
     cycleCount: num(data.cycleCount, DEFAULT_TEST_CONFIG.cycleCount),
+    ...(typeof data.cardCount === 'number' && data.cardCount > 0 ? { cardCount: data.cardCount } : {}),
   }
 }
 
@@ -2756,7 +2757,9 @@ async function startNewTest(
   adminUid: string,
   forceNew: boolean,
   startingCapital?: number,
-  lastShockLine?: string
+  lastShockLine?: string,
+  /** Optional absorbing book (equitable desk calendar tickets + forced routes). */
+  absorbingBook?: import('../throughput/model/prospectiveBook').ProspectiveBook
 ) {
   const now = admin.firestore.Timestamp.now()
   const existingId = await currentTestId(adminUid)
@@ -2794,10 +2797,32 @@ async function startNewTest(
   }
 
   const testRunId = db.collection(TESTS).doc().id
-  const state = createInitialState(
+  let state = createInitialState(
     PRODUCTION_DESK_CONFIG,
     typeof startingCapital === 'number' && startingCapital > 0 ? startingCapital : 0
   )
+  const authorised =
+    typeof startingCapital === 'number' && startingCapital > 0 ? startingCapital : 0
+  if (authorised > 0 && absorbingBook) {
+    const { startWindow } = await import('../throughput/prospective/window')
+    const { DESK_MONTH_HORIZON_DAYS } = await import('../routing/deskMonth')
+    const { KERNEL_SEED } = await import('../routing/throughputPlan')
+    const window = startWindow({
+      availableZar: authorised,
+      seed: KERNEL_SEED,
+      horizonDays: DESK_MONTH_HORIZON_DAYS,
+      initialPos: state.config.machineCount,
+      initialCards: state.config.cardCount || state.cards.length,
+      book: absorbingBook,
+    })
+    state = {
+      ...state,
+      authorisedZar: authorised,
+      availableCapital: window.availableZar,
+      window,
+      windowNeedsAdvance: false,
+    }
+  }
   await db.collection(TESTS).doc(testRunId).set({
     testRunId,
     adminUid,
@@ -2823,8 +2848,6 @@ async function startNewTest(
     adminUid,
     updatedAt: now,
   })
-  const authorised =
-    typeof startingCapital === 'number' && startingCapital > 0 ? startingCapital : 0
   if (!(authorised > 0)) {
     return publicSummary(state, {
       testRunId,
@@ -3040,6 +3063,8 @@ export async function applyAdminCapitalShock(params: {
 export async function forceFreshDeskRun(params?: {
   capitalZar?: number
   note?: string
+  /** Equitable / desk-calendar absorbing book with optional forced card×POS. */
+  absorbingBook?: import('../throughput/model/prospectiveBook').ProspectiveBook
 }): Promise<Record<string, unknown>> {
   const adminUid = ROUTING_ADMIN_UID
   const capital =
@@ -3054,7 +3079,8 @@ export async function forceFreshDeskRun(params?: {
     true,
     capital,
     params?.note ||
-      `October month desk · R${DESK_MONTH_TARGET_ZAR.toLocaleString('en-ZA')} · max R${OPERATING_POLICY_V1.payment.maxAmountZar.toLocaleString('en-ZA')}`
+      `October month desk · R${DESK_MONTH_TARGET_ZAR.toLocaleString('en-ZA')} · max R${OPERATING_POLICY_V1.payment.maxAmountZar.toLocaleString('en-ZA')}`,
+    params?.absorbingBook
   )
 }
 

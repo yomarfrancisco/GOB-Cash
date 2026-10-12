@@ -17,7 +17,7 @@ import {
 export const KERNEL_SEED = WINDOW_SEED
 /** Persisted on each desk run. Ensure starts a new window when this does not match. */
 /** Bump when POS/card mesh or month book contract changes (forces fresh window). */
-export const ROUTING_ENGINE_ID = 'absorbing-tickets-v7-moza-ecm-live'
+export const ROUTING_ENGINE_ID = 'absorbing-tickets-v8-equitable-cards'
 
 export { DESK_MONTH_HORIZON_DAYS, DESK_MONTH_OPERATING_DAYS, DESK_MONTH_TARGET_ZAR }
 
@@ -177,14 +177,19 @@ export function openWindowAtCapital<T extends {
   windowNeedsAdvance?: boolean
   authorisedZar: number
   availableCapital: number
+  config?: { machineCount?: number; cardCount?: number }
 }>(state: T, amountZar: number): T {
   const amount = money(amountZar)
   if (!(amount > 0)) return state
   const horizonDays = horizonForDeskCapital(amount)
+  const initialPos = state.config?.machineCount
+  const initialCards = state.config?.cardCount
   const window = startWindow({
     availableZar: amount,
     seed: KERNEL_SEED,
     ...(horizonDays != null ? { horizonDays } : {}),
+    ...(initialPos && initialPos > 0 ? { initialPos } : {}),
+    ...(initialCards && initialCards > 0 ? { initialCards } : {}),
   })
   return {
     ...state,

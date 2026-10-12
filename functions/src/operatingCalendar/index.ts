@@ -42,6 +42,16 @@ export {
 } from './payerCardRegistry'
 export { validateOperatingCalendar, computeLiquidity, type GateResult } from './validateCalendar'
 export {
+  evaluateFinalDeskLedger,
+  assertFinalDeskLedger,
+  assignmentPreservesFinalCountBands,
+  repairRolling7PosConcentration,
+  minCountForPos,
+  maxCountForPos,
+  type FinalLedgerVerdict,
+  type LedgerPayment,
+} from './finalLedgerConstraints'
+export {
   emptyContinuityState,
   recordIssuedAttempt,
   recordLifecycleProgress,

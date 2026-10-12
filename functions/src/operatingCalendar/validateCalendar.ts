@@ -24,6 +24,8 @@ export function validateOperatingCalendar(params: {
   expectedPaymentCount: number
   requireFullMeshContinuity: boolean
   enforceReferenceCapitecBand: boolean
+  /** Desk production: every live POS ≥15% (Econometrica ≥16%) count and value. */
+  enforcePosMonthFloors?: boolean
 }): { ok: boolean; gates: GateResult[] } {
   const { payments, days, networkState } = params
   const policy = OPERATING_POLICY_V1
@@ -134,11 +136,32 @@ export function validateOperatingCalendar(params: {
   }
   const totalV = money(payments.reduce((s, p) => s + p.amountZar, 0))
   const totalN = payments.length
+  const liveTerms = REFERENCE_TERMINALS.filter((t) => t.modeledEligible && t.liveExecutable)
   for (const term of REFERENCE_TERMINALS) {
     const list = payments.filter((p) => p.terminalId === term.terminalId)
-    const shareV = list.reduce((s, p) => s + p.amountZar, 0) / totalV
-    const shareN = list.length / totalN
+    const shareV = totalV > 0 ? list.reduce((s, p) => s + p.amountZar, 0) / totalV : 0
+    const shareN = totalN > 0 ? list.length / totalN : 0
     if (shareV > policy.pos.maxShareValue + 1e-9 || shareN > policy.pos.maxShareCount + 1e-9) posOk = false
+  }
+  // Hard month floors on every live clean POS (count + value). Econometrica uses 16%.
+  let posFloorOk = true
+  const floorDetails: string[] = []
+  if (params.enforcePosMonthFloors && totalN > 0 && totalV > 0) {
+    for (const term of liveTerms) {
+      const list = payments.filter((p) => p.terminalId === term.terminalId)
+      const shareV = list.reduce((s, p) => s + p.amountZar, 0) / totalV
+      const shareN = list.length / totalN
+      const minShare =
+        term.terminalId === 'Econometrica'
+          ? policy.posPlanningTargets.Econometrica
+          : policy.pos.minShareCount
+      if (shareN + 1e-12 < minShare || shareV + 1e-12 < minShare) {
+        posFloorOk = false
+        floorDetails.push(
+          `${term.terminalId} n=${(shareN * 100).toFixed(1)}% v=${(shareV * 100).toFixed(1)}%`
+        )
+      }
+    }
   }
   // Rolling-7 POS concentration (count + value) ≤ 35% once the window is thick enough.
   for (const d of days) {
@@ -158,6 +181,40 @@ export function validateOperatingCalendar(params: {
     }
   }
   push('pos_limits', posOk, 'daily+spacing+35% month+rolling7')
+  push(
+    'pos_month_floors',
+    !params.enforcePosMonthFloors || posFloorOk,
+    params.enforcePosMonthFloors
+      ? floorDetails.length
+        ? floorDetails.join('; ')
+        : 'each live POS ≥15% (ECM ≥16%) count+value'
+      : 'skipped'
+  )
+
+  // Lemon principal combined ≤35% — desk production only (reference Month 1/2
+  // fixtures predate the live Lemon ceiling and still use principal maxShare
+  // checks via requireFullMeshContinuity paths).
+  const lemonRows = payments.filter((p) => p.merchantPrincipalId === 'lemon_economics')
+  const lemonShareV = totalV > 0 ? lemonRows.reduce((s, p) => s + p.amountZar, 0) / totalV : 0
+  const lemonShareN = totalN > 0 ? lemonRows.length / totalN : 0
+  const lemonOk =
+    lemonShareV <= policy.principal.maxShareValue + 1e-9 &&
+    lemonShareN <= policy.principal.maxShareCount + 1e-9
+  push(
+    'lemon_principal_ceiling',
+    !params.enforcePosMonthFloors || lemonOk,
+    params.enforcePosMonthFloors
+      ? `lemon n=${(lemonShareN * 100).toFixed(1)}% v=${(lemonShareV * 100).toFixed(1)}%`
+      : 'skipped'
+  )
+
+  // Table reconciliation — every report view must cover the full ledger.
+  const pairKeys = payments.map((p) => `${p.cardId}×${p.terminalId}`)
+  push(
+    'ledger_reconcile',
+    payments.every((p) => !!p.cardId && !!p.terminalId) && pairKeys.length === totalN,
+    `n=${totalN} unrouted=0`
+  )
 
   // 8 acquirer — Capitec-only ceiling. FNB is residual majority; never apply maxShare to it.
   const minority = policy.acquirer.minorityAcquirerId
