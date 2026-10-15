@@ -56,10 +56,17 @@ export type EvidenceRecord = {
   authentication: { spf: unknown; dkim: unknown; dmarc: unknown }
   raw: ArtifactRecord | null
   attachments: AttachmentRecord[]
-  /** Bytes are stored, but this slice never treats mail as bank-authenticated. */
-  status: 'quarantined' | 'archive_failed'
-  parseStatus: 'unparsed'
+  /**
+   * authenticated = Resend signature + allow-listed sender + aligned DKIM/ARC pass.
+   * quarantined = stored bytes, not trusted as bank evidence.
+   */
+  status: 'authenticated' | 'quarantined' | 'archive_failed'
+  parseStatus: 'unparsed' | 'parsed' | 'quarantined'
   reason: string
+  /** Populated when authentication succeeds. */
+  bankIssuer?: string | null
+  bankSenderEmail?: string | null
+  dkimDomain?: string | null
   createdAt: string
   updatedAt: string
 }

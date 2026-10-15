@@ -47,11 +47,18 @@ export type RailRecord = {
 
 export type BuyerCardRecord = {
   deskCardId: number
+  /** Operating-calendar / planner CardId (BRICS, WolfMoza, …). */
+  canonicalCardId: string
+  /** Payer family id aligned with payerCardRegistry. */
+  payerFamilyId: string
   shortName: string
   companyId: string
   issuingBank: string
-  cardBin6: string
+  /** First six when known from prior receipts; never invent a PAN. Null when unknown. */
+  cardBin6: string | null
+  /** Last four only — never store or log a full PAN. */
   cardLast4: string
+  /** Masked display: ****last4 or bin******last4 when bin known. */
   masked: string
 }
 
@@ -289,6 +296,8 @@ export const RAILS: RailRecord[] = [
 export const BUYER_CARDS: BuyerCardRecord[] = [
   {
     deskCardId: 1,
+    canonicalCardId: 'BRICS',
+    payerFamilyId: 'brics',
     shortName: 'BRICS',
     companyId: 'brics_ai_ei',
     issuingBank: 'FNB Mozambique',
@@ -298,6 +307,8 @@ export const BUYER_CARDS: BuyerCardRecord[] = [
   },
   {
     deskCardId: 1,
+    canonicalCardId: 'BRICS',
+    payerFamilyId: 'brics',
     shortName: 'BRICS',
     companyId: 'brics_ai_ei',
     issuingBank: 'FNB Mozambique',
@@ -307,6 +318,8 @@ export const BUYER_CARDS: BuyerCardRecord[] = [
   },
   {
     deskCardId: 2,
+    canonicalCardId: 'Ginav',
+    payerFamilyId: 'ginav',
     shortName: 'Ginav',
     companyId: 'multivendas',
     issuingBank: 'Standard Bank Mozambique',
@@ -316,6 +329,8 @@ export const BUYER_CARDS: BuyerCardRecord[] = [
   },
   {
     deskCardId: 3,
+    canonicalCardId: 'Vidrotec',
+    payerFamilyId: 'vidrotec',
     shortName: 'Vidrotec',
     companyId: 'vidrotec',
     issuingBank: 'Millennium BIM',
@@ -325,6 +340,8 @@ export const BUYER_CARDS: BuyerCardRecord[] = [
   },
   {
     deskCardId: 4,
+    canonicalCardId: 'Wolf',
+    payerFamilyId: 'wolf',
     shortName: 'Wolf',
     companyId: 'wolf_digital',
     issuingBank: 'BCI',
@@ -334,6 +351,8 @@ export const BUYER_CARDS: BuyerCardRecord[] = [
   },
   {
     deskCardId: 5,
+    canonicalCardId: 'Goblin',
+    payerFamilyId: 'goblin',
     shortName: 'Goblin',
     companyId: 'goblin',
     issuingBank: 'BCI',
@@ -343,6 +362,8 @@ export const BUYER_CARDS: BuyerCardRecord[] = [
   },
   {
     deskCardId: 6,
+    canonicalCardId: 'Kayman',
+    payerFamilyId: 'kayman',
     shortName: 'Kayman',
     companyId: 'brics_ai_ei',
     issuingBank: 'FNB Mozambique',
@@ -352,21 +373,25 @@ export const BUYER_CARDS: BuyerCardRecord[] = [
   },
   {
     deskCardId: 7,
+    canonicalCardId: 'WolfMoza',
+    payerFamilyId: 'wolf',
     shortName: 'WolfMoza',
     companyId: 'wolf_digital',
     issuingBank: 'Moza Banco',
-    cardBin6: '000000',
-    cardLast4: '0007',
-    masked: '000000******0007',
+    cardBin6: null,
+    cardLast4: '1699',
+    masked: '******1699',
   },
   {
     deskCardId: 8,
+    canonicalCardId: 'GoblinMoza',
+    payerFamilyId: 'goblin',
     shortName: 'GoblinMoza',
     companyId: 'goblin',
     issuingBank: 'Moza Banco',
-    cardBin6: '000000',
-    cardLast4: '0008',
-    masked: '000000******0008',
+    cardBin6: null,
+    cardLast4: '1707',
+    masked: '******1707',
   },
 ]
 
@@ -389,12 +414,40 @@ export function railByMerchantId(merchantId: string): RailRecord | null {
   )
 }
 
+export function normalizeCardLast4(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const digits = String(raw).replace(/\D/g, '')
+  if (digits.length < 4) return null
+  return digits.slice(-4)
+}
+
 export function buyerByCardLast4(last4: string): BuyerCardRecord | null {
-  return BUYER_CARDS.find((row) => row.cardLast4 === last4) || null
+  const normalized = normalizeCardLast4(last4)
+  if (!normalized) return null
+  return BUYER_CARDS.find((row) => row.cardLast4 === normalized) || null
 }
 
 export function buyerByDeskCardId(deskCardId: number): BuyerCardRecord | null {
   return BUYER_CARDS.find((row) => row.deskCardId === deskCardId) || null
+}
+
+/** Resolve last-four → canonical planner / operating-calendar card id. */
+export function canonicalCardIdByLast4(last4: string): string | null {
+  return buyerByCardLast4(last4)?.canonicalCardId || null
+}
+
+/**
+ * Unknown last-four must quarantine — never guess a card.
+ * Returns the buyer row or a quarantine reason.
+ */
+export function resolveBuyerCardLast4(
+  last4: string | null | undefined
+): { ok: true; buyer: BuyerCardRecord } | { ok: false; reason: 'missing_last4' | 'unknown_last4' } {
+  const normalized = normalizeCardLast4(last4)
+  if (!normalized) return { ok: false, reason: 'missing_last4' }
+  const buyer = BUYER_CARDS.find((row) => row.cardLast4 === normalized)
+  if (!buyer) return { ok: false, reason: 'unknown_last4' }
+  return { ok: true, buyer }
 }
 
 /** COST markup for a desk card's Moz issuing bank (inventory first, then buyer register). */

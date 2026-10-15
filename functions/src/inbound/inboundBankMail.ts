@@ -18,6 +18,11 @@ import { parseFnbSettlement, fnbSettlementCopy } from '../settlement/fnbSettleme
 import { applyCapitecPayoutToInvoices, applyFnbGrossSettlementToInvoices } from '../settlement/issueInvoices'
 import { imageText } from './mznImageText'
 import { mznNoticeCopy, parseMznProof, type MznProof } from './mznProofParse'
+import { isMozaSender, mozaWithdrawalNoticeCopy, parseMozaCashWithdrawal, type MozaCashWithdrawal } from './mozaParse'
+import { fnbMzTransferNoticeCopy, isFnbMzSender, parseFnbMzBankTransfer, type FnbMzBankTransfer } from './fnbMzParse'
+import { canSettlePosTicket, isCardLifecycleEvent } from './bankEventKinds'
+import { extractMimeText } from './mimeText'
+import { resolveBuyerCardLast4 } from '../settlement/register'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
 import { stepTitle } from '../routing/continuousCycle'
 import { tryAutoConfirmOpenRestock, tryAdvanceContinuousCycle } from '../tx/adminConversionRouting'
@@ -147,12 +152,254 @@ export const inbound_archiveBankMail = functions
       throw new Error('archive_retryable')
     }
     if (outcome.ok) {
+      await recordMozaWithdrawal(ingress.resendEmailId, bucket)
+      await recordFnbMzTransfer(ingress.resendEmailId, bucket)
       await recordFnbNotice(ingress.resendEmailId, bucket)
       await recordMznProof(ingress.resendEmailId, bucket)
       await recordCapitecReceipt(ingress.resendEmailId, bucket)
       await recordCapitecSettlement(ingress.resendEmailId, bucket, capitecPdfPassword.value())
     }
   })
+
+function evidenceIsAuthenticated(evidence: EvidenceRecord): boolean {
+  return evidence.status === 'authenticated'
+}
+
+async function loadEvidenceText(
+  evidence: EvidenceRecord,
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } }
+): Promise<string> {
+  if (evidence.raw?.storagePath) {
+    try {
+      const [bytes] = await bucket.file(evidence.raw.storagePath).download()
+      return extractMimeText(bytes)
+    } catch {
+      // fall through
+    }
+  }
+  return evidence.subject || ''
+}
+
+async function recordMozaWithdrawal(
+  emailId: string,
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } }
+): Promise<void> {
+  const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
+  const snap = await evidenceRef.get()
+  if (!snap.exists) return
+  const evidence = snap.data() as EvidenceRecord
+  if (!isMozaSender(evidence.from)) return
+  if (!evidenceIsAuthenticated(evidence)) {
+    safeLog.info('moza_skipped', { emailId, reason: evidence.reason || 'not_authenticated' })
+    return
+  }
+  const text = await loadEvidenceText(evidence, bucket)
+  const event = parseMozaCashWithdrawal(text, evidence.subject)
+  if (!event) return
+
+  // Withdrawals never settle POS / usable ZAR — fail closed if someone remaps kinds later.
+  if (canSettlePosTicket(event.eventType) || isCardLifecycleEvent(event.eventType)) {
+    await evidenceRef.set(
+      { parseStatus: 'quarantined', reason: 'moza_withdrawal_misclassified' },
+      { merge: true }
+    )
+    return
+  }
+
+  const resolved = resolveBuyerCardLast4(event.cardLast4)
+  if (!resolved.ok) {
+    await evidenceRef.set(
+      {
+        parseStatus: 'quarantined',
+        reason: resolved.reason,
+        mozaKind: event.kind,
+      },
+      { merge: true }
+    )
+    safeLog.info('moza_quarantined', { emailId, reason: resolved.reason })
+    return
+  }
+
+  const docId = (event.bankReference || `moza-${emailId}`).replace(/[^\w.-]+/g, '-')
+  const eventRef = db().collection('bankMozaEvents').doc(docId)
+  await db().runTransaction(async (tx) => {
+    const existing = await tx.get(eventRef)
+    if (existing.exists) return
+    tx.set(eventRef, {
+      ...event,
+      // Never persist a full PAN — last4 + canonical ids only.
+      cardLast4: resolved.buyer.cardLast4,
+      canonicalCardId: resolved.buyer.canonicalCardId,
+      deskCardId: resolved.buyer.deskCardId,
+      payerFamilyId: resolved.buyer.payerFamilyId,
+      issuingBank: resolved.buyer.issuingBank,
+      canSettlePosTicket: false,
+      canEmitUsableZar: false,
+      resendEmailId: emailId,
+      from: evidence.from,
+      subject: evidence.subject,
+      createdAt: new Date().toISOString(),
+    })
+    tx.set(
+      evidenceRef,
+      {
+        parseStatus: 'parsed',
+        mozaKind: event.kind,
+        linkedCanonicalCardId: resolved.buyer.canonicalCardId,
+      },
+      { merge: true }
+    )
+  })
+  const written = await eventRef.get()
+  if (!written.exists || written.data()?.resendEmailId !== emailId) return
+  safeLog.info('moza_recorded', { emailId, reason: event.kind })
+  await publishMozaWithdrawalNotice(docId, event)
+}
+
+async function publishMozaWithdrawalNotice(docId: string, event: MozaCashWithdrawal): Promise<void> {
+  const id = `moza-${docId}`
+  const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
+  const existing = await ref.get()
+  if (existing.exists) return
+  const copy = mozaWithdrawalNoticeCopy(event)
+  await ref.set({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: copy.title,
+    body: copy.body,
+    dropdownTitle: copy.title,
+    dropdownBody: copy.body,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_mzn',
+    amountCurrency: 'MZN',
+    amountValue: event.amountMzn,
+    amountSign: 'debit',
+    txId: id,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: false,
+    status: 'recorded',
+    routingAction: 'bank_notice',
+    deskSpeaker: 'sam',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    recordingSource: 'SYSTEM',
+  })
+}
+
+async function recordFnbMzTransfer(
+  emailId: string,
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } }
+): Promise<void> {
+  const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
+  const snap = await evidenceRef.get()
+  if (!snap.exists) return
+  const evidence = snap.data() as EvidenceRecord
+  if (!isFnbMzSender(evidence.from)) return
+  if (!evidenceIsAuthenticated(evidence)) {
+    safeLog.info('fnb_mz_skipped', { emailId, reason: evidence.reason || 'not_authenticated' })
+    return
+  }
+  const text = await loadEvidenceText(evidence, bucket)
+  const event = parseFnbMzBankTransfer(text, evidence.subject)
+  if (!event) return
+
+  // Sender relating to BRICS/FNB must not promote this to a card event.
+  if (isCardLifecycleEvent(event.eventType) || canSettlePosTicket(event.eventType)) {
+    await evidenceRef.set(
+      { parseStatus: 'quarantined', reason: 'fnb_mz_transfer_misclassified' },
+      { merge: true }
+    )
+    return
+  }
+
+  let linkedCard: {
+    cardLast4: string
+    canonicalCardId: string
+    deskCardId: number
+    payerFamilyId: string
+  } | null = null
+  if (event.cardLast4) {
+    const resolved = resolveBuyerCardLast4(event.cardLast4)
+    if (!resolved.ok) {
+      await evidenceRef.set(
+        { parseStatus: 'quarantined', reason: resolved.reason, fnbMzKind: event.kind },
+        { merge: true }
+      )
+      safeLog.info('fnb_mz_quarantined', { emailId, reason: resolved.reason })
+      return
+    }
+    linkedCard = {
+      cardLast4: resolved.buyer.cardLast4,
+      canonicalCardId: resolved.buyer.canonicalCardId,
+      deskCardId: resolved.buyer.deskCardId,
+      payerFamilyId: resolved.buyer.payerFamilyId,
+    }
+  }
+
+  const docId = (event.bankReference || `fnbmz-${emailId}`).replace(/[^\w.-]+/g, '-')
+  const eventRef = db().collection('bankFnbMzEvents').doc(docId)
+  await db().runTransaction(async (tx) => {
+    const existing = await tx.get(eventRef)
+    if (existing.exists) return
+    tx.set(eventRef, {
+      ...event,
+      cardLast4: linkedCard?.cardLast4 || null,
+      canonicalCardId: linkedCard?.canonicalCardId || null,
+      deskCardId: linkedCard?.deskCardId || null,
+      payerFamilyId: linkedCard?.payerFamilyId || null,
+      isCardEvent: false,
+      canSettlePosTicket: false,
+      canEmitUsableZar: false,
+      resendEmailId: emailId,
+      from: evidence.from,
+      subject: evidence.subject,
+      createdAt: new Date().toISOString(),
+    })
+    tx.set(
+      evidenceRef,
+      {
+        parseStatus: 'parsed',
+        fnbMzKind: event.kind,
+        linkedCanonicalCardId: linkedCard?.canonicalCardId || null,
+      },
+      { merge: true }
+    )
+  })
+  const written = await eventRef.get()
+  if (!written.exists || written.data()?.resendEmailId !== emailId) return
+  safeLog.info('fnb_mz_recorded', { emailId, reason: event.kind })
+  await publishFnbMzTransferNotice(docId, event)
+}
+
+async function publishFnbMzTransferNotice(docId: string, event: FnbMzBankTransfer): Promise<void> {
+  const id = `fnbmz-${docId}`
+  const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
+  const existing = await ref.get()
+  if (existing.exists) return
+  const copy = fnbMzTransferNoticeCopy(event)
+  await ref.set({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: copy.title,
+    body: copy.body,
+    dropdownTitle: copy.title,
+    dropdownBody: copy.body,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_mzn',
+    amountCurrency: 'MZN',
+    amountValue: event.amountMzn,
+    amountSign: 'debit',
+    txId: id,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: false,
+    status: 'recorded',
+    routingAction: 'bank_notice',
+    deskSpeaker: 'sam',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    recordingSource: 'SYSTEM',
+  })
+}
 
 async function recordFnbNotice(
   emailId: string,
@@ -162,7 +409,12 @@ async function recordFnbNotice(
   const snap = await ref.get()
   if (!snap.exists) return
   const evidence = snap.data() as EvidenceRecord
-  const fromBank = isFnbSender(evidence.from)
+  // FNB ZA card notices require authenticated bank mail. Spoofed From is quarantined upstream.
+  if (isFnbSender(evidence.from) && !evidenceIsAuthenticated(evidence)) {
+    safeLog.info('fnb_skipped', { emailId, reason: evidence.reason || 'not_authenticated' })
+    return
+  }
+  const fromBank = isFnbSender(evidence.from) && evidenceIsAuthenticated(evidence)
   const spend = evidence.subject ? parseFnbCardSpend(evidence.subject) : null
   let event: FnbEvent | null = spend
   if (!event && (fromBank || looksLikeFnbReceipt(evidence.subject))) {
@@ -348,6 +600,10 @@ async function recordCapitecReceipt(
   if (!snap.exists) return
   const evidence = snap.data() as EvidenceRecord
   if (!isCapitecSender(evidence.from) && !/receipt from/i.test(evidence.subject || '')) return
+  if (isCapitecSender(evidence.from) && !evidenceIsAuthenticated(evidence)) {
+    safeLog.info('capitec_skipped', { emailId, reason: evidence.reason || 'not_authenticated' })
+    return
+  }
   const pdf = (evidence.attachments || []).find((row) => /pdf/i.test(row.contentType) || /\.pdf$/i.test(row.safeFilename))
   if (!pdf) return
   const [bytes] = await bucket.file(pdf.storagePath).download()

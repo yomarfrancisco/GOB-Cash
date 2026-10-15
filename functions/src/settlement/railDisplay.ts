@@ -7,6 +7,7 @@ import { buyerByDeskCardId, companyOf, railByMachineId } from './register'
 
 function bankShort(issuingBank: string): string {
   if (/FNB/i.test(issuingBank) && /Moz/i.test(issuingBank)) return 'FNB Moz'
+  if (/Moza/i.test(issuingBank)) return 'Moza Banco'
   if (/Standard/i.test(issuingBank)) return 'Std Bank Moz'
   if (/BIM|Millennium/i.test(issuingBank)) return 'Millennium BIM'
   if (/BCI/i.test(issuingBank)) return 'BCI'

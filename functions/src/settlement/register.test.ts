@@ -37,6 +37,9 @@ describe('settlement register', () => {
     assert.equal(buyerByCardLast4('0922')?.shortName, 'Goblin')
     assert.equal(buyerByCardLast4('0955')?.shortName, 'Wolf')
     assert.equal(BUYER_CARDS.filter((row) => row.deskCardId === 1).length, 2)
+    assert.equal(buyerByCardLast4('1707')?.canonicalCardId, 'GoblinMoza')
+    assert.equal(buyerByCardLast4('1699')?.canonicalCardId, 'WolfMoza')
+    assert.equal(buyerByCardLast4('8594')?.canonicalCardId, 'BRICS')
   })
 
   it('keeps House of Exports off every rail', () => {

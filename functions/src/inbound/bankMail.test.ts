@@ -300,8 +300,9 @@ describe('inbound archive worker', () => {
     assert.equal(stored?.raw?.sha256, sha256Hex(mime))
     assert.equal(stored?.raw?.storagePath, rawMimePath('email_1'))
     assert.equal(stored?.raw?.byteSize, mime.length)
-    assert.equal(stored?.parseStatus, 'unparsed')
+    assert.equal(stored?.parseStatus, 'quarantined')
     assert.equal(stored?.status, 'quarantined')
+    assert.equal(stored?.reason, 'sender_not_allowlisted')
     assert.equal(stored?.authentication.spf && (stored.authentication.spf as { result: string }).result, 'pass')
     assert.equal('html' in (stored as object), false)
     assert.equal('text' in (stored as object), false)
@@ -327,6 +328,98 @@ describe('inbound archive worker', () => {
     if (again.ok) assert.equal(again.duplicate, true)
     assert.equal(box.evidence.size, 1)
     assert.equal(box.puts.length, firstPuts)
+  })
+
+  it('authenticates allow-listed Moza mail with aligned ARC/DKIM', async () => {
+    const objects = new Map<string, Buffer>()
+    const evidence = new Map<string, EvidenceRecord>()
+    const ingress = new Map<string, IngressRecord>()
+    const mime = Buffer.from(
+      [
+        'From: info@mozabanco.co.mz',
+        'Subject: Notificação de Levantamento',
+        'Content-Type: text/plain; charset=UTF-8',
+        '',
+        'Levantamento 1.000,00 MZN cartão ****1707 Ref MZ-TEST-1',
+      ].join('\r\n')
+    )
+    ingress.set('msg_moza', {
+      svixId: 'msg_moza',
+      resendEmailId: 'email_moza',
+      eventType: 'email.received',
+      from: 'Moza Banco <info@mozabanco.co.mz>',
+      to: ['receipts@inbound.mozpaga.xyz'],
+      subject: 'Notificação de Levantamento',
+      receivedAt: '2026-10-12T12:00:00.000Z',
+      status: 'received',
+      attemptCount: 0,
+      lastError: null,
+      createdAt: '2026-10-12T12:00:00.000Z',
+      updatedAt: '2026-10-12T12:00:00.000Z',
+    })
+    const outcome = await archiveReceivedEmail({
+      ingress: ingress.get('msg_moza') as IngressRecord,
+      receiving: {
+        async get(emailId) {
+          return mapReceivingPayload(
+            {
+              id: emailId,
+              message_id: '<moza@mozabanco.co.mz>',
+              from: 'Moza Banco <info@mozabanco.co.mz>',
+              to: ['receipts@inbound.mozpaga.xyz'],
+              subject: 'Notificação de Levantamento',
+              created_at: '2026-10-12T12:00:00.000Z',
+              text: 'levantamento',
+              headers: {
+                'Arc-Authentication-Results': 'i=1; mx.google.com; dkim=pass header.d=mozabanco.co.mz',
+                'Authentication-Results': 'mx.google.com; dkim=pass header.d=mozabanco.co.mz',
+              },
+              authentication: { spf: { result: 'pass' }, dkim: { result: 'pass' }, dmarc: { result: 'pass' } },
+              raw: { download_url: 'https://files.example/raw-moza' },
+              attachments: [],
+            },
+            emailId
+          )
+        },
+        async download() {
+          return mime
+        },
+        async attachmentDownloadUrl() {
+          return 'https://files.example/att'
+        },
+      },
+      objects: {
+        async putPrivateIfAbsent(path, bytes) {
+          if (objects.has(path)) return 'exists'
+          objects.set(path, Buffer.from(bytes))
+          return 'stored'
+        },
+      },
+      evidence: {
+        async get(id) {
+          return evidence.get(id) || null
+        },
+        async create(row) {
+          if (evidence.has(row.resendEmailId)) return 'exists'
+          evidence.set(row.resendEmailId, row)
+          return 'created'
+        },
+      },
+      ingressMutator: {
+        async get(id) {
+          return ingress.get(id) || null
+        },
+        async update(id, patch) {
+          ingress.set(id, { ...(ingress.get(id) as IngressRecord), ...patch })
+        },
+      },
+      log: logSink().log,
+    })
+    assert.equal(outcome.ok, true)
+    const stored = evidence.get('email_moza')
+    assert.equal(stored?.status, 'authenticated')
+    assert.equal(stored?.bankIssuer, 'moza')
+    assert.equal(stored?.reason, 'bank_authenticated')
   })
 
   it('leaves a retryable ingress record when retrieval fails', async () => {

@@ -1,5 +1,6 @@
 import { createHash } from 'crypto'
 import { Webhook } from 'svix'
+import { evaluateBankAuthentication } from './bankAuth'
 import {
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS,
@@ -360,6 +361,11 @@ export async function archiveReceivedEmail(input: {
   const stamp = now()
   const headersJson = JSON.stringify(email.headers)
   const headersInline = headersJson.length <= 80_000
+  const auth = evaluateBankAuthentication({
+    from: email.from,
+    headers: email.headers,
+    authentication: email.authentication,
+  })
   const evidence: EvidenceRecord = {
     resendEmailId: email.id,
     ingressSvixId: ingress.svixId,
@@ -382,9 +388,12 @@ export async function archiveReceivedEmail(input: {
       contentType: 'message/rfc822',
     },
     attachments,
-    status: 'quarantined',
-    parseStatus: 'unparsed',
-    reason: 'bank_authentication_not_evaluated',
+    status: auth.ok ? 'authenticated' : 'quarantined',
+    parseStatus: auth.ok ? 'unparsed' : 'quarantined',
+    reason: auth.ok ? 'bank_authenticated' : auth.reason,
+    bankIssuer: auth.ok ? auth.issuer : null,
+    bankSenderEmail: auth.ok ? auth.senderEmail : null,
+    dkimDomain: auth.ok ? auth.dkimDomain : null,
     createdAt: stamp,
     updatedAt: stamp,
   }

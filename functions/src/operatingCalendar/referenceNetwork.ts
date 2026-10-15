@@ -35,8 +35,8 @@ export const REFERENCE_CARDS_M1: CardRecord[] = [
   { cardId: 'Goblin', issuerBankId: 'BCI', inventoryCardId: 5 },
   { cardId: 'Kayman', issuerBankId: 'FNB Mozambique', inventoryCardId: 6 },
   /** Equivalent-capacity Moza twins for Wolf / Goblin payer families (desk ids 7–8). */
-  { cardId: 'WolfMoza', issuerBankId: 'Moza', inventoryCardId: 7 },
-  { cardId: 'GoblinMoza', issuerBankId: 'Moza', inventoryCardId: 8 },
+  { cardId: 'WolfMoza', issuerBankId: 'Moza Banco', inventoryCardId: 7 },
+  { cardId: 'GoblinMoza', issuerBankId: 'Moza Banco', inventoryCardId: 8 },
 ]
 
 export const NEW_CARD_M2: CardRecord = {
