@@ -34,6 +34,8 @@ import { resolveBuyerCardLast4, resolveBuyerCardRef } from '../settlement/regist
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
 import { stepTitle } from '../routing/continuousCycle'
 import { tryAutoConfirmOpenRestock, tryAdvanceContinuousCycle } from '../tx/adminConversionRouting'
+import { issuingBankLabelFromBankId, parseObservedAtLoose, recordRealisedRate } from '../fx/realisedRates'
+import { parseRealisedRateNote } from '../fx/realisedRateNoteParse'
 import {
   EVIDENCE_COLLECTION,
   INGRESS_COLLECTION,
@@ -167,6 +169,8 @@ export const inbound_archiveBankMail = functions
       await recordMznProof(ingress.resendEmailId, bucket)
       await recordCapitecReceipt(ingress.resendEmailId, bucket)
       await recordCapitecSettlement(ingress.resendEmailId, bucket, capitecPdfPassword.value())
+      // Balance photos / Cursor rate notes may not be bank-authenticated.
+      await recordRealisedRateNote(ingress.resendEmailId, bucket)
     }
   })
 
@@ -268,6 +272,35 @@ async function recordMozaCardPurchase(
   if (!written.exists || written.data()?.resendEmailId !== emailId) return
   safeLog.info('moza_purchase_recorded', { emailId, reason: event.kind })
   await publishMozaPurchaseNotice(docId, event)
+  if (event.amountMzn != null && event.amountMzn > 0) {
+    try {
+      const rate = await recordRealisedRate(db(), {
+        issuingBank: resolved.buyer.issuingBank,
+        bankId: 'moza',
+        amountZar: event.amountZar,
+        amountMzn: event.amountMzn,
+        source: 'moza_visa_email',
+        observedAt: parseObservedAtLoose(event.occurredAt),
+        canonicalCardId: resolved.buyer.canonicalCardId,
+        deskCardId: resolved.buyer.deskCardId,
+        evidenceId: emailId,
+        eventId: docId,
+        terminalId: event.terminalId,
+        merchant: event.merchant,
+        id: `moza-${docId}`,
+      })
+      safeLog.info('moza_purchase_recorded', {
+        emailId,
+        reason: rate.created ? 'realised_rate_created' : 'realised_rate_exists',
+      })
+    } catch (err) {
+      safeLog.info('moza_purchase_recorded', {
+        emailId,
+        reason: 'realised_rate_failed',
+      })
+      console.warn('moza_realised_rate_failed', err)
+    }
+  }
   await tryAutoConfirmOpenRestock()
 }
 
@@ -627,6 +660,68 @@ async function publishBankNotice(emailId: string, event: FnbEvent, forwarded: bo
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     recordingSource: 'SYSTEM',
   })
+}
+
+/**
+ * Free-form realised-rate notes: balance-photo deltas or Cursor/operator mail
+ * to receipts@. Does not require bank DKIM — amounts must parse as ZAR+MZN.
+ */
+async function recordRealisedRateNote(
+  emailId: string,
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } }
+): Promise<void> {
+  const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
+  const snap = await evidenceRef.get()
+  if (!snap.exists) return
+  const evidence = snap.data() as EvidenceRecord
+  let text = await loadEvidenceText(evidence, bucket)
+  const image = (evidence.attachments || []).find((row) =>
+    /image\//i.test(row.contentType) || /\.(jpe?g|png|webp)$/i.test(row.safeFilename)
+  )
+  if (image) {
+    try {
+      const [bytes] = await bucket.file(image.storagePath).download()
+      const ocr = await imageText(bytes)
+      if (ocr) text = `${text}\n${ocr}`
+    } catch {
+      // keep text-only
+    }
+  }
+  const note = parseRealisedRateNote(text, evidence.subject)
+  if (!note) return
+  // Skip if Moza VISA purchase already owns this evidence (avoid double-count).
+  const evidenceExtras = evidence as EvidenceRecord & { mozaKind?: string; processedZar?: number }
+  if (evidenceExtras.mozaKind === 'card_purchase' || evidenceExtras.processedZar) return
+
+  try {
+    const rate = await recordRealisedRate(db(), {
+      issuingBank: note.issuingBankHint || issuingBankLabelFromBankId(note.bankId),
+      bankId: note.bankId,
+      amountZar: note.amountZar,
+      amountMzn: note.amountMzn,
+      source: image ? 'balance_photo' : note.source,
+      observedAt: parseObservedAtLoose(note.observedAtHint),
+      evidenceId: emailId,
+      notes: note.notes,
+      id: `note-${emailId}`,
+      confidence: image ? 'medium' : undefined,
+    })
+    await evidenceRef.set(
+      {
+        parseStatus: 'parsed',
+        realisedRateId: rate.observation.id,
+        realisedRateBankId: rate.observation.bankId,
+      },
+      { merge: true }
+    )
+    safeLog.info('realised_rate_note_recorded', {
+      emailId,
+      reason: rate.created ? rate.observation.bankId : 'exists',
+    })
+  } catch (err) {
+    safeLog.info('realised_rate_note_recorded', { emailId, reason: 'failed' })
+    console.warn('realised_rate_note_failed', err)
+  }
 }
 
 async function recordMznProof(

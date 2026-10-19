@@ -6,6 +6,8 @@
  *   BCI            → mid × 1.05
  *   FNB / Standard → mid × 1.06
  *   Millennium BIM → mid × 1.07
+ *   Moza Banco     → no dedicated policy markup yet (defaults to BCI);
+ *                    measured rates live in fxRealisedRates.
  *
  * Base COST (BCI) is the reference; higher bank COST shrinks that card's spread.
  */
@@ -29,6 +31,7 @@ export function costMarkupFromMozBankId(mozBankId: string | null | undefined): n
     case 'fnb':
     case 'standard':
       return COST_MARKUP_FNB_STD
+    case 'moza':
     case 'bci':
     default:
       return COST_MARKUP_BCI
@@ -41,6 +44,7 @@ export function costMarkupFromIssuingBank(issuingBank: string | null | undefined
   if (/BIM|Millennium/i.test(text)) return COST_MARKUP_BIM
   if (/Standard/i.test(text)) return COST_MARKUP_FNB_STD
   if (/FNB/i.test(text)) return COST_MARKUP_FNB_STD
+  if (/Moza/i.test(text)) return COST_MARKUP_BCI
   if (/BCI/i.test(text)) return COST_MARKUP_BCI
   return COST_MARKUP_BCI
 }
