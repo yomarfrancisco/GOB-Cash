@@ -18,11 +18,19 @@ import { parseFnbSettlement, fnbSettlementCopy } from '../settlement/fnbSettleme
 import { applyCapitecPayoutToInvoices, applyFnbGrossSettlementToInvoices } from '../settlement/issueInvoices'
 import { imageText } from './mznImageText'
 import { mznNoticeCopy, parseMznProof, type MznProof } from './mznProofParse'
-import { isMozaSender, mozaWithdrawalNoticeCopy, parseMozaCashWithdrawal, type MozaCashWithdrawal } from './mozaParse'
+import {
+  isMozaSender,
+  mozaPurchaseNoticeCopy,
+  mozaWithdrawalNoticeCopy,
+  parseMozaCardPurchase,
+  parseMozaCashWithdrawal,
+  type MozaCardPurchase,
+  type MozaCashWithdrawal,
+} from './mozaParse'
 import { fnbMzTransferNoticeCopy, isFnbMzSender, parseFnbMzBankTransfer, type FnbMzBankTransfer } from './fnbMzParse'
-import { canSettlePosTicket, isCardLifecycleEvent } from './bankEventKinds'
+import { canEmitUsableZarEvidence, canSettlePosTicket, isCardLifecycleEvent } from './bankEventKinds'
 import { extractMimeText } from './mimeText'
-import { resolveBuyerCardLast4 } from '../settlement/register'
+import { resolveBuyerCardLast4, resolveBuyerCardRef } from '../settlement/register'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
 import { stepTitle } from '../routing/continuousCycle'
 import { tryAutoConfirmOpenRestock, tryAdvanceContinuousCycle } from '../tx/adminConversionRouting'
@@ -152,6 +160,7 @@ export const inbound_archiveBankMail = functions
       throw new Error('archive_retryable')
     }
     if (outcome.ok) {
+      await recordMozaCardPurchase(ingress.resendEmailId, bucket)
       await recordMozaWithdrawal(ingress.resendEmailId, bucket)
       await recordFnbMzTransfer(ingress.resendEmailId, bucket)
       await recordFnbNotice(ingress.resendEmailId, bucket)
@@ -180,6 +189,118 @@ async function loadEvidenceText(
   return evidence.subject || ''
 }
 
+async function recordMozaCardPurchase(
+  emailId: string,
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } }
+): Promise<void> {
+  const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
+  const snap = await evidenceRef.get()
+  if (!snap.exists) return
+  const evidence = snap.data() as EvidenceRecord
+  if (!isMozaSender(evidence.from)) return
+  if (!evidenceIsAuthenticated(evidence)) {
+    safeLog.info('moza_purchase_skipped', { emailId, reason: evidence.reason || 'not_authenticated' })
+    return
+  }
+  const text = await loadEvidenceText(evidence, bucket)
+  const event = parseMozaCardPurchase(text, evidence.subject)
+  if (!event) return
+
+  if (!canEmitUsableZarEvidence(event.eventType) || !canSettlePosTicket(event.eventType)) {
+    await evidenceRef.set(
+      { parseStatus: 'quarantined', reason: 'moza_purchase_misclassified' },
+      { merge: true }
+    )
+    return
+  }
+
+  const resolved = resolveBuyerCardRef(event.cardToken || event.cardLast4)
+  if (!resolved.ok) {
+    await evidenceRef.set(
+      {
+        parseStatus: 'quarantined',
+        reason: resolved.reason,
+        mozaKind: event.kind,
+      },
+      { merge: true }
+    )
+    safeLog.info('moza_purchase_quarantined', { emailId, reason: resolved.reason })
+    return
+  }
+
+  const docId = (
+    event.bankReference ||
+    `moza-purchase-${event.terminalId || 'term'}-${event.occurredAt || emailId}-${event.amountZar}`
+  ).replace(/[^\w.-]+/g, '-')
+  const eventRef = db().collection('bankMozaEvents').doc(docId)
+  await db().runTransaction(async (tx) => {
+    const existing = await tx.get(eventRef)
+    if (existing.exists) return
+    tx.set(eventRef, {
+      ...event,
+      // Never persist a full PAN — last4 + issuer ref + canonical ids only.
+      cardLast4: resolved.buyer.cardLast4,
+      cardToken: event.cardToken,
+      canonicalCardId: resolved.buyer.canonicalCardId,
+      deskCardId: resolved.buyer.deskCardId,
+      payerFamilyId: resolved.buyer.payerFamilyId,
+      issuingBank: resolved.buyer.issuingBank,
+      canSettlePosTicket: true,
+      canEmitUsableZar: true,
+      status: 'approved',
+      resendEmailId: emailId,
+      from: evidence.from,
+      subject: evidence.subject,
+      createdAt: new Date().toISOString(),
+    })
+    tx.set(
+      evidenceRef,
+      {
+        parseStatus: 'parsed',
+        mozaKind: event.kind,
+        linkedCanonicalCardId: resolved.buyer.canonicalCardId,
+        processedZar: event.amountZar,
+      },
+      { merge: true }
+    )
+  })
+  const written = await eventRef.get()
+  if (!written.exists || written.data()?.resendEmailId !== emailId) return
+  safeLog.info('moza_purchase_recorded', { emailId, reason: event.kind })
+  await publishMozaPurchaseNotice(docId, event)
+  await tryAutoConfirmOpenRestock()
+}
+
+async function publishMozaPurchaseNotice(docId: string, event: MozaCardPurchase): Promise<void> {
+  const id = `moza-purchase-${docId}`
+  const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
+  const existing = await ref.get()
+  if (existing.exists) return
+  const copy = mozaPurchaseNoticeCopy(event)
+  await ref.set({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: copy.title,
+    body: copy.body,
+    dropdownTitle: copy.title,
+    dropdownBody: copy.body,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_zar',
+    amountCurrency: 'ZAR',
+    amountValue: event.amountZar,
+    amountSign: 'debit',
+    txId: id,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: false,
+    status: 'recorded',
+    routingAction: 'bank_notice',
+    deskSpeaker: 'amina',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    recordingSource: 'SYSTEM',
+  })
+}
+
 async function recordMozaWithdrawal(
   emailId: string,
   bucket: { file(path: string): { download(): Promise<[Buffer]> } }
@@ -194,6 +315,8 @@ async function recordMozaWithdrawal(
     return
   }
   const text = await loadEvidenceText(evidence, bucket)
+  // Purchase path owns foreign VISA templates — do not mis-classify as withdrawal.
+  if (parseMozaCardPurchase(text, evidence.subject)) return
   const event = parseMozaCashWithdrawal(text, evidence.subject)
   if (!event) return
 
@@ -206,7 +329,7 @@ async function recordMozaWithdrawal(
     return
   }
 
-  const resolved = resolveBuyerCardLast4(event.cardLast4)
+  const resolved = resolveBuyerCardRef(event.cardToken || event.cardLast4)
   if (!resolved.ok) {
     await evidenceRef.set(
       {
@@ -229,6 +352,7 @@ async function recordMozaWithdrawal(
       ...event,
       // Never persist a full PAN — last4 + canonical ids only.
       cardLast4: resolved.buyer.cardLast4,
+      cardToken: event.cardToken,
       canonicalCardId: resolved.buyer.canonicalCardId,
       deskCardId: resolved.buyer.deskCardId,
       payerFamilyId: resolved.buyer.payerFamilyId,
@@ -810,7 +934,7 @@ async function publishCapitecNotice(docId: string, receipt: CapitecReceipt): Pro
   })
 }
 
-/** One-shot: parse FNB mail already archived before this recorder existed. */
+/** One-shot: parse bank mail already archived before recorders existed / were extended. */
 export const inbound_backfillFnb = functions
   .region('us-central1')
   .runWith({ secrets: [inboundSecret, capitecPdfPassword], timeoutSeconds: 120, memory: '512MB' })
@@ -821,15 +945,21 @@ export const inbound_backfillFnb = functions
       return
     }
     const bucket = admin.storage().bucket()
-    const snap = await db().collection(EVIDENCE_COLLECTION).limit(50).get()
+    const snap = await db().collection(EVIDENCE_COLLECTION).limit(80).get()
     let recorded = 0
+    let mozaPurchases = 0
     for (const doc of snap.docs) {
+      await recordMozaCardPurchase(doc.id, bucket)
+      await recordMozaWithdrawal(doc.id, bucket)
+      await recordFnbMzTransfer(doc.id, bucket)
       await recordFnbNotice(doc.id, bucket)
       await recordMznProof(doc.id, bucket)
       await recordCapitecReceipt(doc.id, bucket)
       await recordCapitecSettlement(doc.id, bucket, capitecPdfPassword.value())
       const after = await db().collection('bankFnbEvents').doc(doc.id).get()
       if (after.exists) recorded += 1
+      const evidence = await db().collection(EVIDENCE_COLLECTION).doc(doc.id).get()
+      if (evidence.data()?.mozaKind === 'card_purchase') mozaPurchases += 1
     }
-    res.status(200).json({ ok: true, scanned: snap.size, recorded })
+    res.status(200).json({ ok: true, scanned: snap.size, recorded, mozaPurchases })
   })

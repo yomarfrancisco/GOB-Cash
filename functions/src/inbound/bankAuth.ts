@@ -44,7 +44,8 @@ export const ALLOWED_BANK_SENDERS: AllowedBankSender[] = [
 
 export type BankAuthInput = {
   from: string | null
-  headers: Record<string, string> | null
+  /** Header map — values may be strings or arrays (Resend/SES multi-value). */
+  headers: Record<string, string | string[]> | null
   authentication: { spf?: unknown; dkim?: unknown; dmarc?: unknown } | null
 }
 
@@ -83,27 +84,36 @@ function authResultString(value: unknown): string | null {
   return null
 }
 
-function headerBlob(headers: Record<string, string> | null | undefined): string {
+function headerValueToString(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.map((row) => headerValueToString(row)).join('\n')
+  return String(value)
+}
+
+function headerBlob(headers: Record<string, string | string[]> | null | undefined): string {
   if (!headers) return ''
   const preferred = ['arc-authentication-results', 'authentication-results', 'dkim-signature']
   const parts: string[] = []
   for (const [key, value] of Object.entries(headers)) {
-    if (preferred.includes(key.toLowerCase())) parts.push(`${key}: ${value}`)
+    if (preferred.includes(key.toLowerCase())) parts.push(`${key}: ${headerValueToString(value)}`)
   }
   // Fall back to full header dump when preferred keys are absent.
   if (!parts.length) {
-    for (const [key, value] of Object.entries(headers)) parts.push(`${key}: ${value}`)
+    for (const [key, value] of Object.entries(headers)) {
+      parts.push(`${key}: ${headerValueToString(value)}`)
+    }
   }
   return parts.join('\n')
 }
 
 /**
- * Find a DKIM/ARC pass whose d= domain is in the allow-list for this sender.
+ * Find a DKIM/ARC pass whose d= / header.i= domain is in the allow-list for this sender.
  * Accepts Gmail ARC chain results (mx.google.com) that still report dkim=pass
- * for the bank domain.
+ * for the bank domain — including header.i=@bank.example (Gmail/SES style).
  */
 export function findAlignedDkimPass(
-  headers: Record<string, string> | null | undefined,
+  headers: Record<string, string | string[]> | null | undefined,
   authentication: BankAuthInput['authentication'],
   allowedDomains: string[]
 ): { pass: true; domain: string } | { pass: false; reason: 'dkim_arc_missing' | 'dkim_arc_failed' | 'dkim_domain_misaligned' } {
@@ -111,9 +121,11 @@ export function findAlignedDkimPass(
   const blob = headerBlob(headers)
   const passes: Array<{ domain: string }> = []
 
-  // Authentication-Results / ARC: dkim=pass header.d=bank.example / d=bank.example
+  // Authentication-Results / ARC:
+  //   dkim=pass header.d=bank.example
+  //   dkim=pass header.i=@bank.example  (Gmail ARC + Amazon SES)
   const resultRe =
-    /dkim\s*=\s*pass\b[^;\n]*?(?:header\.d|d)\s*=\s*([A-Za-z0-9.-]+)/gi
+    /dkim\s*=\s*pass\b[^;\n]*?(?:header\.d|header\.i|d)\s*=\s*@?([A-Za-z0-9.-]+)/gi
   let match: RegExpExecArray | null
   while ((match = resultRe.exec(blob))) {
     passes.push({ domain: match[1]!.toLowerCase() })
@@ -125,6 +137,13 @@ export function findAlignedDkimPass(
   if (dkimAuth === 'pass') {
     const sigDomains = [...blob.matchAll(/\bd\s*=\s*([A-Za-z0-9.-]+)/gi)].map((m) => m[1]!.toLowerCase())
     for (const domain of sigDomains) {
+      if (allowed.has(domain)) passes.push({ domain })
+    }
+    // Resend already verified DKIM; Gmail forwards often only keep header.i=@bank.
+    const identityDomains = [...blob.matchAll(/header\.i\s*=\s*@?([A-Za-z0-9.-]+)/gi)].map((m) =>
+      m[1]!.toLowerCase()
+    )
+    for (const domain of identityDomains) {
       if (allowed.has(domain)) passes.push({ domain })
     }
   }

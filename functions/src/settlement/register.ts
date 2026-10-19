@@ -60,6 +60,11 @@ export type BuyerCardRecord = {
   cardLast4: string
   /** Masked display: ****last4 or bin******last4 when bin known. */
   masked: string
+  /**
+   * Issuer-side card tokens from bank mail (e.g. Moza "cartão 1120169").
+   * Digits only; never a full PAN. Used when mail shows a ref other than PAN last4.
+   */
+  issuerCardRefs?: string[]
 }
 
 export const COMPANIES: Record<string, CompanyRecord> = {
@@ -381,6 +386,8 @@ export const BUYER_CARDS: BuyerCardRecord[] = [
     cardBin6: null,
     cardLast4: '1699',
     masked: '******1699',
+    /** Moza VISA estrangeiro mail shows "cartão 1120169" (issuer ref, not PAN last4). */
+    issuerCardRefs: ['1120169'],
   },
   {
     deskCardId: 8,
@@ -448,6 +455,21 @@ export function resolveBuyerCardLast4(
   const buyer = BUYER_CARDS.find((row) => row.cardLast4 === normalized)
   if (!buyer) return { ok: false, reason: 'unknown_last4' }
   return { ok: true, buyer }
+}
+
+/**
+ * Resolve a card token from bank mail: PAN last4, or Moza issuer ref (e.g. 1120169).
+ * Never invents a match — unknown tokens quarantine.
+ */
+export function resolveBuyerCardRef(
+  token: string | null | undefined
+): { ok: true; buyer: BuyerCardRecord } | { ok: false; reason: 'missing_last4' | 'unknown_last4' } {
+  if (!token) return { ok: false, reason: 'missing_last4' }
+  const digits = String(token).replace(/\D/g, '')
+  if (digits.length < 4) return { ok: false, reason: 'missing_last4' }
+  const byRef = BUYER_CARDS.find((row) => (row.issuerCardRefs || []).some((ref) => ref.replace(/\D/g, '') === digits))
+  if (byRef) return { ok: true, buyer: byRef }
+  return resolveBuyerCardLast4(digits.slice(-4))
 }
 
 /** COST markup for a desk card's Moz issuing bank (inventory first, then buyer register). */

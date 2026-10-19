@@ -8,6 +8,7 @@ import {
   buyerByCardLast4,
   canonicalCardIdByLast4,
   resolveBuyerCardLast4,
+  resolveBuyerCardRef,
 } from '../settlement/register'
 import { evaluateBankAuthentication } from './bankAuth'
 import {
@@ -15,7 +16,7 @@ import {
   canSettlePosTicket,
   isCardLifecycleEvent,
 } from './bankEventKinds'
-import { parseMozaCashWithdrawal } from './mozaParse'
+import { parseMozaCardPurchase, parseMozaCashWithdrawal } from './mozaParse'
 import { parseFnbMzBankTransfer } from './fnbMzParse'
 import { extractMimeText } from './mimeText'
 
@@ -31,6 +32,16 @@ Referência: MZ-20261012-88421
 Contacto: 21 340 400
 
 Este aviso é informativo. Guarde-o para os seus registos.
+`.trim()
+
+/** Sanitized Moza foreign VISA purchase (POS swipe). Issuer ref 1120169 → WolfMoza. */
+export const FIXTURE_MOZA_VISA_PURCHASE = `
+Moza Banco
+
+Registamos uma compra no valor de 10.500,00 ZAR (43.748,54 MZN) em 19-10-2026, às 13:12:37, através do seu cartão 1120169, no terminal 0067379427- imani Johannesburg ZA. Mais info 95247/21342020.
+
+O valor é teu.
+Call Center: 822020 / 842020 / 21342020
 `.trim()
 
 /** Sanitized FNB Mozambique interbank transfer. No card digits in body. */
@@ -122,6 +133,32 @@ describe('Moza cash withdrawal parse', () => {
   })
 })
 
+describe('Moza foreign VISA purchase parse', () => {
+  it('parses ZAR/MZN/terminal and registers usable ZAR on WolfMoza via issuer ref', () => {
+    const event = parseMozaCardPurchase(FIXTURE_MOZA_VISA_PURCHASE, 'Confirmação de Compra VISA Estrangeiro')
+    assert.ok(event)
+    assert.equal(event!.kind, 'card_purchase')
+    assert.equal(event!.eventType, 'card_purchase')
+    assert.equal(event!.amountZar, 10500)
+    assert.equal(event!.amountMzn, 43748.54)
+    assert.equal(event!.cardToken, '1120169')
+    assert.equal(event!.cardLast4, '0169')
+    assert.equal(event!.terminalId, '0067379427')
+    assert.match(event!.merchant || '', /imani Johannesburg ZA/i)
+    assert.ok(event!.occurredAt)
+    assert.equal(canSettlePosTicket(event!.eventType), true)
+    assert.equal(canEmitUsableZarEvidence(event!.eventType), true)
+    assert.equal(isCardLifecycleEvent(event!.eventType), true)
+    const resolved = resolveBuyerCardRef(event!.cardToken)
+    assert.equal(resolved.ok, true)
+    if (resolved.ok) {
+      assert.equal(resolved.buyer.canonicalCardId, 'WolfMoza')
+      assert.equal(resolved.buyer.cardLast4, '1699')
+    }
+    assert.equal(parseMozaCashWithdrawal(FIXTURE_MOZA_VISA_PURCHASE, 'Confirmação de Compra VISA Estrangeiro'), null)
+  })
+})
+
 describe('FNB MZ bank transfer parse', () => {
   it('parses transfer without masquerading as a card event', () => {
     const event = parseFnbMzBankTransfer(FIXTURE_FNB_MZ_TRANSFER, 'Confirmação de Transferência')
@@ -161,6 +198,24 @@ describe('bank email authentication gate', () => {
       assert.equal(result.senderEmail, 'info@mozabanco.co.mz')
       assert.equal(result.dkimDomain, 'mozabanco.co.mz')
     }
+  })
+
+  it('accepts Gmail-forwarded Moza with header.i=@mozabanco.co.mz ARC (array headers)', () => {
+    const result = evaluateBankAuthentication({
+      from: 'info@mozabanco.co.mz',
+      headers: {
+        'authentication-results': [
+          'amazonses.com; spf=pass; dkim=pass header.i=@mozabanco.co.mz; dmarc=pass header.from=mozabanco.co.mz',
+        ],
+        'arc-authentication-results': [
+          'i=2; mx.google.com; dkim=pass header.i=@mozabanco.co.mz header.s=s2048; spf=pass smtp.mailfrom=info@mozabanco.co.mz',
+        ],
+        'dkim-signature': 'v=1',
+      },
+      authentication: { dkim: 'pass', spf: 'pass', dmarc: 'pass' },
+    })
+    assert.equal(result.ok, true)
+    if (result.ok) assert.equal(result.dkimDomain, 'mozabanco.co.mz')
   })
 
   it('accepts ebanka@fnb.co.mz with aligned DKIM', () => {
@@ -206,7 +261,12 @@ describe('bank email authentication gate', () => {
 
 describe('fixture hygiene', () => {
   it('fixtures contain no full PAN sequences', () => {
-    const blob = [FIXTURE_MOZA_WITHDRAWAL, FIXTURE_FNB_MZ_TRANSFER, FIXTURE_FNB_MZ_TRANSFER_WITH_CARD].join('\n')
+    const blob = [
+      FIXTURE_MOZA_WITHDRAWAL,
+      FIXTURE_MOZA_VISA_PURCHASE,
+      FIXTURE_FNB_MZ_TRANSFER,
+      FIXTURE_FNB_MZ_TRANSFER_WITH_CARD,
+    ].join('\n')
     // Account / NIB digits may appear; card identity must stay last-four or masked.
     assert.equal(/\b(?:478705|469617|428670|441279)\d{6,9}\d{4}\b/.test(blob), false)
     assert.equal(/\*{4}\d{4}/.test(blob), true)

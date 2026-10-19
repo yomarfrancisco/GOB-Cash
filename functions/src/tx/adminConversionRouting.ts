@@ -1880,11 +1880,12 @@ export async function tryAdvanceContinuousCycle(): Promise<void> {
 
 async function loadFnbDeskLines(): Promise<string> {
   try {
-    const [events, floats, mznEvents, capitecEvents] = await Promise.all([
+    const [events, floats, mznEvents, capitecEvents, mozaEvents] = await Promise.all([
       db.collection('bankFnbEvents').limit(20).get(),
       db.collection('fnbCardFloat').limit(20).get(),
       db.collection('bankMznEvents').limit(20).get(),
       db.collection('bankCapitecEvents').limit(20).get(),
+      db.collection('bankMozaEvents').limit(20).get(),
     ])
     const lines: string[] = []
     for (const doc of floats.docs) {
@@ -1893,6 +1894,21 @@ async function loadFnbDeskLines(): Promise<string> {
       lines.push(
         `FNB card ${doc.id}: reserved R${Number(row.reservedZar || 0).toFixed(2)}, receipted R${Number(row.receiptedZar || 0).toFixed(2)}, ${available}.`
       )
+    }
+    for (const doc of mozaEvents.docs) {
+      const row = doc.data() as {
+        kind?: string
+        amountZar?: number
+        amountMzn?: number
+        canonicalCardId?: string
+        merchant?: string | null
+        canEmitUsableZar?: boolean
+      }
+      if (row.kind !== 'card_purchase' || !(Number(row.amountZar) > 0)) continue
+      const card = row.canonicalCardId || doc.id
+      const where = row.merchant ? ` @ ${row.merchant}` : ''
+      const usable = row.canEmitUsableZar === true ? 'processed ZAR' : 'evidence only'
+      lines.push(`Moza ${card}: R${Number(row.amountZar || 0).toFixed(2)}${where} (${usable}).`)
     }
     const notices = events.docs
       .map((doc) => doc.data() as {
@@ -3658,23 +3674,40 @@ export async function tryAutoConfirmOpenRestock(overrideEarliest = false): Promi
   const issuedAt = issued.data()?.createdAt
   const issuedMs = typeof issuedAt?.toMillis === 'function' ? issuedAt.toMillis() : 0
   if (!(issuedMs > 0)) return false
-  const [fnb, capitec, mznSnap, mznEvents] = await Promise.all([
+  const [fnb, capitec, moza, mznSnap, mznEvents] = await Promise.all([
     db.collection('bankFnbEvents').limit(40).get(),
     db.collection('bankCapitecEvents').limit(40).get(),
+    db.collection('bankMozaEvents').limit(40).get(),
     db.collection('users').doc(adminUid).collection('wallets').doc('cashMZN').get(),
     db.collection('bankMznEvents').limit(40).get(),
   ])
   const zar: Array<{ ref: FirebaseFirestore.DocumentReference; amount: number }> = []
-  const take = (doc: FirebaseFirestore.QueryDocumentSnapshot, amount: number, status: string, kind?: string) => {
+  const take = (
+    doc: FirebaseFirestore.QueryDocumentSnapshot,
+    amount: number,
+    status: string,
+    kind?: string,
+    opts?: { allowCardPurchase?: boolean }
+  ) => {
     if (doc.data().matchedRestock) return
-    if (kind && kind !== 'conversion_receipt') return
+    const okKind =
+      kind === 'conversion_receipt' || (opts?.allowCardPurchase === true && kind === 'card_purchase')
+    if (kind && !okKind) return
     if (status !== 'approved') return
     const at = Date.parse(String(doc.data().createdAt || ''))
     if (!Number.isFinite(at) || at < issuedMs) return
+    if (!(amount > 0)) return
     zar.push({ ref: doc.ref, amount })
   }
   fnb.docs.forEach((doc) => take(doc, Number(doc.data().amountZar || 0), String(doc.data().status || ''), String(doc.data().kind || '')))
   capitec.docs.forEach((doc) => take(doc, Number(doc.data().amountZar || 0), String(doc.data().status || ''), String(doc.data().kind || '')))
+  moza.docs.forEach((doc) => {
+    const data = doc.data()
+    if (data.canEmitUsableZar !== true) return
+    take(doc, Number(data.amountZar || 0), String(data.status || 'approved'), String(data.kind || ''), {
+      allowCardPurchase: true,
+    })
+  })
   const mznIn = mznEvents.docs
     .filter((doc) => !doc.data().matchedRestock && Date.parse(String(doc.data().createdAt || '')) >= issuedMs)
     .map((doc) => Number(doc.data().amountMzn || 0))
