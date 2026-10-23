@@ -156,8 +156,8 @@ body {
   position: absolute;
   top: 48px;
   left: 16px;
-  width: 149px; /* 20% larger than 124px (124 * 1.20 = 149px) */
-  height: 46px; /* 20% larger than 38px (38 * 1.20 = 46px) */
+  width: 120px;
+  height: 90px; /* Distressed_PAGA aspect (~4:3) */
   object-fit: contain;
   z-index: 2;
   background: transparent !important;

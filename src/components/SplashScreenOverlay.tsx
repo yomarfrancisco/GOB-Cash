@@ -8,8 +8,8 @@ export default function SplashScreenOverlay() {
     <div className={styles.wrap} aria-hidden>
       <div className={styles.logoWrapper}>
         <Image
-          src="/assets/MoZ-logo.png"
-          alt="MoZ"
+          src="/assets/core/Distressed_PAGA.png"
+          alt="PAGA"
           fill
           style={{ objectFit: 'contain' }}
           priority
