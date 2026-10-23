@@ -25,10 +25,10 @@ type InternalTransferSheetProps = {
 }
 
 const WALLET_CONFIG: Record<WalletId, { name: string; cardImage: string; allocKey: 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents' }> = {
-  savings: { name: 'ZAR wallet', cardImage: '/assets/cards/card-ZAR_231026.png', allocKey: 'cashCents' },
+  savings: { name: 'ZAR wallet', cardImage: '/assets/cards/card-ZAR_231026.jpg', allocKey: 'cashCents' },
   zwd: { name: 'ZWD wallet', cardImage: '/assets/cards/card-ZIM5.jpg', allocKey: 'zwdCents' },
   yield: { name: 'ETH wallet', cardImage: '/assets/cards/card-ETH.jpg', allocKey: 'ethCents' },
-  mzn: { name: 'MZN wallet', cardImage: '/assets/cards/card-MZN_231026.png', allocKey: 'mznCents' },
+  mzn: { name: 'MZN wallet', cardImage: '/assets/cards/card-MZN_231026.jpg', allocKey: 'mznCents' },
   btc: { name: 'BTC wallet', cardImage: '/assets/cards/card-BTC.jpg', allocKey: 'btcCents' },
 }
 

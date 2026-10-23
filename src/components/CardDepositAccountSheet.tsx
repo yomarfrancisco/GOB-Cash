@@ -24,13 +24,13 @@ const getDepositAccounts = (getCash: () => number, alloc: { mznCents?: number })
   {
     id: 'savings',
     label: 'ZAR account',
-    cardImage: '/assets/cards/card-ZAR_231026.png',
+    cardImage: '/assets/cards/card-ZAR_231026.jpg',
     getBalance: getCash,
   },
   {
     id: 'mzn',
     label: 'MZN account',
-    cardImage: '/assets/cards/card-MZN_231026.png',
+    cardImage: '/assets/cards/card-MZN_231026.jpg',
     getBalance: () => (alloc.mznCents || 0) / 100,
   },
 ]
