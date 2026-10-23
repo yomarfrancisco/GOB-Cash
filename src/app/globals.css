@@ -543,6 +543,9 @@ body {
   width: 100% !important;
   height: 100% !important;
   border-radius: inherit !important;
+  /* Bleed past soft asset edges so art fills the rounded container */
+  transform: scale(1.08);
+  transform-origin: center center;
 }
 
 /* Ensure yield card renders properly */
