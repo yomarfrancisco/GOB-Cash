@@ -35,10 +35,10 @@ const walletTitleMap: Record<WalletKey, string> = {
 }
 
 const cardImages: Record<WalletKey, string> = {
-  savings: '/assets/cards/card-savings.jpg',
+  savings: '/assets/cards/card - ZAR_231026.png',
   zwd: '/assets/cards/card-ZIM5.jpg',
   yield: '/assets/cards/card-ETH.jpg',
-  mzn: '/assets/cards/card-MZN.jpg',
+  mzn: '/assets/cards/card - MZN_231026.png',
   btc: '/assets/cards/card-BTC.jpg',
   yieldSurprise: '/assets/cards/card-$GOB4.jpg', // New wallet key using yield card art
 }

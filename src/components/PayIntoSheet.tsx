@@ -33,13 +33,13 @@ export default function PayIntoSheet({ onConfirm }: PayIntoSheetProps) {
     {
       id: 'ZAR',
       label: 'Receive ZAR',
-      cardImage: '/assets/cards/card-savings.jpg',
+      cardImage: '/assets/cards/card - ZAR_231026.png',
       getBalanceText: () => `Balance: ${formatZARWithDot(getCash())}`,
     },
     {
       id: 'MZN',
       label: 'Receive MZN',
-      cardImage: '/assets/cards/card-MZN2.jpg',
+      cardImage: '/assets/cards/card - MZN_231026.png',
       getBalanceText: () => `Balance: ${formatMZN((alloc.mznCents || 0) / 100)}`,
     },
   ]

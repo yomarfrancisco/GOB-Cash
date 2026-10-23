@@ -9,7 +9,7 @@ export default function TransferCardsIcon() {
       {/* Back card (ZAR) */}
       <div className={styles.cardBack}>
         <Image
-          src="/assets/cards/card-savings.jpg"
+          src="/assets/cards/card - ZAR_231026.png"
           alt=""
           width={44}
           height={28}

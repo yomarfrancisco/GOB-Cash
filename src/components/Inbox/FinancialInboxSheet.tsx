@@ -116,7 +116,7 @@ function TypedMessageBubble({ text, animate, showCard, introStage, isDemoIntro, 
               {/* Card preview (compact) */}
               <div className={clsx(walletHelperStyles.cardPreview, walletHelperStyles.compactCardPreview)}>
                 <Image
-                  src="/assets/cards/card-savings.jpg"
+                  src="/assets/cards/card - ZAR_231026.png"
                   alt="ZAR savings wallet"
                   fill
                   className={walletHelperStyles.cardImage}
