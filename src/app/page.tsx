@@ -634,7 +634,7 @@ function HomeContent() {
           {/* Overlay: Glass bars only */}
           <div className="overlay-glass">
             <div className="overlay-glass-inner">
-              <TopGlassBar hideLogo />
+              <TopGlassBar />
               <BottomGlassBar 
                 currentPath="/" 
                 conversionDestination={conversionDestination}
