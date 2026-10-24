@@ -4,28 +4,29 @@ export type DeskSpeaker = 'you' | 'sam' | 'leo' | 'amina'
 export type DeskAgent = Exclude<DeskSpeaker, 'you'>
 
 /**
- * The desk is three people. Sam owns the relationship: asks, answers,
- * opening the window. Leo runs the ZAR leg: every Sell ZAR card is his.
- * Amina runs the MZN leg: every restock (Moz cards swiped at COST) is hers.
+ * The desk is three agents. Routing Manager owns the window, asks, and answers.
+ * SA Bank Liaison runs the ZAR leg (every Sell ZAR card).
+ * Moz Bank Liaison runs the MZN leg (every restock / Moz cards at COST).
+ * Internal ids stay sam/leo/amina so existing deskSpeaker routing keeps working.
  */
 export const DESK_TEAM = {
   sam: {
     id: 'sam' as const,
-    name: 'Sam',
-    role: 'Relationship manager',
+    name: 'Routing Manager',
+    role: 'Window · asks · answers',
     avatar: '/assets/avatar_agent9.png',
   },
   leo: {
     id: 'leo' as const,
-    name: 'Leo',
-    role: 'ZAR liquidity manager',
-    avatar: '/assets/avatar_agent3.png',
+    name: 'SA Bank Liaison',
+    role: 'ZAR · SA banks',
+    avatar: '/assets/south-africa.png',
   },
   amina: {
     id: 'amina' as const,
-    name: 'Amina',
-    role: 'MZN liquidity manager',
-    avatar: '/assets/avatar_agent1.png',
+    name: 'Moz Bank Liaison',
+    role: 'MZN · Moz banks',
+    avatar: '/assets/mozambique.png',
   },
 }
 
@@ -36,11 +37,12 @@ export const DESK_RING: DeskAgent[] = ['sam', 'leo', 'amina']
  * Who is speaking on a desk item. Works on the Firestore doc shape too, so
  * the list, the header and the thread all agree.
  */
-/** Who the operator addressed. Unnamed asks stay with Sam. */
+/** Who the operator addressed. Unnamed asks stay with the Routing Manager. */
 export function addressedDeskAgent(message: string): DeskAgent {
   const text = message.trim().toLowerCase()
-  if (/\bleo\b/.test(text)) return 'leo'
-  if (/\bamina\b/.test(text)) return 'amina'
+  if (/\b(leo|sa bank|south africa|sa liaison)\b/.test(text) || /\bsa\b/.test(text)) return 'leo'
+  if (/\b(amina|moz bank|mozambique|moz liaison)\b/.test(text) || /\bmoz\b/.test(text)) return 'amina'
+  if (/\b(sam|routing)\b/.test(text)) return 'sam'
   return 'sam'
 }
 
@@ -373,7 +375,7 @@ export function buildNextStep(items: ActivityItem[], extra?: { kyc?: boolean; ky
 
   return {
     title: 'Desk is quiet',
-    body: 'Tell Sam what happened, or ask what is next.',
+    body: 'Tell the Routing Manager what happened, or ask what is next.',
     clock: null,
     clockLabel: '',
     showContinue: false,

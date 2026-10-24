@@ -13,6 +13,7 @@ import { useSignedInKycAccess } from '@/lib/restrictions'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import {
   DESK_TEAM,
+  activeDeskAgent,
   buildDeskThread,
   buildNextStep,
   hasLiveStep,
@@ -60,7 +61,7 @@ function DayCard({ row }: { row: DeskDayRow }) {
       {row.pairs.length > 0 && (
         <>
           <button type="button" className={styles.pairsToggle} onClick={() => setOpen((value) => !value)}>
-            {open ? 'Hide pairs · Leo' : 'Named pairs · Leo'}
+            {open ? `Hide pairs · ${DESK_TEAM.leo.name}` : `Named pairs · ${DESK_TEAM.leo.name}`}
           </button>
           {open && (
             <ul className={styles.pairs}>
@@ -174,6 +175,7 @@ export function FxDeskThread() {
   const visibleThread = thread.slice(Math.max(0, thread.length - visibleCount))
   const hasMore = thread.length > visibleCount
   const pendingWrite = latestPendingWrite(deskItems)
+  const lead = DESK_TEAM[activeDeskAgent(deskItems)]
   const next = useMemo(
     () => buildNextStep(deskItems, { kyc: deskBlocked, kycLabel: kycCta }),
     [deskItems, deskBlocked, kycCta]
@@ -224,7 +226,7 @@ export function FxDeskThread() {
       }
       setDraft('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sam could not take that just now.')
+      setError(err instanceof Error ? err.message : `${DESK_TEAM.sam.name} could not take that just now.`)
     } finally {
       setThinking(false)
       setSendState('idle')
@@ -272,8 +274,8 @@ export function FxDeskThread() {
           </div>
         </div>
         <div className={styles.headerCopy}>
-          <p className={styles.headerName}>Sam</p>
-          <p className={styles.headerRole}>Relationship manager</p>
+          <p className={styles.headerName}>{lead.name}</p>
+          <p className={styles.headerRole}>{lead.role}</p>
         </div>
       </header>
 
@@ -284,11 +286,14 @@ export function FxDeskThread() {
           </button>
         )}
         {visibleThread.length === 0 && !thinking && !hasLiveStep(next) && (
-          <p className={styles.empty}>This window is empty. Ask Sam what is next.</p>
+          <p className={styles.empty}>This window is empty. Ask {DESK_TEAM.sam.name} what is next.</p>
         )}
         {visibleThread.map((row) => {
           if (row.kind === 'day') return <DayCard key={row.id} row={row} />
-          const team = row.speaker === 'leo' || row.speaker === 'amina' ? DESK_TEAM[row.speaker] : null
+          const team =
+            row.speaker === 'leo' || row.speaker === 'amina' || row.speaker === 'sam'
+              ? DESK_TEAM[row.speaker]
+              : null
           const tone =
             row.speaker === 'you'
               ? styles.youText
@@ -321,7 +326,7 @@ export function FxDeskThread() {
         })}
         {thinking && (
           <div className={`${styles.row} ${styles.rowTeam} ${styles.rowSam}`}>
-            <div className={styles.thinking} aria-label="Sam is writing">
+            <div className={styles.thinking} aria-label={`${DESK_TEAM.sam.name} is writing`}>
               <span />
               <span />
               <span />
@@ -350,7 +355,7 @@ export function FxDeskThread() {
             className={styles.field}
             rows={1}
             value={draft}
-            placeholder="Ask Sam"
+            placeholder={`Ask ${DESK_TEAM.sam.name}`}
             disabled={sendState !== 'idle' || deskBlocked}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {

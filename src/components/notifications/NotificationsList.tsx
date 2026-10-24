@@ -1493,7 +1493,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       await handleRoutingAsk(askAnchor, message)
       setAskText('')
     } catch (error) {
-      setAskError(error instanceof Error ? error.message : 'Sam could not take that just now.')
+      setAskError(error instanceof Error ? error.message : `${DESK_TEAM.sam.name} could not take that just now.`)
     } finally {
       setAskState('idle')
     }
@@ -1540,7 +1540,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
             className={styles.replyInput}
             rows={3}
             value={askText}
-            placeholder="Ask Sam"
+            placeholder={`Ask ${DESK_TEAM.sam.name}`}
             disabled={askState !== 'idle' || deskBlocked}
             onChange={(event) => setAskText(event.target.value)}
             onKeyDown={(event) => {
