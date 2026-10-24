@@ -17,8 +17,10 @@ import clsx from 'clsx'
 import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { applyFeeToRate } from '@/lib/exchangeRates/applyFeeToRate'
-import { useZarPayoutRiskBar } from '@/lib/fx/useMznRepricingRisk'
-import { isZarPayoutRiskCard } from '@/lib/fx/repricingRiskBar'
+import {
+  enRouteSettlementTimer,
+  parseWalletUpdatedAtMs,
+} from '@/lib/fx/enRouteSettlementTimer'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -67,15 +69,6 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC' | 
   mzn: 'MZN',
   btc: 'BTC',
   yieldSurprise: 'CASH', // ZAR booked / in transit until settlement clears
-}
-
-const CARD_CURRENCY_CODE: Record<CardType, string> = {
-  savings: 'ZAR',
-  zwd: 'USD',
-  yield: 'ETH',
-  mzn: 'MZN',
-  btc: 'BTC',
-  yieldSurprise: 'ZAR',
 }
 
 // Coin mapping for crypto cards
@@ -265,21 +258,15 @@ export default function CardStackCard({
   const mznCapacityPercent = usePortfolioStore(
     (s) => s.holdings.MZN?.health ?? HEALTH_CONFIG.mzn.percent
   )
-  const { barPercent: zarPayoutBar, ariaLevel: zarPayoutAria } = useZarPayoutRiskBar()
-  const currencyCode = CARD_CURRENCY_CODE[card.type]
-  const isZarPayoutCard = isZarPayoutRiskCard(currencyCode)
   const portfolioAllocationPct = holding?.allocationPct ?? pct
   const portfolioDisplayPct = holding?.displayPct ?? Math.round(pct)
   const portfolioHealth = holding?.health ?? HEALTH_CONFIG[card.type].percent
-  const operationalBarPercent = isZarPayoutCard
-    ? zarPayoutBar
-    : card.type === 'savings'
-      ? 100 - mznCapacityPercent
-      : portfolioHealth
-  
+  const operationalBarPercent =
+    card.type === 'savings' ? 100 - mznCapacityPercent : portfolioHealth
+
   // Cash-card bars represent capacity/volume, so keep their progress fill green.
   const healthLevel =
-    isZarPayoutCard || card.type === 'mzn' || card.type === 'savings'
+    card.type === 'mzn' || card.type === 'savings'
       ? 'good'
       : getHealthLevel(operationalBarPercent)
 
@@ -302,6 +289,26 @@ export default function CardStackCard({
       return () => mediaQuery.removeEventListener('change', handler)
     }
   }, [])
+
+  // EN ROUTE settlement clock — tick once a minute while funds are in transit.
+  const [routeNowMs, setRouteNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    if (card.type !== 'yieldSurprise' || cents <= 0) return
+    setRouteNowMs(Date.now())
+    const id = window.setInterval(() => setRouteNowMs(Date.now()), 60_000)
+    return () => window.clearInterval(id)
+  }, [card.type, cents, updatedAtMillis])
+
+  const routeBookedAtMs =
+    card.type === 'yieldSurprise' ? parseWalletUpdatedAtMs(wallet?.updatedAt) : null
+  const routeTimer =
+    card.type === 'yieldSurprise'
+      ? enRouteSettlementTimer({
+          balanceCents: cents,
+          bookedAtMs: routeBookedAtMs,
+          nowMs: routeNowMs,
+        })
+      : null
 
   // Health animation with two-stage tween for minimum visual delta
   // Cash: gentler movement (0.6/2.0), ETH/PEPE: standard (1.2/3.5)
@@ -583,21 +590,31 @@ export default function CardStackCard({
       </div>
       )}
 
-      {/* Bottom-right health bar. MZN has no bar; ZAR binds payout risk by currency code. */}
-      {card.type !== 'mzn' && card.type !== 'yieldSurprise' && (
+      {/* Bottom-right: EN ROUTE settlement timer; other cards keep health (ZAR/MZN have none). */}
+      {card.type === 'yieldSurprise' && routeTimer && routeTimer.state !== 'idle' ? (
+        <div
+          className={clsx('card-route-timer', {
+            'card-route-timer--delayed': routeTimer.state === 'delayed',
+          })}
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(routeTimer.fillPercent)}
+          aria-label={routeTimer.ariaLabel}
+        >
+          <div className="card-route-timer__eta">{routeTimer.label}</div>
+          <div className="card-route-timer__track">
+            <div
+              className="card-route-timer__fill"
+              style={{ width: `${Math.max(0, Math.min(100, routeTimer.fillPercent))}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {card.type !== 'mzn' && card.type !== 'yieldSurprise' && card.type !== 'savings' && (
         <div className="card-health-group">
-          <div
-            className="card-health-bar-container"
-            {...(isZarPayoutCard
-              ? {
-                  role: 'progressbar',
-                  'aria-valuemin': 0,
-                  'aria-valuemax': 100,
-                  'aria-valuenow': Math.round(Math.max(0, Math.min(100, operationalBarPercent))),
-                  'aria-label': `One-hour ZAR payout repricing risk: ${zarPayoutAria}`,
-                }
-              : {})}
-          >
+          <div className="card-health-bar-container">
             <div
               className={clsx(
                 'card-health-bar-fill',
@@ -608,10 +625,7 @@ export default function CardStackCard({
                 }
               )}
               style={{
-                width: `${Math.max(
-                  isZarPayoutCard ? 0 : 5,
-                  Math.min(100, animatedHealth)
-                )}%`,
+                width: `${Math.max(5, Math.min(100, animatedHealth))}%`,
               }}
             />
           </div>

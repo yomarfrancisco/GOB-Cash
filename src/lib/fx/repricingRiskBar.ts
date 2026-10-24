@@ -28,10 +28,12 @@ export function cardDisplaysBottomBar(params: {
   currencyCode: string
   cardType: string
 }): boolean {
-  if (params.cardType === 'yieldSurprise') return false
+  // EN ROUTE shows the settlement timer (not payout risk).
+  if (params.cardType === 'yieldSurprise') return true
+  // Cleared ZAR inventory has no bottom bar once the timer lives on EN ROUTE.
+  if (params.cardType === 'savings' || isZarPayoutRiskCard(params.currencyCode)) return false
   if (params.currencyCode === 'MZN' && params.cardType === 'mzn') return false
-  if (isZarPayoutRiskCard(params.currencyCode)) return true
-  return params.cardType !== 'savings'
+  return true
 }
 
 /** Visual bar 0–100. Learning, stale, or unavailable stay at the minimum/neutral state. */
