@@ -1914,7 +1914,11 @@ async function loadFnbDeskLines(): Promise<string> {
       .map((doc) => doc.data() as {
         kind?: string
         amountZar?: number
-        cardLast4?: string
+        cardLast4?: string | null
+        accountLast4?: string
+        counterparty?: string
+        reference?: string | null
+        paidOn?: string | null
         merchant?: string
         forwarded?: boolean
         reservedOn?: string
@@ -1941,6 +1945,12 @@ async function loadFnbDeskLines(): Promise<string> {
         lines.push(
           `FNB ${row.status || 'recorded'} ${amount} on ${card}${merchant}${row.occurredAt ? `, ${row.occurredAt}` : ''}.${refs ? ` ${refs}.` : ''}${via}`
         )
+      } else if (row.kind === 'pos_credit') {
+        const acct = row.accountLast4 ? `account ${row.accountLast4}` : 'a current account'
+        const who = row.counterparty ? ` from ${row.counterparty}` : ''
+        const ref = row.reference ? ` Ref ${row.reference}.` : ''
+        const when = row.paidOn ? ` ${row.paidOn}.` : ''
+        lines.push(`FNB POS paid in ${amount} to ${acct}${who}.${ref}${when}${via}`)
       }
     }
     for (const doc of mznEvents.docs) {
@@ -3025,13 +3035,12 @@ export async function applyAdminCapitalShock(params: {
   const existing = existingId ? await db.collection(TESTS).doc(existingId).get() : null
   const status = existing?.data()?.status
 
-  const completedCycles = num(existing?.data()?.completedCycles, 0)
+  // Do not restart an active Day-0 window on every sell — that wiped Next 24h.
   if (
     !existingId ||
     !existing?.exists ||
     status !== 'active' ||
-    shouldStartFreshWindow(existing.data()) ||
-    (kind === 'sell_zar' && completedCycles === 0)
+    shouldStartFreshWindow(existing.data())
   ) {
     if (kind === 'sell_zar' || kind === 'add_zar') {
       await startNewTest(adminUid, true, amount, shockLine)

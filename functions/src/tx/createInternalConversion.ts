@@ -1,11 +1,10 @@
 /**
  * Cloud Function: tx_createInternalConversion
  *
- * Immediately converts the caller's own MZN↔ZAR wallets at the quoted rate.
- * ZAR→MZN credits the full SELL amount into cashMZN (COST + spread) so home
- * Moz inventory — and the $ keypad that reads it — rises after each sale.
- * Spread is still recorded on the tx as rewardsMznMinor for proofs. Status
- * stays INITIATED until an operator confirms evidence. Cards move now.
+ * ZAR→MZN sales book onto EN ROUTE (earnings) until the next 09:00 SAST clear,
+ * then cashMZN rises. MZN→ZAR restocks still credit cashZAR immediately at COST.
+ * Admin `$` capitalShock still opens/resizes the desk window and, for ZAR sales,
+ * also books EN ROUTE.
  */
 
 import * as functions from 'firebase-functions'
@@ -89,18 +88,32 @@ export const tx_createInternalConversion = functions
     const { ROUTING_ADMIN_UID } = await import('../routing/conversionRouter')
     const isRoutingAdmin = userId === ROUTING_ADMIN_UID
 
-    // `$` on the admin desk sets the window capital. It is not a sale: no wallet
-    // movement, no conversion record, no "ZAR sold" line. Do this before FX so
-    // Day 0 → Day 1 cannot time out waiting on quotes or invoice PDFs.
+    const namedClient = await resolveNamedClient(data?.agentCashHandle, userId)
+    const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
+    const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
+
+    // `$` on the admin desk sets window capital. ZAR sales also book EN ROUTE.
     if (isRoutingAdmin && data?.capitalShock === true) {
       const { applyAdminCapitalShock } = await import('./adminConversionRouting')
       let shockZar: number
       let shockMzn: number
+      let bookedTxId: string | null = null
       if (isZarSale) {
         shockZar = roundMajor(sourceAmount)
         shockMzn = 0
+        const { bookZarSaleToEnRoute } = await import('./enRouteSettle')
+        const rewardsMznMajor = mznRewardsFromZar(shockZar, sellRate, costRate)
+        const booked = await bookZarSaleToEnRoute({
+          userId,
+          sourceAmountZar: shockZar,
+          sellRate,
+          costRate,
+          rewardsMznMinor: Math.round(rewardsMznMajor * 100),
+          namedClient,
+          suppressDeskActivity: data?.suppressDeskActivity === true,
+        })
+        bookedTxId = booked.txId
       } else {
-        const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
         shockZar = roundMajor(sourceAmount / costRate)
         shockMzn = roundMajor(sourceAmount)
       }
@@ -110,12 +123,13 @@ export const tx_createInternalConversion = functions
         amountZar: shockZar,
         amountMzn: shockMzn,
       })
-      return { txId: `shock-${Date.now()}`, capitalShock: true, amountZar: shockZar }
+      return {
+        txId: bookedTxId || `shock-${Date.now()}`,
+        capitalShock: true,
+        amountZar: shockZar,
+        enRoute: isZarSale,
+      }
     }
-
-    const namedClient = await resolveNamedClient(data?.agentCashHandle, userId)
-    const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
-    const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
 
     // A desk play must be the current step and must match the ticket total before
     // anything is recorded. Restocks are anchored on the ZAR tickets, not on MZN
@@ -165,44 +179,57 @@ export const tx_createInternalConversion = functions
         ? roundMajor(sourceAmountMajor / anchoredZar)
         : costRate
     const fxRateMZNperZAR = isZarSale ? sellRate : restockBlendedCost
-    // Inventory receives the full converted leg: SELL into Moz on a ZAR sale,
-    // COST into SA on a restock. Spread stays inside cashMZN (not Rewards).
     const expectedDestinationMajor = isZarSale ? reportedDestMajor : settlementMajor
     const expectedDestinationMinor = Math.round(expectedDestinationMajor * 100)
     const rewardsMznMajor = isZarSale
       ? mznRewardsFromZar(sourceAmountMajor, sellRate, costRate)
       : 0
     const rewardsMznMinor = Math.round(rewardsMznMajor * 100)
+    const suppressDesk =
+      data?.suppressDeskActivity === true || Boolean(data?.routingPlay)
 
-    const sourceWalletId = sourceCurrency === 'MZN' ? 'cashMZN' : 'cashZAR'
-    const destinationWalletId = destinationCurrency === 'MZN' ? 'cashMZN' : 'cashZAR'
-    const sourceWalletRef = db.collection('users').doc(userId).collection('wallets').doc(sourceWalletId)
-    const destinationWalletRef = db.collection('users').doc(userId).collection('wallets').doc(destinationWalletId)
+    // ZAR sales book EN ROUTE until next 09:00 SAST; restocks credit cashZAR now.
+    if (isZarSale) {
+      const { bookZarSaleToEnRoute } = await import('./enRouteSettle')
+      const booked = await bookZarSaleToEnRoute({
+        userId,
+        sourceAmountZar: sourceAmountMajor,
+        sellRate,
+        costRate,
+        rewardsMznMinor,
+        namedClient,
+        groupId: typeof data?.groupId === 'string' && data.groupId.trim() ? data.groupId.trim() : undefined,
+        suppressDeskActivity: suppressDesk,
+      })
+      try {
+        await sendAgentConversionProofEmail(booked.txId)
+      } catch (error) {
+        console.error('[tx_createInternalConversion] Agent proof email failed (non-blocking)', {
+          txId: booked.txId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+      return { txId: booked.txId, enRoute: true, settleAtMs: booked.settleAtMs }
+    }
+
+    const sourceWalletRef = db.collection('users').doc(userId).collection('wallets').doc('cashMZN')
+    const destinationWalletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
     const txRef = db.collection('transactions').doc()
     const txId = txRef.id
     const now = admin.firestore.Timestamp.now()
     const groupId = typeof data?.groupId === 'string' && data.groupId.trim() ? data.groupId.trim() : txId
-
-    const sourceLabel = sourceCurrency === 'MZN' ? `Mt ${sourceAmountMajor.toFixed(2)}` : `R${sourceAmountMajor.toFixed(2)}`
-    const destLabel = destinationCurrency === 'MZN' ? `Mt ${reportedDestMajor.toFixed(2)}` : `R${reportedDestMajor.toFixed(2)}`
-    const activityTitle = isZarSale ? 'ZAR sold at SELL' : 'ZAR sourced at COST'
-    const activityBody = isZarSale
-      ? `${sourceLabel} to ${destLabel} · SELL ${sellRate.toFixed(2)} Mt/R`
-      : `${sourceLabel} to ${destLabel} · COST ${costRate.toFixed(2)} Mt/R`
+    const sourceLabel = `Mt ${sourceAmountMajor.toFixed(2)}`
+    const destLabel = `R${settlementMajor.toFixed(2)}`
 
     await db.runTransaction(async (t) => {
       const sourceSnap = await t.get(sourceWalletRef)
       const destSnap = await t.get(destinationWalletRef)
       const sourceData = sourceSnap.exists ? sourceSnap.data()! : { fiatBalance: 0 }
       const destData = destSnap.exists ? destSnap.data()! : { fiatBalance: 0 }
-      const available = Number(sourceData.fiatBalance || 0)
-      const availableMinor = Math.round(available * 100)
+      const availableMinor = Math.round(Number(sourceData.fiatBalance || 0) * 100)
 
       if (!sourceSnap.exists || sourceAmountMinor > availableMinor) {
-        throw new functions.https.HttpsError(
-          'failed-precondition',
-          sourceCurrency === 'MZN' ? 'Insufficient MZN balance.' : 'Insufficient ZAR balance.'
-        )
+        throw new functions.https.HttpsError('failed-precondition', 'Insufficient MZN balance.')
       }
 
       t.update(sourceWalletRef, {
@@ -211,9 +238,9 @@ export const tx_createInternalConversion = functions
       })
       if (!destSnap.exists) {
         t.set(destinationWalletRef, {
-          walletId: destinationWalletId,
+          walletId: 'cashZAR',
           kind: 'cash',
-          displayCurrency: destinationCurrency,
+          displayCurrency: 'ZAR',
           fiatBalance: expectedDestinationMinor / 100,
           usdtBalance: 0,
           updatedAt: now,
@@ -243,14 +270,13 @@ export const tx_createInternalConversion = functions
         expectedDestinationAmountMinor: expectedDestinationMinor,
         actualDestinationAmountMinor: null,
         quotedRate: fxRateMZNperZAR,
-        buyRateMZNperZAR: isZarSale ? costRate : restockBlendedCost,
-        costRateMZNperZAR: isZarSale ? costRate : restockBlendedCost,
+        buyRateMZNperZAR: restockBlendedCost,
+        costRateMZNperZAR: restockBlendedCost,
         sellRateMZNperZAR: sellRate,
-        // Audit-only: spread already sits inside cashMZN on ZAR sales.
-        rewardsMznMinor: rewardsMznMinor || null,
+        rewardsMznMinor: null,
         clientDestinationAmountMinor: Math.round(reportedDestMajor * 100),
-        amountMzn: sourceCurrency === 'MZN' ? sourceAmountMajor : reportedDestMajor,
-        amountZar: sourceCurrency === 'ZAR' ? sourceAmountMajor : expectedDestinationMajor,
+        amountMzn: sourceAmountMajor,
+        amountZar: expectedDestinationMajor,
         fxRateMZNperZAR,
         counterpartyHandle: namedClient?.handle || null,
         counterpartyUserId: namedClient?.userId || null,
@@ -260,18 +286,14 @@ export const tx_createInternalConversion = functions
         updatedAt: now,
       })
 
-      // Desk Send/Restock/Fund already own the step narrative — do not also
-      // drop a CONVERSION_INSTRUCTED / POP card into the feed.
-      const suppressDesk =
-        data?.suppressDeskActivity === true || Boolean(data?.routingPlay)
       if (!suppressDesk) {
         t.set(db.collection('users').doc(userId).collection('activityEvents').doc(txId), {
           id: txId,
           kind: 'CONVERSION_INSTRUCTED',
-          title: activityTitle,
-          body: activityBody,
+          title: 'ZAR sourced at COST',
+          body: `${sourceLabel} to ${destLabel} · COST ${costRate.toFixed(2)} Mt/R`,
           actorType: 'ai_manager',
-          avatarKind: sourceCurrency === 'ZAR' ? 'convert_zar' : 'convert_mzn',
+          avatarKind: 'convert_mzn',
           amountCurrency: sourceCurrency,
           amountValue: sourceAmountMajor,
           amountSign: 'debit',

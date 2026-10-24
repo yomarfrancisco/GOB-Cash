@@ -300,6 +300,7 @@ export default function CardStackCard({
       ? resolveEnRouteBook({
           earningsCents: cents,
           earningsUpdatedAtMs: parseWalletUpdatedAtMs(wallet?.updatedAt),
+          earningsSettleAtMs: parseWalletUpdatedAtMs(wallet?.nextSettleAt),
           activity: activityItems.map((item) => ({
             routingAction: item.routingAction,
             title: item.title,
@@ -319,13 +320,14 @@ export default function CardStackCard({
     setRouteNowMs(Date.now())
     const id = window.setInterval(() => setRouteNowMs(Date.now()), 60_000)
     return () => window.clearInterval(id)
-  }, [card.type, routeBook?.bookedAtMs, routeBook?.amountCents, updatedAtMillis])
+  }, [card.type, routeBook?.bookedAtMs, routeBook?.amountCents, routeBook?.settleAtMs, updatedAtMillis])
 
   const routeTimer =
     card.type === 'yieldSurprise' && routeBook
       ? enRouteSettlementTimer({
           balanceCents: routeBook.amountCents,
           bookedAtMs: routeBook.bookedAtMs,
+          settleAtMs: routeBook.settleAtMs,
           nowMs: routeNowMs,
         })
       : card.type === 'yieldSurprise'

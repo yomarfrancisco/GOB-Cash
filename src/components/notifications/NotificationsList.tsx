@@ -108,6 +108,8 @@ function searchableText(item: ActivityItem): string {
 function isStandaloneConversionPop(item: ActivityItem): boolean {
   if (item.deskHidden === true) return true
   if (item.routingAction === 'pop_pack') return true
+  // EN ROUTE book/clear must stay visible on $-Route.
+  if (item.kind === 'EN_ROUTE_BOOKED' || item.kind === 'EN_ROUTE_CLEARED') return false
   if (item.kind === 'CONVERSION_INSTRUCTED') return true
   if (item.kind === 'proof_of_payment') return true
   return /^(ZAR sold at SELL|ZAR sourced at COST)\b/i.test(item.title || '')
@@ -130,6 +132,8 @@ function isPaymentActivity(item: ActivityItem): boolean {
       'EXTERNAL_DEPOSIT_CONFIRMED',
       'CONVERSION_INSTRUCTED',
       'CONVERSION_ROUTING_INSTRUCTION',
+      'EN_ROUTE_BOOKED',
+      'EN_ROUTE_CLEARED',
       'WEEKLY_SETTLEMENT_STATEMENT',
       'MONTHLY_SETTLEMENT_STATEMENT',
       'DEPOSIT_PROOF_PENDING',

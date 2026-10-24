@@ -84,13 +84,12 @@ export async function submitInternalConversion(params: {
     }
 
     if (result.capitalShock) {
-      // Window capital set on the desk; no money moved and nothing was sold.
       useNotificationStore.getState().pushNotification({
         id: result.txId,
         kind: 'ai_trade',
-        title: isZarSale ? 'Sell ZAR window opened' : 'ZAR added to the window',
+        title: isZarSale ? 'ZAR en route' : 'ZAR added to the window',
         body: isZarSale
-          ? `${sourceLabel} to convert. Day 1 tickets are on the desk.`
+          ? `${sourceLabel} booked on EN ROUTE until 09:00 SAST. Day tickets are on $-Route.`
           : `${destLabel} added. The book has been re-solved.`,
         actor: {
           type: 'ai_manager',
@@ -105,9 +104,11 @@ export async function submitInternalConversion(params: {
     if (!deskPlay) {
       useNotificationStore.getState().pushNotification({
         id: result.txId,
-        kind: 'proof_of_payment',
-        title: isZarSale ? 'ZAR sold at SELL' : 'ZAR sourced at COST',
-        body: `${sourceLabel} to ${destLabel}`,
+        kind: isZarSale ? 'ai_trade' : 'proof_of_payment',
+        title: isZarSale ? 'ZAR en route' : 'ZAR sourced at COST',
+        body: isZarSale
+          ? `${sourceLabel} booked until 09:00 SAST, then Moz inventory rises`
+          : `${sourceLabel} to ${destLabel}`,
         amount: {
           currency: sourceCurrency,
           value: -sourceAmount,
@@ -116,7 +117,7 @@ export async function submitInternalConversion(params: {
         actor: {
           type: 'ai_manager',
           avatar,
-          name: 'Ama',
+          name: isZarSale ? 'Leo' : 'Ama',
         },
         routeOnTap: '/profile?activity=1',
       })

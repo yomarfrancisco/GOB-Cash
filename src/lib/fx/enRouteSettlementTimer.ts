@@ -1,12 +1,11 @@
-/** EN ROUTE settlement clock: ~18h window from book → expected bank clear. */
+/** EN ROUTE settlement clock: book → next 09:00 SAST clear into MZN. */
 
-export const EN_ROUTE_SETTLEMENT_WINDOW_MS = 18 * 60 * 60 * 1000
+import { sastParts, sastToUtcMs } from '@/lib/routing/routingTime'
 
 export type EnRouteTimerState = 'idle' | 'on_time' | 'delayed'
 
 export type EnRouteTimerView = {
   state: EnRouteTimerState
-  /** Remaining ms while on time; overdue ms while delayed; 0 when idle. */
   elapsedMs: number
   remainingMs: number
   overdueMs: number
@@ -14,6 +13,14 @@ export type EnRouteTimerView = {
   fillPercent: number
   label: string
   ariaLabel: string
+}
+
+/** Next 09:00 SAST at or after fromMs (if already past today's 09:00 → tomorrow). */
+export function nextSettleAt09hSast(fromMs: number): number {
+  const p = sastParts(fromMs)
+  const todayNine = sastToUtcMs(p.year, p.month, p.day, 9, 0, 0)
+  if (fromMs < todayNine) return todayNine
+  return todayNine + 24 * 60 * 60 * 1000
 }
 
 export function parseWalletUpdatedAtMs(updatedAt: unknown): number | null {
@@ -50,10 +57,9 @@ export function formatEnRouteDuration(ms: number): string {
 export function enRouteSettlementTimer(params: {
   balanceCents: number
   bookedAtMs: number | null
+  settleAtMs?: number | null
   nowMs: number
-  windowMs?: number
 }): EnRouteTimerView {
-  const windowMs = params.windowMs ?? EN_ROUTE_SETTLEMENT_WINDOW_MS
   const idle: EnRouteTimerView = {
     state: 'idle',
     elapsedMs: 0,
@@ -68,9 +74,15 @@ export function enRouteSettlementTimer(params: {
     return idle
   }
 
+  const settleAtMs =
+    params.settleAtMs != null && params.settleAtMs > params.bookedAtMs
+      ? params.settleAtMs
+      : nextSettleAt09hSast(params.bookedAtMs)
+  const windowMs = Math.max(60_000, settleAtMs - params.bookedAtMs)
   const elapsedMs = Math.max(0, params.nowMs - params.bookedAtMs)
-  if (elapsedMs < windowMs) {
-    const remainingMs = windowMs - elapsedMs
+
+  if (params.nowMs < settleAtMs) {
+    const remainingMs = settleAtMs - params.nowMs
     const fillPercent = Math.max(0, Math.min(100, (remainingMs / windowMs) * 100))
     const label = formatEnRouteDuration(remainingMs)
     return {
@@ -80,11 +92,11 @@ export function enRouteSettlementTimer(params: {
       overdueMs: 0,
       fillPercent,
       label,
-      ariaLabel: `Settlement expected in ${label}`,
+      ariaLabel: `Settlement expected in ${label} (09:00 SAST)`,
     }
   }
 
-  const overdueMs = elapsedMs - windowMs
+  const overdueMs = params.nowMs - settleAtMs
   const label = `+${formatEnRouteDuration(overdueMs)}`
   return {
     state: 'delayed',
@@ -93,6 +105,6 @@ export function enRouteSettlementTimer(params: {
     overdueMs,
     fillPercent: 8,
     label,
-    ariaLabel: `Settlement delayed by ${formatEnRouteDuration(overdueMs)}`,
+    ariaLabel: `Settlement delayed by ${formatEnRouteDuration(overdueMs)} past 09:00 SAST`,
   }
 }

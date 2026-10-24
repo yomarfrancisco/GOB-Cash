@@ -1,6 +1,6 @@
 /** Resolve EN ROUTE book time from earnings wallet or a confirmed desk restock. */
 
-import { EN_ROUTE_SETTLEMENT_WINDOW_MS } from './enRouteSettlementTimer'
+import { nextSettleAt09hSast } from './enRouteSettlementTimer'
 
 export type EnRouteActivityHint = {
   routingAction?: string | null
@@ -15,12 +15,13 @@ export type EnRouteActivityHint = {
 
 export type EnRouteBook = {
   bookedAtMs: number
+  settleAtMs: number
   /** Cents used only to arm the timer (not necessarily the card balance). */
   amountCents: number
   source: 'earnings' | 'desk_restock'
 }
 
-const MAX_TRACK_MS = EN_ROUTE_SETTLEMENT_WINDOW_MS + 7 * 86_400_000
+const MAX_OVERDUE_MS = 7 * 86_400_000
 
 function isConfirmedRestock(item: EnRouteActivityHint): boolean {
   if (item.awaitingConfirm === true) return false
@@ -59,12 +60,19 @@ function restockBookedAtMs(item: EnRouteActivityHint): number | null {
 export function resolveEnRouteBook(params: {
   earningsCents: number
   earningsUpdatedAtMs: number | null
+  earningsSettleAtMs?: number | null
   activity: EnRouteActivityHint[]
   nowMs: number
 }): EnRouteBook | null {
   if (params.earningsCents > 0 && params.earningsUpdatedAtMs != null && params.earningsUpdatedAtMs > 0) {
+    const settleAtMs =
+      params.earningsSettleAtMs != null && params.earningsSettleAtMs > 0
+        ? params.earningsSettleAtMs
+        : nextSettleAt09hSast(params.earningsUpdatedAtMs)
+    if (params.nowMs - settleAtMs > MAX_OVERDUE_MS) return null
     return {
       bookedAtMs: params.earningsUpdatedAtMs,
+      settleAtMs,
       amountCents: params.earningsCents,
       source: 'earnings',
     }
@@ -76,9 +84,10 @@ export function resolveEnRouteBook(params: {
     const bookedAtMs = restockBookedAtMs(item)
     const amountCents = restockAmountCents(item)
     if (bookedAtMs == null || amountCents <= 0) continue
-    if (params.nowMs - bookedAtMs > MAX_TRACK_MS) continue
+    const settleAtMs = nextSettleAt09hSast(bookedAtMs)
+    if (params.nowMs - settleAtMs > MAX_OVERDUE_MS) continue
     if (!best || bookedAtMs > best.bookedAtMs) {
-      best = { bookedAtMs, amountCents, source: 'desk_restock' }
+      best = { bookedAtMs, settleAtMs, amountCents, source: 'desk_restock' }
     }
   }
   return best
