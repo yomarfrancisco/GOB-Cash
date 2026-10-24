@@ -14,7 +14,7 @@ export const DESK_TEAM = {
     id: 'sam' as const,
     name: 'Routing Manager',
     role: 'Window · asks · answers',
-    avatar: '/assets/avatar_agent9.png',
+    avatar: '/assets/Brics-girl-blue.png',
   },
   leo: {
     id: 'leo' as const,
