@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import ActionSheet from '../ActionSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useActivityUnreadStore } from '@/store/activityUnread'
@@ -15,7 +15,6 @@ import {
   admin_getConversionRoutingStatus,
   type ConversionRoutingSummary,
 } from '@/lib/transactions/clientFunctions'
-import { buildDeskHeaderStatus } from '@/lib/desk/deskHeaderStatus'
 import { useDeskFocusStore } from '@/store/deskFocus'
 import { useDeskPlanStore } from '@/store/deskPlan'
 import { resetDeskRevealForLiveRestore } from '@/lib/desk/useProgressiveReveal'
@@ -56,20 +55,11 @@ function DeskFace({ src, className, speaking }: { src: string; className: string
   )
 }
 
-function statusClass(tone: ReturnType<typeof buildDeskHeaderStatus>['statusTone']): string {
-  if (tone === 'ok') return listStyles.deskHeaderStatusOk
-  if (tone === 'review') return listStyles.deskHeaderStatusReview
-  if (tone === 'restock') return listStyles.deskHeaderStatusRestock
-  if (tone === 'planned') return listStyles.deskHeaderStatusPlanned
-  return listStyles.deskHeaderStatusMuted
-}
-
 export default function NotificationsSheet() {
   const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const active = useDeskSpeakerStore((s) => s.active)
   const focusAt = useDeskFocusStore((s) => s.focusAt)
-  const focusCycle = useDeskFocusStore((s) => s.focusCycle)
   const planMode = useDeskPlanStore((s) => s.mode)
   const plannedClockMs = useDeskPlanStore((s) => s.plannedClockMs)
   const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
@@ -162,11 +152,6 @@ export default function NotificationsSheet() {
     }
   }, [isNotificationsOpen, isAuthed, deskLiveReady, remoteItems.length, applyPlanSummary])
 
-  const header = useMemo(
-    () => buildDeskHeaderStatus(summary, remoteItems, { focusAt, focusCycle, planned }),
-    [summary, remoteItems, focusAt, focusCycle, planned]
-  )
-
   return (
     <ActionSheet
       open={isNotificationsOpen}
@@ -191,16 +176,6 @@ export default function NotificationsSheet() {
             </div>
             <p className={listStyles.deskHeaderName}>$-Route</p>
             <p className={listStyles.deskHeaderRole}>{dayLabel}</p>
-            <p className={listStyles.deskHeaderStatus}>
-              {header.dayLabel}
-              {' · '}
-              <span className={statusClass(header.statusTone)}>{header.statusLabel}</span>
-            </p>
-            <div className={listStyles.deskProgress} aria-label={header.progressLabel}>
-              <div className={listStyles.deskProgressTrack}>
-                <div className={listStyles.deskProgressFill} style={{ width: `${header.progressPct}%` }} />
-              </div>
-            </div>
           </div>
         </div>
         {deskLiveReady ? <NotificationsList /> : null}
