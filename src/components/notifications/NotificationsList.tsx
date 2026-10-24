@@ -183,23 +183,20 @@ function buildKycGateItem(cta: 'Start KYC' | 'Update KYC', createdAt: number): A
 }
 
 function resolveTaskAvatar(item: ActivityItem): string {
-  if (item.actor.avatarUrl && !isUserPlaceholderAvatar(item.actor.avatarUrl)) {
-    return item.actor.avatarUrl
+  // Live desk faces always win over stale actor.avatarUrl baked into Firestore docs.
+  if (item.kind === 'CONVERSION_ROUTING_INSTRUCTION' || item.thinking) {
+    return DESK_TEAM[deskAgentFor(item)].avatar
   }
-  if (isWelcomeSignIn(item) || isKycGateItem(item)) return ADMIN_AVATAR_PATH
   if (item.avatarKind === 'convert_zar') return TASK_AVATARS.convertZar
   if (item.avatarKind === 'convert_mzn') return TASK_AVATARS.convertMzn
   if (item.avatarKind === 'cash_agent_exchange') return TASK_AVATARS.cashAgent
+  if (isWelcomeSignIn(item) || isKycGateItem(item)) return ADMIN_AVATAR_PATH
 
   if (
     item.kind === 'CONVERSION_INSTRUCTED' ||
-    item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
     item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
     item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
   ) {
-    if (item.kind === 'CONVERSION_ROUTING_INSTRUCTION') {
-      return DESK_TEAM[deskAgentFor(item)].avatar
-    }
     return item.kind === 'WEEKLY_SETTLEMENT_STATEMENT' ||
       item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
       ? TASK_AVATARS.convertZar

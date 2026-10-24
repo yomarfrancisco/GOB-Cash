@@ -13,6 +13,7 @@ import {
 } from '@/lib/transactions/clientFunctions'
 import { AGENT_UID } from '@/types/transactions'
 import { getFirebaseAuth } from '@/lib/firebase'
+import { DESK_TEAM } from '@/lib/desk/threadModel'
 
 const DROPDOWN_KINDS = new Set([
   'BANK_TRANSFER_CONFIRMED',
@@ -24,8 +25,7 @@ const DROPDOWN_KINDS = new Set([
 ])
 const DEPOSIT_AVATAR = '/assets/avatar - profile (4).png'
 const WITHDRAW_AVATAR = '/assets/avatar - profile (2).png'
-const ARIEL_AVATAR = '/assets/avatar_agent9.png'
-const CONVERT_MZN_AVATAR = '/assets/avatar_agent1.png'
+const SA_LIAISON_AVATAR = DESK_TEAM.leo.avatar
 const toastedWeeklyIds = new Set<string>()
 const toastedRoutingIds = new Set<string>()
 
@@ -39,8 +39,8 @@ function toastWeeklyStatement(id: string, title: string, body?: string) {
     body,
     actor: {
       type: 'ai_manager',
-      avatar: ARIEL_AVATAR,
-      name: '$ariel',
+      avatar: SA_LIAISON_AVATAR,
+      name: DESK_TEAM.leo.name,
     },
     routeOnTap: '/profile?activity=1',
   })
@@ -55,6 +55,7 @@ function toastRoutingInstruction(
   if (!id || toastedRoutingIds.has(id)) return
   toastedRoutingIds.add(id)
   const replenish = options?.replenish === true
+  const who = replenish ? DESK_TEAM.amina : DESK_TEAM.leo
   useNotificationStore.getState().pushNotification({
     id,
     kind: 'ai_trade',
@@ -62,8 +63,8 @@ function toastRoutingInstruction(
     body,
     actor: {
       type: 'ai_manager',
-      avatar: replenish ? CONVERT_MZN_AVATAR : ARIEL_AVATAR,
-      name: replenish ? 'Ama' : '$ariel',
+      avatar: who.avatar,
+      name: who.name,
     },
     routeOnTap: '/profile?activity=1',
     autoDismissMs: 15000,

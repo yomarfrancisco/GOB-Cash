@@ -1,14 +1,15 @@
 /** Unique faces for live payment activity. Each action keeps one avatar. */
 
 export const TASK_AVATARS = {
-  convertMzn: '/assets/avatar_agent1.png',
-  convertZar: '/assets/avatar_agent9.png',
+  /** Align convert faces with FX Desk bank liaisons / routing manager. */
+  convertMzn: '/assets/mozambique.png',
+  convertZar: '/assets/south-africa.png',
   deposit: '/assets/avatar - profile (4).png',
   withdraw: '/assets/avatar - profile (2).png',
-  cashAgent: '/assets/avatar - profile (1).png',
+  cashAgent: '/assets/benjamin_pink_circle.png',
   paymentSent: '/assets/avatar - profile (3).png',
-  paymentDelivered: '/assets/avatar_agent3.png',
-  paymentReceived: '/assets/avatar_agent6.png',
+  paymentDelivered: '/assets/south-africa.png',
+  paymentReceived: '/assets/mozambique.png',
 } as const
 
 export function conversionAvatar(sourceCurrency: 'MZN' | 'ZAR' | string | undefined): string {
