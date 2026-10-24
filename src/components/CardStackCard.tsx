@@ -21,6 +21,8 @@ import {
   enRouteSettlementTimer,
   parseWalletUpdatedAtMs,
 } from '@/lib/fx/enRouteSettlementTimer'
+import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
+import { useActivityStore } from '@/store/activity'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -290,25 +292,49 @@ export default function CardStackCard({
     }
   }, [])
 
-  // EN ROUTE settlement clock — tick once a minute while funds are in transit.
+  // EN ROUTE settlement clock — earnings wallet, or last confirmed desk restock.
+  const activityItems = useActivityStore((s) => s.items)
   const [routeNowMs, setRouteNowMs] = useState(() => Date.now())
-  useEffect(() => {
-    if (card.type !== 'yieldSurprise' || cents <= 0) return
-    setRouteNowMs(Date.now())
-    const id = window.setInterval(() => setRouteNowMs(Date.now()), 60_000)
-    return () => window.clearInterval(id)
-  }, [card.type, cents, updatedAtMillis])
-
-  const routeBookedAtMs =
-    card.type === 'yieldSurprise' ? parseWalletUpdatedAtMs(wallet?.updatedAt) : null
-  const routeTimer =
+  const routeBook =
     card.type === 'yieldSurprise'
-      ? enRouteSettlementTimer({
-          balanceCents: cents,
-          bookedAtMs: routeBookedAtMs,
+      ? resolveEnRouteBook({
+          earningsCents: cents,
+          earningsUpdatedAtMs: parseWalletUpdatedAtMs(wallet?.updatedAt),
+          activity: activityItems.map((item) => ({
+            routingAction: item.routingAction,
+            title: item.title,
+            status: item.status,
+            awaitingConfirm: item.awaitingConfirm,
+            pairedAmountValue: item.pairedAmountValue,
+            amountValue: item.amount?.value,
+            createdAt: item.createdAt,
+            userRepliedAt: item.userRepliedAt,
+          })),
           nowMs: routeNowMs,
         })
       : null
+
+  useEffect(() => {
+    if (card.type !== 'yieldSurprise' || !routeBook) return
+    setRouteNowMs(Date.now())
+    const id = window.setInterval(() => setRouteNowMs(Date.now()), 60_000)
+    return () => window.clearInterval(id)
+  }, [card.type, routeBook?.bookedAtMs, routeBook?.amountCents, updatedAtMillis])
+
+  const routeTimer =
+    card.type === 'yieldSurprise' && routeBook
+      ? enRouteSettlementTimer({
+          balanceCents: routeBook.amountCents,
+          bookedAtMs: routeBook.bookedAtMs,
+          nowMs: routeNowMs,
+        })
+      : card.type === 'yieldSurprise'
+        ? enRouteSettlementTimer({
+            balanceCents: 0,
+            bookedAtMs: null,
+            nowMs: routeNowMs,
+          })
+        : null
 
   // Health animation with two-stage tween for minimum visual delta
   // Cash: gentler movement (0.6/2.0), ETH/PEPE: standard (1.2/3.5)
