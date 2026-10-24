@@ -20,13 +20,13 @@ export const DESK_TEAM = {
     id: 'leo' as const,
     name: 'SA Bank Liaison',
     role: 'ZAR · SA banks',
-    avatar: '/assets/south-africa.png',
+    avatar: '/assets/zar_liaison_circle.png',
   },
   amina: {
     id: 'amina' as const,
     name: 'Moz Bank Liaison',
     role: 'MZN · Moz banks',
-    avatar: '/assets/mozambique.png',
+    avatar: '/assets/mzn_liaison_circle.png',
   },
 }
 
