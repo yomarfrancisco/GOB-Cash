@@ -807,14 +807,14 @@ export default function ProfileClient() {
                 <button
                   className={`btn profile-edit${hasUnseenActivity ? ' profile-edit--alert' : ''}`}
                   type="button"
-                  aria-label={hasUnseenActivity ? 'FX Routing, new activity' : 'FX Routing'}
+                  aria-label={hasUnseenActivity ? '$-Route, new activity' : '$-Route'}
                   onClick={() => {
                     guardAuthed(() => {
                       openNotifications()
                     })
                   }}
                 >
-                  FX Routing
+                  $-Route
                 </button>
                 <button
                   className="btn profile-inbox"

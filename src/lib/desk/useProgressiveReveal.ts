@@ -16,13 +16,13 @@ export type ProgressiveRevealState = {
   isSettled: (id: string) => boolean
   /** Call when the active bubble finishes typing. */
   onTypingComplete: (id: string) => void
-  /** True while the first catch-up queue for this page load is still draining. */
+  /** True while a live newcomer queue is draining (dots / typewriter). */
   catchupActive: boolean
 }
 
 const DOTS_MS = 520
 const BETWEEN_MS = 180
-/** On hard refresh / first desk open, replay this window so the user catches up. */
+/** Page the last day of history into the first desk window (no replay animation). */
 export const DESK_CATCHUP_MS = 24 * 60 * 60 * 1000
 
 function prefersReducedMotion(): boolean {
@@ -32,7 +32,6 @@ function prefersReducedMotion(): boolean {
 
 type SharedReveal = {
   seeded: boolean
-  catchupConsumed: boolean
   catchupActive: boolean
   settled: Set<string>
   queue: string[]
@@ -41,14 +40,13 @@ type SharedReveal = {
   busy: boolean
 }
 
-/** Survives desk sheet unmount while the keypad is open mid catch-up. */
+/** Survives desk sheet unmount while the keypad is open mid reveal. */
 let shared: SharedReveal | null = null
 
 function ensureShared(): SharedReveal {
   if (!shared) {
     shared = {
       seeded: false,
-      catchupConsumed: false,
       catchupActive: false,
       settled: new Set(),
       queue: [],
@@ -60,14 +58,14 @@ function ensureShared(): SharedReveal {
   return shared
 }
 
-/** After Planned → live restore, re-seed catch-up from the live feed only. */
+/** After Planned → live restore, re-seed from the live feed only. */
 export function resetDeskRevealForLiveRestore(): void {
   shared = null
 }
 
 /**
- * Reveal desk bubbles one at a time: dots → typewriter → next.
- * First snapshot settles anything older than 24h; the last day replays as catch-up.
+ * First snapshot settles instantly (Next 24 owns the replay).
+ * Live newcomers still reveal one at a time: dots → typewriter → next.
  * Older pagination (createdAt at or below the seed watermark) settles instantly.
  */
 export function useProgressiveReveal(items: RevealItem[]): ProgressiveRevealState {
@@ -172,42 +170,17 @@ export function useProgressiveReveal(items: RevealItem[]): ProgressiveRevealStat
 
     if (!seededRef.current) {
       seededRef.current = true
-      const cutoff = Date.now() - DESK_CATCHUP_MS
-      const history = items.filter((row) => (row.createdAt || 0) < cutoff)
-      const catchup = items
-        .filter((row) => (row.createdAt || 0) >= cutoff)
-        .sort((a, b) => a.createdAt - b.createdAt)
-
-      const seed = new Set(history.map((row) => row.id))
-      seedMaxCreatedAtRef.current = history.reduce(
+      const seed = new Set(items.map((row) => row.id))
+      seedMaxCreatedAtRef.current = items.reduce(
         (max, row) => Math.max(max, row.createdAt || 0),
-        cutoff - 1
+        0
       )
-
       const s = ensureShared()
-      const skipCatchup = s.catchupConsumed || prefersReducedMotion() || !catchup.length
-      if (skipCatchup) {
-        for (const row of catchup) seed.add(row.id)
-        seedMaxCreatedAtRef.current = items.reduce(
-          (max, row) => Math.max(max, row.createdAt || 0),
-          seedMaxCreatedAtRef.current
-        )
-        settledRef.current = seed
-        setSettled(seed)
-        s.catchupActive = false
-        setCatchupActive(false)
-        persist()
-        return
-      }
-
-      s.catchupConsumed = true
-      s.catchupActive = true
       settledRef.current = seed
       setSettled(seed)
-      setCatchupActive(true)
-      queueRef.current.push(...catchup.map((row) => row.id))
+      s.catchupActive = false
+      setCatchupActive(false)
       persist()
-      pump()
       return
     }
 
