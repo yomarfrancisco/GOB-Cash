@@ -169,9 +169,12 @@ export default function AmountSheet({
     const nextMZN = isZarPrimaryKeypad
       ? Math.round(zarToMzn(typed, fxRateMZNperZAR) * 100) / 100
       : typed
+    // Only the source wallet must cover the typed amount (Sell ZAR → ZAR; Sell MZN → MZN).
     if (
       !fromAutoPlay &&
-      (exceedsAvailableZar(nextZAR, displayBalanceZAR) || exceedsAvailableMzn(nextMZN, displayBalanceMZN))
+      (isZarPrimaryKeypad
+        ? exceedsAvailableZar(nextZAR, displayBalanceZAR)
+        : exceedsAvailableMzn(nextMZN, displayBalanceMZN))
     ) {
       return
     }
