@@ -189,7 +189,7 @@ export default function NotificationsSheet() {
                 />
               ))}
             </div>
-            <p className={listStyles.deskHeaderName}>FX Desk</p>
+            <p className={listStyles.deskHeaderName}>FX Routing</p>
             <p className={listStyles.deskHeaderRole}>{dayLabel}</p>
             <p className={listStyles.deskHeaderStatus}>
               {header.dayLabel}
