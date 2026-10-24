@@ -108,7 +108,7 @@ const CARD_LABELS: Record<CardType, string> = {
   zwd: 'CASH CARD', // ZWD fiat card
   yield: 'INVESTMENT CARD', // ETH crypto card
   btc: 'INVESTMENT CARD', // BTC crypto card
-  yieldSurprise: 'EARNINGS', // Agent earnings card
+  yieldSurprise: 'EN ROUTE', // Booked ZAR in transit until settlement
 }
 
 // Map card type to allocation key
@@ -128,7 +128,7 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC'> =
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
-  yieldSurprise: 'MZN',
+  yieldSurprise: 'CASH',
 }
 
 interface CardStackProps {

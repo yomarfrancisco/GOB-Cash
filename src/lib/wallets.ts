@@ -69,7 +69,7 @@ const DEFAULT_WALLETS: WalletDoc[] = [
   {
     walletId: 'earnings',
     kind: 'earnings',
-    displayCurrency: 'MZN',
+    displayCurrency: 'ZAR',
     fiatBalance: 0,
     usdtBalance: 0,
     apy: 9.38,

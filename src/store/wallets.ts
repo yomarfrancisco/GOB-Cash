@@ -66,7 +66,7 @@ const demoWallets: Partial<WalletMap> = {
   earnings: {
     walletId: 'earnings',
     kind: 'earnings',
-    displayCurrency: 'MZN',
+    displayCurrency: 'ZAR', // Booked ZAR in transit until bank settlement clears to cashZAR
     fiatBalance: 0,
     usdtBalance: 0,
     apy: 9.38,

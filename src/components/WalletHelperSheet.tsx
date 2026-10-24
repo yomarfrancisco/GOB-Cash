@@ -31,7 +31,7 @@ const walletTitleMap: Record<WalletKey, string> = {
   zwd: 'ZWD wallet',
   yield: 'ETH wallet',
   btc: 'BTC wallet',
-  yieldSurprise: 'Earnings wallet',
+  yieldSurprise: 'En route wallet',
 }
 
 const cardImages: Record<WalletKey, string> = {
@@ -105,24 +105,26 @@ const HELPER_COPY: Record<WalletKey, HelperCopy> = {
     ],
   },
   yieldSurprise: {
-    description: 'Your Earnings wallet is where Gobankless deposits the fees you earn from helping customers move cash to and from crypto.',
-    apyHeading: 'Turn your shifts into 25% annual yield',
-    apySubtext: 'Compounded as your agent earnings grow',
+    description:
+      'En route holds ZAR that is booked and in transit. When the bank confirms settlement (Resend mail the next day), that balance moves into your ZAR card.',
+    apyHeading: 'Booked at the realised rate',
+    apySubtext: 'Unless a rate is specified, en route uses the SELL Mt/R',
     tiles: [
       { title: 'APY_CARD' },
       {
-        title: 'Anytime',
-        line1: 'Access to your earnings',
-        line2: 'Withdraw to cash or crypto anytime at no additional cost',
+        title: 'Booked',
+        line1: 'Funds in transit',
+        line2: 'Shows ZAR sold / awaiting bank settlement',
       },
       {
-        title: '0%',
-        line1: 'Account fees on earnings',
+        title: 'Next day',
+        line1: 'Settlement clears',
+        line2: 'Bank confirmation on Resend moves the balance to ZAR',
       },
       {
-        title: 'Zero',
-        line1: 'Fees on Gobankless payouts',
-        line2: 'Keep 100% of what you earn from your shifts',
+        title: 'SELL@',
+        line1: 'Default booked rate',
+        line2: 'Realised rate when known; otherwise live SELL Mt/R',
       },
     ],
   },

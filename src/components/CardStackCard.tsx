@@ -66,7 +66,7 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC' | 
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
-  yieldSurprise: 'MZN',
+  yieldSurprise: 'CASH', // ZAR booked / in transit until settlement clears
 }
 
 const CARD_CURRENCY_CODE: Record<CardType, string> = {
@@ -75,7 +75,7 @@ const CARD_CURRENCY_CODE: Record<CardType, string> = {
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
-  yieldSurprise: 'MZN',
+  yieldSurprise: 'ZAR',
 }
 
 // Coin mapping for crypto cards
@@ -202,17 +202,20 @@ export default function CardStackCard({
   }
   
   const zar = cents / 100
-  const isMeticalAmount = card.type === 'mzn' || card.type === 'yieldSurprise'
+  // EN ROUTE holds booked ZAR in transit; only Moz inventory is metical-denominated.
+  const isMeticalAmount = card.type === 'mzn'
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
       : 0
   const sellRate = sellMznPerZar(liveMzn)
   const costRate = costMznPerZar(liveMzn)
-  const quotedMznPerZar = card.type === 'savings' ? sellRate : costRate
+  // ZAR inventory quotes SELL; EN ROUTE books at realised SELL (fallback); Moz inventory quotes COST.
+  const quotedMznPerZar =
+    card.type === 'savings' || card.type === 'yieldSurprise' ? sellRate : costRate
   const convertedAmount = isMeticalAmount
     ? mznToZar(zar, quotedMznPerZar)
-    : card.type === 'savings'
+    : card.type === 'savings' || card.type === 'yieldSurprise'
       ? zarToMzn(zar, quotedMznPerZar)
       : zar / FX_USD_ZAR_DEFAULT
   const pct = allocPct(cents)
@@ -367,10 +370,10 @@ export default function CardStackCard({
   // Determine what to display in the pill
   const getPillContent = (): { strong: string; label: string } => {
     if (card.type === 'yieldSurprise') {
-      const profitPerZar = Math.max(0, sellRate - costRate)
+      // Realised booked rate for funds in transit; default to live SELL when none is specified.
       return {
         strong: 'EN ROUTE@',
-        label: `${profitPerZar.toFixed(2)}Mt/R`,
+        label: `${sellRate.toFixed(2)}Mt/R`,
       }
     }
 
