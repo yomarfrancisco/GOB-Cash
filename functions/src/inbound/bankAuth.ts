@@ -35,6 +35,18 @@ export const ALLOWED_BANK_SENDERS: AllowedBankSender[] = [
     issuer: 'fnb_za',
     dkimDomains: ['fnb.co.za'],
   },
+  /** Card/account SMS-style notices: spend, reversals, Speedpoint POS credits. */
+  {
+    email: 'incontact@fnb.co.za',
+    issuer: 'fnb_za',
+    dkimDomains: ['fnb.co.za'],
+  },
+  /** PDF conversion receipts ("FNB Receipt"). */
+  {
+    email: 'noreplytransreport@fnb.co.za',
+    issuer: 'fnb_za',
+    dkimDomains: ['fnb.co.za'],
+  },
   {
     email: 'noreply@capitecbank.co.za',
     issuer: 'capitec',

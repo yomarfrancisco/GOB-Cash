@@ -40,6 +40,7 @@ import {
   type RoutingState,
 } from '../routing/conversionRouter'
 import { payerDisplay } from '../settlement/railDisplay'
+import { resolveBuyerCardLast4 } from '../settlement/register'
 import { formatDeskClock, scheduleTicketPath } from '../routing/attemptSchedule'
 import { beliefHintForAssignments, rankAssignmentsByBelief } from '../routing/beliefRank'
 import {
@@ -3665,6 +3666,99 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
       deskMode,
       ...(plannedClockMs ? { plannedClockMs } : {}),
     })
+}
+
+/**
+ * Bank decline PDF → friction note + path decline so leftover can reroute
+ * and Ask blocks "switch cards" without a typed note.
+ */
+export async function recordBankReceiptDecline(params: {
+  evidenceId: string
+  amountZar: number
+  cardLast4: string | null
+  merchant: string | null
+  bankLabel: string
+}): Promise<void> {
+  const adminUid = ROUTING_ADMIN_UID
+  const testRunId = await currentTestId(adminUid)
+  if (!testRunId) return
+  const resolved = params.cardLast4 ? resolveBuyerCardLast4(params.cardLast4) : null
+  const deskCardId = resolved?.ok ? resolved.buyer.deskCardId : undefined
+  const nowMs = Date.now()
+  const noteId = `bank-decline-${params.evidenceId}`
+  const amountBit = `R${params.amountZar.toFixed(2)}`
+  const where = params.merchant ? ` at ${params.merchant}` : ''
+  const cardBit = params.cardLast4 ? ` on card ${params.cardLast4}` : ''
+  const noteText = `${params.bankLabel} declined ${amountBit}${where}${cardBit}.`
+  const testRef = db.collection(TESTS).doc(testRunId)
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(testRef)
+    if (!snap.exists) return
+    const data = snap.data() || {}
+    if (data.status && data.status !== 'active') return
+    const notes = Array.isArray(data.frictionNotes) ? [...data.frictionNotes] : []
+    if (notes.some((row) => row && typeof row === 'object' && (row as { id?: string }).id === noteId)) {
+      return
+    }
+    const frictionNote: FrictionNote = {
+      id: noteId,
+      kind: 'outcome',
+      atMs: nowMs,
+      outcome: 'declined',
+      text: noteText.slice(0, 240),
+      ...(typeof deskCardId === 'number' ? { cardId: deskCardId } : {}),
+    }
+    notes.push(frictionNote)
+
+    const cycleNumber = Math.max(1, num(data.awaitingCycleNumber, 0) || num(data.completedCycles, 0) + 1)
+    const assignments = Array.isArray(data.cardAssignments)
+      ? (data.cardAssignments as Array<{ cardId?: number; machineId?: number; amount?: number }>)
+      : []
+    const open =
+      (typeof deskCardId === 'number'
+        ? assignments.find(
+            (row) =>
+              row.cardId === deskCardId &&
+              Math.abs(Number(row.amount || 0) - params.amountZar) < 0.02
+          )
+        : null) ||
+      assignments.find((row) => Math.abs(Number(row.amount || 0) - params.amountZar) < 0.02) ||
+      assignments[0] ||
+      null
+    const paymentId =
+      open && typeof open.cardId === 'number' && typeof open.machineId === 'number'
+        ? residualPaymentId(cycleNumber, open.cardId, open.machineId)
+        : `bank-decline-${params.evidenceId}`
+    const book = pathBookFromDoc(data)
+    const pathAlready = (book.notes || []).some(
+      (row) => row.kind === 'decline' && row.economicPaymentId === paymentId
+    )
+    const write: PathWrite = {
+      kind: 'decline',
+      cardId: typeof deskCardId === 'number' ? deskCardId : open?.cardId ?? null,
+      machineId: typeof open?.machineId === 'number' ? open.machineId : null,
+      amountZar: params.amountZar,
+      economicPaymentId: paymentId,
+      summary: `${noteText} Leftover will reroute on the next live flow.`,
+    }
+    const nextBook = pathAlready
+      ? book
+      : applyPathWrites(book, [write], {
+          cycleNumber,
+          nowIso: new Date(nowMs).toISOString(),
+        })
+    tx.set(
+      testRef,
+      persistPathBook(
+        {
+          frictionNotes: notes.slice(-40),
+          updatedAt: admin.firestore.Timestamp.fromMillis(nowMs),
+        },
+        nextBook
+      ),
+      { merge: true }
+    )
+  })
 }
 
 /** Close an open restock when bank receipts add up to the tickets. */

@@ -11,7 +11,18 @@ import { handleBankMailWebhook } from './bankMailPure'
 import { resendReceivingClient } from './resendReceiving'
 import { applyFnbEvent, liquidityDeltaZar, type CardFloat } from './fnbApply'
 import { pdfText } from './fnbPdf'
-import { bankNoticeCopy, isFnbSender, looksLikeFnbReceipt, parseFnbCardSpend, parseFnbReceipt, type FnbEvent } from './fnbParse'
+import { evaluateBankAuthentication } from './bankAuth'
+import {
+  bankNoticeCopy,
+  isFnbSender,
+  looksLikeFnbReceipt,
+  looksLikeMerchantPosMail,
+  parseFnbCardSpend,
+  parseFnbPosCredit,
+  parseFnbReceipt,
+  parseMerchantPosReceipt,
+  type FnbEvent,
+} from './fnbParse'
 import { capitecNoticeCopy, isCapitecSender, parseCapitecReceipt, type CapitecReceipt } from './capitecParse'
 import { capitecSettlementCopy, parseCapitecSettlement, type CapitecSettlement } from './capitecSettlement'
 import { parseFnbSettlement, fnbSettlementCopy } from '../settlement/fnbSettlement'
@@ -33,7 +44,11 @@ import { extractMimeText } from './mimeText'
 import { resolveBuyerCardLast4, resolveBuyerCardRef } from '../settlement/register'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
 import { stepTitle } from '../routing/continuousCycle'
-import { tryAutoConfirmOpenRestock, tryAdvanceContinuousCycle } from '../tx/adminConversionRouting'
+import {
+  recordBankReceiptDecline,
+  tryAutoConfirmOpenRestock,
+  tryAdvanceContinuousCycle,
+} from '../tx/adminConversionRouting'
 import { issuingBankLabelFromBankId, parseObservedAtLoose, recordRealisedRate } from '../fx/realisedRates'
 import { parseRealisedRateNote } from '../fx/realisedRateNoteParse'
 import {
@@ -176,6 +191,33 @@ export const inbound_archiveBankMail = functions
 
 function evidenceIsAuthenticated(evidence: EvidenceRecord): boolean {
   return evidence.status === 'authenticated'
+}
+
+/**
+ * Re-evaluate bank auth for evidence quarantined before a sender was allow-listed.
+ * Updates the evidence doc when the new allow-list + stored DKIM headers now pass.
+ */
+async function reauthenticateEvidenceIfNeeded(evidence: EvidenceRecord): Promise<EvidenceRecord> {
+  if (evidence.status === 'authenticated') return evidence
+  if (evidence.reason !== 'sender_not_allowlisted') return evidence
+  const auth = evaluateBankAuthentication({
+    from: evidence.from,
+    headers: evidence.headers || null,
+    authentication: evidence.authentication || null,
+  })
+  if (!auth.ok) return evidence
+  const stamp = new Date().toISOString()
+  const patch = {
+    status: 'authenticated' as const,
+    parseStatus: evidence.parseStatus === 'quarantined' ? ('unparsed' as const) : evidence.parseStatus,
+    reason: 'bank_authenticated',
+    bankIssuer: auth.issuer,
+    bankSenderEmail: auth.senderEmail,
+    dkimDomain: auth.dkimDomain,
+    updatedAt: stamp,
+  }
+  await db().collection(EVIDENCE_COLLECTION).doc(evidence.resendEmailId).set(patch, { merge: true })
+  return { ...evidence, ...patch }
 }
 
 async function loadEvidenceText(
@@ -565,37 +607,55 @@ async function recordFnbNotice(
   const ref = db().collection(EVIDENCE_COLLECTION).doc(emailId)
   const snap = await ref.get()
   if (!snap.exists) return
-  const evidence = snap.data() as EvidenceRecord
+  let evidence = snap.data() as EvidenceRecord
+  if (isFnbSender(evidence.from)) {
+    evidence = await reauthenticateEvidenceIfNeeded(evidence)
+  }
   // FNB ZA card notices require authenticated bank mail. Spoofed From is quarantined upstream.
   if (isFnbSender(evidence.from) && !evidenceIsAuthenticated(evidence)) {
     safeLog.info('fnb_skipped', { emailId, reason: evidence.reason || 'not_authenticated' })
     return
   }
   const fromBank = isFnbSender(evidence.from) && evidenceIsAuthenticated(evidence)
-  const spend = evidence.subject ? parseFnbCardSpend(evidence.subject) : null
-  let event: FnbEvent | null = spend
-  if (!event && (fromBank || looksLikeFnbReceipt(evidence.subject))) {
+  const subject = evidence.subject || ''
+  let event: FnbEvent | null =
+    parseFnbCardSpend(subject) || parseFnbPosCredit(subject)
+  const tryPdf =
+    !event &&
+    (fromBank || looksLikeFnbReceipt(evidence.subject) || looksLikeMerchantPosMail(evidence.subject))
+  if (tryPdf) {
     const pdf = (evidence.attachments || []).find((row) => /pdf/i.test(row.contentType) || /\.pdf$/i.test(row.safeFilename))
     if (!pdf) return
     const [bytes] = await bucket.file(pdf.storagePath).download()
     const text = await pdfText(bytes)
-    event = parseFnbReceipt(text)
+    event = parseFnbReceipt(text) || parseMerchantPosReceipt(text)
     if (!event) {
-      await recordFnbSettlement(emailId, evidence, text, pdf.sha256)
+      if (fromBank || looksLikeFnbReceipt(evidence.subject)) {
+        await recordFnbSettlement(emailId, evidence, text, pdf.sha256)
+      }
       return
     }
   }
   if (!event) return
-  const cardLast4 = event.cardLast4
-  if (!cardLast4) return
-  const eventRef = db().collection('bankFnbEvents').doc(emailId)
-  const floatRef = db().collection('fnbCardFloat').doc(cardLast4)
+  const floatKey =
+    event.kind === 'pos_credit'
+      ? `acct-${event.accountLast4}`
+      : event.cardLast4
+  // Conversion receipts without a card last4 can still publish a desk notice (esp. declines).
+  const eventDocId =
+    event.kind === 'conversion_receipt' && (event.uti || event.rrn || event.transactionNumber)
+      ? `rcpt-${(event.uti || event.rrn || event.transactionNumber || '').replace(/[^\w.-]+/g, '-')}`
+      : emailId
+  const eventRef = db().collection('bankFnbEvents').doc(eventDocId)
+  const floatRef = floatKey ? db().collection('fnbCardFloat').doc(floatKey) : null
   const walletRef = db().collection('users').doc(ROUTING_ADMIN_UID).collection('wallets').doc('cashZAR')
   await db().runTransaction(async (tx) => {
     const existing = await tx.get(eventRef)
-    const floatSnap = await tx.get(floatRef)
+    const floatSnap = floatRef ? await tx.get(floatRef) : null
     const walletSnap = await tx.get(walletRef)
-    const prior = existing.exists ? (existing.data() as FnbEvent & { merchant?: string | null; liquidityApplied?: boolean }) : null
+    const prior = existing.exists
+      ? (existing.data() as FnbEvent & { merchant?: string | null; liquidityApplied?: boolean })
+      : null
     if (prior?.kind === 'conversion_receipt' && !prior.merchant && event.kind === 'conversion_receipt' && event.merchant) {
       tx.set(eventRef, { merchant: event.merchant }, { merge: true })
     }
@@ -614,7 +674,6 @@ async function recordFnbNotice(
       if (!prior.liquidityApplied) tx.set(eventRef, { liquidityApplied: true }, { merge: true })
       return
     }
-    const next = applyFnbEvent(floatSnap.exists ? (floatSnap.data() as CardFloat) : null, event, cardLast4)
     tx.set(eventRef, {
       ...event,
       forwarded: !fromBank,
@@ -624,20 +683,58 @@ async function recordFnbNotice(
       subject: evidence.subject,
       createdAt: new Date().toISOString(),
     })
-    tx.set(floatRef, { ...next, updatedAt: new Date().toISOString() })
-    tx.set(ref, { parseStatus: 'parsed', fnbKind: event.kind }, { merge: true })
+    if (floatRef && floatKey) {
+      const next = applyFnbEvent(
+        floatSnap?.exists ? (floatSnap.data() as CardFloat) : null,
+        event,
+        floatKey
+      )
+      tx.set(floatRef, { ...next, updatedAt: new Date().toISOString() })
+    }
+    tx.set(
+      ref,
+      {
+        parseStatus: 'parsed',
+        fnbKind: event.kind,
+        fnbStatus: 'status' in event ? event.status : null,
+      },
+      { merge: true }
+    )
   })
-  safeLog.info('fnb_recorded', { emailId, reason: event.kind })
-  await publishBankNotice(emailId, event, !fromBank)
-  if (event.kind === 'conversion_receipt' && event.status === 'approved') await tryAutoConfirmOpenRestock()
+  const written = await eventRef.get()
+  if (!written.exists || written.data()?.resendEmailId !== emailId) return
+  safeLog.info('fnb_recorded', {
+    emailId,
+    reason: event.kind === 'conversion_receipt' ? event.status : event.kind,
+  })
+  await publishBankNotice(eventDocId, event, !fromBank)
+  if (event.kind === 'conversion_receipt' && event.status === 'declined') {
+    await recordBankReceiptDecline({
+      evidenceId: emailId,
+      amountZar: event.amountZar,
+      cardLast4: event.cardLast4,
+      merchant: event.merchant,
+      bankLabel: event.noticeBank === 'POS' ? 'POS' : 'FNB',
+    })
+  }
+  if (
+    (event.kind === 'conversion_receipt' && event.status === 'approved') ||
+    event.kind === 'pos_credit'
+  ) {
+    await tryAutoConfirmOpenRestock()
+  }
 }
 
-async function publishBankNotice(emailId: string, event: FnbEvent, forwarded: boolean): Promise<void> {
-  const id = `fnb-${emailId}`
+async function publishBankNotice(eventDocId: string, event: FnbEvent, forwarded: boolean): Promise<void> {
+  const id = `fnb-${eventDocId}`
   const ref = db().collection('users').doc(ROUTING_ADMIN_UID).collection('activityEvents').doc(id)
   const existing = await ref.get()
   if (existing.exists) return
   const copy = bankNoticeCopy(event, forwarded)
+  const amountSign =
+    event.kind === 'pos_credit' || (event.kind === 'conversion_receipt' && event.status === 'approved')
+      ? 'credit'
+      : 'debit'
   await ref.set({
     id,
     kind: CONVERSION_ROUTING_KIND,
@@ -649,7 +746,7 @@ async function publishBankNotice(emailId: string, event: FnbEvent, forwarded: bo
     avatarKind: 'convert_zar',
     amountCurrency: 'ZAR',
     amountValue: event.amountZar,
-    amountSign: 'debit',
+    amountSign,
     txId: id,
     hasDownloadButton: false,
     awaitingConfirm: false,
@@ -826,7 +923,8 @@ async function recordCapitecReceipt(
   const pdf = (evidence.attachments || []).find((row) => /pdf/i.test(row.contentType) || /\.pdf$/i.test(row.safeFilename))
   if (!pdf) return
   const [bytes] = await bucket.file(pdf.storagePath).download()
-  const receipt = parseCapitecReceipt(await pdfText(bytes))
+  const text = await pdfText(bytes)
+  const receipt = parseCapitecReceipt(text)
   if (!receipt) return
   const docId = receipt.transactionNumber || `pdf-${pdf.sha256.slice(0, 32)}`
   const eventRef = db().collection('bankCapitecEvents').doc(docId)
@@ -834,8 +932,8 @@ async function recordCapitecReceipt(
   await db().runTransaction(async (tx) => {
     const existing = await tx.get(eventRef)
     if (existing.exists) return
+    const walletSnap = await tx.get(walletRef)
     if (receipt.status === 'approved') {
-      const walletSnap = await tx.get(walletRef)
       const current = Number(walletSnap.exists ? walletSnap.data()?.fiatBalance || 0 : 0)
       tx.set(walletRef, {
         fiatBalance: Math.round((current + receipt.amountZar) * 100) / 100,
@@ -849,12 +947,21 @@ async function recordCapitecReceipt(
       subject: evidence.subject,
       createdAt: new Date().toISOString(),
     })
-    tx.set(evidenceRef, { parseStatus: 'parsed', capitecKind: receipt.kind }, { merge: true })
+    tx.set(evidenceRef, { parseStatus: 'parsed', capitecKind: receipt.kind, capitecStatus: receipt.status }, { merge: true })
   })
   const written = await eventRef.get()
   if (!written.exists || written.data()?.resendEmailId !== emailId) return
   safeLog.info('capitec_recorded', { emailId, reason: receipt.status })
   await publishCapitecNotice(docId, receipt)
+  if (receipt.status === 'declined') {
+    await recordBankReceiptDecline({
+      evidenceId: emailId,
+      amountZar: receipt.amountZar,
+      cardLast4: receipt.cardLast4,
+      merchant: receipt.merchant,
+      bankLabel: 'Capitec',
+    })
+  }
   if (receipt.status === 'approved') await tryAutoConfirmOpenRestock()
 }
 
@@ -1032,7 +1139,7 @@ async function publishCapitecNotice(docId: string, receipt: CapitecReceipt): Pro
 /** One-shot: parse bank mail already archived before recorders existed / were extended. */
 export const inbound_backfillFnb = functions
   .region('us-central1')
-  .runWith({ secrets: [inboundSecret, capitecPdfPassword], timeoutSeconds: 120, memory: '512MB' })
+  .runWith({ secrets: [inboundSecret, capitecPdfPassword], timeoutSeconds: 300, memory: '512MB' })
   .https.onRequest(async (req, res) => {
     const provided = req.get('x-inbound-secret') || ''
     if (!provided || provided !== inboundSecret.value()) {
@@ -1040,10 +1147,19 @@ export const inbound_backfillFnb = functions
       return
     }
     const bucket = admin.storage().bucket()
-    const snap = await db().collection(EVIDENCE_COLLECTION).limit(80).get()
+    const recent = await db().collection(EVIDENCE_COLLECTION).orderBy('createdAt', 'desc').limit(120).get()
+    const quarantined = await db()
+      .collection(EVIDENCE_COLLECTION)
+      .where('reason', '==', 'sender_not_allowlisted')
+      .limit(80)
+      .get()
+    const byId = new Map<string, admin.firestore.QueryDocumentSnapshot>()
+    for (const doc of [...recent.docs, ...quarantined.docs]) byId.set(doc.id, doc)
     let recorded = 0
     let mozaPurchases = 0
-    for (const doc of snap.docs) {
+    let reauthed = 0
+    for (const doc of byId.values()) {
+      const before = doc.data() as EvidenceRecord
       await recordMozaCardPurchase(doc.id, bucket)
       await recordMozaWithdrawal(doc.id, bucket)
       await recordFnbMzTransfer(doc.id, bucket)
@@ -1054,7 +1170,9 @@ export const inbound_backfillFnb = functions
       const after = await db().collection('bankFnbEvents').doc(doc.id).get()
       if (after.exists) recorded += 1
       const evidence = await db().collection(EVIDENCE_COLLECTION).doc(doc.id).get()
-      if (evidence.data()?.mozaKind === 'card_purchase') mozaPurchases += 1
+      const row = evidence.data()
+      if (row?.mozaKind === 'card_purchase') mozaPurchases += 1
+      if (before.status === 'quarantined' && row?.status === 'authenticated') reauthed += 1
     }
-    res.status(200).json({ ok: true, scanned: snap.size, recorded, mozaPurchases })
+    res.status(200).json({ ok: true, scanned: byId.size, recorded, mozaPurchases, reauthed })
   })

@@ -8,10 +8,11 @@ export type CardFloat = {
   receiptedZar: number
 }
 
-/** Approved conversion adds ZAR liquidity. A reservation spends it. Declined adds nothing. */
+/** Approved conversion / POS credit adds ZAR liquidity. A reservation spends it. Declined / unknown add nothing. */
 export function liquidityDeltaZar(event: FnbEvent): number {
   if (event.kind === 'card_spend') return -event.amountZar
   if (event.kind === 'conversion_receipt' && event.status === 'approved') return event.amountZar
+  if (event.kind === 'pos_credit') return event.amountZar
   return 0
 }
 
@@ -32,6 +33,19 @@ export function applyFnbEvent(float: CardFloat | null, event: FnbEvent, cardLast
         base.availableZar == null ? null : Math.round((base.availableZar - event.amountZar) * 100) / 100,
     }
   }
+  if (event.kind === 'pos_credit') {
+    return {
+      ...base,
+      accountLast4: event.accountLast4,
+      availableZar:
+        base.availableZar == null
+          ? event.amountZar
+          : Math.round((base.availableZar + event.amountZar) * 100) / 100,
+      receiptedZar: Math.round((base.receiptedZar + event.amountZar) * 100) / 100,
+    }
+  }
+  // Declined / unknown conversion receipts must not bump float or receiptedZar.
+  if (event.status !== 'approved') return base
   return {
     ...base,
     receiptedZar: Math.round((base.receiptedZar + event.amountZar) * 100) / 100,

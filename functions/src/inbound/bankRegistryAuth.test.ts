@@ -228,6 +228,29 @@ describe('bank email authentication gate', () => {
     if (result.ok) assert.equal(result.issuer, 'fnb_mz')
   })
 
+  it('accepts inContact@fnb.co.za with aligned DKIM', () => {
+    const result = evaluateBankAuthentication({
+      from: 'inContact@fnb.co.za',
+      headers: authHeaders('fnb.co.za'),
+      authentication: { dkim: 'pass', spf: 'pass', dmarc: 'pass' },
+    })
+    assert.equal(result.ok, true)
+    if (result.ok) {
+      assert.equal(result.issuer, 'fnb_za')
+      assert.equal(result.senderEmail, 'incontact@fnb.co.za')
+    }
+  })
+
+  it('accepts NoReplyTransReport@FNB.co.za with aligned DKIM', () => {
+    const result = evaluateBankAuthentication({
+      from: 'NoReplyTransReport@FNB.co.za',
+      headers: authHeaders('fnb.co.za'),
+      authentication: { dkim: 'pass', spf: 'pass', dmarc: 'pass' },
+    })
+    assert.equal(result.ok, true)
+    if (result.ok) assert.equal(result.issuer, 'fnb_za')
+  })
+
   it('quarantines spoofed From address even with a passing DKIM for another domain', () => {
     const result = evaluateBankAuthentication({
       from: 'spoof@evil.example',

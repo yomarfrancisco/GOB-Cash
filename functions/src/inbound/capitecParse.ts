@@ -1,5 +1,7 @@
 /** Capitec card-sale receipt. An approval is ZAR landing from a conversion. */
 
+import { classifyPosReceiptStatus } from './fnbParse'
+
 export type CapitecReceipt = {
   kind: 'conversion_receipt'
   bank: 'capitec'
@@ -19,13 +21,12 @@ export function parseCapitecReceipt(text: string): CapitecReceipt | null {
   if (!amountRaw) return null
   const amountZar = Number(amountRaw[1].replace(/\s/g, ''))
   if (!Number.isFinite(amountZar) || amountZar <= 0) return null
-  const status = /Status\s+DECLINED/i.test(text) ? 'declined' : /APPROVED/i.test(text) ? 'approved' : 'unknown'
   const card = text.match(/(\d{6}\*+\d{4})/)
   const merchant = text.match(/\n([A-Z][A-Z0-9 .&'-]{2,40})\s*\n+\s*R\s*\d/i)
   const date = text.match(/Date\s+(\d{2}\/\d{2}\/\d{4})/i)
   const time = text.match(/Time\s+(\d{2}:\d{2}:\d{2})/i)
   const txn = text.match(/Transaction\s+(\d{6,})/i)
-  const auth = text.match(/Authorization ID\s+(\d+)/i)
+  const auth = (text.match(/Authorization ID\s+(\d+)/i) || [])[1] || null
   return {
     kind: 'conversion_receipt',
     bank: 'capitec',
@@ -33,9 +34,9 @@ export function parseCapitecReceipt(text: string): CapitecReceipt | null {
     merchant: merchant ? merchant[1].trim() : null,
     cardLast4: card ? card[1].slice(-4) : null,
     cardMasked: card ? card[1] : null,
-    status,
+    status: classifyPosReceiptStatus(text, auth),
     transactionNumber: txn ? txn[1] : null,
-    authCode: auth ? auth[1] : null,
+    authCode: auth,
     occurredAt: date ? `${date[1]}${time ? ` ${time[1]}` : ''}` : null,
   }
 }
@@ -55,6 +56,12 @@ export function capitecNoticeCopy(receipt: CapitecReceipt): { title: string; bod
     return {
       title: 'Bank · Capitec declined',
       body: `Capitec declined ${amount}${where}${card}${when}.${ref}${auth} Declined, so the ZAR card is unchanged.`,
+    }
+  }
+  if (receipt.status === 'unknown') {
+    return {
+      title: 'Bank · Capitec receipt needs review',
+      body: `Capitec receipt for ${amount}${where}${card}${when}.${ref}${auth} Could not classify as approved or declined. No ZAR was added.`,
     }
   }
   return {
