@@ -697,13 +697,14 @@ function HomeContent() {
                   aiCycleControllerRef={aiCycleControllerRef}
                   onCreditSurprise={handleCreditSurprise}
                   onApyPillClick={(cardType: CardType, amount: number) => {
-                    if (cardType === 'savings' || cardType === 'mzn' || cardType === 'yieldSurprise') {
+                    // SELL@ on ZAR opens the sell keypad. COST@ on MZN is display-only.
+                    if (cardType === 'savings') {
                       guardAuthed(() => {
                         playDollarSound()
                         setAgentCashKeypad(false)
                         setAgentCashHandle(null)
                         setConversionPrefill(amount)
-                        setConversionDestination(cardType === 'savings' ? 'MZN' : 'ZAR')
+                        setConversionDestination('MZN')
                         setAmountMode('convert')
                         setAmountEntryPoint('conversionKeypad')
                         setOpenAmount(true)
@@ -903,6 +904,7 @@ function HomeContent() {
           }
           // Claim play before onClose so dismiss-restore does not race the submit path.
           if (play) useRoutingPlaybackStore.getState().clear()
+          const soldZarToEnRoute = conversionDestination === 'MZN' && !play
           const run = play
             ? submitRoutingConversion({ amountZAR, amountMZN, play })
             : submitInternalConversion({
@@ -913,7 +915,15 @@ function HomeContent() {
                 agentCashHandle: agentCashHandle,
                 capitalShock: true,
               })
-          void run.catch((error: any) => {
+          void run
+            .then(() => {
+              // After a ZAR sell books EN ROUTE, shuffle the stack to that card.
+              if (!soldZarToEnRoute) return
+              window.setTimeout(() => {
+                void cardStackRef.current?.flipToCard('yieldSurprise', 'forward')
+              }, 420)
+            })
+            .catch((error: any) => {
             useRoutingPlaybackStore.getState().clear()
             const message = String(error?.message || '')
             // Duplicate keypad auto-submit while the first conversion is still running.
