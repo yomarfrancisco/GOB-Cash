@@ -571,7 +571,11 @@ export default function CardStackCard({
                   }}
                   renderMajor={(major) => (
                     <span className="amt-int card-amounts__whole" suppressHydrationWarning>
-                      {isMeticalAmount ? `Mt ${major}` : card.type === 'savings' ? `R ${major}` : major}
+                      {isMeticalAmount
+                        ? `Mt ${major}`
+                        : card.type === 'savings' || card.type === 'yieldSurprise'
+                          ? `R ${major}`
+                          : major}
                     </span>
                   )}
                   renderCents={(cents) => (
