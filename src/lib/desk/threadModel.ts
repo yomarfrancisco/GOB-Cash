@@ -13,7 +13,7 @@ export const DESK_TEAM = {
   sam: {
     id: 'sam' as const,
     name: 'Routing Manager',
-    role: 'Window · asks · answers',
+    role: '',
     avatar: '/assets/benjamin_pink_circle.png',
   },
   leo: {

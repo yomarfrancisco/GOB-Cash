@@ -727,7 +727,9 @@ function ActivityItemCard({
         {deskSpeaker ? (
           <div className={styles.activitySpeaker}>
             <span>{deskSpeaker.name}</span>
-            <span className={styles.activitySpeakerRole}>{deskSpeaker.role}</span>
+            {deskSpeaker.role ? (
+              <span className={styles.activitySpeakerRole}>{deskSpeaker.role}</span>
+            ) : null}
           </div>
         ) : null}
         <div className={styles.activityHeader}>
@@ -1024,7 +1026,7 @@ function ThinkingPlaceholder({ speaker }: { speaker?: (typeof DESK_TEAM)[keyof t
       <div className={styles.activityContent}>
         <div className={styles.activitySpeaker}>
           <span>{who.name}</span>
-          <span className={styles.activitySpeakerRole}>{who.role}</span>
+          {who.role ? <span className={styles.activitySpeakerRole}>{who.role}</span> : null}
         </div>
         <div className={styles.thinkingDots} aria-label="Writing">
           <span />

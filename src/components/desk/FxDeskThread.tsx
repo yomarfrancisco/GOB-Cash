@@ -275,7 +275,7 @@ export function FxDeskThread() {
         </div>
         <div className={styles.headerCopy}>
           <p className={styles.headerName}>{lead.name}</p>
-          <p className={styles.headerRole}>{lead.role}</p>
+          {lead.role ? <p className={styles.headerRole}>{lead.role}</p> : null}
         </div>
       </header>
 
@@ -315,7 +315,8 @@ export function FxDeskThread() {
               <div className={styles.bubble}>
                 {team && (
                   <p className={styles.who}>
-                    {team.name} {team.role}
+                    {team.name}
+                    {team.role ? ` ${team.role}` : ''}
                   </p>
                 )}
                 <p className={`${styles.text} ${tone}`}>{row.text}</p>
