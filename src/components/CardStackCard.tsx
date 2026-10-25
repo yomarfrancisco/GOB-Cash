@@ -405,10 +405,10 @@ export default function CardStackCard({
   // Determine what to display in the pill
   const getPillContent = (): { strong: string; label: string } => {
     if (card.type === 'yieldSurprise') {
-      // Realised booked rate for funds in transit; default to live SELL when none is specified.
+      // Countdown to next 09:00 SAST clear (right-side timer removed).
       return {
-        strong: 'EN ROUTE@',
-        label: `${sellRate.toFixed(2)}Mt/R`,
+        strong: 'EN ROUTE',
+        label: routeTimer && routeTimer.state !== 'idle' ? routeTimer.label : '',
       }
     }
 
@@ -458,16 +458,24 @@ export default function CardStackCard({
 
   const pillContent = getPillContent()
 
+  // COST@ / SELL@ / EN ROUTE pills are display-only — never open the keypad.
+  const isRateDisplayPill =
+    card.type === 'savings' || card.type === 'mzn' || card.type === 'yieldSurprise'
+  const pillInteractive = Boolean(onApyPillClick) && !isRateDisplayPill
+
   const handlePillClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation()
     e.preventDefault()
+    if (!pillInteractive) return
     onApyPillClick?.(card.type, zar)
   }
 
-  // Conditionally add clickable class when handler is provided
   const pillClassName = clsx(
     'card-allocation-pill',
-    onApyPillClick && 'card-allocation-pill--clickable'
+    pillInteractive && 'card-allocation-pill--clickable',
+    card.type === 'yieldSurprise' &&
+      routeTimer?.state === 'delayed' &&
+      'card-allocation-pill--en-route-delayed'
   )
 
   // Compose className with special mode classes
@@ -600,7 +608,12 @@ export default function CardStackCard({
         onClick={handlePillClick}
         onTouchStart={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
-        style={{ cursor: onApyPillClick ? 'pointer' : 'default' }}
+        style={{ cursor: pillInteractive ? 'pointer' : 'default' }}
+        aria-label={
+          card.type === 'yieldSurprise' && routeTimer && routeTimer.state !== 'idle'
+            ? routeTimer.ariaLabel
+            : undefined
+        }
       >
         <span className="card-allocation-pill__text">
           <span className="card-allocation-pill__yield-strong">
@@ -617,28 +630,6 @@ export default function CardStackCard({
         </span>
       </div>
       )}
-
-      {/* Bottom-right: EN ROUTE settlement timer; other cards keep health (ZAR/MZN have none). */}
-      {card.type === 'yieldSurprise' && routeTimer && routeTimer.state !== 'idle' ? (
-        <div
-          className={clsx('card-route-timer', {
-            'card-route-timer--delayed': routeTimer.state === 'delayed',
-          })}
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(routeTimer.fillPercent)}
-          aria-label={routeTimer.ariaLabel}
-        >
-          <div className="card-route-timer__eta">{routeTimer.label}</div>
-          <div className="card-route-timer__track">
-            <div
-              className="card-route-timer__fill"
-              style={{ width: `${Math.max(0, Math.min(100, routeTimer.fillPercent))}%` }}
-            />
-          </div>
-        </div>
-      ) : null}
 
       {card.type !== 'mzn' && card.type !== 'yieldSurprise' && card.type !== 'savings' && (
         <div className="card-health-group">

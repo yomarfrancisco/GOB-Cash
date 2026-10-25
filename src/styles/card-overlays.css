@@ -54,6 +54,12 @@
   opacity: 0.8;
 }
 
+.card-allocation-pill--en-route-delayed .card-allocation-pill__yield-label {
+  color: #fcd34d;
+  opacity: 1;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card-allocation-pill {
     transition: none;

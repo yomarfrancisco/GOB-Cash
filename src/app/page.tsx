@@ -696,21 +696,8 @@ function HomeContent() {
                   flipControllerRef={flipControllerRef}
                   aiCycleControllerRef={aiCycleControllerRef}
                   onCreditSurprise={handleCreditSurprise}
-                  onApyPillClick={(cardType: CardType, amount: number) => {
-                    // SELL@ on ZAR opens the sell keypad. COST@ on MZN is display-only.
-                    if (cardType === 'savings') {
-                      guardAuthed(() => {
-                        playDollarSound()
-                        setAgentCashKeypad(false)
-                        setAgentCashHandle(null)
-                        setConversionPrefill(amount)
-                        setConversionDestination('MZN')
-                        setAmountMode('convert')
-                        setAmountEntryPoint('conversionKeypad')
-                        setOpenAmount(true)
-                      })
-                      return
-                    }
+                  onApyPillClick={(cardType: CardType) => {
+                    // Rate pills (SELL@ / COST@ / EN ROUTE) are non-interactive in CardStackCard.
                     setHelperWalletKey(cardType)
                     setIsHelperOpen(true)
                   }}
