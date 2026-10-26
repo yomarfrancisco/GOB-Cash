@@ -12,7 +12,7 @@ import {
 import styles from './RoutingStepCard.module.css'
 
 function StatusIcon({ status }: { status: StepStatus }) {
-  const label = status === 'done' ? 'Done' : 'Pending'
+  const label = status === 'done' ? 'Done' : status === 'en_route' ? 'En route' : 'Planned'
   if (status === 'done') {
     return (
       <svg className={styles.statusIcon} viewBox="0 0 22 22" aria-label={label} role="img">
@@ -53,30 +53,16 @@ function StepRow({ step }: { step: RailStep }) {
   )
 }
 
-function chipClass(variant: Rail['chip']['variant']): string {
-  if (variant === 'today') return styles.chipToday
-  if (variant === 'settled') return styles.chipSettled
-  return styles.chipOutline
-}
-
 function RailBlock({ rail }: { rail: Rail }) {
   return (
     <div className={styles.rail}>
       <div className={styles.railHeader}>
         <span className={styles.railLabel}>{rail.label}</span>
-        <span className={chipClass(rail.chip.variant)}>
-          {rail.chip.variant === 'settled' ? (
-            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-              <path
-                d="M3.2 7.2l2.4 2.4 5-5.2"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          ) : null}
+        <span
+          className={
+            rail.chip.variant === 'today' ? styles.chipToday : styles.chipOutline
+          }
+        >
           {rail.chip.text}
         </span>
         <span className={styles.railTotal}>{formatZarMoney(rail.total)}</span>
@@ -90,71 +76,52 @@ function RailBlock({ rail }: { rail: Rail }) {
   )
 }
 
-function SplitBar({ rails, settled }: { rails: Rail[]; settled?: boolean }) {
+function SplitBar({ rails }: { rails: Rail[] }) {
+  const total = rails.reduce((s, r) => s + r.total, 0) || 1
   return (
     <div className={styles.splitBar} aria-hidden="true">
       {rails.map((rail) => (
         <div
           key={rail.kind}
-          className={
-            rail.kind === 'card'
-              ? settled
-                ? styles.segCardSettled
-                : styles.segCard
-              : styles.segEft
-          }
+          className={rail.kind === 'card' ? styles.segCard : styles.segEft}
           style={{ flex: `${Math.max(rail.total, 0.01)} 1 0` }}
+          title={`${rail.label} ${((rail.total / total) * 100).toFixed(0)}%`}
         />
       ))}
     </div>
   )
 }
 
-function nextFooterLabel(message: RoutingStepMessage): string {
-  const { next } = message
-  if (message.stepNumber === 6 && next.opensIn === 'tomorrow') {
-    const day = next.dayLabel || `Day ${message.cycleNumber + 1}`
-    return `${day} · Step ${next.stepNumber} ${next.stepName} opens tomorrow`
-  }
-  if (next.opensIn) {
-    return `Step ${next.stepNumber} · ${next.stepName} opens in ${next.opensIn}`
-  }
-  return `Step ${next.stepNumber} · ${next.stepName}`
-}
-
 export function RoutingStepCard({ message }: { message: RoutingStepMessage }) {
-  const settled = message.stepNumber === 6
-  const settlement = message.settlement
+  const totalStr = formatZarMoney(message.clientTotal)
+  const rest = message.summary.startsWith(totalStr)
+    ? message.summary.slice(totalStr.length)
+    : ` ${message.summary}`
 
   return (
     <div className={styles.wrap}>
+      <p className={styles.summary}>
+        <strong className={styles.summaryTotal}>{totalStr}</strong>
+        {rest}
+      </p>
+
       <div className={styles.planCard}>
         <div className={styles.totalBlock}>
-          <div className={styles.eyebrow}>
-            {settled
-              ? `DAY ${message.cycleNumber || 1} · TO CLIENT`
-              : 'TO CLIENT ON SETTLEMENT'}
-          </div>
+          <div className={styles.eyebrow}>To client on settlement</div>
           <div className={styles.hero}>{formatZarMoney(message.clientTotal)}</div>
-          <SplitBar rails={message.rails} settled={settled} />
+          <SplitBar rails={message.rails} />
           <div className={styles.legend}>
             {message.rails.map((rail) => (
               <div key={rail.kind} className={styles.legendRow}>
                 <span
                   className={
-                    rail.kind === 'card'
-                      ? settled
-                        ? styles.swatchCardSettled
-                        : styles.swatchCard
-                      : styles.swatchEft
+                    rail.kind === 'card' ? styles.swatchCard : styles.swatchEft
                   }
                 />
                 <span className={styles.legendLabel}>
                   {rail.kind === 'card'
-                    ? settled
-                      ? 'Card · settled'
-                      : 'Card · settles today'
-                    : `EFT · pending, ${rail.settlementTerm}`}
+                    ? 'Card · settles today'
+                    : `EFT · en route, ${rail.settlementTerm}`}
                 </span>
                 <span className={styles.legendAmount}>{formatZarMoney(rail.total)}</span>
               </div>
@@ -169,30 +136,13 @@ export function RoutingStepCard({ message }: { message: RoutingStepMessage }) {
           </div>
         ))}
 
-        {settlement ? (
-          <div className={styles.clientBox}>
-            <div className={styles.settlementRow}>
-              <span>Settled</span>
-              <span className={styles.settlementVal}>{formatZarMoney(settlement.settledZar)}</span>
-            </div>
-            <div className={styles.settlementRow}>
-              <span>Pending</span>
-              <span className={styles.settlementVal}>{formatZarMoney(settlement.pendingZar)}</span>
-            </div>
-            <div className={[styles.settlementRow, styles.settlementTotal].join(' ')}>
-              <span>Client ZAR</span>
-              <span>{formatZarMoney(settlement.totalZar)}</span>
-            </div>
+        <div className={styles.clientBox}>
+          <div className={styles.clientRow}>
+            <span>Client ZAR</span>
+            <span className={styles.clientTotal}>{formatZarMoney(message.clientTotal)}</span>
           </div>
-        ) : (
-          <div className={styles.clientBox}>
-            <div className={styles.clientRow}>
-              <span>Client ZAR</span>
-              <span className={styles.clientTotal}>{formatZarMoney(message.clientTotal)}</span>
-            </div>
-            <div className={styles.clientSub}>{railSumLine(message.rails)}</div>
-          </div>
-        )}
+          <div className={styles.clientSub}>{railSumLine(message.rails)}</div>
+        </div>
       </div>
 
       <div className={styles.nextFooter}>
@@ -208,7 +158,8 @@ export function RoutingStepCard({ message }: { message: RoutingStepMessage }) {
           <path d="M10 6.5V10l2.5 1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span>
-          <strong>Next:</strong> {nextFooterLabel(message)}
+          <strong>Next:</strong> Step {message.next.stepNumber} · {message.next.stepName}
+          {message.next.opensIn ? ` opens in ${message.next.opensIn}` : ''}
         </span>
       </div>
     </div>

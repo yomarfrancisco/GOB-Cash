@@ -1,7 +1,6 @@
 import type { ActivityItem } from '@/store/activity'
 import styles from '@/app/activity/activity.module.css'
 import { RoutingStepCard } from './RoutingStepCard'
-import { DeskStepBlock } from './DeskStepBlock'
 
 const SERIES_COLOR = ['#111111', '#8aa31a', '#8a8a8a']
 
@@ -102,9 +101,6 @@ function DeskChart({ chart }: { chart: NonNullable<ActivityItem['deskChart']> })
 export function DeskCardVisuals({ item }: { item: ActivityItem }) {
   if (item.routingStepMessage) {
     return <RoutingStepCard message={item.routingStepMessage} />
-  }
-  if (item.deskLedgerRows?.length) {
-    return <DeskStepBlock rows={item.deskLedgerRows} />
   }
   if (!item.deskTable && !item.deskChart) return null
   return (

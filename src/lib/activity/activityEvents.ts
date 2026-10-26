@@ -61,47 +61,11 @@ export type ActivityEventDoc = {
     series?: unknown
   }
   routingStepMessage?: unknown
-  deskSentence?: string
-  deskStatusChip?: string
-  deskNextFooter?: string
-  deskPlanChip?: string
-  deskLedgerRows?: unknown
-  orderLedger?: unknown
   earliestAttemptAt?: string
   ticketPath?: { tickets?: Array<{ timeLabel?: string | null }> | null } | null
   operatingPolicyVersion?: string
   operatingBrief?: ActivityItem['operatingBrief']
   ticketSplits?: Array<{ cardId?: number; amountZar?: number; bankShort?: string }>
-}
-
-function asDeskLedgerRows(
-  raw: ActivityEventDoc['deskLedgerRows']
-): ActivityItem['deskLedgerRows'] {
-  if (!Array.isArray(raw) || !raw.length) return undefined
-  const rows = raw.flatMap((row) => {
-    if (!row || typeof row !== 'object') return []
-    const item = row as {
-      label?: unknown
-      value?: unknown
-      valueStrong?: unknown
-      secondLine?: unknown
-    }
-    if (typeof item.label !== 'string' || typeof item.value !== 'string') return []
-    return [
-      {
-        label: item.label,
-        value: item.value,
-        valueStrong: item.valueStrong === true,
-        secondLine: typeof item.secondLine === 'string' ? item.secondLine : undefined,
-      },
-    ]
-  })
-  return rows.length ? rows : undefined
-}
-
-function asDeskPlanChip(raw: unknown): ActivityItem['deskPlanChip'] {
-  if (raw === '24h plan' || raw === '72h plan') return raw
-  return undefined
 }
 
 function asTicketSplits(
@@ -331,21 +295,6 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     deskTable: asDeskTable(data.deskTable),
     deskChart: asDeskChart(data.deskChart),
     routingStepMessage: parseRoutingStepMessage(data.routingStepMessage) || undefined,
-    deskSentence: typeof data.deskSentence === 'string' && data.deskSentence.trim() ? data.deskSentence.trim() : undefined,
-    deskStatusChip:
-      typeof data.deskStatusChip === 'string' && data.deskStatusChip.trim()
-        ? data.deskStatusChip.trim()
-        : undefined,
-    deskNextFooter:
-      typeof data.deskNextFooter === 'string' && data.deskNextFooter.trim()
-        ? data.deskNextFooter.trim()
-        : undefined,
-    deskPlanChip: asDeskPlanChip(data.deskPlanChip),
-    deskLedgerRows: asDeskLedgerRows(data.deskLedgerRows),
-    orderLedger:
-      data.orderLedger && typeof data.orderLedger === 'object'
-        ? (data.orderLedger as ActivityItem['orderLedger'])
-        : undefined,
     ticketSplits: asTicketSplits(data.ticketSplits),
     earliestAttemptAt:
       typeof data.earliestAttemptAt === 'string' && data.earliestAttemptAt.trim()

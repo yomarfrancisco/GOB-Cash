@@ -73,18 +73,6 @@ export type ActivityItem = {
   }
   /** Routing Manager Step 1 / Step 6 structured plan card. */
   routingStepMessage?: import('@/lib/desk/routingStepMessage').RoutingStepMessage
-  /** Part 1 ledger / status presentation for Steps 2–5. */
-  deskSentence?: string
-  deskStatusChip?: string
-  deskNextFooter?: string
-  deskPlanChip?: '24h plan' | '72h plan'
-  deskLedgerRows?: Array<{
-    label: string
-    value: string
-    valueStrong?: boolean
-    secondLine?: string
-  }>
-  orderLedger?: import('@/lib/desk/routingStepMessage').OrderLedger
   /** Binding Confirm earliest time (ISO). */
   earliestAttemptAt?: string
   /** Scheduled swipe clocks for Step 5 (kept after Planned / Confirm). */

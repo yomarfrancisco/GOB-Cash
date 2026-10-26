@@ -113,37 +113,25 @@ export async function publishInvoicePackDeskNotice(params: {
     storagePath = zip.storagePath
     filename = zip.filename
   }
-  const formatZar = (v: number) =>
-    `R${(Math.round(v * 100) / 100).toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`
-  const dayLabel =
-    typeof params.cycleNumber === 'number' ? `Day ${params.cycleNumber}` : 'the day'
-  const sentence =
+  const names = [...new Set(invoices.map((row) => row.invoiceNumber))]
+  const baseBody =
     invoices.length === 1
-      ? `1 invoice raised for the ${dayLabel} card order.`
-      : `${invoices.length} invoices raised for the ${dayLabel} card order.`
-  const deskLedgerRows = [
-    ...invoices.slice(0, 5).map((row) => ({
-      label: row.invoiceNumber,
-      value: formatZar(row.totalZar),
-    })),
-    { label: 'Total', value: formatZar(totalZar), valueStrong: true },
-  ]
+      ? `${invoices[0]!.issuerLegalName} billed R${totalZar.toFixed(2)}. Download the invoice zip from the desk card.`
+      : `${invoices.length} invoices raised for R${totalZar.toFixed(2)} (${names.slice(0, 4).join(', ')}${
+          names.length > 4 ? '…' : ''
+        }). Download the zip from the desk card.`
+  const body = params.sequentialContinue
+    ? `${baseBody}\nNext 24h opens Step 3 · MZN.`
+    : baseBody
 
   await ref.set(
     {
       id,
       kind: CONVERSION_ROUTING_KIND,
       title: stepTitle(2),
-      body: sentence,
-      deskSentence: sentence,
-      deskStatusChip: 'Raised',
-      deskNextFooter: 'Step 3 · MZN opens in 24h',
-      deskLedgerRows,
+      body,
       dropdownTitle: filename,
-      dropdownBody: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · ${formatZar(totalZar)}`,
+      dropdownBody: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · R${totalZar.toFixed(2)}`,
       actorType: 'ai_manager',
       avatarKind: 'convert_zar',
       amountCurrency: 'ZAR',
