@@ -3620,6 +3620,24 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
         console.warn('[confirm] POP zip on step card skipped', error)
       }
     }
+    if (result.confirmedKind === 'deploy') {
+      try {
+        const cycleSnap = await db.collection(TESTS).doc(testRunId).collection('cycles').doc(String(result.cycleNumber)).get()
+        const assignments = Array.isArray(cycleSnap.data()?.cardAssignments)
+          ? (cycleSnap.data()?.cardAssignments as Array<{ cardId: number; machineId: number; amount: number }>)
+          : []
+        if (assignments.length) {
+          const { recordAuthorisationsFromAssignments } = await import('../belief/recordProduction')
+          await recordAuthorisationsFromAssignments({
+            assignments,
+            testRunId,
+            cycleNumber: result.cycleNumber,
+          })
+        }
+      } catch (error) {
+        console.warn('[belief] authorisation evidence skipped', error)
+      }
+    }
     let issuedKind: 'deploy' | 'replenish' | null = null
     if (result.issueNext && !result.testComplete) {
       try {
@@ -3759,6 +3777,18 @@ export async function recordBankReceiptDecline(params: {
       { merge: true }
     )
   })
+  try {
+    const { recordDeclineFromBankReceipt } = await import('../belief/recordProduction')
+    await recordDeclineFromBankReceipt({
+      evidenceId: params.evidenceId,
+      amountZar: params.amountZar,
+      cardLast4: params.cardLast4,
+      merchant: params.merchant,
+      bankLabel: params.bankLabel,
+    })
+  } catch (error) {
+    console.warn('[belief] decline evidence skipped', error)
+  }
 }
 
 /** Close an open restock when bank receipts add up to the tickets. */

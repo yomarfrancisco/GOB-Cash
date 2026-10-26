@@ -17,13 +17,13 @@ export type EmitterCoverageRow = {
 export const EMITTER_COVERAGE: EmitterCoverageRow[] = [
   {
     event: 'authorisation accepted',
-    wired: false,
-    available: false,
-    source: '—',
-    routeAttribution: '—',
+    wired: true,
+    available: true,
+    source: 'adminConversionRouting.confirmOpenCycle → recordAuthorisationsFromAssignments',
+    routeAttribution: 'desk cardId × machineId from confirmed cycle assignments',
     idempotencyKey: 'hash(…kind=authorised…)',
     notes:
-      'Builder evidenceFromAuthorisation exists. No proven automated auth mail→payment match yet. Desk confirm alone is not wired as production evidence.',
+      'Desk Confirm on a Send cycle appends eligible_submitted authorisations. Does not claim settlement.',
   },
   {
     event: 'capture',
@@ -36,12 +36,13 @@ export const EMITTER_COVERAGE: EmitterCoverageRow[] = [
   },
   {
     event: 'decline',
-    wired: false,
+    wired: true,
     available: true,
-    source: 'Proposed: structured operator_report (not free-text Sam)',
-    routeAttribution: 'payment/invoice/route from operator form',
-    idempotencyKey: 'kind=declined + payment + eventAt + operatorUid',
-    notes: 'No automated decline feed. Operator report builder ready; callable not exposed in E0.',
+    source: 'inbound decline PDF → recordBankReceiptDecline → recordDeclineFromBankReceipt',
+    routeAttribution: 'card last4 → desk card; merchant descriptor → principal/rail when known',
+    idempotencyKey: 'kind=declined + payment + eventAt',
+    notes:
+      'FNB / Capitec / Econometrica-style POS declines. causeClass stays unknown unless classified.',
   },
   {
     event: 'under review',
@@ -50,7 +51,7 @@ export const EMITTER_COVERAGE: EmitterCoverageRow[] = [
     source: 'Proposed: structured operator_report',
     routeAttribution: 'payment/invoice/route',
     idempotencyKey: 'kind=under_review + payment + eventAt',
-    notes: 'Desk friction language exists but does not write RouteEvidence. Operator form is the smallest control.',
+    notes: 'Desk friction language exists but does not write RouteEvidence yet.',
   },
   {
     event: 'delay/timeout',
@@ -69,19 +70,17 @@ export const EMITTER_COVERAGE: EmitterCoverageRow[] = [
     routeAttribution: 'invoice match',
     idempotencyKey: 'kind=settlement_credited linked to zar_available',
     notes:
-      'Present implementation treats matched payout as terminal zar_available only to avoid double success. Builder evidenceFromSettlementCredited available for linked sibling if needed.',
+      'Matched payout emits terminal zar_available only to avoid double success. Linked sibling builder available.',
   },
   {
     event: 'zar_available',
     wired: true,
     available: true,
-    source:
-      'functions/src/settlement/issueInvoices.ts → recordZarAvailableEvidence after markInvoiceZarAvailable (FNB gross / Capitec net match)',
+    source: 'markInvoiceZarAvailable → recordZarAvailableFromInvoice (FNB gross / Capitec net match)',
     routeAttribution:
-      'merchantPrincipalId=invoice.issuerId; cardId=deskCardId; mozambiqueBuyerId=billToId; posTerminalId=machineId; acquirer from rail; invoiceId; economicPaymentId',
+      'merchantPrincipalId=invoice.issuerId; cardId=deskCardId; posTerminalId=machineId; acquirer from rail',
     idempotencyKey: 'observationId → Firestore doc id in routeEvidence',
-    notes:
-      'Only after secure invoice match. Inbound receipt alone does not emit. Positive-only — insufficient for live policy.',
+    notes: 'Only after secure invoice match. Inbound receipt alone does not emit.',
   },
   {
     event: 'reversal/chargeback',

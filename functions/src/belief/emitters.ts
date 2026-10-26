@@ -54,6 +54,7 @@ export function evidenceFromZarAvailable(
     settledAt: string
     /** When same bank artifact already emitted settlement_credited. */
     linkedObservationId?: string | null
+    evidenceRef?: string | null
   }
 ): RouteEvidence {
   return buildRouteEvidence({
@@ -69,6 +70,7 @@ export function evidenceFromZarAvailable(
     eventAt: input.eventAt,
     settledAt: input.settledAt,
     linkedObservationId: input.linkedObservationId ?? null,
+    evidenceRef: input.evidenceRef ?? null,
     notes: ['Matched acquirer payout opened zar_available'],
   })
 }
@@ -212,5 +214,32 @@ export function evidenceFromTimeoutRule(
     eventAt: input.eventAt,
     settledAt: null,
     notes: [`Explicit overdue deadline ${input.overdueDeadlineAt}`],
+  })
+}
+
+/** Authenticated bank decline PDF (FNB / Capitec / merchant POS). */
+export function evidenceFromBankDecline(
+  input: RouteIdentityInput & {
+    eventAt: string
+    requestedZar: number
+    evidenceRef?: string | null
+    causeClass?: CauseClass
+    notes?: string[]
+  }
+): RouteEvidence {
+  return buildRouteEvidence({
+    kind: 'declined',
+    source: 'production',
+    provenance: 'bank_mail',
+    trustClass: 'verified_bank',
+    attemptEligibility: 'eligible_submitted',
+    causeClass: input.causeClass || 'unknown',
+    ...withIdentity(input),
+    requestedZar: input.requestedZar,
+    settledZar: null,
+    eventAt: input.eventAt,
+    settledAt: null,
+    evidenceRef: input.evidenceRef ?? null,
+    notes: input.notes || ['Bank decline receipt'],
   })
 }

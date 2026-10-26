@@ -352,13 +352,14 @@ export async function markInvoiceZarAvailable(input: {
   at?: string
 }): Promise<void> {
   const ref = db().collection(INVOICE_COLLECTION).doc(input.invoiceId)
+  const at = input.at || new Date().toISOString()
   await ref.set(
     {
       status: 'funded',
       funding: {
         zarAvailable: true,
         zarAvailableZar: roundMoney(input.amountZar),
-        zarAvailableAt: input.at || new Date().toISOString(),
+        zarAvailableAt: at,
         zarAvailableSource: input.source,
         reversalExposure: true,
         settlementDocId: input.settlementDocId,
@@ -367,6 +368,20 @@ export async function markInvoiceZarAvailable(input: {
     },
     { merge: true }
   )
+  try {
+    const snap = await ref.get()
+    if (!snap.exists) return
+    const invoice = { ...(snap.data() as SettlementInvoice), id: snap.id }
+    const { recordZarAvailableFromInvoice } = await import('../belief/recordProduction')
+    await recordZarAvailableFromInvoice({
+      invoice,
+      amountZar: input.amountZar,
+      settlementDocId: input.settlementDocId,
+      at,
+    })
+  } catch (error) {
+    console.warn('[belief] zar_available evidence skipped', error)
+  }
 }
 
 export async function attachInvoicePdf(

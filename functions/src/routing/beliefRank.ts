@@ -4,6 +4,7 @@
  */
 import { assembleDecisionState } from '../belief/decision'
 import { resolveRouteBelief } from '../belief/fold'
+import { cardIssuerBankIdFromIssuingBank } from '../belief/routeIdentity'
 import type { RouteBeliefSnapshot, RouteEvidence } from '../belief/types'
 import { buyerByDeskCardId, railByMachineId } from '../settlement/register'
 import { pairTightness } from './pathEngine'
@@ -30,15 +31,8 @@ export type FlowRankOptions = {
 function routeKeys(row: RankableAssignment) {
   const buyer = buyerByDeskCardId(row.cardId)
   const rail = railByMachineId(row.machineId)
-  const issuer = buyer?.issuingBank?.toLowerCase().includes('bim')
-    ? 'bim'
-    : buyer?.issuingBank?.toLowerCase().includes('bci')
-      ? 'bci'
-      : buyer?.issuingBank?.toLowerCase().includes('standard')
-        ? 'standard'
-        : buyer?.issuingBank?.toLowerCase().includes('fnb')
-          ? 'fnb'
-          : `card_${row.cardId}`
+  const issuer =
+    cardIssuerBankIdFromIssuingBank(buyer?.issuingBank) || `card_${row.cardId}`
   const acquirer = rail?.acquirer || `pos_${row.machineId}`
   return {
     cardIssuerBankId: issuer,

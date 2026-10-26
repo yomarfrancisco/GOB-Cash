@@ -485,6 +485,7 @@ export function resolveMerchantDescriptor(descriptor: string | null | undefined)
   if (/brics\s*ai|lemon\s*economics/.test(lower)) return COMPANIES.lemon_economics!
   if (/imani/.test(lower)) return COMPANIES.imani!
   if (/wand\s*sons|wolf\s*and\s*sons|wolf\s*&\s*sons/.test(lower)) return COMPANIES.wolf_and_sons!
+  if (/econometrica/.test(lower)) return COMPANIES.econometrica!
   return null
 }
 
