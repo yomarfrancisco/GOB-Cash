@@ -1,6 +1,7 @@
 import type { ActivityItem } from '@/store/activity'
 import styles from '@/app/activity/activity.module.css'
 import { RoutingStepCard } from './RoutingStepCard'
+import { DeskStepBlock } from './DeskStepBlock'
 
 const SERIES_COLOR = ['#111111', '#8aa31a', '#8a8a8a']
 
@@ -102,9 +103,24 @@ export function DeskCardVisuals({ item }: { item: ActivityItem }) {
   if (item.routingStepMessage) {
     return <RoutingStepCard message={item.routingStepMessage} />
   }
-  if (!item.deskTable && !item.deskChart) return null
+  const step = typeof item.deskStep === 'number' ? item.deskStep : 0
+  const showStepBlock =
+    Boolean(item.deskLedgerRows?.length) && step >= 2 && step <= 5
+  if (!item.deskTable && !item.deskChart && !showStepBlock) return null
   return (
     <div className={styles.deskVisuals}>
+      {showStepBlock ? (
+        <DeskStepBlock
+          statusSentence={item.body}
+          statusChip={item.deskStatusChip}
+          rows={item.deskLedgerRows}
+          executed={
+            item.status === 'completed' ||
+            item.status === 'recorded' ||
+            /✓|executed|raised|covered|sent|swiped/i.test(item.deskStatusChip || '')
+          }
+        />
+      ) : null}
       {item.deskTable ? (
         <div className={styles.deskTableWrap}>
           {item.deskTable.title ? <div className={styles.deskVisualTitle}>{item.deskTable.title}</div> : null}

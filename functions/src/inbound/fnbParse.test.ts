@@ -130,7 +130,7 @@ describe('FNB notices', () => {
     const copy = bankNoticeCopy(imani!, false)
     assert.match(copy.title, /declined/i)
     assert.doesNotMatch(copy.title, /approved/i)
-    assert.match(copy.body, /ZAR card is unchanged/i)
+    assert.match(copy.body, /ZAR card unchanged/i)
 
     const wand = parseFnbReceipt(DECLINED_WANDSONS)
     assert.equal(wand?.status, 'declined')
@@ -165,8 +165,11 @@ describe('FNB notices', () => {
     assert.equal(spend?.amountZar, 395)
     assert.equal(spend?.merchant, 'M2 Aesthetic Studio')
     const copy = bankNoticeCopy(spend!, true)
-    assert.match(copy.body, /forwarded from Gmail/i)
-    assert.match(copy.body, /card 8948/)
+    assert.ok(!/arrived directly from FNB/i.test(copy.body))
+    assert.ok(!/forwarded from Gmail/i.test(copy.body))
+    assert.match(copy.body, /····8948/)
+    assert.equal(copy.bankTag, 'FNB')
+    assert.equal(copy.bankNoticeClass, 'other')
   })
 
   it('adds an approved conversion and subtracts a reservation', () => {

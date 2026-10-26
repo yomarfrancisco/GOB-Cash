@@ -1,12 +1,13 @@
 import type { ActivityItem } from '@/store/activity'
 
-export type DeskSpeaker = 'you' | 'sam' | 'leo' | 'amina'
-export type DeskAgent = Exclude<DeskSpeaker, 'you'>
+export type DeskSpeaker = 'you' | 'sam' | 'leo' | 'amina' | 'wallet'
+export type DeskAgent = Exclude<DeskSpeaker, 'you' | 'wallet'>
 
 /**
  * The desk is three agents. Routing Manager owns the window, asks, and answers.
  * SA Bank Liaison runs the ZAR leg (every Sell ZAR card).
  * Moz Bank Liaison runs the MZN leg (every restock / Moz cards at COST).
+ * Wallet speaks ZAR booked / cleared settlement events.
  * Internal ids stay sam/leo/amina so existing deskSpeaker routing keeps working.
  */
 export const DESK_TEAM = {
@@ -15,18 +16,32 @@ export const DESK_TEAM = {
     name: 'Routing Manager',
     role: '',
     avatar: '/assets/benjamin_pink_circle.png',
+    monogram: 'RM',
+    monogramColor: '#9bdbc1',
   },
   leo: {
     id: 'leo' as const,
     name: 'SA Bank Liaison',
     role: 'ZAR · SA banks',
     avatar: '/assets/zar_liaison_circle.png',
+    monogram: 'SA',
+    monogramColor: '#ffd36b',
   },
   amina: {
     id: 'amina' as const,
     name: 'Moz Bank Liaison',
     role: 'MZN · Moz banks',
     avatar: '/assets/mzn_liaison_circle.png',
+    monogram: 'MZ',
+    monogramColor: '#f5c6d0',
+  },
+  wallet: {
+    id: 'wallet' as const,
+    name: 'Wallet',
+    role: 'Settlement',
+    avatar: '',
+    monogram: 'W',
+    monogramColor: '#18181b',
   },
 }
 
@@ -53,6 +68,7 @@ export function deskAgentFor(item: {
   thinking?: boolean
   deskSpeaker?: string
 }): DeskAgent {
+  if (item.deskSpeaker === 'wallet') return 'sam'
   if (item.deskSpeaker === 'leo' || item.deskSpeaker === 'amina' || item.deskSpeaker === 'sam') {
     return item.deskSpeaker
   }

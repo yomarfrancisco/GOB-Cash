@@ -76,6 +76,10 @@
   );
 }
 
+.activitySearchOverlay .deskHeader {
+  pointer-events: auto;
+}
+
 .activitySearchOverlay .searchBar {
   pointer-events: auto;
   margin-bottom: 0;

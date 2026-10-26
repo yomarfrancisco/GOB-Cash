@@ -34,7 +34,12 @@ export type ActivityEventDoc = {
   testRunId?: string
   cycleNumber?: number
   routingAction?: 'replenish' | 'deploy' | string
-  deskSpeaker?: 'sam' | 'leo' | 'amina'
+  deskSpeaker?: 'sam' | 'leo' | 'amina' | 'wallet'
+  deskLedgerRows?: Array<{ label?: string; value?: string }>
+  deskStatusChip?: string
+  deskStep?: number
+  bankNoticeClass?: 'routing' | 'other'
+  bankTag?: string
   pairedAmountValue?: number
   feedbackAck?: string
   routingBlocked?: boolean
@@ -265,9 +270,30 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     cycleNumber: data.cycleNumber,
     routingAction: data.routingAction,
     deskSpeaker:
-      data.deskSpeaker === 'leo' || data.deskSpeaker === 'amina' || data.deskSpeaker === 'sam'
+      data.deskSpeaker === 'leo' ||
+      data.deskSpeaker === 'amina' ||
+      data.deskSpeaker === 'sam' ||
+      data.deskSpeaker === 'wallet'
         ? data.deskSpeaker
         : undefined,
+    deskLedgerRows: Array.isArray(data.deskLedgerRows)
+      ? data.deskLedgerRows.flatMap((row) => {
+          if (!row || typeof row.label !== 'string' || typeof row.value !== 'string') return []
+          return [{ label: row.label, value: row.value }]
+        })
+      : undefined,
+    deskStatusChip:
+      typeof data.deskStatusChip === 'string' && data.deskStatusChip.trim()
+        ? data.deskStatusChip.trim()
+        : undefined,
+    deskStep: typeof data.deskStep === 'number' ? data.deskStep : undefined,
+    bankNoticeClass:
+      data.bankNoticeClass === 'routing' || data.bankNoticeClass === 'other'
+        ? data.bankNoticeClass
+        : data.routingAction === 'bank_notice'
+          ? 'other'
+          : undefined,
+    bankTag: typeof data.bankTag === 'string' && data.bankTag.trim() ? data.bankTag.trim() : undefined,
     pairedAmountValue: data.pairedAmountValue,
     feedbackAck: typeof data.feedbackAck === 'string' ? data.feedbackAck : undefined,
     routingBlocked: data.routingBlocked === true,

@@ -771,6 +771,8 @@ async function publishBankNotice(eventDocId: string, event: FnbEvent, forwarded:
     status: 'recorded',
     routingAction: 'bank_notice',
     deskSpeaker: 'sam',
+    bankTag: copy.bankTag,
+    bankNoticeClass: copy.bankNoticeClass,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     recordingSource: 'SYSTEM',
   })
