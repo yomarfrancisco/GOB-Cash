@@ -195,6 +195,17 @@ import {
 import { expectedMznForOrder, stepForPhase, type CyclePhase } from '../routing/continuousCycle'
 import { askCardTitle, sideCardTitle, stepCardTitle, windowCardTitle } from '../routing/deskTitles'
 import { buildOrderStepMessage } from '../routing/routingStepMessage'
+import {
+  assertOrderLedger,
+  buildOrderLedger,
+  coverVsSaleLine,
+  formatMznMoney,
+  formatRate4,
+  formatZarMoney,
+  parseOrderLedger,
+  type OrderLedger,
+} from '../routing/orderLedger'
+import { cardShortName, machineShortName, DEFAULT_CARDS } from '../routing/inventory'
 
 const inboundSecret = defineSecret('RESEND_INBOUND_SECRET')
 const db = admin.firestore()
@@ -1076,13 +1087,41 @@ function writeIssuedReplenish(
   const activityEventId = replenishEventId(testRunId, replenish.cycleNumber)
   const testRef = db.collection(TESTS).doc(testRunId)
   const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
+  const primary = issued.cardAssignments[0]
+  const cardMeta = primary ? DEFAULT_CARDS.find((row) => row.id === primary.cardId) : null
+  const swipeTime =
+    path.tickets.find((t) => typeof t.timeLabel === 'string' && t.timeLabel)?.timeLabel || null
+  const sentence = activity.body.split(/\n|Next:|Status:/)[0]!.trim() || activity.body
+  const deskLedgerRows = [
+    { label: 'Swiped', value: formatZarMoney(replenish.amountZar), valueStrong: true },
+    {
+      label: 'Card',
+      value: primary
+        ? `${cardShortName(primary.cardId)}${cardMeta?.mozBank ? ` · ${cardMeta.mozBank.replace(/ Mozambique$/, ' Moz')}` : ''}`
+        : '—',
+    },
+    {
+      label: 'Terminal',
+      value: primary ? machineShortName(primary.machineId) : '—',
+    },
+    {
+      label: 'MZN out',
+      value: formatMznMoney(replenish.amountMzn),
+      secondLine: `at cost ${formatRate4(replenish.costRate)} MZN/ZAR`,
+    },
+    ...(swipeTime ? [{ label: 'Time', value: swipeTime }] : []),
+  ]
 
   const step5Title = stepCardTitle(5)
   tx.set(eventRef, {
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
     title: step5Title,
-    body: `${activity.body}\nBank receipts close this restock automatically when cover is in.`,
+    body: sentence,
+    deskSentence: sentence,
+    deskStatusChip: 'Swiped',
+    deskNextFooter: 'Step 6 · What happened',
+    deskLedgerRows,
     dropdownTitle: step5Title,
     dropdownBody: notification.body,
     actorType: 'ai_manager',
@@ -1093,7 +1132,7 @@ function writeIssuedReplenish(
     pairedAmountValue: replenish.amountZar,
     pairedAmountCurrency: 'ZAR',
     txId: activityEventId,
-    hasDownloadButton: false,
+    hasDownloadButton: true,
     awaitingConfirm: true,
     status: 'awaiting_execution',
     routingAction: 'replenish',
@@ -1219,6 +1258,23 @@ function writeIssuedCycle(
   const blocked = plan.deployedAmount <= 0 || plan.cardCountUsed <= 0
   const orderZar = blocked ? 0 : plan.deployedAmount
   const orderMzn = expectedMznForOrder(orderZar, quotes.sellRate)
+  const openEftForLedger = (liveBook.eftBook?.tickets || []).filter(
+    (t) => t.channel === 'eft' && (t.status === 'open' || t.status === 'submitted' || t.status === 'delayed')
+  )
+  const orderLedger = blocked
+    ? null
+    : buildOrderLedger({
+        zar: orderZar,
+        sellRate: quotes.sellRate,
+        baseCostRate: quotes.costRate,
+        cardAssignments: plan.cardAssignments,
+        windowZar: state.authorisedZar || 0,
+        eftTickets: openEftForLedger.map((t) => ({
+          amount: t.amountZar,
+          dueIso: t.expectedSettledBy || null,
+        })),
+      })
+  if (orderLedger) assertOrderLedger(orderLedger, { soft: true })
   // Sequential desk: Day open is Step 1 only. Leo's Step 4 card is created later.
   const cyclePhase: CyclePhase = blocked ? 'hold' : 'order_open'
   const planHash = hashPayload({
@@ -1275,13 +1331,14 @@ function writeIssuedCycle(
     costRate: quotes.costRate,
     spreadRate: state.config.spread,
     quote: liveBook.quote || quotes.quote,
+    orderLedger,
     selectionReason: plan.selectionReason,
     holdReason: plan.holdReason || null,
     routingBlocked: true,
     cyclePhase,
     deskStep: blocked ? 4 : 1,
     expectedOrderZar: orderZar,
-    expectedOrderMzn: orderMzn,
+    expectedOrderMzn: orderLedger?.mznAtSell ?? orderMzn,
     earliestAttemptAt: ticketPath.earliestAt,
     ticketPath,
     planHash,
@@ -1323,8 +1380,9 @@ function writeIssuedCycle(
       cyclePhase,
       deskStep: blocked ? 4 : 1,
       expectedOrderZar: orderZar,
-      expectedOrderMzn: orderMzn,
+      expectedOrderMzn: orderLedger?.mznAtSell ?? orderMzn,
       orderSellRate: quotes.sellRate,
+      orderLedger,
       salesCommittedZar: 0,
       channelMix: plan.channelMix || 'card',
       openEftZar: plan.openEftZar || 0,
@@ -1402,7 +1460,7 @@ async function supersedeDayTicketCard(
   )
 }
 
-/** Create Leo's Step 4 card from the stored cycle plan (only when Steps 1–3 are done). */
+/** Create Leo's Step 4 card from the frozen OrderLedger (never re-quotes live). */
 async function ensureLeoSendEvent(
   adminUid: string,
   testRunId: string,
@@ -1418,41 +1476,41 @@ async function ensureLeoSendEvent(
     db.collection(TESTS).doc(testRunId).get(),
   ])
   const cycle = cycleSnap.data() || {}
+  const testData = testSnap.data() || {}
   const amountZar = num(cycle.deployedAmount, num(cycle.expectedOrderZar, 0))
   const assignments = Array.isArray(cycle.cardAssignments)
     ? (cycle.cardAssignments as CyclePlan['cardAssignments'])
     : []
   const ticketSplits = ticketSplitsFromAssignments(assignments)
-  const state = stateFromDoc(testSnap.data() || {})
-  const quotes = await applyLiveQuotes(state)
-  const econ =
-    assignments.length > 0
-      ? weightedBankCostEconomics(assignments, quotes.sellRate, quotes.costRate)
-      : null
-  const plan = {
-    cycleNumber,
-    availableCapital: num(cycle.availableCapital, state.availableCapital),
-    deployedAmount: amountZar,
-    idleCapital: num(cycle.idleCapital, 0),
-    expectedProfit: econ?.grossProfitMzn ?? num(cycle.expectedProfit, 0),
-    expectedZarProfit: num(cycle.expectedZarProfit, 0),
-    cardCountUsed: assignments.length,
-    cardAssignments: assignments,
-    restingCardIds: Array.isArray(cycle.restingCardIds) ? cycle.restingCardIds : [],
-    restingMachineIds: Array.isArray(cycle.restingMachineIds) ? cycle.restingMachineIds : [],
-    bufferUsedBefore: num(cycle.bufferUsed, state.bufferUsed),
-    bufferActionRequired: false,
-    selectionReason: typeof cycle.selectionReason === 'string' ? cycle.selectionReason : '',
-  } as CyclePlan
-  const activity = buildActivityCopy(plan, state.config.cycleCount, 'awaiting_execution', state.config.spread, quotes, {
-    state,
-  })
+  const state = stateFromDoc(testData)
+  let ledger =
+    parseOrderLedger(cycle.orderLedger) || parseOrderLedger(testData.orderLedger) || null
+  if (!ledger && amountZar > 0) {
+    const sellRate = num(cycle.sellRate, num(testData.orderSellRate, 0))
+    const costRate = num(cycle.costRate, 0)
+    if (sellRate > 0 && costRate > 0) {
+      ledger = buildOrderLedger({
+        zar: amountZar,
+        sellRate,
+        baseCostRate: costRate,
+        cardAssignments: assignments,
+        windowZar: state.authorisedZar || 0,
+        eftTickets: (eftBookFromDoc(testData)?.tickets || [])
+          .filter((t) => t.channel === 'eft' && (t.status === 'open' || t.status === 'submitted' || t.status === 'delayed'))
+          .map((t) => ({ amount: t.amountZar, dueIso: t.expectedSettledBy || null })),
+      })
+    }
+  }
+  const coverLine = ledger ? coverVsSaleLine(ledger) : null
+  const sentence = coverLine
+    ? `ZAR sold for MZN by COB, once the cover landed. ${coverLine}.`
+    : 'ZAR sold for MZN by COB, once the cover landed.'
   const title = stepCardTitle(4)
   await eventRef.set({
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
     title,
-    body: `${activity.body} Send ZAR opens the keypad once MZN and ZAR float cover it.`,
+    body: sentence,
     dropdownTitle: title,
     dropdownBody: `${formatZar(amountZar)} send`,
     actorType: 'ai_manager',
@@ -1461,9 +1519,31 @@ async function ensureLeoSendEvent(
     amountValue: amountZar,
     amountSign: 'debit',
     txId: activityEventId,
-    hasDownloadButton: false,
+    hasDownloadButton: true,
     awaitingConfirm: false,
     routingBlocked: true,
+    deskStatusChip: 'Executed',
+    deskSentence: sentence,
+    orderLedger: ledger || null,
+    deskLedgerRows: ledger
+      ? [
+          { label: 'Sold', value: formatZarMoney(amountZar), valueStrong: true },
+          { label: 'Received', value: formatMznMoney(ledger.mznAtSell) },
+          { label: 'Sell rate', value: `${formatRate4(ledger.sellRate)} MZN/ZAR` },
+          { label: 'Cost rate', value: `${formatRate4(ledger.costRate)} MZN/ZAR` },
+          {
+            label: 'Spread',
+            value: `${formatMznMoney(ledger.spreadMzn)} gross`,
+            valueStrong: true,
+            secondLine: `${formatRate4(ledger.spreadPerZar)} MZN/ZAR`,
+          },
+          {
+            label: 'Window left',
+            value: formatZarMoney(ledger.windowLeftZar),
+            secondLine: `of ${formatZarMoney(ledger.windowZar)}`,
+          },
+        ]
+      : null,
     status: 'pending_mzn',
     routingAction: 'deploy',
     deskSpeaker: 'leo',
@@ -1643,10 +1723,26 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
   if (phase === 'awaiting_invoice' || (deskStep === 2 && !phase)) {
     await completeStepCard(adminUid, tickets.invoicePrompt, now)
     await completeStepCard(adminUid, tickets.invoicePack, now)
-    const expectedMzn = num(data.expectedOrderMzn, 0)
+    const ledger =
+      parseOrderLedger(data.orderLedger) ||
+      (num(data.orderSellRate, 0) > 0
+        ? buildOrderLedger({
+            zar: num(data.expectedOrderZar, 0),
+            sellRate: num(data.orderSellRate, 0),
+            baseCostRate:
+              num((data.frozenQuote as { costRate?: number } | undefined)?.costRate, 0) ||
+              num(data.orderSellRate, 0) / 1.1,
+            windowZar: num(data.authorisedZar, 0),
+          })
+        : null)
+    const expectedMzn = ledger?.mznAtSell ?? num(data.expectedOrderMzn, 0)
+    const orderZar = ledger?.zar ?? num(data.expectedOrderZar, 0)
     const bal = await mznWalletBalance(adminUid)
     const step3Id = tickets.mzn
     const covered = mznCoversRestock(expectedMzn, bal, [])
+    const sentence = covered
+      ? 'MZN cover is on the books, sized at the sell rate.'
+      : 'Waiting for full MZN cover, sized at the sell rate.'
     await db
       .collection('users')
       .doc(adminUid)
@@ -1657,16 +1753,20 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
           id: step3Id,
           kind: CONVERSION_ROUTING_KIND,
           title: stepCardTitle(3),
-          body: covered
-            ? [
-                `MZN cover is on the books (need ~MZN ${roundMoney(expectedMzn).toLocaleString('en-ZA')}; wallet MZN ${roundMoney(bal).toLocaleString('en-ZA')}).`,
-                'Next 24h opens Step 4 · Send (keypad).',
-              ].join('\n')
-            : [
-                `Waiting for full MZN cover (~MZN ${roundMoney(expectedMzn).toLocaleString('en-ZA')}).`,
-                `Wallet shows MZN ${roundMoney(bal).toLocaleString('en-ZA')}.`,
-                'Fund MZN when short, then Next 24h opens Step 4 · Send.',
-              ].join('\n'),
+          body: sentence,
+          deskSentence: sentence,
+          deskStatusChip: covered ? 'Covered' : 'Waiting',
+          deskNextFooter: 'Step 4 · Send opens in 24h',
+          deskLedgerRows: [
+            { label: 'Cover needed', value: formatMznMoney(expectedMzn), valueStrong: true },
+            { label: 'For', value: formatZarMoney(orderZar) },
+            {
+              label: 'Sell rate',
+              value: ledger ? `${formatRate4(ledger.sellRate)} MZN/ZAR` : '—',
+            },
+            { label: 'Wallet', value: formatMznMoney(bal) },
+          ],
+          orderLedger: ledger,
           dropdownTitle: stepCardTitle(3),
           dropdownBody: covered ? 'MZN covered — Next 24h to send' : 'Waiting on MZN',
           actorType: 'ai_manager',
@@ -2511,13 +2611,29 @@ async function publishSamDayBrief(input: {
   const testData = testSnap.data() || {}
   const eftBook = eftBookFromDoc(testData)
   const sellRate = num(testData.orderSellRate, 0) || undefined
+  const orderLedger =
+    parseOrderLedger(testData.orderLedger) ||
+    (sellRate && input.plan.deployedAmount > 0
+      ? buildOrderLedger({
+          zar: input.plan.deployedAmount,
+          sellRate,
+          baseCostRate:
+            num((testData.frozenQuote as { costRate?: number } | undefined)?.costRate, 0) || sellRate / 1.1,
+          cardAssignments: input.plan.cardAssignments || [],
+          windowZar: num(testData.authorisedZar, 0),
+          eftTickets: (eftBook?.tickets || [])
+            .filter((t) => t.channel === 'eft' && (t.status === 'open' || t.status === 'submitted' || t.status === 'delayed'))
+            .map((t) => ({ amount: t.amountZar, dueIso: t.expectedSettledBy || null })),
+        })
+      : null)
   const mznInventory = await mznWalletBalance(input.adminUid).catch(() => undefined)
   const routingStepMessage = buildOrderStepMessage({
     cycleNumber: input.plan.cycleNumber,
     sentAt: formatVisibleSast(input.now.toMillis()),
     cardAssignments: input.plan.cardAssignments || [],
     eftTickets: eftBook?.tickets,
-    sellRate,
+    orderLedger,
+    sellRate: orderLedger?.sellRate ?? sellRate,
     mznInventory,
     cardLaneComplete: false,
     invoicesRaised: false,
@@ -2538,6 +2654,7 @@ async function publishSamDayBrief(input: {
       kind: CONVERSION_ROUTING_KIND,
       title,
       body,
+      deskSentence: body,
       dropdownTitle: title,
       dropdownBody: body,
       actorType: 'ai_manager',
@@ -2555,6 +2672,7 @@ async function publishSamDayBrief(input: {
       deskChannel: mix,
       openEftZar: eftZar,
       routingStepMessage,
+      orderLedger,
       cyclePhase: hold ? 'hold' : 'order_open',
       deskStep: 1,
       dayTicketRevision: rev,
@@ -2592,17 +2710,41 @@ async function publishWhatHappened(input: {
     : []
   const eftBook = eftBookFromDoc(testData)
   const sellRate = num(cycleData.sellRate, num(testData.orderSellRate, 0)) || undefined
+  const orderLedger =
+    parseOrderLedger(cycleData.orderLedger) ||
+    parseOrderLedger(testData.orderLedger) ||
+    (sellRate && assignments.length
+      ? buildOrderLedger({
+          zar: roundMoney(assignments.reduce((s, r) => s + r.amount, 0)),
+          sellRate,
+          baseCostRate: num(cycleData.costRate, 0) || sellRate / 1.1,
+          cardAssignments: assignments,
+          windowZar: num(testData.authorisedZar, 0),
+          eftTickets: (eftBook?.tickets || [])
+            .filter((t) => t.channel === 'eft' && (t.status === 'open' || t.status === 'submitted' || t.status === 'delayed'))
+            .map((t) => ({ amount: t.amountZar, dueIso: t.expectedSettledBy || null })),
+        })
+      : null)
   const mznInventory = await mznWalletBalance(input.adminUid).catch(() => undefined)
+  const ticketPath = cycleData.ticketPath as { tickets?: Array<{ timeLabel?: string | null }> } | undefined
+  const swipeTimeLabel = ticketPath?.tickets?.[0]?.timeLabel || null
   const routingStepMessage = buildOrderStepMessage({
     cycleNumber: input.cycleNumber,
     sentAt: formatVisibleSast(input.now.toMillis()),
     cardAssignments: assignments,
     eftTickets: eftBook?.tickets,
-    sellRate,
+    orderLedger,
+    sellRate: orderLedger?.sellRate ?? sellRate,
     mznInventory,
     cardLaneComplete: true,
     invoicesRaised: true,
-    next: { stepNumber: 1, stepName: 'Order', opensIn: 'next day' },
+    swipeTimeLabel,
+    next: {
+      stepNumber: 1,
+      stepName: 'Order',
+      opensIn: 'tomorrow',
+      dayLabel: `Day ${input.cycleNumber + 1}`,
+    },
   })
   const title = stepCardTitle(6)
   const body = routingStepMessage.summary
@@ -2618,6 +2760,8 @@ async function publishWhatHappened(input: {
         kind: CONVERSION_ROUTING_KIND,
         title,
         body,
+        deskSentence: body,
+        deskNextFooter: `Day ${input.cycleNumber + 1} · Step 1 Order opens tomorrow`,
         dropdownTitle: title,
         dropdownBody: body,
         actorType: 'ai_manager',

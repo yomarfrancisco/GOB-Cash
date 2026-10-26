@@ -1429,27 +1429,20 @@ export function buildReplenishActivityCopy(
   const sold = dayRecord(undefined, state)
   const soldLabel = sold ? `${sold.weekday}'s` : 'the sold'
   const next = nextTradingWeekday(sold?.weekday)
-  const nextLabel = sold
-    ? `${next ?? 'next weekday'}, day ${Math.min(cycleCount, sold.day + 1)} of ${cycleCount}`
-    : `Cycle ${replenish.cycleNumber} of ${cycleCount}`
+  void cycleCount
+  const nextLabel = sold ? `${next ?? 'next weekday'}` : `Day ${replenish.cycleNumber + 1}`
   const rows = replenish.cardAssignments
   const lines: string[] = [
-    `Swipe ${soldLabel} tickets back into the SA float at bank COST.`,
-    '',
+    `${soldLabel.charAt(0).toUpperCase()}${soldLabel.slice(1)} ticket swiped back into the SA float at cost.`,
   ]
-  if (rows.length) {
-    lines.push(...ticketLines(rows, 'swipe', ticketPath))
-    lines.push('')
-    lines.push(`Total ${formatZar(replenish.amountZar)} · ${formatMznAmount(replenish.amountMzn)} out.`)
-  } else {
-    lines.push(`Restock ${formatZar(replenish.amountZar)} at COST.`)
+  if (!rows.length) {
+    lines.push(`Restock ${formatZar(replenish.amountZar)} at cost.`)
   }
-  lines.push('')
   lines.push(`Next: sell ZAR on ${nextLabel}.`)
   lines.push(`Status: ${statusLabel}`)
   return {
     title: 'Step 5 · Recycle',
-    body: lines.join('\n'),
+    body: lines.join(' '),
   }
 }
 
