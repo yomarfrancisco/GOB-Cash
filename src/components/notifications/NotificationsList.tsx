@@ -33,12 +33,6 @@ import { DESK_CATCHUP_MS, useProgressiveReveal } from '@/lib/desk/useProgressive
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { useDeskFocusStore } from '@/store/deskFocus'
 import { useDeskPlanStore } from '@/store/deskPlan'
-import { useDeskModeActionsStore } from '@/store/deskModeActions'
-import {
-  collapseOtherBankNotices,
-  formatBankDigestTitle,
-  type BankDigestGroup,
-} from '@/lib/desk/bankNoticeDigest'
 import {
   displayDeskBody,
   displayDeskTitle,
@@ -380,9 +374,14 @@ function ActivityItemCard({
   animateEntrance,
   entranceSettled,
   onEntranceComplete,
+  showNext24h,
+  showNext72h,
+  showRealtime,
   planBusy,
   catchupActive,
-  planMode,
+  onNext24h,
+  onNext72h,
+  onRealtime,
   liveSellMznPerZar,
 }: {
   item: ActivityItem
@@ -394,9 +393,14 @@ function ActivityItemCard({
   animateEntrance?: boolean
   entranceSettled?: boolean
   onEntranceComplete?: (id: string) => void
+  showNext24h?: boolean
+  showNext72h?: boolean
+  showRealtime?: boolean
   planBusy?: boolean
   catchupActive?: boolean
-  planMode?: 'live' | 'planned'
+  onNext24h?: () => void
+  onNext72h?: () => void
+  onRealtime?: () => void
   liveSellMznPerZar?: number | null
 }) {
   const router = useRouter()
@@ -404,16 +408,10 @@ function ActivityItemCard({
   const profile = useUserProfileStore((s) => s.profile)
   const isCopied = isCopiedActivity(item)
   const deskSpeaker =
-    item.deskSpeaker === 'wallet'
-      ? DESK_TEAM.wallet
-      : item.thinking ||
-          item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
-          item.kind === 'EN_ROUTE_BOOKED' ||
-          item.kind === 'EN_ROUTE_CLEARED'
-        ? DESK_TEAM[deskAgentFor(item)]
-        : null
-  const useMonogram = Boolean(deskSpeaker?.monogram) && (!deskSpeaker?.avatar || item.deskSpeaker === 'wallet')
-  const avatarUrl = isCopied ? null : useMonogram ? null : deskSpeaker?.avatar || resolveTaskAvatar(item)
+    item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+      ? DESK_TEAM[deskAgentFor(item)]
+      : null
+  const avatarUrl = isCopied ? null : deskSpeaker?.avatar ?? resolveTaskAvatar(item)
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
@@ -712,33 +710,14 @@ function ActivityItemCard({
     }
   }
 
-  const isPlannedBubble =
-    planMode === 'planned' &&
-    (item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
-      item.kind === 'EN_ROUTE_BOOKED' ||
-      item.kind === 'EN_ROUTE_CLEARED' ||
-      item.kind === 'BANK_NOTICE' ||
-      item.kind === 'bank_notice' ||
-      Boolean(item.thinking))
-
   return (
     <article
-      className={[styles.activityItem, isPlannedBubble ? styles.activityItemPlanned : '']
-        .filter(Boolean)
-        .join(' ')}
+      className={styles.activityItem}
       data-desk-item-at={item.createdAt}
       data-desk-item-cycle={typeof item.cycleNumber === 'number' ? item.cycleNumber : undefined}
     >
       <div className={styles.activityAvatar}>
-        {useMonogram && deskSpeaker ? (
-          <div
-            className={styles.deskMonogram}
-            style={{ background: deskSpeaker.monogramColor || '#18181b' }}
-            aria-label={deskSpeaker.name}
-          >
-            {deskSpeaker.monogram}
-          </div>
-        ) : showUserPlaceholder ? (
+        {showUserPlaceholder ? (
           <Avatar
             avatarUrl={isCopied ? profile.avatarUrl : null}
             name={item.actor.name || profile.fullName}
@@ -782,13 +761,10 @@ function ActivityItemCard({
           ) : (
             <div className={styles.activityTitle}>
               {highlightDeskText(title, styles.activityFigure)}
-              {isPlannedBubble ? <span className={styles.plannedChip}>Planned</span> : null}
             </div>
           )}
           <div className={styles.activityTime}>
-            {item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
-            item.kind === 'EN_ROUTE_BOOKED' ||
-            item.kind === 'EN_ROUTE_CLEARED'
+            {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
               ? formatVisibleSast(item.createdAt)
               : formatRelativeShort(item.createdAt)}
           </div>
@@ -814,9 +790,7 @@ function ActivityItemCard({
                 </div>
               </div>
             ) : null}
-            {body &&
-            !item.deskLedgerRows?.length &&
-            (!typing || titleDone) ? (
+            {body && (!typing || titleDone) ? (
               <TypewriterText
                 text={body}
                 animate={typing}
@@ -827,16 +801,14 @@ function ActivityItemCard({
                 tickMs={16}
                 onComplete={typing ? handleBodyTyped : undefined}
               />
-            ) : typing && !body && !item.deskLedgerRows?.length && titleDone ? (
-              <TypewriterCompleteSignal onComplete={handleBodyTyped} />
-            ) : typing && item.deskLedgerRows?.length && titleDone ? (
+            ) : typing && !body && titleDone ? (
               <TypewriterCompleteSignal onComplete={handleBodyTyped} />
             ) : null}
             {item.routingStepMessage
               ? titleDone
                 ? <DeskCardVisuals item={item} />
                 : null
-              : actionsUnlocked || (titleDone && Boolean(item.deskLedgerRows?.length))
+              : actionsUnlocked
                 ? <DeskCardVisuals item={item} />
                 : null}
             {!askCard && item.userReply && actionsUnlocked ? (
@@ -863,7 +835,10 @@ function ActivityItemCard({
           showDownload ||
           showProposalActions ||
           showExecuted ||
-          showKycLink) && (
+          showKycLink ||
+          showNext24h ||
+          showNext72h ||
+          showRealtime) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
               <button
@@ -1001,6 +976,57 @@ function ActivityItemCard({
                 </button>
               </>
             )}
+            {showNext24h && (
+              <button
+                type="button"
+                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Simulate the next 24 hours on the desk"
+                aria-busy={planBusy === true}
+                disabled={planBusy === true || confirmState !== 'idle'}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onNext24h?.()
+                }}
+              >
+                Next 24h
+              </button>
+            )}
+            {showNext72h && (
+              <button
+                type="button"
+                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Simulate the next 72 hours on the desk (card + EFT through T+2)"
+                aria-busy={planBusy === true}
+                disabled={planBusy === true || confirmState !== 'idle'}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onNext72h?.()
+                }}
+              >
+                Next 72h
+              </button>
+            )}
+            {showRealtime && (
+              <button
+                type="button"
+                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Return to the live desk clock"
+                aria-busy={planBusy === true}
+                disabled={planBusy === true}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onRealtime?.()
+                }}
+              >
+                Real time
+              </button>
+            )}
             {showDownload && (
               <button
                 type="button"
@@ -1085,6 +1111,7 @@ function ActivitySection({
   title,
   items,
   latestAwaitingId,
+  latestActivityId,
   onRoutingAsk,
   onAcceptProposal,
   onDiscardProposal,
@@ -1096,6 +1123,9 @@ function ActivitySection({
   planMode,
   planBusy,
   catchupActive,
+  onNext24h,
+  onNext72h,
+  onRealtime,
   liveSellMznPerZar,
 }: {
   title: string
@@ -1113,26 +1143,24 @@ function ActivitySection({
   planMode: 'live' | 'planned'
   planBusy: boolean
   catchupActive: boolean
-  onNext24h?: () => void
-  onNext72h?: () => void
-  onRealtime?: () => void
+  onNext24h: () => void
+  onNext72h: () => void
+  onRealtime: () => void
   liveSellMznPerZar?: number | null
 }) {
   const visibleItems = items.filter((item) => item.thinking === true || visibleIds.has(item.id))
   if (visibleItems.length === 0) return null
-  const feedRows = collapseOtherBankNotices(visibleItems)
 
   return (
     <div className={styles.activitySection}>
       <h2 className={styles.sectionTitle}>{title}</h2>
       <div className={styles.activityList}>
-        {feedRows.map((row) => {
-          if ((row as BankDigestGroup).kind === 'bank_digest') {
-            const digest = row as BankDigestGroup
-            return <BankDigestCard key={digest.id} group={digest} />
-          }
-          const item = row as ActivityItem
+        {visibleItems.map((item) => {
           const settled = item.thinking === true || isSettled(item.id)
+          // Plan pills ride the open step card when one exists; else the latest bubble.
+          // Do not wait on typewriter settle — that was dropping Real time mid-reveal.
+          const planHostId = latestAwaitingId || latestActivityId
+          const isPlanHost = Boolean(planHostId) && item.id === planHostId && item.thinking !== true
           return (
             <ActivityItemCard
               key={item.id}
@@ -1145,66 +1173,20 @@ function ActivitySection({
               animateEntrance={item.id === typingId}
               entranceSettled={settled}
               onEntranceComplete={onEntranceComplete}
+              showNext24h={!lockDeskActions && isPlanHost}
+              showNext72h={!lockDeskActions && isPlanHost}
+              showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
               planBusy={planBusy}
               catchupActive={catchupActive}
-              planMode={planMode}
+              onNext24h={onNext24h}
+              onNext72h={onNext72h}
+              onRealtime={onRealtime}
               liveSellMznPerZar={liveSellMznPerZar}
             />
           )
         })}
       </div>
     </div>
-  )
-}
-
-function BankDigestCard({ group }: { group: BankDigestGroup }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <article className={styles.activityItem}>
-      <div className={styles.activityAvatar}>
-        <div
-          className={styles.deskMonogram}
-          style={{ background: '#18181b' }}
-          aria-hidden
-        >
-          BN
-        </div>
-      </div>
-      <div className={styles.activityContent}>
-        <div className={styles.activitySpeaker}>
-          <span>SA Bank Liaison</span>
-        </div>
-        <button
-          type="button"
-          className={styles.activityTitle}
-          style={{
-            background: 'transparent',
-            border: 0,
-            padding: 0,
-            textAlign: 'left',
-            cursor: 'pointer',
-            width: '100%',
-          }}
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-        >
-          {formatBankDigestTitle(group)}
-          <span aria-hidden>{open ? ' ▾' : ' ▸'}</span>
-        </button>
-        {open ? (
-          <ul className={styles.activityBody} style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
-            {group.items.map((item) => (
-              <li key={item.id} style={{ marginBottom: 6 }}>
-                {item.title}
-                {item.amount
-                  ? ` · ${item.amount.sign === 'credit' ? '+' : '−'}R${item.amount.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  : ''}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-    </article>
   )
 }
 
@@ -1566,14 +1548,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
       setPlanBusy(false)
     }
   }
-
-  useEffect(() => {
-    useDeskModeActionsStore.getState().register({
-      next24h: () => void handleNext24h(),
-      next72h: () => void handleNext72h(),
-      realtime: () => void handleRealtime(),
-    })
-  })
 
   const sectionProps = {
     latestAwaitingId,

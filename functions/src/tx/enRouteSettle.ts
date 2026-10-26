@@ -148,8 +148,8 @@ export async function bookZarSaleToEnRoute(
       t.set(userRef.collection('activityEvents').doc(txId), {
         id: txId,
         kind: 'EN_ROUTE_BOOKED',
-        title: 'ZAR booked',
-        body: `R${sourceAmountMajor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} booked at SELL ${params.sellRate.toFixed(4)} MZN/ZAR · clears ~${settleLabel} SAST next window`,
+        title: 'ZAR en route',
+        body: `R${sourceAmountMajor.toFixed(2)} booked at SELL ${params.sellRate.toFixed(2)} Mt/R · clears ~${settleLabel} SAST next window`,
         actorType: 'ai_manager',
         avatarKind: 'convert_zar',
         amountCurrency: 'ZAR',
@@ -160,7 +160,7 @@ export async function bookZarSaleToEnRoute(
         hasDownloadButton: false,
         status: 'recorded',
         routingAction: 'en_route',
-        deskSpeaker: 'wallet',
+        deskSpeaker: 'leo',
         createdAt: now,
         recordingSource: 'USER_UI',
       })
@@ -243,8 +243,8 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
         t.set(userRef.collection('activityEvents').doc(clearId), {
           id: clearId,
           kind: 'EN_ROUTE_CLEARED',
-          title: 'ZAR cleared',
-          body: `R${(debit / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} → ${(mznMinor / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MZN on the Moz card`,
+          title: 'En route cleared',
+          body: `R${(debit / 100).toFixed(2)} → Mt ${(mznMinor / 100).toFixed(2)} on the Moz card`,
           actorType: 'ai_manager',
           avatarKind: 'convert_mzn',
           amountCurrency: 'MZN',
@@ -255,7 +255,7 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
           hasDownloadButton: false,
           status: 'recorded',
           routingAction: 'en_route_clear',
-          deskSpeaker: 'wallet',
+          deskSpeaker: 'amina',
           createdAt: now,
           recordingSource: 'SYSTEM',
         })

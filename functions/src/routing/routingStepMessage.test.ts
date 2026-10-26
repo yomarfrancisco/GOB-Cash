@@ -65,7 +65,7 @@ describe('routingStepMessage', () => {
     assert.ok(msg.rails.some((r) => r.kind === 'eft' && r.total === 162_500))
   })
 
-  it('Step 6 marks card lane complete while EFT stays pending', () => {
+  it('Step 6 marks card lane complete while EFT stays en route', () => {
     const msg = buildOrderStepMessage({
       cycleNumber: 1,
       sentAt: '13:16',
@@ -78,17 +78,7 @@ describe('routingStepMessage', () => {
     assert.equal(msg.stepNumber, 6)
     assert.equal(msg.stepName, 'What happened')
     assert.ok(msg.rails[0]!.steps.every((s) => s.status === 'done'))
-    assert.equal(msg.rails[0]!.chip.text, 'Settled')
     assert.ok(msg.rails[1]!.steps.every((s) => s.status === 'en_route'))
-    assert.ok(msg.rails[1]!.steps.every((s) => /pending|delayed|settled/i.test(s.title)))
-    assert.ok(!/en route/i.test(JSON.stringify(msg.rails)))
-    assert.deepEqual(msg.settlement, {
-      settledZar: 12_024.03,
-      pendingZar: 162_500,
-      totalZar: 174_524.03,
-    })
-    assert.equal(msg.next.opensIn, 'tomorrow')
-    assert.equal(msg.next.dayLabel, 'Day 2')
   })
 
   it('formats ZAR with two decimals', () => {

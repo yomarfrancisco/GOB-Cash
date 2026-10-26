@@ -17,11 +17,9 @@ import {
 } from '@/lib/transactions/clientFunctions'
 import { useDeskFocusStore } from '@/store/deskFocus'
 import { useDeskPlanStore } from '@/store/deskPlan'
-import { useDeskModeActionsStore } from '@/store/deskModeActions'
 import { resetDeskRevealForLiveRestore } from '@/lib/desk/useProgressiveReveal'
 import { useAuthStore } from '@/store/auth'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
-import activityStyles from '@/app/activity/activity.module.css'
 
 const DESK_FACES = DESK_RING.map((id) => DESK_TEAM[id].avatar)
 
@@ -70,10 +68,6 @@ export default function NotificationsSheet() {
   const [summary, setSummary] = useState<ConversionRoutingSummary | null>(null)
   const [deskLiveReady, setDeskLiveReady] = useState(false)
   const planned = planMode === 'planned' || summary?.deskMode === 'planned'
-  const planBusy = useDeskPlanStore((s) => s.busy)
-  const next24h = useDeskModeActionsStore((s) => s.next24h)
-  const next72h = useDeskModeActionsStore((s) => s.next72h)
-  const realtime = useDeskModeActionsStore((s) => s.realtime)
   const dayLabel = formatSastDayLabel(
     planned ? plannedClockMs || focusAt || Date.now() : focusAt ?? Date.now()
   )
@@ -182,49 +176,6 @@ export default function NotificationsSheet() {
             </div>
             <p className={listStyles.deskHeaderName}>$-Route</p>
             <p className={listStyles.deskHeaderRole}>{dayLabel}</p>
-            <div
-              className={activityStyles.deskModeBar}
-              role="group"
-              aria-label="Desk clock mode"
-              style={{ marginTop: 10, pointerEvents: 'auto' }}
-            >
-              <button
-                type="button"
-                className={[
-                  activityStyles.deskModeSeg,
-                  !planned ? activityStyles.deskModeSegActive : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-pressed={!planned}
-                disabled={planBusy || !realtime}
-                onClick={() => realtime?.()}
-              >
-                Real time
-              </button>
-              <button
-                type="button"
-                className={[
-                  activityStyles.deskModeSeg,
-                  planned ? activityStyles.deskModeSegActive : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-pressed={planned}
-                disabled={planBusy || !next24h}
-                onClick={() => next24h?.()}
-              >
-                Next 24h
-              </button>
-              <button
-                type="button"
-                className={activityStyles.deskModeSeg}
-                disabled={planBusy || !next72h}
-                onClick={() => next72h?.()}
-              >
-                Next 72h
-              </button>
-            </div>
           </div>
         </div>
         {deskLiveReady ? <NotificationsList /> : null}

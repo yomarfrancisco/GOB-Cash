@@ -164,10 +164,10 @@ export function splitReplacementChannels(input: {
 
   const summary =
     eftZar > 0 && cardZar > 0
-      ? `Window ${formatZar(amount)}. Replace via card ${formatZar(cardZar)} + EFT pending ${formatZar(eftZar)}.`
+      ? `EN ROUTE ${formatZar(amount)}. Replace via card ${formatZar(cardZar)} + EFT ${formatZar(eftZar)}.`
       : eftZar > 0
-        ? `Window ${formatZar(amount)}. Replace via EFT pending ${formatZar(eftZar)}.`
-        : `Window ${formatZar(amount)}. Replace via card ${formatZar(cardZar)}.`
+        ? `EN ROUTE ${formatZar(amount)}. Replace via EFT ${formatZar(eftZar)}.`
+        : `EN ROUTE ${formatZar(amount)}. Replace via card ${formatZar(cardZar)}.`
 
   return {
     enRouteZar: amount,

@@ -186,71 +186,59 @@ export function looksLikeMerchantPosMail(subject: string | null): boolean {
   return /Txn|Transaction|POS|Declined|Receipt|Notification/i.test(subject || '')
 }
 
-function formatZarDesk(value: number): string {
-  const n = Math.round(value * 100) / 100
-  return `R${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
-function maskCard(last4: string | undefined): string {
-  if (!last4) return ''
-  return `····${last4}`
-}
-
 export function bankNoticeCopy(
   event: FnbEvent,
   forwarded: boolean
-): { title: string; body: string; bankTag: string; bankNoticeClass: 'routing' | 'other' } {
-  void forwarded
+): { title: string; body: string } {
+  const via = forwarded
+    ? 'This copy was forwarded from Gmail, so the sender was not FNB. The notice itself still reads as FNB.'
+    : 'This arrived directly from FNB.'
   if (event.kind === 'card_spend') {
-    const routing = /econometrica|imani|brics|hoe|ibd/i.test(event.merchant || '')
+    const amount = `R${event.amountZar.toFixed(2)}`
     return {
       title: 'Bank · FNB reserved',
-      body: `${event.merchant} · card ${maskCard(event.cardLast4)}${event.reservedOn ? ` · ${event.reservedOn}` : ''}`,
-      bankTag: 'FNB',
-      bankNoticeClass: routing ? 'routing' : 'other',
+      body: `FNB reserved ${amount} on card ${event.cardLast4} at ${event.merchant}. Current account ending ${event.accountLast4}${event.reservedOn ? `, ${event.reservedOn}` : ''}. ${via}`,
     }
   }
   if (event.kind === 'pos_credit') {
-    const routing = /econometrica|imani|brics|hoe|ibd/i.test(event.counterparty || '')
+    const amount = `R${event.amountZar.toFixed(2)}`
+    const ref = event.reference ? ` Ref ${event.reference}.` : ''
+    const when = event.paidOn ? ` ${event.paidOn}.` : ''
     return {
       title: 'Bank · FNB POS paid in',
-      body: `${event.counterparty} · account ····${event.accountLast4}${event.paidOn ? ` · ${event.paidOn}` : ''}${event.reference ? ` · Ref ${event.reference}` : ''}`,
-      bankTag: 'FNB',
-      bankNoticeClass: routing ? 'routing' : 'other',
+      body: `FNB credited ${amount} to current account ending ${event.accountLast4} from ${event.counterparty}.${ref}${when} ${via}`,
     }
   }
   const bank = event.noticeBank === 'POS' ? 'POS' : 'FNB'
-  const amount = formatZarDesk(event.amountZar)
-  const where = event.merchant ? ` ${event.merchant}` : ''
-  const card = event.cardLast4 ? ` · card ${maskCard(event.cardLast4)}` : ''
+  const viaLine =
+    event.noticeBank === 'POS'
+      ? forwarded
+        ? 'This copy was forwarded from Gmail.'
+        : 'Merchant POS slip from inbound mail.'
+      : via
+  const amount = `R${event.amountZar.toFixed(2)}`
+  const where = event.merchant ? ` at ${event.merchant}` : ''
+  const card = event.cardLast4 ? ` on card ${event.cardLast4}` : ''
   const refs = [event.authCode ? `auth ${event.authCode}` : '', event.rrn ? `RRN ${event.rrn}` : '']
     .filter(Boolean)
     .join(', ')
-  const when = event.occurredAt ? ` · ${event.occurredAt}` : ''
+  const when = event.occurredAt ? `, ${event.occurredAt}` : ''
   const reason =
     event.declineReason && event.status === 'declined' ? ` Reason: ${event.declineReason}.` : ''
-  const merchantBlob = event.merchant || ''
-  const routing = /econometrica|imani|brics|hoe|ibd/i.test(merchantBlob)
   if (event.status === 'declined') {
     return {
       title: `Bank · ${bank} declined`,
-      body: `${amount}${where}${card}${when}.${refs ? ` ${refs}.` : ''}${reason} Declined — ZAR card unchanged.`,
-      bankTag: bank === 'POS' ? 'POS' : 'FNB',
-      bankNoticeClass: routing ? 'routing' : 'other',
+      body: `${bank} declined ${amount}${where}${card}${when}.${refs ? ` ${refs}.` : ''}${reason} Declined, so the ZAR card is unchanged. ${viaLine}`,
     }
   }
   if (event.status === 'unknown') {
     return {
       title: `Bank · ${bank} receipt needs review`,
-      body: `${amount}${where}${card}${when} could not be classified.${refs ? ` ${refs}.` : ''} No ZAR was added.`,
-      bankTag: bank === 'POS' ? 'POS' : 'FNB',
-      bankNoticeClass: 'other',
+      body: `${bank} receipt for ${amount}${where}${card}${when} could not be classified as approved or declined.${refs ? ` ${refs}.` : ''} No ZAR was added. ${viaLine}`,
     }
   }
   return {
     title: `Bank · ${bank} approved`,
-    body: `${amount}${where}${card}${when}.${refs ? ` ${refs}.` : ''}`,
-    bankTag: bank === 'POS' ? 'POS' : 'FNB',
-    bankNoticeClass: routing ? 'routing' : 'other',
+    body: `${bank} approved ${amount}${where}${card}${when}. ${refs ? `${refs}. ` : ''}${viaLine}`,
   }
 }

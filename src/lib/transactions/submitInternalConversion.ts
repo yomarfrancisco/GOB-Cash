@@ -87,9 +87,9 @@ export async function submitInternalConversion(params: {
       useNotificationStore.getState().pushNotification({
         id: result.txId,
         kind: 'ai_trade',
-        title: isZarSale ? 'ZAR booked' : 'ZAR added to the window',
+        title: isZarSale ? 'ZAR en route' : 'ZAR added to the window',
         body: isZarSale
-          ? `${sourceLabel} booked until 09:00 SAST. Day tickets are on $-Route.`
+          ? `${sourceLabel} booked on EN ROUTE until 09:00 SAST. Day tickets are on $-Route.`
           : `${destLabel} added. The book has been re-solved.`,
         actor: {
           type: 'ai_manager',
@@ -105,7 +105,7 @@ export async function submitInternalConversion(params: {
       useNotificationStore.getState().pushNotification({
         id: result.txId,
         kind: isZarSale ? 'ai_trade' : 'proof_of_payment',
-        title: isZarSale ? 'ZAR booked' : 'ZAR sourced at cost',
+        title: isZarSale ? 'ZAR en route' : 'ZAR sourced at COST',
         body: isZarSale
           ? `${sourceLabel} booked until 09:00 SAST, then Moz inventory rises`
           : `${sourceLabel} to ${destLabel}`,

@@ -1389,33 +1389,27 @@ export function buildActivityCopy(
   const lines: string[] = []
   if (sell) {
     const sellMzn = econ ? econ.sellMzn : roundMoney(plan.deployedAmount * sell)
-    const costUnrounded =
-      econ && econ.amountZar > 0 ? econ.restockMzn / econ.amountZar : cost
-    const spreadUnrounded =
-      costUnrounded != null ? Math.max(0, sell - costUnrounded) : econ?.spreadPerZar
     lines.push(
-      `By COB, sell ${formatZar(plan.deployedAmount)} for ${formatMznAmount(sellMzn)} at ${sell.toFixed(4)} MZN/ZAR. Send the ZAR once the MZN has landed.`
+      `By COB, sell ${formatZar(plan.deployedAmount)} for ${formatMznAmount(sellMzn)} at Mt/R ${sell.toFixed(2)}. Send the ZAR once the MZN has landed.`
     )
-    if (extra?.revisionReason) lines.push(extra.revisionReason)
-    if (econ && spreadUnrounded != null && costUnrounded != null) {
-      lines.push(
-        `Spread ${spreadUnrounded.toFixed(4)} over cost ${costUnrounded.toFixed(4)} · That's ${formatMznAmount(econ.grossProfitMzn)} gross profit.`
-      )
-    } else if (sell && cost) {
-      lines.push(
-        `Spread ${Math.max(0, sell - cost).toFixed(4)} over cost ${cost.toFixed(4)} · That's ${formatMznAmount(plan.expectedProfit)} gross profit.`
-      )
-    } else {
-      lines.push(`That's ${formatMznAmount(plan.expectedProfit)} gross profit.`)
-    }
   } else {
     lines.push(`By COB, sell ${formatZar(plan.deployedAmount)}. Send the ZAR once the MZN has landed.`)
-    if (extra?.revisionReason) lines.push(extra.revisionReason)
+  }
+  if (extra?.revisionReason) lines.push(extra.revisionReason)
+  if (econ) {
+    lines.push(
+      `Spread ${econ.spreadPerZar.toFixed(2)} Mt/R over COST ${econ.weightedCost.toFixed(2)} · That's ${formatMznAmount(econ.grossProfitMzn)} gross profit.`
+    )
+  } else if (sell && cost) {
+    lines.push(
+      `Spread ${roundMoney(Math.max(0, sell - cost)).toFixed(2)} Mt/R over COST ${cost.toFixed(2)} · That's ${formatMznAmount(plan.expectedProfit)} gross profit.`
+    )
+  } else {
     lines.push(`That's ${formatMznAmount(plan.expectedProfit)} gross profit.`)
   }
   lines.push(mandateLine(extra?.state, plan.deployedAmount))
   const next = nextTradingWeekday(ref?.weekday)
-  lines.push(`Next: restock at cost, then ${next ? `${next}'s` : 'the next'} sale.`)
+  lines.push(`Next: restock at COST, then ${next ? `${next}'s` : 'the next'} sale.`)
   lines.push(`Status: ${statusLabel}`)
   return { title, body: lines.join(' ') }
 }
@@ -1435,18 +1429,20 @@ export function buildReplenishActivityCopy(
   const sold = dayRecord(undefined, state)
   const soldLabel = sold ? `${sold.weekday}'s` : 'the sold'
   const next = nextTradingWeekday(sold?.weekday)
-  const nextLabel = sold ? `${next ?? 'next weekday'}` : `Day ${replenish.cycleNumber + 1}`
+  const nextLabel = sold
+    ? `${next ?? 'next weekday'}, day ${Math.min(cycleCount, sold.day + 1)} of ${cycleCount}`
+    : `Cycle ${replenish.cycleNumber} of ${cycleCount}`
   const rows = replenish.cardAssignments
   const lines: string[] = [
-    `Swipe ${soldLabel} tickets back into the SA float at cost.`,
+    `Swipe ${soldLabel} tickets back into the SA float at bank COST.`,
     '',
   ]
   if (rows.length) {
     lines.push(...ticketLines(rows, 'swipe', ticketPath))
     lines.push('')
-    lines.push(`Total ${formatZar(replenish.amountZar)} · ${formatMznAmount(replenish.amountMzn)} out at cost.`)
+    lines.push(`Total ${formatZar(replenish.amountZar)} · ${formatMznAmount(replenish.amountMzn)} out.`)
   } else {
-    lines.push(`Restock ${formatZar(replenish.amountZar)} at cost.`)
+    lines.push(`Restock ${formatZar(replenish.amountZar)} at COST.`)
   }
   lines.push('')
   lines.push(`Next: sell ZAR on ${nextLabel}.`)

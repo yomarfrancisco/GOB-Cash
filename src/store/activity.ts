@@ -42,12 +42,7 @@ export type ActivityItem = {
   cycleNumber?: number
   awaitingConfirm?: boolean
   routingAction?: string
-  deskSpeaker?: 'sam' | 'leo' | 'amina' | 'wallet'
-  deskLedgerRows?: Array<{ label: string; value: string }>
-  deskStatusChip?: string
-  deskStep?: number
-  bankNoticeClass?: 'routing' | 'other'
-  bankTag?: string
+  deskSpeaker?: 'sam' | 'leo' | 'amina'
   pairedAmountValue?: number
   feedbackAck?: string
   routingBlocked?: boolean
