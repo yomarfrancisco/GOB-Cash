@@ -15,10 +15,10 @@ import {
   admin_getConversionRoutingStatus,
   type ConversionRoutingSummary,
 } from '@/lib/transactions/clientFunctions'
-import { useDeskFocusStore } from '@/store/deskFocus'
 import { useDeskPlanStore } from '@/store/deskPlan'
 import { resetDeskRevealForLiveRestore } from '@/lib/desk/useProgressiveReveal'
 import { useAuthStore } from '@/store/auth'
+import { SpeakerAvatar } from './SpeakerAvatar'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
 const DESK_FACES = DESK_RING.map((id) => DESK_TEAM[id].avatar)
@@ -33,7 +33,7 @@ if (typeof window !== 'undefined') {
   })
 }
 
-/** Ring slot for each agent: the active one sits on top, the other two keep ring order below. */
+/** Ring slot for each agent: the active one sits in front; the other two keep ring order behind. */
 const SLOT_CLASS = [listStyles.deskSlotTop, listStyles.deskSlotLeft, listStyles.deskSlotRight] as const
 
 function slotFor(agent: DeskAgent, active: DeskAgent): string {
@@ -41,36 +41,17 @@ function slotFor(agent: DeskAgent, active: DeskAgent): string {
   return SLOT_CLASS[offset]
 }
 
-function DeskFace({ src, className, speaking }: { src: string; className: string; speaking: boolean }) {
-  const [ready, setReady] = useState(false)
-  return (
-    <div className={`${listStyles.deskStackFace} ${className} ${speaking ? listStyles.deskFaceSpeaking : ''}`}>
-      <img
-        src={src}
-        alt=""
-        className={ready ? listStyles.deskFaceReady : listStyles.deskFacePending}
-        onLoad={() => setReady(true)}
-      />
-    </div>
-  )
-}
-
 export default function NotificationsSheet() {
   const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const active = useDeskSpeakerStore((s) => s.active)
-  const focusAt = useDeskFocusStore((s) => s.focusAt)
-  const planMode = useDeskPlanStore((s) => s.mode)
-  const plannedClockMs = useDeskPlanStore((s) => s.plannedClockMs)
   const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
   const setLive = useDeskPlanStore((s) => s.setLive)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
-  const [summary, setSummary] = useState<ConversionRoutingSummary | null>(null)
+  const [, setSummary] = useState<ConversionRoutingSummary | null>(null)
   const [deskLiveReady, setDeskLiveReady] = useState(false)
-  const planned = planMode === 'planned' || summary?.deskMode === 'planned'
-  const dayLabel = formatSastDayLabel(
-    planned ? plannedClockMs || focusAt || Date.now() : focusAt ?? Date.now()
-  )
+  // Header always shows today's real calendar date — never the desk/simulated day.
+  const headerDate = formatSastDayLabel(Date.now())
 
   useEffect(() => {
     if (!isNotificationsOpen) return
@@ -160,22 +141,27 @@ export default function NotificationsSheet() {
       size="tall"
       className={`${listStyles.financialInboxSheet} inboxTallSheet`}
     >
-      <div className={`${listStyles.content} ${listStyles.activityContent}`}>
+      <div className={`${listStyles.content} ${listStyles.activityContent} ${listStyles.deskContent}`}>
         <div className={listStyles.deskHeaderChrome} aria-hidden />
         <div className={listStyles.activitySearchOverlay}>
           <div className={listStyles.deskHeader}>
             <div className={listStyles.deskTeamStack} aria-hidden>
               {DESK_RING.map((id) => (
-                <DeskFace
-                  key={id}
-                  src={DESK_TEAM[id].avatar}
-                  className={slotFor(id, active)}
-                  speaking={id === active}
-                />
+                <div key={id} className={`${listStyles.deskStackFace} ${slotFor(id, active)}`}>
+                  <SpeakerAvatar agent={id} size={id === active ? 56 : 40} speaking={id === active} />
+                </div>
               ))}
             </div>
             <p className={listStyles.deskHeaderName}>$-Route</p>
-            <p className={listStyles.deskHeaderRole}>{dayLabel}</p>
+            <p className={listStyles.deskHeaderRole}>{headerDate}</p>
+            <button
+              type="button"
+              className={listStyles.deskHeaderClose}
+              aria-label="Close"
+              onClick={closeNotifications}
+            >
+              ✕
+            </button>
           </div>
         </div>
         {deskLiveReady ? <NotificationsList /> : null}

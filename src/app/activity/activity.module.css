@@ -1,12 +1,27 @@
-/* Activity Page Styles */
+/* Activity Page Styles — $-Route Part 1 desk tokens */
 
 .activityPage {
+  --desk-bg-page: #ffffff;
+  --desk-bg-card: #ffffff;
+  --desk-bg-subtle: #f2efe6;
+  --desk-border: #e2ded3;
+  --desk-row-rule: #ece8dd;
+  --desk-ink: #18181b;
+  --desk-ink-2: #3a3a40;
+  --desk-muted: #5e5e66;
+  --desk-mint: #9bdbc1;
+  --desk-yellow: #ffd36b;
+  --desk-pink: #f4a6c4;
+  --desk-pending-fill: #ffffff;
+  --desk-font: var(--font-dm-sans), 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   min-height: 100%;
-  background: #f4f3f8;
+  background: var(--desk-bg-page);
+  font-family: var(--desk-font);
+  color: var(--desk-ink);
 }
 
 .activityContainer {
-  padding: 0 16px 24px;
+  padding: 0 0 24px;
   margin-top: 8px;
 }
 
@@ -17,6 +32,10 @@
 
 .deskFeed .activitySection:last-of-type {
   margin-bottom: 8px;
+}
+
+.deskFeed .sectionTitle {
+  display: none;
 }
 
 .searchBar {
@@ -67,29 +86,131 @@
 .activityList {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  border-radius: 28px;
-  background: #fff;
+  overflow: visible;
+  border-radius: 0;
+  background: transparent;
 }
 
 .activityItem {
   display: flex;
   align-items: flex-start;
-  gap: 11px;
-  padding: 14px 16px;
-  background: #fff;
+  gap: 12px;
+  padding: 20px 0;
+  background: transparent;
+  border: 0;
   animation: deskBubbleIn 220ms ease-out;
   position: relative;
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  color: var(--desk-ink, #18181b);
+  font-variant-numeric: tabular-nums;
 }
 
 .activityItem:not(:last-child)::after {
   content: '';
   position: absolute;
-  right: 16px;
+  right: 0;
   bottom: 0;
-  left: 63px;
+  /* Indented with the content column: 44px avatar + 12px gap */
+  left: 56px;
   height: 1px;
-  background: rgba(60, 60, 67, 0.12);
+  background: var(--desk-border, #e2ded3);
+}
+
+.dayDivider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+
+.dayDividerLine {
+  flex: 1;
+  height: 1px;
+  background: var(--desk-border, #e2ded3);
+}
+
+.dayDividerLabel {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--desk-muted, #5e5e66);
+}
+
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px 3px 6px;
+  border-radius: 999px;
+  background: var(--desk-mint, #9bdbc1);
+  color: var(--desk-ink, #18181b);
+  pointer-events: none;
+  user-select: none;
+  border: 0;
+}
+
+.planChip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--desk-ink, #18181b);
+  background: transparent;
+  color: var(--desk-ink, #18181b);
+  pointer-events: none;
+  user-select: none;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.deskSentence {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--desk-ink, #18181b);
+}
+
+.deskNextFooter {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--desk-ink, #18181b);
+  border-radius: 12px;
+  font-size: 14px;
+  color: var(--desk-ink-2, #3a3a40);
+}
+
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0 14px;
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 10px;
+  background: var(--desk-ink, #18181b);
+  color: var(--desk-bg-page, #ffffff);
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .activityItem > * {
@@ -99,11 +220,12 @@
 
 .activityAvatar {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.05);
+  overflow: visible;
+  background: transparent;
+  align-self: flex-start;
 }
 
 .avatarImg {
@@ -117,23 +239,28 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+}
+
+.msgHeaderText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: 2px;
 }
 
 .activitySpeaker {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin: 0 0 2px;
-  font-size: 12px;
-  line-height: 16px;
+  display: block;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.2;
   font-weight: 600;
-  color: #111;
+  color: var(--desk-muted, #5e5e66);
 }
 
 .activitySpeakerRole {
-  font-weight: 400;
-  color: rgba(0, 0, 0, 0.48);
+  display: none;
 }
 
 .activityHeader {
@@ -144,10 +271,10 @@
 }
 
 .activityTitle {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 18px;
-  color: #000;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--desk-ink, #18181b);
   flex: 1;
   min-width: 0;
   white-space: normal;
@@ -155,24 +282,38 @@
 }
 
 .activityTime {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
-  color: rgba(0, 0, 0, 0.5);
-  line-height: 18px;
+  color: var(--desk-muted, #5e5e66);
+  line-height: 1.2;
   white-space: nowrap;
   flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .activityBody {
   font-weight: 400;
-  font-size: 13px;
-  line-height: 18px;
-  color: rgba(0, 0, 0, 0.72);
-  letter-spacing: -0.2px;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--desk-ink, #18181b);
+  letter-spacing: 0;
   white-space: pre-line;
   overflow-wrap: anywhere;
   margin: 0;
   padding: 0;
+}
+
+.devLedgerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 11px;
+  font-weight: 600;
+  max-width: 100%;
 }
 
 .activityFigure {
@@ -276,15 +417,16 @@
   justify-content: center;
   gap: 6px;
   margin: 0;
-  padding: 0 10px;
-  height: 28px;
-  min-height: 28px;
+  padding: 0 14px;
+  height: 44px;
+  min-height: 44px;
   box-sizing: border-box;
   border: 0;
-  border-radius: 14px;
-  background: #111;
-  color: #fff;
-  font-size: 12px;
+  border-radius: 10px;
+  background: var(--desk-ink, #18181b);
+  color: var(--desk-bg-page, #ffffff);
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  font-size: 14px;
   font-weight: 600;
   line-height: 16px;
   cursor: pointer;
@@ -319,15 +461,16 @@
   justify-content: center;
   gap: 6px;
   margin: 0;
-  padding: 0 10px;
-  height: 28px;
-  min-height: 28px;
+  padding: 0 14px;
+  height: 44px;
+  min-height: 44px;
   box-sizing: border-box;
-  border: 0;
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.08);
-  color: #111;
-  font-size: 12px;
+  border: 1px solid var(--desk-ink, #18181b);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--desk-ink, #18181b);
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  font-size: 14px;
   font-weight: 600;
   line-height: 16px;
   cursor: pointer;

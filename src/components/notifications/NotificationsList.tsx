@@ -51,8 +51,11 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
+import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
 import { TypewriterText } from '@/components/desk/TypewriterText'
 import { highlightDeskText } from '@/lib/desk/highlightDeskText'
+import { sastParts } from '@/lib/routing/routingTime'
+import type { DeskAgent } from '@/lib/desk/threadModel'
 
 const KYC_GATE_ID = 'kyc-desk-gate'
 
@@ -64,6 +67,81 @@ function TypewriterCompleteSignal({ onComplete }: { onComplete: () => void }) {
     onComplete()
   }, [onComplete])
   return null
+}
+
+const WEEKDAY_SHORT = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+const MONTH_SHORT = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+
+function formatDividerDay(ms: number): string {
+  const p = sastParts(ms)
+  return `${WEEKDAY_SHORT[p.weekday]} ${p.day} ${MONTH_SHORT[p.month - 1]}`
+}
+
+function dayDividerLabel(opts: {
+  planMode: 'live' | 'planned'
+  planChip?: '24h plan' | '72h plan' | null
+  cycleNumber: number
+  dayMs: number
+  totalDays?: number
+}): string {
+  const day = Math.max(1, opts.cycleNumber || 1)
+  const date = formatDividerDay(opts.dayMs)
+  if (opts.planMode !== 'planned') return `DAY ${day} · ${date}`
+  const horizon = opts.planChip === '72h plan' ? 72 : 24
+  const of = opts.totalDays && opts.totalDays > 0 ? opts.totalDays : horizon === 72 ? 3 : 1
+  return `${horizon}H PLAN · DAY ${day} OF ${of} · ${date}`
+}
+
+function StatusChip({ label }: { label: string }) {
+  return (
+    <span className={styles.statusChip} aria-hidden={false}>
+      <Check size={14} strokeWidth={2.6} aria-hidden />
+      {label}
+    </span>
+  )
+}
+
+function ClockIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="10" cy="10" r="7.25" />
+      <path d="M10 6.5V10l2.5 1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function orderLedgerFailures(item: ActivityItem): string[] {
+  const msg = item.routingStepMessage
+  const ledger = item.orderLedger || msg?.orderLedger
+  if (!ledger || !msg) return []
+  const failures: string[] = []
+  const card = msg.rails.find((r) => r.kind === 'card')
+  const eft = msg.rails.find((r) => r.kind === 'eft')
+  if (card && typeof ledger.cardZar === 'number' && Math.abs(card.total - ledger.cardZar) > 0.01) {
+    failures.push(`card rail ${card.total} ≠ ledger ${ledger.cardZar}`)
+  }
+  if (card) {
+    const zarSteps = card.steps.filter((s) => s.amountKind === 'ZAR')
+    if (zarSteps.length && Math.abs(zarSteps.reduce((s, r) => s + r.amount, 0) / Math.max(zarSteps.length, 1) - card.total) > 0.01) {
+      // each card ZAR step should match card total (not sum) — check first ZAR amount
+      const firstZar = zarSteps.find((s) => /desk pack|swipe|swiped/i.test(s.title))
+      if (firstZar && Math.abs(firstZar.amount - card.total) > 0.01) {
+        failures.push(`card step ZAR ${firstZar.amount} ≠ rail ${card.total}`)
+      }
+    }
+  }
+  if (eft && Array.isArray(ledger.eftTickets)) {
+    const sum = ledger.eftTickets.reduce((s, t) => s + t.amount, 0)
+    if (Math.abs(sum - eft.total) > 0.01) failures.push(`eft rail ${eft.total} ≠ tickets ${sum}`)
+  }
+  const client = Math.round(((card?.total || 0) + (eft?.total || 0)) * 100) / 100
+  if (Math.abs(client - msg.clientTotal) > 0.01) failures.push(`client ${msg.clientTotal} ≠ card+eft`)
+  const spread = Math.round((ledger.mznAtSell - ledger.mznAtCost) * 100) / 100
+  if (Math.abs(spread - ledger.spreadMzn) > 0.01) failures.push(`spread ${ledger.spreadMzn} ≠ sell−cost`)
+  if (failures.length && typeof console !== 'undefined') {
+    console.error('[OrderLedger]', item.id, failures.join('; '))
+  }
+  return failures
 }
 
 function isCopiedActivity(item: ActivityItem): boolean {
@@ -374,11 +452,12 @@ function ActivityItemCard({
   animateEntrance,
   entranceSettled,
   onEntranceComplete,
+  planBusy,
+  catchupActive,
+  planMode,
   showNext24h,
   showNext72h,
   showRealtime,
-  planBusy,
-  catchupActive,
   onNext24h,
   onNext72h,
   onRealtime,
@@ -393,11 +472,12 @@ function ActivityItemCard({
   animateEntrance?: boolean
   entranceSettled?: boolean
   onEntranceComplete?: (id: string) => void
+  planBusy?: boolean
+  catchupActive?: boolean
+  planMode?: 'live' | 'planned'
   showNext24h?: boolean
   showNext72h?: boolean
   showRealtime?: boolean
-  planBusy?: boolean
-  catchupActive?: boolean
   onNext24h?: () => void
   onNext72h?: () => void
   onRealtime?: () => void
@@ -407,12 +487,20 @@ function ActivityItemCard({
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
   const profile = useUserProfileStore((s) => s.profile)
   const isCopied = isCopiedActivity(item)
-  const deskSpeaker =
-    item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-      ? DESK_TEAM[deskAgentFor(item)]
-      : null
+  const deskAgent: DeskAgent | null =
+    item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ? deskAgentFor(item) : null
+  const deskSpeaker = deskAgent ? DESK_TEAM[deskAgent] : null
   const avatarUrl = isCopied ? null : deskSpeaker?.avatar ?? resolveTaskAvatar(item)
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
+  const planChip =
+    item.deskPlanChip ||
+    (planMode === 'planned' && item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ? '24h plan' : null)
+  const sentence =
+    item.deskSentence ||
+    item.routingStepMessage?.summary ||
+    ''
+  const ledgerFailures =
+    process.env.NODE_ENV !== 'production' ? orderLedgerFailures(item) : []
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
@@ -428,7 +516,8 @@ function ActivityItemCard({
     actionsUnlocked && isRoutingInstruction && item.status === 'completed' && !item.thinking
       ? executedPillLabel({ title: item.title, routingAction: item.routingAction })
       : null
-  const showExecuted = Boolean(executedLabel)
+  const statusChip = item.deskStatusChip || executedLabel || null
+  const showExecuted = Boolean(executedLabel) && !item.deskStatusChip
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
   // Cash moves open the conversion keypad (desk closes first; keypad dismisses before bubbles resume).
   const showSendKeypad =
@@ -452,20 +541,26 @@ function ActivityItemCard({
     item.routingAction === 'replenish' || /^Step\s*5\b/i.test(title) || /^Restock ZAR\b/i.test(item.title || '')
   const isSendCard =
     item.routingAction === 'deploy' || /^Step\s*4\b/i.test(title) || /^Sell ZAR\b/i.test(item.title || '')
-  // Structured step card owns the copy — skip the prose body to avoid duplicating the summary.
-  const body = item.routingStepMessage
-    ? ''
-    : isRecycleCard
-      ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
-      : isSendCard
-        ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
-        : displayDeskBody(item.body)
+  // Structured step card / ledger owns the copy — skip live Mt/COST overlays on Steps 1–6.
+  const body =
+    item.routingStepMessage || item.deskLedgerRows || item.deskSentence
+      ? item.deskSentence || ''
+      : isRecycleCard
+        ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
+        : isSendCard
+          ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
+          : displayDeskBody(item.body)
   const showStepContinue =
     !lockDeskActions &&
     actionsUnlocked &&
     isSequentialStepCard(item) &&
     isAwaitingRoutingItem(item) &&
     /^Step\s*6\b/i.test(title)
+  const showDeskNextFooter =
+    Boolean(item.deskNextFooter) &&
+    !item.routingStepMessage &&
+    isSequentialStepCard(item) &&
+    isAwaitingRoutingItem(item)
   const [titleDone, setTitleDone] = useState(!typing || !title)
   useEffect(() => {
     setTitleDone(!typing || !title)
@@ -710,6 +805,15 @@ function ActivityItemCard({
     }
   }
 
+  const displaySentence = sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
+  const downloadVerb = isInvoiceDownloadItem(item)
+    ? 'Download invoices'
+    : /^Step\s*6\b/i.test(title)
+      ? 'Download day pack'
+      : isPopPackDownloadItem(item) || isSendCard || isRecycleCard
+        ? 'Download POPs'
+        : 'Download proof'
+
   return (
     <article
       className={styles.activityItem}
@@ -717,56 +821,53 @@ function ActivityItemCard({
       data-desk-item-cycle={typeof item.cycleNumber === 'number' ? item.cycleNumber : undefined}
     >
       <div className={styles.activityAvatar}>
-        {showUserPlaceholder ? (
+        {deskAgent ? (
+          <SpeakerAvatar agent={deskAgent} size={44} />
+        ) : showUserPlaceholder ? (
           <Avatar
             avatarUrl={isCopied ? profile.avatarUrl : null}
             name={item.actor.name || profile.fullName}
             handle={profile.userHandle}
             email={profile.email}
-            size={36}
-            rounded={18}
+            size={44}
+            rounded={22}
           />
         ) : (
           <Image
             src={avatarUrl ?? ADMIN_AVATAR_PATH}
             alt={deskSpeaker?.name || item.actor.name || 'Payment agent'}
-            width={36}
-            height={36}
+            width={44}
+            height={44}
             className={styles.avatarImg}
             unoptimized
           />
         )}
       </div>
       <div className={styles.activityContent}>
-        {deskSpeaker ? (
-          <div className={styles.activitySpeaker}>
-            <span>{deskSpeaker.name}</span>
-            {deskSpeaker.role ? (
-              <span className={styles.activitySpeakerRole}>{deskSpeaker.role}</span>
-            ) : null}
-          </div>
-        ) : null}
-        <div className={styles.activityHeader}>
-          {typing && title ? (
-            <TypewriterText
-              text={title}
-              animate
-              className={styles.activityTitle}
-              figureClassName={styles.activityFigure}
-              highlightFigures
-              charsPerTick={5}
-              tickMs={14}
-              onComplete={handleTitleTyped}
-            />
-          ) : (
-            <div className={styles.activityTitle}>
-              {highlightDeskText(title, styles.activityFigure)}
+        <div className={styles.msgHeaderText}>
+          {deskSpeaker ? <div className={styles.activitySpeaker}>{deskSpeaker.name}</div> : null}
+          <div className={styles.activityHeader}>
+            {typing && title ? (
+              <TypewriterText
+                text={title}
+                animate
+                className={styles.activityTitle}
+                figureClassName={styles.activityFigure}
+                highlightFigures
+                charsPerTick={5}
+                tickMs={14}
+                onComplete={handleTitleTyped}
+              />
+            ) : (
+              <div className={styles.activityTitle}>
+                {highlightDeskText(title, styles.activityFigure)}
+              </div>
+            )}
+            <div className={styles.activityTime}>
+              {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+                ? formatVisibleSast(item.createdAt)
+                : formatRelativeShort(item.createdAt)}
             </div>
-          )}
-          <div className={styles.activityTime}>
-            {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-              ? formatVisibleSast(item.createdAt)
-              : formatRelativeShort(item.createdAt)}
           </div>
         </div>
         {item.thinking ? (
@@ -777,6 +878,12 @@ function ActivityItemCard({
           </div>
         ) : (
           <>
+            {(statusChip || planChip) && (
+              <div className={styles.chipRow}>
+                {statusChip ? <StatusChip label={statusChip} /> : null}
+                {planChip ? <span className={styles.planChip}>{planChip}</span> : null}
+              </div>
+            )}
             {askCard && item.userReply ? (
               <div className={styles.activityUserReply}>
                 <div className={styles.activityUserReplyLabel}>
@@ -790,9 +897,9 @@ function ActivityItemCard({
                 </div>
               </div>
             ) : null}
-            {body && (!typing || titleDone) ? (
+            {displaySentence && (!typing || titleDone) ? (
               <TypewriterText
-                text={body}
+                text={displaySentence}
                 animate={typing}
                 className={styles.activityBody}
                 figureClassName={styles.activityFigure}
@@ -801,10 +908,15 @@ function ActivityItemCard({
                 tickMs={16}
                 onComplete={typing ? handleBodyTyped : undefined}
               />
-            ) : typing && !body && titleDone ? (
+            ) : typing && !displaySentence && titleDone ? (
               <TypewriterCompleteSignal onComplete={handleBodyTyped} />
             ) : null}
-            {item.routingStepMessage
+            {ledgerFailures.length ? (
+              <div className={styles.devLedgerBadge} role="status">
+                Ledger: {ledgerFailures[0]}
+              </div>
+            ) : null}
+            {item.routingStepMessage || item.deskLedgerRows
               ? titleDone
                 ? <DeskCardVisuals item={item} />
                 : null
@@ -867,16 +979,33 @@ function ActivityItemCard({
                 Fund MZN
               </button>
             )}
+            {showDownload && (
+              <button
+                type="button"
+                className={[
+                  styles.replyButton,
+                  downloadState === 'loading' ? styles.confirmButtonLoading : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label={downloadVerb}
+                onClick={handleDownload}
+                disabled={downloadState !== 'idle'}
+              >
+                <Download size={16} strokeWidth={2.2} />
+                {downloadVerb}
+              </button>
+            )}
             {showStepContinue && (
               <button
                 type="button"
                 className={[
-                  styles.confirmButton,
+                  styles.primaryAction,
                   confirmState === 'loading' ? styles.confirmButtonLoading : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Continue to the next day"
+                aria-label="Advance to Day 2"
                 aria-busy={confirmState !== 'idle'}
                 disabled={confirmState !== 'idle' || planBusy === true}
                 onClick={async (event) => {
@@ -894,7 +1023,7 @@ function ActivityItemCard({
                   }
                 }}
               >
-                Continue
+                Advance to Day 2
               </button>
             )}
             {showSendKeypad && (
@@ -923,7 +1052,7 @@ function ActivityItemCard({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Open keypad to restock at COST"
+                aria-label="Open keypad to restock at cost"
                 aria-busy={confirmState !== 'idle'}
                 disabled={confirmState !== 'idle' || planBusy === true}
                 onClick={handleRestockKeypad}
@@ -999,7 +1128,7 @@ function ActivityItemCard({
                 className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Simulate the next 72 hours on the desk (card + EFT through T+2)"
+                aria-label="Simulate the next 72 hours on the desk"
                 aria-busy={planBusy === true}
                 disabled={planBusy === true || confirmState !== 'idle'}
                 onClick={(event) => {
@@ -1027,46 +1156,6 @@ function ActivityItemCard({
                 Real time
               </button>
             )}
-            {showDownload && (
-              <button
-                type="button"
-                className={[
-                  styles.replyButton,
-                  downloadState === 'loading' ? styles.confirmButtonLoading : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label={
-                  isInvoiceDownloadItem(item)
-                    ? 'Download invoices'
-                    : isPopPackDownloadItem(item)
-                      ? 'Download proofs of payment'
-                      : item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
-                        ? 'Download monthly settlement statement'
-                        : item.kind === 'WEEKLY_SETTLEMENT_STATEMENT'
-                          ? 'Download weekly settlement statement'
-                          : 'Download proof of payment'
-                }
-                aria-busy={downloadState !== 'idle'}
-                disabled={downloadState !== 'idle'}
-                onClick={handleDownload}
-              >
-                <Download size={14} strokeWidth={2.4} />
-                {isInvoiceDownloadItem(item)
-                  ? item.invoiceZipStoragePath
-                    ? 'Download invoices'
-                    : 'Download invoice'
-                  : isPopPackDownloadItem(item)
-                    ? 'Download POPs'
-                    : 'Download POP'}
-              </button>
-            )}
-            {showExecuted && executedLabel && (
-              <span className={styles.executedLabel}>
-                <Check size={16} strokeWidth={2.4} />
-                {executedLabel}
-              </span>
-            )}
             {showKycLink && (
               <button
                 type="button"
@@ -1080,22 +1169,30 @@ function ActivityItemCard({
             )}
           </div>
         )}
+        {showDeskNextFooter && item.deskNextFooter ? (
+          <div className={styles.deskNextFooter}>
+            <ClockIcon />
+            <span>
+              <strong>Next:</strong> {item.deskNextFooter}
+            </span>
+          </div>
+        ) : null}
       </div>
     </article>
   )
 }
 
-function ThinkingPlaceholder({ speaker }: { speaker?: (typeof DESK_TEAM)[keyof typeof DESK_TEAM] | null }) {
-  const who = speaker || DESK_TEAM.sam
+function ThinkingPlaceholder({ speaker }: { speaker?: DeskAgent | null }) {
+  const agent = speaker || 'sam'
+  const who = DESK_TEAM[agent]
   return (
     <article className={styles.activityItem} aria-live="polite">
       <div className={styles.activityAvatar}>
-        <Image src={who.avatar} alt={who.name} width={36} height={36} className={styles.avatarImg} unoptimized />
+        <SpeakerAvatar agent={agent} size={44} />
       </div>
       <div className={styles.activityContent}>
-        <div className={styles.activitySpeaker}>
-          <span>{who.name}</span>
-          {who.role ? <span className={styles.activitySpeakerRole}>{who.role}</span> : null}
+        <div className={styles.msgHeaderText}>
+          <div className={styles.activitySpeaker}>{who.name}</div>
         </div>
         <div className={styles.thinkingDots} aria-label="Writing">
           <span />
@@ -1150,6 +1247,9 @@ function ActivitySection({
 }) {
   const visibleItems = items.filter((item) => item.thinking === true || visibleIds.has(item.id))
   if (visibleItems.length === 0) return null
+  void catchupActive
+
+  let lastCycleKey = ''
 
   return (
     <div className={styles.activitySection}>
@@ -1157,32 +1257,50 @@ function ActivitySection({
       <div className={styles.activityList}>
         {visibleItems.map((item) => {
           const settled = item.thinking === true || isSettled(item.id)
-          // Plan pills ride the open step card when one exists; else the latest bubble.
-          // Do not wait on typewriter settle — that was dropping Real time mid-reveal.
+          const cycle = typeof item.cycleNumber === 'number' && item.cycleNumber > 0 ? item.cycleNumber : 0
+          const cycleKey = cycle > 0 ? `c${cycle}` : `d${formatDividerDay(item.createdAt)}`
+          const showDivider = cycleKey !== lastCycleKey
+          lastCycleKey = cycleKey
           const planHostId = latestAwaitingId || latestActivityId
           const isPlanHost = Boolean(planHostId) && item.id === planHostId && item.thinking !== true
           return (
-            <ActivityItemCard
-              key={item.id}
-              item={item}
-              showRoutingActions={!lockDeskActions && item.id === latestAwaitingId && settled}
-              onRoutingAsk={onRoutingAsk}
-              onAcceptProposal={onAcceptProposal}
-              onDiscardProposal={onDiscardProposal}
-              lockDeskActions={lockDeskActions}
-              animateEntrance={item.id === typingId}
-              entranceSettled={settled}
-              onEntranceComplete={onEntranceComplete}
-              showNext24h={!lockDeskActions && isPlanHost}
-              showNext72h={!lockDeskActions && isPlanHost}
-              showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
-              planBusy={planBusy}
-              catchupActive={catchupActive}
-              onNext24h={onNext24h}
-              onNext72h={onNext72h}
-              onRealtime={onRealtime}
-              liveSellMznPerZar={liveSellMznPerZar}
-            />
+            <div key={item.id}>
+              {showDivider ? (
+                <div className={styles.dayDivider}>
+                  <div className={styles.dayDividerLine} />
+                  <span className={styles.dayDividerLabel}>
+                    {dayDividerLabel({
+                      planMode,
+                      planChip: item.deskPlanChip || (planMode === 'planned' ? '24h plan' : null),
+                      cycleNumber: cycle || 1,
+                      dayMs: item.createdAt,
+                    })}
+                  </span>
+                  <div className={styles.dayDividerLine} />
+                </div>
+              ) : null}
+              <ActivityItemCard
+                item={item}
+                showRoutingActions={!lockDeskActions && item.id === latestAwaitingId && settled}
+                onRoutingAsk={onRoutingAsk}
+                onAcceptProposal={onAcceptProposal}
+                onDiscardProposal={onDiscardProposal}
+                lockDeskActions={lockDeskActions}
+                animateEntrance={item.id === typingId}
+                entranceSettled={settled}
+                onEntranceComplete={onEntranceComplete}
+                planBusy={planBusy}
+                catchupActive={catchupActive}
+                planMode={planMode}
+                showNext24h={!lockDeskActions && isPlanHost}
+                showNext72h={!lockDeskActions && isPlanHost}
+                showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
+                onNext24h={onNext24h}
+                onNext72h={onNext72h}
+                onRealtime={onRealtime}
+                liveSellMznPerZar={liveSellMznPerZar}
+              />
+            </div>
           )
         })}
       </div>
@@ -1311,10 +1429,10 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const planBusy = useDeskPlanStore((s) => s.busy)
   const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
   const setPlanBusy = useDeskPlanStore((s) => s.setBusy)
-  const nextRevealSpeaker = useMemo(() => {
+  const nextRevealSpeaker = useMemo((): DeskAgent | null => {
     if (!reveal.showDots) return null
     const pending = pagedItems.find((item) => !reveal.visibleIds.has(item.id) && item.thinking !== true)
-    return pending ? DESK_TEAM[deskAgentFor(pending)] : DESK_TEAM.sam
+    return pending ? deskAgentFor(pending) : 'sam'
   }, [pagedItems, reveal.showDots, reveal.visibleIds])
 
   const applyFocusFromItem = useCallback(

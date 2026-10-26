@@ -1,5 +1,5 @@
 .wrap {
-  --rm-bg-card: #fffffe;
+  --rm-bg-card: #ffffff;
   --rm-bg-subtle: #f2efe6;
   --rm-border: #e2ded3;
   --rm-ink: #18181b;
@@ -7,7 +7,7 @@
   --rm-muted: #5e5e66;
   --rm-mint: #9bdbc1;
   --rm-yellow: #ffd36b;
-  --rm-pending: #fffdf4;
+  --rm-pending: #ffffff;
   margin-top: 10px;
   font-family: var(--font-dm-sans), 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--rm-ink);
@@ -50,7 +50,7 @@
 }
 
 .hero {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.4px;
   font-variant-numeric: tabular-nums;
@@ -67,6 +67,11 @@
 
 .segCard {
   background: var(--rm-yellow);
+  min-width: 2px;
+}
+
+.segCardSettled {
+  background: var(--rm-mint);
   min-width: 2px;
 }
 
@@ -103,8 +108,55 @@
   background: var(--rm-yellow);
 }
 
+.swatchCardSettled {
+  background: var(--rm-mint);
+}
+
 .swatchEft {
   background: var(--rm-border);
+}
+
+.chipSettled {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px 3px 6px;
+  border-radius: 999px;
+  background: var(--rm-mint);
+  color: var(--rm-ink);
+  pointer-events: none;
+  user-select: none;
+}
+
+.settlementRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rm-border);
+  color: var(--rm-ink-2);
+}
+
+.settlementRow:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.settlementVal {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--rm-ink);
+}
+
+.settlementTotal {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--rm-ink);
+  font-variant-numeric: tabular-nums;
+  padding-top: 10px;
 }
 
 .legendLabel {

@@ -36,6 +36,19 @@
 }
 
 .deskContent {
+  --desk-bg-page: #ffffff;
+  --desk-bg-card: #ffffff;
+  --desk-bg-subtle: #f2efe6;
+  --desk-border: #e2ded3;
+  --desk-row-rule: #ece8dd;
+  --desk-ink: #18181b;
+  --desk-ink-2: #3a3a40;
+  --desk-muted: #5e5e66;
+  --desk-mint: #9bdbc1;
+  --desk-yellow: #ffd36b;
+  --desk-pink: #f4a6c4;
+  --desk-pending-fill: #ffffff;
+  --desk-font: var(--font-dm-sans), 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -44,7 +57,9 @@
   overflow: hidden;
   overscroll-behavior: none;
   padding: 0;
-  background: #fff;
+  background: var(--desk-bg-page);
+  font-family: var(--desk-font);
+  color: var(--desk-ink);
 }
 
 .deskContent::after {
@@ -61,17 +76,14 @@
   left: 0;
   right: 0;
   z-index: 3;
-  padding: 52px 0 118px;
+  height: 172px;
+  padding: 16px 0 48px;
   pointer-events: none;
   border-radius: 32px 32px 0 0;
-  /* Solid behind the faces and the name, then a long fade so the thread
-     dissolves under the header instead of ending on a hard edge. */
   background: linear-gradient(
-    to bottom,
-    #ffffff 0%,
-    #ffffff 58%,
-    rgba(255, 255, 255, 0.72) 76%,
-    rgba(255, 255, 255, 0.28) 90%,
+    180deg,
+    var(--desk-bg-page) 0%,
+    var(--desk-bg-page) 72%,
     rgba(255, 255, 255, 0) 100%
   );
 }
@@ -82,29 +94,65 @@
 }
 
 .deskHeader {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 4px;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
 }
 
 .deskTeamStack {
   position: relative;
-  width: 92px;
-  height: 62px;
+  width: 124px;
+  height: 56px;
+  margin: 0 auto;
 }
 
 .deskHeaderName {
-  margin: 8px 0 0;
-  font: 600 16px/20px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: #111;
+  margin: 0;
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--desk-ink, #18181b);
   text-align: center;
 }
 
 .deskHeaderRole {
-  margin: 2px 0 0;
-  font: 400 12px/16px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: rgba(0, 0, 0, 0.48);
+  margin: 0;
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--desk-muted, #5e5e66);
   text-align: center;
+}
+
+.deskHeaderClose {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--desk-border, #e2ded3);
+  background: var(--desk-bg-card, #fffffe);
+  color: var(--desk-ink, #18181b);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .deskHeaderStatus {
@@ -167,73 +215,57 @@
   position: absolute;
   border-radius: 50%;
   overflow: hidden;
-  background: #f2f2f7;
-  box-shadow: 0 0 0 2px #fff;
+  background: var(--desk-bg-card, #fffffe);
+  transition:
+    left 200ms ease,
+    top 200ms ease,
+    width 200ms ease,
+    height 200ms ease,
+    box-shadow 200ms ease,
+    opacity 200ms ease;
+  will-change: left, top, width, height;
 }
 
 .deskStackFace img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: opacity 180ms ease;
+  display: block;
 }
 
-.deskFacePending {
-  opacity: 0;
-}
-
+.deskFacePending,
 .deskFaceReady {
   opacity: 1;
 }
 
-/* Ring slots. Faces move along the ring when the speaker changes; the
-   speaker's slot is the large one on top. Every geometric property is
-   transitioned so the swap reads as a rotation, not a jump. */
-.deskStackFace {
-  transition:
-    left 480ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    top 480ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    width 480ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    height 480ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    transform 480ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    box-shadow 480ms ease,
-    opacity 480ms ease;
-  will-change: left, top, width, height, transform;
-}
-
+/* Front = current speaker (56px). Back avatars 40px at left 4 / 80. */
 .deskSlotTop {
-  left: 50%;
+  left: 34px;
   top: 0;
-  width: 48px;
-  height: 48px;
-  transform: translateX(-50%);
+  width: 56px;
+  height: 56px;
   z-index: 3;
+  box-shadow: 0 0 0 3px var(--desk-bg-page, #ffffff);
 }
 
 .deskSlotLeft {
-  left: 0;
-  top: 20px;
+  left: 4px;
+  top: 10px;
   width: 40px;
   height: 40px;
-  transform: translateX(0);
   z-index: 1;
-  opacity: 0.92;
 }
 
 .deskSlotRight {
-  left: 100%;
-  top: 20px;
+  left: 80px;
+  top: 10px;
   width: 40px;
   height: 40px;
-  transform: translateX(-100%);
   z-index: 1;
-  opacity: 0.92;
 }
 
 .deskFaceSpeaking {
-  box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 4px rgba(17, 17, 17, 0.12);
+  box-shadow: 0 0 0 3px var(--desk-bg-page, #ffffff);
 }
 
 @keyframes deskHeaderSwapIn {
@@ -276,8 +308,9 @@
   right: 0;
   bottom: 0;
   z-index: 1;
-  padding-top: 228px;
-  padding-bottom: 104px;
+  padding: 140px 16px 104px;
+  box-sizing: border-box;
+  background: var(--desk-bg-page, #ffffff);
 }
 
 .activityContent::after {
@@ -291,7 +324,7 @@
   pointer-events: none;
   background: linear-gradient(
     to top,
-    #ffffff 0%,
+    var(--desk-bg-page, #ffffff) 0%,
     rgba(255, 255, 255, 0.82) 28%,
     rgba(255, 255, 255, 0.28) 62%,
     rgba(255, 255, 255, 0) 100%

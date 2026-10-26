@@ -188,20 +188,20 @@ describe('20-cycle compounding', () => {
     const row = replenish!.cardAssignments[0]
     assert.match(row.posReason || '', /→/)
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state)
-    assert.match(copy.body, /^Swipe .+ tickets back into the SA float at bank COST\./)
+    assert.match(copy.body, /ticket swiped back into the SA float at cost\./)
+    assert.doesNotMatch(copy.body, /bank COST|@COST/)
     assert.doesNotMatch(copy.body, /Window capital/)
-    assert.match(copy.body, /^- Swipe \S+ \(.+\) on .+ for R/m)
     assert.match(copy.body, /Next: sell ZAR on /)
     assert.doesNotMatch(copy.body, /Friction:|times in 7 days|declined/)
     assert.doesNotMatch(copy.body, /each Moz debit card/)
     assert.doesNotMatch(copy.body, /By COB|tickets:/)
-    assert.match(copy.body, /\nStatus: Awaiting execution$/)
+    assert.match(copy.body, /Status: Awaiting execution/)
     const notice = buildReplenishNotificationCopy(replenish!)
     assert.match(notice.body, /^-? ?Swipe \S+ \(/m)
     assert.doesNotMatch(notice.body, /each Moz/)
   })
 
-  it('keeps the named-pair restock list with no friction narrative', () => {
+  it('keeps Step 5 desk sentence free of bank COST / friction narrative', () => {
     const state = createInitialState(DEFAULT_TEST_CONFIG, 100_000)
     const sale = planCycle(state)
     state.bufferUsed = sale.deployedAmount
@@ -209,14 +209,14 @@ describe('20-cycle compounding', () => {
     assert.ok(replenish)
     assert.ok((replenish!.cardAssignments.length || 0) > 1)
     const copy = buildReplenishActivityCopy(replenish!, 20, 'awaiting_execution', state)
-    assert.equal(copy.body.match(/^- Swipe .+ on .+ for R/gm)?.length, replenish!.cardAssignments.length)
-    assert.match(copy.body, /at bank COST\./)
-    assert.match(copy.body, /^Total R19,354\.18 · [\d,.]+ MZN out\.$/m)
+    assert.match(copy.body, /ticket swiped back into the SA float at cost\./)
+    assert.doesNotMatch(copy.body, /bank COST|@COST/)
     assert.match(copy.body, /Next: sell ZAR on /)
     assert.doesNotMatch(copy.body, /each Moz debit card/)
     assert.doesNotMatch(copy.body, /Friction:|declined this week|times in 7 days|last 30 days typical/)
     const completed = buildReplenishActivityCopy(replenish!, 20, 'completed', state)
-    assert.equal(completed.body.replace('Status: Executed', 'Status: Awaiting execution'), copy.body)
+    assert.match(completed.body, /Status: Executed/)
+    assert.match(completed.body, /at cost\./)
   })
 })
 
