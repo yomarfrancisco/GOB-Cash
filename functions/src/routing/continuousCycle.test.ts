@@ -29,5 +29,7 @@ describe('continuousCycle', () => {
     assert.equal(stepForPhase('awaiting_mzn'), 3)
     assert.equal(stepForPhase('awaiting_send'), 4)
     assert.equal(stepForPhase('awaiting_recycle'), 5)
+    assert.equal(stepForPhase('awaiting_day_close'), 6)
+    assert.equal(stepTitle(6), 'Step 6 · What happened')
   })
 })

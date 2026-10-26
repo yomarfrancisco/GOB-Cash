@@ -7,7 +7,7 @@
  * Step 3 · MZN       — full MZN cover clears the gate
  * Step 4 · Send      — Leo sends ZAR (or Continue if float is short)
  * Step 5 · Recycle   — Amina restocks MZN→ZAR @ COST
- * Step 6 · Next day  — book advances; Step 1 opens on Day n+1
+ * Step 6 · What happened — day recap; Continue → Step 1 on Day n+1
  */
 
 export type CyclePhase =
@@ -17,6 +17,7 @@ export type CyclePhase =
   | 'awaiting_continue' // Step 4 short ZAR
   | 'awaiting_send' // Step 4 ready
   | 'awaiting_recycle' // Step 5
+  | 'awaiting_day_close' // Step 6 — What happened recap
   | 'hold'
   | 'window_done'
 
@@ -31,7 +32,7 @@ export const DESK_STEP: Record<
   3: { n: 3, short: 'MZN', title: 'Step 3 · MZN' },
   4: { n: 4, short: 'Send', title: 'Step 4 · Send' },
   5: { n: 5, short: 'Recycle', title: 'Step 5 · Recycle' },
-  6: { n: 6, short: 'Next day', title: 'Step 6 · Next day' },
+  6: { n: 6, short: 'What happened', title: 'Step 6 · What happened' },
 }
 
 export function stepTitle(step: DeskStepNumber, detail?: string): string {
@@ -60,6 +61,8 @@ export function stepForPhase(phase: string | undefined | null): DeskStepNumber |
       return 4
     case 'awaiting_recycle':
       return 5
+    case 'awaiting_day_close':
+      return 6
     default:
       return null
   }

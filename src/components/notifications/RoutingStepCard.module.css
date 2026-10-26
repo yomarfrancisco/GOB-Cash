@@ -1,0 +1,277 @@
+.wrap {
+  --rm-bg-card: #fffffe;
+  --rm-bg-subtle: #f2efe6;
+  --rm-border: #e2ded3;
+  --rm-ink: #18181b;
+  --rm-ink-2: #3a3a40;
+  --rm-muted: #5e5e66;
+  --rm-mint: #9bdbc1;
+  --rm-yellow: #ffd36b;
+  --rm-pending: #fffdf4;
+  margin-top: 10px;
+  font-family: var(--font-dm-sans), 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--rm-ink);
+  max-width: 600px;
+}
+
+.summary {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--rm-ink-2);
+}
+
+.summaryTotal {
+  font-weight: 700;
+  color: var(--rm-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.planCard {
+  background: var(--rm-bg-card);
+  border: 1px solid var(--rm-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.totalBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--rm-muted);
+}
+
+.hero {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.splitBar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  border: 1px solid var(--rm-ink);
+  overflow: hidden;
+}
+
+.segCard {
+  background: var(--rm-yellow);
+  min-width: 2px;
+}
+
+.segEft {
+  background: var(--rm-border);
+  min-width: 2px;
+  border-left: 1px solid var(--rm-ink);
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--rm-ink-2);
+}
+
+.swatchCard,
+.swatchEft {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid var(--rm-ink);
+  flex-shrink: 0;
+}
+
+.swatchCard {
+  background: var(--rm-yellow);
+}
+
+.swatchEft {
+  background: var(--rm-border);
+}
+
+.legendLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+.legendAmount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--rm-ink);
+}
+
+.divider {
+  height: 1px;
+  background: var(--rm-border);
+  margin: 16px 0;
+}
+
+.railHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.railLabel {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.chipToday {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--rm-yellow);
+  color: var(--rm-ink);
+}
+
+.chipOutline {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--rm-ink);
+  background: transparent;
+  color: var(--rm-ink);
+}
+
+.railTotal {
+  margin-left: auto;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.railSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stepRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.statusIcon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.statusDoneFill {
+  fill: var(--rm-mint);
+  stroke: var(--rm-ink);
+  stroke-width: 1.5;
+}
+
+.statusCheck {
+  stroke: var(--rm-ink);
+}
+
+.statusPending {
+  fill: var(--rm-pending);
+  stroke: var(--rm-ink);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2.5;
+}
+
+.stepText {
+  flex: 1;
+  min-width: 0;
+}
+
+.stepTitle {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.stepSub {
+  font-size: 13px;
+  color: var(--rm-muted);
+  line-height: 1.3;
+  margin-top: 1px;
+}
+
+.stepRight {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.stepAmount {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.clientBox {
+  margin-top: 16px;
+  background: var(--rm-bg-subtle);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.clientRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.clientTotal {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.clientSub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--rm-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.nextFooter {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--rm-ink);
+  border-radius: 12px;
+  font-size: 14px;
+  color: var(--rm-ink-2);
+}
+
+.clock {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--rm-ink);
+}

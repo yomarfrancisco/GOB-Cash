@@ -3,6 +3,7 @@ import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import type { ActivityItem } from '@/store/activity'
 import { conversionAvatar, TASK_AVATARS } from './taskAvatars'
 import { DESK_TEAM, deskAgentFor } from '@/lib/desk/threadModel'
+import { parseRoutingStepMessage } from '@/lib/desk/routingStepMessage'
 
 export type ActivityEventDoc = {
   id?: string
@@ -59,6 +60,7 @@ export type ActivityEventDoc = {
     unit?: string
     series?: unknown
   }
+  routingStepMessage?: unknown
   earliestAttemptAt?: string
   ticketPath?: { tickets?: Array<{ timeLabel?: string | null }> | null } | null
   operatingPolicyVersion?: string
@@ -292,6 +294,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
     startNextRun: data.startNextRun === true,
     deskTable: asDeskTable(data.deskTable),
     deskChart: asDeskChart(data.deskChart),
+    routingStepMessage: parseRoutingStepMessage(data.routingStepMessage) || undefined,
     ticketSplits: asTicketSplits(data.ticketSplits),
     earliestAttemptAt:
       typeof data.earliestAttemptAt === 'string' && data.earliestAttemptAt.trim()

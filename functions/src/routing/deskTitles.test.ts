@@ -17,7 +17,7 @@ describe('deskTitles', () => {
     assert.equal(stepCardTitle(4, 'Add ZAR'), 'Step 4 · Send · Add ZAR')
     assert.equal(stepCardTitle(4, 'Waiting'), 'Step 4 · Send · Waiting')
     assert.equal(stepCardTitle(5), 'Step 5 · Recycle')
-    assert.equal(stepCardTitle(6), 'Step 6 · Next day')
+    assert.equal(stepCardTitle(6), 'Step 6 · What happened')
   })
 
   it('prefixes Lane B without double-prefixing', () => {

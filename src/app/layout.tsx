@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { DM_Sans, Inter } from 'next/font/google'
 import './globals.css'
 import IosKeyboardShim from '@/components/IosKeyboardShim'
 import TopNotifications from '@/components/notifications/TopNotifications'
@@ -34,6 +34,11 @@ import ProfilePreviewSheetWrapper from '@/components/ProfilePreviewSheetWrapper'
 import FirebaseAuthListener from '@/components/FirebaseAuthListener'
 
 const inter = Inter({ subsets: ['latin'] })
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-dm-sans',
+})
 
 export const metadata: Metadata = {
   title: 'GoBankless — Global Money Movement in Cash & Stablecoins',
@@ -114,7 +119,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${dmSans.variable}`}>
         <script
           dangerouslySetInnerHTML={{
             __html: `

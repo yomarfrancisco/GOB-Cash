@@ -452,11 +452,20 @@ function ActivityItemCard({
     item.routingAction === 'replenish' || /^Step\s*5\b/i.test(title) || /^Restock ZAR\b/i.test(item.title || '')
   const isSendCard =
     item.routingAction === 'deploy' || /^Step\s*4\b/i.test(title) || /^Sell ZAR\b/i.test(item.title || '')
-  const body = isRecycleCard
-    ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
-    : isSendCard
-      ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
-      : displayDeskBody(item.body)
+  // Structured step card owns the copy — skip the prose body to avoid duplicating the summary.
+  const body = item.routingStepMessage
+    ? ''
+    : isRecycleCard
+      ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
+      : isSendCard
+        ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
+        : displayDeskBody(item.body)
+  const showStepContinue =
+    !lockDeskActions &&
+    actionsUnlocked &&
+    isSequentialStepCard(item) &&
+    isAwaitingRoutingItem(item) &&
+    /^Step\s*6\b/i.test(title)
   const [titleDone, setTitleDone] = useState(!typing || !title)
   useEffect(() => {
     setTitleDone(!typing || !title)
@@ -795,7 +804,13 @@ function ActivityItemCard({
             ) : typing && !body && titleDone ? (
               <TypewriterCompleteSignal onComplete={handleBodyTyped} />
             ) : null}
-            {actionsUnlocked ? <DeskCardVisuals item={item} /> : null}
+            {item.routingStepMessage
+              ? titleDone
+                ? <DeskCardVisuals item={item} />
+                : null
+              : actionsUnlocked
+                ? <DeskCardVisuals item={item} />
+                : null}
             {!askCard && item.userReply && actionsUnlocked ? (
               <div className={styles.activityUserReply}>
                 <div className={styles.activityUserReplyLabel}>
@@ -815,6 +830,7 @@ function ActivityItemCard({
           showSendKeypad ||
           showRestockKeypad ||
           showFundMznKeypad ||
+          showStepContinue ||
           showStartNextRun ||
           showDownload ||
           showProposalActions ||
@@ -849,6 +865,36 @@ function ActivityItemCard({
                 onClick={handleFundMznKeypad}
               >
                 Fund MZN
+              </button>
+            )}
+            {showStepContinue && (
+              <button
+                type="button"
+                className={[
+                  styles.confirmButton,
+                  confirmState === 'loading' ? styles.confirmButtonLoading : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Continue to the next day"
+                aria-busy={confirmState !== 'idle'}
+                disabled={confirmState !== 'idle' || planBusy === true}
+                onClick={async (event) => {
+                  event.stopPropagation()
+                  if (confirmState !== 'idle') return
+                  setConfirmState('loading')
+                  try {
+                    await onRoutingAsk(item, 'continue')
+                    setConfirmState('pressed')
+                    await new Promise((resolve) => setTimeout(resolve, 420))
+                  } catch (error) {
+                    console.error('[Activity] Step 6 Continue failed:', error)
+                  } finally {
+                    setConfirmState('idle')
+                  }
+                }}
+              >
+                Continue
               </button>
             )}
             {showSendKeypad && (

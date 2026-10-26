@@ -71,6 +71,8 @@ export type ActivityItem = {
     unit: 'ZAR' | 'MZN'
     series: Array<{ label: string; points: Array<{ label: string; value: number }> }>
   }
+  /** Routing Manager Step 1 / Step 6 structured plan card. */
+  routingStepMessage?: import('@/lib/desk/routingStepMessage').RoutingStepMessage
   /** Binding Confirm earliest time (ISO). */
   earliestAttemptAt?: string
   /** Scheduled swipe clocks for Step 5 (kept after Planned / Confirm). */

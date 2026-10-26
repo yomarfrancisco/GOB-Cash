@@ -194,6 +194,7 @@ import {
 } from '../operatingCalendar'
 import { expectedMznForOrder, stepForPhase, type CyclePhase } from '../routing/continuousCycle'
 import { askCardTitle, sideCardTitle, stepCardTitle, windowCardTitle } from '../routing/deskTitles'
+import { buildOrderStepMessage } from '../routing/routingStepMessage'
 
 const inboundSecret = defineSecret('RESEND_INBOUND_SECRET')
 const db = admin.firestore()
@@ -1374,6 +1375,7 @@ function dayTicketIds(testRunId: string, cycleNumber: number, revision: number) 
     invoicePack: `invoice-pack-${testRunId}-c${cycleNumber}${tag}`,
     invoicePrompt: `step-invoice-${testRunId}-c${cycleNumber}${tag}`,
     mzn: `step-mzn-${testRunId}-c${cycleNumber}${tag}`,
+    whatHappened: `sam-what-happened-${testRunId}-c${cycleNumber}${tag}`,
   }
 }
 
@@ -1529,6 +1531,36 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
       body: 'Step 4 is already open — Continue / I’ve sent ZAR on Leo’s card.',
       advanced: false,
       deskStep: 4,
+    }
+  }
+
+  // Step 6 · What happened → open Day n+1 Order
+  if (phase === 'awaiting_day_close' || deskStep === 6) {
+    const ticketsClose = dayTicketIds(testRunId, cycleNumber, dayTicketRevision(data))
+    await completeStepCard(adminUid, ticketsClose.whatHappened, now)
+    const state = stateFromDoc(data)
+    try {
+      const issued = await issueCycle(adminUid, testRunId, state, now)
+      if (issued.kind === 'deploy') {
+        await bumpPlannedClockIfNeeded(testRef, adminUid, testRunId, cycleNumber)
+      }
+      return {
+        title: stepCardTitle(1),
+        body:
+          issued.kind === 'deploy'
+            ? `Step 6 done. Day ${issued.plan.cycleNumber} · Order is on the desk.`
+            : `Step 6 done. Restock is open for Day ${issued.plan.cycleNumber}.`,
+        advanced: true,
+        deskStep: issued.kind === 'deploy' ? 1 : 5,
+      }
+    } catch (error) {
+      console.error('[advanceSequential] Step 6 → next day failed', error)
+      return {
+        title: stepCardTitle(6),
+        body: 'Day recap is still open — could not open the next day yet.',
+        advanced: false,
+        deskStep: 6,
+      }
     }
   }
 
@@ -2453,7 +2485,6 @@ async function publishSamDayBrief(input: {
   // Recycle is Step 5 on Amina's restock card — never post a fake Step 1 for it.
   if (input.kind === 'replenish') return
 
-  const residual = residualToTarget(input.state)
   const schedule = scheduleTicketPath({
     assignments: input.plan.cardAssignments.length
       ? input.plan.cardAssignments
@@ -2476,23 +2507,30 @@ async function publishSamDayBrief(input: {
   }
 
   const hold = !(input.plan.deployedAmount > 0)
-  const eftZar = num(input.plan.openEftZar, 0)
-  const mix = input.plan.channelMix || (eftZar > 0 && (input.plan.deployedAmount || 0) > 0 ? 'mixed' : eftZar > 0 ? 'eft' : 'card')
-  const channelChip = mix === 'mixed' ? 'Mixed' : mix === 'eft' ? 'EFT' : 'Card'
-  const body = [
-    `Day ${input.plan.cycleNumber} · card ${formatZar(input.plan.deployedAmount || 0)} · EFT ${formatZar(eftZar)}.`,
-    `Scheduled ZAR order: ${formatZar(input.plan.deployedAmount || 0)}.`,
-    eftZar > 0 ? `EFT recycle pending: ${formatZar(eftZar)} (${input.plan.eftTicketCount || 0} ticket${(input.plan.eftTicketCount || 0) === 1 ? '' : 's'}).` : '',
-    `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} EN ROUTE still open.`,
-    hold
-      ? eftZar > 0
-        ? 'Card hold — EFT lane still cycles. Residual stays open for the next operating day.'
-        : `Hold day — no new ticket. Residual stays open for the next operating day.`
-      : 'Next 24h / 72h walk card + EFT. Next 24h opens Step 2 · Invoice.',
-  ]
-    .filter(Boolean)
-    .join('\n')
-  const title = `${stepCardTitle(1)} · ${channelChip}`
+  const testSnap = await db.collection(TESTS).doc(input.testRunId).get()
+  const testData = testSnap.data() || {}
+  const eftBook = eftBookFromDoc(testData)
+  const sellRate = num(testData.orderSellRate, 0) || undefined
+  const mznInventory = await mznWalletBalance(input.adminUid).catch(() => undefined)
+  const routingStepMessage = buildOrderStepMessage({
+    cycleNumber: input.plan.cycleNumber,
+    sentAt: formatVisibleSast(input.now.toMillis()),
+    cardAssignments: input.plan.cardAssignments || [],
+    eftTickets: eftBook?.tickets,
+    sellRate,
+    mznInventory,
+    cardLaneComplete: false,
+    invoicesRaised: false,
+    next: hold
+      ? { stepNumber: 1, stepName: 'Order', opensIn: 'next day' }
+      : { stepNumber: 2, stepName: 'Invoice', opensIn: '24h' },
+  })
+  const eftZar = num(input.plan.openEftZar, routingStepMessage.rails.find((r) => r.kind === 'eft')?.total || 0)
+  const mix =
+    input.plan.channelMix ||
+    (eftZar > 0 && (input.plan.deployedAmount || 0) > 0 ? 'mixed' : eftZar > 0 ? 'eft' : 'card')
+  const body = routingStepMessage.summary
+  const title = stepCardTitle(1)
   // Upsert so a stale recycle-mislabeled brief (no Continue) is repaired on Day n open.
   await ref.set(
     {
@@ -2501,11 +2539,11 @@ async function publishSamDayBrief(input: {
       title,
       body,
       dropdownTitle: title,
-      dropdownBody: body.split('\n')[0],
+      dropdownBody: body,
       actorType: 'ai_manager',
       avatarKind: 'convert_zar',
       amountCurrency: 'ZAR',
-      amountValue: input.plan.deployedAmount || 0,
+      amountValue: routingStepMessage.clientTotal || input.plan.deployedAmount || 0,
       amountSign: 'debit',
       txId: id,
       hasDownloadButton: false,
@@ -2515,8 +2553,8 @@ async function publishSamDayBrief(input: {
       routingAction: hold ? 'advice' : 'step',
       deskSpeaker: 'sam',
       deskChannel: mix,
-      channelChip,
       openEftZar: eftZar,
+      routingStepMessage,
       cyclePhase: hold ? 'hold' : 'order_open',
       deskStep: 1,
       dayTicketRevision: rev,
@@ -2526,6 +2564,94 @@ async function publishSamDayBrief(input: {
       ticketPath: schedule,
       recordingSource: 'SYSTEM',
       createdAt: input.now,
+      updatedAt: input.now,
+    },
+    { merge: true }
+  )
+}
+
+/**
+ * Step 6 · What happened — same card as Order with card lane marked complete.
+ * Gates Day n+1 until Continue / Next 24h advances it.
+ */
+async function publishWhatHappened(input: {
+  adminUid: string
+  testRunId: string
+  cycleNumber: number
+  now: admin.firestore.Timestamp
+}): Promise<void> {
+  const testRef = db.collection(TESTS).doc(input.testRunId)
+  const testSnap = await testRef.get()
+  const testData = testSnap.data() || {}
+  const rev = dayTicketRevision(testData)
+  const id = dayTicketIds(input.testRunId, input.cycleNumber, rev).whatHappened
+  const cycleSnap = await testRef.collection('cycles').doc(String(input.cycleNumber)).get()
+  const cycleData = cycleSnap.data() || {}
+  const assignments = Array.isArray(cycleData.cardAssignments)
+    ? (cycleData.cardAssignments as Array<{ cardId: number; machineId: number; amount: number }>)
+    : []
+  const eftBook = eftBookFromDoc(testData)
+  const sellRate = num(cycleData.sellRate, num(testData.orderSellRate, 0)) || undefined
+  const mznInventory = await mznWalletBalance(input.adminUid).catch(() => undefined)
+  const routingStepMessage = buildOrderStepMessage({
+    cycleNumber: input.cycleNumber,
+    sentAt: formatVisibleSast(input.now.toMillis()),
+    cardAssignments: assignments,
+    eftTickets: eftBook?.tickets,
+    sellRate,
+    mznInventory,
+    cardLaneComplete: true,
+    invoicesRaised: true,
+    next: { stepNumber: 1, stepName: 'Order', opensIn: 'next day' },
+  })
+  const title = stepCardTitle(6)
+  const body = routingStepMessage.summary
+  const eftZar = openEftZar(eftBook)
+  await db
+    .collection('users')
+    .doc(input.adminUid)
+    .collection('activityEvents')
+    .doc(id)
+    .set(
+      {
+        id,
+        kind: CONVERSION_ROUTING_KIND,
+        title,
+        body,
+        dropdownTitle: title,
+        dropdownBody: body,
+        actorType: 'ai_manager',
+        avatarKind: 'convert_zar',
+        amountCurrency: 'ZAR',
+        amountValue: routingStepMessage.clientTotal,
+        amountSign: 'debit',
+        txId: id,
+        hasDownloadButton: false,
+        awaitingConfirm: true,
+        routingBlocked: false,
+        status: 'awaiting_execution',
+        routingAction: 'step',
+        deskSpeaker: 'sam',
+        deskChannel: eftZar > 0 ? 'mixed' : 'card',
+        openEftZar: eftZar,
+        routingStepMessage,
+        cyclePhase: 'awaiting_day_close',
+        deskStep: 6,
+        dayTicketRevision: rev,
+        testRunId: input.testRunId,
+        cycleNumber: input.cycleNumber,
+        recordingSource: 'SYSTEM',
+        createdAt: input.now,
+        updatedAt: input.now,
+      },
+      { merge: true }
+    )
+  await testRef.set(
+    {
+      cyclePhase: 'awaiting_day_close',
+      deskStep: 6,
+      awaitingKind: 'step',
+      awaitingCycleNumber: input.cycleNumber,
       updatedAt: input.now,
     },
     { merge: true }
@@ -2578,10 +2704,12 @@ async function replayDayTicketsAfterScheduleAmendment(params: {
     oldIds.invoicePack,
     oldIds.invoicePrompt,
     oldIds.mzn,
+    oldIds.whatHappened,
     legacyIds.order,
     legacyIds.invoicePack,
     legacyIds.invoicePrompt,
     legacyIds.mzn,
+    legacyIds.whatHappened,
     eventId(testRunId, cycleNumber),
   ]) {
     await supersedeDayTicketCard(adminUid, id, now, reason)
@@ -3812,38 +3940,47 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
       }
     }
     let issuedKind: 'deploy' | 'replenish' | null = null
+    let dayClosePending = false
     if (result.issueNext && !result.testComplete) {
       try {
-        const issued = await issueCycle(
-          adminUid,
-          testRunId,
-          { ...result.nextState, config: { ...result.nextState.config, spread: liveSpread } },
-          now
-        )
-        nextCycle = issued.plan
-        issuedKind = issued.kind
+        // After recycle (or a day with no restock), gate Day n+1 behind Step 6 · What happened.
+        if (result.confirmedKind === 'replenish') {
+          await publishWhatHappened({
+            adminUid,
+            testRunId,
+            cycleNumber: result.cycleNumber,
+            now,
+          })
+          dayClosePending = true
+        } else {
+          const quoted = await applyLiveQuotes({
+            ...result.nextState,
+            config: { ...result.nextState.config, spread: liveSpread },
+          })
+          const book = pathBookFromDoc(
+            (await testRef.get()).data() || {},
+            quoted.quote
+          )
+          const peekReplenish = planReplenish(quoted.state, quoted.costRate, EMPTY_OVERLAY, book)
+          if (!peekReplenish) {
+            await publishWhatHappened({
+              adminUid,
+              testRunId,
+              cycleNumber: result.cycleNumber,
+              now,
+            })
+            dayClosePending = true
+          } else {
+            const issued = await issueCycle(adminUid, testRunId, quoted.state, now)
+            nextCycle = issued.plan
+            issuedKind = issued.kind
+          }
+        }
       } catch (error) {
         console.error('[confirm] next instruction failed after cycle completed', error)
       }
     }
 
-    // Planned header advances one calendar day only when the *next sale* opens
-    // (restock complete → new Order). Do not bump when Send opens same-day Restock —
-    // that was jumping Mon → Wed (+24h twice).
-    let plannedClockMs: number | null = null
-    if (
-      result.issueNext &&
-      nextCycle &&
-      issuedKind === 'deploy' &&
-      result.confirmedKind === 'replenish'
-    ) {
-      plannedClockMs = await bumpPlannedClockIfNeeded(
-        testRef,
-        adminUid,
-        testRunId,
-        result.cycleNumber
-      )
-    }
     const modeSnap = await testRef.get()
     const deskMode = modeSnap.data()?.deskMode === 'planned' ? 'planned' : 'live'
 
@@ -3851,13 +3988,15 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
       testRunId,
       status: result.testComplete ? 'completed' : 'active',
       confirmedCycle: result.cycleNumber,
-      cycleNumber: nextCycle?.cycleNumber ?? result.nextState.completedCycles,
+      cycleNumber: dayClosePending
+        ? result.cycleNumber
+        : nextCycle?.cycleNumber ?? result.nextState.completedCycles,
       nextDeployedAmount: nextCycle?.deployedAmount ?? null,
       completed: result.testComplete,
       deskMode,
-      ...(plannedClockMs ? { plannedClockMs } : {}),
+      ...(dayClosePending ? { awaitingDayClose: true } : {}),
     })
-}
+  }
 
 /**
  * Bank decline PDF → friction note + path decline so leftover can reroute
@@ -4545,7 +4684,7 @@ export const admin_submitConversionRoutingFeedback = functions
       const now = admin.firestore.Timestamp.now()
       const feedbackId = `restart-${now.toMillis()}`
       const body =
-        'Desk restarted at Day 0. Tap $ and sell ZAR to open Day 1. Then the book walks Steps 1–6 without a clock pause: Order → Invoice → MZN → Send → Recycle → Next day.'
+        'Desk restarted at Day 0. Tap $ and sell ZAR to open Day 1. Then the book walks Steps 1–6 without a clock pause: Order → Invoice → MZN → Send → Recycle → What happened.'
       await db.runTransaction(async (tx) => {
         publishAdviceCard(tx, {
           adminUid,
@@ -5184,6 +5323,8 @@ export const admin_submitConversionRoutingFeedback = functions
       if (
         phase === 'order_open' ||
         phase === 'awaiting_invoice' ||
+        phase === 'awaiting_day_close' ||
+        deskStepNow === 6 ||
         (phase === 'awaiting_mzn' && deskStepNow >= 1 && deskStepNow < 4)
       ) {
         const stepped = await advanceSequentialStep(adminUid)
@@ -5969,6 +6110,30 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     })
   }
 
+  // Pause on Step 6 · What happened so the day recap stays visible.
+  {
+    const closePhase = typeof start.cyclePhase === 'string' ? start.cyclePhase : ''
+    const closeStep = num(start.deskStep, 0)
+    if (closePhase === 'awaiting_day_close' || closeStep === 6) {
+      const state = stateFromDoc(start)
+      const eftZar = openEftZar(eftBookFromDoc(start))
+      return publicSummary(state, {
+        testRunId,
+        status: start.status || 'active',
+        cycleNumber: startCycle,
+        deskMode: 'planned',
+        plannedClockMs,
+        simulatedFromCycle: startCycle,
+        simulatedToCycle: startCycle,
+        simulatedSteps: [`day-close-open:${startCycle}`],
+        awaitingDayClose: true,
+        openEftZar: eftZar,
+        acknowledgement: `Day ${startCycle} recap is on the desk — Continue opens Day ${startCycle + 1}. EFT ${formatZar(eftZar)}.`,
+        completed: start.status === 'completed',
+      })
+    }
+  }
+
   const startEft = eftBookFromDoc(start)
   const startEftZar = openEftZar(startEft)
   // One notice bubble for the run — wall-clock createdAt so it sits in the log, not pinned by a future stamp.
@@ -6087,6 +6252,11 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       stopped = 'next_day'
       break
     }
+    if (phase === 'awaiting_day_close' || deskStep === 6) {
+      stopped = 'awaiting_day_close'
+      steps.push(`day-close-open:${cycleNumber}`)
+      break
+    }
     if (!(cycleNumber > 0)) {
       stopped = 'no_day'
       break
@@ -6190,12 +6360,17 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     if (bumped != null) outClock = bumped
   }
   const endEftZar = openEftZar(eftBookFromDoc(end))
+  const endClose =
+    String(end.cyclePhase || '') === 'awaiting_day_close' || num(end.deskStep, 0) === 6
   const keypadAck =
     endGate === 'send'
       ? `Day ${startCycle}: Send ZAR is open — keypad, then Next 24h can finish the day. EFT ${formatZar(endEftZar)} still pending.`
       : endGate === 'restock'
         ? `Day ${startCycle}: Restock is open — keypad, then Next 24h can open the next day. EFT ${formatZar(endEftZar)} still pending.`
         : null
+  const dayCloseAck = endClose
+    ? `Day ${startCycle} recap is on the desk — Continue opens the next day. EFT ${formatZar(endEftZar)}.`
+    : null
   return publicSummary(state, {
     testRunId,
     status: end.status || 'active',
@@ -6206,6 +6381,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     simulatedToCycle: endCycle,
     simulatedSteps: steps,
     awaitingKeypad: endGate,
+    awaitingDayClose: endClose || stopped === 'awaiting_day_close',
     openEftZar: endEftZar,
     channelMix: end.channelMix || (endEftZar > 0 ? 'mixed' : 'card'),
     keypadAmountZar:
@@ -6222,6 +6398,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
           : 0,
     acknowledgement:
       keypadAck ||
+      dayCloseAck ||
       (dayAdvanced
         ? `Planned Day ${startCycle} complete (card + EFT). Day ${endCycle} · EFT ${formatZar(endEftZar)}.`
         : stopped === 'window_closed'
@@ -6248,6 +6425,10 @@ export async function simulateNext72hDesk(adminUid: string): Promise<Record<stri
       allSteps.push(`horizon72-paused-keypad:${last.awaitingKeypad}`)
       break
     }
+    if (last.awaitingDayClose) {
+      allSteps.push('horizon72-paused-day-close')
+      break
+    }
     if (last.completed === true || last.status === 'completed') {
       allSteps.push('horizon72-window-closed')
       break
@@ -6265,7 +6446,9 @@ export async function simulateNext72hDesk(adminUid: string): Promise<Record<stri
     acknowledgement:
       last.awaitingKeypad
         ? `Next 72h paused for ${last.awaitingKeypad} keypad after walking ${allSteps.filter((s) => s.startsWith('horizon72-day')).length} day(s). EFT ${formatZar(eftZar)}.`
-        : `Next 72h Planned walk finished · EFT ${formatZar(eftZar)}. ${String(last.acknowledgement || '')}`,
+        : last.awaitingDayClose
+          ? `Next 72h paused on Day recap — Continue opens the next day. EFT ${formatZar(eftZar)}.`
+          : `Next 72h Planned walk finished · EFT ${formatZar(eftZar)}. ${String(last.acknowledgement || '')}`,
   }
 }
 
