@@ -7,8 +7,10 @@ import type { SettlementInvoice } from '../settlement/invoice'
 import {
   evidenceFromAuthorisation,
   evidenceFromBankDecline,
+  evidenceFromEftBankTransfer,
   evidenceFromZarAvailable,
 } from './emitters'
+import { defaultEftCorridorId } from '../routing/channelSplit'
 import { foldEvidence } from './fold'
 import { persistRouteEvidence } from './persist'
 import { ROUTE_BELIEFS_COLLECTION, ROUTE_EVIDENCE_COLLECTION } from './collections'
@@ -144,5 +146,41 @@ export async function recordDeclineFromBankReceipt(input: {
   const result = await persistRouteEvidence(payload)
   if (result.wrote) {
     await refreshBeliefSnapshots([mapped.identity.cardId || '', mapped.identity.cardIssuerBankId || ''])
+  }
+}
+
+/**
+ * FNB MZ bank_transfer / funding credit → EFT corridor zar_available (never card×POS).
+ * amountZar is the ZAR-equivalent of the transfer when known; else pass MZN/cost approx.
+ */
+export async function recordEftFromBankTransfer(input: {
+  evidenceId: string
+  amountZar: number
+  destinationNib?: string | null
+  bankReference?: string | null
+  eventAt?: string
+  economicPaymentId?: string | null
+}): Promise<void> {
+  if (!(input.amountZar > 0)) return
+  const eventAt = input.eventAt || new Date().toISOString()
+  const corridor = defaultEftCorridorId(
+    'fnb_mozambique',
+    input.destinationNib ? `nib_${input.destinationNib.slice(-6)}` : 'sa_corridor'
+  )
+  const row = evidenceFromEftBankTransfer({
+    eftCorridorId: corridor,
+    cardIssuerBankId: 'fnb_mozambique',
+    economicPaymentId:
+      input.economicPaymentId ||
+      (input.bankReference ? `eft-${input.bankReference}` : `eft-${input.evidenceId}`),
+    requestedZar: input.amountZar,
+    settledZar: input.amountZar,
+    eventAt,
+    evidenceRef: input.evidenceId,
+    notes: ['Funding/conversion EFT bank_transfer matched to corridor'],
+  })
+  const result = await persistRouteEvidence(row)
+  if (result.wrote) {
+    await refreshBeliefSnapshots([`eft:${corridor}`, 'fnb_mozambique'])
   }
 }

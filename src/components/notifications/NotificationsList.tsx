@@ -12,6 +12,7 @@ import {
   downloadSettlementInvoice,
   admin_submitConversionRoutingFeedback,
   admin_simulateNextDeskDay,
+  admin_simulateNext72hDesk,
   admin_exitDeskPlan,
 } from '@/lib/transactions/clientFunctions'
 import { isConversionInFlight } from '@/lib/transactions/submitInternalConversion'
@@ -374,10 +375,12 @@ function ActivityItemCard({
   entranceSettled,
   onEntranceComplete,
   showNext24h,
+  showNext72h,
   showRealtime,
   planBusy,
   catchupActive,
   onNext24h,
+  onNext72h,
   onRealtime,
   liveSellMznPerZar,
 }: {
@@ -391,10 +394,12 @@ function ActivityItemCard({
   entranceSettled?: boolean
   onEntranceComplete?: (id: string) => void
   showNext24h?: boolean
+  showNext72h?: boolean
   showRealtime?: boolean
   planBusy?: boolean
   catchupActive?: boolean
   onNext24h?: () => void
+  onNext72h?: () => void
   onRealtime?: () => void
   liveSellMznPerZar?: number | null
 }) {
@@ -816,6 +821,7 @@ function ActivityItemCard({
           showExecuted ||
           showKycLink ||
           showNext24h ||
+          showNext72h ||
           showRealtime) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
@@ -941,6 +947,23 @@ function ActivityItemCard({
                 Next 24h
               </button>
             )}
+            {showNext72h && (
+              <button
+                type="button"
+                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Simulate the next 72 hours on the desk (card + EFT through T+2)"
+                aria-busy={planBusy === true}
+                disabled={planBusy === true || confirmState !== 'idle'}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onNext72h?.()
+                }}
+              >
+                Next 72h
+              </button>
+            )}
             {showRealtime && (
               <button
                 type="button"
@@ -1055,6 +1078,7 @@ function ActivitySection({
   planBusy,
   catchupActive,
   onNext24h,
+  onNext72h,
   onRealtime,
   liveSellMznPerZar,
 }: {
@@ -1074,6 +1098,7 @@ function ActivitySection({
   planBusy: boolean
   catchupActive: boolean
   onNext24h: () => void
+  onNext72h: () => void
   onRealtime: () => void
   liveSellMznPerZar?: number | null
 }) {
@@ -1103,10 +1128,12 @@ function ActivitySection({
               entranceSettled={settled}
               onEntranceComplete={onEntranceComplete}
               showNext24h={!lockDeskActions && isPlanHost}
+              showNext72h={!lockDeskActions && isPlanHost}
               showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
               planBusy={planBusy}
               catchupActive={catchupActive}
               onNext24h={onNext24h}
+              onNext72h={onNext72h}
               onRealtime={onRealtime}
               liveSellMznPerZar={liveSellMznPerZar}
             />
@@ -1407,42 +1434,56 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     })
   }
 
+  const applySimSummaryAndKeypad = (summary: Awaited<ReturnType<typeof admin_simulateNextDeskDay>>) => {
+    applyPlanSummary(summary)
+    if (typeof summary.plannedClockMs === 'number' && summary.plannedClockMs > 0) {
+      setDeskFocus(summary.plannedClockMs, typeof summary.cycleNumber === 'number' ? summary.cycleNumber : null)
+    }
+    const gate = summary.awaitingKeypad
+    if (gate === 'send' || gate === 'restock') {
+      const amountZAR = Number(summary.keypadAmountZar || 0)
+      const amountMZN = Number(summary.keypadAmountMzn || 0)
+      if (gate === 'send' && amountZAR > 0) {
+        openDeskKeypad({
+          destination: 'MZN',
+          amountZAR,
+          amountMZN,
+          testRunId: summary.testRunId,
+          cycleNumber: summary.cycleNumber,
+          routingAction: 'deploy',
+        })
+      } else if (gate === 'restock' && amountMZN > 0) {
+        openDeskKeypad({
+          destination: 'ZAR',
+          amountZAR,
+          amountMZN,
+          testRunId: summary.testRunId,
+          cycleNumber: summary.cycleNumber,
+          routingAction: 'replenish',
+        })
+      }
+    }
+  }
+
   const handleNext24h = async () => {
     if (deskBlocked || planBusy) return
     setPlanBusy(true)
     try {
-      const summary = await admin_simulateNextDeskDay()
-      applyPlanSummary(summary)
-      if (typeof summary.plannedClockMs === 'number' && summary.plannedClockMs > 0) {
-        setDeskFocus(summary.plannedClockMs, typeof summary.cycleNumber === 'number' ? summary.cycleNumber : null)
-      }
-      // Landed on Send/Restock (or already there): pop the keypad so Next 24h is not a no-op.
-      const gate = summary.awaitingKeypad
-      if (gate === 'send' || gate === 'restock') {
-        const amountZAR = Number(summary.keypadAmountZar || 0)
-        const amountMZN = Number(summary.keypadAmountMzn || 0)
-        if (gate === 'send' && amountZAR > 0) {
-          openDeskKeypad({
-            destination: 'MZN',
-            amountZAR,
-            amountMZN,
-            testRunId: summary.testRunId,
-            cycleNumber: summary.cycleNumber,
-            routingAction: 'deploy',
-          })
-        } else if (gate === 'restock' && amountMZN > 0) {
-          openDeskKeypad({
-            destination: 'ZAR',
-            amountZAR,
-            amountMZN,
-            testRunId: summary.testRunId,
-            cycleNumber: summary.cycleNumber,
-            routingAction: 'replenish',
-          })
-        }
-      }
+      applySimSummaryAndKeypad(await admin_simulateNextDeskDay())
     } catch (error) {
       console.error('[Activity] Next 24h failed:', error)
+    } finally {
+      setPlanBusy(false)
+    }
+  }
+
+  const handleNext72h = async () => {
+    if (deskBlocked || planBusy) return
+    setPlanBusy(true)
+    try {
+      applySimSummaryAndKeypad(await admin_simulateNext72hDesk())
+    } catch (error) {
+      console.error('[Activity] Next 72h failed:', error)
     } finally {
       setPlanBusy(false)
     }
@@ -1477,6 +1518,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     planBusy,
     catchupActive: reveal.catchupActive,
     onNext24h: () => void handleNext24h(),
+    onNext72h: () => void handleNext72h(),
     onRealtime: () => void handleRealtime(),
     liveSellMznPerZar,
   }

@@ -1017,6 +1017,14 @@ export async function admin_simulateNextDeskDay(): Promise<ConversionRoutingSumm
   return result.data as ConversionRoutingSummary
 }
 
+/** Three Planned day walks (card + EFT through soft T+1 / hard T+2). */
+export async function admin_simulateNext72hDesk(): Promise<ConversionRoutingSummary> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'admin_simulateNext72hDesk')
+  const result = await fn({})
+  return result.data as ConversionRoutingSummary
+}
+
 /** Leave Planned mode and restore the live desk clock. */
 export async function admin_exitDeskPlan(): Promise<ConversionRoutingSummary> {
   const functions = getFunctionsInstance()

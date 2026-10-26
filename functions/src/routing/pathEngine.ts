@@ -34,6 +34,9 @@ export type PathResidual = {
   cardId: number | null
   machineId: number | null
   status: 'open' | 'settled' | 'rerouted' | 'expired'
+  /** Replacement rail — card POS vs Moz↔SA EFT. Defaults to card when omitted. */
+  channel?: 'card' | 'eft'
+  expectedSettledBy?: string
 }
 
 export type ExhaustionKind = 'freeze' | 'decline' | 'delay' | 'unpaid' | 'rail_up'
@@ -60,6 +63,21 @@ export type PathBook = {
   notes?: ExhaustionNote[]
   quote?: FrozenQuote
   lastShockLine?: string
+  /** Open EFT replacement tickets for the active window. */
+  eftBook?: {
+    tickets: Array<{
+      channel: 'card' | 'eft'
+      amountZar: number
+      expectedSettledBy: string
+      status: 'open' | 'submitted' | 'settled' | 'delayed' | 'failed'
+      economicPaymentId: string
+      instructedAt: string
+      notes?: string[]
+    }>
+    lastSplitSummary: string | null
+    updatedAt: string
+  }
+  channelSplitSummary?: string
 }
 
 export type PathWrite = {

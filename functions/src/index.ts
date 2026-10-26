@@ -73,6 +73,7 @@ export {
   admin_getConversionRoutingStatus,
   admin_submitConversionRoutingFeedback,
   admin_simulateNextDeskDay,
+  admin_simulateNext72hDesk,
   admin_exitDeskPlan,
 } from './tx/adminConversionRouting'
 

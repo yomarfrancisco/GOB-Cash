@@ -25,6 +25,8 @@ export function observationIdFor(input: NewRouteEvidenceInput): string {
     input.merchantPrincipalId || '',
     input.acquirerBankId || '',
     input.cardIssuerBankId || '',
+    input.channel || 'card',
+    input.eftCorridorId || '',
     input.linkedObservationId || '',
   ]
   return createHash('sha256').update(parts.map(stable).join('|')).digest('hex').slice(0, 32)
@@ -64,14 +66,18 @@ export function buildRouteEvidence(
           : input.provenance === 'bank_mail'
             ? 'verified_bank'
             : 'verified_match')
+  const channel = input.channel || 'card'
+  const eftCorridorId = channel === 'eft' ? input.eftCorridorId ?? null : input.eftCorridorId ?? null
   return {
     ...input,
+    channel,
+    eftCorridorId,
     issuerAcquirerPairId,
     trustClass,
     linkedObservationId: input.linkedObservationId ?? null,
     operatorUid: input.operatorUid ?? null,
     evidenceRef: input.evidenceRef ?? null,
-    observationId: observationIdFor({ ...input, issuerAcquirerPairId, trustClass }),
+    observationId: observationIdFor({ ...input, channel, eftCorridorId, issuerAcquirerPairId, trustClass }),
     schemaVersion: BELIEF_SCHEMA_VERSION,
     ingestedAt,
     latencyMs: latencyMs(input.eventAt, input.settledAt),

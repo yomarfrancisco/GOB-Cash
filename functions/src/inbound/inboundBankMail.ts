@@ -568,6 +568,23 @@ async function recordFnbMzTransfer(
   if (!written.exists || written.data()?.resendEmailId !== emailId) return
   safeLog.info('fnb_mz_recorded', { emailId, reason: event.kind })
   await publishFnbMzTransferNotice(docId, event)
+  // EFT corridor belief — never card×POS. Approximate ZAR as MZN/4.1 COST band.
+  try {
+    const { recordEftFromBankTransfer } = await import('../belief/recordProduction')
+    const amountZar = Math.round((event.amountMzn / 4.1) * 100) / 100
+    await recordEftFromBankTransfer({
+      evidenceId: docId,
+      amountZar,
+      destinationNib: event.destinationNib,
+      bankReference: event.bankReference,
+      eventAt: new Date().toISOString(),
+    })
+  } catch (error) {
+    safeLog.info('fnb_mz_eft_belief_skipped', {
+      emailId,
+      reason: error instanceof Error ? error.message : 'failed',
+    })
+  }
 }
 
 async function publishFnbMzTransferNotice(docId: string, event: FnbMzBankTransfer): Promise<void> {

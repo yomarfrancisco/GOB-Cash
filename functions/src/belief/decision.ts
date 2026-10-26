@@ -70,6 +70,7 @@ export function buildDecisionRecord(input: {
   policyVersion: string
   state: DecisionState
   action: PlannerAction
+  channelActions?: DecisionRecord['channelActions']
   constraintTrace?: string[]
   objectiveBreakdown?: Record<string, number>
   evidenceRefs?: string[]
@@ -79,8 +80,22 @@ export function buildDecisionRecord(input: {
 }): DecisionRecord {
   const createdAt = input.createdAt || new Date().toISOString()
   const decisionStateHash = hashDecisionState(input.state)
+  const action = {
+    ...input.action,
+    channel: input.action.channel || 'card',
+  }
   const decisionId = createHash('sha256')
-    .update([input.policyId, input.policyVersion, decisionStateHash, input.action.kind, String(input.action.amountZar)].join('|'))
+    .update(
+      [
+        input.policyId,
+        input.policyVersion,
+        decisionStateHash,
+        action.kind,
+        String(action.amountZar),
+        action.channel,
+        (input.channelActions || []).map((s) => `${s.channel}:${s.amountZar}`).join(','),
+      ].join('|')
+    )
     .digest('hex')
     .slice(0, 28)
   return {
@@ -89,7 +104,8 @@ export function buildDecisionRecord(input: {
     policyId: input.policyId,
     policyVersion: input.policyVersion,
     decisionStateHash,
-    action: input.action,
+    action,
+    ...(input.channelActions?.length ? { channelActions: input.channelActions } : {}),
     constraintTrace: input.constraintTrace || [],
     objectiveBreakdown: input.objectiveBreakdown || {},
     evidenceRefs: input.evidenceRefs || input.state.recentEvidenceIds,

@@ -24,9 +24,12 @@ export type RouteIdentityInput = {
   economicPaymentId?: string | null
   testRunId?: string | null
   cycleNumber?: number | null
+  channel?: 'card' | 'eft'
+  eftCorridorId?: string | null
 }
 
 function withIdentity(input: RouteIdentityInput) {
+  const channel = input.channel || 'card'
   return {
     merchantPrincipalId: input.merchantPrincipalId,
     invoiceIssuerEntityId: input.invoiceIssuerEntityId ?? input.merchantPrincipalId,
@@ -40,6 +43,8 @@ function withIdentity(input: RouteIdentityInput) {
     economicPaymentId: input.economicPaymentId ?? null,
     testRunId: input.testRunId ?? null,
     cycleNumber: input.cycleNumber ?? null,
+    channel,
+    eftCorridorId: channel === 'eft' ? input.eftCorridorId ?? null : null,
   }
 }
 
@@ -241,5 +246,132 @@ export function evidenceFromBankDecline(
     settledAt: null,
     evidenceRef: input.evidenceRef ?? null,
     notes: input.notes || ['Bank decline receipt'],
+  })
+}
+
+export type EftCorridorIdentity = {
+  merchantPrincipalId?: string | null
+  /** e.g. fnb_mozambique__sa_fnb or bim__beneficiary_nib */
+  eftCorridorId: string
+  cardIssuerBankId?: string | null
+  acquirerBankId?: string | null
+  economicPaymentId?: string | null
+  invoiceId?: string | null
+  testRunId?: string | null
+  cycleNumber?: number | null
+}
+
+/** Funding / conversion EFT instructed on the desk — not bank truth yet. */
+export function evidenceFromEftInstructed(
+  input: EftCorridorIdentity & {
+    requestedZar: number
+    eventAt: string
+    source?: EvidenceSource
+    notes?: string[]
+  }
+): RouteEvidence {
+  return buildRouteEvidence({
+    kind: 'authorised',
+    source: input.source || 'production',
+    provenance: 'desk_confirm',
+    trustClass: 'operator_observation',
+    attemptEligibility: 'eligible_submitted',
+    causeClass: 'unknown',
+    channel: 'eft',
+    eftCorridorId: input.eftCorridorId,
+    merchantPrincipalId: input.merchantPrincipalId || 'desk_eft',
+    invoiceIssuerEntityId: input.merchantPrincipalId || 'desk_eft',
+    mozambiqueBuyerId: null,
+    cardId: null,
+    cardIssuerBankId: input.cardIssuerBankId ?? null,
+    posTerminalId: null,
+    acquirerBankId: input.acquirerBankId ?? null,
+    invoiceId: input.invoiceId ?? null,
+    economicPaymentId: input.economicPaymentId ?? null,
+    testRunId: input.testRunId ?? null,
+    cycleNumber: input.cycleNumber ?? null,
+    requestedZar: input.requestedZar,
+    settledZar: null,
+    eventAt: input.eventAt,
+    settledAt: null,
+    notes: input.notes || ['EFT instructed — awaiting bank_transfer'],
+  })
+}
+
+/** Moz bank_transfer / SA credit notice matched to an open EFT ticket. */
+export function evidenceFromEftBankTransfer(
+  input: EftCorridorIdentity & {
+    requestedZar: number
+    settledZar: number
+    eventAt: string
+    settledAt?: string
+    evidenceRef?: string | null
+    source?: EvidenceSource
+    notes?: string[]
+  }
+): RouteEvidence {
+  return buildRouteEvidence({
+    kind: 'zar_available',
+    source: input.source || 'production',
+    provenance: 'bank_mail',
+    trustClass: 'verified_bank',
+    attemptEligibility: 'eligible_submitted',
+    causeClass: 'unknown',
+    channel: 'eft',
+    eftCorridorId: input.eftCorridorId,
+    merchantPrincipalId: input.merchantPrincipalId || 'desk_eft',
+    invoiceIssuerEntityId: input.merchantPrincipalId || 'desk_eft',
+    mozambiqueBuyerId: null,
+    cardId: null,
+    cardIssuerBankId: input.cardIssuerBankId ?? null,
+    posTerminalId: null,
+    acquirerBankId: input.acquirerBankId ?? null,
+    invoiceId: input.invoiceId ?? null,
+    economicPaymentId: input.economicPaymentId ?? null,
+    testRunId: input.testRunId ?? null,
+    cycleNumber: input.cycleNumber ?? null,
+    requestedZar: input.requestedZar,
+    settledZar: input.settledZar,
+    eventAt: input.eventAt,
+    settledAt: input.settledAt || input.eventAt,
+    evidenceRef: input.evidenceRef ?? null,
+    notes: input.notes || ['EFT bank_transfer / credit matched — zar_available on corridor'],
+  })
+}
+
+/** Soft T+1 / hard T+2 miss — delayed on EFT corridor only. */
+export function evidenceFromEftDelayed(
+  input: EftCorridorIdentity & {
+    requestedZar: number
+    eventAt: string
+    overdueDeadlineAt: string
+    source?: EvidenceSource
+  }
+): RouteEvidence {
+  return buildRouteEvidence({
+    kind: 'delayed',
+    source: input.source || 'production',
+    provenance: 'timeout_rule',
+    trustClass: 'rule_derived',
+    attemptEligibility: 'eligible_submitted',
+    causeClass: 'unknown',
+    channel: 'eft',
+    eftCorridorId: input.eftCorridorId,
+    merchantPrincipalId: input.merchantPrincipalId || 'desk_eft',
+    invoiceIssuerEntityId: input.merchantPrincipalId || 'desk_eft',
+    mozambiqueBuyerId: null,
+    cardId: null,
+    cardIssuerBankId: input.cardIssuerBankId ?? null,
+    posTerminalId: null,
+    acquirerBankId: input.acquirerBankId ?? null,
+    invoiceId: input.invoiceId ?? null,
+    economicPaymentId: input.economicPaymentId ?? null,
+    testRunId: input.testRunId ?? null,
+    cycleNumber: input.cycleNumber ?? null,
+    requestedZar: input.requestedZar,
+    settledZar: null,
+    eventAt: input.eventAt,
+    settledAt: null,
+    notes: [`EFT overdue vs ${input.overdueDeadlineAt} — investigate or grant banker chase`],
   })
 }

@@ -62,7 +62,10 @@ export type ReviewState =
   | 'recovering'
   | 'recovered'
 
-export type BeliefLevel = 'issuer' | 'acquirer' | 'pair' | 'card' | 'pos'
+export type BeliefLevel = 'issuer' | 'acquirer' | 'pair' | 'card' | 'pos' | 'eft_corridor'
+
+/** Desk replacement rail. Card = POS swipe recycle; EFT = Moz↔SA bank corridor. */
+export type DeskChannel = 'card' | 'eft'
 
 export type PlannerActionKind =
   | 'execute'
@@ -89,6 +92,10 @@ export type RouteKeys = {
   posTerminalId: string | null
   acquirerBankId: string | null
   issuerAcquirerPairId: string | null
+  /** card (default) | eft — never fold EFT outcomes into card×POS cells. */
+  channel?: DeskChannel
+  /** EFT corridor id (issuer bank ↔ beneficiary/NIB). Null for card evidence. */
+  eftCorridorId?: string | null
 }
 
 export type RouteEvidence = RouteKeys & {
@@ -168,6 +175,17 @@ export type PlannerAction = {
   invoiceId: string | null
   economicPaymentId: string | null
   legalCheckPass: true
+  /** Replacement rail for this action. Portfolio/mixed uses channelActions. */
+  channel?: DeskChannel
+  eftCorridorId?: string | null
+}
+
+/** Mixed `$` shock: one DecisionRecord may carry several channel actions. */
+export type ChannelActionSlice = {
+  channel: DeskChannel
+  amountZar: number
+  economicPaymentId: string | null
+  expectedSettledBy: string | null
 }
 
 export type DecisionState = {
@@ -190,6 +208,8 @@ export type DecisionRecord = {
   policyVersion: string
   decisionStateHash: string
   action: PlannerAction
+  /** When the planner splits one shock across card + EFT. */
+  channelActions?: ChannelActionSlice[]
   constraintTrace: string[]
   objectiveBreakdown: Record<string, number>
   evidenceRefs: string[]

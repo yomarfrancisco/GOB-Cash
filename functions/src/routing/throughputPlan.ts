@@ -179,13 +179,28 @@ export function openWindowAtCapital<T extends {
   availableCapital: number
   config?: { machineCount?: number; cardCount?: number }
 }>(state: T, amountZar: number): T {
-  const amount = money(amountZar)
-  if (!(amount > 0)) return state
-  const horizonDays = horizonForDeskCapital(amount)
+  return openWindowAtCapitalWithBook(state, amountZar, amountZar)
+}
+
+/**
+ * Full sale stays on authorisedZar (EN ROUTE / window target).
+ * Card absorbing book is sized to bookZar (replacement via POS).
+ */
+export function openWindowAtCapitalWithBook<T extends {
+  window?: ProspectiveBranch
+  windowNeedsAdvance?: boolean
+  authorisedZar: number
+  availableCapital: number
+  config?: { machineCount?: number; cardCount?: number }
+}>(state: T, authorisedZar: number, bookZar: number): T {
+  const authorised = money(authorisedZar)
+  const book = money(bookZar > 0 ? bookZar : authorised)
+  if (!(authorised > 0) || !(book > 0)) return state
+  const horizonDays = horizonForDeskCapital(book)
   const initialPos = state.config?.machineCount
   const initialCards = state.config?.cardCount
   const window = startWindow({
-    availableZar: amount,
+    availableZar: book,
     seed: KERNEL_SEED,
     ...(horizonDays != null ? { horizonDays } : {}),
     ...(initialPos && initialPos > 0 ? { initialPos } : {}),
@@ -193,7 +208,7 @@ export function openWindowAtCapital<T extends {
   })
   return {
     ...state,
-    authorisedZar: amount,
+    authorisedZar: authorised,
     availableCapital: window.availableZar,
     window,
     windowNeedsAdvance: false,

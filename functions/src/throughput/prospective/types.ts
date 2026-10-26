@@ -121,6 +121,9 @@ export interface ProspectivePathResidual {
   status: ProspectiveResidualStatus;
   settledDay?: number;
   rerouteRailLabel?: string | null;
+  /** Replacement rail — card POS vs Moz↔SA EFT. Defaults to card when omitted. */
+  channel?: 'card' | 'eft';
+  expectedSettledBy?: string;
 }
 
 export type ProspectiveExhaustionKind = "freeze" | "decline" | "delay" | "unpaid";

@@ -111,6 +111,13 @@ function freshnessDays(lastEventAt: string | null, asOf: string): number | null 
 
 function keysFor(row: RouteEvidence): Array<{ level: BeliefLevel; beliefKey: string }> {
   const out: Array<{ level: BeliefLevel; beliefKey: string }> = []
+  // EFT corridor beliefs stay off the card×POS hierarchy.
+  if ((row.channel || 'card') === 'eft') {
+    const corridor = row.eftCorridorId || row.issuerAcquirerPairId || 'unknown'
+    out.push({ level: 'eft_corridor', beliefKey: `eft:${corridor}` })
+    if (row.cardIssuerBankId) out.push({ level: 'issuer', beliefKey: `issuer:${row.cardIssuerBankId}` })
+    return out
+  }
   if (row.cardIssuerBankId) out.push({ level: 'issuer', beliefKey: `issuer:${row.cardIssuerBankId}` })
   if (row.acquirerBankId) out.push({ level: 'acquirer', beliefKey: `acquirer:${row.acquirerBankId}` })
   if (row.issuerAcquirerPairId) {

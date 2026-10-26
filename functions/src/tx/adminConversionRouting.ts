@@ -41,6 +41,23 @@ import {
 } from '../routing/conversionRouter'
 import { payerDisplay } from '../settlement/railDisplay'
 import { resolveBuyerCardLast4 } from '../settlement/register'
+import {
+  advanceEftBookPlannedDay,
+  channelMixOf,
+  defaultEftCorridorId,
+  markOverdueEftTickets,
+  mergeEftBook,
+  openEftZar,
+  splitReplacementChannels,
+  type EftDeskBook,
+} from '../routing/channelSplit'
+import { openWindowAtCapitalWithBook } from '../routing/throughputPlan'
+import {
+  evidenceFromEftBankTransfer,
+  evidenceFromEftDelayed,
+  evidenceFromEftInstructed,
+} from '../belief/emitters'
+import { persistRouteEvidence } from '../belief/persist'
 import { formatDeskClock, scheduleTicketPath } from '../routing/attemptSchedule'
 import { beliefHintForAssignments, rankAssignmentsByBelief } from '../routing/beliefRank'
 import {
@@ -942,6 +959,16 @@ async function currentTestId(adminUid: string): Promise<string | null> {
   return typeof testRunId === 'string' && testRunId ? testRunId : null
 }
 
+function eftBookFromDoc(data: admin.firestore.DocumentData | undefined): EftDeskBook | null {
+  const raw = data?.eftBook
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.tickets)) return null
+  return {
+    tickets: raw.tickets,
+    lastSplitSummary: typeof raw.lastSplitSummary === 'string' ? raw.lastSplitSummary : null,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
+  }
+}
+
 function pathBookFromDoc(data: admin.firestore.DocumentData | undefined, quote?: FrozenQuote): PathBook {
   const parsed = parsePathBook({
     residuals: data?.pathResiduals,
@@ -949,11 +976,18 @@ function pathBookFromDoc(data: admin.firestore.DocumentData | undefined, quote?:
     quote: data?.frozenQuote || data?.quote,
     lastShockLine: data?.lastShockLine,
   })
+  const eftBook = eftBookFromDoc(data) || parsed.eftBook
   return {
     residuals: parsed.residuals || [],
     notes: parsed.notes || [],
     quote: quote || parsed.quote,
     lastShockLine: parsed.lastShockLine,
+    ...(eftBook ? { eftBook } : {}),
+    ...(typeof data?.channelSplitSummary === 'string'
+      ? { channelSplitSummary: data.channelSplitSummary }
+      : eftBook?.lastSplitSummary
+        ? { channelSplitSummary: eftBook.lastSplitSummary }
+        : {}),
   }
 }
 
@@ -967,6 +1001,8 @@ function persistPathBook(
     exhaustionNotes: book.notes || [],
     ...(book.quote ? { frozenQuote: book.quote } : {}),
     lastShockLine: book.lastShockLine || null,
+    ...(book.eftBook ? { eftBook: book.eftBook } : {}),
+    ...(book.channelSplitSummary ? { channelSplitSummary: book.channelSplitSummary } : {}),
   }
 }
 
@@ -1289,6 +1325,9 @@ function writeIssuedCycle(
       expectedOrderMzn: orderMzn,
       orderSellRate: quotes.sellRate,
       salesCommittedZar: 0,
+      channelMix: plan.channelMix || 'card',
+      openEftZar: plan.openEftZar || 0,
+      eftTicketCount: plan.eftTicketCount || 0,
       ...persistPathBook({}, persistBook),
       updatedAt: now,
     }),
@@ -2437,16 +2476,23 @@ async function publishSamDayBrief(input: {
   }
 
   const hold = !(input.plan.deployedAmount > 0)
+  const eftZar = num(input.plan.openEftZar, 0)
+  const mix = input.plan.channelMix || (eftZar > 0 && (input.plan.deployedAmount || 0) > 0 ? 'mixed' : eftZar > 0 ? 'eft' : 'card')
+  const channelChip = mix === 'mixed' ? 'Mixed' : mix === 'eft' ? 'EFT' : 'Card'
   const body = [
+    `Day ${input.plan.cycleNumber} · card ${formatZar(input.plan.deployedAmount || 0)} · EFT ${formatZar(eftZar)}.`,
     `Scheduled ZAR order: ${formatZar(input.plan.deployedAmount || 0)}.`,
-    `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} window still open.`,
+    eftZar > 0 ? `EFT recycle pending: ${formatZar(eftZar)} (${input.plan.eftTicketCount || 0} ticket${(input.plan.eftTicketCount || 0) === 1 ? '' : 's'}).` : '',
+    `${formatZar(residual)} of ${formatZar(input.state.authorisedZar || input.state.availableCapital)} EN ROUTE still open.`,
     hold
-      ? `Hold day — no new ticket. Residual stays open for the next operating day.`
-      : 'Next 24h opens Step 2 · Invoice.',
+      ? eftZar > 0
+        ? 'Card hold — EFT lane still cycles. Residual stays open for the next operating day.'
+        : `Hold day — no new ticket. Residual stays open for the next operating day.`
+      : 'Next 24h / 72h walk card + EFT. Next 24h opens Step 2 · Invoice.',
   ]
     .filter(Boolean)
     .join('\n')
-  const title = stepCardTitle(1)
+  const title = `${stepCardTitle(1)} · ${channelChip}`
   // Upsert so a stale recycle-mislabeled brief (no Continue) is repaired on Day n open.
   await ref.set(
     {
@@ -2468,6 +2514,9 @@ async function publishSamDayBrief(input: {
       status: hold ? 'recorded' : 'awaiting_execution',
       routingAction: hold ? 'advice' : 'step',
       deskSpeaker: 'sam',
+      deskChannel: mix,
+      channelChip,
+      openEftZar: eftZar,
       cyclePhase: hold ? 'hold' : 'order_open',
       deskStep: 1,
       dayTicketRevision: rev,
@@ -2830,12 +2879,24 @@ async function startNewTest(
   )
   const authorised =
     typeof startingCapital === 'number' && startingCapital > 0 ? startingCapital : 0
+  // Full ZAR sale → EN ROUTE (authorised). Card absorbing book = replacement card share; EFT book = rest.
+  const split =
+    authorised > 0
+      ? splitReplacementChannels({
+          amountZar: authorised,
+          nowMs: now.toMillis(),
+          shockId: testRunId,
+        })
+      : null
+  const eftBook = split && split.eftZar > 0 ? mergeEftBook(null, split) : null
+  const shockSummary = split?.summary || lastShockLine || null
   if (authorised > 0 && absorbingBook) {
     const { startWindow } = await import('../throughput/prospective/window')
     const { DESK_MONTH_HORIZON_DAYS } = await import('../routing/deskMonth')
     const { KERNEL_SEED } = await import('../routing/throughputPlan')
+    const cardBookZar = split && split.cardZar > 0 ? split.cardZar : authorised
     const window = startWindow({
-      availableZar: authorised,
+      availableZar: cardBookZar,
       seed: KERNEL_SEED,
       horizonDays: DESK_MONTH_HORIZON_DAYS,
       initialPos: state.config.machineCount,
@@ -2849,6 +2910,9 @@ async function startNewTest(
       window,
       windowNeedsAdvance: false,
     }
+  } else if (authorised > 0) {
+    const cardBookZar = split && split.cardZar > 0 ? split.cardZar : authorised
+    state = openWindowAtCapitalWithBook(state, authorised, cardBookZar)
   }
   await db.collection(TESTS).doc(testRunId).set({
     testRunId,
@@ -2866,7 +2930,11 @@ async function startNewTest(
     ...persistCapital(state),
     routingEngine: ROUTING_ENGINE_ID,
     constraints: [],
-    lastShockLine: lastShockLine || null,
+    lastShockLine: shockSummary,
+    channelSplitSummary: shockSummary,
+    channelMix: split ? channelMixOf(split) : 'card',
+    eftBook: eftBook || null,
+    openEftZar: openEftZar(eftBook),
     createdAt: now,
     updatedAt: now,
   })
@@ -2888,6 +2956,10 @@ async function startNewTest(
     immediateAttempts: true,
     skipInvoices: true,
   })
+  if (eftBook && eftBook.tickets.length) {
+    await publishEftLaneNotice(adminUid, testRunId, eftBook, now, issued.plan.cycleNumber)
+    void recordEftInstructedEvidence(testRunId, eftBook, issued.plan.cycleNumber)
+  }
   const notification =
     issued.kind === 'replenish'
       ? buildReplenishNotificationCopy({
@@ -2909,7 +2981,86 @@ async function startNewTest(
     activityEventId: issued.activityEventId,
     dropdownTitle: notification.title,
     dropdownBody: notification.body,
+    channelMix: split ? channelMixOf(split) : 'card',
+    openEftZar: openEftZar(eftBook),
+    channelSplitSummary: shockSummary,
   })
+}
+
+async function publishEftLaneNotice(
+  adminUid: string,
+  testRunId: string,
+  eftBook: EftDeskBook,
+  now: admin.firestore.Timestamp,
+  cycleNumber: number
+): Promise<void> {
+  const openZar = openEftZar(eftBook)
+  if (!(openZar > 0)) return
+  const id = `eft-lane-${testRunId}-${cycleNumber}`
+  const ref = db.collection('users').doc(adminUid).collection('activityEvents').doc(id)
+  const existing = await ref.get()
+  if (existing.exists) return
+  const count = eftBook.tickets.filter((t) => t.status === 'open' || t.status === 'submitted').length
+  const body = [
+    `EFT lane open: ${formatZar(openZar)} across ${count} instruction${count === 1 ? '' : 's'}.`,
+    eftBook.lastSplitSummary || '',
+    'Pending until bank_transfer / credit notice. Soft T+1 · hard T+2 banking days.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+  await ref.set({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: 'EFT · Instructed',
+    body,
+    dropdownTitle: 'EFT · Instructed',
+    dropdownBody: `EFT ${formatZar(openZar)} pending`,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_zar',
+    amountCurrency: 'ZAR',
+    amountValue: openZar,
+    amountSign: 'debit',
+    txId: id,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: false,
+    status: 'recorded',
+    routingAction: 'advice',
+    deskSpeaker: 'sam',
+    deskChannel: 'eft',
+    channelChip: 'EFT',
+    testRunId,
+    cycleNumber,
+    createdAt: now,
+    updatedAt: now,
+    recordingSource: 'SYSTEM',
+  })
+}
+
+async function recordEftInstructedEvidence(
+  testRunId: string,
+  eftBook: EftDeskBook,
+  cycleNumber: number
+): Promise<void> {
+  const corridor = defaultEftCorridorId()
+  for (const ticket of eftBook.tickets) {
+    if (ticket.channel !== 'eft' || ticket.status === 'settled') continue
+    try {
+      await persistRouteEvidence(
+        evidenceFromEftInstructed({
+          eftCorridorId: corridor,
+          cardIssuerBankId: 'fnb_mozambique',
+          economicPaymentId: ticket.economicPaymentId,
+          testRunId,
+          cycleNumber,
+          requestedZar: ticket.amountZar,
+          eventAt: ticket.instructedAt,
+        })
+      )
+    } catch (error) {
+      console.warn('[eft] instructed evidence skipped', error)
+    }
+  }
 }
 
 export type RoutingPlayRequest = {
@@ -3025,16 +3176,25 @@ export async function applyAdminCapitalShock(params: {
   if (kind !== 'add_mzn' && !(amount > 0)) return
   if (kind === 'add_mzn' && !(mzn > 0)) return
 
-  const shockLine =
-    kind === 'sell_zar'
-      ? `Window opened: ${formatZar(amount)} to convert over 14 weekdays.`
-      : kind === 'add_zar'
-        ? `${formatZar(amount)} added to the window. Book re-solved.`
-        : `MZN added to the window. Book re-solved.`
-
   const existingId = await currentTestId(adminUid)
   const existing = existingId ? await db.collection(TESTS).doc(existingId).get() : null
   const status = existing?.data()?.status
+  const now = admin.firestore.Timestamp.now()
+  const split =
+    kind === 'sell_zar' || kind === 'add_zar'
+      ? splitReplacementChannels({
+          amountZar: amount,
+          nowMs: now.toMillis(),
+          shockId: `${existingId || 'new'}-${now.toMillis()}`,
+        })
+      : null
+  const shockLine =
+    split?.summary ||
+    (kind === 'sell_zar'
+      ? `Window opened: ${formatZar(amount)} to convert over 14 weekdays.`
+      : kind === 'add_zar'
+        ? `${formatZar(amount)} added to the window. Book re-solved.`
+        : `MZN added to the window. Book re-solved.`)
 
   // Do not restart an active Day-0 window on every sell — that wiped Next 24h.
   if (
@@ -3049,7 +3209,6 @@ export async function applyAdminCapitalShock(params: {
     return
   }
 
-  const now = admin.firestore.Timestamp.now()
   const data = existing.data() || {}
   const phase = typeof data.cyclePhase === 'string' ? data.cyclePhase : ''
   // Continue path: inject ZAR into the open scheduled order — do not cancel Day n.
@@ -3068,7 +3227,13 @@ export async function applyAdminCapitalShock(params: {
     return
   }
 
-  const state = applyCapitalShock(stateFromDoc(data), { kind, amountZar: amount, amountMzn: mzn })
+  let state = applyCapitalShock(stateFromDoc(data), { kind, amountZar: amount, amountMzn: mzn })
+  const priorEft = eftBookFromDoc(data)
+  const eftBook = split && split.eftZar > 0 ? mergeEftBook(priorEft, split) : priorEft
+  // Large sell on an open window: keep full EN ROUTE authorised; card book absorbs card share.
+  if (kind === 'sell_zar' && split && split.cardZar > 0) {
+    state = openWindowAtCapitalWithBook(state, state.authorisedZar || amount, split.cardZar)
+  }
   const awaiting = num(data.awaitingCycleNumber, 0)
   if (awaiting > 0) {
     await cancelAwaitingCycle(adminUid, existingId, awaiting, now)
@@ -3078,11 +3243,19 @@ export async function applyAdminCapitalShock(params: {
       availableCapital: state.availableCapital,
       ...persistCapital(state),
       lastShockLine: shockLine,
+      channelSplitSummary: shockLine,
+      channelMix: split ? channelMixOf(split) : data.channelMix || 'card',
+      eftBook: eftBook || null,
+      openEftZar: openEftZar(eftBook),
       updatedAt: now,
     },
     { merge: true }
   )
-  await issueCycle(adminUid, existingId, state, now, { immediateAttempts: true })
+  const issued = await issueCycle(adminUid, existingId, state, now, { immediateAttempts: true })
+  if (split && split.eftZar > 0 && eftBook) {
+    await publishEftLaneNotice(adminUid, existingId, eftBook, now, issued.plan.cycleNumber)
+    void recordEftInstructedEvidence(existingId, { tickets: split.eftTickets, lastSplitSummary: split.summary, updatedAt: now.toDate().toISOString() }, issued.plan.cycleNumber)
+  }
 }
 
 /** Script/admin helper: supersede the active run and open Day 1 under current policy. */
@@ -5796,6 +5969,8 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     })
   }
 
+  const startEft = eftBookFromDoc(start)
+  const startEftZar = openEftZar(startEft)
   // One notice bubble for the run — wall-clock createdAt so it sits in the log, not pinned by a future stamp.
   await clearPlanMarkers(adminUid, testRunId)
   const markerId = `planned-day-${testRunId}`
@@ -5808,9 +5983,15 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       id: markerId,
       kind: CONVERSION_ROUTING_KIND,
       title: 'Ask · Planned day',
-      body: `Simulating the next 24 hours from Day ${startCycle}. Bank cover is assumed through Order → Invoice → MZN; Send ZAR and Restock open the keypad. The day clock advances only after that day finishes. Tap Real time to restore the live desk and remove this simulation.`,
+      body: [
+        `Simulating the next 24 hours from Day ${startCycle}.`,
+        `Card R${Math.round(num(start.expectedOrderZar, 0)).toLocaleString('en-ZA')} · EFT R${Math.round(startEftZar).toLocaleString('en-ZA')}.`,
+        'Bank cover is assumed through Order → Invoice → MZN; Send ZAR and Restock open the keypad.',
+        'EFT advances open→submitted→settled only in Planned (synthetic cover). Live waits for bank_transfer.',
+        'The day clock advances only after that joint day finishes. Tap Real time to restore the live desk.',
+      ].join(' '),
       dropdownTitle: 'Ask · Planned day',
-      dropdownBody: `Planned · Day ${startCycle}`,
+      dropdownBody: `Planned · Day ${startCycle} · card + EFT`,
       actorType: 'ai_manager',
       avatarKind: 'convert_zar',
       amountCurrency: 'ZAR',
@@ -5824,7 +6005,9 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       routingAction: 'advice',
       deskSpeaker: 'sam',
       deskMode: 'planned',
+      deskChannel: startEftZar > 0 ? 'mixed' : 'card',
       plannedClockMs,
+      openEftZar: startEftZar,
       testRunId,
       cycleNumber: startCycle,
       createdAt: now,
@@ -5833,6 +6016,60 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     })
 
   const steps: string[] = []
+  // Planned EFT advance once per Next 24h (does not block card keypad gates).
+  {
+    const clockMs = plannedClockMs
+    const advanced = advanceEftBookPlannedDay(startEft, clockMs)
+    const overdue = markOverdueEftTickets(advanced.book, clockMs)
+    steps.push(...advanced.steps)
+    if (overdue.overdue.length) {
+      steps.push(`eft-overdue:${overdue.overdue.length}`)
+      for (const ticket of overdue.overdue) {
+        void persistRouteEvidence(
+          evidenceFromEftDelayed({
+            eftCorridorId: defaultEftCorridorId(),
+            cardIssuerBankId: 'fnb_mozambique',
+            economicPaymentId: ticket.economicPaymentId,
+            testRunId,
+            cycleNumber: startCycle,
+            requestedZar: ticket.amountZar,
+            eventAt: new Date(clockMs).toISOString(),
+            overdueDeadlineAt: ticket.expectedSettledBy,
+            source: 'simulation',
+          })
+        ).catch(() => undefined)
+      }
+    }
+    for (const ticket of advanced.book.tickets) {
+      if (ticket.status !== 'settled') continue
+      const wasOpen = startEft?.tickets?.some(
+        (t) => t.economicPaymentId === ticket.economicPaymentId && t.status !== 'settled'
+      )
+      if (!wasOpen) continue
+      void persistRouteEvidence(
+        evidenceFromEftBankTransfer({
+          eftCorridorId: defaultEftCorridorId(),
+          cardIssuerBankId: 'fnb_mozambique',
+          economicPaymentId: ticket.economicPaymentId,
+          testRunId,
+          cycleNumber: startCycle,
+          requestedZar: ticket.amountZar,
+          settledZar: ticket.amountZar,
+          eventAt: new Date(clockMs).toISOString(),
+          source: 'simulation',
+          notes: ['Planned synthetic EFT cover'],
+        })
+      ).catch(() => undefined)
+    }
+    await testRef.set(
+      {
+        eftBook: overdue.book,
+        openEftZar: openEftZar(overdue.book),
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+  }
   let stopped = 'max_steps'
   for (let i = 0; i < 14; i++) {
     const snap = await testRef.get()
@@ -5952,11 +6189,12 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     const bumped = await bumpPlannedClockIfNeeded(testRef, adminUid, testRunId, startCycle)
     if (bumped != null) outClock = bumped
   }
+  const endEftZar = openEftZar(eftBookFromDoc(end))
   const keypadAck =
     endGate === 'send'
-      ? `Day ${startCycle}: Send ZAR is open — keypad, then Next 24h can finish the day.`
+      ? `Day ${startCycle}: Send ZAR is open — keypad, then Next 24h can finish the day. EFT ${formatZar(endEftZar)} still pending.`
       : endGate === 'restock'
-        ? `Day ${startCycle}: Restock is open — keypad, then Next 24h can open the next day.`
+        ? `Day ${startCycle}: Restock is open — keypad, then Next 24h can open the next day. EFT ${formatZar(endEftZar)} still pending.`
         : null
   return publicSummary(state, {
     testRunId,
@@ -5968,6 +6206,8 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     simulatedToCycle: endCycle,
     simulatedSteps: steps,
     awaitingKeypad: endGate,
+    openEftZar: endEftZar,
+    channelMix: end.channelMix || (endEftZar > 0 ? 'mixed' : 'card'),
     keypadAmountZar:
       endGate === 'send'
         ? num(end.expectedOrderZar, 0)
@@ -5983,12 +6223,50 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     acknowledgement:
       keypadAck ||
       (dayAdvanced
-        ? `Planned Day ${startCycle} complete. Day ${endCycle} is on the desk.`
+        ? `Planned Day ${startCycle} complete (card + EFT). Day ${endCycle} · EFT ${formatZar(endEftZar)}.`
         : stopped === 'window_closed'
           ? 'Planned run reached the end of the window.'
-          : `Planned advance paused (${stopped.replace(/_/g, ' ')}).`),
+          : `Planned advance paused (${stopped.replace(/_/g, ' ')}). EFT ${formatZar(endEftZar)}.`),
     completed: end.status === 'completed',
   })
+}
+
+/**
+ * Next 72h — three Planned day walks so EFT opened on day 0 can hit soft T+1 / hard T+2
+ * while cards keep cycling. Stops early on keypad gates (same honesty as Next 24h).
+ */
+export async function simulateNext72hDesk(adminUid: string): Promise<Record<string, unknown>> {
+  const allSteps: string[] = []
+  let last: Record<string, unknown> | null = null
+  let fromCycle: number | null = null
+  for (let day = 0; day < 3; day++) {
+    last = await simulateNextDeskDay(adminUid)
+    if (fromCycle == null) fromCycle = num(last.simulatedFromCycle, num(last.cycleNumber, 0))
+    const daySteps = Array.isArray(last.simulatedSteps) ? (last.simulatedSteps as string[]) : []
+    allSteps.push(...daySteps, `horizon72-day:${day + 1}`)
+    if (last.awaitingKeypad) {
+      allSteps.push(`horizon72-paused-keypad:${last.awaitingKeypad}`)
+      break
+    }
+    if (last.completed === true || last.status === 'completed') {
+      allSteps.push('horizon72-window-closed')
+      break
+    }
+  }
+  if (!last) {
+    throw new functions.https.HttpsError('failed-precondition', 'Next 72h could not start')
+  }
+  const eftZar = num(last.openEftZar, 0)
+  return {
+    ...last,
+    simulatedHorizonHours: 72,
+    simulatedFromCycle: fromCycle,
+    simulatedSteps: allSteps,
+    acknowledgement:
+      last.awaitingKeypad
+        ? `Next 72h paused for ${last.awaitingKeypad} keypad after walking ${allSteps.filter((s) => s.startsWith('horizon72-day')).length} day(s). EFT ${formatZar(eftZar)}.`
+        : `Next 72h Planned walk finished · EFT ${formatZar(eftZar)}. ${String(last.acknowledgement || '')}`,
+  }
 }
 
 export async function exitDeskPlan(adminUid: string): Promise<Record<string, unknown>> {
@@ -6028,6 +6306,11 @@ export const admin_simulateNextDeskDay = functions
   .region('us-central1')
   .runWith({ timeoutSeconds: 300, memory: '1GB' })
   .https.onCall(async (_data, context) => simulateNextDeskDay(assertRoutingAdmin(context)))
+
+export const admin_simulateNext72hDesk = functions
+  .region('us-central1')
+  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+  .https.onCall(async (_data, context) => simulateNext72hDesk(assertRoutingAdmin(context)))
 
 export const admin_exitDeskPlan = functions
   .region('us-central1')

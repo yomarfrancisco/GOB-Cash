@@ -182,6 +182,11 @@ export type CyclePlan = {
   tightnessRanks?: TightnessRank[]
   expectedZarProfit?: number
   window?: ProspectiveBranch
+  /** Dual-rail: card | eft | mixed for this day's issued work. */
+  channelMix?: 'card' | 'eft' | 'mixed'
+  openEftZar?: number
+  eftTicketCount?: number
+  channelSplitSummary?: string
 }
 
 export type CompletedCycle = CyclePlan & {
@@ -1044,6 +1049,16 @@ export function planCycle(
   const expectedZarProfit = quote
     ? zarProfitFromQuote(deployedForPlan, quote)
     : roundMoney(deployedForPlan * state.config.spread)
+  const openEft = book.eftBook?.tickets?.filter(
+    (t) => t.channel === 'eft' && (t.status === 'open' || t.status === 'submitted' || t.status === 'delayed')
+  ) || []
+  const openEftZar = roundMoney(openEft.reduce((s, t) => s + t.amountZar, 0))
+  const channelMix: 'card' | 'eft' | 'mixed' =
+    deployedForPlan > 0 && openEftZar > 0 ? 'mixed' : openEftZar > 0 && deployedForPlan <= 0 ? 'eft' : 'card'
+  const eftLine =
+    openEftZar > 0
+      ? `EFT lane: ${openEft.length} open · ${formatZar(openEftZar)} pending recycle.`
+      : ''
   return {
     cycleNumber,
     availableCapital: state.availableCapital,
@@ -1062,6 +1077,8 @@ export function planCycle(
         ? `Day ${record.day} ${record.weekday}: ${cardAssignments.length} whole ticket${cardAssignments.length === 1 ? '' : 's'} ${formatZar(deployedForPlan)}.`
         : 'No day on the absorbing book.',
       idleCapital > 0 ? `${formatZar(idleCapital)} held back is normal.` : '',
+      eftLine,
+      book.channelSplitSummary || '',
       record?.learningNote || '',
     ]
       .filter(Boolean)
@@ -1070,6 +1087,10 @@ export function planCycle(
     residualsConsidered: book.residuals,
     ...(holdReason ? { holdReason } : {}),
     window,
+    channelMix,
+    openEftZar,
+    eftTicketCount: openEft.length,
+    ...(book.channelSplitSummary ? { channelSplitSummary: book.channelSplitSummary } : {}),
   }
 }
 
