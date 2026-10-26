@@ -39,8 +39,8 @@ export function collapseOtherBankNotices(
 
   const multiDays = new Set<string>()
   const digests = new Map<string, BankDigestGroup>()
-  for (const [dayKey, group] of otherByDay) {
-    if (group.length < 2) continue
+  Array.from(otherByDay.entries()).forEach(([dayKey, group]) => {
+    if (group.length < 2) return
     multiDays.add(dayKey)
     const netZar = group.reduce((sum, row) => {
       const v = row.amount?.value || 0
@@ -55,7 +55,7 @@ export function collapseOtherBankNotices(
       items: group,
       createdAt: Math.max(...group.map((g) => g.createdAt)),
     })
-  }
+  })
 
   const result: Array<ActivityItem | BankDigestGroup> = []
   const emittedDigest = new Set<string>()
