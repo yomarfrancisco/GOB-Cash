@@ -1567,13 +1567,25 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     }
   }
 
+  // Stable wrappers for the sticky header — register once. An unguarded
+  // register-every-render looped Zustand → Sheet → List → React #185.
+  const deskModeHandlersRef = useRef({
+    next24h: handleNext24h,
+    next72h: handleNext72h,
+    realtime: handleRealtime,
+  })
+  deskModeHandlersRef.current = {
+    next24h: handleNext24h,
+    next72h: handleNext72h,
+    realtime: handleRealtime,
+  }
   useEffect(() => {
     useDeskModeActionsStore.getState().register({
-      next24h: () => void handleNext24h(),
-      next72h: () => void handleNext72h(),
-      realtime: () => void handleRealtime(),
+      next24h: () => void deskModeHandlersRef.current.next24h(),
+      next72h: () => void deskModeHandlersRef.current.next72h(),
+      realtime: () => void deskModeHandlersRef.current.realtime(),
     })
-  })
+  }, [])
 
   const sectionProps = {
     latestAwaitingId,

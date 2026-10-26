@@ -21,9 +21,18 @@ export const useDeskModeActionsStore = create<DeskModeActionsState>((set) => ({
   next72h: null,
   realtime: null,
   register: (handlers) =>
-    set({
-      next24h: handlers.next24h,
-      next72h: handlers.next72h,
-      realtime: handlers.realtime,
+    set((prev) => {
+      if (
+        prev.next24h === handlers.next24h &&
+        prev.next72h === handlers.next72h &&
+        prev.realtime === handlers.realtime
+      ) {
+        return prev
+      }
+      return {
+        next24h: handlers.next24h,
+        next72h: handlers.next72h,
+        realtime: handlers.realtime,
+      }
     }),
 }))
