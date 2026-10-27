@@ -467,7 +467,6 @@ function ActivityItemCard({
   planBusy,
   catchupActive,
   planMode,
-  planHorizonChip,
   showNext24h,
   showNext72h,
   showRealtime,
@@ -488,7 +487,6 @@ function ActivityItemCard({
   planBusy?: boolean
   catchupActive?: boolean
   planMode?: 'live' | 'planned'
-  planHorizonChip?: string | null
   showNext24h?: boolean
   showNext72h?: boolean
   showRealtime?: boolean
@@ -508,7 +506,7 @@ function ActivityItemCard({
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   // Persist-only — never infer from planMode (bank notices must stay clean).
   const planChip = item.simulated === true && item.deskPlanChip ? item.deskPlanChip : null
-  void planHorizonChip
+  void planMode
   const sentence =
     item.deskSentence ||
     item.routingStepMessage?.summary ||
@@ -961,7 +959,10 @@ function ActivityItemCard({
           showDownload ||
           showProposalActions ||
           showExecuted ||
-          showKycLink) && (
+          showKycLink ||
+          showNext24h ||
+          showNext72h ||
+          showRealtime) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
               <button
@@ -1120,6 +1121,57 @@ function ActivityItemCard({
                 </button>
               </>
             )}
+            {showNext24h && (
+              <button
+                type="button"
+                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Simulate the next 24 hours on the desk"
+                aria-busy={planBusy === true}
+                disabled={planBusy === true || confirmState !== 'idle'}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onNext24h?.()
+                }}
+              >
+                Next 24h
+              </button>
+            )}
+            {showNext72h && (
+              <button
+                type="button"
+                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Simulate the next 72 hours on the desk"
+                aria-busy={planBusy === true}
+                disabled={planBusy === true || confirmState !== 'idle'}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onNext72h?.()
+                }}
+              >
+                Next 72h
+              </button>
+            )}
+            {showRealtime && (
+              <button
+                type="button"
+                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Return to the live desk clock"
+                aria-busy={planBusy === true}
+                disabled={planBusy === true}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onRealtime?.()
+                }}
+              >
+                Real time
+              </button>
+            )}
             {showKycLink && (
               <button
                 type="button"
@@ -1131,72 +1183,6 @@ function ActivityItemCard({
                 Update KYC
               </button>
             )}
-          </div>
-        )}
-        {(showNext24h || showNext72h || showRealtime) && (
-          <div className={styles.simulateRow}>
-            <span className={styles.simulateLabel}>Simulate</span>
-            <div className={styles.simulateSegment} role="group" aria-label="Desk simulation">
-              {showNext24h ? (
-                <button
-                  type="button"
-                  className={[
-                    styles.simulateSegBtn,
-                    planMode === 'planned' && planHorizonChip === '24h plan'
-                      ? styles.simulateSegBtnActive
-                      : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  aria-label="Simulate the next 24 hours on the desk"
-                  aria-busy={planBusy === true}
-                  disabled={planBusy === true || confirmState !== 'idle'}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onNext24h?.()
-                  }}
-                >
-                  Next 24h
-                </button>
-              ) : null}
-              {showNext72h ? (
-                <button
-                  type="button"
-                  className={[
-                    styles.simulateSegBtn,
-                    planMode === 'planned' && planHorizonChip?.startsWith('72h')
-                      ? styles.simulateSegBtnActive
-                      : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  aria-label="Simulate the next 72 hours on the desk"
-                  aria-busy={planBusy === true}
-                  disabled={planBusy === true || confirmState !== 'idle'}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onNext72h?.()
-                  }}
-                >
-                  Next 72h
-                </button>
-              ) : null}
-              {showRealtime ? (
-                <button
-                  type="button"
-                  className={styles.simulateSegBtn}
-                  aria-label="Return to the live desk clock"
-                  aria-busy={planBusy === true}
-                  disabled={planBusy === true}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onRealtime?.()
-                  }}
-                >
-                  Real time
-                </button>
-              ) : null}
-            </div>
           </div>
         )}
         {showDeskNextFooter && item.deskNextFooter ? (
@@ -1296,10 +1282,9 @@ function ActivitySection({
   if (visibleItems.length === 0) return null
   void catchupActive
   void plannedAnchorCycle
+  void planHorizonHours
 
   let lastCycleKey = ''
-  const planHorizonChip =
-    planMode === 'planned' ? (planHorizonHours === 72 ? '72h plan' : '24h plan') : null
 
   return (
     <div className={styles.activitySection}>
@@ -1337,7 +1322,6 @@ function ActivitySection({
                 planBusy={planBusy}
                 catchupActive={catchupActive}
                 planMode={planMode}
-                planHorizonChip={planHorizonChip}
                 showNext24h={!lockDeskActions && isPlanHost}
                 showNext72h={!lockDeskActions && isPlanHost}
                 showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}

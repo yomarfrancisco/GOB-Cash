@@ -188,58 +188,6 @@
   color: var(--desk-ink, #18181b);
 }
 
-.simulateRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 4px;
-  width: 100%;
-}
-
-.simulateLabel {
-  flex-shrink: 0;
-  font-size: var(--desk-chip, 12px);
-  font-weight: 600;
-  color: var(--desk-muted, #5e5e66);
-}
-
-.simulateSegment {
-  display: inline-flex;
-  align-items: stretch;
-  height: 36px;
-  min-height: 36px;
-  padding: 2px;
-  border-radius: 10px;
-  background: var(--desk-bg-subtle, #f2efe6);
-  gap: 0;
-}
-
-.simulateSegBtn {
-  appearance: none;
-  border: 0;
-  margin: 0;
-  padding: 0 12px;
-  height: 32px;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--desk-ink, #18181b);
-  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
-  font-size: var(--desk-chip, 12px);
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.simulateSegBtn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.simulateSegBtnActive {
-  background: var(--desk-ink, #18181b);
-  color: #ffffff;
-}
-
 .deskNextFooter {
   margin-top: 4px;
   display: flex;
