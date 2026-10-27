@@ -162,12 +162,13 @@ export function splitReplacementChannels(input: {
     }
   }
 
+  // Internal / belief only — never paste onto desk EFT notices (those use open ticket totals).
   const summary =
     eftZar > 0 && cardZar > 0
-      ? `EN ROUTE ${formatZar(amount)}. Replace via card ${formatZar(cardZar)} + EFT ${formatZar(eftZar)}.`
+      ? `Booked ${formatZar(amount)}. Replace via card ${formatZar(cardZar)} + EFT ${formatZar(eftZar)}.`
       : eftZar > 0
-        ? `EN ROUTE ${formatZar(amount)}. Replace via EFT ${formatZar(eftZar)}.`
-        : `EN ROUTE ${formatZar(amount)}. Replace via card ${formatZar(cardZar)}.`
+        ? `Booked ${formatZar(amount)}. Replace via EFT ${formatZar(eftZar)}.`
+        : `Booked ${formatZar(amount)}. Replace via card ${formatZar(cardZar)}.`
 
   return {
     enRouteZar: amount,

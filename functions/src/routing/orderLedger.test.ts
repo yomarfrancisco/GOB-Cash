@@ -7,6 +7,7 @@ import {
   formatMznMoney,
   formatRate4,
   formatZarMoney,
+  sellMznForZar,
 } from './orderLedger'
 
 function round2(n: number): number {
@@ -25,6 +26,7 @@ describe('orderLedger', () => {
         { amount: 97_500 },
       ],
     })
+    assert.equal(ledger.mznAtSell, sellMznForZar(12_024.03, 4.4257))
     assert.equal(ledger.mznAtSell, round2(12_024.03 * 4.4257))
     assert.equal(ledger.mznAtCost, round2(12_024.03 * 4.0617))
     assert.equal(ledger.spreadMzn, round2(ledger.mznAtSell - ledger.mznAtCost))

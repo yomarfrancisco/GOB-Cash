@@ -3374,6 +3374,17 @@ async function startNewTest(
   })
 }
 
+/** Desk-facing EFT lands date — never paste shock lastSplitSummary (EN ROUTE R100k…). */
+function formatEftLandsLabel(iso: string | undefined | null): string | null {
+  if (!iso) return null
+  const ms = Date.parse(iso)
+  if (!Number.isFinite(ms)) return null
+  const sast = new Date(ms + 2 * 60 * 60 * 1000)
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${days[sast.getUTCDay()]} ${sast.getUTCDate()} ${months[sast.getUTCMonth()]}`
+}
+
 async function publishEftLaneNotice(
   adminUid: string,
   testRunId: string,
@@ -3387,21 +3398,39 @@ async function publishEftLaneNotice(
   const ref = db.collection('users').doc(adminUid).collection('activityEvents').doc(id)
   const existing = await ref.get()
   if (existing.exists) return
-  const count = eftBook.tickets.filter((t) => t.status === 'open' || t.status === 'submitted').length
+  const openTickets = eftBook.tickets.filter(
+    (t) => t.channel === 'eft' && (t.status === 'open' || t.status === 'submitted' || t.status === 'delayed')
+  )
+  const count = openTickets.length
+  let latestDue: string | null = null
+  for (const t of openTickets) {
+    if (!t.expectedSettledBy) continue
+    if (!latestDue || Date.parse(t.expectedSettledBy) > Date.parse(latestDue)) {
+      latestDue = t.expectedSettledBy
+    }
+  }
+  const lands = formatEftLandsLabel(latestDue)
+  const ticketLine =
+    count > 0
+      ? `${count} ticket${count === 1 ? '' : 's'}${lands ? ` · lands latest ${lands}` : ''} (T+2)`
+      : null
+  // Totals from open EFT tickets only — never lastSplitSummary shock replacement line.
   const body = [
-    `EFT lane open: ${formatZar(openZar)} across ${count} instruction${count === 1 ? '' : 's'}.`,
-    eftBook.lastSplitSummary || '',
-    'Pending until bank_transfer / credit notice. Soft T+1 · hard T+2 banking days.',
+    `EFT instructed: ${formatZarMoney(openZar)}.`,
+    ticketLine,
+    'Waiting for the bank’s credit notice.',
   ]
     .filter(Boolean)
     .join('\n')
   await ref.set({
     id,
     kind: CONVERSION_ROUTING_KIND,
-    title: 'EFT · Instructed',
+    title: 'EFT instructed',
     body,
-    dropdownTitle: 'EFT · Instructed',
-    dropdownBody: `EFT ${formatZar(openZar)} pending`,
+    deskStatusChip: 'Pending',
+    deskSentence: body,
+    dropdownTitle: 'EFT instructed',
+    dropdownBody: `EFT ${formatZarMoney(openZar)} pending`,
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
     amountCurrency: 'ZAR',

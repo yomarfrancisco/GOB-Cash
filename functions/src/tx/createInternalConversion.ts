@@ -193,6 +193,7 @@ export const tx_createInternalConversion = functions
       const { bookZarSaleToEnRoute } = await import('./enRouteSettle')
       // Desk Send already has Step 4 — still post Part 2 "ZAR booked" (not CONVERSION_INSTRUCTED).
       let plannedMeta: { simulated?: true; planRunId?: string } = {}
+      let expectedDestinationMzn: number | undefined
       if (data?.routingPlay) {
         try {
           const currentSnap = await db.collection('adminConversionCurrent').doc(userId).get()
@@ -207,6 +208,15 @@ export const tx_createInternalConversion = functions
                   ? { planRunId: td.planRunId }
                   : {}),
               }
+            }
+            const { parseOrderLedger, sellMznForZar } = await import('../routing/orderLedger')
+            const ledger = parseOrderLedger(td.orderLedger)
+            if (ledger && ledger.sellRate > 0) {
+              // Prefer stamped mznAtSell when ZAR matches the day order; else same formula.
+              expectedDestinationMzn =
+                Math.abs(ledger.zar - sourceAmountMajor) < 0.05 && ledger.mznAtSell > 0
+                  ? ledger.mznAtSell
+                  : sellMznForZar(sourceAmountMajor, ledger.sellRate)
             }
           }
         } catch {
@@ -225,6 +235,7 @@ export const tx_createInternalConversion = functions
         simulated: plannedMeta.simulated === true,
         planRunId: plannedMeta.planRunId,
         settleImmediately: plannedMeta.simulated === true,
+        expectedDestinationMzn,
       })
       try {
         await sendAgentConversionProofEmail(booked.txId)

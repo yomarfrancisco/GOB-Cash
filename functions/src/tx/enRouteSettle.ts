@@ -5,6 +5,7 @@
 
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
+import { sellMznForZar } from '../routing/orderLedger'
 
 const db = admin.firestore()
 const SAST_OFFSET_MS = 2 * 60 * 60 * 1000
@@ -37,6 +38,11 @@ export type BookZarEnRouteParams = {
   planRunId?: string
   /** Planned Send: clear on the next settle sweep so ZAR cleared can show in-session. */
   settleImmediately?: boolean
+  /**
+   * Canonical sell MZN from OrderLedger (`mznAtSell`). When set, book + clear
+   * use this instead of recomputing zar × sellRate.
+   */
+  expectedDestinationMzn?: number
 }
 
 export type BookZarEnRouteResult = {
@@ -55,7 +61,10 @@ export async function bookZarSaleToEnRoute(
     throw new functions.https.HttpsError('invalid-argument', 'sourceAmount must be a positive number')
   }
 
-  const expectedMzn = roundMajor(sourceAmountMajor * params.sellRate)
+  const expectedMzn =
+    typeof params.expectedDestinationMzn === 'number' && params.expectedDestinationMzn > 0
+      ? roundMajor(params.expectedDestinationMzn)
+      : sellMznForZar(sourceAmountMajor, params.sellRate)
   const expectedDestinationMinor = Math.round(expectedMzn * 100)
   const nowMs = Date.now()
   const settleAtMs =

@@ -46,6 +46,11 @@ export type OrderLedger = {
   coverMzn?: number
 }
 
+/** Single round for sell-side MZN — book, clear, and Step cards all read this. */
+export function sellMznForZar(zar: number, sellRate: number): number {
+  return zar > 0 && sellRate > 0 ? roundMoney(zar * sellRate) : 0
+}
+
 export function formatRate4(rate: number): string {
   if (!Number.isFinite(rate)) return '0.0000'
   return rate.toFixed(4)
@@ -92,7 +97,7 @@ export function buildOrderLedger(input: {
   const windowZar = roundMoney(Math.max(0, input.windowZar || 0))
   const windowLeftZar = roundMoney(Math.max(0, windowZar - zar))
 
-  const mznAtSell = zar > 0 && sellRate > 0 ? roundMoney(zar * sellRate) : 0
+  const mznAtSell = sellMznForZar(zar, sellRate)
   const mznAtCost =
     assignments.length > 0 && baseCostRate > 0
       ? restockMznForAssignments(assignments, baseCostRate)
