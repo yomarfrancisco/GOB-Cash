@@ -77,8 +77,13 @@ export type ActivityItem = {
   deskSentence?: string
   deskStatusChip?: string
   deskNextFooter?: string
-  deskPlanChip?: '24h plan' | '72h plan'
+  deskPlanChip?: string
   deskStep?: number
+  /** Planned-run writes — hidden when the desk returns to live. */
+  simulated?: boolean
+  planRunId?: string
+  /** Step 6 Advance button target day (must match deskNextFooter). */
+  deskAdvanceDay?: number
   deskLedgerRows?: Array<{
     label: string
     value: string

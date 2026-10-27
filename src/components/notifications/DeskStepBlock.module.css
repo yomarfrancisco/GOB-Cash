@@ -22,7 +22,7 @@
 }
 
 .label {
-  font-size: 14px;
+  font-size: var(--desk-meta, 13px);
   color: var(--desk-muted, #5e5e66);
 }
 
@@ -36,7 +36,7 @@
 
 .value,
 .valueStrong {
-  font-size: 15px;
+  font-size: var(--desk-card-value, 14px);
   font-variant-numeric: tabular-nums;
   text-align: right;
   color: var(--desk-ink, #18181b);

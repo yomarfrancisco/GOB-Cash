@@ -1062,7 +1062,8 @@ function writeIssuedReplenish(
   book: PathBook = {},
   ticketPath = scheduleTicketPath({ assignments: [] }),
   orderLedger: OrderLedger | null = null,
-  deskPlanChip?: '24h plan' | '72h plan' | null
+  deskPlanChip?: string | null,
+  plannedMeta: { simulated?: true; planRunId?: string } = {}
 ): { plan: CyclePlan; activityEventId: string; kind: 'replenish' } {
   const plan = planCycle(state, overlay, { ...book, residuals: [] })
   const proposedAt = now.toMillis()
@@ -1133,6 +1134,8 @@ function writeIssuedReplenish(
     deskLedgerRows,
     orderLedger: orderLedger || null,
     ...(deskPlanChip ? { deskPlanChip } : {}),
+    ...(plannedMeta.simulated ? { simulated: true } : {}),
+    ...(plannedMeta.planRunId ? { planRunId: plannedMeta.planRunId } : {}),
     dropdownTitle: step5Title,
     dropdownBody: notification.body,
     actorType: 'ai_manager',
@@ -1204,11 +1207,34 @@ async function loadRecentRouteEvidence(limit = 80): Promise<RouteEvidence[]> {
   }
 }
 
+/** Chip + simulated tags stamped only on Planned writes. */
+function plannedWriteFields(
+  data: FirebaseFirestore.DocumentData | Record<string, unknown> | undefined,
+  cycleNumber?: number
+): { simulated?: true; planRunId?: string; deskPlanChip?: string } {
+  if (!data || data.deskMode !== 'planned') return {}
+  const planRunId = typeof data.planRunId === 'string' && data.planRunId ? data.planRunId : undefined
+  const horizon = num(data.plannedHorizonHours, 24) >= 72 ? 72 : 24
+  const anchor = num(data.plannedAnchorCycle, 0)
+  const cycle =
+    typeof cycleNumber === 'number' && cycleNumber > 0
+      ? cycleNumber
+      : num(data.awaitingCycleNumber, 0) || num(data.completedCycles, 0) + 1
+  const dayIndex =
+    horizon === 72 && anchor > 0 ? Math.min(3, Math.max(1, cycle - anchor + 1)) : 1
+  const deskPlanChip = horizon === 72 ? `72h plan · day ${dayIndex}` : '24h plan'
+  return {
+    simulated: true,
+    ...(planRunId ? { planRunId } : {}),
+    deskPlanChip,
+  }
+}
+
 function deskPlanChipFromDoc(
-  data: FirebaseFirestore.DocumentData | Record<string, unknown> | undefined
-): '24h plan' | '72h plan' | null {
-  if (!data || data.deskMode !== 'planned') return null
-  return num(data.plannedHorizonHours, 24) >= 72 ? '72h plan' : '24h plan'
+  data: FirebaseFirestore.DocumentData | Record<string, unknown> | undefined,
+  cycleNumber?: number
+): string | null {
+  return plannedWriteFields(data, cycleNumber).deskPlanChip || null
 }
 
 function writeIssuedCycle(
@@ -1223,7 +1249,7 @@ function writeIssuedCycle(
   evidence: RouteEvidence[] = [],
   immediateAttempts = false,
   priorOrderLedger: OrderLedger | null = null,
-  deskPlanChip: '24h plan' | '72h plan' | null = null
+  plannedMeta: { simulated?: true; planRunId?: string; deskPlanChip?: string } = {}
 ): { plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' } {
   const liveBook: PathBook = {
     ...book,
@@ -1248,7 +1274,8 @@ function writeIssuedCycle(
       liveBook,
       restockPath,
       priorOrderLedger,
-      deskPlanChip
+      plannedMeta.deskPlanChip || null,
+      plannedMeta
     )
   }
 
@@ -1528,6 +1555,7 @@ async function ensureLeoSendEvent(
     ? `ZAR sold for MZN by COB, once the cover landed. ${coverLine}.`
     : 'ZAR sold for MZN by COB, once the cover landed.'
   const title = stepCardTitle(4)
+  const plannedStep4 = plannedWriteFields(testData, cycleNumber)
   await eventRef.set({
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
@@ -1547,6 +1575,7 @@ async function ensureLeoSendEvent(
     deskStatusChip: 'Executed',
     deskSentence: sentence,
     orderLedger: ledger || null,
+    ...plannedStep4,
     deskLedgerRows: ledger
       ? [
           { label: 'Sold', value: formatZarMoney(amountZar), valueStrong: true },
@@ -1765,6 +1794,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
     const sentence = covered
       ? 'MZN cover is on the books, sized at the sell rate.'
       : 'Waiting for full MZN cover, sized at the sell rate.'
+    const plannedStep3 = plannedWriteFields(data, cycleNumber)
     await db
       .collection('users')
       .doc(adminUid)
@@ -1789,6 +1819,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
             { label: 'Wallet', value: formatMznMoney(bal) },
           ],
           orderLedger: ledger,
+          ...plannedStep3,
           dropdownTitle: stepCardTitle(3),
           dropdownBody: covered ? 'MZN covered — Next 24h to send' : 'Waiting on MZN',
           actorType: 'ai_manager',
@@ -2537,7 +2568,7 @@ async function issueCycle(
   const testSnap = await db.collection(TESTS).doc(testRunId).get()
   const testData = testSnap.data() || {}
   const book = pathBookFromDoc(testData, quoted.quote)
-  const deskPlanChip = deskPlanChipFromDoc(testData)
+  const plannedMeta = plannedWriteFields(testData)
   // Frozen ledger from the completed sale — Step 5 restock must read the same cost figures.
   const priorOrderLedger =
     parseOrderLedger(testData.orderLedger) ||
@@ -2569,7 +2600,7 @@ async function issueCycle(
         evidence,
         immediateAttempts,
         priorOrderLedger,
-        deskPlanChip
+        plannedMeta
       )
     ).then(async (issued) => {
       // Continuous order: Sam Step 1 only. Leo / invoices wait for Continue.
@@ -2688,7 +2719,7 @@ async function publishSamDayBrief(input: {
     (eftZar > 0 && (input.plan.deployedAmount || 0) > 0 ? 'mixed' : eftZar > 0 ? 'eft' : 'card')
   const body = routingStepMessage.summary
   const title = stepCardTitle(1)
-  const planChip = deskPlanChipFromDoc(testData)
+  const planned = plannedWriteFields(testData, input.plan.cycleNumber)
   // Upsert so a stale recycle-mislabeled brief (no Continue) is repaired on Day n open.
   await ref.set(
     {
@@ -2715,7 +2746,7 @@ async function publishSamDayBrief(input: {
       openEftZar: eftZar,
       routingStepMessage,
       orderLedger,
-      ...(planChip ? { deskPlanChip: planChip } : {}),
+      ...planned,
       cyclePhase: hold ? 'hold' : 'order_open',
       deskStep: 1,
       dayTicketRevision: rev,
@@ -2792,7 +2823,8 @@ async function publishWhatHappened(input: {
   const title = stepCardTitle(6)
   const body = routingStepMessage.summary
   const eftZar = openEftZar(eftBook)
-  const planChip = deskPlanChipFromDoc(testData)
+  const planned = plannedWriteFields(testData, input.cycleNumber)
+  const nextDay = input.cycleNumber + 1
   await db
     .collection('users')
     .doc(input.adminUid)
@@ -2805,7 +2837,8 @@ async function publishWhatHappened(input: {
         title,
         body,
         deskSentence: body,
-        deskNextFooter: `Day ${input.cycleNumber + 1} · Step 1 Order opens tomorrow`,
+        deskNextFooter: `Day ${nextDay} · Step 1 Order opens tomorrow`,
+        deskAdvanceDay: nextDay,
         dropdownTitle: title,
         dropdownBody: body,
         actorType: 'ai_manager',
@@ -2824,7 +2857,7 @@ async function publishWhatHappened(input: {
         openEftZar: eftZar,
         routingStepMessage,
         orderLedger,
-        ...(planChip ? { deskPlanChip: planChip } : {}),
+        ...planned,
         cyclePhase: 'awaiting_day_close',
         deskStep: 6,
         dayTicketRevision: rev,
@@ -5427,7 +5460,8 @@ export const admin_submitConversionRoutingFeedback = functions
               nextBook,
               scheduleTicketPath({ assignments: rankedRestock.cardAssignments }),
               parseOrderLedger(testData.orderLedger),
-              deskPlanChipFromDoc(testData)
+              deskPlanChipFromDoc(testData),
+              plannedWriteFields(testData)
             )
           }
         }
@@ -5863,7 +5897,8 @@ export const admin_submitConversionRoutingFeedback = functions
             currentBook,
             scheduleTicketPath({ assignments: restock.cardAssignments }),
             parseOrderLedger(testData.orderLedger),
-            deskPlanChipFromDoc(testData)
+            deskPlanChipFromDoc(testData),
+            plannedWriteFields(testData)
           )
         }
         publishAdviceCard(tx, {
@@ -6193,6 +6228,9 @@ async function restoreLiveCheckpoint(
     updatedAt: now,
   }
   delete (restored as { liveCheckpoint?: unknown }).liveCheckpoint
+  delete (restored as { planRunId?: unknown }).planRunId
+  delete (restored as { plannedHorizonHours?: unknown }).plannedHorizonHours
+  delete (restored as { plannedAnchorCycle?: unknown }).plannedAnchorCycle
   await testRef.set(restored, { merge: false })
 }
 
@@ -6275,12 +6313,17 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     alreadyPlanned && num(start.plannedAnchorCycle, 0) > 0
       ? num(start.plannedAnchorCycle, 0)
       : startCycle
+  const planRunId =
+    alreadyPlanned && typeof start.planRunId === 'string' && start.planRunId
+      ? start.planRunId
+      : `plan-${testRunId}-${now.toMillis()}`
   await testRef.set(
     {
       deskMode: 'planned',
       plannedClockMs,
       plannedHorizonHours,
       plannedAnchorCycle,
+      planRunId,
       liveCheckpoint,
       updatedAt: now,
     },
@@ -6383,7 +6426,9 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       routingAction: 'advice',
       deskSpeaker: 'sam',
       deskMode: 'planned',
-      deskPlanChip: plannedHorizonHours >= 72 ? '72h plan' : '24h plan',
+      simulated: true,
+      planRunId,
+      deskPlanChip: plannedHorizonHours >= 72 ? `72h plan · day 1` : '24h plan',
       deskChannel: startEftZar > 0 ? 'mixed' : 'card',
       plannedClockMs,
       openEftZar: startEftZar,
@@ -6685,6 +6730,32 @@ export async function simulateNext72hDesk(adminUid: string): Promise<Record<stri
   }
 }
 
+async function purgeSimulatedDeskEvents(adminUid: string, planRunId?: string | null): Promise<void> {
+  const col = db.collection('users').doc(adminUid).collection('activityEvents')
+  const batches: FirebaseFirestore.QueryDocumentSnapshot[] = []
+  const byFlag = await col.where('simulated', '==', true).limit(400).get()
+  batches.push(...byFlag.docs)
+  if (planRunId) {
+    const byRun = await col.where('planRunId', '==', planRunId).limit(400).get()
+    batches.push(...byRun.docs)
+  }
+  // Legacy clear-* siblings from the pre-update clear model.
+  const clears = await col.where('routingAction', '==', 'en_route_clear').limit(200).get()
+  for (const doc of clears.docs) {
+    if (doc.id.startsWith('clear-') || doc.data()?.simulated === true) batches.push(doc)
+  }
+  const seen = new Set<string>()
+  await Promise.all(
+    batches
+      .filter((doc) => {
+        if (seen.has(doc.id)) return false
+        seen.add(doc.id)
+        return true
+      })
+      .map((doc) => doc.ref.delete().catch(() => undefined))
+  )
+}
+
 export async function exitDeskPlan(adminUid: string): Promise<Record<string, unknown>> {
   const testRunId = await currentTestId(adminUid)
   if (!testRunId) {
@@ -6696,16 +6767,26 @@ export async function exitDeskPlan(adminUid: string): Promise<Record<string, unk
     return { status: 'none', deskMode: 'live' }
   }
   const data = snap.data() || {}
+  const planRunId = typeof data.planRunId === 'string' ? data.planRunId : null
   const checkpoint = data.liveCheckpoint as LiveCheckpoint | undefined
   if (checkpoint && typeof checkpoint.atMs === 'number' && Array.isArray(checkpoint.eventIds)) {
     await restoreLiveCheckpoint(adminUid, testRunId, checkpoint)
   } else {
     await clearPlanMarkers(adminUid, testRunId)
     await testRef.set(
-      { deskMode: 'live', plannedClockMs: null, liveCheckpoint: admin.firestore.FieldValue.delete(), updatedAt: admin.firestore.Timestamp.now() },
+      {
+        deskMode: 'live',
+        plannedClockMs: null,
+        planRunId: admin.firestore.FieldValue.delete(),
+        plannedHorizonHours: admin.firestore.FieldValue.delete(),
+        plannedAnchorCycle: admin.firestore.FieldValue.delete(),
+        liveCheckpoint: admin.firestore.FieldValue.delete(),
+        updatedAt: admin.firestore.Timestamp.now(),
+      },
       { merge: true }
     )
   }
+  await purgeSimulatedDeskEvents(adminUid, planRunId)
   const after = (await testRef.get()).data() || {}
   const state = stateFromDoc(after)
   return publicSummary(state, {

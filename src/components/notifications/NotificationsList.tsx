@@ -77,28 +77,9 @@ function formatDividerDay(ms: number): string {
   return `${WEEKDAY_SHORT[p.weekday]} ${p.day} ${MONTH_SHORT[p.month - 1]}`
 }
 
-function dayDividerLabel(opts: {
-  planMode: 'live' | 'planned'
-  planChip?: '24h plan' | '72h plan' | null
-  cycleNumber: number
-  dayMs: number
-  totalDays?: number
-  planDayIndex?: number
-}): string {
-  const date = formatDividerDay(opts.dayMs)
-  if (opts.planMode !== 'planned') {
-    const day = Math.max(1, opts.cycleNumber || 1)
-    return `DAY ${day} · ${date}`
-  }
-  const horizon = opts.planChip === '72h plan' ? 72 : 24
-  const of = opts.totalDays && opts.totalDays > 0 ? opts.totalDays : horizon === 72 ? 3 : 1
-  // 24h is always DAY 1 OF 1; 72h walks 1..3 within the plan anchor — never DAY 2 OF 1.
-  const raw =
-    typeof opts.planDayIndex === 'number' && opts.planDayIndex > 0
-      ? opts.planDayIndex
-      : Math.max(1, opts.cycleNumber || 1)
-  const day = Math.min(Math.max(1, raw), of)
-  return `${horizon}H PLAN · DAY ${day} OF ${of} · ${date}`
+/** Calendar date only — plan position lives on the chip, not the divider. */
+function dayDividerLabel(dayMs: number): string {
+  return formatDividerDay(dayMs)
 }
 
 function StatusChip({ label }: { label: string }) {
@@ -119,34 +100,56 @@ function ClockIcon() {
   )
 }
 
+function parseDeskMznAmount(raw: string | undefined): number | null {
+  if (!raw) return null
+  const cleaned = raw.replace(/MZN/gi, '').replace(/\s/g, '').replace(/,/g, '')
+  const value = Number(cleaned)
+  return Number.isFinite(value) ? value : null
+}
+
 function orderLedgerFailures(item: ActivityItem): string[] {
   const msg = item.routingStepMessage
   const ledger = item.orderLedger || msg?.orderLedger
-  if (!ledger || !msg) return []
+  if (!ledger) return []
   const failures: string[] = []
-  const card = msg.rails.find((r) => r.kind === 'card')
-  const eft = msg.rails.find((r) => r.kind === 'eft')
-  if (card && typeof ledger.cardZar === 'number' && Math.abs(card.total - ledger.cardZar) > 0.01) {
-    failures.push(`card rail ${card.total} ≠ ledger ${ledger.cardZar}`)
+  const spread = Math.round((ledger.mznAtSell - ledger.mznAtCost) * 100) / 100
+  if (Math.abs(spread - ledger.spreadMzn) > 0.01) failures.push(`spread ${ledger.spreadMzn} ≠ sell−cost`)
+
+  if (item.deskStep === 5) {
+    const mznRow = (item.deskLedgerRows || []).find((row) => /mzn out/i.test(row.label))
+    const shown = parseDeskMznAmount(mznRow?.value)
+    if (shown == null) {
+      failures.push('Step 5 missing MZN out / orderLedger')
+    } else if (Math.abs(shown - ledger.mznAtCost) > 0.02) {
+      failures.push(`Step 5 MZN out ${shown} ≠ mznAtCost ${ledger.mznAtCost}`)
+    }
+    const rateMatch = mznRow?.secondLine?.match(/(\d+\.\d{4})/)
+    if (rateMatch && Math.abs(Number(rateMatch[1]) - ledger.costRate) > 0.00015) {
+      failures.push(`Step 5 cost ${rateMatch[1]} ≠ ledger ${ledger.costRate.toFixed(4)}`)
+    }
   }
-  if (card) {
-    const zarSteps = card.steps.filter((s) => s.amountKind === 'ZAR')
-    if (zarSteps.length && Math.abs(zarSteps.reduce((s, r) => s + r.amount, 0) / Math.max(zarSteps.length, 1) - card.total) > 0.01) {
-      // each card ZAR step should match card total (not sum) — check first ZAR amount
+
+  if (msg) {
+    const card = msg.rails.find((r) => r.kind === 'card')
+    const eft = msg.rails.find((r) => r.kind === 'eft')
+    if (card && typeof ledger.cardZar === 'number' && Math.abs(card.total - ledger.cardZar) > 0.01) {
+      failures.push(`card rail ${card.total} ≠ ledger ${ledger.cardZar}`)
+    }
+    if (card) {
+      const zarSteps = card.steps.filter((s) => s.amountKind === 'ZAR')
       const firstZar = zarSteps.find((s) => /desk pack|swipe|swiped/i.test(s.title))
       if (firstZar && Math.abs(firstZar.amount - card.total) > 0.01) {
         failures.push(`card step ZAR ${firstZar.amount} ≠ rail ${card.total}`)
       }
     }
+    if (eft && Array.isArray(ledger.eftTickets)) {
+      const sum = ledger.eftTickets.reduce((s, t) => s + t.amount, 0)
+      if (Math.abs(sum - eft.total) > 0.01) failures.push(`eft rail ${eft.total} ≠ tickets ${sum}`)
+    }
+    const client = Math.round(((card?.total || 0) + (eft?.total || 0)) * 100) / 100
+    if (Math.abs(client - msg.clientTotal) > 0.01) failures.push(`client ${msg.clientTotal} ≠ card+eft`)
   }
-  if (eft && Array.isArray(ledger.eftTickets)) {
-    const sum = ledger.eftTickets.reduce((s, t) => s + t.amount, 0)
-    if (Math.abs(sum - eft.total) > 0.01) failures.push(`eft rail ${eft.total} ≠ tickets ${sum}`)
-  }
-  const client = Math.round(((card?.total || 0) + (eft?.total || 0)) * 100) / 100
-  if (Math.abs(client - msg.clientTotal) > 0.01) failures.push(`client ${msg.clientTotal} ≠ card+eft`)
-  const spread = Math.round((ledger.mznAtSell - ledger.mznAtCost) * 100) / 100
-  if (Math.abs(spread - ledger.spreadMzn) > 0.01) failures.push(`spread ${ledger.spreadMzn} ≠ sell−cost`)
+
   if (failures.length && typeof console !== 'undefined') {
     console.error('[OrderLedger]', item.id, failures.join('; '))
   }
@@ -485,7 +488,7 @@ function ActivityItemCard({
   planBusy?: boolean
   catchupActive?: boolean
   planMode?: 'live' | 'planned'
-  planHorizonChip?: '24h plan' | '72h plan' | null
+  planHorizonChip?: string | null
   showNext24h?: boolean
   showNext72h?: boolean
   showRealtime?: boolean
@@ -503,15 +506,9 @@ function ActivityItemCard({
   const deskSpeaker = deskAgent ? DESK_TEAM[deskAgent] : null
   const avatarUrl = isCopied ? null : deskSpeaker?.avatar ?? resolveTaskAvatar(item)
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
-  // Only tagged sim steps — never infer onto bank notices / clears.
-  const planChip =
-    item.deskPlanChip ||
-    (planMode === 'planned' &&
-    typeof item.deskStep === 'number' &&
-    item.deskStep >= 1 &&
-    item.deskStep <= 6
-      ? planHorizonChip || '24h plan'
-      : null)
+  // Persist-only — never infer from planMode (bank notices must stay clean).
+  const planChip = item.simulated === true && item.deskPlanChip ? item.deskPlanChip : null
+  void planHorizonChip
   const sentence =
     item.deskSentence ||
     item.routingStepMessage?.summary ||
@@ -964,10 +961,7 @@ function ActivityItemCard({
           showDownload ||
           showProposalActions ||
           showExecuted ||
-          showKycLink ||
-          showNext24h ||
-          showNext72h ||
-          showRealtime) && (
+          showKycLink) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
               <button
@@ -1022,7 +1016,9 @@ function ActivityItemCard({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label={`Advance to Day ${Math.max(1, (item.cycleNumber || 0) + 1)}`}
+                aria-label={`Advance to Day ${
+                  item.deskAdvanceDay || Math.max(1, (item.cycleNumber || 0) + 1)
+                }`}
                 aria-busy={confirmState !== 'idle'}
                 disabled={confirmState !== 'idle' || planBusy === true}
                 onClick={async (event) => {
@@ -1040,7 +1036,9 @@ function ActivityItemCard({
                   }
                 }}
               >
-                {`Advance to Day ${Math.max(1, (item.cycleNumber || 0) + 1)}`}
+                {`Advance to Day ${
+                  item.deskAdvanceDay || Math.max(1, (item.cycleNumber || 0) + 1)
+                }`}
               </button>
             )}
             {showSendKeypad && (
@@ -1122,57 +1120,6 @@ function ActivityItemCard({
                 </button>
               </>
             )}
-            {showNext24h && (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Simulate the next 24 hours on the desk"
-                aria-busy={planBusy === true}
-                disabled={planBusy === true || confirmState !== 'idle'}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onNext24h?.()
-                }}
-              >
-                Next 24h
-              </button>
-            )}
-            {showNext72h && (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Simulate the next 72 hours on the desk"
-                aria-busy={planBusy === true}
-                disabled={planBusy === true || confirmState !== 'idle'}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onNext72h?.()
-                }}
-              >
-                Next 72h
-              </button>
-            )}
-            {showRealtime && (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Return to the live desk clock"
-                aria-busy={planBusy === true}
-                disabled={planBusy === true}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onRealtime?.()
-                }}
-              >
-                Real time
-              </button>
-            )}
             {showKycLink && (
               <button
                 type="button"
@@ -1184,6 +1131,72 @@ function ActivityItemCard({
                 Update KYC
               </button>
             )}
+          </div>
+        )}
+        {(showNext24h || showNext72h || showRealtime) && (
+          <div className={styles.simulateRow}>
+            <span className={styles.simulateLabel}>Simulate</span>
+            <div className={styles.simulateSegment} role="group" aria-label="Desk simulation">
+              {showNext24h ? (
+                <button
+                  type="button"
+                  className={[
+                    styles.simulateSegBtn,
+                    planMode === 'planned' && planHorizonChip === '24h plan'
+                      ? styles.simulateSegBtnActive
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-label="Simulate the next 24 hours on the desk"
+                  aria-busy={planBusy === true}
+                  disabled={planBusy === true || confirmState !== 'idle'}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onNext24h?.()
+                  }}
+                >
+                  Next 24h
+                </button>
+              ) : null}
+              {showNext72h ? (
+                <button
+                  type="button"
+                  className={[
+                    styles.simulateSegBtn,
+                    planMode === 'planned' && planHorizonChip?.startsWith('72h')
+                      ? styles.simulateSegBtnActive
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-label="Simulate the next 72 hours on the desk"
+                  aria-busy={planBusy === true}
+                  disabled={planBusy === true || confirmState !== 'idle'}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onNext72h?.()
+                  }}
+                >
+                  Next 72h
+                </button>
+              ) : null}
+              {showRealtime ? (
+                <button
+                  type="button"
+                  className={styles.simulateSegBtn}
+                  aria-label="Return to the live desk clock"
+                  aria-busy={planBusy === true}
+                  disabled={planBusy === true}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onRealtime?.()
+                  }}
+                >
+                  Real time
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
         {showDeskNextFooter && item.deskNextFooter ? (
@@ -1266,12 +1279,26 @@ function ActivitySection({
   onRealtime: () => void
   liveSellMznPerZar?: number | null
 }) {
-  const visibleItems = items.filter((item) => item.thinking === true || visibleIds.has(item.id))
+  const visibleItems = items.filter((item) => {
+    if (item.thinking === true) return true
+    if (!visibleIds.has(item.id)) return false
+    // Simulated writes vanish from the live feed (and after Real time purge).
+    if (item.simulated === true && planMode !== 'planned') return false
+    // Legacy model wrote a sibling clear-* event; keep only the booking-id clear.
+    if (
+      item.id.startsWith('clear-') &&
+      (item.kind === 'EN_ROUTE_CLEARED' || item.routingAction === 'en_route_clear')
+    ) {
+      return false
+    }
+    return true
+  })
   if (visibleItems.length === 0) return null
   void catchupActive
+  void plannedAnchorCycle
 
   let lastCycleKey = ''
-  const planHorizonChip: '24h plan' | '72h plan' | null =
+  const planHorizonChip =
     planMode === 'planned' ? (planHorizonHours === 72 ? '72h plan' : '24h plan') : null
 
   return (
@@ -1281,28 +1308,18 @@ function ActivitySection({
         {visibleItems.map((item) => {
           const settled = item.thinking === true || isSettled(item.id)
           const cycle = typeof item.cycleNumber === 'number' && item.cycleNumber > 0 ? item.cycleNumber : 0
-          const cycleKey = cycle > 0 ? `c${cycle}` : `d${formatDividerDay(item.createdAt)}`
+          const cycleKey = `d${formatDividerDay(item.createdAt)}`
           const showDivider = cycleKey !== lastCycleKey
           lastCycleKey = cycleKey
           const planHostId = latestAwaitingId || latestActivityId
           const isPlanHost = Boolean(planHostId) && item.id === planHostId && item.thinking !== true
-          const planDayIndex =
-            planMode === 'planned' && cycle > 0 && plannedAnchorCycle && plannedAnchorCycle > 0
-              ? cycle - plannedAnchorCycle + 1
-              : undefined
           return (
             <div key={item.id}>
               {showDivider ? (
                 <div className={styles.dayDivider}>
                   <div className={styles.dayDividerLine} />
                   <span className={styles.dayDividerLabel}>
-                    {dayDividerLabel({
-                      planMode,
-                      planChip: item.deskPlanChip || planHorizonChip,
-                      cycleNumber: cycle || 1,
-                      dayMs: item.createdAt,
-                      planDayIndex,
-                    })}
+                    {dayDividerLabel(item.createdAt)}
                   </span>
                   <div className={styles.dayDividerLine} />
                 </div>

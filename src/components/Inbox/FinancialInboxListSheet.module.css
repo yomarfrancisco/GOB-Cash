@@ -49,6 +49,12 @@
   --desk-pink: #f4a6c4;
   --desk-pending-fill: #ffffff;
   --desk-font: var(--font-dm-sans), 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --desk-title: 18px;
+  --desk-body: 15px;
+  --desk-card-value: 14px;
+  --desk-meta: 13px;
+  --desk-chip: 12px;
+  --desk-eyebrow: 11px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -299,7 +305,6 @@
   bottom: 0;
   z-index: 4;
   padding: 4px 32px calc(8px + env(safe-area-inset-bottom)) 79px;
-  zoom: 0.8;
 }
 
 .activityContent .conversationList {
@@ -312,7 +317,6 @@
   padding: 72px 16px 120px;
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
-  zoom: 0.8;
 }
 
 .activityContent::after {

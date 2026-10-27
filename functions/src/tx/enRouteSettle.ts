@@ -32,6 +32,9 @@ export type BookZarEnRouteParams = {
   namedClient?: { handle: string; userId: string } | null
   groupId?: string
   suppressDeskActivity?: boolean
+  /** Planned desk run — bubble is tagged and wiped on Real time. */
+  simulated?: boolean
+  planRunId?: string
 }
 
 export type BookZarEnRouteResult = {
@@ -137,6 +140,8 @@ export async function bookZarSaleToEnRoute(
       counterpartyUserId: params.namedClient?.userId || null,
       groupId,
       suppressDeskActivity: params.suppressDeskActivity === true,
+      simulated: params.simulated === true,
+      planRunId: params.planRunId || null,
       createdAt: now,
       statusUpdatedAt: now,
       updatedAt: now,
@@ -149,8 +154,10 @@ export async function bookZarSaleToEnRoute(
       t.set(userRef.collection('activityEvents').doc(txId), {
         id: txId,
         kind: 'EN_ROUTE_BOOKED',
-        title: 'ZAR en route',
-        body: `R${sourceAmountMajor.toFixed(2)} booked at SELL ${params.sellRate.toFixed(2)} Mt/R · clears ~${settleLabel} SAST next window`,
+        title: 'ZAR booked',
+        deskStatusChip: 'Booked',
+        body: `≈ ${expectedMzn.toFixed(2)} MZN @ ${params.sellRate.toFixed(4)} (sell)`,
+        dropdownBody: `Booked ${settleLabel} · clears ~09:00 next window`,
         actorType: 'ai_manager',
         avatarKind: 'convert_zar',
         amountCurrency: 'ZAR',
@@ -162,6 +169,9 @@ export async function bookZarSaleToEnRoute(
         status: 'recorded',
         routingAction: 'en_route',
         deskSpeaker: 'leo',
+        ...(params.simulated === true
+          ? { simulated: true, ...(params.planRunId ? { planRunId: params.planRunId } : {}) }
+          : {}),
         createdAt: now,
         recordingSource: 'USER_UI',
       })
@@ -195,25 +205,78 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
     const earningsRef = userRef.collection('wallets').doc('earnings')
     const mznRef = userRef.collection('wallets').doc('cashMZN')
 
-    // Desk keypad stamps suppressDeskActivity; Planned sim should not inject clear bubbles.
-    let skipClearBubble = tx.suppressDeskActivity === true
-    if (!skipClearBubble) {
-      try {
-        const currentSnap = await db.collection('adminConversionCurrent').doc(userId).get()
-        const testRunId = currentSnap.data()?.testRunId
-        if (typeof testRunId === 'string' && testRunId) {
-          const testSnap = await db.collection('adminConversionTests').doc(testRunId).get()
-          skipClearBubble = testSnap.data()?.deskMode === 'planned'
-        }
-      } catch {
-        /* keep clear bubble if mode lookup fails */
+    // Planned desk must not mutate live wallets / earnings — checkpoint rewind is incomplete.
+    let plannedDesk = false
+    let planRunId: string | null =
+      typeof tx.planRunId === 'string' && tx.planRunId ? tx.planRunId : null
+    try {
+      const currentSnap = await db.collection('adminConversionCurrent').doc(userId).get()
+      const testRunId = currentSnap.data()?.testRunId
+      if (typeof testRunId === 'string' && testRunId) {
+        const testSnap = await db.collection('adminConversionTests').doc(testRunId).get()
+        const testData = testSnap.data() || {}
+        plannedDesk = testData.deskMode === 'planned'
+        if (!planRunId && typeof testData.planRunId === 'string') planRunId = testData.planRunId
       }
+    } catch {
+      /* treat as live if mode lookup fails */
     }
+
+    const simulatedLot = tx.simulated === true || plannedDesk
+    const suppressDesk =
+      tx.suppressDeskActivity === true || simulatedLot
 
     try {
       await db.runTransaction(async (t) => {
         const fresh = await t.get(doc.ref)
         if (!fresh.exists || fresh.data()?.status !== 'EN_ROUTE') return
+
+        const bookingEventRef = userRef.collection('activityEvents').doc(doc.id)
+        const bookingSnap = await t.get(bookingEventRef)
+        const bookingData = bookingSnap.exists ? bookingSnap.data() || {} : null
+        // One clear per booking id — never write a sibling clear-* event.
+        if (bookingData?.kind === 'EN_ROUTE_CLEARED' || fresh.data()?.status === 'SETTLED') {
+          if (fresh.data()?.status === 'EN_ROUTE') {
+            t.update(doc.ref, {
+              status: 'SETTLED',
+              instructionStatus: 'SETTLED',
+              actualDestinationAmountMinor: mznMinor,
+              statusUpdatedAt: now,
+              updatedAt: now,
+              settledAt: now,
+            })
+          }
+          return
+        }
+
+        // Simulated lots: mark settled without touching live wallets.
+        if (simulatedLot) {
+          t.update(doc.ref, {
+            status: 'SETTLED',
+            instructionStatus: 'SETTLED',
+            actualDestinationAmountMinor: mznMinor,
+            statusUpdatedAt: now,
+            updatedAt: now,
+            settledAt: now,
+            simulated: true,
+            ...(planRunId ? { planRunId } : {}),
+          })
+          if (bookingSnap.exists && !suppressDesk) {
+            t.update(bookingEventRef, {
+              kind: 'EN_ROUTE_CLEARED',
+              title: 'ZAR cleared',
+              deskStatusChip: 'Cleared',
+              body: `${(mznMinor / 100).toFixed(2)} MZN @ ${Number(fresh.data()?.sellRateMZNperZAR || 0).toFixed(4)}`,
+              status: 'recorded',
+              routingAction: 'en_route_clear',
+              simulated: true,
+              ...(planRunId ? { planRunId } : {}),
+              updatedAt: now,
+              clearedAt: now,
+            })
+          }
+          return
+        }
 
         const earningsSnap = await t.get(earningsRef)
         const mznSnap = await t.get(mznRef)
@@ -255,27 +318,38 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
           settledAt: now,
         })
 
-        if (!skipClearBubble && fresh.data()?.suppressDeskActivity !== true) {
-          const clearId = `clear-${doc.id}`
-          t.set(userRef.collection('activityEvents').doc(clearId), {
-            id: clearId,
+        // Live: update the booking bubble in place (same id as the conversion tx).
+        if (!suppressDesk && fresh.data()?.suppressDeskActivity !== true) {
+          const sellRate = Number(fresh.data()?.sellRateMZNperZAR || 0)
+          const clearFields = {
             kind: 'EN_ROUTE_CLEARED',
-            title: 'En route cleared',
-            body: `R${(debit / 100).toFixed(2)} → Mt ${(mznMinor / 100).toFixed(2)} on the Moz card`,
+            title: 'ZAR cleared',
+            deskStatusChip: 'Cleared',
+            body: `${(mznMinor / 100).toFixed(2)} MZN @ ${sellRate.toFixed(4)}`,
             actorType: 'ai_manager',
             avatarKind: 'convert_mzn',
-            amountCurrency: 'MZN',
-            amountValue: mznMinor / 100,
-            amountSign: 'credit',
-            pairedAmountValue: debit / 100,
+            amountCurrency: 'ZAR',
+            amountValue: debit / 100,
+            amountSign: 'debit' as const,
+            pairedAmountValue: mznMinor / 100,
             txId: doc.id,
             hasDownloadButton: false,
             status: 'recorded',
             routingAction: 'en_route_clear',
             deskSpeaker: 'amina',
-            createdAt: now,
+            updatedAt: now,
+            clearedAt: now,
             recordingSource: 'SYSTEM',
-          })
+          }
+          if (bookingSnap.exists) {
+            t.update(bookingEventRef, clearFields)
+          } else {
+            t.set(bookingEventRef, {
+              id: doc.id,
+              ...clearFields,
+              createdAt: now,
+            })
+          }
         }
       })
 

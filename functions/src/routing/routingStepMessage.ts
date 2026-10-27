@@ -103,7 +103,11 @@ export function buildSummarySentence(
     const card = rails.find((r) => r.kind === 'card')
     const eft = rails.find((r) => r.kind === 'eft')
     const parts: string[] = []
-    if (card) parts.push(`${formatZarMoney(card.total)} settled on card today.`)
+    if (card && card.total > 0.009) {
+      parts.push(`${formatZarMoney(card.total)} settled on card today.`)
+    } else {
+      parts.push('No card leg today.')
+    }
     if (eft) parts.push(`${formatZarMoney(eft.total)} EFT pending, lands ${eft.settlementTerm}.`)
     return parts.join(' ')
   }

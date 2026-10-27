@@ -1433,10 +1433,10 @@ export function buildReplenishActivityCopy(
   const nextLabel = sold ? `${next ?? 'next weekday'}` : `Day ${replenish.cycleNumber + 1}`
   const rows = replenish.cardAssignments
   const lines: string[] = [
-    `${soldLabel.charAt(0).toUpperCase()}${soldLabel.slice(1)} ticket swiped back into the SA float at cost.`,
+    `${soldLabel.charAt(0).toUpperCase()}${soldLabel.slice(1)} ticket swiped back into the SA float at the booked cost rate.`,
   ]
   if (!rows.length) {
-    lines.push(`Restock ${formatZar(replenish.amountZar)} at cost.`)
+    lines.push(`Restock ${formatZar(replenish.amountZar)} at the booked cost rate.`)
   }
   lines.push(`Next: sell ZAR on ${nextLabel}.`)
   lines.push(`Status: ${statusLabel}`)

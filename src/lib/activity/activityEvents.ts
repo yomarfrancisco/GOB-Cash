@@ -66,6 +66,9 @@ export type ActivityEventDoc = {
   deskNextFooter?: string
   deskPlanChip?: string
   deskStep?: number
+  simulated?: boolean
+  planRunId?: string
+  deskAdvanceDay?: number
   deskLedgerRows?: unknown
   orderLedger?: unknown
   earliestAttemptAt?: string
@@ -101,7 +104,11 @@ function asDeskLedgerRows(
 }
 
 function asDeskPlanChip(raw: unknown): ActivityItem['deskPlanChip'] {
-  if (raw === '24h plan' || raw === '72h plan') return raw
+  if (typeof raw !== 'string') return undefined
+  const chip = raw.trim()
+  if (!chip) return undefined
+  if (chip === '24h plan' || chip === '72h plan') return chip
+  if (/^72h plan · day [1-3]$/i.test(chip)) return chip
   return undefined
 }
 
@@ -343,6 +350,12 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
         : undefined,
     deskPlanChip: asDeskPlanChip(data.deskPlanChip),
     deskStep: typeof data.deskStep === 'number' && data.deskStep > 0 ? data.deskStep : undefined,
+    simulated: data.simulated === true,
+    planRunId: typeof data.planRunId === 'string' && data.planRunId.trim() ? data.planRunId.trim() : undefined,
+    deskAdvanceDay:
+      typeof data.deskAdvanceDay === 'number' && data.deskAdvanceDay > 0
+        ? data.deskAdvanceDay
+        : undefined,
     deskLedgerRows: asDeskLedgerRows(data.deskLedgerRows),
     orderLedger:
       data.orderLedger && typeof data.orderLedger === 'object'
