@@ -33,7 +33,14 @@ export function SpeakerAvatar({
       aria-label={who.name}
     >
       {usePhoto ? (
-        <Image src={who.avatar} alt="" width={size} height={size} className={styles.img} unoptimized />
+        <Image
+          src={who.avatar}
+          alt=""
+          fill
+          sizes={`${size}px`}
+          className={styles.img}
+          unoptimized
+        />
       ) : (
         <span className={styles.mono} style={{ background: mono.fill, fontSize: size >= 56 ? 16 : 12 }}>
           {mono.text}
