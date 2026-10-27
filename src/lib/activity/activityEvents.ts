@@ -65,6 +65,7 @@ export type ActivityEventDoc = {
   deskStatusChip?: string
   deskNextFooter?: string
   deskPlanChip?: string
+  deskStep?: number
   deskLedgerRows?: unknown
   orderLedger?: unknown
   earliestAttemptAt?: string
@@ -341,6 +342,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
         ? data.deskNextFooter.trim()
         : undefined,
     deskPlanChip: asDeskPlanChip(data.deskPlanChip),
+    deskStep: typeof data.deskStep === 'number' && data.deskStep > 0 ? data.deskStep : undefined,
     deskLedgerRows: asDeskLedgerRows(data.deskLedgerRows),
     orderLedger:
       data.orderLedger && typeof data.orderLedger === 'object'

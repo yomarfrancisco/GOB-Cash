@@ -1060,7 +1060,9 @@ function writeIssuedReplenish(
   now: admin.firestore.Timestamp,
   overlay = EMPTY_OVERLAY,
   book: PathBook = {},
-  ticketPath = scheduleTicketPath({ assignments: [] })
+  ticketPath = scheduleTicketPath({ assignments: [] }),
+  orderLedger: OrderLedger | null = null,
+  deskPlanChip?: '24h plan' | '72h plan' | null
 ): { plan: CyclePlan; activityEventId: string; kind: 'replenish' } {
   const plan = planCycle(state, overlay, { ...book, residuals: [] })
   const proposedAt = now.toMillis()
@@ -1092,8 +1094,15 @@ function writeIssuedReplenish(
   const swipeTime =
     path.tickets.find((t) => typeof t.timeLabel === 'string' && t.timeLabel)?.timeLabel || null
   const sentence = activity.body.split(/\n|Next:|Status:/)[0]!.trim() || activity.body
+  // Prefer frozen OrderLedger cost figures so Step 5 matches Steps 1–4.
+  const amountZar =
+    orderLedger && orderLedger.zar > 0 ? orderLedger.zar : replenish.amountZar
+  const amountMzn =
+    orderLedger && orderLedger.mznAtCost > 0 ? orderLedger.mznAtCost : replenish.amountMzn
+  const costRate =
+    orderLedger && orderLedger.costRate > 0 ? orderLedger.costRate : replenish.costRate
   const deskLedgerRows = [
-    { label: 'Swiped', value: formatZarMoney(replenish.amountZar), valueStrong: true },
+    { label: 'Swiped', value: formatZarMoney(amountZar), valueStrong: true },
     {
       label: 'Card',
       value: primary
@@ -1106,8 +1115,8 @@ function writeIssuedReplenish(
     },
     {
       label: 'MZN out',
-      value: formatMznMoney(replenish.amountMzn),
-      secondLine: `at cost ${formatRate4(replenish.costRate)} MZN/ZAR`,
+      value: formatMznMoney(amountMzn),
+      secondLine: `at cost ${formatRate4(costRate)} MZN/ZAR`,
     },
     ...(swipeTime ? [{ label: 'Time', value: swipeTime }] : []),
   ]
@@ -1122,14 +1131,16 @@ function writeIssuedReplenish(
     deskStatusChip: 'Swiped',
     deskNextFooter: 'Step 6 · What happened',
     deskLedgerRows,
+    orderLedger: orderLedger || null,
+    ...(deskPlanChip ? { deskPlanChip } : {}),
     dropdownTitle: step5Title,
     dropdownBody: notification.body,
     actorType: 'ai_manager',
     avatarKind: 'convert_mzn',
     amountCurrency: 'MZN',
-    amountValue: replenish.amountMzn,
+    amountValue: amountMzn,
     amountSign: 'debit',
-    pairedAmountValue: replenish.amountZar,
+    pairedAmountValue: amountZar,
     pairedAmountCurrency: 'ZAR',
     txId: activityEventId,
     hasDownloadButton: true,
@@ -1165,9 +1176,9 @@ function writeIssuedReplenish(
       awaitingCycleNumber: replenish.cycleNumber,
       awaitingKind: 'replenish',
       cyclePhase: 'awaiting_recycle' as CyclePhase,
-      replenishAmountMzn: replenish.amountMzn,
-      replenishAmountZar: replenish.amountZar,
-      replenishCostRate: replenish.costRate,
+      replenishAmountMzn: amountMzn,
+      replenishAmountZar: amountZar,
+      replenishCostRate: costRate,
       replenishAssignments: issued.cardAssignments,
       replenishRestingCardIds: replenish.restingCardIds,
       replenishRestingMachineIds: replenish.restingMachineIds,
@@ -1193,6 +1204,13 @@ async function loadRecentRouteEvidence(limit = 80): Promise<RouteEvidence[]> {
   }
 }
 
+function deskPlanChipFromDoc(
+  data: FirebaseFirestore.DocumentData | Record<string, unknown> | undefined
+): '24h plan' | '72h plan' | null {
+  if (!data || data.deskMode !== 'planned') return null
+  return num(data.plannedHorizonHours, 24) >= 72 ? '72h plan' : '24h plan'
+}
+
 function writeIssuedCycle(
   tx: admin.firestore.Transaction,
   adminUid: string,
@@ -1203,7 +1221,9 @@ function writeIssuedCycle(
   overlay = EMPTY_OVERLAY,
   book: PathBook = {},
   evidence: RouteEvidence[] = [],
-  immediateAttempts = false
+  immediateAttempts = false,
+  priorOrderLedger: OrderLedger | null = null,
+  deskPlanChip: '24h plan' | '72h plan' | null = null
 ): { plan: CyclePlan; activityEventId: string; kind: 'deploy' | 'replenish' } {
   const liveBook: PathBook = {
     ...book,
@@ -1226,7 +1246,9 @@ function writeIssuedCycle(
       now,
       overlay,
       liveBook,
-      restockPath
+      restockPath,
+      priorOrderLedger,
+      deskPlanChip
     )
   }
 
@@ -2513,7 +2535,24 @@ async function issueCycle(
   }
   const quoted = await applyLiveQuotes(state)
   const testSnap = await db.collection(TESTS).doc(testRunId).get()
-  const book = pathBookFromDoc(testSnap.data() || {}, quoted.quote)
+  const testData = testSnap.data() || {}
+  const book = pathBookFromDoc(testData, quoted.quote)
+  const deskPlanChip = deskPlanChipFromDoc(testData)
+  // Frozen ledger from the completed sale — Step 5 restock must read the same cost figures.
+  const priorOrderLedger =
+    parseOrderLedger(testData.orderLedger) ||
+    (state.completedCycles > 0
+      ? parseOrderLedger(
+          (
+            await db
+              .collection(TESTS)
+              .doc(testRunId)
+              .collection('cycles')
+              .doc(String(state.completedCycles))
+              .get()
+          ).data()?.orderLedger
+        )
+      : null)
   // Cold open (Day 1) does not need the full belief history — keep `$` under the callable limit.
   const evidence = state.completedCycles > 0 ? await loadRecentRouteEvidence(80) : []
   try {
@@ -2528,7 +2567,9 @@ async function issueCycle(
         EMPTY_OVERLAY,
         book,
         evidence,
-        immediateAttempts
+        immediateAttempts,
+        priorOrderLedger,
+        deskPlanChip
       )
     ).then(async (issued) => {
       // Continuous order: Sam Step 1 only. Leo / invoices wait for Continue.
@@ -2647,6 +2688,7 @@ async function publishSamDayBrief(input: {
     (eftZar > 0 && (input.plan.deployedAmount || 0) > 0 ? 'mixed' : eftZar > 0 ? 'eft' : 'card')
   const body = routingStepMessage.summary
   const title = stepCardTitle(1)
+  const planChip = deskPlanChipFromDoc(testData)
   // Upsert so a stale recycle-mislabeled brief (no Continue) is repaired on Day n open.
   await ref.set(
     {
@@ -2673,6 +2715,7 @@ async function publishSamDayBrief(input: {
       openEftZar: eftZar,
       routingStepMessage,
       orderLedger,
+      ...(planChip ? { deskPlanChip: planChip } : {}),
       cyclePhase: hold ? 'hold' : 'order_open',
       deskStep: 1,
       dayTicketRevision: rev,
@@ -2749,6 +2792,7 @@ async function publishWhatHappened(input: {
   const title = stepCardTitle(6)
   const body = routingStepMessage.summary
   const eftZar = openEftZar(eftBook)
+  const planChip = deskPlanChipFromDoc(testData)
   await db
     .collection('users')
     .doc(input.adminUid)
@@ -2779,6 +2823,8 @@ async function publishWhatHappened(input: {
         deskChannel: eftZar > 0 ? 'mixed' : 'card',
         openEftZar: eftZar,
         routingStepMessage,
+        orderLedger,
+        ...(planChip ? { deskPlanChip: planChip } : {}),
         cyclePhase: 'awaiting_day_close',
         deskStep: 6,
         dayTicketRevision: rev,
@@ -3781,7 +3827,7 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
           // Keep scheduled swipe times on the step card after Confirm / Planned finish.
           dropdownBody: completedCopy.body
             .split('\n')
-            .filter((line) => /^- \d{1,2}h\d{2}:/.test(line) || /^- Swipe /.test(line))
+            .filter((line) => /^- \d{1,2}[:h]\d{2}:/.test(line) || /^- Swipe /.test(line))
             .join('\n')
             .slice(0, 500),
           ticketPath: completedPath,
@@ -5370,7 +5416,19 @@ export const admin_submitConversionRoutingFeedback = functions
                 residuals: nextBook.residuals,
               }),
             }
-            writeIssuedReplenish(tx, adminUid, testRunId, liveState, rankedRestock, now, overlay, nextBook)
+            writeIssuedReplenish(
+              tx,
+              adminUid,
+              testRunId,
+              liveState,
+              rankedRestock,
+              now,
+              overlay,
+              nextBook,
+              scheduleTicketPath({ assignments: rankedRestock.cardAssignments }),
+              parseOrderLedger(testData.orderLedger),
+              deskPlanChipFromDoc(testData)
+            )
           }
         }
         const impactBody = formatAskImpactBody({
@@ -5802,7 +5860,10 @@ export const admin_submitConversionRoutingFeedback = functions
             restock,
             now,
             overlay,
-            currentBook
+            currentBook,
+            scheduleTicketPath({ assignments: restock.cardAssignments }),
+            parseOrderLedger(testData.orderLedger),
+            deskPlanChipFromDoc(testData)
           )
         }
         publishAdviceCard(tx, {
@@ -6208,10 +6269,18 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     ? (start.liveCheckpoint as LiveCheckpoint)
     : await captureLiveCheckpoint(adminUid, testRunId)
 
+  // Next 24h always anchors a 24h horizon; Next 72h pre-stamps 72 before calling this.
+  const plannedHorizonHours = num(start.plannedHorizonHours, 0) >= 72 ? 72 : 24
+  const plannedAnchorCycle =
+    alreadyPlanned && num(start.plannedAnchorCycle, 0) > 0
+      ? num(start.plannedAnchorCycle, 0)
+      : startCycle
   await testRef.set(
     {
       deskMode: 'planned',
       plannedClockMs,
+      plannedHorizonHours,
+      plannedAnchorCycle,
       liveCheckpoint,
       updatedAt: now,
     },
@@ -6314,6 +6383,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       routingAction: 'advice',
       deskSpeaker: 'sam',
       deskMode: 'planned',
+      deskPlanChip: plannedHorizonHours >= 72 ? '72h plan' : '24h plan',
       deskChannel: startEftZar > 0 ? 'mixed' : 'card',
       plannedClockMs,
       openEftZar: startEftZar,
@@ -6521,6 +6591,8 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     cycleNumber: endCycle,
     deskMode: 'planned',
     plannedClockMs: outClock,
+    plannedHorizonHours,
+    plannedAnchorCycle,
     simulatedFromCycle: startCycle,
     simulatedToCycle: endCycle,
     simulatedSteps: steps,
@@ -6557,6 +6629,22 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
  * while cards keep cycling. Stops early on keypad gates (same honesty as Next 24h).
  */
 export async function simulateNext72hDesk(adminUid: string): Promise<Record<string, unknown>> {
+  const testRunId = await currentTestId(adminUid)
+  if (testRunId) {
+    const testRef = db.collection(TESTS).doc(testRunId)
+    const snap = await testRef.get()
+    const data = snap.data() || {}
+    const startCycle = num(data.awaitingCycleNumber, 0) || num(data.completedCycles, 0) + 1
+    await testRef.set(
+      {
+        plannedHorizonHours: 72,
+        plannedAnchorCycle:
+          num(data.plannedAnchorCycle, 0) > 0 ? num(data.plannedAnchorCycle, 0) : startCycle,
+        updatedAt: admin.firestore.Timestamp.now(),
+      },
+      { merge: true }
+    )
+  }
   const allSteps: string[] = []
   let last: Record<string, unknown> | null = null
   let fromCycle: number | null = null
@@ -6584,6 +6672,7 @@ export async function simulateNext72hDesk(adminUid: string): Promise<Record<stri
   const eftZar = num(last.openEftZar, 0)
   return {
     ...last,
+    plannedHorizonHours: 72,
     simulatedHorizonHours: 72,
     simulatedFromCycle: fromCycle,
     simulatedSteps: allSteps,
@@ -6632,7 +6721,17 @@ export async function exitDeskPlan(adminUid: string): Promise<Record<string, unk
 export const admin_simulateNextDeskDay = functions
   .region('us-central1')
   .runWith({ timeoutSeconds: 300, memory: '1GB' })
-  .https.onCall(async (_data, context) => simulateNextDeskDay(assertRoutingAdmin(context)))
+  .https.onCall(async (_data, context) => {
+    const adminUid = assertRoutingAdmin(context)
+    const testRunId = await currentTestId(adminUid)
+    if (testRunId) {
+      await db.collection(TESTS).doc(testRunId).set(
+        { plannedHorizonHours: 24, updatedAt: admin.firestore.Timestamp.now() },
+        { merge: true }
+      )
+    }
+    return simulateNextDeskDay(adminUid)
+  })
 
 export const admin_simulateNext72hDesk = functions
   .region('us-central1')

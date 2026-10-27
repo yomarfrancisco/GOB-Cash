@@ -83,12 +83,21 @@ function dayDividerLabel(opts: {
   cycleNumber: number
   dayMs: number
   totalDays?: number
+  planDayIndex?: number
 }): string {
-  const day = Math.max(1, opts.cycleNumber || 1)
   const date = formatDividerDay(opts.dayMs)
-  if (opts.planMode !== 'planned') return `DAY ${day} · ${date}`
+  if (opts.planMode !== 'planned') {
+    const day = Math.max(1, opts.cycleNumber || 1)
+    return `DAY ${day} · ${date}`
+  }
   const horizon = opts.planChip === '72h plan' ? 72 : 24
   const of = opts.totalDays && opts.totalDays > 0 ? opts.totalDays : horizon === 72 ? 3 : 1
+  // 24h is always DAY 1 OF 1; 72h walks 1..3 within the plan anchor — never DAY 2 OF 1.
+  const raw =
+    typeof opts.planDayIndex === 'number' && opts.planDayIndex > 0
+      ? opts.planDayIndex
+      : Math.max(1, opts.cycleNumber || 1)
+  const day = Math.min(Math.max(1, raw), of)
   return `${horizon}H PLAN · DAY ${day} OF ${of} · ${date}`
 }
 
@@ -455,6 +464,7 @@ function ActivityItemCard({
   planBusy,
   catchupActive,
   planMode,
+  planHorizonChip,
   showNext24h,
   showNext72h,
   showRealtime,
@@ -475,6 +485,7 @@ function ActivityItemCard({
   planBusy?: boolean
   catchupActive?: boolean
   planMode?: 'live' | 'planned'
+  planHorizonChip?: '24h plan' | '72h plan' | null
   showNext24h?: boolean
   showNext72h?: boolean
   showRealtime?: boolean
@@ -492,9 +503,15 @@ function ActivityItemCard({
   const deskSpeaker = deskAgent ? DESK_TEAM[deskAgent] : null
   const avatarUrl = isCopied ? null : deskSpeaker?.avatar ?? resolveTaskAvatar(item)
   const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
+  // Only tagged sim steps — never infer onto bank notices / clears.
   const planChip =
     item.deskPlanChip ||
-    (planMode === 'planned' && item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ? '24h plan' : null)
+    (planMode === 'planned' &&
+    typeof item.deskStep === 'number' &&
+    item.deskStep >= 1 &&
+    item.deskStep <= 6
+      ? planHorizonChip || '24h plan'
+      : null)
   const sentence =
     item.deskSentence ||
     item.routingStepMessage?.summary ||
@@ -1005,7 +1022,7 @@ function ActivityItemCard({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Advance to Day 2"
+                aria-label={`Advance to Day ${Math.max(1, (item.cycleNumber || 0) + 1)}`}
                 aria-busy={confirmState !== 'idle'}
                 disabled={confirmState !== 'idle' || planBusy === true}
                 onClick={async (event) => {
@@ -1023,7 +1040,7 @@ function ActivityItemCard({
                   }
                 }}
               >
-                Advance to Day 2
+                {`Advance to Day ${Math.max(1, (item.cycleNumber || 0) + 1)}`}
               </button>
             )}
             {showSendKeypad && (
@@ -1218,6 +1235,8 @@ function ActivitySection({
   isSettled,
   onEntranceComplete,
   planMode,
+  planHorizonHours,
+  plannedAnchorCycle,
   planBusy,
   catchupActive,
   onNext24h,
@@ -1238,6 +1257,8 @@ function ActivitySection({
   isSettled: (id: string) => boolean
   onEntranceComplete: (id: string) => void
   planMode: 'live' | 'planned'
+  planHorizonHours: 24 | 72 | null
+  plannedAnchorCycle: number | null
   planBusy: boolean
   catchupActive: boolean
   onNext24h: () => void
@@ -1250,6 +1271,8 @@ function ActivitySection({
   void catchupActive
 
   let lastCycleKey = ''
+  const planHorizonChip: '24h plan' | '72h plan' | null =
+    planMode === 'planned' ? (planHorizonHours === 72 ? '72h plan' : '24h plan') : null
 
   return (
     <div className={styles.activitySection}>
@@ -1263,6 +1286,10 @@ function ActivitySection({
           lastCycleKey = cycleKey
           const planHostId = latestAwaitingId || latestActivityId
           const isPlanHost = Boolean(planHostId) && item.id === planHostId && item.thinking !== true
+          const planDayIndex =
+            planMode === 'planned' && cycle > 0 && plannedAnchorCycle && plannedAnchorCycle > 0
+              ? cycle - plannedAnchorCycle + 1
+              : undefined
           return (
             <div key={item.id}>
               {showDivider ? (
@@ -1271,9 +1298,10 @@ function ActivitySection({
                   <span className={styles.dayDividerLabel}>
                     {dayDividerLabel({
                       planMode,
-                      planChip: item.deskPlanChip || (planMode === 'planned' ? '24h plan' : null),
+                      planChip: item.deskPlanChip || planHorizonChip,
                       cycleNumber: cycle || 1,
                       dayMs: item.createdAt,
+                      planDayIndex,
                     })}
                   </span>
                   <div className={styles.dayDividerLine} />
@@ -1292,6 +1320,7 @@ function ActivitySection({
                 planBusy={planBusy}
                 catchupActive={catchupActive}
                 planMode={planMode}
+                planHorizonChip={planHorizonChip}
                 showNext24h={!lockDeskActions && isPlanHost}
                 showNext72h={!lockDeskActions && isPlanHost}
                 showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
@@ -1426,6 +1455,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const reveal = useProgressiveReveal(revealItems)
   const setDeskFocus = useDeskFocusStore((s) => s.setFocus)
   const planMode = useDeskPlanStore((s) => s.mode)
+  const planHorizonHours = useDeskPlanStore((s) => s.plannedHorizonHours)
+  const plannedAnchorCycle = useDeskPlanStore((s) => s.plannedAnchorCycle)
   const planBusy = useDeskPlanStore((s) => s.busy)
   const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
   const setPlanBusy = useDeskPlanStore((s) => s.setBusy)
@@ -1679,6 +1710,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     isSettled: reveal.isSettled,
     onEntranceComplete: reveal.onTypingComplete,
     planMode,
+    planHorizonHours,
+    plannedAnchorCycle,
     planBusy,
     catchupActive: reveal.catchupActive,
     onNext24h: () => void handleNext24h(),

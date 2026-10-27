@@ -30,7 +30,7 @@ export type TimedTicket = {
   machineId: number
   amount: number
   earliestAt: string
-  /** Operator clock, e.g. 10h12 */
+  /** Operator clock, e.g. 10:12 */
   timeLabel: string
   pathNote: string | null
 }
@@ -42,10 +42,10 @@ export type TicketPathSchedule = {
   pathSummary: string | null
 }
 
-/** 10h12 style — matches the desk language you prefer. */
+/** HH:MM SAST — desk stream clock. */
 export function formatDeskClock(ms: number): string {
   const p = sastParts(ms)
-  return `${String(p.hour).padStart(2, '0')}h${String(p.minute).padStart(2, '0')}`
+  return `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`
 }
 
 function addCalendarDays(parts: SastParts, days: number): SastParts {

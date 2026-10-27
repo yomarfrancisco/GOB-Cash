@@ -136,6 +136,7 @@ export async function bookZarSaleToEnRoute(
       counterpartyHandle: params.namedClient?.handle || null,
       counterpartyUserId: params.namedClient?.userId || null,
       groupId,
+      suppressDeskActivity: params.suppressDeskActivity === true,
       createdAt: now,
       statusUpdatedAt: now,
       updatedAt: now,
@@ -194,6 +195,21 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
     const earningsRef = userRef.collection('wallets').doc('earnings')
     const mznRef = userRef.collection('wallets').doc('cashMZN')
 
+    // Desk keypad stamps suppressDeskActivity; Planned sim should not inject clear bubbles.
+    let skipClearBubble = tx.suppressDeskActivity === true
+    if (!skipClearBubble) {
+      try {
+        const currentSnap = await db.collection('adminConversionCurrent').doc(userId).get()
+        const testRunId = currentSnap.data()?.testRunId
+        if (typeof testRunId === 'string' && testRunId) {
+          const testSnap = await db.collection('adminConversionTests').doc(testRunId).get()
+          skipClearBubble = testSnap.data()?.deskMode === 'planned'
+        }
+      } catch {
+        /* keep clear bubble if mode lookup fails */
+      }
+    }
+
     try {
       await db.runTransaction(async (t) => {
         const fresh = await t.get(doc.ref)
@@ -239,26 +255,28 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
           settledAt: now,
         })
 
-        const clearId = `clear-${doc.id}`
-        t.set(userRef.collection('activityEvents').doc(clearId), {
-          id: clearId,
-          kind: 'EN_ROUTE_CLEARED',
-          title: 'En route cleared',
-          body: `R${(debit / 100).toFixed(2)} → Mt ${(mznMinor / 100).toFixed(2)} on the Moz card`,
-          actorType: 'ai_manager',
-          avatarKind: 'convert_mzn',
-          amountCurrency: 'MZN',
-          amountValue: mznMinor / 100,
-          amountSign: 'credit',
-          pairedAmountValue: debit / 100,
-          txId: doc.id,
-          hasDownloadButton: false,
-          status: 'recorded',
-          routingAction: 'en_route_clear',
-          deskSpeaker: 'amina',
-          createdAt: now,
-          recordingSource: 'SYSTEM',
-        })
+        if (!skipClearBubble && fresh.data()?.suppressDeskActivity !== true) {
+          const clearId = `clear-${doc.id}`
+          t.set(userRef.collection('activityEvents').doc(clearId), {
+            id: clearId,
+            kind: 'EN_ROUTE_CLEARED',
+            title: 'En route cleared',
+            body: `R${(debit / 100).toFixed(2)} → Mt ${(mznMinor / 100).toFixed(2)} on the Moz card`,
+            actorType: 'ai_manager',
+            avatarKind: 'convert_mzn',
+            amountCurrency: 'MZN',
+            amountValue: mznMinor / 100,
+            amountSign: 'credit',
+            pairedAmountValue: debit / 100,
+            txId: doc.id,
+            hasDownloadButton: false,
+            status: 'recorded',
+            routingAction: 'en_route_clear',
+            deskSpeaker: 'amina',
+            createdAt: now,
+            recordingSource: 'SYSTEM',
+          })
+        }
       })
 
       // Refresh nextSettleAt from remaining open lots.

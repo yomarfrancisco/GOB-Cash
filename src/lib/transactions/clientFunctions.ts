@@ -965,6 +965,11 @@ export type ConversionRoutingSummary = {
   /** live = wall clock; planned = Next 24h simulation */
   deskMode?: 'live' | 'planned'
   plannedClockMs?: number | null
+  /** 24 or 72 — drives day-divider OF m and plan chip label */
+  plannedHorizonHours?: number | null
+  /** Desk cycle when the current Planned run started */
+  plannedAnchorCycle?: number | null
+  simulatedFromCycle?: number | null
   acknowledgement?: string
   /** Next 24h paused for desk keypad — client should pop it. */
   awaitingKeypad?: 'send' | 'restock' | null

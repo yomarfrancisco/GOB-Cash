@@ -136,15 +136,25 @@ export type BuildOrderStepInput = {
 }
 
 export function buildOrderStepMessage(input: BuildOrderStepInput): RoutingStepMessage {
-  const cardZar = roundMoney(input.cardAssignments.reduce((s, row) => s + (row.amount || 0), 0))
-  const eftSource = eftTicketsForPlan(input.eftTickets)
-  const eftZar = roundMoney(eftSource.reduce((s, t) => s + t.amountZar, 0))
   const ledger = input.orderLedger || null
+  const assignmentZar = roundMoney(input.cardAssignments.reduce((s, row) => s + (row.amount || 0), 0))
+  const cardZar = roundMoney(
+    assignmentZar > 0.009
+      ? assignmentZar
+      : ledger && ledger.cardZar > 0
+        ? ledger.cardZar
+        : ledger && ledger.zar > 0
+          ? ledger.zar
+          : 0
+  )
+  const eftSource = eftTicketsForPlan(input.eftTickets)
+  const eftZar = roundMoney(
+    eftSource.reduce((s, t) => s + t.amountZar, 0) || (ledger && ledger.eftZar > 0 ? ledger.eftZar : 0)
+  )
 
   const rails: Rail[] = []
 
-  if (cardZar > 0.009 && input.cardAssignments.length) {
-    const primary = input.cardAssignments[0]!
+  if (cardZar > 0.009) {
     const sellRate =
       ledger && ledger.sellRate > 0
         ? ledger.sellRate
@@ -161,37 +171,67 @@ export function buildOrderStepMessage(input: BuildOrderStepInput): RoutingStepMe
     const swipeDone = input.cardLaneComplete === true
 
     const ranked = input.cardAssignments.slice().sort((a, b) => b.amount - a.amount)
-    const primarySa = ranked[0]!
+    const primary = ranked[0]
+    const primarySa = ranked[0]
 
-    const steps: RailStep[] = [
-      {
-        status: mznDone ? 'done' : 'planned',
-        title: mznDone ? 'MZN sourced' : 'MZN source planned',
-        subline: `${mozBankLabel(primary.cardId)} · ${cardShortName(primary.cardId)}`,
-        amount: mznNeeded,
-        amountKind: 'MZN',
-        secondary: `@ ${fx}`,
-      },
-      {
-        status: invoiceDone ? 'done' : 'planned',
-        title: invoiceDone ? 'Desk pack raised' : 'Desk pack planned',
-        subline:
-          input.cardAssignments.length > 1
-            ? `${input.cardAssignments.length} invoices`
-            : 'Invoice',
-        amount: cardZar,
-        amountKind: 'ZAR',
-      },
-      {
-        status: swipeDone ? 'done' : 'planned',
-        title: swipeDone ? 'Swiped' : 'Swipe planned',
-        subline: swipeDone
-          ? `${machineShortName(primarySa.machineId)}${input.swipeTimeLabel ? ` · ${input.swipeTimeLabel}` : ''}`
-          : `${machineShortName(primarySa.machineId)} · SA bank`,
-        amount: roundMoney(primarySa.amount),
-        amountKind: 'ZAR',
-      },
-    ]
+    const steps: RailStep[] = primary
+      ? [
+          {
+            status: mznDone ? 'done' : 'planned',
+            title: mznDone ? 'MZN sourced' : 'MZN source planned',
+            subline: `${mozBankLabel(primary.cardId)} · ${cardShortName(primary.cardId)}`,
+            amount: mznNeeded,
+            amountKind: 'MZN',
+            secondary: `@ ${fx}`,
+          },
+          {
+            status: invoiceDone ? 'done' : 'planned',
+            title: invoiceDone ? 'Desk pack raised' : 'Desk pack planned',
+            subline:
+              input.cardAssignments.length > 1
+                ? `${input.cardAssignments.length} invoices`
+                : 'Invoice',
+            amount: cardZar,
+            amountKind: 'ZAR',
+          },
+          {
+            status: swipeDone ? 'done' : 'planned',
+            title: swipeDone ? 'Swiped' : 'Swipe planned',
+            subline: swipeDone
+              ? `${machineShortName(primarySa!.machineId)}${input.swipeTimeLabel ? ` · ${input.swipeTimeLabel}` : ''}`
+              : `${machineShortName(primarySa!.machineId)} · SA bank`,
+            amount: roundMoney(primarySa!.amount),
+            amountKind: 'ZAR',
+          },
+        ]
+      : [
+          {
+            status: mznDone ? 'done' : 'planned',
+            title: mznDone ? 'MZN sourced' : 'MZN source planned',
+            subline: 'Moz card',
+            amount: mznNeeded,
+            amountKind: 'MZN',
+            secondary: `@ ${fx}`,
+          },
+          {
+            status: invoiceDone ? 'done' : 'planned',
+            title: invoiceDone ? 'Desk pack raised' : 'Desk pack planned',
+            subline: 'Invoice',
+            amount: cardZar,
+            amountKind: 'ZAR',
+          },
+          {
+            status: swipeDone ? 'done' : 'planned',
+            title: swipeDone ? 'Swiped' : 'Swipe planned',
+            subline: swipeDone
+              ? input.swipeTimeLabel
+                ? `Card · ${input.swipeTimeLabel}`
+                : 'Card'
+              : 'SA bank',
+            amount: cardZar,
+            amountKind: 'ZAR',
+          },
+        ]
 
     rails.push({
       kind: 'card',

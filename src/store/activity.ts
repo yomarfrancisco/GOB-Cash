@@ -78,6 +78,7 @@ export type ActivityItem = {
   deskStatusChip?: string
   deskNextFooter?: string
   deskPlanChip?: '24h plan' | '72h plan'
+  deskStep?: number
   deskLedgerRows?: Array<{
     label: string
     value: string
