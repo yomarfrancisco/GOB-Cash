@@ -1,7 +1,7 @@
 .wrap {
   position: relative;
   border-radius: 50%;
-  border: 1.5px solid var(--desk-ink, #18181b);
+  border: 0;
   overflow: hidden;
   flex-shrink: 0;
   background: var(--desk-bg-card, #fffffe);

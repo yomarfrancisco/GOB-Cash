@@ -119,16 +119,7 @@ export default function NotificationsSheet() {
     >
       <div className={`${listStyles.content} ${listStyles.activityContent} ${listStyles.deskContent}`}>
         <div className={listStyles.deskHeaderChrome} aria-hidden />
-        <div className={listStyles.activitySearchOverlay} aria-hidden>
-          <button
-            type="button"
-            className={listStyles.deskHeaderClose}
-            aria-label="Close"
-            onClick={closeNotifications}
-          >
-            ✕
-          </button>
-        </div>
+        <div className={listStyles.activitySearchOverlay} aria-hidden />
         {deskLiveReady ? <NotificationsList /> : null}
       </div>
     </ActionSheet>

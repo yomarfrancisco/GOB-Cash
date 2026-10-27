@@ -299,6 +299,7 @@
   bottom: 0;
   z-index: 4;
   padding: 4px 32px calc(8px + env(safe-area-inset-bottom)) 79px;
+  zoom: 0.8;
 }
 
 .activityContent .conversationList {
@@ -308,9 +309,10 @@
   right: 0;
   bottom: 0;
   z-index: 1;
-  padding: 64px 16px 104px;
+  padding: 72px 16px 120px;
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
+  zoom: 0.8;
 }
 
 .activityContent::after {
