@@ -1237,6 +1237,42 @@ function deskPlanChipFromDoc(
   return plannedWriteFields(data, cycleNumber).deskPlanChip || null
 }
 
+/** Part 2 desk line after restock confirm — bank-style without competing with Step 5. */
+async function writeSwipeApprovedNotice(params: {
+  adminUid: string
+  testRunId: string
+  cycleNumber: number
+  conversionTxId?: string
+  testData: FirebaseFirestore.DocumentData | Record<string, unknown>
+}): Promise<void> {
+  const id = `swipe-approved-${params.testRunId}-${params.cycleNumber}`
+  const ref = db.collection('users').doc(params.adminUid).collection('activityEvents').doc(id)
+  if ((await ref.get()).exists) return
+  const planned = plannedWriteFields(params.testData, params.cycleNumber)
+  await ref.set({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: 'Swipe approved',
+    body: 'Card POS approved the restock swipe.',
+    deskStatusChip: 'Approved',
+    dropdownTitle: 'Swipe approved',
+    dropdownBody: 'Card POS approved the restock swipe.',
+    actorType: 'ai_manager',
+    avatarKind: 'convert_zar',
+    deskSpeaker: 'leo',
+    routingAction: 'swipe_notice',
+    status: 'recorded',
+    awaitingConfirm: false,
+    hasDownloadButton: false,
+    testRunId: params.testRunId,
+    cycleNumber: params.cycleNumber,
+    ...(params.conversionTxId ? { txId: params.conversionTxId } : {}),
+    ...planned,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    recordingSource: 'SYSTEM',
+  })
+}
+
 function writeIssuedCycle(
   tx: admin.firestore.Transaction,
   adminUid: string,
@@ -4144,7 +4180,30 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
         console.warn('[confirm] POP zip on step card skipped', error)
       }
     }
+    if (result.confirmedKind === 'replenish') {
+      try {
+        const modeDoc = (await testRef.get()).data() || {}
+        await writeSwipeApprovedNotice({
+          adminUid,
+          testRunId,
+          cycleNumber: result.cycleNumber,
+          conversionTxId,
+          testData: modeDoc,
+        })
+      } catch (error) {
+        console.warn('[confirm] Swipe approved notice skipped', error)
+      }
+    }
     if (result.confirmedKind === 'deploy') {
+      try {
+        const modeDoc = (await testRef.get()).data() || {}
+        if (modeDoc.deskMode === 'planned') {
+          const { settleDueEnRouteLots } = await import('./enRouteSettle')
+          await settleDueEnRouteLots(40)
+        }
+      } catch (error) {
+        console.warn('[confirm] Planned EN ROUTE clear skipped', error)
+      }
       try {
         const cycleSnap = await db.collection(TESTS).doc(testRunId).collection('cycles').doc(String(result.cycleNumber)).get()
         const assignments = Array.isArray(cycleSnap.data()?.cardAssignments)

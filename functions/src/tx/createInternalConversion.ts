@@ -191,6 +191,28 @@ export const tx_createInternalConversion = functions
     // ZAR sales book EN ROUTE until next 09:00 SAST; restocks credit cashZAR now.
     if (isZarSale) {
       const { bookZarSaleToEnRoute } = await import('./enRouteSettle')
+      // Desk Send already has Step 4 — still post Part 2 "ZAR booked" (not CONVERSION_INSTRUCTED).
+      let plannedMeta: { simulated?: true; planRunId?: string } = {}
+      if (data?.routingPlay) {
+        try {
+          const currentSnap = await db.collection('adminConversionCurrent').doc(userId).get()
+          const testRunId = currentSnap.data()?.testRunId
+          if (typeof testRunId === 'string' && testRunId) {
+            const testSnap = await db.collection('adminConversionTests').doc(testRunId).get()
+            const td = testSnap.data() || {}
+            if (td.deskMode === 'planned') {
+              plannedMeta = {
+                simulated: true,
+                ...(typeof td.planRunId === 'string' && td.planRunId
+                  ? { planRunId: td.planRunId }
+                  : {}),
+              }
+            }
+          }
+        } catch {
+          /* treat as live */
+        }
+      }
       const booked = await bookZarSaleToEnRoute({
         userId,
         sourceAmountZar: sourceAmountMajor,
@@ -199,7 +221,10 @@ export const tx_createInternalConversion = functions
         rewardsMznMinor,
         namedClient,
         groupId: typeof data?.groupId === 'string' && data.groupId.trim() ? data.groupId.trim() : undefined,
-        suppressDeskActivity: suppressDesk,
+        suppressDeskActivity: data?.routingPlay ? false : suppressDesk,
+        simulated: plannedMeta.simulated === true,
+        planRunId: plannedMeta.planRunId,
+        settleImmediately: plannedMeta.simulated === true,
       })
       try {
         await sendAgentConversionProofEmail(booked.txId)

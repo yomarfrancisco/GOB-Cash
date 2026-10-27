@@ -35,6 +35,8 @@ export type BookZarEnRouteParams = {
   /** Planned desk run — bubble is tagged and wiped on Real time. */
   simulated?: boolean
   planRunId?: string
+  /** Planned Send: clear on the next settle sweep so ZAR cleared can show in-session. */
+  settleImmediately?: boolean
 }
 
 export type BookZarEnRouteResult = {
@@ -56,7 +58,8 @@ export async function bookZarSaleToEnRoute(
   const expectedMzn = roundMajor(sourceAmountMajor * params.sellRate)
   const expectedDestinationMinor = Math.round(expectedMzn * 100)
   const nowMs = Date.now()
-  const settleAtMs = nextSettleAt09hSast(nowMs)
+  const settleAtMs =
+    params.settleImmediately === true ? nowMs : nextSettleAt09hSast(nowMs)
   const now = admin.firestore.Timestamp.fromMillis(nowMs)
   const settleAt = admin.firestore.Timestamp.fromMillis(settleAtMs)
 
@@ -223,8 +226,8 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
     }
 
     const simulatedLot = tx.simulated === true || plannedDesk
-    const suppressDesk =
-      tx.suppressDeskActivity === true || simulatedLot
+    // Still post ZAR cleared for Planned — only skip when the book was desk-suppressed.
+    const suppressDesk = tx.suppressDeskActivity === true
 
     try {
       await db.runTransaction(async (t) => {
@@ -251,6 +254,7 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
 
         // Simulated lots: mark settled without touching live wallets.
         if (simulatedLot) {
+          const sellRate = Number(fresh.data()?.sellRateMZNperZAR || 0)
           t.update(doc.ref, {
             status: 'SETTLED',
             instructionStatus: 'SETTLED',
@@ -261,19 +265,38 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
             simulated: true,
             ...(planRunId ? { planRunId } : {}),
           })
-          if (bookingSnap.exists && !suppressDesk) {
-            t.update(bookingEventRef, {
+          if (!suppressDesk) {
+            const clearFields = {
               kind: 'EN_ROUTE_CLEARED',
               title: 'ZAR cleared',
               deskStatusChip: 'Cleared',
-              body: `${(mznMinor / 100).toFixed(2)} MZN @ ${Number(fresh.data()?.sellRateMZNperZAR || 0).toFixed(4)}`,
+              body: `${(mznMinor / 100).toFixed(2)} MZN @ ${sellRate.toFixed(4)}`,
+              actorType: 'ai_manager',
+              avatarKind: 'convert_mzn',
+              amountCurrency: 'ZAR',
+              amountValue: zarMinor / 100,
+              amountSign: 'debit' as const,
+              pairedAmountValue: mznMinor / 100,
+              txId: doc.id,
+              hasDownloadButton: false,
               status: 'recorded',
               routingAction: 'en_route_clear',
+              deskSpeaker: 'amina',
               simulated: true,
               ...(planRunId ? { planRunId } : {}),
               updatedAt: now,
               clearedAt: now,
-            })
+              recordingSource: 'SYSTEM',
+            }
+            if (bookingSnap.exists) {
+              t.update(bookingEventRef, clearFields)
+            } else {
+              t.set(bookingEventRef, {
+                id: doc.id,
+                ...clearFields,
+                createdAt: now,
+              })
+            }
           }
           return
         }
