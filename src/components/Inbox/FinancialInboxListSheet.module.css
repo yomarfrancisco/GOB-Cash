@@ -305,6 +305,8 @@
   bottom: 0;
   z-index: 4;
   padding: 4px 32px calc(8px + env(safe-area-inset-bottom)) 79px;
+  /* Compact desk density — matches the shipped Part 1 scale. */
+  zoom: 0.8;
 }
 
 .activityContent .conversationList {
@@ -317,6 +319,7 @@
   padding: 72px 16px 120px;
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
+  zoom: 0.8;
 }
 
 .activityContent::after {
