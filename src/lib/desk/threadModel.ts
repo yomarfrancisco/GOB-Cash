@@ -20,7 +20,7 @@ export const DESK_TEAM = {
     id: 'leo' as const,
     name: 'SA Bank Liaison',
     role: 'ZAR · SA banks',
-    avatar: '/assets/ZAR_square.png',
+    avatar: '/assets/ZAR_square.jpg',
   },
   amina: {
     id: 'amina' as const,

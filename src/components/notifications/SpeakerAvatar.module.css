@@ -14,7 +14,10 @@
 
 .img {
   object-fit: cover;
-  object-position: center;
+  object-position: center center;
+  /* Next/Image fill: stretch to the rounded square, no letterbox. */
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .mono {

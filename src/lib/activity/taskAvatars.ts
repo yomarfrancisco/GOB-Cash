@@ -3,12 +3,12 @@
 export const TASK_AVATARS = {
   /** Align convert faces with FX Desk bank liaisons / routing manager. */
   convertMzn: '/assets/MZN_square.jpg',
-  convertZar: '/assets/ZAR_square.png',
+  convertZar: '/assets/ZAR_square.jpg',
   deposit: '/assets/avatar - profile (4).png',
   withdraw: '/assets/avatar - profile (2).png',
   cashAgent: '/assets/bear_square.jpg',
   paymentSent: '/assets/avatar - profile (3).png',
-  paymentDelivered: '/assets/ZAR_square.png',
+  paymentDelivered: '/assets/ZAR_square.jpg',
   paymentReceived: '/assets/MZN_square.jpg',
 } as const
 

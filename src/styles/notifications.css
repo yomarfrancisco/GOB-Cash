@@ -95,9 +95,9 @@
   outline: none;
 }
 
-/* AI manager avatar needs white background for transparent PNG */
+/* Dark fill under desk photos / logos; opaque art covers it. */
 .notification-avatar--ai {
-  background: #ffffff; /* White circular background for BRICS girl */
+  background: #111;
 }
 
 .notification-avatar-img {
