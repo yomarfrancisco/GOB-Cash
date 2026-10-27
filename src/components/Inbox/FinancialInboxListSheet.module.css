@@ -76,14 +76,14 @@
   left: 0;
   right: 0;
   z-index: 3;
-  height: 172px;
-  padding: 16px 0 48px;
+  height: 88px;
+  padding: 0;
   pointer-events: none;
   border-radius: 32px 32px 0 0;
   background: linear-gradient(
     180deg,
     var(--desk-bg-page) 0%,
-    var(--desk-bg-page) 72%,
+    var(--desk-bg-page) 55%,
     rgba(255, 255, 255, 0) 100%
   );
 }
@@ -135,7 +135,7 @@
 
 .deskHeaderClose {
   position: absolute;
-  top: 0;
+  top: 16px;
   right: 16px;
   width: 44px;
   height: 44px;
@@ -145,7 +145,7 @@
   place-items: center;
   border-radius: 50%;
   border: 1px solid var(--desk-border, #e2ded3);
-  background: var(--desk-bg-card, #fffffe);
+  background: var(--desk-bg-card, #ffffff);
   color: var(--desk-ink, #18181b);
   font-size: 14px;
   line-height: 1;
@@ -308,7 +308,7 @@
   right: 0;
   bottom: 0;
   z-index: 1;
-  padding: 140px 16px 104px;
+  padding: 64px 16px 104px;
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
 }
