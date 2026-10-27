@@ -28,6 +28,7 @@ import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { formatVisibleSast } from '@/lib/routing/routingTime'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
+import { bankTileForItem } from '@/lib/activity/bankTiles'
 import { DESK_TEAM, deskAgentFor, activeDeskAgent, addressedDeskAgent } from '@/lib/desk/threadModel'
 import { DESK_CATCHUP_MS, useProgressiveReveal } from '@/lib/desk/useProgressiveReveal'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
@@ -278,6 +279,8 @@ function buildKycGateItem(cta: 'Start KYC' | 'Update KYC', createdAt: number): A
 }
 
 function resolveTaskAvatar(item: ActivityItem): string {
+  const bank = bankTileForItem({ title: displayDeskTitle(item.title) || item.title })
+  if (bank) return bank.src
   // Live desk faces always win over stale actor.avatarUrl baked into Firestore docs.
   if (item.kind === 'CONVERSION_ROUTING_INSTRUCTION' || item.thinking) {
     return DESK_TEAM[deskAgentFor(item)].avatar
@@ -499,11 +502,6 @@ function ActivityItemCard({
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
   const profile = useUserProfileStore((s) => s.profile)
   const isCopied = isCopiedActivity(item)
-  const deskAgent: DeskAgent | null =
-    item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ? deskAgentFor(item) : null
-  const deskSpeaker = deskAgent ? DESK_TEAM[deskAgent] : null
-  const avatarUrl = isCopied ? null : deskSpeaker?.avatar ?? resolveTaskAvatar(item)
-  const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   // Persist-only — never infer from planMode (bank notices must stay clean).
   const planChip = item.simulated === true && item.deskPlanChip ? item.deskPlanChip : null
   void planMode
@@ -549,6 +547,15 @@ function ActivityItemCard({
   const askCard = isAskCard(item)
   const typing = animateEntrance === true
   const title = displayDeskTitle(item.title)
+  const bankTile = bankTileForItem({ title: title || item.title, routingAction: item.routingAction })
+  // Bank · notices keep bank tiles — not Routing Manager / liaison portraits.
+  const deskAgent: DeskAgent | null =
+    !bankTile && (item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION')
+      ? deskAgentFor(item)
+      : null
+  const deskSpeaker = deskAgent ? DESK_TEAM[deskAgent] : null
+  const avatarUrl = isCopied ? null : bankTile?.src ?? deskSpeaker?.avatar ?? resolveTaskAvatar(item)
+  const showUserPlaceholder = isCopied || isUserPlaceholderAvatar(avatarUrl)
   const isRecycleCard =
     item.routingAction === 'replenish' || /^Step\s*5\b/i.test(title) || /^Restock ZAR\b/i.test(item.title || '')
   const isSendCard =
@@ -832,7 +839,7 @@ function ActivityItemCard({
       data-desk-item-at={item.createdAt}
       data-desk-item-cycle={typeof item.cycleNumber === 'number' ? item.cycleNumber : undefined}
     >
-      <div className={styles.activityAvatar}>
+      <div className={[styles.activityAvatar, bankTile ? styles.activityAvatarBank : ''].filter(Boolean).join(' ')}>
         {deskAgent ? (
           <SpeakerAvatar agent={deskAgent} size={44} />
         ) : showUserPlaceholder ? (
@@ -847,17 +854,19 @@ function ActivityItemCard({
         ) : (
           <Image
             src={avatarUrl ?? ADMIN_AVATAR_PATH}
-            alt={deskSpeaker?.name || item.actor.name || 'Payment agent'}
+            alt={bankTile?.label || deskSpeaker?.name || item.actor.name || 'Payment agent'}
             width={44}
             height={44}
-            className={styles.avatarImg}
+            className={bankTile ? styles.bankTileImg : styles.avatarImg}
             unoptimized
           />
         )}
       </div>
       <div className={styles.activityContent}>
         <div className={styles.msgHeaderText}>
-          {deskSpeaker ? <div className={styles.activitySpeaker}>{deskSpeaker.name}</div> : null}
+          {bankTile || deskSpeaker ? (
+            <div className={styles.activitySpeaker}>{bankTile?.label || deskSpeaker?.name}</div>
+          ) : null}
           <div className={styles.activityHeader}>
             {typing && title ? (
               <TypewriterText

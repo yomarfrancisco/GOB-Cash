@@ -22,6 +22,7 @@ describe('desk copy display', () => {
     assert.equal(displayDeskTitle('Sell ZAR · Tue,'), 'Step 4 · Send')
     assert.equal(displayDeskTitle("Restock ZAR at COST · Tuesday's tickets"), 'Step 5 · Recycle')
     assert.equal(displayDeskTitle('FNB approved R120.00'), 'Bank · FNB approved R120.00')
+    assert.equal(displayDeskTitle('Moza cash withdrawal'), 'Bank · Moza cash withdrawal')
     assert.equal(displayDeskTitle('Next window opened'), 'Window · Opened')
   })
 

@@ -18,6 +18,7 @@ export function displayDeskTitle(title: string | undefined | null): string {
   // Soft-normalize older freeform bank / window / friction lines still in Firestore.
   if (/^FNB\b/i.test(out)) return out.replace(/^FNB\b/i, 'Bank · FNB')
   if (/^Capitec\b/i.test(out)) return out.replace(/^Capitec\b/i, 'Bank · Capitec')
+  if (/^Moza\b/i.test(out)) return out.replace(/^Moza\b/i, 'Bank · Moza')
   if (/^Next window opened\b/i.test(out)) return 'Window · Opened'
   if (/^Add ZAR before\b/i.test(out)) return 'Window · Add ZAR'
   if (/^Window closed\b/i.test(out)) return 'Window · Closed'

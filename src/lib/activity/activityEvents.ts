@@ -2,6 +2,7 @@ import { collection, onSnapshot, type Timestamp, type Unsubscribe } from 'fireba
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import type { ActivityItem } from '@/store/activity'
 import { conversionAvatar, TASK_AVATARS } from './taskAvatars'
+import { bankTileForTitle } from './bankTiles'
 import { DESK_TEAM, deskAgentFor } from '@/lib/desk/threadModel'
 import { parseRoutingStepMessage } from '@/lib/desk/routingStepMessage'
 
@@ -189,6 +190,8 @@ function createdAtMs(value: ActivityEventDoc['createdAt']): number {
 }
 
 function avatarUrlForEvent(data: ActivityEventDoc): string | undefined {
+  const bank = bankTileForTitle(data.title)
+  if (bank) return bank.src
   if (data.avatarKind === 'convert_zar') return TASK_AVATARS.convertZar
   if (data.avatarKind === 'convert_mzn') return TASK_AVATARS.convertMzn
   if (data.avatarKind === 'cash_agent_exchange') return TASK_AVATARS.cashAgent

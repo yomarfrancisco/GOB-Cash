@@ -14,19 +14,19 @@ export const DESK_TEAM = {
     id: 'sam' as const,
     name: 'Routing Manager',
     role: '',
-    avatar: '/assets/benjamin_pink_circle.png',
+    avatar: '/assets/bear_square.jpg',
   },
   leo: {
     id: 'leo' as const,
     name: 'SA Bank Liaison',
     role: 'ZAR · SA banks',
-    avatar: '/assets/zar_liaison_circle.png',
+    avatar: '/assets/ZAR_square.png',
   },
   amina: {
     id: 'amina' as const,
     name: 'Moz Bank Liaison',
     role: 'MZN · Moz banks',
-    avatar: '/assets/mzn_liaison_circle.png',
+    avatar: '/assets/MZN_square.jpg',
   },
 }
 
