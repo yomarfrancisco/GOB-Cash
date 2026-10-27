@@ -298,17 +298,6 @@
   }
 }
 
-.deskAskDock {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 4;
-  padding: 4px 32px calc(8px + env(safe-area-inset-bottom)) 79px;
-  /* Compact desk density — matches the shipped Part 1 scale. */
-  zoom: 0.8;
-}
-
 .activityContent .conversationList {
   position: absolute;
   top: 0;
@@ -316,28 +305,10 @@
   right: 0;
   bottom: 0;
   z-index: 1;
-  padding: 72px 16px 120px;
+  padding: 72px 16px calc(24px + env(safe-area-inset-bottom));
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
   zoom: 0.8;
-}
-
-.activityContent::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 88px;
-  z-index: 2;
-  pointer-events: none;
-  background: linear-gradient(
-    to top,
-    var(--desk-bg-page, #ffffff) 0%,
-    rgba(255, 255, 255, 0.82) 28%,
-    rgba(255, 255, 255, 0.28) 62%,
-    rgba(255, 255, 255, 0) 100%
-  );
 }
 
 .subtitle {

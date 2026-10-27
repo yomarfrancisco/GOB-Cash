@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Check, Download, ExternalLink, ArrowUp } from 'lucide-react'
+import { Check, Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -1358,10 +1358,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
   const [visibleCount, setVisibleCount] = useState(ACTIVITY_PAGE_SIZE)
-  const [askText, setAskText] = useState('')
-  const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
-  const [askError, setAskError] = useState('')
-  
+
   // Runtime validator: auto-clear bad data
   useEffect(() => {
     const items = all()
@@ -1730,27 +1727,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     liveSellMznPerZar,
   }
 
-  const askAnchor =
-    allItems.find((item) => item.thinking !== true && item.id === latestActivityId) ||
-    allItems.find((item) => item.thinking !== true && Boolean(item.testRunId)) ||
-    allItems.find((item) => item.thinking !== true)
-
-  const handleSubmitAsk = async (event?: { preventDefault: () => void }) => {
-    event?.preventDefault()
-    const message = askText.trim()
-    if (!message || askState !== 'idle' || deskBlocked || !askAnchor) return
-    setAskState('loading')
-    setAskError('')
-    try {
-      await handleRoutingAsk(askAnchor, message)
-      setAskText('')
-    } catch (error) {
-      setAskError(error instanceof Error ? error.message : `${DESK_TEAM.sam.name} could not take that just now.`)
-    } finally {
-      setAskState('idle')
-    }
-  }
-
   return (
     <>
       <div className={listStyles.conversationList} data-desk-feed>
@@ -1786,33 +1762,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
           )}
         </div>
       </div>
-      <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
-        <div className={styles.replyFrame}>
-          <textarea
-            className={styles.replyInput}
-            rows={3}
-            value={askText}
-            placeholder={`Ask ${DESK_TEAM.sam.name}`}
-            disabled={askState !== 'idle' || deskBlocked}
-            onChange={(event) => setAskText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                void handleSubmitAsk(event)
-              }
-            }}
-          />
-          <button
-            type="submit"
-            className={styles.replySend}
-            disabled={askState !== 'idle' || deskBlocked || !askText.trim()}
-            aria-label="Send"
-          >
-            <ArrowUp size={16} strokeWidth={2.4} />
-          </button>
-        </div>
-        {askError ? <p className={styles.replyError}>{askError}</p> : null}
-      </form>
     </>
   )
 }
