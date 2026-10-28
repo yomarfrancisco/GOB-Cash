@@ -4293,7 +4293,17 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
     }
 
     const modeSnap = await testRef.get()
-    const deskMode = modeSnap.data()?.deskMode === 'planned' ? 'planned' : 'live'
+    const modeDoc = modeSnap.data() || {}
+    const deskMode = modeDoc.deskMode === 'planned' ? 'planned' : 'live'
+    const endGate = keypadGateFromDoc(modeDoc)
+    const restockZar =
+      endGate === 'restock'
+        ? num(modeDoc.replenishAmountZar, num(modeDoc.expectedOrderZar, 0))
+        : 0
+    const restockMzn =
+      endGate === 'restock'
+        ? num(modeDoc.replenishAmountMzn, num(modeDoc.expectedOrderMzn, 0))
+        : 0
 
     return publicSummary(result.nextState, {
       testRunId,
@@ -4305,7 +4315,18 @@ export async function confirmOpenCycle(adminUid: string, data: Record<string, un
       nextDeployedAmount: nextCycle?.deployedAmount ?? null,
       completed: result.testComplete,
       deskMode,
+      plannedClockMs: num(modeDoc.plannedClockMs, 0) || null,
+      plannedHorizonHours: num(modeDoc.plannedHorizonHours, 0) || null,
+      planRunId: typeof modeDoc.planRunId === 'string' && modeDoc.planRunId ? modeDoc.planRunId : null,
       ...(dayClosePending ? { awaitingDayClose: true } : {}),
+      // After Send confirm, Step 5 is open — client should pop the restock keypad.
+      ...(endGate
+        ? {
+            awaitingKeypad: endGate,
+            keypadAmountZar: endGate === 'restock' ? restockZar : num(modeDoc.expectedOrderZar, 0),
+            keypadAmountMzn: endGate === 'restock' ? restockMzn : num(modeDoc.expectedOrderMzn, 0),
+          }
+        : {}),
     })
   }
 

@@ -207,7 +207,8 @@ function isNeverGrouped(item: ActivityItem): boolean {
     if (!/^Bank\b/i.test(title)) return true
   }
   if (item.routingAction === 'deploy' || item.routingAction === 'replenish') return true
-  if (item.routingAction === 'step') return true
+  if (item.routingAction === 'step' || item.routingAction === 'swipe_notice') return true
+  if (typeof item.deskStep === 'number' && item.deskStep >= 1 && item.deskStep <= 6) return true
   return false
 }
 

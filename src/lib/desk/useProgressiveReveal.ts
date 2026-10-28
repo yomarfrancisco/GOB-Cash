@@ -125,7 +125,13 @@ export function useProgressiveReveal(items: RevealItem[]): ProgressiveRevealStat
     setCatchupActive(true)
     const delay = prefersReducedMotion() ? 0 : DOTS_MS
     const dotsTimer = window.setTimeout(() => {
-      if (isDeskRevealHeld()) return
+      // Keypad hold must not wedge the pump (busy stuck + no typingId).
+      if (isDeskRevealHeld()) {
+        busyRef.current = false
+        setShowDots(false)
+        persist()
+        return
+      }
       setShowDots(false)
       typingRef.current = next
       setTypingId(next)
@@ -157,10 +163,16 @@ export function useProgressiveReveal(items: RevealItem[]): ProgressiveRevealStat
     setSettled(new Set(s.settled))
     setTypingId(s.typingId)
     setCatchupActive(s.catchupActive)
-    if (!isDeskRevealHeld() && s.queue.length && !s.typingId) {
-      busyRef.current = false
-      pump()
+    const tryPump = () => {
+      if (!isDeskRevealHeld() && queueRef.current.length && !typingRef.current) {
+        busyRef.current = false
+        pump()
+      }
     }
+    tryPump()
+    // submitRoutingConversion releases the hold ~40ms after the desk remounts.
+    const retry = window.setTimeout(tryPump, 80)
+    return () => window.clearTimeout(retry)
     // Intentionally mount-only — shared is the source of truth across desk close/open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

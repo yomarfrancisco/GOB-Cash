@@ -75,5 +75,22 @@ export async function submitRoutingConversion(params: {
           )
       }
     }
+    // Send confirm opens Step 5 · Recycle — pop the restock keypad the same way Next 24h does.
+    const gate = summary?.awaitingKeypad
+    if (gate === 'restock') {
+      const amountZAR = Number(summary.keypadAmountZar || 0)
+      const amountMZN = Number(summary.keypadAmountMzn || 0)
+      if (amountMZN > 0) {
+        const { openDeskKeypad } = await import('@/lib/desk/openDeskKeypad')
+        openDeskKeypad({
+          destination: 'ZAR',
+          amountZAR,
+          amountMZN,
+          testRunId: summary.testRunId,
+          cycleNumber: summary.cycleNumber,
+          routingAction: 'replenish',
+        })
+      }
+    }
   }
 }
