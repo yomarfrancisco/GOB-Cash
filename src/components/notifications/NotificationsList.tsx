@@ -837,7 +837,18 @@ function ActivityItemCard({
         : 'Download proof'
 
   if (item.deskEventGroup) {
-    return <DeskEventGroupCard item={item} />
+    return (
+      <DeskEventGroupCard
+        item={item}
+        planBusy={planBusy}
+        showNext24h={showNext24h}
+        showNext72h={showNext72h}
+        showRealtime={showRealtime}
+        onNext24h={onNext24h}
+        onNext72h={onNext72h}
+        onRealtime={onRealtime}
+      />
+    )
   }
 
   return (
@@ -1464,6 +1475,11 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   )
   const latestActivityId = useMemo(() => {
     if (deskBlocked) return KYC_GATE_ID
+    // Prefer a normal desk card so Next 24h does not park on a bank ledger group.
+    const stepHost = feedItems.find(
+      (item) => item.thinking !== true && !item.deskEventGroup
+    )
+    if (stepHost) return stepHost.id
     return feedItems.find((item) => item.thinking !== true)?.id ?? null
   }, [feedItems, deskBlocked])
 
