@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -12,10 +11,8 @@ import { selectHasUnseenLiquidityActivity, useActivityUnreadStore } from '@/stor
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import { USER_PLACEHOLDER_AVATAR } from '@/lib/avatarAssets'
-import { logout } from '@/lib/logout'
+import { useNotificationsStore } from '@/state/notifications'
 import '@/styles/bottom-glass.css'
-
-const PROFILE_DOUBLE_TAP_MS = 320
 
 interface BottomGlassBarProps {
   currentPath?: string
@@ -27,15 +24,14 @@ interface BottomGlassBarProps {
 export default function BottomGlassBar({ currentPath = '/', onDollarClick }: BottomGlassBarProps) {
   const router = useRouter()
   const isHome = currentPath === '/'
-  const isProfile = currentPath === '/profile' || currentPath === '/transactions' || currentPath === '/activity'
   const { isAuthed, requireAuth } = useAuthStore()
+  const isDeskOpen = useNotificationsStore((state) => state.isNotificationsOpen)
+  const openNotifications = useNotificationsStore((state) => state.openNotifications)
   // Select values separately to prevent infinite re-renders from object creation in selector
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
   const hasUnseenActivity = useActivityUnreadStore(selectHasUnseenLiquidityActivity)
   const { profile } = useUserProfileStore()
-  const lastProfileTapAtRef = useRef(0)
-  const profileNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   const handleCenterButtonClick = () => {
     // NOTE: Dollar FAB now opens the amount sheet directly (via onDollarClick callback)
@@ -45,41 +41,17 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
     }
   }
 
-  const clearProfileNavTimer = () => {
-    if (profileNavTimerRef.current) {
-      clearTimeout(profileNavTimerRef.current)
-      profileNavTimerRef.current = null
-    }
-  }
-
-  useEffect(() => () => clearProfileNavTimer(), [])
-
-  const handleProfileClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!isAuthed) {
-      e.preventDefault()
-      requireAuth(() => {
-        // After auth, user can click again to navigate
-      })
-      return
-    }
-
+  const handleDeskClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault()
-    const now = Date.now()
-    if (now - lastProfileTapAtRef.current <= PROFILE_DOUBLE_TAP_MS) {
-      clearProfileNavTimer()
-      lastProfileTapAtRef.current = 0
-      void logout()
+    if (!isAuthed) {
+      requireAuth(openNotifications)
       return
     }
 
-    lastProfileTapAtRef.current = now
-    clearProfileNavTimer()
-    profileNavTimerRef.current = setTimeout(() => {
-      profileNavTimerRef.current = null
-      if (currentPath !== '/profile') {
-        router.push('/profile')
-      }
-    }, PROFILE_DOUBLE_TAP_MS)
+    if (!isHome) {
+      router.replace('/')
+    }
+    openNotifications()
   }
 
   // Render nav items once (shared between mobile and desktop)
@@ -149,9 +121,9 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
         <div className="nav-label" aria-hidden="true" />
       </div>
       <div className="nav-item" style={{ position: 'relative' }}>
-        <Link 
-          href="/profile" 
-          aria-label="Profile. Double-tap to log out."
+        <Link
+          href="/"
+          aria-label="Open FX desk"
           onMouseEnter={() => {
             // Prefetch auth images on hover (if not authed, link will trigger auth)
             if (!isAuthed) {
@@ -164,7 +136,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
               prefetchAuthImages()
             }
           }}
-          onClick={handleProfileClick}
+          onClick={handleDeskClick}
         >
           {isAuthed && profile.avatarUrl ? (
             <div className="nav-avatar-container nav-avatar--real">
@@ -214,12 +186,12 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
             </div>
           ) : (
             <>
-              <Image 
-                src={isProfile ? "/assets/nav/user_filled.svg" : "/assets/nav/user-outlined.svg"}
-                alt="Profile" 
-                className={`nav-icon ${isProfile ? 'nav-icon-active' : 'nav-icon-dim'}`} 
-                width={28} 
-                height={28} 
+              <Image
+                src={isDeskOpen ? "/assets/nav/user_filled.svg" : "/assets/nav/user-outlined.svg"}
+                alt="FX desk"
+                className={`nav-icon ${isDeskOpen ? 'nav-icon-active' : 'nav-icon-dim'}`}
+                width={28}
+                height={28}
               />
             </>
           )}
