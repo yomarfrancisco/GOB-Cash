@@ -24,7 +24,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const router = useRouter()
   const isHome = currentPath === '/'
   const { isAuthed, requireAuth } = useAuthStore()
-  const isDeskOpen = useNotificationsStore((state) => state.isNotificationsOpen)
   const openNotifications = useNotificationsStore((state) => state.openNotifications)
   // Select values separately to prevent infinite re-renders from object creation in selector
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
@@ -138,8 +137,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
         >
           <Bot
             aria-hidden="true"
-            className={`nav-icon ${isDeskOpen ? 'nav-icon-active' : 'nav-icon-dim'}`}
-            fill={isDeskOpen ? 'currentColor' : 'none'}
+            className="nav-icon nav-icon-active"
+            fill="currentColor"
             strokeWidth={2}
           />
           {hasUnseenActivity && (
