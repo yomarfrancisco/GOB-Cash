@@ -165,7 +165,7 @@ describe('FNB notices', () => {
     assert.equal(spend?.amountZar, 395)
     assert.equal(spend?.merchant, 'M2 Aesthetic Studio')
     const copy = bankNoticeCopy(spend!, true)
-    assert.match(copy.body, /forwarded from Gmail/i)
+    assert.doesNotMatch(copy.body, /forwarded from Gmail|arrived directly/i)
     assert.match(copy.body, /card 8948/)
   })
 

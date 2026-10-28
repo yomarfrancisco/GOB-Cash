@@ -52,9 +52,11 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
+import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCard'
 import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
 import { TypewriterText } from '@/components/desk/TypewriterText'
 import { highlightDeskText } from '@/lib/desk/highlightDeskText'
+import { groupDeskEvents } from '@/lib/desk/deskEventGroups'
 import { sastParts } from '@/lib/routing/routingTime'
 import type { DeskAgent } from '@/lib/desk/threadModel'
 
@@ -226,6 +228,7 @@ function isPaymentActivity(item: ActivityItem): boolean {
       'CONVERSION_ROUTING_INSTRUCTION',
       'EN_ROUTE_BOOKED',
       'EN_ROUTE_CLEARED',
+      'DESK_EVENT_GROUP',
       'WEEKLY_SETTLEMENT_STATEMENT',
       'MONTHLY_SETTLEMENT_STATEMENT',
       'DEPOSIT_PROOF_PENDING',
@@ -833,6 +836,10 @@ function ActivityItemCard({
         ? 'Download POPs'
         : 'Download proof'
 
+  if (item.deskEventGroup) {
+    return <DeskEventGroupCard item={item} />
+  }
+
   return (
     <article
       className={styles.activityItem}
@@ -1425,22 +1432,30 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     if (!deskBlocked) return items
     return [buildKycGateItem(kycCta, kycGateStampRef.current), ...items]
   }, [allItems, searchQuery, deskBlocked, kycCta])
+  /** Same-day same-source ledger groups (client-side; no Firestore rewrite). */
+  const feedItems = useMemo(() => {
+    const kyc = filteredItems.filter((item) => item.id === KYC_GATE_ID)
+    const rest = filteredItems.filter((item) => item.id !== KYC_GATE_ID)
+    const chronological = [...rest].sort((a, b) => a.createdAt - b.createdAt)
+    const grouped = groupDeskEvents(chronological).sort((a, b) => b.createdAt - a.createdAt)
+    return [...kyc, ...grouped]
+  }, [filteredItems])
   useEffect(() => {
     setVisibleCount(ACTIVITY_PAGE_SIZE)
   }, [searchQuery])
   const isSearching = searchQuery.trim().length > 0
   const catchupCount = useMemo(() => {
     const cutoff = Date.now() - DESK_CATCHUP_MS
-    return filteredItems.filter(
+    return feedItems.filter(
       (item) => item.thinking !== true && item.id !== KYC_GATE_ID && (item.createdAt || 0) >= cutoff
     ).length
-  }, [filteredItems])
+  }, [feedItems])
   const pagedItems = useMemo(() => {
-    const windowSize = isSearching ? filteredItems.length : Math.max(visibleCount, catchupCount)
-    const newestWindow = filteredItems.slice(0, windowSize)
+    const windowSize = isSearching ? feedItems.length : Math.max(visibleCount, catchupCount)
+    const newestWindow = feedItems.slice(0, windowSize)
     return [...newestWindow].sort((a, b) => a.createdAt - b.createdAt)
-  }, [filteredItems, isSearching, visibleCount, catchupCount])
-  const hasMore = !isSearching && Math.max(visibleCount, catchupCount) < filteredItems.length
+  }, [feedItems, isSearching, visibleCount, catchupCount])
+  const hasMore = !isSearching && Math.max(visibleCount, catchupCount) < feedItems.length
   const listRootRef = useRef<HTMLDivElement>(null)
   const skipScrollRef = useRef(false)
   const latestAwaitingId = useMemo(
@@ -1449,8 +1464,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   )
   const latestActivityId = useMemo(() => {
     if (deskBlocked) return KYC_GATE_ID
-    return filteredItems.find((item) => item.thinking !== true)?.id ?? null
-  }, [filteredItems, deskBlocked])
+    return feedItems.find((item) => item.thinking !== true)?.id ?? null
+  }, [feedItems, deskBlocked])
 
   const revealItems = useMemo(
     () =>
@@ -1755,7 +1770,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
               <ThinkingPlaceholder speaker={nextRevealSpeaker} />
             </div>
           ) : null}
-          {filteredItems.length === 0 && (
+          {feedItems.length === 0 && (
             <p className={styles.emptyState}>
               {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}
             </p>

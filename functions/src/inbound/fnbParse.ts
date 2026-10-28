@@ -190,14 +190,14 @@ export function bankNoticeCopy(
   event: FnbEvent,
   forwarded: boolean
 ): { title: string; body: string } {
-  const via = forwarded
-    ? 'This copy was forwarded from Gmail, so the sender was not FNB. The notice itself still reads as FNB.'
-    : 'This arrived directly from FNB.'
+  // Desk strips legacy "arrived directly / forwarded" provenance at display time;
+  // new writes omit those sentences so group ledgers stay clean.
+  void forwarded
   if (event.kind === 'card_spend') {
     const amount = `R${event.amountZar.toFixed(2)}`
     return {
       title: 'Bank · FNB reserved',
-      body: `FNB reserved ${amount} on card ${event.cardLast4} at ${event.merchant}. Current account ending ${event.accountLast4}${event.reservedOn ? `, ${event.reservedOn}` : ''}. ${via}`,
+      body: `FNB reserved ${amount} on card ${event.cardLast4} at ${event.merchant}. Current account ending ${event.accountLast4}${event.reservedOn ? `, ${event.reservedOn}` : ''}.`,
     }
   }
   if (event.kind === 'pos_credit') {
@@ -206,16 +206,10 @@ export function bankNoticeCopy(
     const when = event.paidOn ? ` ${event.paidOn}.` : ''
     return {
       title: 'Bank · FNB POS paid in',
-      body: `FNB credited ${amount} to current account ending ${event.accountLast4} from ${event.counterparty}.${ref}${when} ${via}`,
+      body: `FNB credited ${amount} to current account ending ${event.accountLast4} from ${event.counterparty}.${ref}${when}`,
     }
   }
   const bank = event.noticeBank === 'POS' ? 'POS' : 'FNB'
-  const viaLine =
-    event.noticeBank === 'POS'
-      ? forwarded
-        ? 'This copy was forwarded from Gmail.'
-        : 'Merchant POS slip from inbound mail.'
-      : via
   const amount = `R${event.amountZar.toFixed(2)}`
   const where = event.merchant ? ` at ${event.merchant}` : ''
   const card = event.cardLast4 ? ` on card ${event.cardLast4}` : ''
@@ -228,17 +222,17 @@ export function bankNoticeCopy(
   if (event.status === 'declined') {
     return {
       title: `Bank · ${bank} declined`,
-      body: `${bank} declined ${amount}${where}${card}${when}.${refs ? ` ${refs}.` : ''}${reason} Declined, so the ZAR card is unchanged. ${viaLine}`,
+      body: `${bank} declined ${amount}${where}${card}${when}.${refs ? ` ${refs}.` : ''}${reason} Declined, so the ZAR card is unchanged.`,
     }
   }
   if (event.status === 'unknown') {
     return {
       title: `Bank · ${bank} receipt needs review`,
-      body: `${bank} receipt for ${amount}${where}${card}${when} could not be classified as approved or declined.${refs ? ` ${refs}.` : ''} No ZAR was added. ${viaLine}`,
+      body: `${bank} receipt for ${amount}${where}${card}${when} could not be classified as approved or declined.${refs ? ` ${refs}.` : ''} No ZAR was added.`,
     }
   }
   return {
     title: `Bank · ${bank} approved`,
-    body: `${bank} approved ${amount}${where}${card}${when}. ${refs ? `${refs}. ` : ''}${viaLine}`,
+    body: `${bank} approved ${amount}${where}${card}${when}.${refs ? ` ${refs}.` : ''}`,
   }
 }

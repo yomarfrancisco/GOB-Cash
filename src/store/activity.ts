@@ -109,6 +109,8 @@ export type ActivityItem = {
     replanReason?: string | null
     cardMaturityNote?: string | null
   }
+  /** Client-side same-day desk event ledger (synthetic group item). */
+  deskEventGroup?: import('@/lib/desk/deskEventGroups').DeskEventGroup
 }
 
 const MAX_ACTIVITY_ITEMS = 80

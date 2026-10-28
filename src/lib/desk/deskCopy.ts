@@ -16,6 +16,8 @@ export function displayDeskTitle(title: string | undefined | null): string {
   if (/^Conversion Cycle\b/i.test(out)) return 'Step 4 · Send'
 
   // Soft-normalize older freeform bank / window / friction lines still in Firestore.
+  if (/^ZAR\s+en route\b/i.test(out)) return 'ZAR booked'
+  if (/^Swipe approved\b/i.test(out) && !/^Bank\b/i.test(out)) return out
   if (/^FNB\b/i.test(out)) return out.replace(/^FNB\b/i, 'Bank · FNB')
   if (/^Capitec\b/i.test(out)) return out.replace(/^Capitec\b/i, 'Bank · Capitec')
   if (/^Moza\b/i.test(out)) return out.replace(/^Moza\b/i, 'Bank · Moza')
@@ -35,6 +37,11 @@ export function displayDeskBody(body: string | undefined | null): string {
   return body
     .replace(/^Day\s+\d+\s+of\s+\d+\.\s*/i, '')
     .replace(/\nDay\s+\d+\s+of\s+\d+\.\s*/gi, '\n')
+    .replace(/\s*This arrived directly from [^.]+?\.\s*/gi, ' ')
+    .replace(/\s*This copy was forwarded from Gmail[^.]*\.\s*/gi, ' ')
+    .replace(/\bMt\/R\b/gi, 'MZN/ZAR')
+    .replace(/\bSAST\b/g, '')
+    .replace(/\s{2,}/g, ' ')
     .trim()
 }
 
