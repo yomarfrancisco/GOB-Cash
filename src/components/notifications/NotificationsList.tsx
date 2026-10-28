@@ -1485,6 +1485,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const hasMore = !isSearching && Math.max(visibleCount, catchupCount) < feedItems.length
   const listRootRef = useRef<HTMLDivElement>(null)
   const skipScrollRef = useRef(false)
+  const bottomPinnedRef = useRef(true)
   const latestAwaitingId = useMemo(
     () => (deskBlocked ? null : latestAwaitingRoutingId(allItems)),
     [allItems, deskBlocked]
@@ -1568,6 +1569,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     }
 
     const onScroll = () => {
+      const distanceFromBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight
+      bottomPinnedRef.current = distanceFromBottom <= 48
       if (frame) cancelAnimationFrame(frame)
       frame = requestAnimationFrame(syncFromScroll)
     }
@@ -1579,11 +1582,40 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     }
   }, [pagedItems.length, reveal.showDots, reveal.typingId, setDeskFocus])
 
+  // Keep the latest post pinned while the desk opens and while content grows
+  // (typewriter text, grouped ledgers, images). Manual upward scrolling releases the pin.
+  useEffect(() => {
+    const root = listRootRef.current
+    const feed = root?.closest('[data-desk-feed]')
+    if (!(root instanceof HTMLElement) || !(feed instanceof HTMLElement)) return
+
+    let frame = 0
+    const scrollToBottom = () => {
+      if (!bottomPinnedRef.current) return
+      feed.scrollTop = feed.scrollHeight
+    }
+    const scheduleBottom = () => {
+      if (frame) cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(scrollToBottom)
+    }
+
+    scrollToBottom()
+    scheduleBottom()
+    const observer = new ResizeObserver(scheduleBottom)
+    observer.observe(root)
+    observer.observe(feed)
+    return () => {
+      observer.disconnect()
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [])
+
   useEffect(() => {
     if (skipScrollRef.current) {
       skipScrollRef.current = false
       return
     }
+    if (!bottomPinnedRef.current) return
     const feed = listRootRef.current?.closest('[data-desk-feed]')
     if (!(feed instanceof HTMLElement)) return
     feed.scrollTop = feed.scrollHeight

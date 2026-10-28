@@ -188,6 +188,12 @@ export default function TopNotifications() {
               'notification--user': actor?.type === 'user',
             })}
             style={{
+              position: 'absolute',
+              top: `calc(8px + env(safe-area-inset-top, 0px) + ${index * 10}px)`,
+              left: '16px',
+              right: '16px',
+              zIndex: index + 1,
+              marginBottom: 0,
               animationName,
               animationDuration: `${ANIMATION_DURATION_MS}ms`,
               animationTimingFunction: animationTiming,
