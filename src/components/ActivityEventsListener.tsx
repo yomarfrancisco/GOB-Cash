@@ -61,6 +61,9 @@ function toastRoutingInstruction(
     kind: 'ai_trade',
     title,
     body,
+    // The rich canonical card is the Firestore activityEvent. Keep this as a
+    // dropdown only; otherwise a thin ai_trade shadow is persisted to the feed.
+    skipActivityStore: true,
     actor: {
       type: 'ai_manager',
       avatar: who.avatar,

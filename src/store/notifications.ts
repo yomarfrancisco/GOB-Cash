@@ -91,7 +91,13 @@ export type NotificationItem = {
 
 type NotificationState = {
   notifications: NotificationItem[]
-  pushNotification: (item: Omit<NotificationItem, 'id' | 'timestamp'> & { id?: string }) => void
+  pushNotification: (
+    item: Omit<NotificationItem, 'id' | 'timestamp'> & {
+      id?: string
+      /** Dropdown-only notices whose canonical copy already lives in Firestore. */
+      skipActivityStore?: boolean
+    }
+  ) => void
   dismissNotification: (id: string) => void
   clearNotifications: () => void
 }
@@ -99,24 +105,30 @@ type NotificationState = {
 export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: [],
   pushNotification: (item) => {
+    const { skipActivityStore = false, ...notificationInput } = item
     // Migrate legacy actor to new identity format
-    const migratedActor = migrateLegacyActor(item.actor)
+    const migratedActor = migrateLegacyActor(notificationInput.actor)
     const avatarUrl = resolveAvatarForActor(migratedActor)
     const actorWithAvatar = migratedActor
       ? { ...migratedActor, avatar: migratedActor.avatar || avatarUrl }
       : migratedActor
 
     const notification: NotificationItem = {
-      ...item,
+      ...notificationInput,
       actor: actorWithAvatar,
-      id: item.id || crypto.randomUUID(),
+      id: notificationInput.id || crypto.randomUUID(),
       timestamp: Date.now(),
     }
     set((state) => ({
       notifications: [...state.notifications, notification].slice(-10), // Keep max 10 in queue
     }))
 
-    // Also add to activity store
+    // Firestore routing events are already subscribed into the activity feed.
+    // Persisting their dropdown copy here creates a thin duplicate that survives
+    // after Planned events are purged.
+    if (skipActivityStore) return
+
+    // Also add standalone notifications to activity store.
     const activityStore = useActivityStore.getState()
     // Get detail text using the same formatter as notifications
     const detail = getNotificationDetail(notification)

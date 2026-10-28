@@ -1554,17 +1554,7 @@ async function ensureLeoSendEvent(
 ): Promise<FirebaseFirestore.DocumentReference> {
   const activityEventId = eventId(testRunId, cycleNumber)
   const eventRef = db.collection('users').doc(adminUid).collection('activityEvents').doc(activityEventId)
-  const existingSnap = await eventRef.get()
-  const existing = existingSnap.exists ? existingSnap.data() || {} : null
-  const existingRows = Array.isArray(existing?.deskLedgerRows) ? existing!.deskLedgerRows : []
-  const existingSentence =
-    typeof existing?.deskSentence === 'string' && existing.deskSentence.trim()
-      ? existing.deskSentence.trim()
-      : ''
-  // Rich Part 1 card already on the desk — leave it alone.
-  if (existing && existingRows.length > 0 && existingSentence) {
-    return eventRef
-  }
+  if ((await eventRef.get()).exists) return eventRef
 
   const [cycleSnap, testSnap] = await Promise.all([
     db.collection(TESTS).doc(testRunId).collection('cycles').doc(String(cycleNumber)).get(),
@@ -1602,47 +1592,6 @@ async function ensureLeoSendEvent(
     : 'ZAR sold for MZN by COB, once the cover landed.'
   const title = stepCardTitle(4)
   const plannedStep4 = plannedWriteFields(testData, cycleNumber)
-  const deskLedgerRows = ledger
-    ? [
-        { label: 'Sold', value: formatZarMoney(amountZar), valueStrong: true },
-        { label: 'Received', value: formatMznMoney(ledger.mznAtSell) },
-        { label: 'Sell rate', value: `${formatRate4(ledger.sellRate)} MZN/ZAR` },
-        { label: 'Cost rate', value: `${formatRate4(ledger.costRate)} MZN/ZAR` },
-        {
-          label: 'Spread',
-          value: `${formatMznMoney(ledger.spreadMzn)} gross`,
-          valueStrong: true,
-          secondLine: `${formatRate4(ledger.spreadPerZar)} MZN/ZAR`,
-        },
-        {
-          label: 'Window left',
-          value: formatZarMoney(ledger.windowLeftZar),
-          secondLine: `of ${formatZarMoney(ledger.windowZar)}`,
-        },
-      ]
-    : null
-  // Thin legacy Step 4 (dropdown body only) — merge Part 1 anatomy without resetting status.
-  if (existing) {
-    await eventRef.set(
-      {
-        title,
-        body: existingSentence || sentence,
-        deskSentence: existingSentence || sentence,
-        deskStatusChip: existing.deskStatusChip || 'Executed',
-        orderLedger: ledger || existing.orderLedger || null,
-        deskLedgerRows: existingRows.length ? existingRows : deskLedgerRows,
-        dropdownTitle: title,
-        dropdownBody: `${formatZar(amountZar)} send`,
-        deskSpeaker: 'leo',
-        deskStep: 4,
-        routingAction: 'deploy',
-        ...plannedStep4,
-        updatedAt: now,
-      },
-      { merge: true }
-    )
-    return eventRef
-  }
   await eventRef.set({
     id: activityEventId,
     kind: CONVERSION_ROUTING_KIND,
@@ -1663,7 +1612,25 @@ async function ensureLeoSendEvent(
     deskSentence: sentence,
     orderLedger: ledger || null,
     ...plannedStep4,
-    deskLedgerRows,
+    deskLedgerRows: ledger
+      ? [
+          { label: 'Sold', value: formatZarMoney(amountZar), valueStrong: true },
+          { label: 'Received', value: formatMznMoney(ledger.mznAtSell) },
+          { label: 'Sell rate', value: `${formatRate4(ledger.sellRate)} MZN/ZAR` },
+          { label: 'Cost rate', value: `${formatRate4(ledger.costRate)} MZN/ZAR` },
+          {
+            label: 'Spread',
+            value: `${formatMznMoney(ledger.spreadMzn)} gross`,
+            valueStrong: true,
+            secondLine: `${formatRate4(ledger.spreadPerZar)} MZN/ZAR`,
+          },
+          {
+            label: 'Window left',
+            value: formatZarMoney(ledger.windowLeftZar),
+            secondLine: `of ${formatZarMoney(ledger.windowZar)}`,
+          },
+        ]
+      : null,
     status: 'pending_mzn',
     routingAction: 'deploy',
     deskSpeaker: 'leo',
