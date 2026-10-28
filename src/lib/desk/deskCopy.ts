@@ -13,7 +13,6 @@ export function displayDeskTitle(title: string | undefined | null): string {
   // Legacy titles rewritten on confirm before the closed title matrix.
   if (/^Sell ZAR\b/i.test(out)) return 'Step 4 · Send'
   if (/^Restock ZAR\b/i.test(out)) return 'Step 5 · Recycle'
-  if (/^ZAR sourced at COST\b/i.test(out)) return 'Step 5 · Recycle'
   if (/^Conversion Cycle\b/i.test(out)) return 'Step 4 · Send'
 
   // Soft-normalize older freeform bank / window / friction lines still in Firestore.
@@ -40,6 +39,8 @@ export function displayDeskBody(body: string | undefined | null): string {
     .replace(/\nDay\s+\d+\s+of\s+\d+\.\s*/gi, '\n')
     .replace(/\s*This arrived directly from [^.]+?\.\s*/gi, ' ')
     .replace(/\s*This copy was forwarded from Gmail[^.]*\.\s*/gi, ' ')
+    .replace(/\bMt\/R\b/gi, 'MZN/ZAR')
+    .replace(/\bSAST\b/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
 }

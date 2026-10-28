@@ -141,30 +141,11 @@ function LedgerBody({ group }: { group: DeskEventGroup }) {
   )
 }
 
-export function DeskEventGroupCard({
-  item,
-  planBusy,
-  showNext24h,
-  showNext72h,
-  showRealtime,
-  onNext24h,
-  onNext72h,
-  onRealtime,
-}: {
-  item: ActivityItem
-  planBusy?: boolean
-  showNext24h?: boolean
-  showNext72h?: boolean
-  showRealtime?: boolean
-  onNext24h?: () => void
-  onNext72h?: () => void
-  onRealtime?: () => void
-}) {
+export function DeskEventGroupCard({ item }: { item: ActivityItem }) {
   const group = item.deskEventGroup
   if (!group) return null
 
   const bankRound = group.avatarKind === 'bank' || group.avatarKind === 'digest'
-  const showPlanActions = Boolean(showNext24h || showNext72h || showRealtime)
 
   return (
     <article
@@ -208,61 +189,6 @@ export function DeskEventGroupCard({
           </div>
         ) : null}
         <LedgerBody group={group} />
-        {showPlanActions ? (
-          <div className={styles.activityActionRow}>
-            {showNext24h ? (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Simulate the next 24 hours on the desk"
-                aria-busy={planBusy === true}
-                disabled={planBusy === true}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onNext24h?.()
-                }}
-              >
-                Next 24h
-              </button>
-            ) : null}
-            {showNext72h ? (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Simulate the next 72 hours on the desk"
-                aria-busy={planBusy === true}
-                disabled={planBusy === true}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onNext72h?.()
-                }}
-              >
-                Next 72h
-              </button>
-            ) : null}
-            {showRealtime ? (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Return to the live desk clock"
-                aria-busy={planBusy === true}
-                disabled={planBusy === true}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onRealtime?.()
-                }}
-              >
-                Real time
-              </button>
-            ) : null}
-          </div>
-        ) : null}
       </div>
     </article>
   )

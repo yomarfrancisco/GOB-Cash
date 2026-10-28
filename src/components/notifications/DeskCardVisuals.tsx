@@ -99,52 +99,40 @@ function DeskChart({ chart }: { chart: NonNullable<ActivityItem['deskChart']> })
   )
 }
 
-function DeskTable({ table }: { table: NonNullable<ActivityItem['deskTable']> }) {
-  return (
-    <div className={styles.deskTableWrap}>
-      {table.title ? <div className={styles.deskVisualTitle}>{table.title}</div> : null}
-      <table className={styles.deskTable}>
-        <thead>
-          <tr>
-            {table.columns.map((column) => (
-              <th key={column}>{column}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {table.rows.map((row, index) => (
-            <tr key={`${row.cells.join('|')}-${index}`}>
-              {row.cells.map((cell, cellIndex) => (
-                <td key={`${cell}-${cellIndex}`}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-/**
- * Prefer structured Part 1 anatomy in this order:
- * 1) rail RoutingStepCard (Step 1 / 6 peer rails)
- * 2) deskLedgerRows (invoice / MZN / send / recycle cards)
- * 3) deskTable / deskChart (Ask + older packs)
- * Never drop deskTable just because ledger rows also exist.
- */
 export function DeskCardVisuals({ item }: { item: ActivityItem }) {
-  const hasRails = Boolean(item.routingStepMessage)
-  const hasLedger = Boolean(item.deskLedgerRows?.length)
-  const hasTable = Boolean(item.deskTable)
-  const hasChart = Boolean(item.deskChart)
-  if (!hasRails && !hasLedger && !hasTable && !hasChart) return null
-
+  if (item.routingStepMessage) {
+    return <RoutingStepCard message={item.routingStepMessage} />
+  }
+  if (item.deskLedgerRows?.length) {
+    return <DeskStepBlock rows={item.deskLedgerRows} />
+  }
+  if (!item.deskTable && !item.deskChart) return null
   return (
     <div className={styles.deskVisuals}>
-      {hasRails ? <RoutingStepCard message={item.routingStepMessage!} /> : null}
-      {hasLedger ? <DeskStepBlock rows={item.deskLedgerRows!} /> : null}
-      {hasTable ? <DeskTable table={item.deskTable!} /> : null}
-      {hasChart ? <DeskChart chart={item.deskChart!} /> : null}
+      {item.deskTable ? (
+        <div className={styles.deskTableWrap}>
+          {item.deskTable.title ? <div className={styles.deskVisualTitle}>{item.deskTable.title}</div> : null}
+          <table className={styles.deskTable}>
+            <thead>
+              <tr>
+                {item.deskTable.columns.map((column) => (
+                  <th key={column}>{column}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {item.deskTable.rows.map((row, index) => (
+                <tr key={`${row.cells.join('|')}-${index}`}>
+                  {row.cells.map((cell, cellIndex) => (
+                    <td key={`${cell}-${cellIndex}`}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      {item.deskChart ? <DeskChart chart={item.deskChart} /> : null}
     </div>
   )
 }

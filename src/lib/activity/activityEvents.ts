@@ -91,18 +91,11 @@ function asDeskLedgerRows(
       valueStrong?: unknown
       secondLine?: unknown
     }
-    if (typeof item.label !== 'string') return []
-    const value =
-      typeof item.value === 'string'
-        ? item.value
-        : typeof item.value === 'number' && Number.isFinite(item.value)
-          ? String(item.value)
-          : null
-    if (!value) return []
+    if (typeof item.label !== 'string' || typeof item.value !== 'string') return []
     return [
       {
         label: item.label,
-        value,
+        value: item.value,
         valueStrong: item.valueStrong === true,
         secondLine: typeof item.secondLine === 'string' ? item.secondLine : undefined,
       },

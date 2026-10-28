@@ -207,8 +207,7 @@ function isNeverGrouped(item: ActivityItem): boolean {
     if (!/^Bank\b/i.test(title)) return true
   }
   if (item.routingAction === 'deploy' || item.routingAction === 'replenish') return true
-  if (item.routingAction === 'step' || item.routingAction === 'swipe_notice') return true
-  if (typeof item.deskStep === 'number' && item.deskStep >= 1 && item.deskStep <= 6) return true
+  if (item.routingAction === 'step') return true
   return false
 }
 
@@ -368,7 +367,7 @@ function statusChipFor(kind: DeskGroupKind, rows: DeskGroupRow[]): string | unde
   return undefined
 }
 
-function toGroupItem(group: DeskEventGroup, extras?: { simulated?: boolean; planRunId?: string }): ActivityItem {
+function toGroupItem(group: DeskEventGroup): ActivityItem {
   const totalLabel =
     group.kind === 'other_movements'
       ? `net ${group.totalZar >= 0 ? '+' : '−'}${formatZarMoney(Math.abs(group.totalZar)).replace(/^R/, 'R')}`
@@ -391,8 +390,6 @@ function toGroupItem(group: DeskEventGroup, extras?: { simulated?: boolean; plan
       sign: group.totalZar < 0 ? 'debit' : 'credit',
     },
     deskEventGroup: group,
-    ...(extras?.simulated ? { simulated: true as const } : {}),
-    ...(extras?.planRunId ? { planRunId: extras.planRunId } : {}),
   }
 }
 
@@ -503,10 +500,7 @@ export function groupDeskEvents(items: ActivityItem[]): ActivityItem[] {
     else buckets.set(key, { classified, members: [item] })
   }
 
-  const built: Array<{ group: DeskEventGroup; members: ActivityItem[] }> = matched.map((group) => ({
-    group,
-    members: items.filter((item) => group.memberIds.includes(item.id)),
-  }))
+  const builtGroups: DeskEventGroup[] = [...matched]
   const groupedIds = new Set<string>(pairedIds)
 
   for (const bucket of Array.from(buckets.values())) {
@@ -522,25 +516,21 @@ export function groupDeskEvents(items: ActivityItem[]): ActivityItem[] {
       ? rows.reduce((s: number, r: DeskGroupRow) => s + (r.amountMzn || 0), 0)
       : undefined
     const avatar = groupAvatar(classified.source, classified.kind)
-    built.push({
-      group: {
-        kind: classified.kind,
-        source: classified.source,
-        dayKey: classified.dayKey,
-        title: groupTitle(classified.kind, rows.length),
-        speaker: groupSpeaker(classified.source, classified.kind),
-        avatarSrc: avatar.src,
-        avatarKind: avatar.avatarKind,
-        statusChip: statusChipFor(classified.kind, rows),
-        createdAt,
-        rows,
-        totalZar,
-        totalMzn,
-        // Collapse only dense other-movement digests; a single line should stay open.
-        collapsedByDefault: classified.kind === 'other_movements' && rows.length > 2,
-        memberIds: members.map((m: ActivityItem) => m.id),
-      },
-      members,
+    builtGroups.push({
+      kind: classified.kind,
+      source: classified.source,
+      dayKey: classified.dayKey,
+      title: groupTitle(classified.kind, rows.length),
+      speaker: groupSpeaker(classified.source, classified.kind),
+      avatarSrc: avatar.src,
+      avatarKind: avatar.avatarKind,
+      statusChip: statusChipFor(classified.kind, rows),
+      createdAt,
+      rows,
+      totalZar,
+      totalMzn,
+      collapsedByDefault: classified.kind === 'other_movements',
+      memberIds: members.map((m: ActivityItem) => m.id),
     })
     for (const m of members) groupedIds.add(m.id)
   }
@@ -550,10 +540,8 @@ export function groupDeskEvents(items: ActivityItem[]): ActivityItem[] {
     if (groupedIds.has(item.id)) continue
     out.push(item)
   }
-  for (const { group, members } of built) {
-    const simulated = members.some((m) => m.simulated === true)
-    const planRunId = members.find((m) => typeof m.planRunId === 'string' && m.planRunId)?.planRunId
-    out.push(toGroupItem(group, { simulated, planRunId }))
+  for (const g of builtGroups) {
+    out.push(toGroupItem(g))
   }
   return out.sort((a, b) => a.createdAt - b.createdAt)
 }

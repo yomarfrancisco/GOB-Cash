@@ -57,12 +57,6 @@ import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
 import { TypewriterText } from '@/components/desk/TypewriterText'
 import { highlightDeskText } from '@/lib/desk/highlightDeskText'
 import { groupDeskEvents } from '@/lib/desk/deskEventGroups'
-import {
-  deskDisplaySentence,
-  inferredDeskStatusChip,
-  isDeskStepItem,
-  ledgerRowsFromOrderLedger,
-} from '@/lib/desk/deskStepPresentation'
 import { sastParts } from '@/lib/routing/routingTime'
 import type { DeskAgent } from '@/lib/desk/threadModel'
 
@@ -210,8 +204,6 @@ function isStandaloneConversionPop(item: ActivityItem): boolean {
   if (item.routingAction === 'pop_pack') return true
   // EN ROUTE book/clear must stay visible on $-Route.
   if (item.kind === 'EN_ROUTE_BOOKED' || item.kind === 'EN_ROUTE_CLEARED') return false
-  // Step 4/5 hosts are never conversion-pop noise, even under legacy titles.
-  if (isDeskStepItem(item)) return false
   if (item.kind === 'CONVERSION_INSTRUCTED') return true
   if (item.kind === 'proof_of_payment') return true
   return /^(ZAR sold at SELL|ZAR sourced at COST)\b/i.test(item.title || '')
@@ -220,9 +212,6 @@ function isStandaloneConversionPop(item: ActivityItem): boolean {
 function isPaymentActivity(item: ActivityItem): boolean {
   // Conversion POPs live on Step 4/5 as a zip, not as extra bubbles.
   if (isStandaloneConversionPop(item)) return false
-  // Desk Steps / Send / Recycle must always stay in the feed (titles like
-  // "Step 5 · Recycle" do not match the generic payment keyword list).
-  if (isDeskStepItem(item)) return true
   if (
     item.kind &&
     [
@@ -265,8 +254,6 @@ function isPaymentActivity(item: ActivityItem): boolean {
     'transfer',
     'settlement',
     'statement',
-    'recycle',
-    'restock',
   ].some((keyword) => text.includes(keyword))
 }
 
@@ -521,15 +508,12 @@ function ActivityItemCard({
   // Persist-only — never infer from planMode (bank notices must stay clean).
   const planChip = item.simulated === true && item.deskPlanChip ? item.deskPlanChip : null
   void planMode
-  const stepItem = isDeskStepItem(item)
-  const presentationItem: ActivityItem = {
-    ...item,
-    deskLedgerRows: ledgerRowsFromOrderLedger(item) || item.deskLedgerRows,
-    deskStatusChip: inferredDeskStatusChip(item) || item.deskStatusChip,
-  }
-  const sentence = deskDisplaySentence(presentationItem)
+  const sentence =
+    item.deskSentence ||
+    item.routingStepMessage?.summary ||
+    ''
   const ledgerFailures =
-    process.env.NODE_ENV !== 'production' ? orderLedgerFailures(presentationItem) : []
+    process.env.NODE_ENV !== 'production' ? orderLedgerFailures(item) : []
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
@@ -540,13 +524,13 @@ function ActivityItemCard({
   const showKycLink = actionsUnlocked && item.hasKycLink === true
   const isKycGate = isKycGateItem(item)
   const kycCta = item.kycAction === 'update' ? 'Update KYC' : 'Start KYC'
-  const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION' || stepItem
+  const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
   const executedLabel =
     actionsUnlocked && isRoutingInstruction && item.status === 'completed' && !item.thinking
       ? executedPillLabel({ title: item.title, routingAction: item.routingAction })
       : null
-  const statusChip = presentationItem.deskStatusChip || executedLabel || null
-  const showExecuted = Boolean(executedLabel) && !presentationItem.deskStatusChip
+  const statusChip = item.deskStatusChip || executedLabel || null
+  const showExecuted = Boolean(executedLabel) && !item.deskStatusChip
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
   // Cash moves open the conversion keypad (desk closes first; keypad dismisses before bubbles resume).
   const showSendKeypad =
@@ -569,7 +553,7 @@ function ActivityItemCard({
   const bankTile = bankTileForItem({ title: title || item.title, routingAction: item.routingAction })
   // Bank · notices keep bank tiles — not Routing Manager / liaison portraits.
   const deskAgent: DeskAgent | null =
-    !bankTile && (item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION' || stepItem)
+    !bankTile && (item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION')
       ? deskAgentFor(item)
       : null
   const deskSpeaker = deskAgent ? DESK_TEAM[deskAgent] : null
@@ -579,18 +563,15 @@ function ActivityItemCard({
     item.routingAction === 'replenish' || /^Step\s*5\b/i.test(title) || /^Restock ZAR\b/i.test(item.title || '')
   const isSendCard =
     item.routingAction === 'deploy' || /^Step\s*4\b/i.test(title) || /^Sell ZAR\b/i.test(item.title || '')
-  const hasStructuredStep =
-    Boolean(item.routingStepMessage) ||
-    Boolean(presentationItem.deskLedgerRows?.length) ||
-    Boolean(item.deskSentence)
   // Structured step card / ledger owns the copy — skip live Mt/COST overlays on Steps 1–6.
-  const body = hasStructuredStep
-    ? sentence
-    : isRecycleCard
-      ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
-      : isSendCard
-        ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
-        : displayDeskBody(item.body)
+  const body =
+    item.routingStepMessage || item.deskLedgerRows || item.deskSentence
+      ? item.deskSentence || ''
+      : isRecycleCard
+        ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
+        : isSendCard
+          ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
+          : displayDeskBody(item.body)
   const showStepContinue =
     !lockDeskActions &&
     actionsUnlocked &&
@@ -846,8 +827,7 @@ function ActivityItemCard({
     }
   }
 
-  const displaySentence =
-    sentence || (!item.routingStepMessage && !presentationItem.deskLedgerRows?.length ? body : '')
+  const displaySentence = sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
     ? 'Download invoices'
     : /^Step\s*6\b/i.test(title)
@@ -855,25 +835,9 @@ function ActivityItemCard({
       : isPopPackDownloadItem(item) || isSendCard || isRecycleCard
         ? 'Download POPs'
         : 'Download proof'
-  const showStepVisuals = Boolean(
-    item.routingStepMessage || presentationItem.deskLedgerRows?.length || item.deskTable || item.deskChart
-  )
-  // Don't wait on typewriter for settled history — ledger/chips must paint immediately.
-  const visualsReady = titleDone || entranceSettled !== false
 
   if (item.deskEventGroup) {
-    return (
-      <DeskEventGroupCard
-        item={item}
-        planBusy={planBusy}
-        showNext24h={showNext24h}
-        showNext72h={showNext72h}
-        showRealtime={showRealtime}
-        onNext24h={onNext24h}
-        onNext72h={onNext72h}
-        onRealtime={onRealtime}
-      />
-    )
+    return <DeskEventGroupCard item={item} />
   }
 
   return (
@@ -928,7 +892,7 @@ function ActivityItemCard({
               </div>
             )}
             <div className={styles.activityTime}>
-              {isRoutingInstruction
+              {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
                 ? formatVisibleSast(item.createdAt)
                 : formatRelativeShort(item.createdAt)}
             </div>
@@ -980,12 +944,12 @@ function ActivityItemCard({
                 Ledger: {ledgerFailures[0]}
               </div>
             ) : null}
-            {showStepVisuals
-              ? visualsReady
-                ? <DeskCardVisuals item={presentationItem} />
+            {item.routingStepMessage || item.deskLedgerRows
+              ? titleDone
+                ? <DeskCardVisuals item={item} />
                 : null
               : actionsUnlocked
-                ? <DeskCardVisuals item={presentationItem} />
+                ? <DeskCardVisuals item={item} />
                 : null}
             {!askCard && item.userReply && actionsUnlocked ? (
               <div className={styles.activityUserReply}>
@@ -1272,19 +1236,6 @@ function ThinkingPlaceholder({ speaker }: { speaker?: DeskAgent | null }) {
   )
 }
 
-function isPlanHostCandidate(item: ActivityItem): boolean {
-  if (item.thinking === true) return false
-  // Bank ledger groups never own Next 24h / Real time — only desk step / ask hosts.
-  if (item.deskEventGroup) return false
-  if (item.kind === 'DESK_EVENT_GROUP') return false
-  const title = displayDeskTitle(item.title) || item.title || ''
-  if (/^Bank\s*[·.•]/i.test(title)) return false
-  if (/^Swipe approved\b/i.test(title)) return false
-  if (/^Other movements\b/i.test(title)) return false
-  if (/^ZAR\s+(booked|cleared|en route)\b/i.test(title)) return false
-  return true
-}
-
 function ActivitySection({
   title,
   items,
@@ -1299,7 +1250,6 @@ function ActivitySection({
   isSettled,
   onEntranceComplete,
   planMode,
-  planRunId,
   planHorizonHours,
   plannedAnchorCycle,
   planBusy,
@@ -1322,7 +1272,6 @@ function ActivitySection({
   isSettled: (id: string) => boolean
   onEntranceComplete: (id: string) => void
   planMode: 'live' | 'planned'
-  planRunId: string | null
   planHorizonHours: 24 | 72 | null
   plannedAnchorCycle: number | null
   planBusy: boolean
@@ -1335,15 +1284,8 @@ function ActivitySection({
   const visibleItems = items.filter((item) => {
     if (item.thinking === true) return true
     if (!visibleIds.has(item.id)) return false
-    if (item.simulated === true) {
-      // Live desk: simulated rows vanish (keep open Send / Recycle mid-keypad).
-      if (planMode !== 'planned') {
-        if (!isAwaitingRoutingItem(item)) return false
-      } else if (planRunId) {
-        // Planned desk: only the active run — hide prior Next 24h leftovers.
-        if (item.planRunId !== planRunId) return false
-      }
-    }
+    // Simulated writes vanish from the live feed (and after Real time purge).
+    if (item.simulated === true && planMode !== 'planned') return false
     // Legacy model wrote a sibling clear-* event; keep only the booking-id clear.
     if (
       item.id.startsWith('clear-') &&
@@ -1371,7 +1313,6 @@ function ActivitySection({
           const showDivider = cycleKey !== lastCycleKey
           lastCycleKey = cycleKey
           const planHostId = latestAwaitingId || latestActivityId
-          // latestActivityId already prefers desk step/ask hosts; bank groups only win as fallback.
           const isPlanHost = Boolean(planHostId) && item.id === planHostId && item.thinking !== true
           return (
             <div key={item.id}>
@@ -1523,11 +1464,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   )
   const latestActivityId = useMemo(() => {
     if (deskBlocked) return KYC_GATE_ID
-    // Prefer a desk step / ask host so bank groups never steal the Next 24h row.
-    const eligible = feedItems.find(
-      (item) => item.thinking !== true && isPlanHostCandidate(item)
-    )
-    if (eligible) return eligible.id
     return feedItems.find((item) => item.thinking !== true)?.id ?? null
   }, [feedItems, deskBlocked])
 
@@ -1541,7 +1477,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const reveal = useProgressiveReveal(revealItems)
   const setDeskFocus = useDeskFocusStore((s) => s.setFocus)
   const planMode = useDeskPlanStore((s) => s.mode)
-  const planRunId = useDeskPlanStore((s) => s.planRunId)
   const planHorizonHours = useDeskPlanStore((s) => s.plannedHorizonHours)
   const plannedAnchorCycle = useDeskPlanStore((s) => s.plannedAnchorCycle)
   const planBusy = useDeskPlanStore((s) => s.busy)
@@ -1797,7 +1732,6 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     isSettled: reveal.isSettled,
     onEntranceComplete: reveal.onTypingComplete,
     planMode,
-    planRunId,
     planHorizonHours,
     plannedAnchorCycle,
     planBusy,
