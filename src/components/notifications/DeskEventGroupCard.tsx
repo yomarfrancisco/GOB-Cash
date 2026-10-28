@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import type { ActivityItem } from '@/store/activity'
 import type { DeskEventGroup, DeskGroupRow } from '@/lib/desk/deskEventGroups'
 import { formatGroupAmount } from '@/lib/desk/deskEventGroups'
+import { bankTileForTitle } from '@/lib/activity/bankTiles'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { formatVisibleSast } from '@/lib/routing/routingTime'
 import styles from '@/app/activity/activity.module.css'
@@ -190,6 +190,11 @@ export function DeskEventGroupCard({
   if (!group) return null
 
   const bankRound = group.avatarKind === 'bank' || group.avatarKind === 'digest'
+  const bankAcronym =
+    group.avatarKind === 'digest'
+      ? '≡'
+      : bankTileForTitle(`Bank · ${group.source}`)?.acronym ||
+        group.source.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase()
   const isBankFeed = group.source !== 'wallet'
   const showPlanActions = Boolean(showNext24h || showNext72h || showRealtime)
 
@@ -209,14 +214,13 @@ export function DeskEventGroupCard({
             ⇄
           </div>
         ) : (
-          <Image
-            src={group.avatarSrc}
-            alt={group.speaker}
-            width={44}
-            height={44}
-            className={bankRound ? styles.bankTileImg : styles.avatarImg}
-            unoptimized
-          />
+          <div
+            className={styles.bankAcronymTile}
+            role="img"
+            aria-label={`${group.source} bank`}
+          >
+            <span>{bankAcronym}</span>
+          </div>
         )}
       </div>
       <div className={styles.activityContent}>
