@@ -4,13 +4,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
+import { Bot } from 'lucide-react'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
-import { useUserProfileStore } from '@/store/userProfile'
 import { selectHasUnseenLiquidityActivity, useActivityUnreadStore } from '@/store/activityUnread'
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
-import { USER_PLACEHOLDER_AVATAR } from '@/lib/avatarAssets'
 import { useNotificationsStore } from '@/state/notifications'
 import '@/styles/bottom-glass.css'
 
@@ -31,7 +30,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
   const hasUnseenActivity = useActivityUnreadStore(selectHasUnseenLiquidityActivity)
-  const { profile } = useUserProfileStore()
   
   const handleCenterButtonClick = () => {
     // NOTE: Dollar FAB now opens the amount sheet directly (via onDollarClick callback)
@@ -138,62 +136,14 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           }}
           onClick={handleDeskClick}
         >
-          {isAuthed && profile.avatarUrl ? (
-            <div className="nav-avatar-container nav-avatar--real">
-              <div className="nav-avatar-image-wrapper">
-                <Image 
-                  src={profile.avatarUrl}
-                  alt="User avatar"
-                  fill
-                  className="nav-avatar-image"
-                  sizes="28px"
-                />
-              </div>
-              {hasUnseenActivity && (
-                <span className="nav-notification-dot" aria-label="New liquidity manager activity" />
-              )}
-            </div>
-          ) : isAuthed && !profile.avatarUrl ? (
-            <div className="nav-avatar-container nav-avatar-fallback">
-              <div className="nav-avatar-image-wrapper">
-                <Image 
-                  src={USER_PLACEHOLDER_AVATAR}
-                  alt="Default avatar"
-                  fill
-                  className="nav-avatar-image nav-avatar-fallback-image"
-                  sizes="28px"
-                />
-                <span className="nav-avatar-initial">
-                  {(() => {
-                    if (profile.fullName) {
-                      return profile.fullName.charAt(0).toUpperCase()
-                    }
-                    if (profile.userHandle && profile.userHandle.startsWith('@')) {
-                      const handleClean = profile.userHandle.substring(1)
-                      if (handleClean.toLowerCase().startsWith('goblin')) {
-                        return 'G'
-                      } else if (handleClean.length > 0) {
-                        return handleClean.charAt(0).toUpperCase()
-                      }
-                    }
-                    return '?'
-                  })()}
-                </span>
-              </div>
-              {hasUnseenActivity && (
-                <span className="nav-notification-dot" aria-label="New liquidity manager activity" />
-              )}
-            </div>
-          ) : (
-            <>
-              <Image
-                src={isDeskOpen ? "/assets/nav/user_filled.svg" : "/assets/nav/user-outlined.svg"}
-                alt="FX desk"
-                className={`nav-icon ${isDeskOpen ? 'nav-icon-active' : 'nav-icon-dim'}`}
-                width={28}
-                height={28}
-              />
-            </>
+          <Bot
+            aria-hidden="true"
+            className={`nav-icon ${isDeskOpen ? 'nav-icon-active' : 'nav-icon-dim'}`}
+            fill={isDeskOpen ? 'currentColor' : 'none'}
+            strokeWidth={2}
+          />
+          {hasUnseenActivity && (
+            <span className="nav-notification-dot" aria-label="New liquidity manager activity" />
           )}
         </Link>
       </div>
