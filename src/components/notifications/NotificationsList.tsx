@@ -872,7 +872,15 @@ function ActivityItemCard({
       data-desk-item-cycle={typeof item.cycleNumber === 'number' ? item.cycleNumber : undefined}
     >
       <div className={[styles.activityAvatar, bankTile ? styles.activityAvatarBank : ''].filter(Boolean).join(' ')}>
-        {deskAgent ? (
+        {bankTile ? (
+          <div
+            className={styles.bankAcronymTile}
+            role="img"
+            aria-label={`${bankTile.label} bank`}
+          >
+            <span>{bankTile.acronym}</span>
+          </div>
+        ) : deskAgent ? (
           <SpeakerAvatar agent={deskAgent} size={44} />
         ) : showUserPlaceholder ? (
           <Avatar
@@ -889,7 +897,7 @@ function ActivityItemCard({
             alt={bankTile?.label || deskSpeaker?.name || item.actor.name || 'Payment agent'}
             width={44}
             height={44}
-            className={bankTile ? styles.bankTileImg : styles.avatarImg}
+            className={styles.avatarImg}
             unoptimized
           />
         )}

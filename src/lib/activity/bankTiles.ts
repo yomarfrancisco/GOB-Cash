@@ -1,30 +1,50 @@
-/** Bank notice tiles for the desk feed (not desk liaison portraits). */
-
-export const BANK_TILES = {
-  FNB: '/assets/fnb_logo.png',
-  Capitec: '/assets/capitec.png',
-  Moza: '/assets/moza_logo.png',
-  POS: '/assets/fnb_logo.png',
-} as const
-
-export type BankTileId = keyof typeof BANK_TILES
+/** Neutral bank notice tiles for the desk feed (not desk liaison portraits). */
+export type BankTileId = 'FNB' | 'MOZA' | 'BIM' | 'SBM' | 'BCI' | 'ABSA' | 'CAP' | 'POS'
 
 export type BankTile = {
   id: BankTileId
   label: string
+  acronym: string
   src: string
 }
 
-/** Match "Bank · FNB approved", "Bank · Moza VISA purchase", "Bank · FNB MZ transfer". */
+const NEUTRAL_BANK_TILE = '/assets/ZAR_square.jpg'
+
+/** Match bank-feed titles while keeping one neutral visual language. */
 export function bankTileForTitle(title: string | undefined | null): BankTile | null {
   if (!title) return null
-  const m = title.match(/^Bank\s*[·.•]\s*(FNB(?:\s+MZ)?|Capitec|Moza|POS)\b/i)
+  const m = title.match(
+    /^Bank\s*[·.•]\s*(FNB(?:\s+MZ)?|Capitec|Moza|BIM|SBM|Standard Bank|BCI|ABSA|POS)\b/i
+  )
   if (!m) return null
   const raw = m[1].trim()
-  if (/^capitec$/i.test(raw)) return { id: 'Capitec', label: 'Capitec', src: BANK_TILES.Capitec }
-  if (/^moza$/i.test(raw)) return { id: 'Moza', label: 'Moza', src: BANK_TILES.Moza }
-  if (/^pos$/i.test(raw)) return { id: 'POS', label: 'POS', src: BANK_TILES.POS }
-  return { id: 'FNB', label: /^FNB\s+MZ$/i.test(raw) ? 'FNB MZ' : 'FNB', src: BANK_TILES.FNB }
+  if (/^capitec$/i.test(raw)) {
+    return { id: 'CAP', label: 'Capitec', acronym: 'CAP', src: NEUTRAL_BANK_TILE }
+  }
+  if (/^moza$/i.test(raw)) {
+    return { id: 'MOZA', label: 'Moza', acronym: 'MOZA', src: NEUTRAL_BANK_TILE }
+  }
+  if (/^bim$/i.test(raw)) {
+    return { id: 'BIM', label: 'BIM', acronym: 'BIM', src: NEUTRAL_BANK_TILE }
+  }
+  if (/^(sbm|standard bank)$/i.test(raw)) {
+    return { id: 'SBM', label: 'SBM', acronym: 'SBM', src: NEUTRAL_BANK_TILE }
+  }
+  if (/^bci$/i.test(raw)) {
+    return { id: 'BCI', label: 'BCI', acronym: 'BCI', src: NEUTRAL_BANK_TILE }
+  }
+  if (/^absa$/i.test(raw)) {
+    return { id: 'ABSA', label: 'Absa', acronym: 'ABSA', src: NEUTRAL_BANK_TILE }
+  }
+  if (/^pos$/i.test(raw)) {
+    return { id: 'POS', label: 'POS', acronym: 'POS', src: NEUTRAL_BANK_TILE }
+  }
+  return {
+    id: 'FNB',
+    label: /^FNB\s+MZ$/i.test(raw) ? 'FNB MZ' : 'FNB',
+    acronym: 'FNB',
+    src: NEUTRAL_BANK_TILE,
+  }
 }
 
 export function bankTileForItem(item: { title?: string; routingAction?: string }): BankTile | null {
