@@ -13,6 +13,7 @@ import { railByMerchantId, resolveMerchantDescriptor } from './register'
 import { zipBuffers } from './zipBuffers'
 import type { FnbSettlement } from './fnbSettlement'
 import type { CapitecSettlement } from '../inbound/capitecSettlement'
+import type { BankEmailRoundPreview } from '../routing/bankEmailRound'
 
 const db = () => admin.firestore()
 
@@ -86,6 +87,8 @@ export async function publishInvoicePackDeskNotice(params: {
   revision?: number
   /** Rebuild zip + amounts even if a pack card already exists. */
   forceRebuild?: boolean
+  plannedMeta?: { simulated?: true; planRunId?: string; deskPlanChip?: string }
+  bankEmailRound?: BankEmailRoundPreview | null
 }): Promise<void> {
   const invoices = params.invoices.filter((row) => row.storagePath)
   if (!invoices.length) return
@@ -118,18 +121,33 @@ export async function publishInvoicePackDeskNotice(params: {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`
-  const dayLabel =
-    typeof params.cycleNumber === 'number' ? `Day ${params.cycleNumber}` : 'the day'
-  const sentence =
+  const dayLabel = typeof params.cycleNumber === 'number' ? `Day ${params.cycleNumber}` : 'the day'
+  const invoiceLead =
     invoices.length === 1
       ? `1 invoice raised for the ${dayLabel} card order.`
       : `${invoices.length} invoices raised for the ${dayLabel} card order.`
+  const sentence = params.bankEmailRound
+    ? params.bankEmailRound.due
+      ? `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} raised. Today is a bank email round: ${params.bankEmailRound.selected.length} banks get expected EFT probes.`
+      : `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} raised. No bank email round today.`
+    : invoiceLead
   const deskLedgerRows = [
     ...invoices.slice(0, 5).map((row) => ({
       label: row.invoiceNumber,
       value: formatZar(row.totalZar),
     })),
     { label: 'Total', value: formatZar(totalZar), valueStrong: true },
+    ...(params.bankEmailRound && !params.bankEmailRound.due
+      ? [
+          {
+            label: 'Bank emails',
+            value: `Next round ${params.bankEmailRound.nextRoundLabel}`,
+            ...(params.bankEmailRound.horizonHours === 24
+              ? { secondLine: 'outside this 24h plan' }
+              : {}),
+          },
+        ]
+      : []),
   ]
 
   await ref.set(
@@ -140,6 +158,9 @@ export async function publishInvoicePackDeskNotice(params: {
       body: sentence,
       deskSentence: sentence,
       deskStatusChip: 'Raised',
+      ...(params.bankEmailRound?.due
+        ? { deskPendingChip: `Email round · ${params.bankEmailRound.selected.length} expected` }
+        : {}),
       deskNextFooter: 'Step 3 · MZN opens in 24h',
       deskLedgerRows,
       dropdownTitle: filename,
@@ -162,6 +183,10 @@ export async function publishInvoicePackDeskNotice(params: {
       deskSpeaker: 'amina',
       deskStep: 2,
       cyclePhase: 'awaiting_invoice',
+      ...(params.bankEmailRound ? { deskBankEmailRound: params.bankEmailRound } : {}),
+      ...(params.plannedMeta?.simulated ? { simulated: true } : {}),
+      ...(params.plannedMeta?.planRunId ? { planRunId: params.plannedMeta.planRunId } : {}),
+      ...(params.plannedMeta?.deskPlanChip ? { deskPlanChip: params.plannedMeta.deskPlanChip } : {}),
       ...(params.testRunId ? { testRunId: params.testRunId } : {}),
       ...(typeof params.cycleNumber === 'number' ? { cycleNumber: params.cycleNumber } : {}),
       recordingSource: 'SYSTEM',
@@ -194,6 +219,8 @@ export async function raiseInvoicesForCycle(input: {
   sequentialContinue?: boolean
   revision?: number
   forceRebuild?: boolean
+  plannedMeta?: { simulated?: true; planRunId?: string; deskPlanChip?: string }
+  bankEmailRound?: BankEmailRoundPreview | null
 }): Promise<SettlementInvoice[]> {
   const raised: SettlementInvoice[] = []
   const rev = Math.max(1, Math.floor(Number(input.revision) || 1))
@@ -231,6 +258,8 @@ export async function raiseInvoicesForCycle(input: {
     sequentialContinue: input.sequentialContinue === true,
     revision: rev,
     forceRebuild: input.forceRebuild === true,
+    plannedMeta: input.plannedMeta,
+    bankEmailRound: input.bankEmailRound,
   })
   return raised
 }

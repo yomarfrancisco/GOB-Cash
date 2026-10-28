@@ -76,6 +76,7 @@ export type ActivityItem = {
   /** Part 1 ledger / status presentation for Steps 2–5. */
   deskSentence?: string
   deskStatusChip?: string
+  deskPendingChip?: string
   deskNextFooter?: string
   deskPlanChip?: string
   deskStep?: number
@@ -90,6 +91,45 @@ export type ActivityItem = {
     valueStrong?: boolean
     secondLine?: string
   }>
+  /** Read-only bank learning probes attached to a simulated Step 2. */
+  deskBankEmailRound?: {
+    roundId: string
+    due: boolean
+    horizonHours: 24 | 72
+    dayLabel: string
+    expectedReplyLabel: string
+    nextRoundLabel: string
+    selected: Array<{
+      bankKey: string
+      bank: string
+      shortBank: string
+      banker: string
+      to: string
+      reason: string
+      testedAmountZar: number
+      sendTimeLabel: string
+      subject: string
+      bodyPt: string
+      attachments: Array<{ ticketId: string; filename: string; amountZar: number }>
+    }>
+    notSelected: string[]
+  }
+  /** Synthetic reply expectations; never parsed as real bank evidence. */
+  deskBankExpectedReplies?: {
+    roundId: string
+    roundLabel: string
+    replies: {
+      replyAtMs: number
+      rows: Array<{
+        bankKey: string
+        bank: string
+        banker: string
+        testedAmountZar: number
+        status: 'expected'
+        wouldLearn: string
+      }>
+    }
+  }
   orderLedger?: import('@/lib/desk/routingStepMessage').OrderLedger
   /** Binding Confirm earliest time (ISO). */
   earliestAttemptAt?: string

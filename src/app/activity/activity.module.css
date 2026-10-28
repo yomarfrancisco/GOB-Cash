@@ -166,6 +166,11 @@
   background: var(--desk-pink, #f4a6c4);
 }
 
+.pendingChip {
+  border-color: transparent;
+  background: var(--desk-yellow, #ffd36b);
+}
+
 .chipRow {
   display: flex;
   flex-wrap: wrap;

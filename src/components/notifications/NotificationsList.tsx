@@ -931,9 +931,14 @@ function ActivityItemCard({
           </div>
         ) : (
           <>
-            {(statusChip || planChip) && (
+            {(statusChip || item.deskPendingChip || planChip) && (
               <div className={styles.chipRow}>
                 {statusChip ? <StatusChip label={statusChip} /> : null}
+                {item.deskPendingChip ? (
+                  <span className={[styles.planChip, styles.pendingChip].join(' ')}>
+                    {item.deskPendingChip}
+                  </span>
+                ) : null}
                 {planChip ? (
                   <span
                     className={[

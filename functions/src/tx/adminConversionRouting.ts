@@ -206,6 +206,11 @@ import {
   type OrderLedger,
 } from '../routing/orderLedger'
 import { cardShortName, machineShortName, DEFAULT_CARDS } from '../routing/inventory'
+import {
+  buildBankEmailRound,
+  expectedRepliesForRound,
+  type BankEmailRoundPreview,
+} from '../routing/bankEmailRound'
 
 const inboundSecret = defineSecret('RESEND_INBOUND_SECRET')
 const db = admin.firestore()
@@ -1237,6 +1242,93 @@ function deskPlanChipFromDoc(
   return plannedWriteFields(data, cycleNumber).deskPlanChip || null
 }
 
+function parsePlannedBankEmailRounds(raw: unknown): BankEmailRoundPreview[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (entry): entry is BankEmailRoundPreview =>
+      Boolean(
+        entry &&
+          typeof entry === 'object' &&
+          (entry as BankEmailRoundPreview).due === true &&
+          typeof (entry as BankEmailRoundPreview).roundId === 'string' &&
+          typeof (entry as BankEmailRoundPreview).expectedReplyAtMs === 'number' &&
+          Array.isArray((entry as BankEmailRoundPreview).selected)
+      )
+  )
+}
+
+async function publishDueExpectedBankReplies(params: {
+  adminUid: string
+  testRunId: string
+  testData: FirebaseFirestore.DocumentData | Record<string, unknown>
+  plannedClockMs: number
+}): Promise<void> {
+  if (params.testData.deskMode !== 'planned') return
+  const planRunId =
+    typeof params.testData.planRunId === 'string' ? params.testData.planRunId : ''
+  if (!planRunId) return
+  const published = new Set(
+    Array.isArray(params.testData.publishedBankReplyRoundIds)
+      ? params.testData.publishedBankReplyRoundIds.filter(
+          (value: unknown): value is string => typeof value === 'string'
+        )
+      : []
+  )
+  const dueRounds = parsePlannedBankEmailRounds(params.testData.plannedBankEmailRounds).filter(
+    (round) =>
+      round.expectedReplyAtMs <= params.plannedClockMs && !published.has(round.roundId)
+  )
+  if (!dueRounds.length) return
+
+  const events = db.collection('users').doc(params.adminUid).collection('activityEvents')
+  for (const round of dueRounds) {
+    const replies = expectedRepliesForRound(round)
+    if (!replies) continue
+    const id = `expected-bank-replies-${planRunId}-${round.roundId}`
+    const planned = plannedWriteFields(params.testData, round.cycleNumber + 1)
+    await events.doc(id).set(
+      {
+        id,
+        kind: CONVERSION_ROUTING_KIND,
+        title: 'Expected bank replies',
+        body: `${replies.rows.length} expected replies would test amount acceptance, timing and document needs. No bank response has been received.`,
+        deskSentence: `${replies.rows.length} expected replies show what this round is intended to learn — not bank evidence.`,
+        deskStatusChip: 'Expected',
+        deskBankExpectedReplies: {
+          roundId: round.roundId,
+          roundLabel: round.dayLabel,
+          replies,
+        },
+        actorType: 'ai_manager',
+        avatarKind: 'convert_zar',
+        deskSpeaker: 'leo',
+        routingAction: 'bank_reply_preview',
+        status: 'recorded',
+        awaitingConfirm: false,
+        hasDownloadButton: false,
+        testRunId: params.testRunId,
+        cycleNumber: round.cycleNumber + 1,
+        simulated: true,
+        planRunId,
+        deskPlanChip: planned.deskPlanChip || '24h plan',
+        synthetic: true,
+        // Publish only once the simulated day is due, but keep feed order tied to
+        // actual write order so this preview cannot jump above later Step cards.
+        createdAt: admin.firestore.Timestamp.now(),
+        recordingSource: 'SYSTEM',
+      },
+      { merge: true }
+    )
+    await db.collection(TESTS).doc(params.testRunId).set(
+      {
+        publishedBankReplyRoundIds: admin.firestore.FieldValue.arrayUnion(round.roundId),
+        updatedAt: admin.firestore.Timestamp.now(),
+      },
+      { merge: true }
+    )
+  }
+}
+
 /** Part 2 desk line after restock confirm — bank-style without competing with Step 5. */
 async function writeSwipeApprovedNotice(params: {
   adminUid: string
@@ -1745,6 +1837,29 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
           economicPaymentId?: string
         }>)
       : []
+    const plannedMeta = plannedWriteFields(data, cycleNumber)
+    const orderLedger = parseOrderLedger(data.orderLedger)
+    const bankEmailRound = plannedMeta.simulated
+      ? buildBankEmailRound({
+          cycleNumber,
+          clockMs: num(data.plannedClockMs, now.toMillis()),
+          horizonHours: num(data.plannedHorizonHours, 24) >= 72 ? 72 : 24,
+          eftTickets:
+            orderLedger?.eftTickets.map((ticket, index) => ({
+              ...ticket,
+              ticketId: `eft-c${cycleNumber}-${index + 1}`,
+            })) || [],
+        })
+      : null
+    if (bankEmailRound?.due) {
+      await testRef.set(
+        {
+          plannedBankEmailRounds: admin.firestore.FieldValue.arrayUnion(bankEmailRound),
+          updatedAt: now,
+        },
+        { merge: true }
+      )
+    }
     // One Step 2 card only: the invoice pack itself carries Continue (latest post).
     if (assignments.length) {
       try {
@@ -1755,6 +1870,8 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
           assignments,
           sequentialContinue: true,
           revision: dayTicketRevision(data),
+          plannedMeta,
+          bankEmailRound,
         })
       } catch (error) {
         console.error('[advanceSequential] invoice raise failed', error)
@@ -1771,7 +1888,11 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
             id: packId,
             kind: CONVERSION_ROUTING_KIND,
             title: stepCardTitle(2),
-            body: `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.\nNext 24h opens Step 3 · MZN.`,
+            body: bankEmailRound
+              ? bankEmailRound.due
+                ? `No card invoices were required. Today is a bank email round: ${bankEmailRound.selected.length} expected EFT probes are shown.`
+                : `No card invoices were required. No bank email round today.`
+              : `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.\nNext 24h opens Step 3 · MZN.`,
             awaitingConfirm: true,
             routingBlocked: false,
             status: 'awaiting_execution',
@@ -1779,8 +1900,13 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
             deskSpeaker: 'amina',
             cyclePhase: 'awaiting_invoice',
             deskStep: 2,
+            ...(bankEmailRound?.due
+              ? { deskPendingChip: `Email round · ${bankEmailRound.selected.length} expected` }
+              : {}),
             testRunId,
             cycleNumber,
+            ...(bankEmailRound ? { deskBankEmailRound: bankEmailRound } : {}),
+            ...plannedMeta,
             createdAt: now,
             recordingSource: 'SYSTEM',
           },
@@ -6438,6 +6564,18 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     },
     { merge: true }
   )
+  await publishDueExpectedBankReplies({
+    adminUid,
+    testRunId,
+    testData: {
+      ...start,
+      deskMode: 'planned',
+      planRunId,
+      plannedHorizonHours,
+      plannedAnchorCycle,
+    },
+    plannedClockMs,
+  })
 
   let startGate = keypadGateFromDoc(start)
   // Already on Send/Restock — do not bump the day clock or spam another Planned marker.

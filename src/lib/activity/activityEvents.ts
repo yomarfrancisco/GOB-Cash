@@ -64,6 +64,7 @@ export type ActivityEventDoc = {
   routingStepMessage?: unknown
   deskSentence?: string
   deskStatusChip?: string
+  deskPendingChip?: string
   deskNextFooter?: string
   deskPlanChip?: string
   deskStep?: number
@@ -71,6 +72,8 @@ export type ActivityEventDoc = {
   planRunId?: string
   deskAdvanceDay?: number
   deskLedgerRows?: unknown
+  deskBankEmailRound?: unknown
+  deskBankExpectedReplies?: unknown
   orderLedger?: unknown
   earliestAttemptAt?: string
   ticketPath?: { tickets?: Array<{ timeLabel?: string | null }> | null } | null
@@ -102,6 +105,131 @@ function asDeskLedgerRows(
     ]
   })
   return rows.length ? rows : undefined
+}
+
+function asBankEmailRound(raw: unknown): ActivityItem['deskBankEmailRound'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  const value = raw as Record<string, unknown>
+  const selectedRaw = Array.isArray(value.selected) ? value.selected : []
+  const selected = selectedRaw.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return []
+    const row = entry as Record<string, unknown>
+    const attachments = (Array.isArray(row.attachments) ? row.attachments : []).flatMap(
+      (attachment) => {
+        if (!attachment || typeof attachment !== 'object') return []
+        const item = attachment as Record<string, unknown>
+        if (
+          typeof item.ticketId !== 'string' ||
+          typeof item.filename !== 'string' ||
+          typeof item.amountZar !== 'number'
+        ) {
+          return []
+        }
+        return [
+          {
+            ticketId: item.ticketId,
+            filename: item.filename,
+            amountZar: item.amountZar,
+          },
+        ]
+      }
+    )
+    if (
+      typeof row.bankKey !== 'string' ||
+      typeof row.bank !== 'string' ||
+      typeof row.shortBank !== 'string' ||
+      typeof row.banker !== 'string' ||
+      typeof row.to !== 'string' ||
+      typeof row.reason !== 'string' ||
+      typeof row.testedAmountZar !== 'number' ||
+      typeof row.sendTimeLabel !== 'string' ||
+      typeof row.subject !== 'string' ||
+      typeof row.bodyPt !== 'string'
+    ) {
+      return []
+    }
+    return [{
+      bankKey: row.bankKey,
+      bank: row.bank,
+      shortBank: row.shortBank,
+      banker: row.banker,
+      to: row.to,
+      reason: row.reason,
+      testedAmountZar: row.testedAmountZar,
+      sendTimeLabel: row.sendTimeLabel,
+      subject: row.subject,
+      bodyPt: row.bodyPt,
+      attachments,
+    }]
+  })
+  if (
+    typeof value.roundId !== 'string' ||
+    typeof value.due !== 'boolean' ||
+    (value.horizonHours !== 24 && value.horizonHours !== 72) ||
+    typeof value.dayLabel !== 'string' ||
+    typeof value.expectedReplyLabel !== 'string' ||
+    typeof value.nextRoundLabel !== 'string'
+  ) {
+    return undefined
+  }
+  return {
+    roundId: value.roundId,
+    due: value.due,
+    horizonHours: value.horizonHours,
+    dayLabel: value.dayLabel,
+    expectedReplyLabel: value.expectedReplyLabel,
+    nextRoundLabel: value.nextRoundLabel,
+    selected,
+    notSelected: Array.isArray(value.notSelected)
+      ? value.notSelected.filter((item): item is string => typeof item === 'string')
+      : [],
+  }
+}
+
+function asBankExpectedReplies(raw: unknown): ActivityItem['deskBankExpectedReplies'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  const value = raw as Record<string, unknown>
+  const replies =
+    value.replies && typeof value.replies === 'object'
+      ? (value.replies as Record<string, unknown>)
+      : null
+  if (
+    typeof value.roundId !== 'string' ||
+    typeof value.roundLabel !== 'string' ||
+    !replies ||
+    typeof replies.replyAtMs !== 'number' ||
+    !Array.isArray(replies.rows)
+  ) {
+    return undefined
+  }
+  const rows = replies.rows.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return []
+    const row = entry as Record<string, unknown>
+    if (
+      typeof row.bankKey !== 'string' ||
+      typeof row.bank !== 'string' ||
+      typeof row.banker !== 'string' ||
+      typeof row.testedAmountZar !== 'number' ||
+      row.status !== 'expected' ||
+      typeof row.wouldLearn !== 'string'
+    ) {
+      return []
+    }
+    return [{
+      bankKey: row.bankKey,
+      bank: row.bank,
+      banker: row.banker,
+      testedAmountZar: row.testedAmountZar,
+      status: 'expected' as const,
+      wouldLearn: row.wouldLearn,
+    }]
+  })
+  if (!rows.length) return undefined
+  return {
+    roundId: value.roundId,
+    roundLabel: value.roundLabel,
+    replies: { replyAtMs: replies.replyAtMs, rows },
+  }
 }
 
 function asDeskPlanChip(raw: unknown): ActivityItem['deskPlanChip'] {
@@ -347,6 +475,10 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       typeof data.deskStatusChip === 'string' && data.deskStatusChip.trim()
         ? data.deskStatusChip.trim()
         : undefined,
+    deskPendingChip:
+      typeof data.deskPendingChip === 'string' && data.deskPendingChip.trim()
+        ? data.deskPendingChip.trim()
+        : undefined,
     deskNextFooter:
       typeof data.deskNextFooter === 'string' && data.deskNextFooter.trim()
         ? data.deskNextFooter.trim()
@@ -360,6 +492,8 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
         ? data.deskAdvanceDay
         : undefined,
     deskLedgerRows: asDeskLedgerRows(data.deskLedgerRows),
+    deskBankEmailRound: asBankEmailRound(data.deskBankEmailRound),
+    deskBankExpectedReplies: asBankExpectedReplies(data.deskBankExpectedReplies),
     orderLedger:
       data.orderLedger && typeof data.orderLedger === 'object'
         ? (data.orderLedger as ActivityItem['orderLedger'])

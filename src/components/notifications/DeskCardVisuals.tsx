@@ -2,6 +2,7 @@ import type { ActivityItem } from '@/store/activity'
 import styles from '@/app/activity/activity.module.css'
 import { RoutingStepCard } from './RoutingStepCard'
 import { DeskStepBlock } from './DeskStepBlock'
+import { BankEmailRoundBlock, BankExpectedRepliesBlock } from './BankEmailRoundBlock'
 
 const SERIES_COLOR = ['#111111', '#8aa31a', '#8a8a8a']
 
@@ -103,8 +104,25 @@ export function DeskCardVisuals({ item }: { item: ActivityItem }) {
   if (item.routingStepMessage) {
     return <RoutingStepCard message={item.routingStepMessage} />
   }
-  if (item.deskLedgerRows?.length) {
-    return <DeskStepBlock rows={item.deskLedgerRows} />
+  if (
+    item.deskLedgerRows?.length ||
+    item.deskBankEmailRound?.due ||
+    item.deskBankExpectedReplies
+  ) {
+    return (
+      <>
+        {item.deskLedgerRows?.length ? <DeskStepBlock rows={item.deskLedgerRows} /> : null}
+        {item.deskBankEmailRound?.due ? (
+          <BankEmailRoundBlock
+            round={item.deskBankEmailRound}
+            planLabel={item.deskPlanChip || 'Plan'}
+          />
+        ) : null}
+        {item.deskBankExpectedReplies ? (
+          <BankExpectedRepliesBlock preview={item.deskBankExpectedReplies} />
+        ) : null}
+      </>
+    )
   }
   if (!item.deskTable && !item.deskChart) return null
   return (

@@ -1,0 +1,201 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  max-width: 600px;
+  color: var(--desk-ink, #18181b);
+  font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+}
+
+.eyebrow,
+.attachmentTitle {
+  color: var(--desk-muted, #5e5e66);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.card {
+  overflow: hidden;
+  border: 1px solid var(--desk-border, #e2ded3);
+  border-radius: 16px;
+  background: var(--desk-bg-card, #fffffe);
+}
+
+.bankRow {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--desk-row-rule, #ece8dd);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bankRow:active {
+  background: #f8f6ef;
+}
+
+.time,
+.bankCopy span,
+.hint,
+.next,
+.notSelected,
+.sheetMeta,
+.safetyNote,
+.learns {
+  color: var(--desk-muted, #5e5e66);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.bankCopy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bankCopy strong,
+.amount {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bankCopy .reason {
+  color: var(--desk-ink-2, #3f3f46);
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.notSelected {
+  padding: 10px 14px;
+}
+
+.hint {
+  padding-left: 2px;
+}
+
+.next {
+  padding-top: 2px;
+  border-top: 1px solid var(--desk-row-rule, #ece8dd);
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 24px;
+  font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+}
+
+.planBanner {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #eef3dd;
+  color: #333921;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.emailFields {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  border-top: 1px solid #ece8dd;
+}
+
+.emailFields > div {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #ece8dd;
+}
+
+.emailFields dt {
+  color: #6b6b70;
+  font-size: 13px;
+}
+
+.emailFields dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.emailBody {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attachment {
+  padding: 11px 12px;
+  border: 1px solid #e2ded3;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.safetyNote {
+  margin: 0;
+}
+
+.replyRow {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--desk-row-rule, #ece8dd);
+}
+
+.replyRow:last-child {
+  border-bottom: 0;
+}
+
+.replyHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.replyHeading > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.replyHeading span span {
+  color: var(--desk-muted, #5e5e66);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.expectedPill {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f2efd9;
+  color: #504b26;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.learns {
+  margin-top: 7px;
+}
