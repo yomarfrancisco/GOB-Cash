@@ -837,7 +837,18 @@ function ActivityItemCard({
         : 'Download proof'
 
   if (item.deskEventGroup) {
-    return <DeskEventGroupCard item={item} />
+    return (
+      <DeskEventGroupCard
+        item={item}
+        planBusy={planBusy}
+        showNext24h={showNext24h}
+        showNext72h={showNext72h}
+        showRealtime={showRealtime}
+        onNext24h={onNext24h}
+        onNext72h={onNext72h}
+        onRealtime={onRealtime}
+      />
+    )
   }
 
   return (
