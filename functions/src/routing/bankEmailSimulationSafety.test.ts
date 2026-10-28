@@ -32,4 +32,20 @@ describe('bank email simulation safety', () => {
     assert.match(publisher, /synthetic:\s*true/)
     assert.doesNotMatch(publisher, /knownLimitZar|routeEvidence|sendEmail|resend/i)
   })
+
+  it('does not write planned EFT transitions into shared route evidence', () => {
+    const routing = source('../tx/adminConversionRouting.ts')
+    const plannedEft = routing.slice(
+      routing.indexOf('// Planned EFT advance once per Next 24h'),
+      routing.indexOf("let stopped = 'max_steps'")
+    )
+    assert.doesNotMatch(plannedEft, /persistRouteEvidence|evidenceFromEft/)
+  })
+
+  it('snapshots and restores original activity-event contents', () => {
+    const routing = source('../tx/adminConversionRouting.ts')
+    assert.match(routing, /events\?: Record<string, Record<string, unknown>>/)
+    assert.match(routing, /Object\.entries\(checkpoint\.events\)/)
+    assert.match(routing, /\.set\(data, \{ merge: false \}\)/)
+  })
 })

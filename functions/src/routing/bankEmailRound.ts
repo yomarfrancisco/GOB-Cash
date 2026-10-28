@@ -83,6 +83,19 @@ export function formatDeskDay(ms: number): string {
   return `${WEEKDAY_SHORT[d.getUTCDay()]} ${d.getUTCDate()} ${MONTH_SHORT[d.getUTCMonth()]}`
 }
 
+function sastDayNumber(ms: number): number {
+  const d = sastDate(ms)
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+}
+
+/** Reply previews become due on the simulated desk day, regardless of its clock hour. */
+export function isExpectedBankReplyDue(
+  round: Pick<BankEmailRoundPreview, 'expectedReplyAtMs'>,
+  clockMs: number
+): boolean {
+  return sastDayNumber(clockMs) >= sastDayNumber(round.expectedReplyAtMs)
+}
+
 export function formatPtDate(ms: number): string {
   const d = sastDate(ms)
   const dd = String(d.getUTCDate()).padStart(2, '0')

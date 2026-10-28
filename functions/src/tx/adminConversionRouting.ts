@@ -53,8 +53,6 @@ import {
 } from '../routing/channelSplit'
 import { openWindowAtCapitalWithBook } from '../routing/throughputPlan'
 import {
-  evidenceFromEftBankTransfer,
-  evidenceFromEftDelayed,
   evidenceFromEftInstructed,
 } from '../belief/emitters'
 import { persistRouteEvidence } from '../belief/persist'
@@ -209,6 +207,7 @@ import { cardShortName, machineShortName, DEFAULT_CARDS } from '../routing/inven
 import {
   buildBankEmailRound,
   expectedRepliesForRound,
+  isExpectedBankReplyDue,
   type BankEmailRoundPreview,
 } from '../routing/bankEmailRound'
 
@@ -1276,7 +1275,7 @@ async function publishDueExpectedBankReplies(params: {
   )
   const dueRounds = parsePlannedBankEmailRounds(params.testData.plannedBankEmailRounds).filter(
     (round) =>
-      round.expectedReplyAtMs <= params.plannedClockMs && !published.has(round.roundId)
+      isExpectedBankReplyDue(round, params.plannedClockMs) && !published.has(round.roundId)
   )
   if (!dueRounds.length) return
 
@@ -6382,6 +6381,7 @@ type LiveCheckpoint = {
   test: Record<string, unknown>
   cycles: Record<string, Record<string, unknown>>
   eventIds: string[]
+  events?: Record<string, Record<string, unknown>>
   cashZar: number
   cashMzn: number
 }
@@ -6403,11 +6403,16 @@ async function captureLiveCheckpoint(adminUid: string, testRunId: string): Promi
   cyclesSnap.docs.forEach((doc) => {
     cycles[doc.id] = { ...(doc.data() || {}) }
   })
+  const events: Record<string, Record<string, unknown>> = {}
+  eventsSnap.docs.forEach((doc) => {
+    events[doc.id] = { ...(doc.data() || {}) }
+  })
   return {
     atMs: Date.now(),
     test,
     cycles,
     eventIds: eventsSnap.docs.map((doc) => doc.id),
+    events,
     cashZar: roundMoney(Number(zarSnap.exists ? zarSnap.data()?.fiatBalance || 0 : 0)),
     cashMzn: roundMoney(Number(mznSnap.exists ? mznSnap.data()?.fiatBalance || 0 : 0)),
   }
@@ -6445,6 +6450,18 @@ async function restoreLiveCheckpoint(
       .filter((doc) => !keep.has(doc.id))
       .map((doc) => doc.ref.delete())
   )
+  if (checkpoint.events) {
+    await Promise.all(
+      Object.entries(checkpoint.events).map(([id, data]) =>
+        db
+          .collection('users')
+          .doc(adminUid)
+          .collection('activityEvents')
+          .doc(id)
+          .set(data, { merge: false })
+      )
+    )
+  }
   await clearPlanMarkers(adminUid, testRunId)
 
   await db.collection('users').doc(adminUid).collection('wallets').doc('cashZAR').set(
@@ -6695,43 +6712,9 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     steps.push(...advanced.steps)
     if (overdue.overdue.length) {
       steps.push(`eft-overdue:${overdue.overdue.length}`)
-      for (const ticket of overdue.overdue) {
-        void persistRouteEvidence(
-          evidenceFromEftDelayed({
-            eftCorridorId: defaultEftCorridorId(),
-            cardIssuerBankId: 'fnb_mozambique',
-            economicPaymentId: ticket.economicPaymentId,
-            testRunId,
-            cycleNumber: startCycle,
-            requestedZar: ticket.amountZar,
-            eventAt: new Date(clockMs).toISOString(),
-            overdueDeadlineAt: ticket.expectedSettledBy,
-            source: 'simulation',
-          })
-        ).catch(() => undefined)
-      }
     }
-    for (const ticket of advanced.book.tickets) {
-      if (ticket.status !== 'settled') continue
-      const wasOpen = startEft?.tickets?.some(
-        (t) => t.economicPaymentId === ticket.economicPaymentId && t.status !== 'settled'
-      )
-      if (!wasOpen) continue
-      void persistRouteEvidence(
-        evidenceFromEftBankTransfer({
-          eftCorridorId: defaultEftCorridorId(),
-          cardIssuerBankId: 'fnb_mozambique',
-          economicPaymentId: ticket.economicPaymentId,
-          testRunId,
-          cycleNumber: startCycle,
-          requestedZar: ticket.amountZar,
-          settledZar: ticket.amountZar,
-          eventAt: new Date(clockMs).toISOString(),
-          source: 'simulation',
-          notes: ['Planned synthetic EFT cover'],
-        })
-      ).catch(() => undefined)
-    }
+    // Planned transitions are feed-only. Never persist synthetic settlement or
+    // delay evidence into the shared routing-learning collection.
     await testRef.set(
       {
         eftBook: overdue.book,

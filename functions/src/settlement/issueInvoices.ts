@@ -128,8 +128,8 @@ export async function publishInvoicePackDeskNotice(params: {
       : `${invoices.length} invoices raised for the ${dayLabel} card order.`
   const sentence = params.bankEmailRound
     ? params.bankEmailRound.due
-      ? `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} raised. Today is a bank email round: ${params.bankEmailRound.selected.length} banks get expected EFT probes.`
-      : `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} raised. No bank email round today.`
+      ? `${invoiceLead} Today is a bank email round: ${params.bankEmailRound.selected.length} banks get expected EFT probes.`
+      : `${invoiceLead} No bank email round today.`
     : invoiceLead
   const deskLedgerRows = [
     ...invoices.slice(0, 5).map((row) => ({
@@ -190,7 +190,12 @@ export async function publishInvoicePackDeskNotice(params: {
       ...(params.testRunId ? { testRunId: params.testRunId } : {}),
       ...(typeof params.cycleNumber === 'number' ? { cycleNumber: params.cycleNumber } : {}),
       recordingSource: 'SYSTEM',
-      ...(existing.exists
+      ...(params.plannedMeta?.simulated
+        ? {
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }
+        : existing.exists
         ? { updatedAt: admin.firestore.FieldValue.serverTimestamp() }
         : { createdAt: admin.firestore.FieldValue.serverTimestamp() }),
     },

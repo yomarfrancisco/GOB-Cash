@@ -5,6 +5,7 @@ import {
   expectedRepliesForRound,
   formatPtDate,
   formatPtZar,
+  isExpectedBankReplyDue,
   isBankEmailRoundCycle,
 } from './bankEmailRound'
 
@@ -78,5 +79,22 @@ describe('bankEmailRound', () => {
     assert.ok(replies.rows.every((row) => row.status === 'expected'))
     assert.ok(replies.rows.every((row) => row.wouldLearn.includes('amount acceptance')))
     assert.ok(replies.rows.every((row) => !('outcome' in row)))
+  })
+
+  it('makes next-day replies due even when the planned clock is before 09:00', () => {
+    const round = buildBankEmailRound({
+      cycleNumber: 1,
+      clockMs: Date.parse('2026-10-26T08:00:00+02:00'),
+      horizonHours: 72,
+      eftTickets: [{ amount: 65_000 }],
+    })
+    assert.equal(
+      isExpectedBankReplyDue(round, Date.parse('2026-10-27T08:00:00+02:00')),
+      true
+    )
+    assert.equal(
+      isExpectedBankReplyDue(round, Date.parse('2026-10-26T23:59:00+02:00')),
+      false
+    )
   })
 })
