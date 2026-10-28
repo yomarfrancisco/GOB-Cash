@@ -57,6 +57,12 @@ import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
 import { TypewriterText } from '@/components/desk/TypewriterText'
 import { highlightDeskText } from '@/lib/desk/highlightDeskText'
 import { groupDeskEvents } from '@/lib/desk/deskEventGroups'
+import {
+  deskDisplaySentence,
+  inferredDeskStatusChip,
+  isDeskStepItem,
+  ledgerRowsFromOrderLedger,
+} from '@/lib/desk/deskStepPresentation'
 import { sastParts } from '@/lib/routing/routingTime'
 import type { DeskAgent } from '@/lib/desk/threadModel'
 
@@ -199,26 +205,13 @@ function searchableText(item: ActivityItem): string {
   return `${item.title} ${item.body ?? ''} ${item.userReply ?? ''} ${item.actor.name ?? ''}`.toLowerCase()
 }
 
-function isDeskStepCard(item: ActivityItem): boolean {
-  if (typeof item.deskStep === 'number' && item.deskStep >= 1 && item.deskStep <= 6) return true
-  if (
-    item.routingAction === 'step' ||
-    item.routingAction === 'deploy' ||
-    item.routingAction === 'replenish'
-  ) {
-    return true
-  }
-  const title = displayDeskTitle(item.title) || item.title || ''
-  return /^Step\s*\d\b/i.test(title)
-}
-
 function isStandaloneConversionPop(item: ActivityItem): boolean {
   if (item.deskHidden === true) return true
   if (item.routingAction === 'pop_pack') return true
   // EN ROUTE book/clear must stay visible on $-Route.
   if (item.kind === 'EN_ROUTE_BOOKED' || item.kind === 'EN_ROUTE_CLEARED') return false
   // Step 4/5 hosts are never conversion-pop noise, even under legacy titles.
-  if (isDeskStepCard(item)) return false
+  if (isDeskStepItem(item)) return false
   if (item.kind === 'CONVERSION_INSTRUCTED') return true
   if (item.kind === 'proof_of_payment') return true
   return /^(ZAR sold at SELL|ZAR sourced at COST)\b/i.test(item.title || '')
@@ -229,7 +222,7 @@ function isPaymentActivity(item: ActivityItem): boolean {
   if (isStandaloneConversionPop(item)) return false
   // Desk Steps / Send / Recycle must always stay in the feed (titles like
   // "Step 5 · Recycle" do not match the generic payment keyword list).
-  if (isDeskStepCard(item)) return true
+  if (isDeskStepItem(item)) return true
   if (
     item.kind &&
     [
@@ -528,12 +521,15 @@ function ActivityItemCard({
   // Persist-only — never infer from planMode (bank notices must stay clean).
   const planChip = item.simulated === true && item.deskPlanChip ? item.deskPlanChip : null
   void planMode
-  const sentence =
-    item.deskSentence ||
-    item.routingStepMessage?.summary ||
-    ''
+  const stepItem = isDeskStepItem(item)
+  const presentationItem: ActivityItem = {
+    ...item,
+    deskLedgerRows: ledgerRowsFromOrderLedger(item) || item.deskLedgerRows,
+    deskStatusChip: inferredDeskStatusChip(item) || item.deskStatusChip,
+  }
+  const sentence = deskDisplaySentence(presentationItem)
   const ledgerFailures =
-    process.env.NODE_ENV !== 'production' ? orderLedgerFailures(item) : []
+    process.env.NODE_ENV !== 'production' ? orderLedgerFailures(presentationItem) : []
   const [downloadState, setDownloadState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
@@ -544,13 +540,13 @@ function ActivityItemCard({
   const showKycLink = actionsUnlocked && item.hasKycLink === true
   const isKycGate = isKycGateItem(item)
   const kycCta = item.kycAction === 'update' ? 'Update KYC' : 'Start KYC'
-  const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+  const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION' || stepItem
   const executedLabel =
     actionsUnlocked && isRoutingInstruction && item.status === 'completed' && !item.thinking
       ? executedPillLabel({ title: item.title, routingAction: item.routingAction })
       : null
-  const statusChip = item.deskStatusChip || executedLabel || null
-  const showExecuted = Boolean(executedLabel) && !item.deskStatusChip
+  const statusChip = presentationItem.deskStatusChip || executedLabel || null
+  const showExecuted = Boolean(executedLabel) && !presentationItem.deskStatusChip
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
   // Cash moves open the conversion keypad (desk closes first; keypad dismisses before bubbles resume).
   const showSendKeypad =
@@ -573,7 +569,7 @@ function ActivityItemCard({
   const bankTile = bankTileForItem({ title: title || item.title, routingAction: item.routingAction })
   // Bank · notices keep bank tiles — not Routing Manager / liaison portraits.
   const deskAgent: DeskAgent | null =
-    !bankTile && (item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION')
+    !bankTile && (item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION' || stepItem)
       ? deskAgentFor(item)
       : null
   const deskSpeaker = deskAgent ? DESK_TEAM[deskAgent] : null
@@ -583,15 +579,18 @@ function ActivityItemCard({
     item.routingAction === 'replenish' || /^Step\s*5\b/i.test(title) || /^Restock ZAR\b/i.test(item.title || '')
   const isSendCard =
     item.routingAction === 'deploy' || /^Step\s*4\b/i.test(title) || /^Sell ZAR\b/i.test(item.title || '')
+  const hasStructuredStep =
+    Boolean(item.routingStepMessage) ||
+    Boolean(presentationItem.deskLedgerRows?.length) ||
+    Boolean(item.deskSentence)
   // Structured step card / ledger owns the copy — skip live Mt/COST overlays on Steps 1–6.
-  const body =
-    item.routingStepMessage || item.deskLedgerRows || item.deskSentence
-      ? item.deskSentence || ''
-      : isRecycleCard
-        ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
-        : isSendCard
-          ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
-          : displayDeskBody(item.body)
+  const body = hasStructuredStep
+    ? sentence
+    : isRecycleCard
+      ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
+      : isSendCard
+        ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
+        : displayDeskBody(item.body)
   const showStepContinue =
     !lockDeskActions &&
     actionsUnlocked &&
@@ -847,7 +846,8 @@ function ActivityItemCard({
     }
   }
 
-  const displaySentence = sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
+  const displaySentence =
+    sentence || (!item.routingStepMessage && !presentationItem.deskLedgerRows?.length ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
     ? 'Download invoices'
     : /^Step\s*6\b/i.test(title)
@@ -855,6 +855,11 @@ function ActivityItemCard({
       : isPopPackDownloadItem(item) || isSendCard || isRecycleCard
         ? 'Download POPs'
         : 'Download proof'
+  const showStepVisuals = Boolean(
+    item.routingStepMessage || presentationItem.deskLedgerRows?.length || item.deskTable || item.deskChart
+  )
+  // Don't wait on typewriter for settled history — ledger/chips must paint immediately.
+  const visualsReady = titleDone || entranceSettled !== false
 
   if (item.deskEventGroup) {
     return (
@@ -923,7 +928,7 @@ function ActivityItemCard({
               </div>
             )}
             <div className={styles.activityTime}>
-              {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+              {isRoutingInstruction
                 ? formatVisibleSast(item.createdAt)
                 : formatRelativeShort(item.createdAt)}
             </div>
@@ -975,12 +980,12 @@ function ActivityItemCard({
                 Ledger: {ledgerFailures[0]}
               </div>
             ) : null}
-            {item.routingStepMessage || item.deskLedgerRows
-              ? titleDone
-                ? <DeskCardVisuals item={item} />
+            {showStepVisuals
+              ? visualsReady
+                ? <DeskCardVisuals item={presentationItem} />
                 : null
               : actionsUnlocked
-                ? <DeskCardVisuals item={item} />
+                ? <DeskCardVisuals item={presentationItem} />
                 : null}
             {!askCard && item.userReply && actionsUnlocked ? (
               <div className={styles.activityUserReply}>

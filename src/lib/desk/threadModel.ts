@@ -60,6 +60,11 @@ export function deskAgentFor(item: {
   if (item.routingAction === 'deploy') return 'leo'
   if (item.routingAction === 'replenish') return 'amina'
   const title = item.title || ''
+  if (/^Step\s*[45]\b/i.test(title) && /Send|Recycle|Restock/i.test(title)) {
+    return /^Step\s*4\b/i.test(title) ? 'leo' : 'amina'
+  }
+  if (/^Step\s*[23]\b/i.test(title)) return 'amina'
+  if (/^Step\s*[16]\b/i.test(title)) return 'sam'
   if (/^Sell ZAR\b/i.test(title)) return 'leo'
   if (/^Restock\b/i.test(title)) return 'amina'
   return 'sam'
