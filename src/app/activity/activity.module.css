@@ -37,6 +37,10 @@
   margin-top: 0;
 }
 
+.deskFeed .activitySection {
+  margin-bottom: 0;
+}
+
 .deskFeed .activitySection:last-of-type {
   margin-bottom: 8px;
 }
@@ -121,28 +125,6 @@
   left: 56px;
   height: 1px;
   background: var(--desk-border, #e2ded3);
-}
-
-.dayDivider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 8px 0 4px;
-}
-
-.dayDividerLine {
-  flex: 1;
-  height: 1px;
-  background: var(--desk-border, #e2ded3);
-}
-
-.dayDividerLabel {
-  flex-shrink: 0;
-  font-size: var(--desk-chip, 12px);
-  font-weight: 600;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--desk-muted, #5e5e66);
 }
 
 .statusChip {

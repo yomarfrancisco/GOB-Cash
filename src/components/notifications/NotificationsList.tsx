@@ -57,7 +57,6 @@ import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
 import { TypewriterText } from '@/components/desk/TypewriterText'
 import { highlightDeskText } from '@/lib/desk/highlightDeskText'
 import { groupDeskEvents } from '@/lib/desk/deskEventGroups'
-import { sastParts } from '@/lib/routing/routingTime'
 import type { DeskAgent } from '@/lib/desk/threadModel'
 
 const KYC_GATE_ID = 'kyc-desk-gate'
@@ -70,19 +69,6 @@ function TypewriterCompleteSignal({ onComplete }: { onComplete: () => void }) {
     onComplete()
   }, [onComplete])
   return null
-}
-
-const WEEKDAY_SHORT = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
-const MONTH_SHORT = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-
-function formatDividerDay(ms: number): string {
-  const p = sastParts(ms)
-  return `${WEEKDAY_SHORT[p.weekday]} ${p.day} ${MONTH_SHORT[p.month - 1]}`
-}
-
-/** Calendar date only — plan position lives on the chip, not the divider. */
-function dayDividerLabel(dayMs: number): string {
-  return formatDividerDay(dayMs)
 }
 
 function StatusChip({ label }: { label: string }) {
@@ -1339,32 +1325,17 @@ function ActivitySection({
   void plannedAnchorCycle
   void planHorizonHours
 
-  let lastCycleKey = ''
-
   return (
     <div className={styles.activitySection}>
       <h2 className={styles.sectionTitle}>{title}</h2>
       <div className={styles.activityList}>
         {visibleItems.map((item) => {
           const settled = item.thinking === true || isSettled(item.id)
-          const cycle = typeof item.cycleNumber === 'number' && item.cycleNumber > 0 ? item.cycleNumber : 0
-          const cycleKey = `d${formatDividerDay(item.createdAt)}`
-          const showDivider = cycleKey !== lastCycleKey
-          lastCycleKey = cycleKey
           // Next 24h / 72h always ride the newest feed post — not an older awaiting card.
           const isPlanHost =
             Boolean(latestActivityId) && item.id === latestActivityId && item.thinking !== true
           return (
             <div key={item.id}>
-              {showDivider ? (
-                <div className={styles.dayDivider}>
-                  <div className={styles.dayDividerLine} />
-                  <span className={styles.dayDividerLabel}>
-                    {dayDividerLabel(item.createdAt)}
-                  </span>
-                  <div className={styles.dayDividerLine} />
-                </div>
-              ) : null}
               <ActivityItemCard
                 item={item}
                 showRoutingActions={!lockDeskActions && item.id === latestAwaitingId && settled}

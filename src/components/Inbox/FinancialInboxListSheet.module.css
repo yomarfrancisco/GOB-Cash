@@ -82,7 +82,7 @@
   left: 0;
   right: 0;
   z-index: 3;
-  height: 120px;
+  height: 144px;
   padding: 16px 0 48px;
   box-sizing: border-box;
   pointer-events: none;
@@ -90,7 +90,7 @@
   background: linear-gradient(
     180deg,
     var(--desk-bg-page) 0%,
-    var(--desk-bg-page) 62%,
+    var(--desk-bg-page) 68%,
     rgba(255, 255, 255, 0) 100%
   );
 }
@@ -307,7 +307,7 @@
   right: 0;
   bottom: 0;
   z-index: 1;
-  padding: 112px 16px calc(24px + env(safe-area-inset-bottom));
+  padding: 132px 16px calc(24px + env(safe-area-inset-bottom));
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
   zoom: 0.8;

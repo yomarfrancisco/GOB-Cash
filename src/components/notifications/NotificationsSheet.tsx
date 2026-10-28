@@ -8,6 +8,7 @@ import { NotificationsList } from './NotificationsList'
 import { DESK_RING, type DeskAgent } from '@/lib/desk/threadModel'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
+import { formatSastDayLabel } from '@/lib/routing/routingTime'
 import type { ActivityItem } from '@/store/activity'
 import {
   admin_exitDeskPlan,
@@ -40,6 +41,7 @@ export default function NotificationsSheet() {
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [, setSummary] = useState<ConversionRoutingSummary | null>(null)
   const [deskLiveReady, setDeskLiveReady] = useState(false)
+  const headerDate = formatSastDayLabel()
 
   useEffect(() => {
     if (!isNotificationsOpen) return
@@ -132,12 +134,15 @@ export default function NotificationsSheet() {
       <div className={`${listStyles.content} ${listStyles.activityContent} ${listStyles.deskContent}`}>
         <div className={listStyles.deskHeaderChrome} aria-hidden />
         <div className={listStyles.activitySearchOverlay}>
-          <div className={listStyles.deskTeamStack} aria-hidden>
-            {DESK_RING.map((id) => (
-              <div key={id} className={`${listStyles.deskStackFace} ${slotFor(id, active)}`}>
-                <SpeakerAvatar agent={id} size={id === active ? 56 : 40} speaking={id === active} />
-              </div>
-            ))}
+          <div className={listStyles.deskHeader}>
+            <div className={listStyles.deskTeamStack} aria-hidden>
+              {DESK_RING.map((id) => (
+                <div key={id} className={`${listStyles.deskStackFace} ${slotFor(id, active)}`}>
+                  <SpeakerAvatar agent={id} size={id === active ? 56 : 40} speaking={id === active} />
+                </div>
+              ))}
+            </div>
+            <p className={listStyles.deskHeaderRole}>{headerDate}</p>
           </div>
         </div>
         {deskLiveReady ? <NotificationsList /> : null}
