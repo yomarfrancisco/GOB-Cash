@@ -10,6 +10,15 @@
   box-sizing: border-box;
 }
 
+.bankFeedSummary {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+  font-size: var(--desk-body, 15px);
+  line-height: 1.45;
+  color: var(--desk-ink, #18181b);
+}
+
 .row {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) auto;

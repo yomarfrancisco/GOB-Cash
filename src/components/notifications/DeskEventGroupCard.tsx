@@ -33,6 +33,32 @@ function CheckIcon() {
   )
 }
 
+function countLabel(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`
+}
+
+function bankFeedSummary(group: DeskEventGroup): string {
+  const count = group.rows.length
+  if (group.kind === 'other_movements') {
+    const debits = group.rows.filter((row) => row.amountZar < 0).length
+    const credits = group.rows.filter((row) => row.amountZar > 0).length
+    if (debits === count) {
+      return `${group.source} has posted ${countLabel(count, 'debit')} today.`
+    }
+    if (credits === count) {
+      return `${group.source} has posted ${countLabel(count, 'credit')} today.`
+    }
+    return `${group.source} has posted ${countLabel(count, 'movement')} today — ${countLabel(
+      debits,
+      'debit'
+    )}, ${countLabel(credits, 'credit')}.`
+  }
+  if (group.kind === 'swipe_matched') {
+    return `${group.speaker} matched ${countLabel(count, 'card swipe')} today.`
+  }
+  return `${group.source} has posted ${countLabel(count, 'approved card swipe')} today.`
+}
+
 function RowLine({
   row,
   kind,
@@ -164,6 +190,7 @@ export function DeskEventGroupCard({
   if (!group) return null
 
   const bankRound = group.avatarKind === 'bank' || group.avatarKind === 'digest'
+  const isBankFeed = group.source !== 'wallet'
   const showPlanActions = Boolean(showNext24h || showNext72h || showRealtime)
 
   return (
@@ -202,10 +229,14 @@ export function DeskEventGroupCard({
             </div>
           </div>
         </div>
-        {group.statusChip ? (
+        {isBankFeed || group.statusChip ? (
           <div className={styles.chipRow}>
-            <StatusChip label={group.statusChip} />
+            {isBankFeed ? <span className={styles.planChip}>Bank feed</span> : null}
+            {group.statusChip ? <StatusChip label={group.statusChip} /> : null}
           </div>
+        ) : null}
+        {isBankFeed ? (
+          <p className={cardStyles.bankFeedSummary}>{bankFeedSummary(group)}</p>
         ) : null}
         <LedgerBody group={group} />
         {showPlanActions ? (
