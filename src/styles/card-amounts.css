@@ -88,7 +88,7 @@
   left: 16px; /* match original Pepe overlay position */
   top: 48px; /* match original Pepe overlay position */
   color: #f5f5f5; /* match original Pepe color */
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-shadow: none;
   font-family: 'Inter', -apple-system, sans-serif; /* match original Pepe font */
   line-height: 1;
   pointer-events: none; /* text overlay not clickable */
@@ -135,11 +135,11 @@
   }
   15% {
     color: #22c55e;
-    text-shadow: 0 0 0.6px rgba(34, 197, 94, 0.75);
+    text-shadow: none;
   }
   85% {
     color: #22c55e;
-    text-shadow: 0 0 0.6px rgba(34, 197, 94, 0.35);
+    text-shadow: none;
   }
   100% {
     color: rgba(255, 255, 255, 0.92);
@@ -154,11 +154,11 @@
   }
   15% {
     color: #ef4444;
-    text-shadow: 0 0 0.6px rgba(239, 68, 68, 0.75);
+    text-shadow: none;
   }
   85% {
     color: #ef4444;
-    text-shadow: 0 0 0.6px rgba(239, 68, 68, 0.35);
+    text-shadow: none;
   }
   100% {
     color: rgba(255, 255, 255, 0.92);
