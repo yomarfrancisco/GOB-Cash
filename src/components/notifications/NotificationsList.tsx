@@ -1272,6 +1272,19 @@ function ThinkingPlaceholder({ speaker }: { speaker?: DeskAgent | null }) {
   )
 }
 
+function isPlanHostCandidate(item: ActivityItem): boolean {
+  if (item.thinking === true) return false
+  // Bank ledger groups never own Next 24h / Real time — only desk step / ask hosts.
+  if (item.deskEventGroup) return false
+  if (item.kind === 'DESK_EVENT_GROUP') return false
+  const title = displayDeskTitle(item.title) || item.title || ''
+  if (/^Bank\s*[·.•]/i.test(title)) return false
+  if (/^Swipe approved\b/i.test(title)) return false
+  if (/^Other movements\b/i.test(title)) return false
+  if (/^ZAR\s+(booked|cleared|en route)\b/i.test(title)) return false
+  return true
+}
+
 function ActivitySection({
   title,
   items,
@@ -1286,6 +1299,7 @@ function ActivitySection({
   isSettled,
   onEntranceComplete,
   planMode,
+  planRunId,
   planHorizonHours,
   plannedAnchorCycle,
   planBusy,
@@ -1308,6 +1322,7 @@ function ActivitySection({
   isSettled: (id: string) => boolean
   onEntranceComplete: (id: string) => void
   planMode: 'live' | 'planned'
+  planRunId: string | null
   planHorizonHours: 24 | 72 | null
   plannedAnchorCycle: number | null
   planBusy: boolean
@@ -1320,10 +1335,14 @@ function ActivitySection({
   const visibleItems = items.filter((item) => {
     if (item.thinking === true) return true
     if (!visibleIds.has(item.id)) return false
-    // Simulated writes vanish from the live feed (and after Real time purge).
-    // Keep the open Send / Recycle host so Step 5 cannot disappear mid-keypad.
-    if (item.simulated === true && planMode !== 'planned' && !isAwaitingRoutingItem(item)) {
-      return false
+    if (item.simulated === true) {
+      // Live desk: simulated rows vanish (keep open Send / Recycle mid-keypad).
+      if (planMode !== 'planned') {
+        if (!isAwaitingRoutingItem(item)) return false
+      } else if (planRunId) {
+        // Planned desk: only the active run — hide prior Next 24h leftovers.
+        if (item.planRunId !== planRunId) return false
+      }
     }
     // Legacy model wrote a sibling clear-* event; keep only the booking-id clear.
     if (
@@ -1352,6 +1371,7 @@ function ActivitySection({
           const showDivider = cycleKey !== lastCycleKey
           lastCycleKey = cycleKey
           const planHostId = latestAwaitingId || latestActivityId
+          // latestActivityId already prefers desk step/ask hosts; bank groups only win as fallback.
           const isPlanHost = Boolean(planHostId) && item.id === planHostId && item.thinking !== true
           return (
             <div key={item.id}>
@@ -1503,6 +1523,11 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   )
   const latestActivityId = useMemo(() => {
     if (deskBlocked) return KYC_GATE_ID
+    // Prefer a desk step / ask host so bank groups never steal the Next 24h row.
+    const eligible = feedItems.find(
+      (item) => item.thinking !== true && isPlanHostCandidate(item)
+    )
+    if (eligible) return eligible.id
     return feedItems.find((item) => item.thinking !== true)?.id ?? null
   }, [feedItems, deskBlocked])
 
@@ -1516,6 +1541,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const reveal = useProgressiveReveal(revealItems)
   const setDeskFocus = useDeskFocusStore((s) => s.setFocus)
   const planMode = useDeskPlanStore((s) => s.mode)
+  const planRunId = useDeskPlanStore((s) => s.planRunId)
   const planHorizonHours = useDeskPlanStore((s) => s.plannedHorizonHours)
   const plannedAnchorCycle = useDeskPlanStore((s) => s.plannedAnchorCycle)
   const planBusy = useDeskPlanStore((s) => s.busy)
@@ -1771,6 +1797,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
     isSettled: reveal.isSettled,
     onEntranceComplete: reveal.onTypingComplete,
     planMode,
+    planRunId,
     planHorizonHours,
     plannedAnchorCycle,
     planBusy,

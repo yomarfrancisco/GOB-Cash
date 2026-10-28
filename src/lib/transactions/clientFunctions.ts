@@ -969,6 +969,8 @@ export type ConversionRoutingSummary = {
   plannedHorizonHours?: number | null
   /** Desk cycle when the current Planned run started */
   plannedAnchorCycle?: number | null
+  /** Isolates this Planned run’s simulated feed rows from prior runs */
+  planRunId?: string | null
   simulatedFromCycle?: number | null
   acknowledgement?: string
   /** Next 24h paused for desk keypad — client should pop it. */

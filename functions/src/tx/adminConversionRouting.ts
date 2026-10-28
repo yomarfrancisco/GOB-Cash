@@ -3737,6 +3737,9 @@ export const admin_getConversionRoutingStatus = functions
       pairings: state.pairings,
       deskMode: data.deskMode === 'planned' ? 'planned' : 'live',
       plannedClockMs: num(data.plannedClockMs, 0) || null,
+      plannedHorizonHours: num(data.plannedHorizonHours, 0) || null,
+      plannedAnchorCycle: num(data.plannedAnchorCycle, 0) || null,
+      planRunId: typeof data.planRunId === 'string' && data.planRunId ? data.planRunId : null,
     })
   })
 
@@ -6434,6 +6437,9 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       cycleNumber: startCycle,
       deskMode: 'planned',
       plannedClockMs,
+      plannedHorizonHours,
+      plannedAnchorCycle,
+      planRunId,
       simulatedFromCycle: startCycle,
       simulatedToCycle: startCycle,
       simulatedSteps: [`${startGate}-open:${startCycle}`],
@@ -6467,6 +6473,9 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
         cycleNumber: startCycle,
         deskMode: 'planned',
         plannedClockMs,
+        plannedHorizonHours,
+        plannedAnchorCycle,
+        planRunId,
         simulatedFromCycle: startCycle,
         simulatedToCycle: startCycle,
         simulatedSteps: [`day-close-open:${startCycle}`],
@@ -6726,6 +6735,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     plannedClockMs: outClock,
     plannedHorizonHours,
     plannedAnchorCycle,
+    planRunId,
     simulatedFromCycle: startCycle,
     simulatedToCycle: endCycle,
     simulatedSteps: steps,

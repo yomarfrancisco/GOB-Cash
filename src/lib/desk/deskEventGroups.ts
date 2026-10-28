@@ -536,7 +536,8 @@ export function groupDeskEvents(items: ActivityItem[]): ActivityItem[] {
         rows,
         totalZar,
         totalMzn,
-        collapsedByDefault: classified.kind === 'other_movements',
+        // Collapse only dense other-movement digests; a single line should stay open.
+        collapsedByDefault: classified.kind === 'other_movements' && rows.length > 2,
         memberIds: members.map((m: ActivityItem) => m.id),
       },
       members,
