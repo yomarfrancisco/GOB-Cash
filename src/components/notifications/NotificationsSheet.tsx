@@ -7,8 +7,9 @@ import { useActivityUnreadStore } from '@/store/activityUnread'
 import { NotificationsList } from './NotificationsList'
 import { DESK_RING, type DeskAgent } from '@/lib/desk/threadModel'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
+import { useDeskFocusStore } from '@/store/deskFocus'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
-import { formatSastDayLabel } from '@/lib/routing/routingTime'
+import { formatSastShortDayLabel } from '@/lib/routing/routingTime'
 import type { ActivityItem } from '@/store/activity'
 import {
   admin_exitDeskPlan,
@@ -36,12 +37,13 @@ export default function NotificationsSheet() {
   const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const active = useDeskSpeakerStore((s) => s.active)
+  const focusAt = useDeskFocusStore((s) => s.focusAt)
   const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
   const setLive = useDeskPlanStore((s) => s.setLive)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [, setSummary] = useState<ConversionRoutingSummary | null>(null)
   const [deskLiveReady, setDeskLiveReady] = useState(false)
-  const headerDate = formatSastDayLabel()
+  const headerDate = formatSastShortDayLabel(focusAt ?? Date.now())
 
   useEffect(() => {
     if (!isNotificationsOpen) return
@@ -142,7 +144,7 @@ export default function NotificationsSheet() {
                 </div>
               ))}
             </div>
-            <p className={listStyles.deskHeaderRole}>{headerDate}</p>
+            <p className={listStyles.deskHeaderDate}>{headerDate}</p>
           </div>
         </div>
         {deskLiveReady ? <NotificationsList /> : null}

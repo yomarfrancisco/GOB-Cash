@@ -103,6 +103,12 @@ export function formatSastDayLabel(ms: number = Date.now()): string {
   return `${WEEKDAYS[p.weekday]} ${p.day} ${MONTHS[p.month - 1]}`
 }
 
+/** Compact desk-header date, e.g. WED 28 OCT. */
+export function formatSastShortDayLabel(ms: number = Date.now()): string {
+  const p = sastParts(ms)
+  return `${WEEKDAYS[p.weekday].slice(0, 3)} ${p.day} ${MONTHS[p.month - 1].slice(0, 3)}`.toUpperCase()
+}
+
 export function formatRoutingClock(nowMs: number): RoutingClock {
   const p = sastParts(nowMs)
   const hh = String(p.hour).padStart(2, '0')
