@@ -156,6 +156,16 @@
   user-select: none;
 }
 
+.bankFeedChip {
+  border-color: transparent;
+  background: var(--desk-yellow, #ffd36b);
+}
+
+.planChip24 {
+  border-color: transparent;
+  background: var(--desk-pink, #f4a6c4);
+}
+
 .chipRow {
   display: flex;
   flex-wrap: wrap;

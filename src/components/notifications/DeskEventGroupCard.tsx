@@ -105,7 +105,7 @@ function RowLine({
 }
 
 function LedgerBody({ group }: { group: DeskEventGroup }) {
-  const [expanded, setExpanded] = useState(!group.collapsedByDefault)
+  const [expanded, setExpanded] = useState(true)
   const footerNoun =
     group.kind === 'zar_booked'
       ? group.rows.length === 1
@@ -231,7 +231,9 @@ export function DeskEventGroupCard({
         </div>
         {isBankFeed || group.statusChip ? (
           <div className={styles.chipRow}>
-            {isBankFeed ? <span className={styles.planChip}>Bank feed</span> : null}
+            {isBankFeed ? (
+              <span className={`${styles.planChip} ${styles.bankFeedChip}`}>Bank feed</span>
+            ) : null}
             {group.statusChip ? <StatusChip label={group.statusChip} /> : null}
           </div>
         ) : null}

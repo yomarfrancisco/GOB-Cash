@@ -934,7 +934,18 @@ function ActivityItemCard({
             {(statusChip || planChip) && (
               <div className={styles.chipRow}>
                 {statusChip ? <StatusChip label={statusChip} /> : null}
-                {planChip ? <span className={styles.planChip}>{planChip}</span> : null}
+                {planChip ? (
+                  <span
+                    className={[
+                      styles.planChip,
+                      planChip.toLowerCase() === '24h plan' ? styles.planChip24 : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    {planChip}
+                  </span>
+                ) : null}
               </div>
             )}
             {askCard && item.userReply ? (
