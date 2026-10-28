@@ -894,7 +894,7 @@ function ActivityItemCard({
         ) : (
           <Image
             src={avatarUrl ?? ADMIN_AVATAR_PATH}
-            alt={bankTile?.label || deskSpeaker?.name || item.actor.name || 'Payment agent'}
+            alt={deskSpeaker?.name || item.actor.name || 'Payment agent'}
             width={44}
             height={44}
             className={styles.avatarImg}

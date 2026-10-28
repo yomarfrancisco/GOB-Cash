@@ -1,14 +1,22 @@
 /** Neutral bank notice tiles for the desk feed (not desk liaison portraits). */
 export type BankTileId = 'FNB' | 'MOZA' | 'BIM' | 'SBM' | 'BCI' | 'ABSA' | 'CAP' | 'POS'
 
+const NEUTRAL_BANK_TILE = '/assets/ZAR_square.jpg'
+
+/** Kept for grouped-feed compatibility; every bank now uses the neutral base. */
+export const BANK_TILES = {
+  FNB: NEUTRAL_BANK_TILE,
+  Capitec: NEUTRAL_BANK_TILE,
+  Moza: NEUTRAL_BANK_TILE,
+  POS: NEUTRAL_BANK_TILE,
+} as const
+
 export type BankTile = {
   id: BankTileId
   label: string
   acronym: string
   src: string
 }
-
-const NEUTRAL_BANK_TILE = '/assets/ZAR_square.jpg'
 
 /** Match bank-feed titles while keeping one neutral visual language. */
 export function bankTileForTitle(title: string | undefined | null): BankTile | null {
