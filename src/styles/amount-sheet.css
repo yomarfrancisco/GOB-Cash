@@ -341,9 +341,9 @@
   width: auto; /* Override 100% width */
 }
 
-/* Cash keypad variant - unified #E5FF63 background (bright lime green) */
+/* Cash keypad variant - muted pastel lime. */
 .as-sheet.cash-keypad {
-  background: #E5FF63 !important;
+  background: #DCE8A8 !important;
 }
 
 /* Keypad contents animation - delayed fade-in + slight upward movement */
@@ -366,17 +366,17 @@
 
 /* Remove white inherited from the content wrapper */
 .as-sheet.cash-keypad .amount-body {
-  background: #E5FF63 !important;
+  background: #DCE8A8 !important;
 }
 
 /* Keypad container */
 .as-sheet.cash-keypad .amount-keypad {
-  background: #E5FF63 !important;
+  background: #DCE8A8 !important;
 }
 
 /* Keypad grid */
 .as-sheet.cash-keypad .amount-keypad__grid {
-  background: #E5FF63 !important;
+  background: #DCE8A8 !important;
 }
 
 /* Keys stay transparent — only numbers invert */
@@ -395,7 +395,7 @@
 
 /* Footer (fee note background) */
 .as-sheet.cash-keypad .amount-keypad__footer {
-  background: #E5FF63 !important;
+  background: #DCE8A8 !important;
 }
 
 /* Fee note text stays readable */
@@ -407,7 +407,7 @@
 
 /* Outline style CTAs for lime green keypads (disabled state) - shared between cash-transactions and $-button flows */
 .amount-cta--lime-green .amount-keypad__cta:disabled {
-  background: #E5FF63 !important; /* Match sheet background (bright lime green) */
+  background: #DCE8A8 !important; /* Match the pastel lime sheet background. */
   color: #000 !important; /* Black text */
   border: 1px solid #000 !important; /* Thin black outline */
   cursor: not-allowed;
