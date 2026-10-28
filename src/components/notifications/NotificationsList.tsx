@@ -199,11 +199,26 @@ function searchableText(item: ActivityItem): string {
   return `${item.title} ${item.body ?? ''} ${item.userReply ?? ''} ${item.actor.name ?? ''}`.toLowerCase()
 }
 
+function isDeskStepCard(item: ActivityItem): boolean {
+  if (typeof item.deskStep === 'number' && item.deskStep >= 1 && item.deskStep <= 6) return true
+  if (
+    item.routingAction === 'step' ||
+    item.routingAction === 'deploy' ||
+    item.routingAction === 'replenish'
+  ) {
+    return true
+  }
+  const title = displayDeskTitle(item.title) || item.title || ''
+  return /^Step\s*\d\b/i.test(title)
+}
+
 function isStandaloneConversionPop(item: ActivityItem): boolean {
   if (item.deskHidden === true) return true
   if (item.routingAction === 'pop_pack') return true
   // EN ROUTE book/clear must stay visible on $-Route.
   if (item.kind === 'EN_ROUTE_BOOKED' || item.kind === 'EN_ROUTE_CLEARED') return false
+  // Step 4/5 hosts are never conversion-pop noise, even under legacy titles.
+  if (isDeskStepCard(item)) return false
   if (item.kind === 'CONVERSION_INSTRUCTED') return true
   if (item.kind === 'proof_of_payment') return true
   return /^(ZAR sold at SELL|ZAR sourced at COST)\b/i.test(item.title || '')
@@ -212,6 +227,9 @@ function isStandaloneConversionPop(item: ActivityItem): boolean {
 function isPaymentActivity(item: ActivityItem): boolean {
   // Conversion POPs live on Step 4/5 as a zip, not as extra bubbles.
   if (isStandaloneConversionPop(item)) return false
+  // Desk Steps / Send / Recycle must always stay in the feed (titles like
+  // "Step 5 · Recycle" do not match the generic payment keyword list).
+  if (isDeskStepCard(item)) return true
   if (
     item.kind &&
     [
@@ -254,6 +272,8 @@ function isPaymentActivity(item: ActivityItem): boolean {
     'transfer',
     'settlement',
     'statement',
+    'recycle',
+    'restock',
   ].some((keyword) => text.includes(keyword))
 }
 
@@ -1296,7 +1316,10 @@ function ActivitySection({
     if (item.thinking === true) return true
     if (!visibleIds.has(item.id)) return false
     // Simulated writes vanish from the live feed (and after Real time purge).
-    if (item.simulated === true && planMode !== 'planned') return false
+    // Keep the open Send / Recycle host so Step 5 cannot disappear mid-keypad.
+    if (item.simulated === true && planMode !== 'planned' && !isAwaitingRoutingItem(item)) {
+      return false
+    }
     // Legacy model wrote a sibling clear-* event; keep only the booking-id clear.
     if (
       item.id.startsWith('clear-') &&

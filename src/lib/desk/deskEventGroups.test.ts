@@ -129,4 +129,42 @@ describe('deskEventGroups', () => {
   it('deskPairSwipesEnabled is true outside production by default', () => {
     assert.equal(typeof deskPairSwipesEnabled(), 'boolean')
   })
+
+  it('never absorbs Step 5 · Recycle into a bank or ZAR group', () => {
+    const day = Date.UTC(2026, 9, 27, 14, 0)
+    const out = groupDeskEvents([
+      item({
+        id: 's4',
+        kind: 'CONVERSION_ROUTING_INSTRUCTION',
+        title: 'Step 4 · Send',
+        routingAction: 'deploy',
+        deskStep: 4,
+        createdAt: day,
+      }),
+      item({
+        id: 'zar',
+        kind: 'EN_ROUTE_BOOKED',
+        title: 'ZAR booked',
+        body: 'R100000.00 booked',
+        createdAt: day + 1,
+      }),
+      item({
+        id: 's5',
+        kind: 'CONVERSION_ROUTING_INSTRUCTION',
+        title: 'Step 5 · Recycle',
+        routingAction: 'replenish',
+        deskStep: 5,
+        deskSentence: 'Restock the sold tickets at cost.',
+        createdAt: day + 2,
+      }),
+      item({
+        id: 'fnb',
+        title: 'Bank · FNB approved',
+        body: 'FNB approved R1000.00 at ECONOMETRICA.',
+        createdAt: day + 3,
+      }),
+    ])
+    assert.ok(out.some((x) => x.id === 's5' && x.title === 'Step 5 · Recycle'))
+    assert.equal(out.filter((x) => x.kind === 'DESK_EVENT_GROUP').length, 2)
+  })
 })
