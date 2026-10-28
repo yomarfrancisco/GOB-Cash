@@ -138,7 +138,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           <Bot
             aria-hidden="true"
             className="nav-icon nav-icon-active"
-            fill="currentColor"
+            color="#111111"
+            fill="none"
             strokeWidth={2}
           />
           {hasUnseenActivity && (
