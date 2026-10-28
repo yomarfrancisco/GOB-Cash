@@ -82,14 +82,15 @@
   left: 0;
   right: 0;
   z-index: 3;
-  height: 88px;
-  padding: 0;
+  height: 120px;
+  padding: 16px 0 48px;
+  box-sizing: border-box;
   pointer-events: none;
   border-radius: 32px 32px 0 0;
   background: linear-gradient(
     180deg,
     var(--desk-bg-page) 0%,
-    var(--desk-bg-page) 55%,
+    var(--desk-bg-page) 62%,
     rgba(255, 255, 255, 0) 100%
   );
 }
@@ -117,6 +118,7 @@
   width: 124px;
   height: 56px;
   margin: 0 auto;
+  pointer-events: none;
 }
 
 .deskHeaderName {
@@ -305,7 +307,7 @@
   right: 0;
   bottom: 0;
   z-index: 1;
-  padding: 72px 16px calc(24px + env(safe-area-inset-bottom));
+  padding: 112px 16px calc(24px + env(safe-area-inset-bottom));
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
   zoom: 0.8;

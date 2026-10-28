@@ -5,6 +5,8 @@ import ActionSheet from '../ActionSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useActivityUnreadStore } from '@/store/activityUnread'
 import { NotificationsList } from './NotificationsList'
+import { DESK_RING, type DeskAgent } from '@/lib/desk/threadModel'
+import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import type { ActivityItem } from '@/store/activity'
 import {
@@ -15,14 +17,24 @@ import {
 import { useDeskPlanStore } from '@/store/deskPlan'
 import { resetDeskRevealForLiveRestore } from '@/lib/desk/useProgressiveReveal'
 import { useAuthStore } from '@/store/auth'
+import { SpeakerAvatar } from './SpeakerAvatar'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
 /** One Planned→live restore per page load; mid-session Next 24h must survive desk close/open. */
 let plannedExitOnPageLoadDone = false
 
+/** Ring slot for each agent: the active one sits in front; the others retain their order behind. */
+const SLOT_CLASS = [listStyles.deskSlotTop, listStyles.deskSlotLeft, listStyles.deskSlotRight] as const
+
+function slotFor(agent: DeskAgent, active: DeskAgent): string {
+  const offset = (DESK_RING.indexOf(agent) - DESK_RING.indexOf(active) + DESK_RING.length) % DESK_RING.length
+  return SLOT_CLASS[offset]
+}
+
 export default function NotificationsSheet() {
   const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
   const isAuthed = useAuthStore((s) => s.isAuthed)
+  const active = useDeskSpeakerStore((s) => s.active)
   const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
   const setLive = useDeskPlanStore((s) => s.setLive)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
@@ -119,7 +131,15 @@ export default function NotificationsSheet() {
     >
       <div className={`${listStyles.content} ${listStyles.activityContent} ${listStyles.deskContent}`}>
         <div className={listStyles.deskHeaderChrome} aria-hidden />
-        <div className={listStyles.activitySearchOverlay} aria-hidden />
+        <div className={listStyles.activitySearchOverlay}>
+          <div className={listStyles.deskTeamStack} aria-hidden>
+            {DESK_RING.map((id) => (
+              <div key={id} className={`${listStyles.deskStackFace} ${slotFor(id, active)}`}>
+                <SpeakerAvatar agent={id} size={id === active ? 56 : 40} speaking={id === active} />
+              </div>
+            ))}
+          </div>
+        </div>
         {deskLiveReady ? <NotificationsList /> : null}
       </div>
     </ActionSheet>
