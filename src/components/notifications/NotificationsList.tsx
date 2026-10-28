@@ -1323,11 +1323,8 @@ function ActivitySection({
   const visibleItems = items.filter((item) => {
     if (item.thinking === true) return true
     if (!visibleIds.has(item.id)) return false
-    // Simulated writes vanish from the live feed (and after Real time purge).
-    // Keep the open Send / Recycle host so Step 5 cannot disappear mid-keypad.
-    if (item.simulated === true && planMode !== 'planned' && !isAwaitingRoutingItem(item)) {
-      return false
-    }
+    // Do not client-hide simulated rows on a transient mode change while a
+    // keypad closes/reopens the desk. Real time removes them server-side.
     // Legacy model wrote a sibling clear-* event; keep only the booking-id clear.
     if (
       item.id.startsWith('clear-') &&

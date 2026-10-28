@@ -1,4 +1,5 @@
 import { releaseDeskReveal } from '@/lib/desk/deskRevealGate'
+import { openDeskKeypad } from '@/lib/desk/openDeskKeypad'
 import { admin_confirmConversionRoutingCycle } from '@/lib/transactions/clientFunctions'
 import { submitInternalConversion } from '@/lib/transactions/submitInternalConversion'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
@@ -40,57 +41,66 @@ export async function submitRoutingConversion(params: {
           action,
         }
       : null
+  let resumeDeskAfterFlow = Boolean(play)
   if (play) {
-    // Keypad already called onClose. Restore the desk only after a short beat so
-    // the sheet finishes dismissing before bubbles resume.
+    // Keep the desk closed until confirmation finishes. Reopening it here races
+    // the status hydration and briefly flips Planned to live, hiding Steps 5–6.
     useRoutingPlaybackStore.getState().clear()
     await new Promise((resolve) => setTimeout(resolve, 220))
-    useNotificationsStore.getState().openNotifications()
-    window.setTimeout(() => releaseDeskReveal(), 40)
   }
-  const result = await submitInternalConversion({
-    destination,
-    amountMZN,
-    amountZAR,
-    routingPlay,
-    // Desk keypad already has the step card — do not also post CONVERSION_INSTRUCTED / POP toasts.
-    suppressDeskActivity: true,
-  })
-  if (routingPlay && play) {
-    const summary = await admin_confirmConversionRoutingCycle({
-      testRunId: routingPlay.testRunId,
-      cycleNumber: routingPlay.cycleNumber,
-      conversionTxId: result.txId,
-      // Admin continuity: keypad confirm must not re-hit the swipe clock.
-      overrideEarliest: true,
+
+  try {
+    const result = await submitInternalConversion({
+      destination,
+      amountMZN,
+      amountZAR,
+      routingPlay,
+      // Desk keypad already has the step card — do not also post CONVERSION_INSTRUCTED / POP toasts.
+      suppressDeskActivity: true,
     })
-    if (summary?.deskMode === 'planned' || typeof summary?.plannedClockMs === 'number') {
-      useDeskPlanStore.getState().applySummary(summary)
-      if (typeof summary.plannedClockMs === 'number' && summary.plannedClockMs > 0) {
-        useDeskFocusStore
-          .getState()
-          .setFocus(
-            summary.plannedClockMs,
-            typeof summary.cycleNumber === 'number' ? summary.cycleNumber : null
-          )
+
+    if (routingPlay && play) {
+      const summary = await admin_confirmConversionRoutingCycle({
+        testRunId: routingPlay.testRunId,
+        cycleNumber: routingPlay.cycleNumber,
+        conversionTxId: result.txId,
+        // Admin continuity: keypad confirm must not re-hit the swipe clock.
+        overrideEarliest: true,
+      })
+      if (summary?.deskMode === 'planned' || typeof summary?.plannedClockMs === 'number') {
+        useDeskPlanStore.getState().applySummary(summary)
+        if (typeof summary.plannedClockMs === 'number' && summary.plannedClockMs > 0) {
+          useDeskFocusStore
+            .getState()
+            .setFocus(
+              summary.plannedClockMs,
+              typeof summary.cycleNumber === 'number' ? summary.cycleNumber : null
+            )
+        }
+      }
+
+      // Send confirm opens Step 5 · Recycle. Hand off directly to its keypad
+      // without mounting the desk between the two keypads.
+      if (summary?.awaitingKeypad === 'restock') {
+        const amountZAR = Number(summary.keypadAmountZar || 0)
+        const amountMZN = Number(summary.keypadAmountMzn || 0)
+        if (amountMZN > 0) {
+          const opened = openDeskKeypad({
+            destination: 'ZAR',
+            amountZAR,
+            amountMZN,
+            testRunId: summary.testRunId,
+            cycleNumber: summary.cycleNumber,
+            routingAction: 'replenish',
+          })
+          if (opened) resumeDeskAfterFlow = false
+        }
       }
     }
-    // Send confirm opens Step 5 · Recycle — pop the restock keypad the same way Next 24h does.
-    const gate = summary?.awaitingKeypad
-    if (gate === 'restock') {
-      const amountZAR = Number(summary.keypadAmountZar || 0)
-      const amountMZN = Number(summary.keypadAmountMzn || 0)
-      if (amountMZN > 0) {
-        const { openDeskKeypad } = await import('@/lib/desk/openDeskKeypad')
-        openDeskKeypad({
-          destination: 'ZAR',
-          amountZAR,
-          amountMZN,
-          testRunId: summary.testRunId,
-          cycleNumber: summary.cycleNumber,
-          routingAction: 'replenish',
-        })
-      }
+  } finally {
+    if (play && resumeDeskAfterFlow) {
+      useNotificationsStore.getState().openNotifications()
+      window.setTimeout(() => releaseDeskReveal(), 40)
     }
   }
 }
