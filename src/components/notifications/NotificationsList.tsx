@@ -1323,8 +1323,9 @@ function ActivitySection({
           const cycleKey = `d${formatDividerDay(item.createdAt)}`
           const showDivider = cycleKey !== lastCycleKey
           lastCycleKey = cycleKey
-          const planHostId = latestAwaitingId || latestActivityId
-          const isPlanHost = Boolean(planHostId) && item.id === planHostId && item.thinking !== true
+          // Next 24h / 72h always ride the newest feed post — not an older awaiting card.
+          const isPlanHost =
+            Boolean(latestActivityId) && item.id === latestActivityId && item.thinking !== true
           return (
             <div key={item.id}>
               {showDivider ? (
@@ -1475,11 +1476,7 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   )
   const latestActivityId = useMemo(() => {
     if (deskBlocked) return KYC_GATE_ID
-    // Prefer a normal desk card so Next 24h does not park on a bank ledger group.
-    const stepHost = feedItems.find(
-      (item) => item.thinking !== true && !item.deskEventGroup
-    )
-    if (stepHost) return stepHost.id
+    // Newest post in the feed (feedItems is newest-first), including ledger groups.
     return feedItems.find((item) => item.thinking !== true)?.id ?? null
   }, [feedItems, deskBlocked])
 
