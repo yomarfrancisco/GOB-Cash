@@ -190,20 +190,26 @@
   color: rgba(255, 255, 255, 0.95);
 }
 
-/* Match the routing-ledger hero figures on the three live FX inventory cards. */
+/* DM Sans figures across the three live FX inventory cards. */
+.card-amounts--savings,
+.card-amounts--mzn,
+.card-amounts--yieldSurprise {
+  font-family: var(--font-dm-sans), "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 .card-amounts--savings .card-amounts__zar.amount-headline,
 .card-amounts--mzn .card-amounts__zar.amount-headline,
 .card-amounts--yieldSurprise .card-amounts__zar.amount-headline {
   font-family: var(--font-dm-sans), "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-weight: 700;
-  font-variation-settings: "wght" 700;
+  font-weight: 600;
+  font-variation-settings: "wght" 600;
 }
 
 .card-amounts--savings .card-amounts__zar.amount-headline *,
 .card-amounts--mzn .card-amounts__zar.amount-headline *,
 .card-amounts--yieldSurprise .card-amounts__zar.amount-headline * {
-  font-weight: 700;
-  font-variation-settings: "wght" 700;
+  font-weight: 600;
+  font-variation-settings: "wght" 600;
 }
 
 .card-amounts__whole {
