@@ -24,6 +24,9 @@ describe('desk copy display', () => {
     assert.equal(displayDeskTitle('FNB approved R120.00'), 'Bank · FNB approved R120.00')
     assert.equal(displayDeskTitle('Moza cash withdrawal'), 'Bank · Moza cash withdrawal')
     assert.equal(displayDeskTitle('Next window opened'), 'Window · Opened')
+    assert.equal(displayDeskTitle('Swipe approved'), 'Card approved')
+    assert.equal(displayDeskTitle('Card swipe approved'), 'Card approved')
+    assert.equal(displayDeskTitle('Card swipes approved'), 'Cards approved')
   })
 
   it('strips leading Day n of 14 from bodies', () => {

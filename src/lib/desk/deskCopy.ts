@@ -28,8 +28,14 @@ export function displayDeskTitle(title: string | undefined | null): string {
 
   // Soft-normalize older freeform bank / window / friction lines still in Firestore.
   if (/^ZAR\s+en route\b/i.test(out)) return 'ZAR booked'
+  if (/^Card swipe approved\b/i.test(out)) {
+    return out.replace(/^Card swipe approved/i, 'Card approved')
+  }
+  if (/^Card swipes approved\b/i.test(out)) {
+    return out.replace(/^Card swipes approved/i, 'Cards approved')
+  }
   if (/^Swipe approved\b/i.test(out) && !/^Bank\b/i.test(out)) {
-    return out.replace(/^Swipe approved/i, 'Card swipe approved')
+    return out.replace(/^Swipe approved/i, 'Card approved')
   }
   if (/^FNB\b/i.test(out)) return out.replace(/^FNB\b/i, 'Bank · FNB')
   if (/^Capitec\b/i.test(out)) return out.replace(/^Capitec\b/i, 'Bank · Capitec')

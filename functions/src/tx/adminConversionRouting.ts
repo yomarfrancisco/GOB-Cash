@@ -1343,10 +1343,10 @@ async function writeSwipeApprovedNotice(params: {
   await ref.set({
     id,
     kind: CONVERSION_ROUTING_KIND,
-    title: 'Card swipe approved',
+    title: 'Card approved',
     body: 'Card POS approved the restock swipe.',
     deskStatusChip: 'Approved',
-    dropdownTitle: 'Card swipe approved',
+    dropdownTitle: 'Card approved',
     dropdownBody: 'Card POS approved the restock swipe.',
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
