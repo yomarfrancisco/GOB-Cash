@@ -24,6 +24,10 @@
   background: var(--desk-bg-card, #fffffe);
 }
 
+.bankEntry {
+  display: block;
+}
+
 .bankRow {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) auto;
@@ -97,6 +101,15 @@
   gap: 16px;
   padding-bottom: 24px;
   font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+}
+
+.inlineEmail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border-bottom: 1px solid var(--desk-row-rule, #ece8dd);
+  background: #fbfaf6;
 }
 
 .planBanner {

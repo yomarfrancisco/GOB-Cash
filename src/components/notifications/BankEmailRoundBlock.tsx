@@ -2,11 +2,9 @@
 
 import { useState } from 'react'
 import type { ActivityItem } from '@/store/activity'
-import { BankEmailPreviewSheet } from './BankEmailPreviewSheet'
 import styles from './BankEmailRoundBlock.module.css'
 
 type Round = NonNullable<ActivityItem['deskBankEmailRound']>
-type Email = Round['selected'][number]
 
 function zar(value: number): string {
   return `R${value.toLocaleString('en-ZA', {
@@ -22,21 +20,23 @@ export function BankEmailRoundBlock({
   round: Round
   planLabel: string
 }) {
-  const [opened, setOpened] = useState<Email | null>(null)
+  const [openedBankKey, setOpenedBankKey] = useState<string | null>(null)
   if (!round.due || !round.selected.length) return null
   return (
-    <>
-      <section className={styles.section}>
-        <div className={styles.eyebrow}>
-          Bank email round · {round.selected.length} of {round.selected.length + round.notSelected.length} banks
-        </div>
-        <div className={styles.card}>
-          {round.selected.map((email) => (
+    <section className={styles.section}>
+      <div className={styles.eyebrow}>
+        Bank email round · {round.selected.length} of {round.selected.length + round.notSelected.length} banks
+      </div>
+      <div className={styles.card}>
+        {round.selected.map((email) => {
+          const expanded = openedBankKey === email.bankKey
+          return (
+            <div className={styles.bankEntry} key={email.bankKey}>
             <button
               className={styles.bankRow}
-              key={email.bankKey}
               type="button"
-              onClick={() => setOpened(email)}
+              onClick={() => setOpenedBankKey(expanded ? null : email.bankKey)}
+              aria-expanded={expanded}
             >
               <span className={styles.time}>{email.sendTimeLabel}</span>
               <span className={styles.bankCopy}>
@@ -46,26 +46,48 @@ export function BankEmailRoundBlock({
               </span>
               <strong className={styles.amount}>{zar(email.testedAmountZar)}</strong>
             </button>
-          ))}
-          {round.notSelected.length ? (
-            <div className={styles.notSelected}>
-              Not this round: {round.notSelected.join(', ')}
+              {expanded ? (
+                <div className={styles.inlineEmail}>
+                  <div className={styles.planBanner}>{planLabel}. Expected, not sent.</div>
+                  <div className={styles.sheetMeta}>Would send {email.sendTimeLabel}</div>
+                  <dl className={styles.emailFields}>
+                    <div>
+                      <dt>Para</dt>
+                      <dd>{email.to}</dd>
+                    </div>
+                    <div>
+                      <dt>Assunto</dt>
+                      <dd>{email.subject}</dd>
+                    </div>
+                  </dl>
+                  <div className={styles.emailBody}>{email.bodyPt}</div>
+                  <div className={styles.attachments}>
+                    <div className={styles.attachmentTitle}>Anexos esperados</div>
+                    {email.attachments.map((attachment) => (
+                      <div className={styles.attachment} key={attachment.ticketId}>
+                        {attachment.filename}
+                      </div>
+                    ))}
+                  </div>
+                  <p className={styles.safetyNote}>
+                    Simulation preview only. No message or invoice has been sent.
+                  </p>
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
-        <div className={styles.hint}>Tap a bank to read its expected email (Portuguese).</div>
-        <div className={styles.next}>
-          Replies expected {round.expectedReplyLabel} · next round {round.nextRoundLabel}
-        </div>
-      </section>
-      <BankEmailPreviewSheet
-        email={opened}
-        dayLabel={round.dayLabel}
-        planLabel={planLabel}
-        open={Boolean(opened)}
-        onClose={() => setOpened(null)}
-      />
-    </>
+          )
+        })}
+        {round.notSelected.length ? (
+          <div className={styles.notSelected}>
+            Not this round: {round.notSelected.join(', ')}
+          </div>
+        ) : null}
+      </div>
+      <div className={styles.hint}>Tap the bank row to read its expected email (Portuguese).</div>
+      <div className={styles.next}>
+        Replies expected {round.expectedReplyLabel} · next round {round.nextRoundLabel}
+      </div>
+    </section>
   )
 }
 
