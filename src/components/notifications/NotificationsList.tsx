@@ -875,6 +875,7 @@ function ActivityItemCard({
         {bankTile ? (
           <div
             className={styles.bankAcronymTile}
+            data-bank={bankTile.id}
             role="img"
             aria-label={`${bankTile.label} bank`}
           >

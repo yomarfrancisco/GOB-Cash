@@ -190,10 +190,12 @@ export function DeskEventGroupCard({
   if (!group) return null
 
   const bankRound = group.avatarKind === 'bank' || group.avatarKind === 'digest'
+  const bankTile =
+    group.avatarKind === 'digest' ? null : bankTileForTitle(`Bank · ${group.source}`)
   const bankAcronym =
     group.avatarKind === 'digest'
       ? '≡'
-      : bankTileForTitle(`Bank · ${group.source}`)?.acronym ||
+      : bankTile?.acronym ||
         group.source.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase()
   const isBankFeed = group.source !== 'wallet'
   const showPlanActions = Boolean(showNext24h || showNext72h || showRealtime)
@@ -216,6 +218,7 @@ export function DeskEventGroupCard({
         ) : (
           <div
             className={styles.bankAcronymTile}
+            data-bank={bankTile?.id || 'NEUTRAL'}
             role="img"
             aria-label={`${group.source} bank`}
           >

@@ -258,10 +258,48 @@
   background: #f3f0e8;
   color: #242424;
   font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1;
+}
+
+.bankAcronymTile[data-bank='FNB'] {
+  border-color: #a9cfdd;
+  background: #cce8f2;
+  color: #173b47;
+}
+
+.bankAcronymTile[data-bank='MOZA'],
+.bankAcronymTile[data-bank='ABSA'] {
+  border-color: #e3b2ae;
+  background: #f3cfcc;
+  color: #642f2c;
+}
+
+.bankAcronymTile[data-bank='VISTA'] {
+  border-color: #e8bbb6;
+  background: #f6d7d3;
+  color: #67312d;
+  font-size: 9px;
+}
+
+.bankAcronymTile[data-bank='BCI'] {
+  border-color: #e3bd91;
+  background: #f4d8b8;
+  color: #62401e;
+}
+
+.bankAcronymTile[data-bank='BIM'] {
+  border-color: #c7b9da;
+  background: #ded5eb;
+  color: #443652;
+}
+
+.bankAcronymTile[data-bank='SBM'] {
+  border-color: #bfc2c7;
+  background: #d9dadd;
+  color: #34373c;
 }
 
 .activityContent {

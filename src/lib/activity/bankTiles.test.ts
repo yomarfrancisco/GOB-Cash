@@ -14,6 +14,7 @@ describe('bankTileForTitle', () => {
     assert.equal(bankTileForTitle('Bank · Standard Bank reply')?.acronym, 'SBM')
     assert.equal(bankTileForTitle('Bank · BCI reply')?.acronym, 'BCI')
     assert.equal(bankTileForTitle('Bank · ABSA reply')?.acronym, 'ABSA')
+    assert.equal(bankTileForTitle('Bank · Vista Bank reply')?.acronym, 'VISTA')
     assert.equal(bankTileForTitle('Bank · FNB approved')?.src, '/assets/ZAR_square.jpg')
   })
 

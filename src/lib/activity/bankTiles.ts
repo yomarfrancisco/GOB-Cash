@@ -1,5 +1,14 @@
 /** Neutral bank notice tiles for the desk feed (not desk liaison portraits). */
-export type BankTileId = 'FNB' | 'MOZA' | 'BIM' | 'SBM' | 'BCI' | 'ABSA' | 'CAP' | 'POS'
+export type BankTileId =
+  | 'FNB'
+  | 'MOZA'
+  | 'BIM'
+  | 'SBM'
+  | 'BCI'
+  | 'ABSA'
+  | 'VISTA'
+  | 'CAP'
+  | 'POS'
 
 const NEUTRAL_BANK_TILE = '/assets/ZAR_square.jpg'
 
@@ -22,7 +31,7 @@ export type BankTile = {
 export function bankTileForTitle(title: string | undefined | null): BankTile | null {
   if (!title) return null
   const m = title.match(
-    /^Bank\s*[·.•]\s*(FNB(?:\s+MZ)?|Capitec|Moza|BIM|SBM|Standard Bank|BCI|ABSA|POS)\b/i
+    /^Bank\s*[·.•]\s*(FNB(?:\s+MZ)?|Capitec|Moza|BIM|SBM|Standard Bank|BCI|ABSA|Vista(?:\s+Bank)?|POS)\b/i
   )
   if (!m) return null
   const raw = m[1].trim()
@@ -43,6 +52,9 @@ export function bankTileForTitle(title: string | undefined | null): BankTile | n
   }
   if (/^absa$/i.test(raw)) {
     return { id: 'ABSA', label: 'Absa', acronym: 'ABSA', src: NEUTRAL_BANK_TILE }
+  }
+  if (/^vista(?:\s+bank)?$/i.test(raw)) {
+    return { id: 'VISTA', label: 'Vista', acronym: 'VISTA', src: NEUTRAL_BANK_TILE }
   }
   if (/^pos$/i.test(raw)) {
     return { id: 'POS', label: 'POS', acronym: 'POS', src: NEUTRAL_BANK_TILE }
