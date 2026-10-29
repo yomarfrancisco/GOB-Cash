@@ -76,6 +76,21 @@ const safeLog: SafeLog = {
   },
 }
 
+async function resumeAutonomousSettlement(emailId: string): Promise<void> {
+  try {
+    const { resumeAutonomousSettlementFromBankEvidence } = await import(
+      '../settlement/autonomousDailySettlement'
+    )
+    await resumeAutonomousSettlementFromBankEvidence(emailId)
+  } catch (error) {
+    // Evidence remains durable; the settlement watchdog can recover independently.
+    console.warn('[bankMail] autonomous settlement resume skipped', {
+      emailId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
 function db() {
   return admin.firestore()
 }
@@ -186,6 +201,7 @@ export const inbound_archiveBankMail = functions
       await recordCapitecSettlement(ingress.resendEmailId, bucket, capitecPdfPassword.value())
       // Balance photos / Cursor rate notes may not be bank-authenticated.
       await recordRealisedRateNote(ingress.resendEmailId, bucket)
+      await resumeAutonomousSettlement(ingress.resendEmailId)
     }
   })
 
@@ -1184,6 +1200,7 @@ export const inbound_backfillFnb = functions
       await recordMznProof(doc.id, bucket)
       await recordCapitecReceipt(doc.id, bucket)
       await recordCapitecSettlement(doc.id, bucket, capitecPdfPassword.value())
+      await resumeAutonomousSettlement(doc.id)
       const after = await db().collection('bankFnbEvents').doc(doc.id).get()
       if (after.exists) recorded += 1
       const evidence = await db().collection(EVIDENCE_COLLECTION).doc(doc.id).get()

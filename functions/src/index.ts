@@ -49,6 +49,11 @@ export { tx_createBankWithdrawalRequest, onBankWithdrawalCreated } from './tx/cr
 export { getBankWithdrawalProof } from './tx/getBankWithdrawalProof'
 export { tx_createInternalConversion } from './tx/createInternalConversion'
 export { tx_settleEnRouteSweep } from './tx/enRouteSettle'
+export {
+  autonomousSettlementAt09,
+  autonomousSettlementAt15,
+  autonomousSettlementWatchdog,
+} from './settlement/autonomousDailySettlement'
 export { getConversionProof } from './tx/getConversionProof'
 export { getSettlementInvoiceProof } from './tx/getSettlementInvoiceProof'
 export { collectHourlyMznZar } from './fx/collectHourlyMznZar'

@@ -191,6 +191,7 @@ import {
   type ConfirmInstruction,
 } from '../operatingCalendar'
 import { expectedMznForOrder, stepForPhase, type CyclePhase } from '../routing/continuousCycle'
+import { AUTONOMOUS_WEEKDAY_BATCHES } from '../settlement/autonomousSettlementPolicy'
 import { askCardTitle, sideCardTitle, stepCardTitle, windowCardTitle } from '../routing/deskTitles'
 import { buildOrderStepMessage } from '../routing/routingStepMessage'
 import {
@@ -3516,6 +3517,34 @@ async function startNewTest(
   })
 }
 
+/**
+ * Ensure the live autonomous desk has a funded routing window. Unlike the `$`
+ * action this does not book the full wallet to EN ROUTE; each scheduled order
+ * is debited only when its Step 4 execution is committed.
+ */
+export async function ensureAutonomousRoutingWindow(startingCapitalZar: number): Promise<void> {
+  const capital = roundMoney(Math.max(0, startingCapitalZar))
+  if (!(capital > 0)) return
+  const adminUid = ROUTING_ADMIN_UID
+  const existingId = await currentTestId(adminUid)
+  if (existingId) {
+    const snap = await db.collection(TESTS).doc(existingId).get()
+    const data = snap.data() || {}
+    const hasLiveWindow =
+      data.status === 'active' &&
+      (num(data.authorisedZar, 0) > 0 ||
+        num(data.awaitingCycleNumber, 0) > 0 ||
+        num(data.completedCycles, 0) > 0)
+    if (hasLiveWindow && !shouldStartFreshWindow(data)) return
+  }
+  await startNewTest(
+    adminUid,
+    true,
+    capital,
+    `Autonomous window opened from ${formatZar(capital)} spendable ZAR inventory.`
+  )
+}
+
 /** Desk-facing EFT lands date — never paste shock lastSplitSummary (EN ROUTE R100k…). */
 function formatEftLandsLabel(iso: string | undefined | null): string | null {
   if (!iso) return null
@@ -6706,6 +6735,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       title: planTitle,
       body: [
         `Simulating the next 24 hours from Day ${startCycle}.`,
+        `Autonomous settlement batches run at ${AUTONOMOUS_WEEKDAY_BATCHES.join(' and ')} SAST on weekdays.`,
         `Card R${Math.round(num(start.expectedOrderZar, 0)).toLocaleString('en-ZA')} · EFT R${Math.round(startEftZar).toLocaleString('en-ZA')}.`,
         'Bank cover is assumed through Order → Invoice → MZN; Send ZAR and Restock open the keypad.',
         'EFT advances open→submitted→settled only in Planned (synthetic cover). Live waits for bank_transfer.',
@@ -6730,6 +6760,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       planRunId,
       deskPlanChip: plannedHorizonHours >= 72 ? `72h plan · day 1` : '24h plan',
       deskChannel: startEftZar > 0 ? 'mixed' : 'card',
+      autonomousBatchSlots: [...AUTONOMOUS_WEEKDAY_BATCHES],
       plannedClockMs,
       openEftZar: startEftZar,
       testRunId,

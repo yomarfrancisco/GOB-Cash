@@ -43,6 +43,9 @@ export type BookZarEnRouteParams = {
    * use this instead of recomputing zar × sellRate.
    */
   expectedDestinationMzn?: number
+  /** Deterministic id for scheduler retries. Existing ids are returned without another wallet mutation. */
+  transactionId?: string
+  autonomousRunId?: string
 }
 
 export type BookZarEnRouteResult = {
@@ -75,11 +78,19 @@ export async function bookZarSaleToEnRoute(
   const userRef = db.collection('users').doc(params.userId)
   const zarRef = userRef.collection('wallets').doc('cashZAR')
   const earningsRef = userRef.collection('wallets').doc('earnings')
-  const txRef = db.collection('transactions').doc()
+  const deterministicId =
+    typeof params.transactionId === 'string'
+      ? params.transactionId.replace(/[^a-zA-Z0-9_.-]/g, '-').slice(0, 180)
+      : ''
+  const txRef = deterministicId
+    ? db.collection('transactions').doc(deterministicId)
+    : db.collection('transactions').doc()
   const txId = txRef.id
   const groupId = params.groupId || txId
 
   await db.runTransaction(async (t) => {
+    const txSnap = await t.get(txRef)
+    if (txSnap.exists) return
     const zarSnap = await t.get(zarRef)
     const earningsSnap = await t.get(earningsRef)
     const zarData = zarSnap.exists ? zarSnap.data()! : { fiatBalance: 0 }
@@ -151,6 +162,7 @@ export async function bookZarSaleToEnRoute(
       counterpartyHandle: params.namedClient?.handle || null,
       counterpartyUserId: params.namedClient?.userId || null,
       groupId,
+      autonomousRunId: params.autonomousRunId || null,
       suppressDeskActivity: params.suppressDeskActivity === true,
       simulated: params.simulated === true,
       planRunId: params.planRunId || null,
@@ -239,9 +251,9 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
     const suppressDesk = tx.suppressDeskActivity === true
 
     try {
-      await db.runTransaction(async (t) => {
+      const didSettle = await db.runTransaction(async (t): Promise<boolean> => {
         const fresh = await t.get(doc.ref)
-        if (!fresh.exists || fresh.data()?.status !== 'EN_ROUTE') return
+        if (!fresh.exists || fresh.data()?.status !== 'EN_ROUTE') return false
 
         const bookingEventRef = userRef.collection('activityEvents').doc(doc.id)
         const bookingSnap = await t.get(bookingEventRef)
@@ -258,7 +270,7 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
               settledAt: now,
             })
           }
-          return
+          return true
         }
 
         // Simulated lots: mark settled without touching live wallets.
@@ -307,7 +319,7 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
               })
             }
           }
-          return
+          return true
         }
 
         const earningsSnap = await t.get(earningsRef)
@@ -315,11 +327,15 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
         const earningsData = earningsSnap.exists ? earningsSnap.data()! : { fiatBalance: 0 }
         const mznData = mznSnap.exists ? mznSnap.data()! : { fiatBalance: 0 }
         const earningsMinor = Math.round(Number(earningsData.fiatBalance || 0) * 100)
-        const debit = Math.min(earningsMinor, zarMinor)
-        if (!(debit > 0)) {
-          t.update(doc.ref, { status: 'EN_ROUTE_VOID', statusUpdatedAt: now, updatedAt: now })
-          return
+        if (earningsMinor < zarMinor) {
+          t.update(doc.ref, {
+            reconciliationRequired: true,
+            reconciliationReason: 'earnings_below_open_lot',
+            updatedAt: now,
+          })
+          return false
         }
+        const debit = zarMinor
 
         t.update(earningsRef, {
           fiatBalance: (earningsMinor - debit) / 100,
@@ -383,8 +399,10 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
             })
           }
         }
+        return true
       })
 
+      if (!didSettle) continue
       // Refresh nextSettleAt from remaining open lots.
       const remaining = await db
         .collection('transactions')
@@ -407,6 +425,22 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
         { merge: true }
       )
       settled += 1
+      if (!simulatedLot) {
+        try {
+          const { ROUTING_ADMIN_UID } = await import('../routing/conversionRouter')
+          if (userId === ROUTING_ADMIN_UID) {
+            const { resumeAutonomousSettlementFromSettlement } = await import(
+              '../settlement/autonomousDailySettlement'
+            )
+            await resumeAutonomousSettlementFromSettlement(doc.id)
+          }
+        } catch (error) {
+          console.warn('[settleDueEnRouteLots] autonomous resume skipped', {
+            txId: doc.id,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
     } catch (error) {
       console.error('[settleDueEnRouteLots] lot failed', {
         txId: doc.id,

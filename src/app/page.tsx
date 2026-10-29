@@ -18,6 +18,10 @@ import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
 import { useAiActionCycle } from '@/lib/animations/useAiActionCycle'
 import { useRandomCardFlips } from '@/lib/animations/useRandomCardFlips'
+import {
+  settlementPlaybackForTransition,
+  type SettlementBalances,
+} from '@/lib/animations/settlementPlayback'
 import { initPortfolioFromAlloc } from '@/lib/portfolio/initPortfolio'
 import ConvertCashSection from '@/components/ConvertCashSection'
 import BranchManagerFooter from '@/components/BranchManagerFooter'
@@ -65,6 +69,7 @@ import {
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
+const SETTLEMENT_CARD_HOLD_MS = 1600
 
 // Main home page content
 function HomeContent() {
@@ -77,6 +82,7 @@ function HomeContent() {
   // Fetch exchange rates once for all cards (USD and MZN)
   const { rates: fxRates } = useFxRates(['USD', 'MZN'])
   const cardStackRef = useRef<CardStackHandle>(null)
+  const flipControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
   const scrollContentRef = useRef<HTMLDivElement | null>(null)
   const { setOnSelect, open } = useTransactSheet()
   const { guardAuthed, isAuthed, requireAuth } = useRequireAuth()
@@ -303,8 +309,11 @@ function HomeContent() {
 
   // Get wallet allocation and hydrated wallet balances.
   const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd, syncFromWallets } = useWalletAlloc()
-  const { wallets, demoMode } = useWalletStore()
+  const { wallets, demoMode, walletsHydrated } = useWalletStore()
   const isBalanceReady = useAppModeStore((state) => state.isBalanceReady())
+  const previousSettlementBalancesRef = useRef<SettlementBalances | null>(null)
+  const settlementPlaybackQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const settlementPlaybackGenerationRef = useRef(0)
 
   // Sync WalletAlloc from wallet docs when they change (only if user is authenticated)
   useEffect(() => {
@@ -312,6 +321,52 @@ function HomeContent() {
       syncFromWallets(wallets as any)
     }
   }, [isAuthed, wallets, syncFromWallets])
+
+  // Replay only real settlement wallet transitions. CardStack's existing
+  // balance flash is driven by this same Firestore wallet snapshot.
+  useEffect(() => {
+    if (!isAuthed || !walletsHydrated || demoMode) {
+      previousSettlementBalancesRef.current = null
+      settlementPlaybackGenerationRef.current += 1
+      return
+    }
+
+    const current: SettlementBalances = {
+      cashZAR: Number(wallets?.cashZAR?.fiatBalance || 0),
+      cashMZN: Number(wallets?.cashMZN?.fiatBalance || 0),
+      earnings: Number(wallets?.earnings?.fiatBalance || 0),
+    }
+    const previous = previousSettlementBalancesRef.current
+    previousSettlementBalancesRef.current = current
+    if (!previous) return
+
+    const playback = settlementPlaybackForTransition(previous, current)
+    if (!playback) return
+
+    const generation = settlementPlaybackGenerationRef.current
+    settlementPlaybackQueueRef.current = settlementPlaybackQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (generation !== settlementPlaybackGenerationRef.current) return
+        flipControllerRef.current?.pause()
+        try {
+          await cardStackRef.current?.flipToCard(playback.affectedCard, 'forward')
+          await new Promise<void>((resolve) => {
+            window.setTimeout(resolve, SETTLEMENT_CARD_HOLD_MS)
+          })
+          if (generation !== settlementPlaybackGenerationRef.current) return
+          await cardStackRef.current?.flipToCard('savings', 'forward')
+        } finally {
+          flipControllerRef.current?.resume()
+        }
+      })
+  }, [demoMode, isAuthed, wallets, walletsHydrated])
+
+  useEffect(() => {
+    return () => {
+      settlementPlaybackGenerationRef.current += 1
+    }
+  }, [])
 
   // Log source of balances (Firestore for authenticated users, demo for unauthenticated)
   if (isAuthed && wallets && !demoMode) {
@@ -358,7 +413,6 @@ function HomeContent() {
 
   // Random card flips - only run when NOT authenticated
   // Create controller ref to pause/resume during credit surprise
-  const flipControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
   useRandomCardFlips(cardStackRef, flipControllerRef)
 
   // Credit surprise handler: adds R500 to ETH balance (which yieldSurprise card displays)
