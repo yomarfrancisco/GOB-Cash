@@ -32,7 +32,7 @@ export type BankEmailRoundPreview = {
   cycleNumber: number
   roundIndex: number
   due: boolean
-  noRoundReason?: 'cadence' | 'no_eft_tickets'
+  noRoundReason?: 'weekend' | 'no_eft_tickets'
   horizonHours: 24 | 72
   sendAtMs: number
   dayLabel: string
@@ -111,15 +111,22 @@ export function formatPtZar(value: number): string {
 
 function emailBody(
   banker: BankerDirectoryEntry,
-  amountZar: number,
+  amountsZar: number[],
   creditByMs: number
 ): string {
+  const totalZar = amountsZar.reduce((sum, amount) => sum + amount, 0)
+  const invoiceLines = amountsZar.map(
+    (amount, index) => `Factura [n.º ${index + 1}] · ${formatPtZar(amount)}`
+  )
   return [
     `${banker.salutation} ${banker.banker},`,
     '',
-    'Junto enviamos a factura de suporte à instrução de EFT de hoje:',
+    amountsZar.length === 1
+      ? 'Junto enviamos a factura de suporte à instrução de EFT de hoje:'
+      : 'Junto enviamos as facturas de suporte às instruções de EFT de hoje:',
     '',
-    `Factura [n.º] · ${formatPtZar(amountZar)}`,
+    ...invoiceLines,
+    ...(amountsZar.length > 1 ? [`Total · ${formatPtZar(totalZar)}`] : []),
     `Crédito previsto · até ${formatPtDate(creditByMs)}`,
     '',
     'Agradecemos que nos confirme se o montante pode ser processado nestas condições.',
@@ -130,24 +137,24 @@ function emailBody(
   ].join('\n')
 }
 
-/** Every three desk cycles; any three consecutive operating days contain one round. */
-export function isBankEmailRoundCycle(cycleNumber: number): boolean {
-  return cycleNumber > 0 && (cycleNumber - 1) % 3 === 0
+/** One round per weekday; weekends never produce expected email. */
+export function isBankEmailRoundDay(clockMs: number): boolean {
+  const weekday = sastDate(clockMs).getUTCDay()
+  return weekday >= 1 && weekday <= 5
 }
 
-function cyclesUntilNextRound(cycleNumber: number): number {
+function daysUntilNextWeekday(ms: number): number {
   for (let delta = 1; delta <= 3; delta += 1) {
-    if (isBankEmailRoundCycle(cycleNumber + delta)) return delta
+    if (isBankEmailRoundDay(addDays(ms, delta))) return delta
   }
-  return 3
+  return 1
 }
 
-function selectBanks(roundIndex: number, count = 2): BankerDirectoryEntry[] {
+function selectBank(sendAtMs: number): BankerDirectoryEntry | null {
   const active = BANKER_DIRECTORY.filter((bank) => bank.active)
-  if (!active.length) return []
-  const take = Math.max(2, Math.min(3, count, active.length))
-  const start = (roundIndex * take) % active.length
-  return Array.from({ length: take }, (_, index) => active[(start + index) % active.length]!)
+  if (!active.length) return null
+  const weekdayIndex = Math.max(0, sastDate(sendAtMs).getUTCDay() - 1)
+  return active[weekdayIndex % active.length] || null
 }
 
 export function buildBankEmailRound(input: {
@@ -155,50 +162,49 @@ export function buildBankEmailRound(input: {
   clockMs: number
   horizonHours: 24 | 72
   eftTickets: EftTicketInput[]
-  banksPerRound?: number
 }): BankEmailRoundPreview {
-  const roundIndex = Math.max(0, Math.floor((input.cycleNumber - 1) / 3))
   const sendAtMs = atSastHour(input.clockMs, 9)
-  const expectedReplyAtMs = addDays(sendAtMs, 1)
-  const nextRoundAtMs = addDays(sendAtMs, cyclesUntilNextRound(input.cycleNumber))
-  const cadenceDue = isBankEmailRoundCycle(input.cycleNumber)
+  const roundIndex = Math.max(0, sastDate(sendAtMs).getUTCDay() - 1)
+  const expectedReplyAtMs = addDays(sendAtMs, daysUntilNextWeekday(sendAtMs))
+  const nextRoundAtMs = addDays(sendAtMs, daysUntilNextWeekday(sendAtMs))
+  const weekdayDue = isBankEmailRoundDay(sendAtMs)
   const tickets = input.eftTickets.filter((ticket) => Number(ticket.amount) > 0)
-  const due = cadenceDue && tickets.length > 0
-  const banks = due ? selectBanks(roundIndex, input.banksPerRound) : []
-  const selected = banks.map((banker, index): BankEmailPreview => {
-    const ticket = tickets[index % tickets.length]!
-    const testedAmountZar = Math.round(Number(ticket.amount) * 100) / 100
-    const ticketId = ticket.ticketId || `eft-c${input.cycleNumber}-${(index % tickets.length) + 1}`
-    return {
-      bankKey: banker.key,
-      bank: banker.bank,
-      shortBank: banker.shortBank,
-      banker: banker.banker,
-      to: banker.email,
-      salutation: banker.salutation,
-      reason: 'untested at this amount',
-      testedAmountZar,
-      sendAtMs,
-      sendTimeLabel: '09:00',
-      subject: `Instruções de EFT · ${formatPtDate(sendAtMs)} · ${formatPtZar(testedAmountZar)}`,
-      bodyPt: emailBody(banker, testedAmountZar, addDays(sendAtMs, 2)),
-      attachments: [
-        {
-          ticketId,
+  const due = weekdayDue && tickets.length > 0
+  const banker = due ? selectBank(sendAtMs) : null
+  const amountsZar = tickets.map((ticket) => Math.round(Number(ticket.amount) * 100) / 100)
+  const testedAmountZar =
+    Math.round(amountsZar.reduce((sum, amount) => sum + amount, 0) * 100) / 100
+  const selected = banker
+    ? [
+      {
+        bankKey: banker.key,
+        bank: banker.bank,
+        shortBank: banker.shortBank,
+        banker: banker.banker,
+        to: banker.email,
+        salutation: banker.salutation,
+        reason: 'untested at this amount' as const,
+        testedAmountZar,
+        sendAtMs,
+        sendTimeLabel: '09:00',
+        subject: `Instruções de EFT · ${formatPtDate(sendAtMs)} · ${formatPtZar(testedAmountZar)}`,
+        bodyPt: emailBody(banker, amountsZar, addDays(sendAtMs, 2)),
+        attachments: tickets.map((ticket, index) => ({
+          ticketId: ticket.ticketId || `eft-c${input.cycleNumber}-${index + 1}`,
           filename: `Factura_EFT_${input.cycleNumber}_${index + 1}.pdf`,
-          amountZar: testedAmountZar,
-        },
-      ],
-    }
-  })
+          amountZar: amountsZar[index]!,
+        })),
+      },
+    ]
+    : []
   const selectedKeys = new Set(selected.map((row) => row.bankKey))
   return {
     roundId: `bank-email-round-c${input.cycleNumber}`,
     cycleNumber: input.cycleNumber,
     roundIndex,
     due,
-    ...(!cadenceDue
-      ? { noRoundReason: 'cadence' as const }
+    ...(!weekdayDue
+      ? { noRoundReason: 'weekend' as const }
       : tickets.length === 0
         ? { noRoundReason: 'no_eft_tickets' as const }
         : {}),

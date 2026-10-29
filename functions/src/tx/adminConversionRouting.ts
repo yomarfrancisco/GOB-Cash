@@ -1889,7 +1889,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
             title: stepCardTitle(2),
             body: bankEmailRound
               ? bankEmailRound.due
-                ? `No card invoices were required. Today is a bank email round: ${bankEmailRound.selected.length} expected EFT probes are shown.`
+                ? `No card invoices were required. Today’s single expected bank email bundles every due EFT invoice.`
                 : `No card invoices were required. No bank email round today.`
               : `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.\nNext 24h opens Step 3 · MZN.`,
             awaitingConfirm: true,

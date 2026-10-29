@@ -6,20 +6,20 @@ import {
   formatPtDate,
   formatPtZar,
   isExpectedBankReplyDue,
-  isBankEmailRoundCycle,
+  isBankEmailRoundDay,
 } from './bankEmailRound'
 
 const MON_26_OCT = Date.parse('2026-10-26T08:00:00+02:00')
 
 describe('bankEmailRound', () => {
-  it('runs once in every three consecutive desk cycles', () => {
-    assert.equal(isBankEmailRoundCycle(1), true)
-    assert.equal(isBankEmailRoundCycle(2), false)
-    assert.equal(isBankEmailRoundCycle(3), false)
-    assert.equal(isBankEmailRoundCycle(4), true)
+  it('runs Monday to Friday and skips weekends', () => {
+    assert.equal(isBankEmailRoundDay(MON_26_OCT), true)
+    assert.equal(isBankEmailRoundDay(MON_26_OCT + 4 * 86_400_000), true)
+    assert.equal(isBankEmailRoundDay(MON_26_OCT + 5 * 86_400_000), false)
+    assert.equal(isBankEmailRoundDay(MON_26_OCT + 6 * 86_400_000), false)
   })
 
-  it('selects two rotating banks and maps frozen EFT ticket amounts', () => {
+  it('selects one bank daily and bundles every frozen EFT ticket', () => {
     const first = buildBankEmailRound({
       cycleNumber: 1,
       clockMs: MON_26_OCT,
@@ -27,15 +27,20 @@ describe('bankEmailRound', () => {
       eftTickets: [{ amount: 65_000 }, { amount: 97_500 }],
     })
     const second = buildBankEmailRound({
-      cycleNumber: 4,
-      clockMs: MON_26_OCT + 3 * 86_400_000,
+      cycleNumber: 2,
+      clockMs: MON_26_OCT + 86_400_000,
       horizonHours: 72,
       eftTickets: [{ amount: 80_000 }, { amount: 110_000 }],
     })
     assert.equal(first.due, true)
-    assert.equal(first.selected.length, 2)
-    assert.deepEqual(first.selected.map((row) => row.testedAmountZar), [65_000, 97_500])
-    assert.equal(new Set([...first.selected, ...second.selected].map((row) => row.bankKey)).size, 4)
+    assert.equal(first.selected.length, 1)
+    assert.equal(first.selected[0]?.testedAmountZar, 162_500)
+    assert.deepEqual(
+      first.selected[0]?.attachments.map((attachment) => attachment.amountZar),
+      [65_000, 97_500]
+    )
+    assert.match(first.selected[0]?.bodyPt || '', /Total · ZAR 162\.500,00/)
+    assert.notEqual(first.selected[0]?.bankKey, second.selected[0]?.bankKey)
     assert.ok(first.selected.every((row) => row.reason === 'untested at this amount'))
     assert.ok(first.selected.every((row) => !('knownLimitZar' in row)))
   })
@@ -54,17 +59,17 @@ describe('bankEmailRound', () => {
     assert.doesNotMatch(round.selected[0]!.bodyPt, /\bfatura\b/)
   })
 
-  it('shows the next round without selecting banks on non-round days', () => {
+  it('shows Monday as the next round on a weekend', () => {
     const round = buildBankEmailRound({
-      cycleNumber: 2,
-      clockMs: MON_26_OCT + 86_400_000,
+      cycleNumber: 6,
+      clockMs: MON_26_OCT + 5 * 86_400_000,
       horizonHours: 24,
       eftTickets: [{ amount: 65_000 }],
     })
     assert.equal(round.due, false)
-    assert.equal(round.noRoundReason, 'cadence')
+    assert.equal(round.noRoundReason, 'weekend')
     assert.equal(round.selected.length, 0)
-    assert.equal(round.nextRoundLabel, 'THU 29 OCT')
+    assert.equal(round.nextRoundLabel, 'MON 2 NOV')
   })
 
   it('creates expectation-only replies without invented outcomes', () => {

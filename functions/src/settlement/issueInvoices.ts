@@ -128,7 +128,7 @@ export async function publishInvoicePackDeskNotice(params: {
       : `${invoices.length} invoices raised for the ${dayLabel} card order.`
   const sentence = params.bankEmailRound
     ? params.bankEmailRound.due
-      ? `${invoiceLead} Today is a bank email round: ${params.bankEmailRound.selected.length} banks get expected EFT probes.`
+      ? `${invoiceLead} Today’s bank email bundles every due EFT invoice for ${params.bankEmailRound.selected[0]?.shortBank || 'one bank'}.`
       : `${invoiceLead} No bank email round today.`
     : invoiceLead
   const deskLedgerRows = [
