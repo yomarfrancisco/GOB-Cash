@@ -42,8 +42,16 @@ export default function NotificationsSheet() {
   const setLive = useDeskPlanStore((s) => s.setLive)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [, setSummary] = useState<ConversionRoutingSummary | null>(null)
-  const [deskLiveReady, setDeskLiveReady] = useState(false)
   const headerDate = formatSastShortDayLabel(focusAt ?? Date.now())
+
+  // Keep the feed warm while the sheet is closed, so opening the desk is immediate.
+  useEffect(() => {
+    if (!isAuthed) {
+      setRemoteItems([])
+      return
+    }
+    return subscribeToActivityEvents(setRemoteItems)
+  }, [isAuthed])
 
   useEffect(() => {
     if (!isNotificationsOpen) return
@@ -54,15 +62,10 @@ export default function NotificationsSheet() {
   }, [isNotificationsOpen])
 
   // On first desk open after a hard refresh, drop last session's Planned sim.
-  // Later opens in this page load keep an in-progress Next 24h.
+  // This runs behind the already-visible feed; it must never gate desk content.
   useEffect(() => {
-    if (!isNotificationsOpen || !isAuthed) {
-      setDeskLiveReady(false)
-      setRemoteItems([])
-      return
-    }
+    if (!isNotificationsOpen || !isAuthed) return
     let cancelled = false
-    setDeskLiveReady(false)
     void (async () => {
       try {
         const row = await admin_getConversionRoutingStatus()
@@ -86,8 +89,6 @@ export default function NotificationsSheet() {
           setSummary(null)
           setLive()
         }
-      } finally {
-        if (!cancelled) setDeskLiveReady(true)
       }
     })()
     return () => {
@@ -96,15 +97,7 @@ export default function NotificationsSheet() {
   }, [isNotificationsOpen, isAuthed, applyPlanSummary, setLive])
 
   useEffect(() => {
-    if (!isNotificationsOpen || !isAuthed || !deskLiveReady) {
-      if (!isNotificationsOpen || !isAuthed) setRemoteItems([])
-      return
-    }
-    return subscribeToActivityEvents(setRemoteItems)
-  }, [isNotificationsOpen, isAuthed, deskLiveReady])
-
-  useEffect(() => {
-    if (!isNotificationsOpen || !isAuthed || !deskLiveReady) return
+    if (!isNotificationsOpen || !isAuthed) return
     let cancelled = false
     const load = () => {
       void admin_getConversionRoutingStatus()
@@ -117,13 +110,12 @@ export default function NotificationsSheet() {
           if (!cancelled) setSummary(null)
         })
     }
-    load()
     const timer = window.setInterval(load, 20_000)
     return () => {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [isNotificationsOpen, isAuthed, deskLiveReady, remoteItems.length, applyPlanSummary])
+  }, [isNotificationsOpen, isAuthed, applyPlanSummary])
 
   return (
     <ActionSheet
@@ -147,7 +139,7 @@ export default function NotificationsSheet() {
             <p className={listStyles.deskHeaderDate}>{headerDate}</p>
           </div>
         </div>
-        {deskLiveReady ? <NotificationsList /> : null}
+        {isAuthed ? <NotificationsList prefetchedItems={remoteItems} /> : null}
       </div>
     </ActionSheet>
   )

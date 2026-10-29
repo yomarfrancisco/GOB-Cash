@@ -1,4 +1,12 @@
-import { collection, onSnapshot, type Timestamp, type Unsubscribe } from 'firebase/firestore'
+import {
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  type Timestamp,
+  type Unsubscribe,
+} from 'firebase/firestore'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import type { ActivityItem } from '@/store/activity'
 import { conversionAvatar, TASK_AVATARS } from './taskAvatars'
@@ -519,11 +527,18 @@ export function subscribeToActivityEvents(
 ): Unsubscribe {
   const auth = getFirebaseAuth()
   let eventsUnsub: Unsubscribe | null = null
+  let activeUid: string | null = null
 
   const listen = (uid: string) => {
+    if (activeUid === uid && eventsUnsub) return
     eventsUnsub?.()
+    activeUid = uid
     let hydrated = false
-    const eventsRef = collection(getFirestoreDb(), 'users', uid, 'activityEvents')
+    const eventsRef = query(
+      collection(getFirestoreDb(), 'users', uid, 'activityEvents'),
+      orderBy('createdAt', 'desc'),
+      limit(160)
+    )
     eventsUnsub = onSnapshot(
       eventsRef,
       (snap) => {
@@ -558,6 +573,7 @@ export function subscribeToActivityEvents(
     if (!user) {
       eventsUnsub?.()
       eventsUnsub = null
+      activeUid = null
       onChange([])
       return
     }

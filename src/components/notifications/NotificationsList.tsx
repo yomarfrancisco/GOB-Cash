@@ -1390,7 +1390,13 @@ function ActivitySection({
   )
 }
 
-export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }) {
+export function NotificationsList({
+  searchQuery = '',
+  prefetchedItems,
+}: {
+  searchQuery?: string
+  prefetchedItems?: ActivityItem[]
+}) {
   const clear = useActivityStore((s) => s.clear)
   const all = useActivityStore((s) => s.all)
   const isAuthed = useAuthStore((s) => s.isAuthed)
@@ -1398,7 +1404,8 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   const liveSellMznPerZar =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : null
   const { deskBlocked, kycCta } = useSignedInKycAccess()
-  const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
+  const [subscribedItems, setSubscribedItems] = useState<ActivityItem[]>([])
+  const remoteItems = prefetchedItems ?? subscribedItems
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
   const [visibleCount, setVisibleCount] = useState(ACTIVITY_PAGE_SIZE)
 
@@ -1415,16 +1422,17 @@ export function NotificationsList({ searchQuery = '' }: { searchQuery?: string }
   }, [all, clear])
 
   useEffect(() => {
+    if (prefetchedItems !== undefined) return
     if (!isAuthed) {
-      setRemoteItems([])
+      setSubscribedItems([])
       setThinkingItem(null)
       return
     }
-    const unsubscribe = subscribeToActivityEvents(setRemoteItems)
+    const unsubscribe = subscribeToActivityEvents(setSubscribedItems)
     return () => {
       unsubscribe()
     }
-  }, [isAuthed])
+  }, [isAuthed, prefetchedItems])
 
   useEffect(() => {
     if (!deskBlocked) return
