@@ -4,6 +4,7 @@ import { EMPTY_OVERLAY } from './constraints'
 import { deskTxFromSwipe, omitUndefined } from './frictionHistory'
 import {
   DEFAULT_TEST_CONFIG,
+  buildActivityCopy,
   buildAgentReplyCopy,
   buildNotificationCopy,
   buildReplenishActivityCopy,
@@ -129,7 +130,23 @@ describe('20-cycle compounding', () => {
     // Day-1 tickets are FNB + Std Bank → both mid×1.06 vs base mid×1.05.
     assert.equal(replenish?.amountMzn, roundMoney(sale.deployedAmount * 4.32 * (1.06 / 1.05)))
     const copy = buildReplenishNotificationCopy(replenish!)
-    assert.equal(copy.title, 'Step 5 · Recycle')
+    assert.equal(copy.title, 'Step 5 · Replace ZAR')
+    assert.equal(
+      buildReplenishActivityCopy(replenish!, 14, 'awaiting_execution', state).title,
+      'Step 5 · Replace ZAR'
+    )
+    assert.equal(
+      buildReplenishActivityCopy(replenish!, 14, 'completed', state).title,
+      'Step 5 · ZAR replaced'
+    )
+    assert.equal(
+      buildActivityCopy(sale, 14, 'awaiting_execution', 0.1, undefined, { state }).title,
+      'Step 4 · Send ZAR'
+    )
+    assert.equal(
+      buildActivityCopy(sale, 14, 'completed', 0.1, undefined, { state }).title,
+      'Step 4 · ZAR sent'
+    )
     assert.match(copy.body, /Swipe /)
     assert.doesNotMatch(copy.body, /each Moz/)
     assert.ok((replenish?.cardAssignments.length || 0) > 0)

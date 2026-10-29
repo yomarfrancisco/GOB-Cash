@@ -12,12 +12,12 @@ import {
 
 describe('deskTitles', () => {
   it('keeps Lane A step titles closed', () => {
-    assert.equal(stepCardTitle(1), 'Step 1 · Order')
-    assert.equal(stepCardTitle(4), 'Step 4 · Send')
-    assert.equal(stepCardTitle(4, 'Add ZAR'), 'Step 4 · Send · Add ZAR')
-    assert.equal(stepCardTitle(4, 'Waiting'), 'Step 4 · Send · Waiting')
-    assert.equal(stepCardTitle(5), 'Step 5 · Recycle')
-    assert.equal(stepCardTitle(6), 'Step 6 · What happened')
+    assert.equal(stepCardTitle(1), 'Step 1 · ZAR order received')
+    assert.equal(stepCardTitle(4), 'Step 4 · Send ZAR')
+    assert.equal(stepCardTitle(4, 'Add ZAR'), 'Step 4 · Send ZAR · Add ZAR')
+    assert.equal(stepCardTitle(4, 'Waiting'), 'Step 4 · Send ZAR · Waiting')
+    assert.equal(stepCardTitle(5), 'Step 5 · Replace ZAR')
+    assert.equal(stepCardTitle(6), 'Step 6 · Day lookback')
   })
 
   it('prefixes Lane B without double-prefixing', () => {

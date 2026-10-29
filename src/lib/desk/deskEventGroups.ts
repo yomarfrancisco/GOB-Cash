@@ -339,7 +339,7 @@ function groupTitle(kind: DeskGroupKind, count: number): string {
   if (kind === 'zar_cleared') return 'ZAR cleared'
   if (kind === 'swipe_matched') return 'Swipe matched'
   if (kind === 'other_movements') return 'Other movements'
-  return count === 1 ? 'Swipe approved' : 'Swipes approved'
+  return count === 1 ? 'Card swipe approved' : 'Card swipes approved'
 }
 
 function groupSpeaker(source: string, kind: DeskGroupKind): string {

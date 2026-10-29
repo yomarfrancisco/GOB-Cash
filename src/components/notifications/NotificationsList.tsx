@@ -189,7 +189,7 @@ function searchableText(item: ActivityItem): string {
 function isRoutingToastShadow(item: ActivityItem): boolean {
   if (item.kind !== 'ai_trade') return false
   const title = displayDeskTitle(item.title) || item.title || ''
-  return /^(Step\s*[1-6]\b|Swipe approved\b|EFT(?:\s*[·.•]| instructed\b)|Ask\s*[·.•]\s*Planned day\b)/i.test(
+  return /^(Step\s*[1-6]\b|(?:Card\s+)?Swipe approved\b|EFT(?:\s*[·.•]| instructed\b)|Ask\s*[·.•]\s*Planned day\b|Simulate\s*[·.•]\s*Next\s+(?:24|72)h\b)/i.test(
     title
   )
 }

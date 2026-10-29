@@ -1134,7 +1134,7 @@ function writeIssuedReplenish(
     body: sentence,
     deskSentence: sentence,
     deskStatusChip: 'Swiped',
-    deskNextFooter: 'Step 6 · What happened',
+    deskNextFooter: 'Step 6 · Day lookback',
     deskLedgerRows,
     orderLedger: orderLedger || null,
     ...(deskPlanChip ? { deskPlanChip } : {}),
@@ -1343,10 +1343,10 @@ async function writeSwipeApprovedNotice(params: {
   await ref.set({
     id,
     kind: CONVERSION_ROUTING_KIND,
-    title: 'Swipe approved',
+    title: 'Card swipe approved',
     body: 'Card POS approved the restock swipe.',
     deskStatusChip: 'Approved',
-    dropdownTitle: 'Swipe approved',
+    dropdownTitle: 'Card swipe approved',
     dropdownBody: 'Card POS approved the restock swipe.',
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
@@ -1778,7 +1778,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
   if (awaitingKind === 'replenish' || phase === 'awaiting_recycle') {
     return {
       title: stepCardTitle(5),
-      body: 'Step 5 · Recycle is open — Continue on Amina’s restock card after the COST swipe.',
+      body: 'Step 5 · Replace ZAR is open — Continue on Amina’s restock card after the COST swipe.',
       advanced: false,
       deskStep: 5,
     }
@@ -1891,7 +1891,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
               ? bankEmailRound.due
                 ? `No card invoices were required. Today’s single expected bank email bundles every due EFT invoice.`
                 : `No card invoices were required. No bank email round today.`
-              : `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.\nNext 24h opens Step 3 · MZN.`,
+              : `Invoices for ${formatZar(num(data.expectedOrderZar, 0))} are on the desk.\nNext 24h opens Step 3 · MZN prefunded.`,
             awaitingConfirm: true,
             routingBlocked: false,
             status: 'awaiting_execution',
@@ -1925,7 +1925,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
     )
     return {
       title: stepCardTitle(2),
-      body: 'Step 1 done. Step 2 · Invoice is the latest card — Continue there.',
+      body: 'Step 1 done. Step 2 · FX invoices raised is the latest card — Continue there.',
       advanced: true,
       deskStep: 2,
     }
@@ -1969,7 +1969,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
           body: sentence,
           deskSentence: sentence,
           deskStatusChip: covered ? 'Covered' : 'Waiting',
-          deskNextFooter: 'Step 4 · Send opens in 24h',
+          deskNextFooter: 'Step 4 · Send ZAR opens in 24h',
           deskLedgerRows: [
             { label: 'Cover needed', value: formatMznMoney(expectedMzn), valueStrong: true },
             { label: 'For', value: formatZarMoney(orderZar) },
@@ -2016,7 +2016,7 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
     return {
       title: stepCardTitle(3),
       body: covered
-        ? 'Step 2 done. Step 3 · MZN is covered — Continue to open Leo’s send.'
+        ? 'Step 2 done. Step 3 · MZN is prefunded — Continue to open Leo’s send.'
         : 'Step 2 done. Step 3 · MZN is waiting on full cover — Continue when funded.',
       advanced: true,
       deskStep: 3,
@@ -2053,10 +2053,10 @@ export async function advanceSequentialStep(adminUid: string): Promise<{
       title: stepCardTitle(4),
       body:
         afterPhase === 'awaiting_send'
-          ? 'Step 3 done. Step 4 · Send is open — Continue when ZAR has left.'
+          ? 'Step 3 done. Step 4 · Send ZAR is open — Continue when ZAR has left.'
           : afterPhase === 'awaiting_continue'
             ? 'Step 3 done. ZAR float is short — add ZAR, then Continue on Step 4.'
-            : 'Step 3 done. Opening Step 4 · Send.',
+            : 'Step 3 done. Opening Step 4 · Send ZAR.',
       advanced: true,
       deskStep: 4,
     }
@@ -6677,6 +6677,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
   // One notice bubble for the run — wall-clock createdAt so it sits in the log, not pinned by a future stamp.
   await clearPlanMarkers(adminUid, testRunId)
   const markerId = `planned-day-${testRunId}`
+  const planTitle = plannedHorizonHours >= 72 ? 'Simulate · Next 72h' : 'Simulate · Next 24h'
   await db
     .collection('users')
     .doc(adminUid)
@@ -6685,7 +6686,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
     .set({
       id: markerId,
       kind: CONVERSION_ROUTING_KIND,
-      title: 'Ask · Planned day',
+      title: planTitle,
       body: [
         `Simulating the next 24 hours from Day ${startCycle}.`,
         `Card R${Math.round(num(start.expectedOrderZar, 0)).toLocaleString('en-ZA')} · EFT R${Math.round(startEftZar).toLocaleString('en-ZA')}.`,
@@ -6693,7 +6694,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
         'EFT advances open→submitted→settled only in Planned (synthetic cover). Live waits for bank_transfer.',
         'The day clock advances only after that joint day finishes. Tap Real time to restore the live desk.',
       ].join(' '),
-      dropdownTitle: 'Ask · Planned day',
+      dropdownTitle: planTitle,
       dropdownBody: `Planned · Day ${startCycle} · card + EFT`,
       actorType: 'ai_manager',
       avatarKind: 'convert_zar',

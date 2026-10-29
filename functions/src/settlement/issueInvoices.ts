@@ -161,7 +161,7 @@ export async function publishInvoicePackDeskNotice(params: {
       ...(params.bankEmailRound?.due
         ? { deskPendingChip: `Email round · ${params.bankEmailRound.selected.length} expected` }
         : {}),
-      deskNextFooter: 'Step 3 · MZN opens in 24h',
+      deskNextFooter: 'Step 3 · MZN prefunding opens in 24h',
       deskLedgerRows,
       dropdownTitle: filename,
       dropdownBody: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · ${formatZar(totalZar)}`,

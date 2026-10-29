@@ -27,12 +27,12 @@ export const DESK_STEP: Record<
   DeskStepNumber,
   { n: DeskStepNumber; short: string; title: string }
 > = {
-  1: { n: 1, short: 'Order', title: 'Step 1 · Order' },
-  2: { n: 2, short: 'Invoice', title: 'Step 2 · Invoice' },
-  3: { n: 3, short: 'MZN', title: 'Step 3 · MZN' },
-  4: { n: 4, short: 'Send', title: 'Step 4 · Send' },
-  5: { n: 5, short: 'Recycle', title: 'Step 5 · Recycle' },
-  6: { n: 6, short: 'What happened', title: 'Step 6 · What happened' },
+  1: { n: 1, short: 'Order received', title: 'Step 1 · ZAR order received' },
+  2: { n: 2, short: 'Invoices raised', title: 'Step 2 · FX invoices raised' },
+  3: { n: 3, short: 'MZN prefunded', title: 'Step 3 · MZN prefunded' },
+  4: { n: 4, short: 'Send ZAR', title: 'Step 4 · Send ZAR' },
+  5: { n: 5, short: 'Replace ZAR', title: 'Step 5 · Replace ZAR' },
+  6: { n: 6, short: 'Day lookback', title: 'Step 6 · Day lookback' },
 }
 
 export function stepTitle(step: DeskStepNumber, detail?: string): string {

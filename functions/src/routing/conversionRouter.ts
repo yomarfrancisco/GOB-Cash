@@ -1306,7 +1306,7 @@ export function buildNotificationCopy(
 ): { title: string; body: string } {
   void _cycleCount
   return {
-    title: plan.deployedAmount > 0 ? 'Step 4 · Send' : 'Step 4 · Send · Hold',
+    title: plan.deployedAmount > 0 ? 'Step 4 · Send ZAR' : 'Step 4 · Send ZAR · Hold',
     body: `Send ${formatZar(plan.deployedAmount)} once the MZN has landed`,
   }
 }
@@ -1316,7 +1316,7 @@ export function buildReplenishNotificationCopy(
   ticketPath?: TicketPathSchedule | null
 ): { title: string; body: string } {
   const rows = replenish.cardAssignments
-  const title = 'Step 5 · Recycle'
+  const title = 'Step 5 · Replace ZAR'
   if (!rows.length) return { title, body: `Restock ${formatZar(replenish.amountZar)} at COST` }
   return { title, body: ticketLines(rows, 'swipe', ticketPath).join('\n') }
 }
@@ -1328,7 +1328,7 @@ export function buildAgentReplyCopy(
   blocked: boolean
 ): { title: string; body: string } {
   void _cycleCount
-  const title = plan.deployedAmount > 0 ? 'Step 4 · Send' : 'Step 4 · Send · Hold'
+  const title = plan.deployedAmount > 0 ? 'Step 4 · Send ZAR' : 'Step 4 · Send ZAR · Hold'
   if (blocked) {
     return {
       title,
@@ -1365,7 +1365,12 @@ export function buildActivityCopy(
   void cycleCount // day / cycle labels belong in the desk header, not the bubble title
   const statusLabel = status === 'completed' ? 'Executed' : 'Awaiting execution'
   const ref = dayRecord(plan, extra?.state)
-  const title = plan.deployedAmount > 0 ? 'Step 4 · Send' : 'Step 4 · Send · Hold'
+  const title =
+    plan.deployedAmount > 0
+      ? status === 'completed'
+        ? 'Step 4 · ZAR sent'
+        : 'Step 4 · Send ZAR'
+      : 'Step 4 · Send ZAR · Hold'
   if (plan.deployedAmount <= 0) {
     return {
       title,
@@ -1441,7 +1446,7 @@ export function buildReplenishActivityCopy(
   lines.push(`Next: sell ZAR on ${nextLabel}.`)
   lines.push(`Status: ${statusLabel}`)
   return {
-    title: 'Step 5 · Recycle',
+    title: status === 'completed' ? 'Step 5 · ZAR replaced' : 'Step 5 · Replace ZAR',
     body: lines.join(' '),
   }
 }

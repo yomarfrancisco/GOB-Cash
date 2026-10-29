@@ -11,14 +11,26 @@ export function displayDeskTitle(title: string | undefined | null): string {
     .trim()
 
   // Legacy titles rewritten on confirm before the closed title matrix.
-  if (/^Sell ZAR\b/i.test(out)) return 'Step 4 · Send'
-  if (/^Restock ZAR\b/i.test(out)) return 'Step 5 · Recycle'
-  if (/^ZAR sourced at COST\b/i.test(out)) return 'Step 5 · Recycle'
-  if (/^Conversion Cycle\b/i.test(out)) return 'Step 4 · Send'
+  if (/^Step 1\s*·\s*Order$/i.test(out)) return 'Step 1 · ZAR order received'
+  if (/^Step 2\s*·\s*Invoice$/i.test(out)) return 'Step 2 · FX invoices raised'
+  if (/^Step 3\s*·\s*MZN$/i.test(out)) return 'Step 3 · MZN prefunded'
+  if (/^Step 4\s*·\s*Send(?=\s*·|$)/i.test(out)) {
+    return out.replace(/^Step 4\s*·\s*Send/i, 'Step 4 · Send ZAR')
+  }
+  if (/^Step 5\s*·\s*Recycle(?=\s*·|$)/i.test(out)) {
+    return out.replace(/^Step 5\s*·\s*Recycle/i, 'Step 5 · Replace ZAR')
+  }
+  if (/^Step 6\s*·\s*What happened$/i.test(out)) return 'Step 6 · Day lookback'
+  if (/^Sell ZAR\b/i.test(out)) return 'Step 4 · Send ZAR'
+  if (/^Restock ZAR\b/i.test(out)) return 'Step 5 · Replace ZAR'
+  if (/^ZAR sourced at COST\b/i.test(out)) return 'Step 5 · Replace ZAR'
+  if (/^Conversion Cycle\b/i.test(out)) return 'Step 4 · Send ZAR'
 
   // Soft-normalize older freeform bank / window / friction lines still in Firestore.
   if (/^ZAR\s+en route\b/i.test(out)) return 'ZAR booked'
-  if (/^Swipe approved\b/i.test(out) && !/^Bank\b/i.test(out)) return out
+  if (/^Swipe approved\b/i.test(out) && !/^Bank\b/i.test(out)) {
+    return out.replace(/^Swipe approved/i, 'Card swipe approved')
+  }
   if (/^FNB\b/i.test(out)) return out.replace(/^FNB\b/i, 'Bank · FNB')
   if (/^Capitec\b/i.test(out)) return out.replace(/^Capitec\b/i, 'Bank · Capitec')
   if (/^Moza\b/i.test(out)) return out.replace(/^Moza\b/i, 'Bank · Moza')
