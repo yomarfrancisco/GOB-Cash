@@ -48,4 +48,12 @@ describe('bank email simulation safety', () => {
     assert.match(routing, /Object\.entries\(checkpoint\.events\)/)
     assert.match(routing, /\.set\(data, \{ merge: false \}\)/)
   })
+
+  it('snapshots and exactly restores the EN ROUTE wallet on Real time', () => {
+    const routing = source('../tx/adminConversionRouting.ts')
+    assert.match(routing, /earningsWallet\?: Record<string, unknown> \| null/)
+    assert.match(routing, /earningsWallet: earningsSnap\.exists/)
+    assert.match(routing, /earningsRef\.set\(checkpoint\.earningsWallet, \{ merge: false \}\)/)
+    assert.match(routing, /await earningsRef\.delete\(\)/)
+  })
 })

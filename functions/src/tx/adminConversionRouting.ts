@@ -6384,16 +6384,19 @@ type LiveCheckpoint = {
   events?: Record<string, Record<string, unknown>>
   cashZar: number
   cashMzn: number
+  /** Full EN ROUTE wallet before Planned mode; null means it did not exist. */
+  earningsWallet?: Record<string, unknown> | null
 }
 
 async function captureLiveCheckpoint(adminUid: string, testRunId: string): Promise<LiveCheckpoint> {
   const testRef = db.collection(TESTS).doc(testRunId)
-  const [testSnap, cyclesSnap, eventsSnap, zarSnap, mznSnap] = await Promise.all([
+  const [testSnap, cyclesSnap, eventsSnap, zarSnap, mznSnap, earningsSnap] = await Promise.all([
     testRef.get(),
     testRef.collection('cycles').get(),
     db.collection('users').doc(adminUid).collection('activityEvents').where('testRunId', '==', testRunId).get(),
     db.collection('users').doc(adminUid).collection('wallets').doc('cashZAR').get(),
     db.collection('users').doc(adminUid).collection('wallets').doc('cashMZN').get(),
+    db.collection('users').doc(adminUid).collection('wallets').doc('earnings').get(),
   ])
   const test = { ...(testSnap.data() || {}) } as Record<string, unknown>
   delete test.liveCheckpoint
@@ -6415,6 +6418,7 @@ async function captureLiveCheckpoint(adminUid: string, testRunId: string): Promi
     events,
     cashZar: roundMoney(Number(zarSnap.exists ? zarSnap.data()?.fiatBalance || 0 : 0)),
     cashMzn: roundMoney(Number(mznSnap.exists ? mznSnap.data()?.fiatBalance || 0 : 0)),
+    earningsWallet: earningsSnap.exists ? { ...(earningsSnap.data() || {}) } : null,
   }
 }
 
@@ -6472,6 +6476,20 @@ async function restoreLiveCheckpoint(
     { fiatBalance: checkpoint.cashMzn, updatedAt: new Date().toISOString() },
     { merge: true }
   )
+  // Checkpoints created before this field existed are left unchanged. New
+  // Planned runs restore EN ROUTE exactly, including settlement metadata.
+  if (Object.prototype.hasOwnProperty.call(checkpoint, 'earningsWallet')) {
+    const earningsRef = db
+      .collection('users')
+      .doc(adminUid)
+      .collection('wallets')
+      .doc('earnings')
+    if (checkpoint.earningsWallet) {
+      await earningsRef.set(checkpoint.earningsWallet, { merge: false })
+    } else {
+      await earningsRef.delete()
+    }
+  }
 
   const restored = {
     ...checkpoint.test,
