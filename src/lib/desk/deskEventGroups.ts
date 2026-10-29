@@ -231,23 +231,23 @@ export function classifyDeskEvent(item: ActivityItem): Classified | null {
     return { kind: 'zar_cleared', source: 'wallet', dayKey }
   }
 
-  if (/^Bank\s*[·.•]\s*Moza\b/i.test(title) && /VISA|purchase/i.test(title + body)) {
+  if (/^(?:Bank\s*[·.•]\s*)?Moza\b/i.test(title) && /VISA|purchase/i.test(title + body)) {
     return { kind: 'swipe_approved', source: 'Moza', dayKey }
   }
 
-  if (/^Bank\s*[·.•]\s*FNB\b/i.test(title) && /approved/i.test(title)) {
+  if (/^(?:Bank\s*[·.•]\s*)?FNB\b/i.test(title) && /approved/i.test(title)) {
     const merchant = parseMerchant(body, title)
     if (OTHER_COUNTERPARTY_RE.test(body) && !OUR_MERCHANT_RE.test(merchant)) {
       return { kind: 'other_movements', source: 'FNB', dayKey }
     }
     return { kind: 'swipe_approved', source: 'FNB', dayKey }
   }
-  if (/^Bank\s*[·.•]\s*Capitec\b/i.test(title) && /approved/i.test(title)) {
+  if (/^(?:Bank\s*[·.•]\s*)?Capitec\b/i.test(title) && /approved/i.test(title)) {
     return { kind: 'swipe_approved', source: 'Capitec', dayKey }
   }
 
   if (
-    /^Bank\s*[·.•]\s*FNB\b/i.test(title) &&
+    /^(?:Bank\s*[·.•]\s*)?FNB\b/i.test(title) &&
     (/POS paid in/i.test(title) || /reserved/i.test(title))
   ) {
     if (OUR_MERCHANT_RE.test(body) && /reserved/i.test(title)) {
@@ -334,12 +334,12 @@ function buildRow(item: ActivityItem, kind: DeskGroupKind): DeskGroupRow {
   }
 }
 
-function groupTitle(kind: DeskGroupKind, count: number): string {
+function groupTitle(kind: DeskGroupKind, source: string): string {
   if (kind === 'zar_booked') return 'ZAR booked'
   if (kind === 'zar_cleared') return 'ZAR cleared'
   if (kind === 'swipe_matched') return 'Swipe matched'
   if (kind === 'other_movements') return 'Other movements'
-  return count === 1 ? 'Card approved' : 'Cards approved'
+  return `${source} approved`
 }
 
 function groupSpeaker(source: string, kind: DeskGroupKind): string {
@@ -521,7 +521,7 @@ export function groupDeskEvents(items: ActivityItem[]): ActivityItem[] {
       kind: classified.kind,
       source: classified.source,
       dayKey: classified.dayKey,
-      title: groupTitle(classified.kind, rows.length),
+      title: groupTitle(classified.kind, classified.source),
       speaker: groupSpeaker(classified.source, classified.kind),
       avatarSrc: avatar.src,
       avatarKind: avatar.avatarKind,

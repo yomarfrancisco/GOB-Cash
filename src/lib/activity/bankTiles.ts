@@ -31,7 +31,7 @@ export type BankTile = {
 export function bankTileForTitle(title: string | undefined | null): BankTile | null {
   if (!title) return null
   const m = title.match(
-    /^Bank\s*[·.•]\s*(FNB(?:\s+MZ)?|Capitec|Moza|BIM|SBM|Standard Bank|BCI|ABSA|Vista(?:\s+Bank)?|POS)\b/i
+    /^(?:Bank\s*[·.•]\s*)?(FNB(?:\s+MZ)?|Capitec|Moza|BIM|SBM|Standard Bank|BCI|ABSA|Vista(?:\s+Bank)?|POS)\b/i
   )
   if (!m) return null
   const raw = m[1].trim()

@@ -126,6 +126,25 @@ describe('deskEventGroups', () => {
     assert.equal(out.filter((x) => x.kind === 'EN_ROUTE_BOOKED').length, 0)
   })
 
+  it('uses the bank name for grouped approvals', () => {
+    const day = Date.UTC(2026, 9, 27, 12, 0)
+    const out = groupDeskEvents([
+      item({
+        id: 'approved-1',
+        title: 'Bank · FNB approved',
+        body: 'FNB approved R100.00 at ECONOMETRICA on card 1234.',
+        createdAt: day,
+      }),
+      item({
+        id: 'approved-2',
+        title: 'Bank · FNB approved',
+        body: 'FNB approved R200.00 at IMANI on card 1234.',
+        createdAt: day + 60_000,
+      }),
+    ])
+    assert.equal(out[0].title, 'FNB approved')
+  })
+
   it('deskPairSwipesEnabled is true outside production by default', () => {
     assert.equal(typeof deskPairSwipesEnabled(), 'boolean')
   })

@@ -1340,14 +1340,31 @@ async function writeSwipeApprovedNotice(params: {
   const ref = db.collection('users').doc(params.adminUid).collection('activityEvents').doc(id)
   if ((await ref.get()).exists) return
   const planned = plannedWriteFields(params.testData, params.cycleNumber)
+  const assignments = Array.isArray(params.testData.replenishAssignments)
+    ? (params.testData.replenishAssignments as Array<{ cardId?: unknown }>)
+    : []
+  const bankLabels = [
+    ...new Set(
+      assignments
+        .map((row) => DEFAULT_CARDS.find((card) => card.id === Number(row.cardId))?.mozBank)
+        .filter((bank): bank is string => Boolean(bank))
+        .map((bank) =>
+          bank
+            .replace(/^FNB Mozambique$/i, 'FNB')
+            .replace(/^Standard Bank Mozambique$/i, 'SBM')
+        )
+    ),
+  ]
+  const bankLabel = bankLabels.join(' + ') || 'Bank'
+  const outcomeTitle = `${bankLabel} approved`
   await ref.set({
     id,
     kind: CONVERSION_ROUTING_KIND,
-    title: 'Card approved',
-    body: 'Card POS approved the restock swipe.',
+    title: outcomeTitle,
+    body: `${bankLabel} approved the restock swipe.`,
     deskStatusChip: 'Approved',
-    dropdownTitle: 'Card approved',
-    dropdownBody: 'Card POS approved the restock swipe.',
+    dropdownTitle: outcomeTitle,
+    dropdownBody: `${bankLabel} approved the restock swipe.`,
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
     deskSpeaker: 'leo',

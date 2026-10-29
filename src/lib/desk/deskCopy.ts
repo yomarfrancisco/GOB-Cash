@@ -27,6 +27,12 @@ export function displayDeskTitle(title: string | undefined | null): string {
   if (/^Conversion Cycle\b/i.test(out)) return 'Step 4 · Send ZAR'
 
   // Soft-normalize older freeform bank / window / friction lines still in Firestore.
+  const bankOutcome = out.match(
+    /^(?:Bank\s*[·.•]\s*)?(FNB(?:\s+MZ)?|Capitec|Moza|BIM|SBM|Standard Bank|BCI|ABSA|Vista(?:\s+Bank)?|POS)\s+(approved|declined)\b(.*)$/i
+  )
+  if (bankOutcome) {
+    return `${bankOutcome[1]} ${bankOutcome[2].toLowerCase()}${bankOutcome[3]}`
+  }
   if (/^ZAR\s+en route\b/i.test(out)) return 'ZAR booked'
   if (/^Card swipe approved\b/i.test(out)) {
     return out.replace(/^Card swipe approved/i, 'Card approved')
