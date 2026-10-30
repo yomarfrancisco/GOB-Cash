@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import Image from 'next/image'
 import '@/styles/action-sheet.css'
@@ -22,20 +22,23 @@ export default function ActionSheet({ open, title, onClose, onOverlayClick, chil
   const [isClosing, setIsClosing] = useState(false)
   const [shouldRender, setShouldRender] = useState(false)
 
-  // Handle open/close state with animation
-  useEffect(() => {
+  // Open before paint so header/content is present on the first frame.
+  // Closing still waits for the slide-down animation.
+  useLayoutEffect(() => {
     if (open) {
       setShouldRender(true)
       setIsClosing(false)
-    } else if (shouldRender) {
-      // Start close animation
-      setIsClosing(true)
-      const timer = setTimeout(() => {
-        setShouldRender(false)
-        setIsClosing(false)
-      }, 600) // Match animation duration
-      return () => clearTimeout(timer)
     }
+  }, [open])
+
+  useEffect(() => {
+    if (open || !shouldRender) return
+    setIsClosing(true)
+    const timer = setTimeout(() => {
+      setShouldRender(false)
+      setIsClosing(false)
+    }, 600) // Match animation duration
+    return () => clearTimeout(timer)
   }, [open, shouldRender])
 
   // lock background scroll while open

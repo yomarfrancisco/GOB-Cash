@@ -5,7 +5,7 @@ import ActionSheet from '../ActionSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useActivityUnreadStore } from '@/store/activityUnread'
 import { NotificationsList } from './NotificationsList'
-import { DESK_RING, type DeskAgent } from '@/lib/desk/threadModel'
+import { DESK_RING, DESK_TEAM, type DeskAgent } from '@/lib/desk/threadModel'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { useDeskFocusStore } from '@/store/deskFocus'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
@@ -58,6 +58,19 @@ export default function NotificationsSheet() {
     }
     wasOpenRef.current = isNotificationsOpen
   }, [isNotificationsOpen])
+
+  // Warm desk header faces while the sheet is closed so reopen paints them
+  // from cache instead of waiting on the first Image fetch.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    for (const id of DESK_RING) {
+      const src = DESK_TEAM[id].avatar
+      if (!src) continue
+      const img = new window.Image()
+      img.decoding = 'async'
+      img.src = src
+    }
+  }, [])
 
   // Keep the feed warm while the sheet is closed, so opening the desk is immediate.
   useEffect(() => {
@@ -148,7 +161,12 @@ export default function NotificationsSheet() {
             <div className={listStyles.deskTeamStack} aria-hidden>
               {DESK_RING.map((id) => (
                 <div key={id} className={`${listStyles.deskStackFace} ${slotFor(id, active)}`}>
-                  <SpeakerAvatar agent={id} size={id === active ? 56 : 40} speaking={id === active} />
+                  <SpeakerAvatar
+                    agent={id}
+                    size={id === active ? 56 : 40}
+                    speaking={id === active}
+                    priority
+                  />
                 </div>
               ))}
             </div>

@@ -17,11 +17,14 @@ export function SpeakerAvatar({
   size,
   speaking,
   className,
+  priority = false,
 }: {
   agent: DeskAgent
   size: 40 | 44 | 56
   speaking?: boolean
   className?: string
+  /** Header faces should paint immediately on desk open. */
+  priority?: boolean
 }) {
   const who = DESK_TEAM[agent]
   const mono = MONOGRAM[agent]
@@ -40,6 +43,8 @@ export function SpeakerAvatar({
           sizes={`${size}px`}
           className={styles.img}
           unoptimized
+          priority={priority}
+          loading={priority ? 'eager' : undefined}
         />
       ) : (
         <span className={styles.mono} style={{ background: mono.fill, fontSize: size >= 56 ? 16 : 12 }}>
