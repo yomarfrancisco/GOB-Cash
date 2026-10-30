@@ -28,5 +28,10 @@
     "@types/node": "^20",
     "typescript": "^5.0.0"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "protobufjs"
+    ]
+  },
   "private": true
 }
