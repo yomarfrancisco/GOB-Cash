@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import ActionSheet from '../ActionSheet'
 import { useNotificationsStore } from '@/state/notifications'
 import { useActivityUnreadStore } from '@/store/activityUnread'
@@ -18,6 +18,7 @@ import {
 } from '@/lib/transactions/clientFunctions'
 import { useDeskPlanStore } from '@/store/deskPlan'
 import { resetDeskRevealForLiveRestore } from '@/lib/desk/useProgressiveReveal'
+import { isDeskRevealHeld } from '@/lib/desk/deskRevealGate'
 import { useAuthStore } from '@/store/auth'
 import { SpeakerAvatar } from './SpeakerAvatar'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
@@ -42,7 +43,21 @@ export default function NotificationsSheet() {
   const setLive = useDeskPlanStore((s) => s.setLive)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [, setSummary] = useState<ConversionRoutingSummary | null>(null)
+  const [deskSessionKey, setDeskSessionKey] = useState(0)
+  const wasOpenRef = useRef(false)
   const headerDate = formatSastShortDayLabel(focusAt ?? Date.now())
+
+  // A normal desk open is a fresh snapshot: existing history renders fully
+  // formed. Preserve the reveal queue only when the desk was temporarily
+  // closed by its own keypad during an active live/planned sequence.
+  useLayoutEffect(() => {
+    const opening = isNotificationsOpen && !wasOpenRef.current
+    if (opening && !isDeskRevealHeld()) {
+      resetDeskRevealForLiveRestore()
+      setDeskSessionKey((key) => key + 1)
+    }
+    wasOpenRef.current = isNotificationsOpen
+  }, [isNotificationsOpen])
 
   // Keep the feed warm while the sheet is closed, so opening the desk is immediate.
   useEffect(() => {
@@ -76,6 +91,7 @@ export default function NotificationsSheet() {
           const live = await admin_exitDeskPlan()
           if (cancelled) return
           resetDeskRevealForLiveRestore()
+          setDeskSessionKey((key) => key + 1)
           setSummary(live)
           applyPlanSummary(live)
           setLive()
@@ -139,7 +155,9 @@ export default function NotificationsSheet() {
             <p className={listStyles.deskHeaderDate}>{headerDate}</p>
           </div>
         </div>
-        {isAuthed ? <NotificationsList prefetchedItems={remoteItems} /> : null}
+        {isAuthed ? (
+          <NotificationsList key={deskSessionKey} prefetchedItems={remoteItems} />
+        ) : null}
       </div>
     </ActionSheet>
   )
