@@ -28,5 +28,6 @@
     "@types/node": "^20",
     "typescript": "^5.0.0"
   },
+  "packageManager": "pnpm@9.15.9",
   "private": true
 }
