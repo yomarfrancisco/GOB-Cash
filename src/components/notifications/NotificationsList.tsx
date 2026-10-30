@@ -752,8 +752,14 @@ function ActivityItemCard({
     if (isConversionInFlight() || useRoutingPlaybackStore.getState().play) return
     const live =
       showSendKeypad || showRestockKeypad || showFundMznKeypad
+    // Catch-up keypads belong to Next 24h / 72h only. Live autonomous rows
+    // must never reopen the keypad while revealing — that stacks sheets and
+    // crashes mobile Safari.
     const catchupPlayback =
-      catchupActive === true && !live && isCatchupKeypadCard(item)
+      planMode === 'planned' &&
+      catchupActive === true &&
+      !live &&
+      isCatchupKeypadCard(item)
     if (!live && !catchupPlayback) return
     const targetId = showSendKeypad ? confirmItem?.id || item.id : item.id
     const cycleKey = routingKeypadOfferKey(
@@ -803,6 +809,7 @@ function ActivityItemCard({
     openRestockKeypad,
     openSendZarKeypad,
     planBusy,
+    planMode,
     showFundMznKeypad,
     showRestockKeypad,
     showSendKeypad,

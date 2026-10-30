@@ -24,7 +24,6 @@ export default function ActionSheet({ open, title, onClose, onOverlayClick, chil
 
   // Handle open/close state with animation
   useEffect(() => {
-    console.log('[UI] ActionSheet open change', { open, shouldRender })
     if (open) {
       setShouldRender(true)
       setIsClosing(false)

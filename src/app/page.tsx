@@ -343,9 +343,10 @@ function HomeContent() {
     const playback = settlementPlaybackForTransition(previous, current)
     if (!playback) return
 
-    const generation = settlementPlaybackGenerationRef.current
-    settlementPlaybackQueueRef.current = settlementPlaybackQueueRef.current
-      .catch(() => undefined)
+    // Keep only the latest transition. Queuing every 5-minute micro-cycle
+    // on mobile Safari exhausts the flip queue and freezes the tab.
+    const generation = ++settlementPlaybackGenerationRef.current
+    settlementPlaybackQueueRef.current = Promise.resolve()
       .then(async () => {
         if (generation !== settlementPlaybackGenerationRef.current) return
         flipControllerRef.current?.pause()
@@ -360,6 +361,7 @@ function HomeContent() {
           flipControllerRef.current?.resume()
         }
       })
+      .catch(() => undefined)
   }, [demoMode, isAuthed, wallets, walletsHydrated])
 
   useEffect(() => {
@@ -367,13 +369,6 @@ function HomeContent() {
       settlementPlaybackGenerationRef.current += 1
     }
   }, [])
-
-  // Log source of balances (Firestore for authenticated users, demo for unauthenticated)
-  if (isAuthed && wallets && !demoMode) {
-    console.log('[Wallet] Using Firestore wallets:', wallets)
-  } else {
-    console.log('[Wallet] Using demo wallets (totalCents):', alloc.totalCents)
-  }
 
   // Initialize portfolio store from wallet allocation
   // Only initialize if isBalanceReady (prevents demo values from being used post-auth)
