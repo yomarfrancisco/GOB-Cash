@@ -7,7 +7,11 @@ import {
   startWindow,
   WINDOW_SEED,
 } from '../throughput/prospective/window'
-import type { ProspectiveBranch, ProspectiveRoute } from '../throughput/prospective/types'
+import {
+  horizonOf,
+  type ProspectiveBranch,
+  type ProspectiveRoute,
+} from '../throughput/prospective/types'
 import {
   DESK_MONTH_HORIZON_DAYS,
   DESK_MONTH_OPERATING_DAYS,
@@ -134,7 +138,10 @@ function authorisedAmount(state: { authorisedZar?: number; availableCapital: num
 
 function advanceToPrint(window: ProspectiveBranch): ProspectiveBranch {
   let next = advanceWindow(window)
-  while (next.snapshot.days.at(-1)?.weekend && next.completedThroughDay < 14) {
+  while (
+    next.snapshot.days.at(-1)?.weekend &&
+    next.completedThroughDay < horizonOf(next)
+  ) {
     next = advanceWindow(next)
   }
   return next

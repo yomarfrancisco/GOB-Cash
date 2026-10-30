@@ -1570,13 +1570,14 @@ function writeIssuedCycle(
         workingLiquidityZar: state.authorisedZar || state.availableCapital,
       },
       awaitingCycleNumber: plan.cycleNumber,
-      awaitingKind: blocked ? 'deploy' : 'step',
+      awaitingKind: blocked ? null : 'step',
       cyclePhase,
-      deskStep: blocked ? 4 : 1,
+      deskStep: 1,
       expectedOrderZar: orderZar,
       expectedOrderMzn: orderLedger?.mznAtSell ?? orderMzn,
       orderSellRate: quotes.sellRate,
       orderLedger,
+      holdReason: plan.holdReason || null,
       salesCommittedZar: 0,
       channelMix: plan.channelMix || 'card',
       openEftZar: plan.openEftZar || 0,
@@ -3543,6 +3544,38 @@ export async function ensureAutonomousRoutingWindow(startingCapitalZar: number):
     capital,
     `Autonomous window opened from ${formatZar(capital)} spendable ZAR inventory.`
   )
+}
+
+/**
+ * Recover a held weekend print without opening a new capital window.
+ * Older month windows could stop on Sunday after Day 14 because weekend
+ * skipping used the legacy 14-day horizon.
+ */
+export async function advanceAutonomousWeekendHold(): Promise<boolean> {
+  const adminUid = ROUTING_ADMIN_UID
+  const testRunId = await currentTestId(adminUid)
+  if (!testRunId) return false
+
+  const testRef = db.collection(TESTS).doc(testRunId)
+  const snap = await testRef.get()
+  const data = snap.data() || {}
+  if (data.status !== 'active' || data.cyclePhase !== 'hold') return false
+  if (num(data.expectedOrderZar, 0) > 0 || data.orderLedger) return false
+
+  const cycleNumber = num(data.awaitingCycleNumber, 0)
+  const cycleSnap =
+    cycleNumber > 0
+      ? await testRef.collection('cycles').doc(String(cycleNumber)).get()
+      : null
+  const holdReason = String(data.holdReason || cycleSnap?.data()?.holdReason || '')
+  if (!/^Weekend\./i.test(holdReason)) return false
+
+  const now = admin.firestore.Timestamp.now()
+  const state = { ...stateFromDoc(data), windowNeedsAdvance: true }
+  const issued = await issueCycle(adminUid, testRunId, state, now, {
+    immediateAttempts: true,
+  })
+  return issued.plan.deployedAmount > 0 && issued.plan.cardCountUsed > 0
 }
 
 /** Desk-facing EFT lands date — never paste shock lastSplitSummary (EN ROUTE R100k…). */

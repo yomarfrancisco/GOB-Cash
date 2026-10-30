@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
 import { ROUTING_ADMIN_UID } from '../routing/conversionRouter'
 import {
+  advanceAutonomousWeekendHold,
   advanceSequentialStep,
   confirmOpenCycle,
   ensureAutonomousRoutingWindow,
@@ -207,6 +208,16 @@ export async function runAutonomousDailySettlement(request: RunRequest): Promise
         break
       }
       testRunId = run.testRunId
+      if (
+        run.data.cyclePhase === 'hold' &&
+        number(run.data.expectedOrderZar) <= 0 &&
+        !run.data.orderLedger
+      ) {
+        const advanced = await advanceAutonomousWeekendHold()
+        outcome = advanced ? 'weekend_hold_advanced' : 'idle'
+        if (!advanced) break
+        continue
+      }
       exposure = await loadExposure(run)
       const decision = decideAutonomousAction({
         status: String(run.data.status || ''),

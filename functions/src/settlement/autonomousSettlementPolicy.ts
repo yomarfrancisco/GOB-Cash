@@ -25,12 +25,14 @@ export type AutonomousDecision =
  */
 export function decideAutonomousAction(snapshot: AutonomousDeskSnapshot): AutonomousDecision {
   if (snapshot.status !== 'active') return 'idle'
+  if (snapshot.cyclePhase === 'hold') return 'idle'
 
   if (snapshot.awaitingKind === 'replenish') {
     return 'confirm_from_bank_evidence'
   }
 
   if (snapshot.cyclePhase === 'order_open' || snapshot.cyclePhase === 'awaiting_invoice') {
+    if (!(snapshot.expectedZar > 0)) return 'idle'
     return snapshot.spendableZar + 0.005 >= snapshot.expectedZar
       ? 'advance_internal'
       : 'pending_funding'
@@ -47,6 +49,7 @@ export function decideAutonomousAction(snapshot: AutonomousDeskSnapshot): Autono
     snapshot.cyclePhase === 'awaiting_continue' ||
     snapshot.awaitingKind === 'deploy'
   ) {
+    if (!(snapshot.expectedZar > 0)) return 'idle'
     return snapshot.spendableZar + 0.005 >= snapshot.expectedZar
       ? 'execute_integrated_send'
       : 'pending_funding'

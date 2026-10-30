@@ -71,6 +71,29 @@ describe('autonomous settlement policy', () => {
       'confirm_from_bank_evidence'
     )
   })
+
+  it('never executes an empty held cycle', () => {
+    assert.equal(
+      decideAutonomousAction({
+        ...base,
+        cyclePhase: 'hold',
+        deskStep: 4,
+        awaitingKind: 'deploy',
+        expectedZar: 0,
+      }),
+      'idle'
+    )
+    assert.equal(
+      decideAutonomousAction({
+        ...base,
+        cyclePhase: 'awaiting_send',
+        deskStep: 4,
+        awaitingKind: 'deploy',
+        expectedZar: 0,
+      }),
+      'idle'
+    )
+  })
 })
 
 describe('autonomous settlement identity and exposure', () => {
