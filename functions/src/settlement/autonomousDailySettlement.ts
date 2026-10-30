@@ -321,9 +321,14 @@ export async function resumeAutonomousSettlementFromBankEvidence(evidenceId: str
 
 async function runScheduledTick(): Promise<null> {
   const nowMs = Date.now()
-  await runAutonomousDailySettlement({
+  const result = await runAutonomousDailySettlement({
     runId: autonomousTickRunId(nowMs),
     reason: 'scheduled_tick',
+  })
+  console.log('[autonomousSettlement] five-minute tick', {
+    runId: autonomousTickRunId(nowMs),
+    status: result.status,
+    outcome: result.outcome || null,
   })
   return null
 }
@@ -331,7 +336,7 @@ async function runScheduledTick(): Promise<null> {
 export const autonomousSettlementEvery5Minutes = functions
   .region('us-central1')
   .runWith({ timeoutSeconds: 120, memory: '512MB' })
-  .pubsub.schedule('every 5 minutes')
+  .pubsub.schedule('*/5 * * * *')
   .timeZone('Africa/Johannesburg')
   .onRun(() => runScheduledTick())
 
