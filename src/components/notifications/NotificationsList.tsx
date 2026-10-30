@@ -63,6 +63,8 @@ const KYC_GATE_ID = 'kyc-desk-gate'
 
 const ADMIN_AVATAR_PATH = MOZPAGA_ADMIN_AVATAR
 const ACTIVITY_PAGE_SIZE = 16
+/** First paint cap. A full 24h autonomous feed remount crashes iPhone Safari. */
+const DESK_OPEN_MAX_ITEMS = 28
 
 function TypewriterCompleteSignal({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
@@ -1502,9 +1504,11 @@ export function NotificationsList({
   const isSearching = searchQuery.trim().length > 0
   const catchupCount = useMemo(() => {
     const cutoff = Date.now() - DESK_CATCHUP_MS
-    return feedItems.filter(
+    const recent = feedItems.filter(
       (item) => item.thinking !== true && item.id !== KYC_GATE_ID && (item.createdAt || 0) >= cutoff
     ).length
+    // Cap first paint only. "Older" can still raise visibleCount past this.
+    return Math.min(recent, DESK_OPEN_MAX_ITEMS)
   }, [feedItems])
   const pagedItems = useMemo(() => {
     const windowSize = isSearching ? feedItems.length : Math.max(visibleCount, catchupCount)

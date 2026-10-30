@@ -47,14 +47,14 @@ export default function NotificationsSheet() {
   const wasOpenRef = useRef(false)
   const headerDate = formatSastShortDayLabel(focusAt ?? Date.now())
 
-  // A normal desk open is a fresh snapshot: existing history renders fully
-  // formed. Preserve the reveal queue only when the desk was temporarily
-  // closed by its own keypad during an active live/planned sequence.
+  // A normal desk open must seed history as already settled. Do not remount
+  // the list here — on iPhone, remounting the full feed on every reopen OOMs.
+  // Preserve the reveal queue only when the desk was temporarily closed by
+  // its own keypad during an active live/planned sequence.
   useLayoutEffect(() => {
     const opening = isNotificationsOpen && !wasOpenRef.current
     if (opening && !isDeskRevealHeld()) {
       resetDeskRevealForLiveRestore()
-      setDeskSessionKey((key) => key + 1)
     }
     wasOpenRef.current = isNotificationsOpen
   }, [isNotificationsOpen])
