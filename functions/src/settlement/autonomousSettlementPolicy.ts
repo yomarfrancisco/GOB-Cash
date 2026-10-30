@@ -9,7 +9,7 @@ export type AutonomousDeskSnapshot = {
   spendableMzn: number
 }
 
-export const AUTONOMOUS_WEEKDAY_BATCHES = ['09:00', '15:00'] as const
+export const AUTONOMOUS_EVALUATION_INTERVAL = 'every 5 minutes'
 
 export type AutonomousDecision =
   | 'advance_internal'
@@ -72,21 +72,17 @@ export function sastDateKey(nowMs: number): string {
   }).format(new Date(nowMs))
 }
 
-export function scheduledRunId(slot: '09' | '15', nowMs: number): string {
-  return `${sastDateKey(nowMs)}-${slot}00`
-}
-
-export function dueScheduledSlots(nowMs: number): Array<'09' | '15'> {
+export function autonomousTickRunId(nowMs: number): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Africa/Johannesburg',
-    weekday: 'short',
     hour: '2-digit',
+    minute: '2-digit',
     hourCycle: 'h23',
   }).formatToParts(new Date(nowMs))
-  const weekday = parts.find((part) => part.type === 'weekday')?.value || ''
-  const hour = Number(parts.find((part) => part.type === 'hour')?.value || -1)
-  if (weekday === 'Sat' || weekday === 'Sun' || hour < 9) return []
-  return hour >= 15 ? ['09', '15'] : ['09']
+  const hour = parts.find((part) => part.type === 'hour')?.value || '00'
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value || 0)
+  const fiveMinute = String(Math.floor(minute / 5) * 5).padStart(2, '0')
+  return `${sastDateKey(nowMs)}-${hour}${fiveMinute}`
 }
 
 export type ExposureSnapshot = {

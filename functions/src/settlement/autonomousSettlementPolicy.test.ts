@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+  autonomousTickRunId,
   canClaimAutonomousRun,
   decideAutonomousAction,
-  dueScheduledSlots,
   normalizeExposure,
-  scheduledRunId,
   zarCustodyTotal,
 } from './autonomousSettlementPolicy'
 
@@ -75,17 +74,17 @@ describe('autonomous settlement policy', () => {
 })
 
 describe('autonomous settlement identity and exposure', () => {
-  it('builds stable SAST schedule keys across UTC midnight', () => {
+  it('builds stable five-minute SAST tick keys across UTC midnight', () => {
     const lateThursdayUtc = Date.UTC(2026, 9, 29, 22, 30)
-    assert.equal(scheduledRunId('09', lateThursdayUtc), '2026-10-30-0900')
-    assert.equal(scheduledRunId('09', lateThursdayUtc), scheduledRunId('09', lateThursdayUtc))
-  })
-
-  it('recovers only due weekday schedule slots', () => {
-    assert.deepEqual(dueScheduledSlots(Date.UTC(2026, 9, 30, 6, 59)), [])
-    assert.deepEqual(dueScheduledSlots(Date.UTC(2026, 9, 30, 7, 0)), ['09'])
-    assert.deepEqual(dueScheduledSlots(Date.UTC(2026, 9, 30, 13, 0)), ['09', '15'])
-    assert.deepEqual(dueScheduledSlots(Date.UTC(2026, 9, 31, 13, 0)), [])
+    assert.equal(autonomousTickRunId(lateThursdayUtc), '2026-10-30-0030')
+    assert.equal(
+      autonomousTickRunId(Date.UTC(2026, 9, 30, 7, 12)),
+      '2026-10-30-0910'
+    )
+    assert.equal(
+      autonomousTickRunId(Date.UTC(2026, 9, 30, 0, 37)),
+      '2026-10-30-0235'
+    )
   })
 
   it('keeps wallet balances spendable while reporting exposure separately', () => {

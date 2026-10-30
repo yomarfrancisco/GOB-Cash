@@ -50,8 +50,7 @@ export { getBankWithdrawalProof } from './tx/getBankWithdrawalProof'
 export { tx_createInternalConversion } from './tx/createInternalConversion'
 export { tx_settleEnRouteSweep } from './tx/enRouteSettle'
 export {
-  autonomousSettlementAt09,
-  autonomousSettlementAt15,
+  autonomousSettlementEvery5Minutes,
   autonomousSettlementWatchdog,
 } from './settlement/autonomousDailySettlement'
 export { getConversionProof } from './tx/getConversionProof'

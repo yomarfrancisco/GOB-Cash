@@ -191,7 +191,7 @@ import {
   type ConfirmInstruction,
 } from '../operatingCalendar'
 import { expectedMznForOrder, stepForPhase, type CyclePhase } from '../routing/continuousCycle'
-import { AUTONOMOUS_WEEKDAY_BATCHES } from '../settlement/autonomousSettlementPolicy'
+import { AUTONOMOUS_EVALUATION_INTERVAL } from '../settlement/autonomousSettlementPolicy'
 import { askCardTitle, sideCardTitle, stepCardTitle, windowCardTitle } from '../routing/deskTitles'
 import { buildOrderStepMessage } from '../routing/routingStepMessage'
 import {
@@ -6735,7 +6735,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       title: planTitle,
       body: [
         `Simulating the next 24 hours from Day ${startCycle}.`,
-        `Autonomous settlement batches run at ${AUTONOMOUS_WEEKDAY_BATCHES.join(' and ')} SAST on weekdays.`,
+        `Autonomous settlement evaluates liquidity ${AUTONOMOUS_EVALUATION_INTERVAL}, 24/7.`,
         `Card R${Math.round(num(start.expectedOrderZar, 0)).toLocaleString('en-ZA')} · EFT R${Math.round(startEftZar).toLocaleString('en-ZA')}.`,
         'Bank cover is assumed through Order → Invoice → MZN; Send ZAR and Restock open the keypad.',
         'EFT advances open→submitted→settled only in Planned (synthetic cover). Live waits for bank_transfer.',
@@ -6760,7 +6760,7 @@ export async function simulateNextDeskDay(adminUid: string): Promise<Record<stri
       planRunId,
       deskPlanChip: plannedHorizonHours >= 72 ? `72h plan · day 1` : '24h plan',
       deskChannel: startEftZar > 0 ? 'mixed' : 'card',
-      autonomousBatchSlots: [...AUTONOMOUS_WEEKDAY_BATCHES],
+      autonomousEvaluationInterval: AUTONOMOUS_EVALUATION_INTERVAL,
       plannedClockMs,
       openEftZar: startEftZar,
       testRunId,

@@ -17,9 +17,8 @@ import {
 import {
   canClaimAutonomousRun,
   decideAutonomousAction,
-  dueScheduledSlots,
+  autonomousTickRunId,
   normalizeExposure,
-  scheduledRunId,
   type ExposureSnapshot,
 } from './autonomousSettlementPolicy'
 
@@ -31,8 +30,7 @@ const LEASE_MS = 10 * 60 * 1000
 const MAX_INTERNAL_STEPS = 8
 
 type RunReason =
-  | 'scheduled_09'
-  | 'scheduled_15'
+  | 'scheduled_tick'
   | 'bank_evidence'
   | 'settlement_evidence'
   | 'watchdog'
@@ -243,8 +241,7 @@ export async function runAutonomousDailySettlement(request: RunRequest): Promise
       if (decision === 'advance_internal') {
         if (
           (run.data.cyclePhase === 'awaiting_day_close' || number(run.data.deskStep) === 6) &&
-          request.reason !== 'scheduled_09' &&
-          request.reason !== 'scheduled_15'
+          request.reason !== 'scheduled_tick'
         ) {
           outcome = 'waiting_next_scheduled_batch'
           break
@@ -322,28 +319,21 @@ export async function resumeAutonomousSettlementFromBankEvidence(evidenceId: str
   })
 }
 
-async function runScheduled(slot: '09' | '15'): Promise<null> {
+async function runScheduledTick(): Promise<null> {
   const nowMs = Date.now()
   await runAutonomousDailySettlement({
-    runId: scheduledRunId(slot, nowMs),
-    reason: slot === '09' ? 'scheduled_09' : 'scheduled_15',
+    runId: autonomousTickRunId(nowMs),
+    reason: 'scheduled_tick',
   })
   return null
 }
 
-export const autonomousSettlementAt09 = functions
+export const autonomousSettlementEvery5Minutes = functions
   .region('us-central1')
   .runWith({ timeoutSeconds: 120, memory: '512MB' })
-  .pubsub.schedule('0 9 * * 1-5')
+  .pubsub.schedule('every 5 minutes')
   .timeZone('Africa/Johannesburg')
-  .onRun(() => runScheduled('09'))
-
-export const autonomousSettlementAt15 = functions
-  .region('us-central1')
-  .runWith({ timeoutSeconds: 120, memory: '512MB' })
-  .pubsub.schedule('0 15 * * 1-5')
-  .timeZone('Africa/Johannesburg')
-  .onRun(() => runScheduled('15'))
+  .onRun(() => runScheduledTick())
 
 export const autonomousSettlementWatchdog = functions
   .region('us-central1')
@@ -352,14 +342,6 @@ export const autonomousSettlementWatchdog = functions
   .timeZone('Africa/Johannesburg')
   .onRun(async () => {
     if (!(await autonomousSettlementEnabled())) return null
-    const nowMs = Date.now()
-    // Recover a scheduler delivery that never created its run document.
-    for (const slot of dueScheduledSlots(nowMs)) {
-      await runAutonomousDailySettlement({
-        runId: scheduledRunId(slot, nowMs),
-        reason: slot === '09' ? 'scheduled_09' : 'scheduled_15',
-      })
-    }
     const candidates = await db()
       .collection(RUNS)
       .where('status', 'in', ['failed', 'running', 'waiting'])
