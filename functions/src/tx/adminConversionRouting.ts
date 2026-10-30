@@ -3572,6 +3572,23 @@ export async function advanceAutonomousWeekendHold(): Promise<boolean> {
 
   const now = admin.firestore.Timestamp.now()
   const state = { ...stateFromDoc(data), windowNeedsAdvance: true }
+  const completedThroughDay = num(state.window?.completedThroughDay, 0)
+  const horizonDays = num(state.window?.horizonDays, 14)
+  if (state.window && completedThroughDay >= horizonDays) {
+    await testRef.set(
+      {
+        status: 'completed',
+        cyclePhase: 'window_complete',
+        deskStep: 6,
+        awaitingKind: null,
+        awaitingCycleNumber: null,
+        completedAt: now,
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+    return true
+  }
   const issued = await issueCycle(adminUid, testRunId, state, now, {
     immediateAttempts: true,
   })

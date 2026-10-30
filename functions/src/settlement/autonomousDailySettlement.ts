@@ -195,7 +195,12 @@ export async function runAutonomousDailySettlement(request: RunRequest): Promise
       if (!run || run.data.status !== 'active') {
         const userRef = db().collection('users').doc(ROUTING_ADMIN_UID)
         const zar = await userRef.collection('wallets').doc('cashZAR').get()
-        const spendableZar = number(zar.data()?.fiatBalance)
+        // A finished window can still have a cross-border EFT in flight. It was
+        // not debited from cashZAR, so reserve it before sizing the next window.
+        const spendableZar = Math.max(
+          0,
+          number(zar.data()?.fiatBalance) - number(run?.data.openEftZar)
+        )
         await ensureAutonomousRoutingWindow(spendableZar)
         run = await currentRun()
       }
