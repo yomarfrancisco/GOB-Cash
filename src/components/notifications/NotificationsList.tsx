@@ -747,75 +747,39 @@ function ActivityItemCard({
     openFundMznKeypad()
   }
 
-  // After the bubble finishes typing, pop the keypad once (live confirm or catch-up playback).
+  // Planned Next 24h / 72h only: after a bubble types, play the keypad once.
+  // Live desk never auto-pops — open shows the latest cards; user taps to confirm.
   useEffect(() => {
     if (planBusy || !actionsUnlocked || lockDeskActions) return
-    // Desk restore mid-submit must not re-open the keypad (causes "already in progress").
     if (isConversionInFlight() || useRoutingPlaybackStore.getState().play) return
-    const live =
-      showSendKeypad || showRestockKeypad || showFundMznKeypad
-    // Catch-up keypads belong to Next 24h / 72h only. Live autonomous rows
-    // must never reopen the keypad while revealing — that stacks sheets and
-    // crashes mobile Safari.
     const catchupPlayback =
       planMode === 'planned' &&
       catchupActive === true &&
-      !live &&
       isCatchupKeypadCard(item)
-    if (!live && !catchupPlayback) return
-    const targetId = showSendKeypad ? confirmItem?.id || item.id : item.id
-    const cycleKey = routingKeypadOfferKey(
-      showSendKeypad && confirmItem
-        ? {
-            testRunId: confirmItem.testRunId,
-            cycleNumber: confirmItem.cycleNumber,
-            routingAction: confirmItem.routingAction === 'deploy' ? 'deploy' : undefined,
-          }
-        : {
-            testRunId: item.testRunId,
-            cycleNumber: item.cycleNumber,
-            routingAction:
-              item.routingAction === 'deploy' ||
-              item.routingAction === 'replenish' ||
-              item.routingAction === 'mzn_fund'
-                ? item.routingAction
-                : undefined,
-          }
-    )
+    if (!catchupPlayback) return
+    const targetId = item.id
+    const cycleKey = routingKeypadOfferKey({
+      testRunId: item.testRunId,
+      cycleNumber: item.cycleNumber,
+      routingAction:
+        item.routingAction === 'deploy' ||
+        item.routingAction === 'replenish' ||
+        item.routingAction === 'mzn_fund'
+          ? item.routingAction
+          : undefined,
+    })
     if (!targetId || wasDeskKeypadOffered(targetId) || wasDeskKeypadOffered(cycleKey)) return
     const timer = window.setTimeout(() => {
       if (isConversionInFlight() || useRoutingPlaybackStore.getState().play) return
       if (wasDeskKeypadOffered(targetId) || wasDeskKeypadOffered(cycleKey)) return
-      const opened = showSendKeypad
-        ? openSendZarKeypad()
-        : showRestockKeypad
-          ? openRestockKeypad()
-          : showFundMznKeypad
-            ? openFundMznKeypad()
-            : catchupPlayback
-              ? openCatchupPlaybackKeypad(item)
-              : false
+      const opened = openCatchupPlaybackKeypad(item)
       if (opened) {
         markDeskKeypadOffered(targetId)
         markDeskKeypadOffered(cycleKey)
       }
     }, 320)
     return () => window.clearTimeout(timer)
-  }, [
-    actionsUnlocked,
-    catchupActive,
-    confirmItem,
-    item,
-    lockDeskActions,
-    openFundMznKeypad,
-    openRestockKeypad,
-    openSendZarKeypad,
-    planBusy,
-    planMode,
-    showFundMznKeypad,
-    showRestockKeypad,
-    showSendKeypad,
-  ])
+  }, [actionsUnlocked, catchupActive, item, lockDeskActions, planBusy, planMode])
 
   const handleAcceptProposal = async (event: React.MouseEvent) => {
     event.stopPropagation()
@@ -1536,7 +1500,6 @@ export function NotificationsList({
         .map((item) => ({ id: item.id, createdAt: item.createdAt })),
     [pagedItems]
   )
-  const reveal = useProgressiveReveal(revealItems)
   const setDeskFocus = useDeskFocusStore((s) => s.setFocus)
   const planMode = useDeskPlanStore((s) => s.mode)
   const planHorizonHours = useDeskPlanStore((s) => s.plannedHorizonHours)
@@ -1544,6 +1507,8 @@ export function NotificationsList({
   const planBusy = useDeskPlanStore((s) => s.busy)
   const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
   const setPlanBusy = useDeskPlanStore((s) => s.setBusy)
+  // Live = always current figures. Planned sims still own the day replay.
+  const reveal = useProgressiveReveal(revealItems, { instant: planMode !== 'planned' })
   const nextRevealSpeaker = useMemo((): DeskAgent | null => {
     if (!reveal.showDots) return null
     const pending = pagedItems.find((item) => !reveal.visibleIds.has(item.id) && item.thinking !== true)
@@ -1558,7 +1523,7 @@ export function NotificationsList({
     [setDeskFocus]
   )
 
-  // Replay: header date/progress track the bubble currently typing or about to appear.
+  // Planned replay: header tracks the bubble typing. Live: snap to the newest card.
   useEffect(() => {
     if (reveal.typingId) {
       applyFocusFromItem(pagedItems.find((item) => item.id === reveal.typingId))
@@ -1567,8 +1532,22 @@ export function NotificationsList({
     if (reveal.showDots) {
       const pending = pagedItems.find((item) => !reveal.visibleIds.has(item.id) && item.thinking !== true)
       applyFocusFromItem(pending)
+      return
     }
-  }, [applyFocusFromItem, pagedItems, reveal.showDots, reveal.typingId, reveal.visibleIds])
+    if (planMode === 'planned') return
+    const latest = latestActivityId
+      ? pagedItems.find((item) => item.id === latestActivityId)
+      : pagedItems[pagedItems.length - 1]
+    applyFocusFromItem(latest)
+  }, [
+    applyFocusFromItem,
+    latestActivityId,
+    pagedItems,
+    planMode,
+    reveal.showDots,
+    reveal.typingId,
+    reveal.visibleIds,
+  ])
 
   // Settled + manual scroll: pick the bubble nearest the lower focus line of the feed.
   useEffect(() => {

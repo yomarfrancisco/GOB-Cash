@@ -63,12 +63,26 @@ export function resetDeskRevealForLiveRestore(): void {
   shared = null
 }
 
+export type ProgressiveRevealOptions = {
+  /**
+   * Live desk: snap every current row into place. No dots, typewriter, or
+   * backlog replay — the feed is always the latest figures.
+   * Planned (Next 24h / 72h) leaves this false so the day still plays forward.
+   */
+  instant?: boolean
+}
+
 /**
- * First snapshot settles instantly (Next 24 owns the replay).
- * Live newcomers still reveal one at a time: dots → typewriter → next.
+ * First snapshot settles instantly.
+ * Planned mode: live newcomers still reveal one at a time (dots → typewriter).
+ * Live / instant mode: every feed update settles immediately — no catch-up.
  * Older pagination (createdAt at or below the seed watermark) settles instantly.
  */
-export function useProgressiveReveal(items: RevealItem[]): ProgressiveRevealState {
+export function useProgressiveReveal(
+  items: RevealItem[],
+  options?: ProgressiveRevealOptions
+): ProgressiveRevealState {
+  const instant = options?.instant === true
   const page = ensureShared()
   const [settled, setSettled] = useState<Set<string>>(() => new Set(page.settled))
   const [typingId, setTypingId] = useState<string | null>(() => page.typingId)
@@ -103,6 +117,27 @@ export function useProgressiveReveal(items: RevealItem[]): ProgressiveRevealStat
     for (const id of timersRef.current) window.clearTimeout(id)
     timersRef.current = []
   }
+
+  const snapAll = useCallback(() => {
+    clearTimers()
+    seededRef.current = true
+    const seed = new Set(items.map((row) => row.id))
+    seedMaxCreatedAtRef.current = items.reduce(
+      (max, row) => Math.max(max, row.createdAt || 0),
+      Date.now()
+    )
+    settledRef.current = seed
+    queueRef.current = []
+    typingRef.current = null
+    busyRef.current = false
+    setSettled(seed)
+    setTypingId(null)
+    setShowDots(false)
+    setCatchupActive(false)
+    const s = ensureShared()
+    s.catchupActive = false
+    persist()
+  }, [items, persist])
 
   const pump = useCallback(() => {
     if (busyRef.current || isDeskRevealHeld()) return
@@ -180,6 +215,12 @@ export function useProgressiveReveal(items: RevealItem[]): ProgressiveRevealStat
   useEffect(() => {
     if (!items.length && !seededRef.current) return
 
+    // Live desk: always show the current feed — never replay a backlog.
+    if (instant) {
+      snapAll()
+      return
+    }
+
     if (!seededRef.current) {
       seededRef.current = true
       const seed = new Set(items.map((row) => row.id))
@@ -226,7 +267,7 @@ export function useProgressiveReveal(items: RevealItem[]): ProgressiveRevealStat
     queueRef.current.push(...newcomers.map((row) => row.id))
     persist()
     pump()
-  }, [signature, items, pump, persist])
+  }, [signature, items, pump, persist, instant, snapAll])
 
   useEffect(() => {
     return () => {
