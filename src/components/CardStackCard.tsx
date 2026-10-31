@@ -433,7 +433,7 @@ export default function CardStackCard({
   const getPillContent = (): { strong: string; label: string } => {
     if (card.type === 'yieldSurprise') {
       return {
-        strong: 'TRANSIT@',
+        strong: 'ROUTE@',
         label: `${sellRate.toFixed(2)}Mt/R`,
       }
     }
@@ -484,7 +484,7 @@ export default function CardStackCard({
 
   const pillContent = getPillContent()
 
-  // COST@ / SELL@ / TRANSIT@ pills are display-only — never open the keypad.
+  // COST@ / SELL@ / ROUTE@ pills are display-only — never open the keypad.
   const isRateDisplayPill =
     card.type === 'savings' || card.type === 'mzn' || card.type === 'yieldSurprise'
   const pillInteractive = Boolean(onApyPillClick) && !isRateDisplayPill

@@ -698,7 +698,7 @@ function HomeContent() {
                   aiCycleControllerRef={aiCycleControllerRef}
                   onCreditSurprise={handleCreditSurprise}
                   onApyPillClick={(cardType: CardType) => {
-                    // Rate pills (SELL@ / COST@ / TRANSIT@) are non-interactive in CardStackCard.
+                    // Rate pills (SELL@ / COST@ / ROUTE@) are non-interactive in CardStackCard.
                     setHelperWalletKey(cardType)
                     setIsHelperOpen(true)
                   }}
