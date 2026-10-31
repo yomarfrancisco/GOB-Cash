@@ -11,8 +11,13 @@ describe('inventoryDominant', () => {
     assert.equal(defaultConversionDestination(1000, 100, 5), 'ZAR')
   })
 
-  it('prefers ZAR when Rand inventory is larger or equal', () => {
-    assert.equal(inventoryDominantCard(100, 100, 5), 'savings')
+  it('prefers MZN when inventories are equal or both zero', () => {
+    assert.equal(inventoryDominantCard(500, 100, 5), 'mzn')
+    assert.equal(inventoryDominantCard(0, 0, 5), 'mzn')
+    assert.equal(defaultConversionDestination(0, 0, 5), 'ZAR')
+  })
+
+  it('prefers ZAR only when Rand inventory is strictly larger', () => {
     assert.equal(inventoryDominantCard(400, 100, 5), 'savings')
     assert.equal(defaultConversionDestination(400, 100, 5), 'MZN')
   })

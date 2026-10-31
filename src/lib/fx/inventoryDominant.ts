@@ -9,7 +9,8 @@ export function inventoryDominantCard(
   const mzn = Number(cashMzn) || 0
   const zar = Number(cashZar) || 0
   const mznAsZar = mznPerZar > 0 ? mzn / mznPerZar : 0
-  return mznAsZar > zar ? 'mzn' : 'savings'
+  // Equal inventory (including both zero) → MZN / Buy ZAR.
+  return mznAsZar >= zar ? 'mzn' : 'savings'
 }
 
 /** MZN-heavy → Buy ZAR (dest ZAR). ZAR-heavy → Sell ZAR (dest MZN). */
