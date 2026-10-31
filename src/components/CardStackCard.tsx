@@ -8,10 +8,8 @@ import { formatCardTopline, formatEquivalenceAmount } from '@/lib/formatCurrency
 import {
   mznToZar,
   zarToMzn,
-  zarToUsd,
   costMznPerZar,
   sellMznPerZar,
-  sellMznPerUsd,
 } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
@@ -212,30 +210,24 @@ export default function CardStackCard({
   const zar = cents / 100
   // TRANSIT holds booked conversion in transit; only Moz inventory is metical-denominated.
   const isMeticalAmount = card.type === 'mzn'
-  const isTransitUsd = card.type === 'yieldSurprise'
+  const isTransitZar = card.type === 'yieldSurprise'
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
       : 0
-  const liveUsdPerZar =
-    typeof fxRates?.rates?.USD === 'number' && fxRates.rates.USD > 0
-      ? fxRates.rates.USD
-      : 0
   const sellRate = sellMznPerZar(liveMzn)
   const costRate = costMznPerZar(liveMzn)
-  const sellUsdRate = sellMznPerUsd(liveMzn, liveUsdPerZar)
-  // ZAR inventory quotes SELL; TRANSIT shows $ at USD sell; Moz inventory quotes COST.
-  const quotedMznPerZar = card.type === 'savings' ? sellRate : costRate
-  const walletMajor = isTransitUsd ? zarToUsd(zar, liveUsdPerZar) : zar
+  // ZAR inventory + TRANSIT quote SELL; Moz inventory quotes COST.
+  const quotedMznPerZar =
+    card.type === 'savings' || isTransitZar ? sellRate : costRate
+  const walletMajor = zar
   const displayMajor = Math.max(0, walletMajor + (Number(displayMajorOffset) || 0))
   // Minor line: MZN card → ZAR; TRANSIT/ZAR → MZN at sell/cost.
   const convertedAmount = isMeticalAmount
     ? mznToZar(displayMajor, quotedMznPerZar)
-    : isTransitUsd
-      ? displayMajor * sellUsdRate
-      : card.type === 'savings'
-        ? zarToMzn(displayMajor, quotedMznPerZar)
-        : displayMajor / FX_USD_ZAR_DEFAULT
+    : card.type === 'savings' || isTransitZar
+      ? zarToMzn(displayMajor, quotedMznPerZar)
+      : displayMajor / FX_USD_ZAR_DEFAULT
   const pct = allocPct(cents)
   
   // Generate a stable key for SlotCounter that changes when balance changes
@@ -442,7 +434,7 @@ export default function CardStackCard({
     if (card.type === 'yieldSurprise') {
       return {
         strong: 'TRANSIT@',
-        label: `${sellUsdRate.toFixed(2)}Mt/$`,
+        label: `${sellRate.toFixed(2)}Mt/R`,
       }
     }
 
@@ -575,7 +567,7 @@ export default function CardStackCard({
             <>
               <div className="card-amounts__zar amount-headline" style={{ opacity: 0.5 }} suppressHydrationWarning>
                 <span className="amt-int card-amounts__whole">
-                  {isMeticalAmount ? 'Mt 0' : isTransitUsd ? '$ 0' : 'R 0'}
+                  {isMeticalAmount ? 'Mt 0' : 'R 0'}
                 </span>
                 <span className="amt-dot card-amounts__dot">.</span>
                 <span className="amt-cents card-amounts__cents">00</span>
@@ -593,7 +585,7 @@ export default function CardStackCard({
                   'amount-topline--compact': shouldUseCompactSizing,
                 })}
                 aria-label={`${displayMajor.toFixed(2)} ${
-                  isMeticalAmount ? 'meticais' : isTransitUsd ? 'US dollars' : 'rand'
+                  isMeticalAmount ? 'meticais' : 'rand'
                 }`}
                 onAnimationEnd={onFlashEnd}
                 suppressHydrationWarning
@@ -611,11 +603,9 @@ export default function CardStackCard({
                     <span className="amt-int card-amounts__whole" suppressHydrationWarning>
                       {isMeticalAmount
                         ? `Mt ${major}`
-                        : isTransitUsd
-                          ? `$ ${major}`
-                          : card.type === 'savings'
-                            ? `R ${major}`
-                            : major}
+                        : card.type === 'savings' || isTransitZar
+                          ? `R ${major}`
+                          : major}
                     </span>
                   )}
                   renderCents={(cents) => (

@@ -7,7 +7,7 @@ import {
   lastSettleAt09hSast,
   microDripMzn,
   mznCycleBarPercent,
-  mznToTransitUsd,
+  mznToTransitZar,
   nextSettleAt09hSastExclusive,
   randomMznDripCycleMs,
   transitDayBarPercent,
@@ -22,7 +22,7 @@ export type TransitDayClockView = {
   transitBarPercent: number
   zarBarPercent: number
   displayMznOffset: number
-  displayTransitUsdOffset: number
+  displayTransitZarOffset: number
   displayZarOffset: number
   transitCountdownLabel: string
 }
@@ -37,22 +37,22 @@ function formatCountdown(ms: number): string {
 
 /**
  * UI-only home clock. Fast MZN cycles last 5–30s; each completion drips a
- * proportionate MZN→TRANSIT$ overlay. TRANSIT day bar is wall-clock to 09:00.
+ * proportionate MZN→TRANSIT R overlay. TRANSIT day bar is wall-clock to 09:00.
  */
 export function useTransitDayClock(params: {
   enabled: boolean
   walletMzn: number
-  sellMznPerUsd: number
+  sellMznPerZar: number
   remainingPlannedMzn?: number
 }): TransitDayClockView {
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [overlay, setOverlay] = useState<TransitDayOverlay>(() => createInitialOverlay(Date.now()))
   const lastNineHandledRef = useRef(0)
   const walletMznRef = useRef(params.walletMzn)
-  const sellRef = useRef(params.sellMznPerUsd)
+  const sellRef = useRef(params.sellMznPerZar)
   const plannedRef = useRef(params.remainingPlannedMzn ?? 0)
   walletMznRef.current = params.walletMzn
-  sellRef.current = params.sellMznPerUsd
+  sellRef.current = params.sellMznPerZar
   plannedRef.current = params.remainingPlannedMzn ?? 0
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export function useTransitDayClock(params: {
           lastNine !== lastNineHandledRef.current &&
           t >= lastNine &&
           t - lastNine < ZAR_CLEAR_CEREMONY_MS + 2_000 &&
-          prev.transitUsdDelta > 0
+          prev.transitZarDelta > 0
         ) {
           lastNineHandledRef.current = lastNine
           return {
@@ -108,11 +108,11 @@ export function useTransitDayClock(params: {
               mznCycleDurationMs: nextDuration,
             }
           }
-          const usd = mznToTransitUsd(drip, sellRef.current)
+          const zar = mznToTransitZar(drip, sellRef.current)
           return {
             ...prev,
             mznDelta: Math.round((prev.mznDelta + drip) * 100) / 100,
-            transitUsdDelta: Math.round((prev.transitUsdDelta + usd) * 100) / 100,
+            transitZarDelta: Math.round((prev.transitZarDelta + zar) * 100) / 100,
             mznCycleAnchorMs: t,
             mznCycleDurationMs: nextDuration,
           }
@@ -139,7 +139,7 @@ export function useTransitDayClock(params: {
       ? zarClearBarPercent(nowMs, overlay.zarCeremonyStartMs)
       : 0,
     displayMznOffset: -overlay.mznDelta,
-    displayTransitUsdOffset: overlay.transitUsdDelta,
+    displayTransitZarOffset: overlay.transitZarDelta,
     displayZarOffset: overlay.zarMajorDelta,
     transitCountdownLabel: remainingMs > 0 ? formatCountdown(remainingMs) : '',
   }

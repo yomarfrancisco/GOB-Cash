@@ -14,7 +14,7 @@ import { useAuthStore } from '@/store/auth'
 import { useIsAdminUser } from '@/lib/restrictions'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { useTransitDayClock } from '@/lib/fx/useTransitDayClock'
-import { sellMznPerUsd } from '@/lib/mznZar'
+import { sellMznPerZar } from '@/lib/mznZar'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
 
@@ -82,7 +82,7 @@ const allCardsData: CardData[] = [
   },
   {
     type: 'yieldSurprise',
-    image: '/assets/cards/card-PAGA_311026.jpg',
+    image: '/assets/cards/card_PAGA_SA1.jpg',
     alt: 'Transit Card',
     width: 342,
     height: 213,
@@ -162,12 +162,10 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const walletMzn = Number(wallets?.cashMZN?.fiatBalance || 0)
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : 0
-  const liveUsd =
-    typeof fxRates?.rates?.USD === 'number' && fxRates.rates.USD > 0 ? fxRates.rates.USD : 0
   const transitClock = useTransitDayClock({
     enabled: Boolean(isBalanceReady && !demoMode),
     walletMzn,
-    sellMznPerUsd: sellMznPerUsd(liveMzn, liveUsd),
+    sellMznPerZar: sellMznPerZar(liveMzn),
   })
   const [isAnimating, setIsAnimating] = useState(false)
   const [phase, setPhase] = useState<'idle' | 'animating'>('idle')
@@ -206,7 +204,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     const prev = dripFlashPrevRef.current
     const next = {
       mzn: transitClock.displayMznOffset,
-      transit: transitClock.displayTransitUsdOffset,
+      transit: transitClock.displayTransitZarOffset,
       zar: transitClock.displayZarOffset,
     }
     const flashes: Partial<Record<CardType, 'up' | 'down'>> = {}
@@ -219,7 +217,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     dripFlashPrevRef.current = next
   }, [
     transitClock.displayMznOffset,
-    transitClock.displayTransitUsdOffset,
+    transitClock.displayTransitZarOffset,
     transitClock.displayZarOffset,
   ])
   // Track previous values to compute direction
@@ -669,7 +667,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
               card.type === 'mzn'
                 ? transitClock.displayMznOffset
                 : card.type === 'yieldSurprise'
-                  ? transitClock.displayTransitUsdOffset
+                  ? transitClock.displayTransitZarOffset
                   : card.type === 'savings'
                     ? transitClock.displayZarOffset
                     : 0

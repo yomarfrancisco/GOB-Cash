@@ -40,7 +40,7 @@ const cardImages: Record<WalletKey, string> = {
   yield: '/assets/cards/card-ETH.jpg',
   mzn: '/assets/cards/card-MZN_231026.jpg',
   btc: '/assets/cards/card-BTC.jpg',
-  yieldSurprise: '/assets/cards/card-PAGA_311026.jpg',
+  yieldSurprise: '/assets/cards/card_PAGA_SA1.jpg',
 }
 
 // Helper tile structure
@@ -108,7 +108,7 @@ const HELPER_COPY: Record<WalletKey, HelperCopy> = {
     description:
       'En route holds ZAR that is booked and in transit. When the bank confirms settlement (Resend mail the next day), that balance moves into your ZAR card.',
     apyHeading: 'Booked at the realised rate',
-    apySubtext: 'Unless a rate is specified, TRANSIT uses the SELL Mt/$',
+    apySubtext: 'Unless a rate is specified, TRANSIT uses the SELL Mt/R',
     tiles: [
       { title: 'APY_CARD' },
       {

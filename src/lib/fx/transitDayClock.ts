@@ -103,17 +103,18 @@ export function microDripMzn(params: {
   return Math.round(slice * 100) / 100
 }
 
-export function mznToTransitUsd(mznAmount: number, sellMznPerUsd: number): number {
-  if (!(mznAmount > 0) || !(sellMznPerUsd > 0)) return 0
-  return Math.round((mznAmount / sellMznPerUsd) * 100) / 100
+/** MZN drip → TRANSIT R at sell Mt/R (same quote as the ZAR card). */
+export function mznToTransitZar(mznAmount: number, sellMznPerZar: number): number {
+  if (!(mznAmount > 0) || !(sellMznPerZar > 0)) return 0
+  return Math.round((mznAmount / sellMznPerZar) * 100) / 100
 }
 
 export type TransitDayOverlay = {
   /** MZN deducted from wallet display (always ≥ 0). */
   mznDelta: number
-  /** USD added to TRANSIT display (always ≥ 0). */
-  transitUsdDelta: number
-  /** After 09:00 ceremony: ZAR major credited from cleared TRANSIT $. */
+  /** ZAR added to TRANSIT display (always ≥ 0). */
+  transitZarDelta: number
+  /** After 09:00 ceremony: ZAR major credited from cleared TRANSIT R. */
   zarMajorDelta: number
   /** True while the 15s ZAR fill animation runs. */
   zarCeremonyActive: boolean
@@ -130,17 +131,11 @@ export function createInitialOverlay(
 ): TransitDayOverlay {
   return {
     mznDelta: 0,
-    transitUsdDelta: 0,
+    transitZarDelta: 0,
     zarMajorDelta: 0,
     zarCeremonyActive: false,
     zarCeremonyStartMs: null,
     mznCycleAnchorMs: nowMs,
     mznCycleDurationMs: randomMznDripCycleMs(random),
   }
-}
-
-/** TRANSIT $ → ZAR major at live USD/ZAR mid. */
-export function transitUsdToZar(usdAmount: number, usdPerZarRate: number): number {
-  if (!(usdAmount > 0) || !(usdPerZarRate > 0)) return 0
-  return Math.round((usdAmount / usdPerZarRate) * 100) / 100
 }

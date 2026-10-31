@@ -5,7 +5,7 @@ import {
   MZN_DRIP_CYCLE_MIN_MS,
   microDripMzn,
   mznCycleBarPercent,
-  mznToTransitUsd,
+  mznToTransitZar,
   randomMznDripCycleMs,
   remainingFiveSecondTicksUntil,
   transitDayBarPercent,
@@ -54,9 +54,9 @@ describe('transitDayClock', () => {
     assert.equal(randomMznDripCycleMs(() => 1), MZN_DRIP_CYCLE_MAX_MS)
   })
 
-  it('converts MZN drip to USD at sell Mt/$', () => {
-    assert.equal(mznToTransitUsd(84, 84), 1)
-    assert.equal(mznToTransitUsd(0, 84), 0)
+  it('converts MZN drip to ZAR at sell Mt/R', () => {
+    assert.equal(mznToTransitZar(4.65, 4.65), 1)
+    assert.equal(mznToTransitZar(0, 4.65), 0)
   })
 
   it('fills MZN cycle and ZAR ceremony bars over their windows', () => {
