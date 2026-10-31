@@ -69,7 +69,7 @@ const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false
 // Main home page content
 function HomeContent() {
   const router = useRouter()
-  const [topCardType, setTopCardType] = useState<CardType>('mzn')
+  const [topCardType, setTopCardType] = useState<CardType>('savings')
   const [isHelperOpen, setIsHelperOpen] = useState(false)
   const [helperWalletKey, setHelperWalletKey] = useState<CardType | null>(null)
   const [isMapHelperOpen, setIsMapHelperOpen] = useState(false)

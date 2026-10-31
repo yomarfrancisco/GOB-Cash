@@ -119,8 +119,6 @@ type CardStackCardProps = {
   timeBarPercent?: number | null
   /** UI-only major-unit offset applied on top of the wallet balance. */
   displayMajorOffset?: number
-  /** TRANSIT pill countdown to 09:00 (e.g. "5h 12m"). */
-  transitCountdownLabel?: string
 }
 
 export default function CardStackCard({
@@ -144,7 +142,6 @@ export default function CardStackCard({
   showRatePill = true,
   timeBarPercent = null,
   displayMajorOffset = 0,
-  transitCountdownLabel = '',
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
 
@@ -443,12 +440,9 @@ export default function CardStackCard({
   // Determine what to display in the pill
   const getPillContent = (): { strong: string; label: string } => {
     if (card.type === 'yieldSurprise') {
-      // Rate always; pill label doubles as the 09:00 countdown timer.
       return {
         strong: 'TRANSIT@',
-        label: transitCountdownLabel
-          ? `${sellUsdRate.toFixed(2)}Mt/$ · ${transitCountdownLabel}`
-          : `${sellUsdRate.toFixed(2)}Mt/$`,
+        label: `${sellUsdRate.toFixed(2)}Mt/$`,
       }
     }
 

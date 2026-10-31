@@ -95,10 +95,10 @@ const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd']
 
 function homeCardsForAdmin(_isAdmin: boolean): CardData[] {
   const visible = allCardsData.filter((card) => !ALWAYS_HIDDEN_CARD_TYPES.includes(card.type))
-  // Land / refresh: MZN → TRANSIT → ZAR (admin and non-admin).
+  // Land / refresh: ZAR → TRANSIT → MZN (admin and non-admin).
   return [...visible].sort((a, b) => {
     const rank = (type: CardType) =>
-      type === 'mzn' ? 0 : type === 'yieldSurprise' ? 1 : type === 'savings' ? 2 : 3
+      type === 'savings' ? 0 : type === 'yieldSurprise' ? 1 : type === 'mzn' ? 2 : 3
     return rank(a.type) - rank(b.type)
   })
 }
@@ -673,9 +673,6 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
                   : card.type === 'savings'
                     ? transitClock.displayZarOffset
                     : 0
-            }
-            transitCountdownLabel={
-              card.type === 'yieldSurprise' ? transitClock.transitCountdownLabel : ''
             }
           />
         )
