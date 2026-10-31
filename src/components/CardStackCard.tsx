@@ -115,6 +115,12 @@ type CardStackCardProps = {
   onApyPillClick?: (cardType: CardType, amount: number) => void
   fxRates?: FxRates | null // Exchange rates from server
   showRatePill?: boolean
+  /** UI-only day-clock time bar 0–100 (MZN / TRANSIT / ZAR). */
+  timeBarPercent?: number | null
+  /** UI-only major-unit offset applied on top of the wallet balance. */
+  displayMajorOffset?: number
+  /** TRANSIT pill countdown to 09:00 (e.g. "5h 12m"). */
+  transitCountdownLabel?: string
 }
 
 export default function CardStackCard({
@@ -136,6 +142,9 @@ export default function CardStackCard({
   onApyPillClick,
   fxRates,
   showRatePill = true,
+  timeBarPercent = null,
+  displayMajorOffset = 0,
+  transitCountdownLabel = '',
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
 
@@ -204,9 +213,9 @@ export default function CardStackCard({
   }
   
   const zar = cents / 100
-  // EN ROUTE holds booked ZAR in transit; only Moz inventory is metical-denominated.
+  // TRANSIT holds booked conversion in transit; only Moz inventory is metical-denominated.
   const isMeticalAmount = card.type === 'mzn'
-  const isEnRouteUsd = card.type === 'yieldSurprise'
+  const isTransitUsd = card.type === 'yieldSurprise'
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
@@ -218,16 +227,18 @@ export default function CardStackCard({
   const sellRate = sellMznPerZar(liveMzn)
   const costRate = costMznPerZar(liveMzn)
   const sellUsdRate = sellMznPerUsd(liveMzn, liveUsdPerZar)
-  // ZAR inventory quotes SELL; EN ROUTE shows $ at USD sell; Moz inventory quotes COST.
+  // ZAR inventory quotes SELL; TRANSIT shows $ at USD sell; Moz inventory quotes COST.
   const quotedMznPerZar = card.type === 'savings' ? sellRate : costRate
-  const displayMajor = isEnRouteUsd ? zarToUsd(zar, liveUsdPerZar) : zar
+  const walletMajor = isTransitUsd ? zarToUsd(zar, liveUsdPerZar) : zar
+  const displayMajor = Math.max(0, walletMajor + (Number(displayMajorOffset) || 0))
+  // Minor line: MZN card → ZAR; TRANSIT/ZAR → MZN at sell/cost.
   const convertedAmount = isMeticalAmount
-    ? mznToZar(zar, quotedMznPerZar)
-    : isEnRouteUsd
-      ? zarToMzn(zar, sellRate)
+    ? mznToZar(displayMajor, quotedMznPerZar)
+    : isTransitUsd
+      ? displayMajor * sellUsdRate
       : card.type === 'savings'
-        ? zarToMzn(zar, quotedMznPerZar)
-        : zar / FX_USD_ZAR_DEFAULT
+        ? zarToMzn(displayMajor, quotedMznPerZar)
+        : displayMajor / FX_USD_ZAR_DEFAULT
   const pct = allocPct(cents)
   
   // Generate a stable key for SlotCounter that changes when balance changes
@@ -278,14 +289,21 @@ export default function CardStackCard({
   const portfolioAllocationPct = holding?.allocationPct ?? pct
   const portfolioDisplayPct = holding?.displayPct ?? Math.round(pct)
   const portfolioHealth = holding?.health ?? HEALTH_CONFIG[card.type].percent
-  const operationalBarPercent =
+  const portfolioBarPercent =
     card.type === 'savings' ? 100 - mznCapacityPercent : portfolioHealth
+  // Time bars (MZN / TRANSIT / ZAR) come from the day clock; other cards keep portfolio health.
+  const operationalBarPercent =
+    typeof timeBarPercent === 'number' && Number.isFinite(timeBarPercent)
+      ? Math.max(0, Math.min(100, timeBarPercent))
+      : portfolioBarPercent
 
-  // Cash / inventory bars represent capacity/volume, so keep their progress fill green.
+  // Time bars stay pastel green; non-timed cards still map level for class compatibility.
   const healthLevel =
     card.type === 'mzn' || card.type === 'savings' || card.type === 'yieldSurprise'
       ? 'good'
       : getHealthLevel(operationalBarPercent)
+  const isTimeBar =
+    card.type === 'mzn' || card.type === 'savings' || card.type === 'yieldSurprise'
 
   // Animate allocation % with fade in/out (use displayPct for pill, allocationPct for internal calculations)
   const animatedAllocationPct = useTweenNumber(portfolioDisplayPct, {
@@ -307,7 +325,7 @@ export default function CardStackCard({
     }
   }, [])
 
-  // EN ROUTE settlement clock — earnings wallet, or last confirmed desk restock.
+  // TRANSIT settlement clock — earnings wallet, or last confirmed desk restock.
   const activityItems = useActivityStore((s) => s.items)
   const [routeNowMs, setRouteNowMs] = useState(() => Date.now())
   const routeBook =
@@ -365,8 +383,13 @@ export default function CardStackCard({
     stageBDelay: 40,
     round: (n) => Math.round(n * 10) / 10,
   })
-  const animatedHealth = prefersReducedMotion ? operationalBarPercent : healthTweenResult.value
-  const isHealthAnimating = prefersReducedMotion ? false : healthTweenResult.isAnimating
+  // Time bars track the clock linearly; portfolio cards keep the two-stage tween.
+  const animatedHealth =
+    isTimeBar || prefersReducedMotion
+      ? operationalBarPercent
+      : healthTweenResult.value
+  const isHealthAnimating =
+    isTimeBar || prefersReducedMotion ? false : healthTweenResult.isAnimating
 
   // Visibility states for health bar
   const prevHealthRef = useRef(operationalBarPercent)
@@ -420,13 +443,12 @@ export default function CardStackCard({
   // Determine what to display in the pill
   const getPillContent = (): { strong: string; label: string } => {
     if (card.type === 'yieldSurprise') {
-      // Countdown to next 09:00 SAST clear; idle shows the USD sell quote.
+      // Rate always; pill label doubles as the 09:00 countdown timer.
       return {
-        strong: 'EN ROUTE',
-        label:
-          routeTimer && routeTimer.state !== 'idle'
-            ? routeTimer.label
-            : `${sellUsdRate.toFixed(2)}Mt/$`,
+        strong: 'TRANSIT@',
+        label: transitCountdownLabel
+          ? `${sellUsdRate.toFixed(2)}Mt/$ · ${transitCountdownLabel}`
+          : `${sellUsdRate.toFixed(2)}Mt/$`,
       }
     }
 
@@ -476,7 +498,7 @@ export default function CardStackCard({
 
   const pillContent = getPillContent()
 
-  // COST@ / SELL@ / EN ROUTE pills are display-only — never open the keypad.
+  // COST@ / SELL@ / TRANSIT@ pills are display-only — never open the keypad.
   const isRateDisplayPill =
     card.type === 'savings' || card.type === 'mzn' || card.type === 'yieldSurprise'
   const pillInteractive = Boolean(onApyPillClick) && !isRateDisplayPill
@@ -559,7 +581,7 @@ export default function CardStackCard({
             <>
               <div className="card-amounts__zar amount-headline" style={{ opacity: 0.5 }} suppressHydrationWarning>
                 <span className="amt-int card-amounts__whole">
-                  {isMeticalAmount ? 'Mt 0' : isEnRouteUsd ? '$ 0' : 'R 0'}
+                  {isMeticalAmount ? 'Mt 0' : isTransitUsd ? '$ 0' : 'R 0'}
                 </span>
                 <span className="amt-dot card-amounts__dot">.</span>
                 <span className="amt-cents card-amounts__cents">00</span>
@@ -577,7 +599,7 @@ export default function CardStackCard({
                   'amount-topline--compact': shouldUseCompactSizing,
                 })}
                 aria-label={`${displayMajor.toFixed(2)} ${
-                  isMeticalAmount ? 'meticais' : isEnRouteUsd ? 'US dollars' : 'rand'
+                  isMeticalAmount ? 'meticais' : isTransitUsd ? 'US dollars' : 'rand'
                 }`}
                 onAnimationEnd={onFlashEnd}
                 suppressHydrationWarning
@@ -595,7 +617,7 @@ export default function CardStackCard({
                     <span className="amt-int card-amounts__whole" suppressHydrationWarning>
                       {isMeticalAmount
                         ? `Mt ${major}`
-                        : isEnRouteUsd
+                        : isTransitUsd
                           ? `$ ${major}`
                           : card.type === 'savings'
                             ? `R ${major}`
@@ -666,12 +688,16 @@ export default function CardStackCard({
               'card-health-bar-fill',
               `card-health-bar-fill--${healthLevel}`,
               {
+                'card-health-bar-fill--time': isTimeBar,
                 'card-health-bar-fill--changing': isHealthBarChanging,
                 'card-health-bar-fill--minimum': operationalBarPercent <= 0,
               }
             )}
             style={{
-              width: `${Math.max(5, Math.min(100, animatedHealth))}%`,
+              width: `${Math.max(
+                operationalBarPercent <= 0 ? 0 : 5,
+                Math.min(100, animatedHealth)
+              )}%`,
             }}
           />
         </div>

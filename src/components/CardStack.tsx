@@ -13,6 +13,10 @@ import CardStackCard from './CardStackCard'
 import { useAuthStore } from '@/store/auth'
 import { useIsAdminUser } from '@/lib/restrictions'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
+import { useTransitDayClock } from '@/lib/fx/useTransitDayClock'
+import { sellMznPerUsd } from '@/lib/mznZar'
+import { useWalletStore } from '@/store/wallets'
+import { useAppModeStore } from '@/store/appMode'
 
 // Temporary FX rate (will be wired to real API later)
 const FX_USD_ZAR_DEFAULT = 18.1
@@ -79,7 +83,7 @@ const allCardsData: CardData[] = [
   {
     type: 'yieldSurprise',
     image: '/assets/cards/card-PAGA_311026.jpg',
-    alt: 'En Route Card',
+    alt: 'Transit Card',
     width: 342,
     height: 213,
   },
@@ -89,16 +93,14 @@ const allCardsData: CardData[] = [
 // Rewards sits as an extension of ZAR (balance is earnings, not inventory).
 const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd']
 
-function homeCardsForAdmin(isAdmin: boolean): CardData[] {
+function homeCardsForAdmin(_isAdmin: boolean): CardData[] {
   const visible = allCardsData.filter((card) => !ALWAYS_HIDDEN_CARD_TYPES.includes(card.type))
-  const zarThenRewards = [...visible].sort((a, b) => {
+  // Land / refresh: MZN → TRANSIT → ZAR (admin and non-admin).
+  return [...visible].sort((a, b) => {
     const rank = (type: CardType) =>
-      type === 'savings' ? 0 : type === 'yieldSurprise' ? 1 : type === 'mzn' ? 2 : 3
+      type === 'mzn' ? 0 : type === 'yieldSurprise' ? 1 : type === 'savings' ? 2 : 3
     return rank(a.type) - rank(b.type)
   })
-  if (isAdmin) return zarThenRewards
-  // Non-admin home still leads with MZN; Rewards stays after ZAR.
-  return [...zarThenRewards].sort((a, b) => Number(b.type === 'mzn') - Number(a.type === 'mzn'))
 }
 
 // Card labels mapping
@@ -108,7 +110,7 @@ const CARD_LABELS: Record<CardType, string> = {
   zwd: 'CASH CARD', // ZWD fiat card
   yield: 'INVESTMENT CARD', // ETH crypto card
   btc: 'INVESTMENT CARD', // BTC crypto card
-  yieldSurprise: 'EN ROUTE', // Booked ZAR in transit until settlement
+  yieldSurprise: 'TRANSIT', // Conversion in transit until 09:00 clear
 }
 
 // Map card type to allocation key
@@ -155,6 +157,18 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const VISIBLE_COUNT = Math.min(5, cardsData.length)
   const initialOrder = Array.from({ length: cardsData.length }, (_, i) => i)
   const [order, setOrder] = useState<number[]>(initialOrder)
+  const { wallets, demoMode } = useWalletStore()
+  const isBalanceReady = useAppModeStore((s) => s.isBalanceReady())
+  const walletMzn = Number(wallets?.cashMZN?.fiatBalance || 0)
+  const liveMzn =
+    typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : 0
+  const liveUsd =
+    typeof fxRates?.rates?.USD === 'number' && fxRates.rates.USD > 0 ? fxRates.rates.USD : 0
+  const transitClock = useTransitDayClock({
+    enabled: Boolean(isBalanceReady && !demoMode),
+    walletMzn,
+    sellMznPerUsd: sellMznPerUsd(liveMzn, liveUsd),
+  })
   const [isAnimating, setIsAnimating] = useState(false)
   const [phase, setPhase] = useState<'idle' | 'animating'>('idle')
   const touchStartY = useRef<number>(0)
@@ -183,6 +197,31 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     btc: null,
     yieldSurprise: null,
   })
+  const dripFlashPrevRef = useRef({
+    mzn: 0,
+    transit: 0,
+    zar: 0,
+  })
+  useEffect(() => {
+    const prev = dripFlashPrevRef.current
+    const next = {
+      mzn: transitClock.displayMznOffset,
+      transit: transitClock.displayTransitUsdOffset,
+      zar: transitClock.displayZarOffset,
+    }
+    const flashes: Partial<Record<CardType, 'up' | 'down'>> = {}
+    if (next.mzn < prev.mzn - 0.0001) flashes.mzn = 'down'
+    if (next.transit > prev.transit + 0.0001) flashes.yieldSurprise = 'up'
+    if (next.zar > prev.zar + 0.0001) flashes.savings = 'up'
+    if (Object.keys(flashes).length) {
+      setFlashDirection((cur) => ({ ...cur, ...flashes }))
+    }
+    dripFlashPrevRef.current = next
+  }, [
+    transitClock.displayMznOffset,
+    transitClock.displayTransitUsdOffset,
+    transitClock.displayZarOffset,
+  ])
   // Track previous values to compute direction
   // CRITICAL: For authenticated users, initialize to zero to prevent flash animation
   // when alloc changes from DEMO (initial render) to ZERO (after auth state determined)
@@ -617,6 +656,27 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             }}
             isSpecialMode={isSpecialMode}
             isSpecialCard={isSpecialCard}
+            timeBarPercent={
+              card.type === 'mzn'
+                ? transitClock.mznBarPercent
+                : card.type === 'yieldSurprise'
+                  ? transitClock.transitBarPercent
+                  : card.type === 'savings'
+                    ? transitClock.zarBarPercent
+                    : null
+            }
+            displayMajorOffset={
+              card.type === 'mzn'
+                ? transitClock.displayMznOffset
+                : card.type === 'yieldSurprise'
+                  ? transitClock.displayTransitUsdOffset
+                  : card.type === 'savings'
+                    ? transitClock.displayZarOffset
+                    : 0
+            }
+            transitCountdownLabel={
+              card.type === 'yieldSurprise' ? transitClock.transitCountdownLabel : ''
+            }
           />
         )
       })}

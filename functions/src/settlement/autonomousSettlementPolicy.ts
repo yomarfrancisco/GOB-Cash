@@ -9,7 +9,8 @@ export type AutonomousDeskSnapshot = {
   spendableMzn: number
 }
 
-export const AUTONOMOUS_EVALUATION_INTERVAL = 'every 5 minutes'
+/** Daily 09:00 SAST batch — not a 5-minute micro-settlement loop. */
+export const AUTONOMOUS_EVALUATION_INTERVAL = 'every day 09:00'
 
 export type AutonomousDecision =
   | 'advance_internal'

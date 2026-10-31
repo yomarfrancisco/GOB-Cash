@@ -349,10 +349,11 @@ async function runScheduledTick(): Promise<null> {
   return null
 }
 
+/** Daily 09:00 SAST settlement batch (legacy export name kept for Cloud Functions deploy). */
 export const autonomousSettlementEvery5Minutes = functions
   .region('us-central1')
   .runWith({ timeoutSeconds: 120, memory: '512MB' })
-  .pubsub.schedule('*/5 * * * *')
+  .pubsub.schedule('0 9 * * *')
   .timeZone('Africa/Johannesburg')
   .onRun(() => runScheduledTick())
 

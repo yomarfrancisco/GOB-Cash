@@ -108,7 +108,7 @@ const HELPER_COPY: Record<WalletKey, HelperCopy> = {
     description:
       'En route holds ZAR that is booked and in transit. When the bank confirms settlement (Resend mail the next day), that balance moves into your ZAR card.',
     apyHeading: 'Booked at the realised rate',
-    apySubtext: 'Unless a rate is specified, en route uses the SELL Mt/R',
+    apySubtext: 'Unless a rate is specified, TRANSIT uses the SELL Mt/$',
     tiles: [
       { title: 'APY_CARD' },
       {

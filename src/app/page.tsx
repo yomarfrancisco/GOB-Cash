@@ -18,10 +18,6 @@ import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
 import { useAiActionCycle } from '@/lib/animations/useAiActionCycle'
 import { useRandomCardFlips } from '@/lib/animations/useRandomCardFlips'
-import {
-  settlementPlaybackForTransition,
-  type SettlementBalances,
-} from '@/lib/animations/settlementPlayback'
 import { initPortfolioFromAlloc } from '@/lib/portfolio/initPortfolio'
 import ConvertCashSection from '@/components/ConvertCashSection'
 import BranchManagerFooter from '@/components/BranchManagerFooter'
@@ -69,7 +65,6 @@ import {
 
 // Toggle flag to compare both scanner implementations
 const USE_MODAL_SCANNER = false // Set to true to use sheet-based scanner, false for full-screen overlay
-const SETTLEMENT_CARD_HOLD_MS = 1600
 
 // Main home page content
 function HomeContent() {
@@ -309,66 +304,14 @@ function HomeContent() {
 
   // Get wallet allocation and hydrated wallet balances.
   const { alloc, getCash, getEth, getZwd, setCash, setEth, setZwd, syncFromWallets } = useWalletAlloc()
-  const { wallets, demoMode, walletsHydrated } = useWalletStore()
+  const { wallets, demoMode } = useWalletStore()
   const isBalanceReady = useAppModeStore((state) => state.isBalanceReady())
-  const previousSettlementBalancesRef = useRef<SettlementBalances | null>(null)
-  const settlementPlaybackQueueRef = useRef<Promise<void>>(Promise.resolve())
-  const settlementPlaybackGenerationRef = useRef(0)
-
   // Sync WalletAlloc from wallet docs when they change (only if user is authenticated)
   useEffect(() => {
     if (isAuthed && wallets) {
       syncFromWallets(wallets as any)
     }
   }, [isAuthed, wallets, syncFromWallets])
-
-  // Replay only real settlement wallet transitions. CardStack's existing
-  // balance flash is driven by this same Firestore wallet snapshot.
-  useEffect(() => {
-    if (!isAuthed || !walletsHydrated || demoMode) {
-      previousSettlementBalancesRef.current = null
-      settlementPlaybackGenerationRef.current += 1
-      return
-    }
-
-    const current: SettlementBalances = {
-      cashZAR: Number(wallets?.cashZAR?.fiatBalance || 0),
-      cashMZN: Number(wallets?.cashMZN?.fiatBalance || 0),
-      earnings: Number(wallets?.earnings?.fiatBalance || 0),
-    }
-    const previous = previousSettlementBalancesRef.current
-    previousSettlementBalancesRef.current = current
-    if (!previous) return
-
-    const playback = settlementPlaybackForTransition(previous, current)
-    if (!playback) return
-
-    // Keep only the latest transition. Queuing every 5-minute micro-cycle
-    // on mobile Safari exhausts the flip queue and freezes the tab.
-    const generation = ++settlementPlaybackGenerationRef.current
-    settlementPlaybackQueueRef.current = Promise.resolve()
-      .then(async () => {
-        if (generation !== settlementPlaybackGenerationRef.current) return
-        flipControllerRef.current?.pause()
-        try {
-          await cardStackRef.current?.flipToCard(playback.affectedCard, 'forward')
-          await new Promise<void>((resolve) => {
-            window.setTimeout(resolve, SETTLEMENT_CARD_HOLD_MS)
-          })
-          if (generation !== settlementPlaybackGenerationRef.current) return
-          await cardStackRef.current?.flipToCard('savings', 'forward')
-        } finally {
-          flipControllerRef.current?.resume()
-        }
-      })
-      .catch(() => undefined)
-  }, [demoMode, isAuthed, wallets, walletsHydrated])
-
-  useEffect(() => {
-    return () => {
-      settlementPlaybackGenerationRef.current += 1
-    }
-  }, [])
 
   // Initialize portfolio store from wallet allocation
   // Only initialize if isBalanceReady (prevents demo values from being used post-auth)
@@ -746,7 +689,7 @@ function HomeContent() {
                   aiCycleControllerRef={aiCycleControllerRef}
                   onCreditSurprise={handleCreditSurprise}
                   onApyPillClick={(cardType: CardType) => {
-                    // Rate pills (SELL@ / COST@ / EN ROUTE) are non-interactive in CardStackCard.
+                    // Rate pills (SELL@ / COST@ / TRANSIT@) are non-interactive in CardStackCard.
                     setHelperWalletKey(cardType)
                     setIsHelperOpen(true)
                   }}
@@ -940,7 +883,6 @@ function HomeContent() {
           }
           // Claim play before onClose so dismiss-restore does not race the submit path.
           if (play) useRoutingPlaybackStore.getState().clear()
-          const soldZarToEnRoute = conversionDestination === 'MZN' && !play
           const run = play
             ? submitRoutingConversion({ amountZAR, amountMZN, play })
             : submitInternalConversion({
@@ -951,15 +893,7 @@ function HomeContent() {
                 agentCashHandle: agentCashHandle,
                 capitalShock: true,
               })
-          void run
-            .then(() => {
-              // After a ZAR sell books EN ROUTE, shuffle the stack to that card.
-              if (!soldZarToEnRoute) return
-              window.setTimeout(() => {
-                void cardStackRef.current?.flipToCard('yieldSurprise', 'forward')
-              }, 420)
-            })
-            .catch((error: any) => {
+          void run.catch((error: any) => {
             useRoutingPlaybackStore.getState().clear()
             const message = String(error?.message || '')
             // Duplicate keypad auto-submit while the first conversion is still running.

@@ -179,27 +179,33 @@
   animation: healthJitter 2s ease-in-out infinite;
 }
 
-/* Health level colors for bar fill */
+/* Time-bar fills: light pastel green when progressing; grey when empty. */
 .card-health-bar-fill--good {
-  background: #22C55E;
+  background: #A8E6C3;
 }
 
 .card-health-bar-fill--moderate {
-  background: #F59E0B;
+  background: #A8E6C3;
 }
 
 .card-health-bar-fill--caution {
-  background: #F97316; /* Orange-600, slightly more urgent than amber */
+  background: #A8E6C3;
 }
 
 .card-health-bar-fill--fragile {
-  background: #EF4444;
+  background: #A8E6C3;
 }
 
 .card-health-bar-fill--minimum {
   background: #9CA3AF;
   opacity: 0.75;
   animation: none;
+}
+
+/* Time bars ease width without the old health jitter. */
+.card-health-bar-fill--time {
+  animation: none;
+  transition: width 200ms linear;
 }
 
 /* Subtle jitter animation for liveliness */
