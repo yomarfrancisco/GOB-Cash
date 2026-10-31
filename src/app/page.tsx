@@ -13,6 +13,7 @@ import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
 import { formatZARWithDot } from '@/lib/money'
 import { zarToMzn, mznToZar, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
+import { defaultConversionDestination } from '@/lib/fx/inventoryDominant'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
@@ -158,11 +159,19 @@ function HomeContent() {
     setAgentCashKeypad(agentCash)
     setAgentCashHandle(agentCash && handle ? handle.replace(/^[@$]/, '') : null)
     setConversionPrefill(undefined)
-    setConversionDestination('ZAR')
+    const liveWallets = useWalletStore.getState().wallets as
+      | { cashMZN?: { fiatBalance?: number }; cashZAR?: { fiatBalance?: number } }
+      | null
+      | undefined
+    const mznBal = Number(liveWallets?.cashMZN?.fiatBalance ?? 0)
+    const zarBal = Number(liveWallets?.cashZAR?.fiatBalance ?? 0)
+    const mid =
+      typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : 0
+    setConversionDestination(defaultConversionDestination(mznBal, zarBal, costMznPerZar(mid)))
     setAmountMode('convert')
     setAmountEntryPoint('conversionKeypad')
     setOpenAmount(true)
-  }, [playDollarSound])
+  }, [playDollarSound, fxRates])
 
   useEffect(() => {
     if (!authReady) return
@@ -883,17 +892,23 @@ function HomeContent() {
           }
           // Claim play before onClose so dismiss-restore does not race the submit path.
           if (play) useRoutingPlaybackStore.getState().clear()
+          const dest = conversionDestination
           const run = play
             ? submitRoutingConversion({ amountZAR, amountMZN, play })
             : submitInternalConversion({
-                destination: conversionDestination,
+                destination: dest,
                 amountMZN,
                 amountZAR,
                 agentCash: agentCashKeypad,
                 agentCashHandle: agentCashHandle,
                 capitalShock: true,
               })
-          void run.catch((error: any) => {
+          void run
+            .then((result) => {
+              if (play || !result?.capitalShock) return
+              void cardStackRef.current?.playCapitalShockReveal({ creditZar: amountZAR })
+            })
+            .catch((error: any) => {
             useRoutingPlaybackStore.getState().clear()
             const message = String(error?.message || '')
             // Duplicate keypad auto-submit while the first conversion is still running.
@@ -902,7 +917,7 @@ function HomeContent() {
               kind: 'payment_failed',
               title: play ? 'Cycle did not advance' : 'Conversion failed',
               body: /insufficient/i.test(message)
-                ? conversionDestination === 'ZAR'
+                ? dest === 'ZAR'
                   ? 'Insufficient MZN balance.'
                   : 'Insufficient ZAR balance.'
                 : message || 'Unable to convert.',

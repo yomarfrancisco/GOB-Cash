@@ -14,7 +14,8 @@ import { useAuthStore } from '@/store/auth'
 import { useIsAdminUser } from '@/lib/restrictions'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { useTransitDayClock } from '@/lib/fx/useTransitDayClock'
-import { sellMznPerZar } from '@/lib/mznZar'
+import { inventoryDominantCard } from '@/lib/fx/inventoryDominant'
+import { costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
 
@@ -147,9 +148,18 @@ export type CardStackHandle = {
   cycleNext: () => void
   flipToCard: (cardType: CardType, direction?: 'forward' | 'back') => Promise<void>
   revealCreditSurprise: () => void
+  /** After Buy/Sell ZAR shock: let source flash, shuffle to TRANSIT, then release R credit. */
+  playCapitalShockReveal: (params: { creditZar: number }) => Promise<void>
 }
 
 const FLIP_DURATION_MS = FLIP_MS
+/** Match CardStackCard SlotCounter duration so source ↓ is readable before shuffle. */
+const SHOCK_SOURCE_FLASH_MS = 750
+const SHOCK_TRANSIT_FLASH_MS = 750
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
 
 const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack({ onTopCardChange, flipControllerRef: externalFlipControllerRef, aiCycleControllerRef, onCardClick, onCreditSurprise, onApyPillClick, fxRates }, ref) {
   const isAdmin = useIsAdminUser()
@@ -160,6 +170,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const { wallets, demoMode } = useWalletStore()
   const isBalanceReady = useAppModeStore((s) => s.isBalanceReady())
   const walletMzn = Number(wallets?.cashMZN?.fiatBalance || 0)
+  const walletZar = Number(wallets?.cashZAR?.fiatBalance || 0)
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : 0
   const transitClock = useTransitDayClock({
@@ -169,8 +180,11 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   })
   const [isAnimating, setIsAnimating] = useState(false)
   const [phase, setPhase] = useState<'idle' | 'animating'>('idle')
+  /** Holds back TRANSIT R so the up-tick plays after shuffle, not under the source card. */
+  const [transitCreditHold, setTransitCreditHold] = useState(0)
   const touchStartY = useRef<number>(0)
   const touchEndY = useRef<number>(0)
+  const inventoryOrderAppliedRef = useRef(false)
 
   // Special mode state for credit surprise animation
   const [specialMode, setSpecialMode] = useState<'credit' | null>(null)
@@ -186,7 +200,30 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
 
   useEffect(() => {
     setOrder(Array.from({ length: cardsData.length }, (_, i) => i))
+    inventoryOrderAppliedRef.current = false
   }, [cardsData])
+
+  // Land with the heavier inventory card on top (MZN vs ZAR in ZAR terms).
+  useEffect(() => {
+    if (!isAuthed) {
+      inventoryOrderAppliedRef.current = false
+      return
+    }
+    if (!isBalanceReady || demoMode || inventoryOrderAppliedRef.current) return
+    if (!(liveMzn > 0) && walletMzn > 0) return
+    inventoryOrderAppliedRef.current = true
+    const dominant = inventoryDominantCard(walletMzn, walletZar, costMznPerZar(liveMzn))
+    const dominantIdx = cardsData.findIndex((c) => c.type === dominant)
+    const transitIdx = cardsData.findIndex((c) => c.type === 'yieldSurprise')
+    if (dominantIdx < 0) return
+    setOrder(() => {
+      const rest = cardsData
+        .map((_, i) => i)
+        .filter((i) => i !== dominantIdx && i !== transitIdx)
+      return transitIdx >= 0 ? [dominantIdx, transitIdx, ...rest] : [dominantIdx, ...rest]
+    })
+  }, [isAuthed, isBalanceReady, demoMode, liveMzn, walletMzn, walletZar, cardsData])
+
   const [flashDirection, setFlashDirection] = useState<Record<CardType, 'up' | 'down' | null>>({
     savings: null,
     zwd: null,
@@ -506,10 +543,39 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     }, FLIP_DURATION_MS + 50) // Wait for any ongoing animation + buffer
   }, [order, specialMode, isAnimating, externalFlipControllerRef, onCreditSurprise])
 
+  const playCapitalShockReveal = useCallback(
+    async (params: { creditZar: number }) => {
+      const credit = Math.round((Number(params.creditZar) || 0) * 100) / 100
+      if (!(credit > 0)) return
+
+      externalFlipControllerRef?.current?.pause()
+      aiCycleControllerRef?.current?.pause()
+
+      // Wallet already includes the credit — hold it back until TRANSIT is on top.
+      setTransitCreditHold(credit)
+      await sleep(SHOCK_SOURCE_FLASH_MS)
+
+      try {
+        await flipToCard('yieldSurprise', 'forward')
+      } catch {
+        // Still release so the balance is not stuck hidden.
+      }
+
+      setFlashDirection((prev) => ({ ...prev, yieldSurprise: 'up' }))
+      setTransitCreditHold(0)
+      await sleep(SHOCK_TRANSIT_FLASH_MS)
+
+      externalFlipControllerRef?.current?.resume()
+      aiCycleControllerRef?.current?.resume()
+    },
+    [flipToCard, externalFlipControllerRef, aiCycleControllerRef]
+  )
+
   useImperativeHandle(ref, () => ({
     cycleNext,
     flipToCard,
     revealCreditSurprise,
+    playCapitalShockReveal,
   }))
 
   const handleCardClick = (index: number) => {
@@ -667,7 +733,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
               card.type === 'mzn'
                 ? transitClock.displayMznOffset
                 : card.type === 'yieldSurprise'
-                  ? transitClock.displayTransitZarOffset
+                  ? transitClock.displayTransitZarOffset - transitCreditHold
                   : card.type === 'savings'
                     ? transitClock.displayZarOffset
                     : 0
