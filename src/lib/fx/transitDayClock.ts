@@ -1,13 +1,17 @@
 /**
- * UI-only home-card day clock: MZN → TRANSIT drip every 5s, TRANSIT bar to 09:00 SAST,
- * ZAR 15s clear ceremony at 09:00. No wallet writes.
+ * UI-only home-card day clock: MZN → TRANSIT drip on a variable 5–30s cycle,
+ * TRANSIT bar to 09:00 SAST, ZAR 15s clear ceremony at 09:00. No wallet writes.
  */
 
 import { sastParts, sastToUtcMs } from '@/lib/routing/routingTime'
 
-export const MZN_DRIP_CYCLE_MS = 5_000
+/** Baseline / minimum fast MZN cycle (also the unit for drip scaling). */
+export const MZN_DRIP_CYCLE_MIN_MS = 5_000
+export const MZN_DRIP_CYCLE_MAX_MS = 30_000
+/** @deprecated Use MZN_DRIP_CYCLE_MIN_MS — kept as the 5s scale unit. */
+export const MZN_DRIP_CYCLE_MS = MZN_DRIP_CYCLE_MIN_MS
+export const FIVE_SECOND_MS = MZN_DRIP_CYCLE_MIN_MS
 export const ZAR_CLEAR_CEREMONY_MS = 15_000
-export const FIVE_SECOND_MS = MZN_DRIP_CYCLE_MS
 
 /** Previous 09:00 SAST at or before nowMs. */
 export function lastSettleAt09hSast(nowMs: number): number {
@@ -33,10 +37,27 @@ export function transitDayBarPercent(nowMs: number): number {
   return Math.max(0, Math.min(100, ((nowMs - start) / span) * 100))
 }
 
-/** MZN bar fill within the current 5s cycle (0–100). */
-export function mznCycleBarPercent(nowMs: number, cycleAnchorMs: number): number {
+/** Uniform random cycle length in [min, max] inclusive of bounds (ms, whole seconds). */
+export function randomMznDripCycleMs(
+  random: () => number = Math.random,
+  minMs: number = MZN_DRIP_CYCLE_MIN_MS,
+  maxMs: number = MZN_DRIP_CYCLE_MAX_MS
+): number {
+  const lo = Math.min(minMs, maxMs)
+  const hi = Math.max(minMs, maxMs)
+  const span = Math.max(0, hi - lo)
+  return Math.round(lo + random() * span)
+}
+
+/** MZN bar fill within the current cycle (0–100). */
+export function mznCycleBarPercent(
+  nowMs: number,
+  cycleAnchorMs: number,
+  cycleDurationMs: number = MZN_DRIP_CYCLE_MIN_MS
+): number {
+  const duration = Math.max(1, cycleDurationMs)
   const elapsed = Math.max(0, nowMs - cycleAnchorMs)
-  return Math.max(0, Math.min(100, (elapsed / MZN_DRIP_CYCLE_MS) * 100))
+  return Math.max(0, Math.min(100, (elapsed / duration) * 100))
 }
 
 /** ZAR clear ceremony bar 0–100 over 15s from ceremonyStartMs. */
@@ -52,26 +73,33 @@ export function remainingFiveSecondTicksUntil(nowMs: number, untilMs: number): n
 }
 
 /**
- * Micro MZN drip for one 5s tick.
- * Prefer remaining planned MZN / ticks to 09:00; else a tiny fraction of visible MZN.
+ * Micro MZN drip for one completed cycle of `cycleDurationMs`.
+ * Scaled so a longer cycle deposits proportionally more toward 09:00.
  */
 export function microDripMzn(params: {
   remainingPlannedMzn: number
   visibleMzn: number
   nowMs: number
+  cycleDurationMs?: number
 }): number {
+  const cycleMs = Math.max(1, params.cycleDurationMs ?? MZN_DRIP_CYCLE_MIN_MS)
   const nextNine = nextSettleAt09hSastExclusive(params.nowMs)
-  const ticks = remainingFiveSecondTicksUntil(params.nowMs, nextNine)
+  const remainingMs = Math.max(cycleMs, nextNine - params.nowMs)
   const planned = Number.isFinite(params.remainingPlannedMzn)
     ? Math.max(0, params.remainingPlannedMzn)
     : 0
   if (planned > 0) {
-    return Math.round((planned / ticks) * 100) / 100
+    const drip = planned * (cycleMs / remainingMs)
+    return Math.round(Math.min(planned, drip) * 100) / 100
   }
   const visible = Math.max(0, params.visibleMzn)
   if (!(visible > 0)) return 0
-  // ~0.05% of visible MZN per tick, min 0.01, capped so we don't empty in one tick.
-  const slice = Math.max(0.01, Math.min(visible * 0.0005, visible / ticks))
+  // ~0.05% of visible per 5s baseline, scaled by cycle length; capped by remaining share.
+  const scale = cycleMs / MZN_DRIP_CYCLE_MIN_MS
+  const slice = Math.max(
+    0.01,
+    Math.min(visible * 0.0005 * scale, visible * (cycleMs / remainingMs))
+  )
   return Math.round(slice * 100) / 100
 }
 
@@ -90,11 +118,16 @@ export type TransitDayOverlay = {
   /** True while the 15s ZAR fill animation runs. */
   zarCeremonyActive: boolean
   zarCeremonyStartMs: number | null
-  /** Anchor for the current 5s MZN cycle. */
+  /** Anchor for the current MZN cycle. */
   mznCycleAnchorMs: number
+  /** Length of the current MZN cycle (5–30s). */
+  mznCycleDurationMs: number
 }
 
-export function createInitialOverlay(nowMs: number): TransitDayOverlay {
+export function createInitialOverlay(
+  nowMs: number,
+  random: () => number = Math.random
+): TransitDayOverlay {
   return {
     mznDelta: 0,
     transitUsdDelta: 0,
@@ -102,6 +135,7 @@ export function createInitialOverlay(nowMs: number): TransitDayOverlay {
     zarCeremonyActive: false,
     zarCeremonyStartMs: null,
     mznCycleAnchorMs: nowMs,
+    mznCycleDurationMs: randomMznDripCycleMs(random),
   }
 }
 

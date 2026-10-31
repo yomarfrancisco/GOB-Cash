@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  MZN_DRIP_CYCLE_MS,
   ZAR_CLEAR_CEREMONY_MS,
   createInitialOverlay,
   lastSettleAt09hSast,
@@ -10,6 +9,7 @@ import {
   mznCycleBarPercent,
   mznToTransitUsd,
   nextSettleAt09hSastExclusive,
+  randomMznDripCycleMs,
   transitDayBarPercent,
   zarClearBarPercent,
   type TransitDayOverlay,
@@ -36,7 +36,8 @@ function formatCountdown(ms: number): string {
 }
 
 /**
- * UI-only home clock. Pass live MZN wallet (major) and sell Mt/$ for drip sizing.
+ * UI-only home clock. Fast MZN cycles last 5–30s; each completion drips a
+ * proportionate MZN→TRANSIT$ overlay. TRANSIT day bar is wall-clock to 09:00.
  */
 export function useTransitDayClock(params: {
   enabled: boolean
@@ -83,28 +84,29 @@ export function useTransitDayClock(params: {
           prev.zarCeremonyStartMs != null &&
           t - prev.zarCeremonyStartMs >= ZAR_CLEAR_CEREMONY_MS
         ) {
-          // Drop UI drip overlays. ZAR major comes from the daily wallet batch
-          // (avoid double-count if we also credited zarMajorDelta here).
+          // Drop UI drip overlays. ZAR major comes from the daily wallet batch.
           return {
-            mznDelta: 0,
-            transitUsdDelta: 0,
-            zarMajorDelta: 0,
-            zarCeremonyActive: false,
-            zarCeremonyStartMs: null,
-            mznCycleAnchorMs: t,
+            ...createInitialOverlay(t),
           }
         }
 
-        if (!prev.zarCeremonyActive && t - prev.mznCycleAnchorMs >= MZN_DRIP_CYCLE_MS) {
+        const cycleMs = Math.max(1, prev.mznCycleDurationMs)
+        if (!prev.zarCeremonyActive && t - prev.mznCycleAnchorMs >= cycleMs) {
           const visibleMzn = Math.max(0, walletMznRef.current - prev.mznDelta)
           const remainingPlanned = Math.max(0, plannedRef.current - prev.mznDelta)
           const drip = microDripMzn({
             remainingPlannedMzn: remainingPlanned,
             visibleMzn,
             nowMs: t,
+            cycleDurationMs: cycleMs,
           })
+          const nextDuration = randomMznDripCycleMs()
           if (!(drip > 0) || drip > visibleMzn + 0.0001) {
-            return { ...prev, mznCycleAnchorMs: t }
+            return {
+              ...prev,
+              mznCycleAnchorMs: t,
+              mznCycleDurationMs: nextDuration,
+            }
           }
           const usd = mznToTransitUsd(drip, sellRef.current)
           return {
@@ -112,6 +114,7 @@ export function useTransitDayClock(params: {
             mznDelta: Math.round((prev.mznDelta + drip) * 100) / 100,
             transitUsdDelta: Math.round((prev.transitUsdDelta + usd) * 100) / 100,
             mznCycleAnchorMs: t,
+            mznCycleDurationMs: nextDuration,
           }
         }
 
@@ -130,7 +133,7 @@ export function useTransitDayClock(params: {
   return {
     nowMs,
     overlay,
-    mznBarPercent: mznCycleBarPercent(nowMs, overlay.mznCycleAnchorMs),
+    mznBarPercent: mznCycleBarPercent(nowMs, overlay.mznCycleAnchorMs, overlay.mznCycleDurationMs),
     transitBarPercent: transitDayBarPercent(nowMs),
     zarBarPercent: overlay.zarCeremonyActive
       ? zarClearBarPercent(nowMs, overlay.zarCeremonyStartMs)
