@@ -87,16 +87,16 @@ export async function submitInternalConversion(params: {
       useNotificationStore.getState().pushNotification({
         id: result.txId,
         kind: 'ai_trade',
-        title: isZarSale ? 'ZAR booked' : 'ZAR added to the window',
+        title: 'ZAR booked',
         body: isZarSale
           ? `${sourceLabel} booked until 09:00 next window. Day tickets are on $-Route.`
-          : `${destLabel} added. The book has been re-solved.`,
-        // Canonical desk card is the Firestore activityEvent (EN_ROUTE_BOOKED / window top-up).
+          : `${sourceLabel} sold · ${destLabel} clears ~09:00 next window.`,
+        // Canonical desk card is the Firestore EN_ROUTE_BOOKED activityEvent.
         skipActivityStore: true,
         actor: {
           type: 'ai_manager',
           avatar,
-          name: 'Sam',
+          name: isZarSale ? 'Leo' : 'Amina',
         },
         routeOnTap: '/profile?activity=1',
       })

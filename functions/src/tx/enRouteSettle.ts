@@ -1,6 +1,7 @@
 /**
- * Book ZAR sales onto the EN ROUTE (earnings) wallet until next 09:00 SAST,
- * then clear them into cashMZN at the booked SELL rate.
+ * Book conversions onto the EN ROUTE (earnings) wallet until next 09:00 SAST.
+ * - Sell ZAR → earnings ↑ (ZAR), clears into cashMZN at SELL.
+ * - Buy ZAR / Sell MZN → earnings ↑ (ZAR at COST), clears into cashZAR at COST.
  */
 
 import * as functions from 'firebase-functions'
@@ -205,7 +206,193 @@ export async function bookZarSaleToEnRoute(
   return { txId, settleAtMs, expectedMzn }
 }
 
-/** Clear due EN_ROUTE lots into cashMZN and reduce earnings. */
+export type BookMznEnRouteParams = {
+  userId: string
+  sourceAmountMzn: number
+  sellRate: number
+  costRate: number
+  namedClient?: { handle: string; userId: string } | null
+  groupId?: string
+  suppressDeskActivity?: boolean
+  simulated?: boolean
+  planRunId?: string
+  settleImmediately?: boolean
+  /** Canonical ZAR from MZN ÷ COST. */
+  expectedDestinationZar?: number
+  transactionId?: string
+  autonomousRunId?: string
+}
+
+export type BookMznEnRouteResult = {
+  txId: string
+  settleAtMs: number
+  expectedZar: number
+}
+
+/**
+ * Debit cashMZN, credit earnings (ZAR at COST), open EN_ROUTE until next 09:00 SAST.
+ * Clears into cashZAR — ZAR inventory stays flat until then.
+ */
+export async function bookMznSaleToEnRoute(
+  params: BookMznEnRouteParams
+): Promise<BookMznEnRouteResult> {
+  const sourceAmountMajor = roundMajor(params.sourceAmountMzn)
+  const sourceAmountMinor = Math.round(sourceAmountMajor * 100)
+  if (!(sourceAmountMinor > 0)) {
+    throw new functions.https.HttpsError('invalid-argument', 'sourceAmount must be a positive number')
+  }
+  if (!(params.costRate > 0)) {
+    throw new functions.https.HttpsError('invalid-argument', 'costRate must be positive')
+  }
+
+  const expectedZar =
+    typeof params.expectedDestinationZar === 'number' && params.expectedDestinationZar > 0
+      ? roundMajor(params.expectedDestinationZar)
+      : roundMajor(sourceAmountMajor / params.costRate)
+  const expectedDestinationMinor = Math.round(expectedZar * 100)
+  if (!(expectedDestinationMinor > 0)) {
+    throw new functions.https.HttpsError('invalid-argument', 'expected ZAR must be positive')
+  }
+
+  const nowMs = Date.now()
+  const settleAtMs =
+    params.settleImmediately === true ? nowMs : nextSettleAt09hSast(nowMs)
+  const now = admin.firestore.Timestamp.fromMillis(nowMs)
+  const settleAt = admin.firestore.Timestamp.fromMillis(settleAtMs)
+
+  const userRef = db.collection('users').doc(params.userId)
+  const mznRef = userRef.collection('wallets').doc('cashMZN')
+  const earningsRef = userRef.collection('wallets').doc('earnings')
+  const deterministicId =
+    typeof params.transactionId === 'string'
+      ? params.transactionId.replace(/[^a-zA-Z0-9_.-]/g, '-').slice(0, 180)
+      : ''
+  const txRef = deterministicId
+    ? db.collection('transactions').doc(deterministicId)
+    : db.collection('transactions').doc()
+  const txId = txRef.id
+  const groupId = params.groupId || txId
+
+  await db.runTransaction(async (t) => {
+    const txSnap = await t.get(txRef)
+    if (txSnap.exists) return
+    const mznSnap = await t.get(mznRef)
+    const earningsSnap = await t.get(earningsRef)
+    const mznData = mznSnap.exists ? mznSnap.data()! : { fiatBalance: 0 }
+    const earningsData = earningsSnap.exists ? earningsSnap.data()! : { fiatBalance: 0 }
+    const availableMinor = Math.round(Number(mznData.fiatBalance || 0) * 100)
+    if (!mznSnap.exists || sourceAmountMinor > availableMinor) {
+      throw new functions.https.HttpsError('failed-precondition', 'Insufficient MZN balance.')
+    }
+
+    // Earnings holds ZAR-major in transit (same denomination as Sell ZAR books).
+    const earningsMinor =
+      Math.round(Number(earningsData.fiatBalance || 0) * 100) + expectedDestinationMinor
+    const existingSettle = earningsData.nextSettleAt?.toMillis?.() ?? earningsData.nextSettleAt
+    const existingSettleMs =
+      typeof existingSettle === 'number' && existingSettle > 0 ? existingSettle : null
+    const nextSettleAtMs =
+      existingSettleMs != null ? Math.min(existingSettleMs, settleAtMs) : settleAtMs
+
+    t.update(mznRef, {
+      fiatBalance: (availableMinor - sourceAmountMinor) / 100,
+      updatedAt: now,
+    })
+
+    if (!earningsSnap.exists) {
+      t.set(earningsRef, {
+        walletId: 'earnings',
+        kind: 'earnings',
+        displayCurrency: 'ZAR',
+        fiatBalance: earningsMinor / 100,
+        usdtBalance: 0,
+        nextSettleAt: admin.firestore.Timestamp.fromMillis(nextSettleAtMs),
+        bookedSellRate: params.costRate,
+        updatedAt: now,
+      })
+    } else {
+      t.update(earningsRef, {
+        fiatBalance: earningsMinor / 100,
+        nextSettleAt: admin.firestore.Timestamp.fromMillis(nextSettleAtMs),
+        bookedSellRate: params.costRate,
+        updatedAt: now,
+      })
+    }
+
+    t.set(txRef, {
+      id: txId,
+      userId: params.userId,
+      type: 'CONVERSION',
+      transactionType: 'CONVERSION',
+      uiAction: 'PAY',
+      instructionSource: 'USER_INSTRUCTED',
+      recordingSource: 'USER_UI',
+      executionChannel: 'INTERNAL',
+      status: 'EN_ROUTE',
+      instructionStatus: 'EN_ROUTE',
+      sourceCurrency: 'MZN',
+      destinationCurrency: 'ZAR',
+      currency: 'MZN',
+      sourceAmountMinor,
+      expectedDestinationAmountMinor: expectedDestinationMinor,
+      actualDestinationAmountMinor: null,
+      quotedRate: params.costRate,
+      buyRateMZNperZAR: params.costRate,
+      costRateMZNperZAR: params.costRate,
+      sellRateMZNperZAR: params.sellRate,
+      rewardsMznMinor: null,
+      clientDestinationAmountMinor: expectedDestinationMinor,
+      amountMzn: sourceAmountMajor,
+      amountZar: expectedZar,
+      fxRateMZNperZAR: params.costRate,
+      settleAt,
+      counterpartyHandle: params.namedClient?.handle || null,
+      counterpartyUserId: params.namedClient?.userId || null,
+      groupId,
+      autonomousRunId: params.autonomousRunId || null,
+      suppressDeskActivity: params.suppressDeskActivity === true,
+      simulated: params.simulated === true,
+      planRunId: params.planRunId || null,
+      createdAt: now,
+      statusUpdatedAt: now,
+      updatedAt: now,
+    })
+
+    if (!params.suppressDeskActivity) {
+      const settleLabel = new Date(settleAtMs + SAST_OFFSET_MS)
+        .toISOString()
+        .slice(11, 16)
+      t.set(userRef.collection('activityEvents').doc(txId), {
+        id: txId,
+        kind: 'EN_ROUTE_BOOKED',
+        title: 'ZAR booked',
+        deskStatusChip: 'Booked',
+        body: `${sourceAmountMajor.toFixed(2)} MZN → ${expectedZar.toFixed(2)} ZAR @ ${params.costRate.toFixed(4)} (cost)`,
+        dropdownBody: `Booked ${settleLabel} · clears ~09:00 next window`,
+        actorType: 'ai_manager',
+        avatarKind: 'convert_mzn',
+        amountCurrency: 'ZAR',
+        amountValue: expectedZar,
+        amountSign: 'credit',
+        pairedAmountValue: sourceAmountMajor,
+        txId,
+        hasDownloadButton: false,
+        status: 'recorded',
+        routingAction: 'en_route',
+        deskSpeaker: 'amina',
+        ...(params.simulated === true
+          ? { simulated: true, ...(params.planRunId ? { planRunId: params.planRunId } : {}) }
+          : {}),
+        createdAt: now,
+        recordingSource: 'USER_UI',
+      })
+    }
+  })
+
+  return { txId, settleAtMs, expectedZar }
+}
+
+/** Clear due EN_ROUTE lots: ZAR→MZN into cashMZN, MZN→ZAR into cashZAR; reduce earnings. */
 export async function settleDueEnRouteLots(limit = 40): Promise<number> {
   const now = admin.firestore.Timestamp.now()
   const snap = await db
@@ -221,13 +408,20 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
   for (const doc of snap.docs) {
     const tx = doc.data()
     const userId = typeof tx.userId === 'string' ? tx.userId : ''
-    const zarMinor = Math.round(Number(tx.sourceAmountMinor || 0))
-    const mznMinor = Math.round(Number(tx.expectedDestinationAmountMinor || 0))
-    if (!userId || !(zarMinor > 0) || !(mznMinor > 0)) continue
+    const clearsToZar = tx.destinationCurrency === 'ZAR'
+    const sourceMinor = Math.round(Number(tx.sourceAmountMinor || 0))
+    const destMinor = Math.round(Number(tx.expectedDestinationAmountMinor || 0))
+    // Sell ZAR: source=ZAR earnings debit, dest=MZN credit.
+    // Buy ZAR: source=MZN (already left wallet), dest=ZAR earnings debit + cashZAR credit.
+    const earningsDebitMinor = clearsToZar ? destMinor : sourceMinor
+    const zarMinorForUi = clearsToZar ? destMinor : sourceMinor
+    const mznMinorForUi = clearsToZar ? sourceMinor : destMinor
+    if (!userId || !(sourceMinor > 0) || !(destMinor > 0) || !(earningsDebitMinor > 0)) continue
 
     const userRef = db.collection('users').doc(userId)
     const earningsRef = userRef.collection('wallets').doc('earnings')
     const mznRef = userRef.collection('wallets').doc('cashMZN')
+    const zarRef = userRef.collection('wallets').doc('cashZAR')
 
     // Planned desk must not mutate live wallets / earnings — checkpoint rewind is incomplete.
     let plannedDesk = false
@@ -264,7 +458,7 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
             t.update(doc.ref, {
               status: 'SETTLED',
               instructionStatus: 'SETTLED',
-              actualDestinationAmountMinor: mznMinor,
+              actualDestinationAmountMinor: destMinor,
               statusUpdatedAt: now,
               updatedAt: now,
               settledAt: now,
@@ -273,13 +467,19 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
           return true
         }
 
+        const rateForBody = clearsToZar
+          ? Number(fresh.data()?.costRateMZNperZAR || 0)
+          : Number(fresh.data()?.sellRateMZNperZAR || 0)
+        const clearBody = clearsToZar
+          ? `${(zarMinorForUi / 100).toFixed(2)} ZAR @ ${rateForBody.toFixed(4)} (cost)`
+          : `${(mznMinorForUi / 100).toFixed(2)} MZN @ ${rateForBody.toFixed(4)}`
+
         // Simulated lots: mark settled without touching live wallets.
         if (simulatedLot) {
-          const sellRate = Number(fresh.data()?.sellRateMZNperZAR || 0)
           t.update(doc.ref, {
             status: 'SETTLED',
             instructionStatus: 'SETTLED',
-            actualDestinationAmountMinor: mznMinor,
+            actualDestinationAmountMinor: destMinor,
             statusUpdatedAt: now,
             updatedAt: now,
             settledAt: now,
@@ -291,18 +491,18 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
               kind: 'EN_ROUTE_CLEARED',
               title: 'ZAR cleared',
               deskStatusChip: 'Cleared',
-              body: `${(mznMinor / 100).toFixed(2)} MZN @ ${sellRate.toFixed(4)}`,
+              body: clearBody,
               actorType: 'ai_manager',
-              avatarKind: 'convert_mzn',
+              avatarKind: clearsToZar ? 'convert_zar' : 'convert_mzn',
               amountCurrency: 'ZAR',
-              amountValue: zarMinor / 100,
+              amountValue: zarMinorForUi / 100,
               amountSign: 'debit' as const,
-              pairedAmountValue: mznMinor / 100,
+              pairedAmountValue: mznMinorForUi / 100,
               txId: doc.id,
               hasDownloadButton: false,
               status: 'recorded',
               routingAction: 'en_route_clear',
-              deskSpeaker: 'amina',
+              deskSpeaker: clearsToZar ? 'leo' : 'amina',
               simulated: true,
               ...(planRunId ? { planRunId } : {}),
               updatedAt: now,
@@ -323,11 +523,12 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
         }
 
         const earningsSnap = await t.get(earningsRef)
-        const mznSnap = await t.get(mznRef)
+        const landRef = clearsToZar ? zarRef : mznRef
+        const landSnap = await t.get(landRef)
         const earningsData = earningsSnap.exists ? earningsSnap.data()! : { fiatBalance: 0 }
-        const mznData = mznSnap.exists ? mznSnap.data()! : { fiatBalance: 0 }
+        const landData = landSnap.exists ? landSnap.data()! : { fiatBalance: 0 }
         const earningsMinor = Math.round(Number(earningsData.fiatBalance || 0) * 100)
-        if (earningsMinor < zarMinor) {
+        if (earningsMinor < earningsDebitMinor) {
           t.update(doc.ref, {
             reconciliationRequired: true,
             reconciliationReason: 'earnings_below_open_lot',
@@ -335,32 +536,32 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
           })
           return false
         }
-        const debit = zarMinor
+        const debit = earningsDebitMinor
 
         t.update(earningsRef, {
           fiatBalance: (earningsMinor - debit) / 100,
           updatedAt: now,
         })
 
-        const mznNext =
-          (Math.round(Number(mznData.fiatBalance || 0) * 100) + mznMinor) / 100
-        if (!mznSnap.exists) {
-          t.set(mznRef, {
-            walletId: 'cashMZN',
+        const landNext =
+          (Math.round(Number(landData.fiatBalance || 0) * 100) + destMinor) / 100
+        if (!landSnap.exists) {
+          t.set(landRef, {
+            walletId: clearsToZar ? 'cashZAR' : 'cashMZN',
             kind: 'cash',
-            displayCurrency: 'MZN',
-            fiatBalance: mznNext,
+            displayCurrency: clearsToZar ? 'ZAR' : 'MZN',
+            fiatBalance: landNext,
             usdtBalance: 0,
             updatedAt: now,
           })
         } else {
-          t.update(mznRef, { fiatBalance: mznNext, updatedAt: now })
+          t.update(landRef, { fiatBalance: landNext, updatedAt: now })
         }
 
         t.update(doc.ref, {
           status: 'SETTLED',
           instructionStatus: 'SETTLED',
-          actualDestinationAmountMinor: mznMinor,
+          actualDestinationAmountMinor: destMinor,
           statusUpdatedAt: now,
           updatedAt: now,
           settledAt: now,
@@ -368,23 +569,22 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
 
         // Live: update the booking bubble in place (same id as the conversion tx).
         if (!suppressDesk && fresh.data()?.suppressDeskActivity !== true) {
-          const sellRate = Number(fresh.data()?.sellRateMZNperZAR || 0)
           const clearFields = {
             kind: 'EN_ROUTE_CLEARED',
             title: 'ZAR cleared',
             deskStatusChip: 'Cleared',
-            body: `${(mznMinor / 100).toFixed(2)} MZN @ ${sellRate.toFixed(4)}`,
+            body: clearBody,
             actorType: 'ai_manager',
-            avatarKind: 'convert_mzn',
+            avatarKind: clearsToZar ? 'convert_zar' : 'convert_mzn',
             amountCurrency: 'ZAR',
-            amountValue: debit / 100,
+            amountValue: zarMinorForUi / 100,
             amountSign: 'debit' as const,
-            pairedAmountValue: mznMinor / 100,
+            pairedAmountValue: mznMinorForUi / 100,
             txId: doc.id,
             hasDownloadButton: false,
             status: 'recorded',
             routingAction: 'en_route_clear',
-            deskSpeaker: 'amina',
+            deskSpeaker: clearsToZar ? 'leo' : 'amina',
             updatedAt: now,
             clearedAt: now,
             recordingSource: 'SYSTEM',

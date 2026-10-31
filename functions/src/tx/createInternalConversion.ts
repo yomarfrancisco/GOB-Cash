@@ -1,10 +1,9 @@
 /**
  * Cloud Function: tx_createInternalConversion
  *
- * ZAR→MZN sales book onto EN ROUTE (earnings) until the next 09:00 SAST clear,
- * then cashMZN rises. MZN→ZAR restocks still credit cashZAR immediately at COST.
- * Admin `$` capitalShock still opens/resizes the desk window and, for ZAR sales,
- * also books EN ROUTE.
+ * ZAR→MZN sales and `$` Buy ZAR (MZN→ZAR) book onto EN ROUTE (earnings) until
+ * the next 09:00 SAST clear (→ cashMZN at SELL, or → cashZAR at COST).
+ * Desk Step 5 restocks can still credit cashZAR immediately when matched to a play.
  */
 
 import * as functions from 'firebase-functions'
@@ -92,16 +91,16 @@ export const tx_createInternalConversion = functions
     const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
     const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
 
-    // `$` on the admin desk sets window capital. ZAR sales also book EN ROUTE.
+    // `$` on the admin desk sets window capital and books EN ROUTE both ways.
     if (isRoutingAdmin && data?.capitalShock === true) {
       const { applyAdminCapitalShock } = await import('./adminConversionRouting')
+      const { bookZarSaleToEnRoute, bookMznSaleToEnRoute } = await import('./enRouteSettle')
       let shockZar: number
       let shockMzn: number
       let bookedTxId: string | null = null
       if (isZarSale) {
         shockZar = roundMajor(sourceAmount)
         shockMzn = 0
-        const { bookZarSaleToEnRoute } = await import('./enRouteSettle')
         const rewardsMznMajor = mznRewardsFromZar(shockZar, sellRate, costRate)
         const booked = await bookZarSaleToEnRoute({
           userId,
@@ -110,36 +109,24 @@ export const tx_createInternalConversion = functions
           costRate,
           rewardsMznMinor: Math.round(rewardsMznMajor * 100),
           namedClient,
-          // Always surface capital-shock books on the desk (toast alone is not enough).
           suppressDeskActivity: false,
         })
         bookedTxId = booked.txId
       } else {
-        shockZar = roundMajor(sourceAmount / costRate)
+        // Buy ZAR: MZN must already be in wallet → TRANSIT now → cashZAR at 09:00.
         shockMzn = roundMajor(sourceAmount)
-        // MZN→ZAR window top-ups previously toasted with no activityEvent.
-        const now = admin.firestore.Timestamp.now()
-        const shockRef = db.collection('users').doc(userId).collection('activityEvents').doc()
-        bookedTxId = shockRef.id
-        await shockRef.set({
-          id: shockRef.id,
-          kind: 'CONVERSION_ROUTING_INSTRUCTION',
-          title: 'ZAR added to the window',
-          body: `${shockZar.toFixed(2)} ZAR from ${shockMzn.toFixed(2)} MZN @ ${costRate.toFixed(4)} (cost)`,
-          dropdownBody: 'The book has been re-solved.',
-          actorType: 'ai_manager',
-          avatarKind: 'convert_mzn',
-          amountCurrency: 'ZAR',
-          amountValue: shockZar,
-          amountSign: 'credit',
-          pairedAmountValue: shockMzn,
-          hasDownloadButton: false,
-          status: 'recorded',
-          routingAction: 'advice',
-          deskSpeaker: 'sam',
-          createdAt: now,
-          recordingSource: 'USER_UI',
+        shockZar = roundMajor(sourceAmount / costRate)
+        const booked = await bookMznSaleToEnRoute({
+          userId,
+          sourceAmountMzn: shockMzn,
+          sellRate,
+          costRate,
+          expectedDestinationZar: shockZar,
+          namedClient,
+          suppressDeskActivity: false,
         })
+        bookedTxId = booked.txId
+        shockZar = booked.expectedZar
       }
       await applyAdminCapitalShock({
         adminUid: userId,
@@ -151,7 +138,7 @@ export const tx_createInternalConversion = functions
         txId: bookedTxId || `shock-${Date.now()}`,
         capitalShock: true,
         amountZar: shockZar,
-        enRoute: isZarSale,
+        enRoute: true,
       }
     }
 
