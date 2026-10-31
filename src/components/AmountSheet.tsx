@@ -169,7 +169,7 @@ export default function AmountSheet({
     const nextMZN = isZarPrimaryKeypad
       ? Math.round(zarToMzn(typed, fxRateMZNperZAR) * 100) / 100
       : typed
-    // Only the source wallet must cover the typed amount (Sell ZAR → ZAR; Sell MZN → MZN).
+    // Only the source wallet must cover the typed amount (Sell ZAR → ZAR; Buy ZAR / Sell MZN → MZN).
     if (
       !fromAutoPlay &&
       (isZarPrimaryKeypad
@@ -648,7 +648,7 @@ export default function AmountSheet({
               type="button"
               disabled={!isPositive || exceedsZarBalance || exceedsMznBalance || conversionBusy}
             >
-              {isZarPrimaryKeypad ? 'Sell ZAR' : 'Sell MZN'}
+              {isZarPrimaryKeypad ? 'Sell ZAR' : 'Buy ZAR'}
             </button>
           ) : entryPoint === 'cashButton' ? (
             // Dual buttons for $ button entry point: "Request" and "Pay"
