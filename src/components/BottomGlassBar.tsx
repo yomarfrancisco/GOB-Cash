@@ -4,7 +4,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
-import { Bot } from 'lucide-react'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
 import { selectHasUnseenLiquidityActivity, useActivityUnreadStore } from '@/store/activityUnread'
@@ -135,14 +134,17 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           }}
           onClick={handleDeskClick}
         >
-          <Bot
-            aria-hidden
-            className="nav-icon nav-icon-active"
-            color="#111111"
-            fill="none"
-            strokeWidth={2}
-            size={28}
-          />
+          <div className="nav-avatar-container nav-avatar--real">
+            <div className="nav-avatar-image-wrapper">
+              <Image
+                src="/assets/benjamin_grey_square.png"
+                alt="FX desk"
+                fill
+                className="nav-avatar-image"
+                sizes="28px"
+              />
+            </div>
+          </div>
           {hasUnseenActivity && (
             <span className="nav-notification-dot" aria-label="New liquidity manager activity" />
           )}
