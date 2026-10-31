@@ -78,7 +78,7 @@ const allCardsData: CardData[] = [
   },
   {
     type: 'yieldSurprise',
-    image: '/assets/cards/card-ROUTE_23102026.jpg',
+    image: '/assets/cards/card-PAGA_311026.jpg',
     alt: 'En Route Card',
     width: 342,
     height: 213,
