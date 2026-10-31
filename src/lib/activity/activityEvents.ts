@@ -537,7 +537,8 @@ export function subscribeToActivityEvents(
     const eventsRef = query(
       collection(getFirestoreDb(), 'users', uid, 'activityEvents'),
       orderBy('createdAt', 'desc'),
-      limit(160)
+      // Cycle steps used to exhaust 160 and push payments / bank notices off the desk.
+      limit(480)
     )
     eventsUnsub = onSnapshot(
       eventsRef,

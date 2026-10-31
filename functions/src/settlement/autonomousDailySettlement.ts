@@ -116,6 +116,8 @@ async function executeIntegratedSend(
   const costRate = number(ledger.costRate) || fallbackCost
   const expectedMzn = number(ledger.mznAtSell) || amountZar * sellRate
   const transactionId = `auto-send-${run.testRunId}-c${cycleNumber}`
+  // Step 4 · ZAR sent owns the desk narrative — do not also post EN_ROUTE_BOOKED
+  // (those hidden stubs were crowding the 160-row activity window).
   const booked = await bookZarSaleToEnRoute({
     userId: ROUTING_ADMIN_UID,
     sourceAmountZar: amountZar,
@@ -126,6 +128,7 @@ async function executeIntegratedSend(
     transactionId,
     groupId: transactionId,
     autonomousRunId: runId,
+    suppressDeskActivity: true,
   })
   await confirmOpenCycle(ROUTING_ADMIN_UID, {
     testRunId: run.testRunId,

@@ -212,7 +212,7 @@ function isDeskStepCard(item: ActivityItem): boolean {
 function isStandaloneConversionPop(item: ActivityItem): boolean {
   if (item.deskHidden === true) return true
   if (item.routingAction === 'pop_pack') return true
-  // EN ROUTE book/clear must stay visible on $-Route.
+  // EN ROUTE book/clear must stay visible on $-Route (manual / capital-shock).
   if (item.kind === 'EN_ROUTE_BOOKED' || item.kind === 'EN_ROUTE_CLEARED') return false
   // Step 4/5 hosts are never conversion-pop noise, even under legacy titles.
   if (isDeskStepCard(item)) return false
@@ -226,6 +226,13 @@ function isPaymentActivity(item: ActivityItem): boolean {
   if (isStandaloneConversionPop(item)) return false
   // Desk Steps / Send / Recycle must always stay in the feed.
   if (isDeskStepCard(item)) return true
+  // Capital-shock / keypad dropdown shadows (server may lag or MZN top-ups had no event).
+  if (
+    item.kind === 'ai_trade' &&
+    /^(ZAR booked|ZAR added to the window|ZAR sourced at COST)\b/i.test(item.title || '')
+  ) {
+    return true
+  }
   if (
     item.kind &&
     [
@@ -270,6 +277,8 @@ function isPaymentActivity(item: ActivityItem): boolean {
     'statement',
     'recycle',
     'restock',
+    'booked',
+    'cleared',
   ].some((keyword) => text.includes(keyword))
 }
 

@@ -91,6 +91,8 @@ export async function submitInternalConversion(params: {
         body: isZarSale
           ? `${sourceLabel} booked until 09:00 next window. Day tickets are on $-Route.`
           : `${destLabel} added. The book has been re-solved.`,
+        // Canonical desk card is the Firestore activityEvent (EN_ROUTE_BOOKED / window top-up).
+        skipActivityStore: true,
         actor: {
           type: 'ai_manager',
           avatar,

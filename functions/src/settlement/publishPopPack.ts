@@ -96,6 +96,8 @@ export async function publishPopPackDeskNotice(params: {
   }
 
   // Hide leftover standalone conversion / POP-pack bubbles from the desk.
+  // Never create stub docs (merge-on-missing ate feed slots), and never hide
+  // EN_ROUTE_BOOKED / CLEARED — those are real $-Route movements.
   const hideIds = [
     ...mergedIds,
     params.testRunId && typeof params.cycleNumber === 'number'
@@ -103,11 +105,16 @@ export async function publishPopPackDeskNotice(params: {
       : null,
   ].filter((id): id is string => Boolean(id))
   await Promise.all(
-    hideIds.map((id) =>
-      events
-        .doc(id)
-        .set({ hasDownloadButton: false, deskHidden: true }, { merge: true })
-        .catch(() => undefined)
-    )
+    hideIds.map(async (id) => {
+      try {
+        const snap = await events.doc(id).get()
+        if (!snap.exists) return
+        const kind = String(snap.data()?.kind || '')
+        if (kind === 'EN_ROUTE_BOOKED' || kind === 'EN_ROUTE_CLEARED') return
+        await events.doc(id).set({ hasDownloadButton: false, deskHidden: true }, { merge: true })
+      } catch {
+        // ignore missing / races
+      }
+    })
   )
 }

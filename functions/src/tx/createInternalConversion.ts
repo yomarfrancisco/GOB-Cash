@@ -110,12 +110,36 @@ export const tx_createInternalConversion = functions
           costRate,
           rewardsMznMinor: Math.round(rewardsMznMajor * 100),
           namedClient,
-          suppressDeskActivity: data?.suppressDeskActivity === true,
+          // Always surface capital-shock books on the desk (toast alone is not enough).
+          suppressDeskActivity: false,
         })
         bookedTxId = booked.txId
       } else {
         shockZar = roundMajor(sourceAmount / costRate)
         shockMzn = roundMajor(sourceAmount)
+        // MZN→ZAR window top-ups previously toasted with no activityEvent.
+        const now = admin.firestore.Timestamp.now()
+        const shockRef = db.collection('users').doc(userId).collection('activityEvents').doc()
+        bookedTxId = shockRef.id
+        await shockRef.set({
+          id: shockRef.id,
+          kind: 'CONVERSION_ROUTING_INSTRUCTION',
+          title: 'ZAR added to the window',
+          body: `${shockZar.toFixed(2)} ZAR from ${shockMzn.toFixed(2)} MZN @ ${costRate.toFixed(4)} (cost)`,
+          dropdownBody: 'The book has been re-solved.',
+          actorType: 'ai_manager',
+          avatarKind: 'convert_mzn',
+          amountCurrency: 'ZAR',
+          amountValue: shockZar,
+          amountSign: 'credit',
+          pairedAmountValue: shockMzn,
+          hasDownloadButton: false,
+          status: 'recorded',
+          routingAction: 'advice',
+          deskSpeaker: 'sam',
+          createdAt: now,
+          recordingSource: 'USER_UI',
+        })
       }
       await applyAdminCapitalShock({
         adminUid: userId,
