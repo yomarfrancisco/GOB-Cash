@@ -82,7 +82,7 @@ const allCardsData: CardData[] = [
   },
   {
     type: 'yieldSurprise',
-    image: '/assets/cards/card_PAGA_SA1.jpg',
+    image: '/assets/cards/card_PAGA_SA2.jpg',
     alt: 'Transit Card',
     width: 342,
     height: 213,
