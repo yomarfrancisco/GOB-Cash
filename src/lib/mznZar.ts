@@ -116,6 +116,31 @@ export const zarToMzn = (amountZAR: number, rateMZNperZAR = MZN_PER_ZAR) =>
 
 export const zarToUsdt = (amountZAR: number) => amountZAR / ZAR_PER_USDT
 
+/** Live USD per 1 ZAR from `/api/fx/latest` (raw mid). */
+export function usdPerZar(quotedUsdPerZar: number): number {
+  if (Number.isFinite(quotedUsdPerZar) && quotedUsdPerZar > 0) return quotedUsdPerZar
+  return 1 / ZAR_PER_USDT
+}
+
+/** ZAR amount → USD at the live mid. */
+export function zarToUsd(amountZAR: number, quotedUsdPerZar: number): number {
+  return Math.round(amountZAR * usdPerZar(quotedUsdPerZar) * 100) / 100
+}
+
+/**
+ * SELL MZN per 1 USD — same corridor as ZAR sell (API mid × 1.05 × 1.10),
+ * expressed per dollar via live USD/ZAR.
+ * `sellMznPerZarQuote` is the `/api/fx/latest` MZN sell quote.
+ */
+export function sellMznPerUsd(sellMznPerZarQuote: number, quotedUsdPerZar: number): number {
+  const sellZar = sellMznPerZar(sellMznPerZarQuote)
+  const usd = usdPerZar(quotedUsdPerZar)
+  if (!(sellZar > 0) || !(usd > 0)) {
+    return MZN_PER_ZAR / (1 / ZAR_PER_USDT)
+  }
+  return sellZar / usd
+}
+
 /** Sell Mt/R minus cost Mt/R. */
 export function mznBuySellSpreadPerZar(quotedReceiveZar: number): number {
   return Math.max(0, sellMznPerZar(quotedReceiveZar) - costMznPerZar(quotedReceiveZar))

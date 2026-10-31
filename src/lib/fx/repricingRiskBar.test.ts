@@ -43,18 +43,18 @@ describe('ZAR card binding', () => {
   it('does not give the MZN card the dynamic risk value', () => {
     assert.equal(isZarPayoutRiskCard('MZN'), false)
     assert.equal(riskBarPercentForCard('MZN', ready, 0), null)
-    assert.equal(cardDisplaysBottomBar({ currencyCode: 'MZN', cardType: 'mzn' }), false)
   })
 
-  it('still maps ZAR payout risk values but the ZAR card no longer shows a bottom bar', () => {
+  it('still maps ZAR payout risk values for the ZAR card binding', () => {
     for (const stackIndex of [0, 1, 2, 5]) {
       assert.equal(isZarPayoutRiskCard('ZAR'), true)
       assert.equal(riskBarPercentForCard('ZAR', ready, stackIndex), 80)
     }
-    assert.equal(cardDisplaysBottomBar({ currencyCode: 'ZAR', cardType: 'savings' }), false)
   })
 
-  it('shows the bottom slot on EN ROUTE and keeps other non-ZAR bars', () => {
+  it('shows the bottom health bar on every stack card', () => {
+    assert.equal(cardDisplaysBottomBar({ currencyCode: 'MZN', cardType: 'mzn' }), true)
+    assert.equal(cardDisplaysBottomBar({ currencyCode: 'ZAR', cardType: 'savings' }), true)
     assert.equal(cardDisplaysBottomBar({ currencyCode: 'USD', cardType: 'zwd' }), true)
     assert.equal(cardDisplaysBottomBar({ currencyCode: 'ETH', cardType: 'yield' }), true)
     assert.equal(cardDisplaysBottomBar({ currencyCode: 'BTC', cardType: 'btc' }), true)

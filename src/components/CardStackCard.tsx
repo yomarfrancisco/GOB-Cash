@@ -5,7 +5,14 @@ import type { StaticImageData } from 'next/image'
 import { useRef, useEffect, useState } from 'react'
 import SlotCounter from './SlotCounter'
 import { formatCardTopline, formatEquivalenceAmount } from '@/lib/formatCurrency'
-import { mznToZar, zarToMzn, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
+import {
+  mznToZar,
+  zarToMzn,
+  zarToUsd,
+  costMznPerZar,
+  sellMznPerZar,
+  sellMznPerUsd,
+} from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import { useAuthStore } from '@/store/auth'
@@ -199,20 +206,28 @@ export default function CardStackCard({
   const zar = cents / 100
   // EN ROUTE holds booked ZAR in transit; only Moz inventory is metical-denominated.
   const isMeticalAmount = card.type === 'mzn'
+  const isEnRouteUsd = card.type === 'yieldSurprise'
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
       ? fxRates.rates.MZN
       : 0
+  const liveUsdPerZar =
+    typeof fxRates?.rates?.USD === 'number' && fxRates.rates.USD > 0
+      ? fxRates.rates.USD
+      : 0
   const sellRate = sellMznPerZar(liveMzn)
   const costRate = costMznPerZar(liveMzn)
-  // ZAR inventory quotes SELL; EN ROUTE books at realised SELL (fallback); Moz inventory quotes COST.
-  const quotedMznPerZar =
-    card.type === 'savings' || card.type === 'yieldSurprise' ? sellRate : costRate
+  const sellUsdRate = sellMznPerUsd(liveMzn, liveUsdPerZar)
+  // ZAR inventory quotes SELL; EN ROUTE shows $ at USD sell; Moz inventory quotes COST.
+  const quotedMznPerZar = card.type === 'savings' ? sellRate : costRate
+  const displayMajor = isEnRouteUsd ? zarToUsd(zar, liveUsdPerZar) : zar
   const convertedAmount = isMeticalAmount
     ? mznToZar(zar, quotedMznPerZar)
-    : card.type === 'savings' || card.type === 'yieldSurprise'
-      ? zarToMzn(zar, quotedMznPerZar)
-      : zar / FX_USD_ZAR_DEFAULT
+    : isEnRouteUsd
+      ? zarToMzn(zar, sellRate)
+      : card.type === 'savings'
+        ? zarToMzn(zar, quotedMznPerZar)
+        : zar / FX_USD_ZAR_DEFAULT
   const pct = allocPct(cents)
   
   // Generate a stable key for SlotCounter that changes when balance changes
@@ -266,9 +281,9 @@ export default function CardStackCard({
   const operationalBarPercent =
     card.type === 'savings' ? 100 - mznCapacityPercent : portfolioHealth
 
-  // Cash-card bars represent capacity/volume, so keep their progress fill green.
+  // Cash / inventory bars represent capacity/volume, so keep their progress fill green.
   const healthLevel =
-    card.type === 'mzn' || card.type === 'savings'
+    card.type === 'mzn' || card.type === 'savings' || card.type === 'yieldSurprise'
       ? 'good'
       : getHealthLevel(operationalBarPercent)
 
@@ -405,10 +420,13 @@ export default function CardStackCard({
   // Determine what to display in the pill
   const getPillContent = (): { strong: string; label: string } => {
     if (card.type === 'yieldSurprise') {
-      // Countdown to next 09:00 SAST clear (right-side timer removed).
+      // Countdown to next 09:00 SAST clear; idle shows the USD sell quote.
       return {
         strong: 'EN ROUTE',
-        label: routeTimer && routeTimer.state !== 'idle' ? routeTimer.label : '',
+        label:
+          routeTimer && routeTimer.state !== 'idle'
+            ? routeTimer.label
+            : `${sellUsdRate.toFixed(2)}Mt/$`,
       }
     }
 
@@ -540,7 +558,9 @@ export default function CardStackCard({
             // Placeholder/skeleton while auth state is loading
             <>
               <div className="card-amounts__zar amount-headline" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span className="amt-int card-amounts__whole">{isMeticalAmount ? 'Mt 0' : 'R 0'}</span>
+                <span className="amt-int card-amounts__whole">
+                  {isMeticalAmount ? 'Mt 0' : isEnRouteUsd ? '$ 0' : 'R 0'}
+                </span>
                 <span className="amt-dot card-amounts__dot">.</span>
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
@@ -556,13 +576,15 @@ export default function CardStackCard({
                   'flash-down': flashDirection === 'down',
                   'amount-topline--compact': shouldUseCompactSizing,
                 })}
-                aria-label={`${zar.toFixed(2)} ${isMeticalAmount ? 'meticais' : 'rand'}`}
+                aria-label={`${displayMajor.toFixed(2)} ${
+                  isMeticalAmount ? 'meticais' : isEnRouteUsd ? 'US dollars' : 'rand'
+                }`}
                 onAnimationEnd={onFlashEnd}
                 suppressHydrationWarning
               >
                 <SlotCounter
                   key={balanceKey}
-                  value={zar}
+                  value={displayMajor}
                   format={formatCardTopline}
                   durationMs={isBalanceReady ? 700 : 0}
                   className="card-amounts__zar-value"
@@ -573,9 +595,11 @@ export default function CardStackCard({
                     <span className="amt-int card-amounts__whole" suppressHydrationWarning>
                       {isMeticalAmount
                         ? `Mt ${major}`
-                        : card.type === 'savings' || card.type === 'yieldSurprise'
-                          ? `R ${major}`
-                          : major}
+                        : isEnRouteUsd
+                          ? `$ ${major}`
+                          : card.type === 'savings'
+                            ? `R ${major}`
+                            : major}
                     </span>
                   )}
                   renderCents={(cents) => (
@@ -635,25 +659,23 @@ export default function CardStackCard({
       </div>
       )}
 
-      {card.type !== 'mzn' && card.type !== 'yieldSurprise' && card.type !== 'savings' && (
-        <div className="card-health-group">
-          <div className="card-health-bar-container">
-            <div
-              className={clsx(
-                'card-health-bar-fill',
-                `card-health-bar-fill--${healthLevel}`,
-                {
-                  'card-health-bar-fill--changing': isHealthBarChanging,
-                  'card-health-bar-fill--minimum': operationalBarPercent <= 0,
-                }
-              )}
-              style={{
-                width: `${Math.max(5, Math.min(100, animatedHealth))}%`,
-              }}
-            />
-          </div>
+      <div className="card-health-group">
+        <div className="card-health-bar-container">
+          <div
+            className={clsx(
+              'card-health-bar-fill',
+              `card-health-bar-fill--${healthLevel}`,
+              {
+                'card-health-bar-fill--changing': isHealthBarChanging,
+                'card-health-bar-fill--minimum': operationalBarPercent <= 0,
+              }
+            )}
+            style={{
+              width: `${Math.max(5, Math.min(100, animatedHealth))}%`,
+            }}
+          />
         </div>
-      )}
+      </div>
     </div>
   )
 }
