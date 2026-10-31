@@ -165,6 +165,7 @@ export default function NotificationsSheet() {
                     agent={id}
                     size={id === active ? 56 : 40}
                     speaking={id === active}
+                    shape="circle"
                     priority
                   />
                 </div>

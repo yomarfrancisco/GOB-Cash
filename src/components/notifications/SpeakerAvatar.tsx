@@ -18,6 +18,8 @@ export function SpeakerAvatar({
   speaking,
   className,
   priority = false,
+  /** Header stack is circular; message-row faces stay rounded squares. */
+  shape = 'rounded',
 }: {
   agent: DeskAgent
   size: 40 | 44 | 56
@@ -25,13 +27,21 @@ export function SpeakerAvatar({
   className?: string
   /** Header faces should paint immediately on desk open. */
   priority?: boolean
+  shape?: 'circle' | 'rounded'
 }) {
   const who = DESK_TEAM[agent]
   const mono = MONOGRAM[agent]
   const usePhoto = Boolean(who.avatar)
   return (
     <div
-      className={[styles.wrap, speaking ? styles.speaking : '', className || ''].filter(Boolean).join(' ')}
+      className={[
+        styles.wrap,
+        shape === 'circle' ? styles.circle : '',
+        speaking ? styles.speaking : '',
+        className || '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{ width: size, height: size }}
       aria-label={who.name}
     >

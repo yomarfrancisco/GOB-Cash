@@ -6,7 +6,7 @@ export const TASK_AVATARS = {
   convertZar: '/assets/ZAR_square.jpg',
   deposit: '/assets/avatar - profile (4).png',
   withdraw: '/assets/avatar - profile (2).png',
-  cashAgent: '/assets/bear_square.jpg',
+  cashAgent: '/assets/benjamin_grey_square.png',
   paymentSent: '/assets/avatar - profile (3).png',
   paymentDelivered: '/assets/ZAR_square.jpg',
   paymentReceived: '/assets/MZN_square.jpg',

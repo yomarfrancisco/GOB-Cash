@@ -8,6 +8,14 @@
   box-sizing: border-box;
 }
 
+.circle {
+  border-radius: 50%;
+}
+
+.circle .mono {
+  border-radius: 50%;
+}
+
 .speaking {
   box-shadow: 0 0 0 3px var(--desk-bg-page, #ffffff);
 }

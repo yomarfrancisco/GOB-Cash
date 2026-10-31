@@ -51,7 +51,7 @@ export const migrateLegacyActor = (
   if (legacy.type === 'ai') {
     return {
       type: 'ai_manager',
-      avatar: legacy.avatarUrl ?? '/assets/benjamin_pink_circle.png',
+      avatar: legacy.avatarUrl ?? '/assets/benjamin_grey_square.png',
       name: 'Routing Manager',
     }
   }
