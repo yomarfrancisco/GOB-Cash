@@ -1,8 +1,9 @@
 /**
  * Cloud Function: tx_createInternalConversion
  *
- * ZAR→MZN sales and `$` Buy ZAR (MZN→ZAR) book onto EN ROUTE (earnings) until
- * the next 09:00 SAST clear (→ cashMZN at SELL, or → cashZAR at COST).
+ * ZAR→MZN sales and `$` capital shocks (Buy ZAR / Sell ZAR) book onto EN ROUTE
+ * (earnings) for every account until the next 09:00 SAST clear
+ * (→ cashMZN at SELL, or → cashZAR at COST).
  * Desk Step 5 restocks can still credit cashZAR immediately when matched to a play.
  */
 
@@ -91,9 +92,10 @@ export const tx_createInternalConversion = functions
     const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
     const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
 
-    // `$` on the admin desk sets window capital and books EN ROUTE both ways.
-    if (isRoutingAdmin && data?.capitalShock === true) {
-      const { applyAdminCapitalShock } = await import('./adminConversionRouting')
+    // `$` keypad capital shock: every account books EN ROUTE both ways
+    // (Buy ZAR → TRANSIT → cashZAR at 09:00; Sell ZAR → TRANSIT → cashMZN at SELL).
+    // Desk window re-solve stays admin-only.
+    if (data?.capitalShock === true) {
       const { bookZarSaleToEnRoute, bookMznSaleToEnRoute } = await import('./enRouteSettle')
       let shockZar: number
       let shockMzn: number
@@ -128,12 +130,15 @@ export const tx_createInternalConversion = functions
         bookedTxId = booked.txId
         shockZar = booked.expectedZar
       }
-      await applyAdminCapitalShock({
-        adminUid: userId,
-        kind: isZarSale ? 'sell_zar' : 'add_zar',
-        amountZar: shockZar,
-        amountMzn: shockMzn,
-      })
+      if (isRoutingAdmin) {
+        const { applyAdminCapitalShock } = await import('./adminConversionRouting')
+        await applyAdminCapitalShock({
+          adminUid: userId,
+          kind: isZarSale ? 'sell_zar' : 'add_zar',
+          amountZar: shockZar,
+          amountMzn: shockMzn,
+        })
+      }
       return {
         txId: bookedTxId || `shock-${Date.now()}`,
         capitalShock: true,
