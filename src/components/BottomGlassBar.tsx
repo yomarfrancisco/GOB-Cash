@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useRef } from 'react'
 import clsx from 'clsx'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
@@ -10,7 +11,10 @@ import { selectHasUnseenLiquidityActivity, useActivityUnreadStore } from '@/stor
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import { useNotificationsStore } from '@/state/notifications'
+import { logout } from '@/lib/logout'
 import '@/styles/bottom-glass.css'
+
+const DESK_DOUBLE_TAP_MS = 350
 
 interface BottomGlassBarProps {
   currentPath?: string
@@ -24,10 +28,13 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isHome = currentPath === '/'
   const { isAuthed, requireAuth } = useAuthStore()
   const openNotifications = useNotificationsStore((state) => state.openNotifications)
+  const closeNotifications = useNotificationsStore((state) => state.closeNotifications)
   // Select values separately to prevent infinite re-renders from object creation in selector
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
   const hasUnseenActivity = useActivityUnreadStore(selectHasUnseenLiquidityActivity)
+  const lastDeskTapAtRef = useRef(0)
+  const deskOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   const handleCenterButtonClick = () => {
     // NOTE: Dollar FAB now opens the amount sheet directly (via onDollarClick callback)
@@ -44,10 +51,31 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
       return
     }
 
-    if (!isHome) {
-      router.replace('/')
+    const now = Date.now()
+    const gap = now - lastDeskTapAtRef.current
+    lastDeskTapAtRef.current = now
+
+    // Double-tap routing desk → sign out (hidden logout affordance).
+    if (gap > 0 && gap <= DESK_DOUBLE_TAP_MS) {
+      if (deskOpenTimerRef.current) {
+        clearTimeout(deskOpenTimerRef.current)
+        deskOpenTimerRef.current = null
+      }
+      lastDeskTapAtRef.current = 0
+      closeNotifications()
+      void logout()
+      return
     }
-    openNotifications()
+
+    // Defer single-tap open so a second tap can cancel into logout.
+    if (deskOpenTimerRef.current) clearTimeout(deskOpenTimerRef.current)
+    deskOpenTimerRef.current = setTimeout(() => {
+      deskOpenTimerRef.current = null
+      if (!isHome) {
+        router.replace('/')
+      }
+      openNotifications()
+    }, DESK_DOUBLE_TAP_MS)
   }
 
   // Render nav items once (shared between mobile and desktop)
