@@ -3,6 +3,7 @@
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { DESK_TEAM } from '@/lib/desk/threadModel'
+import { useActivityStore } from '@/store/activity'
 import { useNotificationStore } from '@/store/notifications'
 import { useNotificationsStore } from '@/state/notifications'
 
@@ -22,7 +23,6 @@ export function buildWelcomePagaBody(params: {
   userEmail?: string | null
 }): string {
   const emailHint = params.userEmail?.trim() || '[user-email]'
-  // Single newlines only — desk copy collapses double whitespace.
   // Prefer single newlines — desk copy collapses runs of whitespace.
   return [
     'PAGA is a liquidity-adaptive dollar for closed currency markets. Fund your MZN account to buy dollars. PAGA converts your MZN into ZAR or USD within 24 hours. Once your payment is received, the desk will update your available MZN balance immediately and begin routing FX.',
@@ -35,48 +35,63 @@ export function buildWelcomePagaBody(params: {
   ].join('\n')
 }
 
-function isLikelyNewUser(): boolean {
-  const user = getFirebaseAuth().currentUser
-  if (!user?.metadata?.creationTime || !user.metadata.lastSignInTime) return false
-  const created = Date.parse(user.metadata.creationTime)
-  const last = Date.parse(user.metadata.lastSignInTime)
-  if (!Number.isFinite(created) || !Number.isFinite(last)) return false
-  // New accounts have creation ≈ first sign-in (within 2 minutes).
-  return Math.abs(last - created) < 120_000
+function pushLocalDeskIntro(params: {
+  title: string
+  body: string
+  paymentReference: string
+}) {
+  const createdAt = Date.now()
+  useActivityStore.getState().add({
+    id: WELCOME_PAGA_EVENT_ID,
+    kind: 'CONVERSION_ROUTING_INSTRUCTION',
+    title: params.title,
+    body: params.body,
+    actor: {
+      type: 'ai',
+      name: DESK_TEAM.sam.name,
+      avatarUrl: DESK_TEAM.sam.avatar,
+    },
+    deskSpeaker: 'sam',
+    createdAt,
+  })
+
+  useNotificationStore.getState().pushNotification({
+    id: `${WELCOME_PAGA_EVENT_ID}-toast`,
+    kind: 'ai_trade',
+    title: params.title,
+    body: 'Fund MZN · Moza Banco details below.',
+    actor: {
+      type: 'ai_manager',
+      avatar: DESK_TEAM.sam.avatar,
+      name: DESK_TEAM.sam.name,
+    },
+    routeOnTap: '/?desk=1',
+    skipActivityStore: true,
+  })
 }
 
 /**
- * After auth: new sign-ups get a Routing Manager desk post (fund / payout intro).
- * Returning sessions get a short welcome toast only — no KYC nudge.
+ * After auth: first session without a welcome desk post gets the Routing Manager
+ * fund/payout intro. Later sign-ins stay quiet (no KYC nudge).
  */
-export async function pushWelcomeSignInNotification(title: string) {
-  const auth = getFirebaseAuth()
-  const user = auth.currentUser
+export async function pushWelcomeSignInNotification(_title: string) {
+  const user = getFirebaseAuth().currentUser
   if (!user) return
 
-  if (!isLikelyNewUser()) {
-    useNotificationStore.getState().pushNotification({
-      kind: 'payment_received',
-      title,
-      body: 'Welcome.',
-      actor: {
-        type: 'ai_manager',
-        avatar: DESK_TEAM.sam.avatar,
-        name: DESK_TEAM.sam.name,
-      },
-    })
-    return
-  }
-
   const eventRef = doc(getFirestoreDb(), 'users', user.uid, 'activityEvents', WELCOME_PAGA_EVENT_ID)
+
   try {
     const existing = await getDoc(eventRef)
-    if (existing.exists()) {
-      useNotificationsStore.getState().openNotifications()
-      return
-    }
+    if (existing.exists()) return
   } catch (error) {
     console.warn('[Welcome] Failed to check welcome post', error)
+  }
+
+  // Already seeded locally this session (e.g. double auth callback).
+  const local = useActivityStore.getState().items.find((item) => item.id === WELCOME_PAGA_EVENT_ID)
+  if (local) {
+    useNotificationsStore.getState().openNotifications()
+    return
   }
 
   const paymentReference = buildWolfMozaPaymentReference()
@@ -85,6 +100,10 @@ export async function pushWelcomeSignInNotification(title: string) {
     userEmail: user.email,
   })
   const postTitle = 'What is PAGA?'
+
+  // Seed the desk immediately so the user never only sees a bare "Welcome."
+  pushLocalDeskIntro({ title: postTitle, body, paymentReference })
+  useNotificationsStore.getState().openNotifications()
 
   try {
     await setDoc(eventRef, {
@@ -99,23 +118,6 @@ export async function pushWelcomeSignInNotification(title: string) {
       recordingSource: 'USER_UI',
     })
   } catch (error) {
-    console.warn('[Welcome] Failed to write Routing Manager intro', error)
+    console.warn('[Welcome] Failed to persist Routing Manager intro', error)
   }
-
-  useNotificationStore.getState().pushNotification({
-    id: WELCOME_PAGA_EVENT_ID,
-    kind: 'ai_trade',
-    title: postTitle,
-    body: 'Fund MZN · Moza Banco details on the desk.',
-    actor: {
-      type: 'ai_manager',
-      avatar: DESK_TEAM.sam.avatar,
-      name: DESK_TEAM.sam.name,
-    },
-    routeOnTap: '/?desk=1',
-    skipActivityStore: true,
-  })
-
-  // Surface the desk so the Routing Manager post is visible immediately.
-  useNotificationsStore.getState().openNotifications()
 }
