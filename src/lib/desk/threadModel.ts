@@ -59,15 +59,30 @@ export function deskAgentFor(item: {
   if (item.thinking) return 'sam'
   if (item.routingAction === 'deploy') return 'leo'
   if (item.routingAction === 'replenish') return 'amina'
+  if (item.routingAction === 'en_route_clear') return 'leo'
   const title = item.title || ''
   if (/^Sell ZAR\b/i.test(title)) return 'leo'
   if (/^Restock\b/i.test(title)) return 'amina'
+  if (/^Step\s*4\s*·\s*Clear ROUTE\b/i.test(title)) return 'leo'
+  if (/^Step\s*5\s*·\s*Place ZAR\b/i.test(title)) return 'leo'
   return 'sam'
 }
 
 /** Items that count as the desk talking (routing cards, asks, window shocks). */
-export function isDeskVoiceItem(item: { kind?: string; actor?: { type?: string } }): boolean {
-  return item.kind === 'CONVERSION_ROUTING_INSTRUCTION' || item.kind === 'ai_trade'
+export function isDeskVoiceItem(item: {
+  kind?: string
+  actor?: { type?: string }
+  deskStep?: number
+}): boolean {
+  if (item.kind === 'CONVERSION_ROUTING_INSTRUCTION' || item.kind === 'ai_trade') return true
+  // Buy ZAR Steps 3–4 are EN_ROUTE_* kinds with deskStep set.
+  if (
+    (item.kind === 'EN_ROUTE_BOOKED' || item.kind === 'EN_ROUTE_CLEARED') &&
+    typeof item.deskStep === 'number'
+  ) {
+    return true
+  }
+  return false
 }
 
 /** The agent whose turn it is: the newest desk item, thinking dots included. */

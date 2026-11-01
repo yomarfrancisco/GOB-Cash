@@ -35,7 +35,7 @@ export function buildWelcomePagaDeskPayload(params: {
   return {
     title: 'What is PAGA?',
     deskSentence:
-      'PAGA is a liquidity-adaptive dollar for closed currency markets. Fund your MZN account to buy dollars. PAGA converts your MZN into ZAR or USD within 24 hours. Once your payment is received, the desk will update your available MZN balance immediately and begin routing FX.',
+      'PAGA is a liquidity-adaptive dollar for licensed FX operators in closed currency markets. Fund your MZN account to buy dollars. PAGA converts your MZN into ZAR or USD within 24 hours. Once your payment is received, the desk will update your available MZN balance immediately and begin routing FX.',
     deskLedgerRows: [
       {
         label: 'Recipient',

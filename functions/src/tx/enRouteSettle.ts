@@ -625,6 +625,23 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
         { merge: true }
       )
       settled += 1
+      if (clearsToZar && !simulatedLot) {
+        try {
+          const { completeBuyZarDeskDayAfterClear } = await import('./buyZarDeskDay')
+          await completeBuyZarDeskDayAfterClear({
+            userId,
+            txId: doc.id,
+            amountMzn: mznMinorForUi / 100,
+            amountZar: zarMinorForUi / 100,
+            costRate: Number(tx.costRateMZNperZAR || tx.quotedRate || 0),
+          })
+        } catch (error) {
+          console.warn('[settleDueEnRouteLots] buy desk day complete failed', {
+            txId: doc.id,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
       if (!simulatedLot) {
         try {
           const { ROUTING_ADMIN_UID } = await import('../routing/conversionRouter')

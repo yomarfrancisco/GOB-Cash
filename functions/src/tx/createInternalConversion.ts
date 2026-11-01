@@ -116,6 +116,7 @@ export const tx_createInternalConversion = functions
         bookedTxId = booked.txId
       } else {
         // Buy ZAR: MZN must already be in wallet → TRANSIT now → cashZAR at 09:00.
+        // Desk Steps 1–3 are seeded below (suppress the thin EN_ROUTE_BOOKED bubble).
         shockMzn = roundMajor(sourceAmount)
         shockZar = roundMajor(sourceAmount / costRate)
         const booked = await bookMznSaleToEnRoute({
@@ -125,16 +126,31 @@ export const tx_createInternalConversion = functions
           costRate,
           expectedDestinationZar: shockZar,
           namedClient,
-          suppressDeskActivity: false,
+          suppressDeskActivity: true,
         })
         bookedTxId = booked.txId
         shockZar = booked.expectedZar
+        try {
+          const { seedBuyZarDeskDay } = await import('./buyZarDeskDay')
+          await seedBuyZarDeskDay({
+            userId,
+            txId: booked.txId,
+            amountMzn: shockMzn,
+            amountZar: shockZar,
+            costRate,
+            sellRate,
+            settleAtMs: booked.settleAtMs,
+          })
+        } catch (error) {
+          console.warn('[createInternalConversion] buy desk day seed failed', error)
+        }
       }
-      if (isRoutingAdmin) {
+      // Sell-side window re-solve stays admin-only; Buy ZAR uses buy Steps 1–6 instead.
+      if (isRoutingAdmin && isZarSale) {
         const { applyAdminCapitalShock } = await import('./adminConversionRouting')
         await applyAdminCapitalShock({
           adminUid: userId,
-          kind: isZarSale ? 'sell_zar' : 'add_zar',
+          kind: 'sell_zar',
           amountZar: shockZar,
           amountMzn: shockMzn,
         })

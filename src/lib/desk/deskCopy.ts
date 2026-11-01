@@ -12,14 +12,18 @@ export function displayDeskTitle(title: string | undefined | null): string {
 
   // Legacy titles rewritten on confirm before the closed title matrix.
   if (/^Step 1\s*·\s*Order$/i.test(out)) return 'Step 1 · ZAR order received'
+  if (/^Step 1\s*·\s*MZN funded$/i.test(out)) return 'Step 1 · MZN funded'
   if (/^Step 2\s*·\s*Invoice$/i.test(out)) return 'Step 2 · FX invoices raised'
   if (/^Step 3\s*·\s*MZN$/i.test(out)) return 'Step 3 · MZN prefunded'
+  if (/^Step 3\s*·\s*ZAR booked$/i.test(out)) return 'Step 3 · ZAR booked'
   if (/^Step 4\s*·\s*Send(?=\s*·|$)/i.test(out)) {
     return out.replace(/^Step 4\s*·\s*Send/i, 'Step 4 · Send ZAR')
   }
+  if (/^Step 4\s*·\s*Clear ROUTE$/i.test(out)) return 'Step 4 · Clear ROUTE'
   if (/^Step 5\s*·\s*Recycle(?=\s*·|$)/i.test(out)) {
     return out.replace(/^Step 5\s*·\s*Recycle/i, 'Step 5 · Replace ZAR')
   }
+  if (/^Step 5\s*·\s*Place ZAR$/i.test(out)) return 'Step 5 · Place ZAR'
   if (/^Step 6\s*·\s*What happened$/i.test(out)) return 'Step 6 · Day lookback'
   if (/^Sell ZAR\b/i.test(out)) return 'Step 4 · Send ZAR'
   if (/^Restock ZAR\b/i.test(out)) return 'Step 5 · Replace ZAR'
