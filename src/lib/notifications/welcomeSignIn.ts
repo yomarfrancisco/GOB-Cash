@@ -36,6 +36,15 @@ function markWelcomeDone(uid: string): void {
   }
 }
 
+function clearWelcomeDone(uid: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(welcomeDoneStorageKey(uid))
+  } catch {
+    // private mode
+  }
+}
+
 /** True only for a brand-new account on this sign-in, not returning logins. */
 export function isFirstSignupSession(
   user: Pick<User, 'metadata'>,
@@ -176,48 +185,56 @@ export type PushWelcomeOpts = {
   isNewUser?: boolean
 }
 
+async function accountAlreadyHasWelcome(uid: string): Promise<boolean | null> {
+  const eventRef = doc(getFirestoreDb(), 'users', uid, 'activityEvents', WELCOME_PAGA_EVENT_ID)
+  const userRef = doc(getFirestoreDb(), 'users', uid)
+  try {
+    const [existingEvent, userSnap] = await Promise.all([getDoc(eventRef), getDoc(userRef)])
+    return existingEvent.exists() || Boolean(userSnap.data()?.welcomePagaIntroAt)
+  } catch (error) {
+    console.warn('[Welcome] Failed to check welcome post', error)
+    return null
+  }
+}
+
 /**
- * First signup only: Routing Manager fund/payout intro on the desk + short toast.
- * Returning logins must never re-toast or re-seed.
+ * Once per account: Routing Manager fund/payout intro on the desk + short toast.
+ * Source of truth is Firestore for this uid (survives delete+recreate as a new uid).
+ * Returning logins skip once the welcome event / flag exists — not via Auth age heuristics.
  */
 export async function pushWelcomeSignInNotification(
   _titleOrOpts?: string | PushWelcomeOpts,
   maybeOpts?: PushWelcomeOpts
 ) {
-  const opts: PushWelcomeOpts =
-    typeof _titleOrOpts === 'object' && _titleOrOpts
-      ? _titleOrOpts
-      : maybeOpts || {}
+  void _titleOrOpts
+  void maybeOpts
 
   const user = getFirebaseAuth().currentUser
   if (!user) return
 
-  if (readWelcomeDone(user.uid)) return
-
-  // Returning accounts: never seed. Remember locally so we skip next time too.
-  if (!isFirstSignupSession(user, opts)) {
-    markWelcomeDone(user.uid)
-    return
-  }
-
-  const eventRef = doc(getFirestoreDb(), 'users', user.uid, 'activityEvents', WELCOME_PAGA_EVENT_ID)
-  const userRef = doc(getFirestoreDb(), 'users', user.uid)
-
-  try {
-    const [existingEvent, userSnap] = await Promise.all([getDoc(eventRef), getDoc(userRef)])
-    if (existingEvent.exists() || userSnap.data()?.welcomePagaIntroAt) {
-      markWelcomeDone(user.uid)
-      return
-    }
-  } catch (error) {
-    // Fail closed — do not toast returning sessions when the check cannot run.
-    console.warn('[Welcome] Failed to check welcome post', error)
-    return
-  }
-
   if (useActivityStore.getState().items.some((item) => item.id === WELCOME_PAGA_EVENT_ID)) {
     markWelcomeDone(user.uid)
     return
+  }
+
+  let already = await accountAlreadyHasWelcome(user.uid)
+  if (already === null) {
+    // Auth/user doc can lag right after signup — retry once before giving up.
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    already = await accountAlreadyHasWelcome(user.uid)
+  }
+  if (already === true) {
+    markWelcomeDone(user.uid)
+    return
+  }
+  if (already === null) {
+    // Still can't read — do not mark done; auth listener may retry after ensureUserDocument.
+    return
+  }
+
+  // Stale device flag after a wiped/recreated account or failed persist — allow seed.
+  if (readWelcomeDone(user.uid)) {
+    clearWelcomeDone(user.uid)
   }
 
   const paymentReference = buildWolfMozaPaymentReference()
@@ -233,6 +250,9 @@ export async function pushWelcomeSignInNotification(
     dropdownBody: payload.dropdownBody,
   })
   markWelcomeDone(user.uid)
+
+  const eventRef = doc(getFirestoreDb(), 'users', user.uid, 'activityEvents', WELCOME_PAGA_EVENT_ID)
+  const userRef = doc(getFirestoreDb(), 'users', user.uid)
 
   try {
     await setDoc(eventRef, {

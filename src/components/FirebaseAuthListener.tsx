@@ -15,6 +15,7 @@ import { useAppModeStore } from '@/store/appMode'
 import type { WalletMap } from '@/types/wallet'
 import { setCoreAgentBalance, admin_startConversionRoutingTest, admin_confirmConversionRoutingCycle, admin_getConversionRoutingStatus, admin_submitConversionRoutingFeedback } from '@/lib/transactions/clientFunctions'
 import { AGENT_UID } from '@/types/transactions'
+import { pushWelcomeSignInNotification } from '@/lib/notifications/welcomeSignIn'
 
 /**
  * Client component that sets up Firebase Auth state listener
@@ -50,6 +51,7 @@ export default function FirebaseAuthListener() {
           if (result && result.user) {
             console.log('[Firebase] Auth redirect result user:', result.user.uid)
             await ensureUserDocument(result.user)
+            void pushWelcomeSignInNotification()
             // setAuthState will be called by onAuthStateChanged below
           }
         })
@@ -142,6 +144,10 @@ export default function FirebaseAuthListener() {
           // Continue gracefully - user can still use the app even if repair failed
           // The subscription below will still sync profile data from Firestore
         }
+
+        // After the user doc exists: seed desk intro once per uid if missing.
+        // Covers delete+recreate, redirect sign-in, and races with the popup path.
+        void pushWelcomeSignInNotification()
 
         // Subscribe to Firestore user doc snapshots
         unsubscribeDocRef.current = subscribeToCurrentUserDoc((payload) => {
