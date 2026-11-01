@@ -13,7 +13,8 @@ import {
 } from '@/lib/transactions/clientFunctions'
 import { AGENT_UID } from '@/types/transactions'
 import { getFirebaseAuth } from '@/lib/firebase'
-import { DESK_TEAM } from '@/lib/desk/threadModel'
+import { DESK_TEAM, deskAgentFor } from '@/lib/desk/threadModel'
+import type { ActivityItem } from '@/store/activity'
 
 const DROPDOWN_KINDS = new Set([
   'BANK_TRANSFER_CONFIRMED',
@@ -22,6 +23,8 @@ const DROPDOWN_KINDS = new Set([
   'WEEKLY_SETTLEMENT_STATEMENT',
   'MONTHLY_SETTLEMENT_STATEMENT',
   'CONVERSION_ROUTING_INSTRUCTION',
+  'EN_ROUTE_BOOKED',
+  'EN_ROUTE_CLEARED',
 ])
 const DEPOSIT_AVATAR = '/assets/avatar - profile (4).png'
 const WITHDRAW_AVATAR = '/assets/avatar - profile (2).png'
@@ -50,12 +53,11 @@ function toastRoutingInstruction(
   id: string,
   title: string,
   body?: string,
-  options?: { replenish?: boolean }
+  item?: Pick<ActivityItem, 'kind' | 'title' | 'routingAction' | 'deskSpeaker' | 'deskStep' | 'narrative'>
 ) {
   if (!id || toastedRoutingIds.has(id)) return
   toastedRoutingIds.add(id)
-  const replenish = options?.replenish === true
-  const who = replenish ? DESK_TEAM.amina : DESK_TEAM.leo
+  const who = DESK_TEAM[deskAgentFor(item || { title, routingAction: undefined })]
   useNotificationStore.getState().pushNotification({
     id,
     kind: 'ai_trade',
@@ -96,14 +98,25 @@ export default function ActivityEventsListener() {
               toastWeeklyStatement(item.id, item.title, item.body)
               continue
             }
-            if (item.kind === 'CONVERSION_ROUTING_INSTRUCTION') {
+            if (
+              item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
+              item.kind === 'EN_ROUTE_BOOKED' ||
+              item.kind === 'EN_ROUTE_CLEARED'
+            ) {
               if (item.routingRevision) continue
               if (item.routingAction === 'advice' || item.routingAction === 'proposal') continue
+              // Thin EN_ROUTE book/clear without a desk step stay off the dropdown.
+              if (
+                (item.kind === 'EN_ROUTE_BOOKED' || item.kind === 'EN_ROUTE_CLEARED') &&
+                !(typeof item.deskStep === 'number' && item.deskStep >= 1 && item.deskStep <= 6)
+              ) {
+                continue
+              }
               toastRoutingInstruction(
                 item.id,
                 item.dropdownTitle || item.title,
                 item.dropdownBody || item.body,
-                { replenish: item.routingAction === 'replenish' }
+                item
               )
               continue
             }

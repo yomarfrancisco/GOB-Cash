@@ -1,5 +1,6 @@
 import { formatMZN, formatZARWithDot } from '@/lib/money'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
+import { DESK_TEAM } from '@/lib/desk/threadModel'
 import { useNotificationStore } from '@/store/notifications'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { tx_createInternalConversion } from '@/lib/transactions/clientFunctions'
@@ -84,6 +85,8 @@ export async function submitInternalConversion(params: {
     }
 
     if (result.capitalShock) {
+      // Buy and Sell capital shocks book ZAR onto ROUTE — SA Bank Liaison.
+      const who = DESK_TEAM.leo
       useNotificationStore.getState().pushNotification({
         id: result.txId,
         kind: 'ai_trade',
@@ -95,8 +98,8 @@ export async function submitInternalConversion(params: {
         skipActivityStore: true,
         actor: {
           type: 'ai_manager',
-          avatar,
-          name: isZarSale ? 'Leo' : 'Amina',
+          avatar: who.avatar,
+          name: who.name,
         },
         routeOnTap: '/?desk=1',
       })
@@ -104,6 +107,7 @@ export async function submitInternalConversion(params: {
     }
 
     if (!deskPlay) {
+      const who = isZarSale ? DESK_TEAM.leo : DESK_TEAM.amina
       useNotificationStore.getState().pushNotification({
         id: result.txId,
         kind: isZarSale ? 'ai_trade' : 'proof_of_payment',
@@ -118,8 +122,8 @@ export async function submitInternalConversion(params: {
         direction: 'down',
         actor: {
           type: 'ai_manager',
-          avatar,
-          name: isZarSale ? 'Leo' : 'Ama',
+          avatar: who.avatar,
+          name: who.name,
         },
         routeOnTap: '/?desk=1',
       })
