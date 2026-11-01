@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { buildDeskThread, buildNextStep, hasLiveStep, isDeskYes, latestPendingWrite } from './threadModel'
+import {
+  buildDeskThread,
+  buildNextStep,
+  buyZarAgentFromTitle,
+  deskAgentFor,
+  hasLiveStep,
+  isDeskYes,
+  latestPendingWrite,
+} from './threadModel'
 
 function item(extra: Record<string, unknown> & { id: string; title: string }) {
   return {
@@ -52,6 +60,13 @@ describe('FX Desk thread', () => {
     assert.match(rows[0].title, /Cycle 2/)
     assert.equal(rows[0].recommendedZar, 10_000)
     assert.equal(rows[0].heldZar, 40_000)
+  })
+
+  it('maps Buy ZAR steps to Moz/SA liaisons like Sell roles', () => {
+    assert.equal(buyZarAgentFromTitle('Step 2 · FX invoices raised'), 'amina')
+    assert.equal(buyZarAgentFromTitle('Step 3 · ZAR booked'), 'leo')
+    assert.equal(deskAgentFor({ title: 'Step 2 · FX invoices raised', deskSpeaker: 'sam' }), 'amina')
+    assert.equal(deskAgentFor({ title: 'Step 3 · ZAR booked', deskSpeaker: 'sam' }), 'leo')
   })
 
   it('puts the clock on the next-step card and leaves yes for writes', () => {

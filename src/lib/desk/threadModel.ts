@@ -46,13 +46,30 @@ export function addressedDeskAgent(message: string): DeskAgent {
   return 'sam'
 }
 
+/** Buy ZAR closed matrix — same liaisons as Sell roles (Moz = amina, SA = leo). */
+export function buyZarAgentFromTitle(title: string | undefined | null): DeskAgent | null {
+  if (!title) return null
+  if (/^Step\s*1\s*·\s*MZN funded\b/i.test(title)) return 'amina'
+  if (/^Step\s*2\s*·\s*FX invoices\b/i.test(title)) return 'amina'
+  if (/^Step\s*3\s*·\s*ZAR booked\b/i.test(title)) return 'leo'
+  if (/^Step\s*4\s*·\s*Clear ROUTE\b/i.test(title)) return 'leo'
+  if (/^Step\s*5\s*·\s*Place ZAR\b/i.test(title)) return 'leo'
+  if (/^Step\s*6\s*·\s*Day lookback\b/i.test(title)) return 'sam'
+  return null
+}
+
 export function deskAgentFor(item: {
   kind?: string
   title?: string
   routingAction?: string
   thinking?: boolean
   deskSpeaker?: string
+  narrative?: string
 }): DeskAgent {
+  const title = item.title || ''
+  // Buy titles own the liaison map (also fixes early seeds that wrote sam on 1–3).
+  const buyAgent = buyZarAgentFromTitle(title)
+  if (buyAgent) return buyAgent
   if (item.deskSpeaker === 'leo' || item.deskSpeaker === 'amina' || item.deskSpeaker === 'sam') {
     return item.deskSpeaker
   }
@@ -60,7 +77,6 @@ export function deskAgentFor(item: {
   if (item.routingAction === 'deploy') return 'leo'
   if (item.routingAction === 'replenish') return 'amina'
   if (item.routingAction === 'en_route_clear') return 'leo'
-  const title = item.title || ''
   if (/^Sell ZAR\b/i.test(title)) return 'leo'
   if (/^Restock\b/i.test(title)) return 'amina'
   if (/^Step\s*4\s*·\s*Clear ROUTE\b/i.test(title)) return 'leo'

@@ -342,7 +342,12 @@ function avatarUrlForEvent(data: ActivityEventDoc): string | undefined {
   ) {
     return TASK_AVATARS.convertZar
   }
-  if (data.kind === 'CONVERSION_ROUTING_INSTRUCTION') {
+  if (
+    data.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
+    data.kind === 'EN_ROUTE_BOOKED' ||
+    data.kind === 'EN_ROUTE_CLEARED' ||
+    (typeof data.deskStep === 'number' && data.deskStep >= 1 && data.deskStep <= 6)
+  ) {
     return DESK_TEAM[deskAgentFor(data)].avatar
   }
   if (

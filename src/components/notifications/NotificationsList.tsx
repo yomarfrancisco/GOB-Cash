@@ -310,7 +310,13 @@ function resolveTaskAvatar(item: ActivityItem): string {
   const bank = bankTileForItem({ title: displayDeskTitle(item.title) || item.title })
   if (bank) return bank.src
   // Live desk faces always win over stale actor.avatarUrl baked into Firestore docs.
-  if (item.kind === 'CONVERSION_ROUTING_INSTRUCTION' || item.thinking) {
+  if (
+    item.thinking ||
+    item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
+    item.kind === 'EN_ROUTE_BOOKED' ||
+    item.kind === 'EN_ROUTE_CLEARED' ||
+    (typeof item.deskStep === 'number' && item.deskStep >= 1 && item.deskStep <= 6)
+  ) {
     return DESK_TEAM[deskAgentFor(item)].avatar
   }
   if (item.avatarKind === 'convert_zar') return TASK_AVATARS.convertZar
@@ -577,8 +583,14 @@ function ActivityItemCard({
   const title = displayDeskTitle(item.title)
   const bankTile = bankTileForItem({ title: title || item.title, routingAction: item.routingAction })
   // Bank · notices keep bank tiles — not Routing Manager / liaison portraits.
+  // Buy Steps 3–4 are EN_ROUTE_* with deskStep; still use desk team faces.
   const deskAgent: DeskAgent | null =
-    !bankTile && (item.thinking || item.kind === 'CONVERSION_ROUTING_INSTRUCTION')
+    !bankTile &&
+    (item.thinking ||
+      item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
+      item.kind === 'EN_ROUTE_BOOKED' ||
+      item.kind === 'EN_ROUTE_CLEARED' ||
+      (typeof item.deskStep === 'number' && item.deskStep >= 1 && item.deskStep <= 6))
       ? deskAgentFor(item)
       : null
   const deskSpeaker = deskAgent ? DESK_TEAM[deskAgent] : null

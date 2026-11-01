@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { BUY_DESK_TITLES } from './buyZarDeskDay'
+import { BUY_DESK_TITLES, pickBuyPlanAssignments } from './buyZarDeskDay'
 import { channelMixOf, splitReplacementChannels } from '../routing/channelSplit'
 
 describe('buyZarDeskDay titles', () => {
@@ -20,5 +20,15 @@ describe('buy Step 2 rail from plan split', () => {
     assert.equal(channelMixOf(split), 'card')
     assert.ok(split.cardZar > 0)
     assert.equal(split.eftZar, 0)
+  })
+})
+
+describe('buy plan inventory assignments', () => {
+  it('picks Moz cards and SA terminals from inventory', () => {
+    const rows = pickBuyPlanAssignments('buy-shock-r10k', 1)
+    assert.equal(rows.length, 1)
+    assert.ok(rows[0]?.card.mozBank)
+    assert.ok(rows[0]?.machine.shortName)
+    assert.equal(pickBuyPlanAssignments('buy-shock-r10k', 1)[0]?.card.id, rows[0]?.card.id)
   })
 })
