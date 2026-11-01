@@ -240,11 +240,13 @@ export default function CardStackCard({
     ? `${walletId}-${cents}-${updatedAtMillis}`
     : `${walletId}-not-ready`
 
-  // Check if ANY card exceeds threshold - if so, apply compact sizing to ALL cards for consistency
+  // Check if ANY card exceeds threshold - if so, apply compact sizing to ALL cards for consistency.
+  // Include MZN: agents often hold large Mt with small ZAR; omitting MZN left non-admin Mt at 52px.
   // Use same source as balance display (respect isBalanceReady gate)
   let cashZAR: number
   let ethZAR: number
   let zwdZAR: number
+  let cashMZN: number
   
   if (authState === 'authed') {
     // Authed: only use real values if isBalanceReady
@@ -253,20 +255,28 @@ export default function CardStackCard({
       cashZAR = ((wallets as any)?.cashZAR?.fiatBalance ?? 0)
       ethZAR = ((wallets as any)?.eth?.fiatBalance ?? 0)
       zwdZAR = ((wallets as any)?.cashZWD?.fiatBalance ?? 0)
+      cashMZN = ((wallets as any)?.cashMZN?.fiatBalance ?? 0)
     } else {
       // Not ready yet: show 0 (don't use alloc which might have demo values)
       cashZAR = 0
       ethZAR = 0
       zwdZAR = 0
+      cashMZN = 0
     }
   } else {
     // Pre-auth: use alloc (demo values for marketing)
     cashZAR = alloc.cashCents / 100
     ethZAR = alloc.ethCents / 100
     zwdZAR = alloc.zwdCents / 100
+    cashMZN = alloc.mznCents / 100
   }
   
-  const shouldUseCompactSizing = cashZAR > 99999.99 || ethZAR > 99999.99 || zwdZAR > 99999.99
+  const shouldUseCompactSizing =
+    cashZAR > 99999.99 ||
+    ethZAR > 99999.99 ||
+    zwdZAR > 99999.99 ||
+    cashMZN > 99999.99 ||
+    Math.abs(displayMajor) > 99999.99
 
   // Get portfolio data for this card
   // Use direct selector for reactivity (Zustand will re-render when holdings[symbol] changes)
