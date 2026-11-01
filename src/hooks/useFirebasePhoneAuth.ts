@@ -5,10 +5,11 @@
 'use client'
 
 import { useState } from 'react'
-import { 
-  signInWithPhoneNumber, 
+import {
+  getAdditionalUserInfo,
+  signInWithPhoneNumber,
   type ConfirmationResult,
-  type User 
+  type User,
 } from 'firebase/auth'
 import { getFirebaseAuth } from '@/lib/firebase'
 import { getRecaptchaVerifier, resetRecaptchaVerifier } from '@/lib/recaptcha'
@@ -111,7 +112,7 @@ export function useFirebasePhoneAuth() {
       closeAllAuth()
 
       void pushWelcomeSignInNotification({
-        isNewUser: Boolean(result.additionalUserInfo?.isNewUser),
+        isNewUser: Boolean(getAdditionalUserInfo(result)?.isNewUser),
       })
 
       setIsVerifyingCode(false)

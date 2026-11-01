@@ -1,6 +1,11 @@
 'use client'
 
-import { signInWithPopup, signInWithRedirect, signOut as firebaseSignOut, GoogleAuthProvider } from 'firebase/auth'
+import {
+  getAdditionalUserInfo,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut as firebaseSignOut,
+} from 'firebase/auth'
 import { getFirebaseAuth, getGoogleAuthProvider } from '@/lib/firebase'
 import { useAuthStore } from '@/store/auth'
 import { useNotificationStore } from '@/store/notifications'
@@ -37,7 +42,7 @@ export function useFirebaseAuth() {
         closeAllAuth()
 
         void pushWelcomeSignInNotification({
-          isNewUser: Boolean(credential.additionalUserInfo?.isNewUser),
+          isNewUser: Boolean(getAdditionalUserInfo(credential)?.isNewUser),
         })
       } catch (popupErr: any) {
         // If popup is blocked, fall back to redirect
