@@ -171,11 +171,13 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const isBalanceReady = useAppModeStore((s) => s.isBalanceReady())
   const walletMzn = Number(wallets?.cashMZN?.fiatBalance || 0)
   const walletZar = Number(wallets?.cashZAR?.fiatBalance || 0)
+  const walletTransitZar = Number(wallets?.earnings?.fiatBalance || 0)
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : 0
   const transitClock = useTransitDayClock({
     enabled: Boolean(isBalanceReady && !demoMode),
     walletMzn,
+    walletTransitZar,
     sellMznPerZar: sellMznPerZar(liveMzn),
   })
   const [isAnimating, setIsAnimating] = useState(false)

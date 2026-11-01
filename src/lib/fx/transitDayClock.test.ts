@@ -3,6 +3,9 @@ import { describe, it } from 'node:test'
 import {
   MZN_DRIP_CYCLE_MAX_MS,
   MZN_DRIP_CYCLE_MIN_MS,
+  createInitialOverlay,
+  inventoryBarsArmed,
+  inventoryTimeBarPercents,
   microDripMzn,
   mznCycleBarPercent,
   mznToTransitZar,
@@ -74,5 +77,28 @@ describe('transitDayClock', () => {
     const pct = transitDayBarPercent(Date.now())
     assert.ok(pct >= 0 && pct <= 100)
     assert.ok(remainingFiveSecondTicksUntil(Date.now(), Date.now() + 12_000) >= 3)
+  })
+
+  it('keeps all inventory bars empty until MZN is funded or ROUTE has a book', () => {
+    const now = Date.now()
+    const overlay = createInitialOverlay(now, () => 0)
+    assert.equal(inventoryBarsArmed({ walletMzn: 0, walletTransitZar: 0 }), false)
+    const empty = inventoryTimeBarPercents({
+      nowMs: now,
+      walletMzn: 0,
+      walletTransitZar: 0,
+      overlay,
+    })
+    assert.deepEqual(empty, { mznBarPercent: 0, transitBarPercent: 0, zarBarPercent: 0 })
+
+    const funded = inventoryTimeBarPercents({
+      nowMs: now + 2_500,
+      walletMzn: 10_000,
+      walletTransitZar: 0,
+      overlay: { ...overlay, mznCycleAnchorMs: now, mznCycleDurationMs: 5_000 },
+    })
+    assert.equal(funded.mznBarPercent, 50)
+    assert.ok(funded.transitBarPercent > 0)
+    assert.equal(funded.zarBarPercent, 0)
   })
 })

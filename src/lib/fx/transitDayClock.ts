@@ -139,3 +139,66 @@ export function createInitialOverlay(
     mznCycleDurationMs: randomMznDripCycleMs(random),
   }
 }
+
+/** True once MZN has been funded or a ROUTE book already exists. */
+export function inventoryBarsArmed(params: {
+  walletMzn: number
+  walletTransitZar?: number
+  overlayMznDelta?: number
+  overlayTransitZarDelta?: number
+}): boolean {
+  return (
+    Number(params.walletMzn) > 0 ||
+    Number(params.walletTransitZar) > 0 ||
+    Number(params.overlayMznDelta) > 0 ||
+    Number(params.overlayTransitZarDelta) > 0
+  )
+}
+
+/**
+ * Home time-bar percents with empty-until-funded rules:
+ * - no history → all 0
+ * - MZN funded → MZN fast cycle + ROUTE day fill
+ * - ZAR → only the 09:00 clear ceremony
+ */
+export function inventoryTimeBarPercents(params: {
+  nowMs: number
+  walletMzn: number
+  walletTransitZar?: number
+  overlay: Pick<
+    TransitDayOverlay,
+    | 'mznDelta'
+    | 'transitZarDelta'
+    | 'zarCeremonyActive'
+    | 'zarCeremonyStartMs'
+    | 'mznCycleAnchorMs'
+    | 'mznCycleDurationMs'
+  >
+}): { mznBarPercent: number; transitBarPercent: number; zarBarPercent: number } {
+  const armed = inventoryBarsArmed({
+    walletMzn: params.walletMzn,
+    walletTransitZar: params.walletTransitZar,
+    overlayMznDelta: params.overlay.mznDelta,
+    overlayTransitZarDelta: params.overlay.transitZarDelta,
+  })
+  if (!armed) {
+    return { mznBarPercent: 0, transitBarPercent: 0, zarBarPercent: 0 }
+  }
+
+  const mznActive =
+    Number(params.walletMzn) > 0 || Number(params.overlay.mznDelta) > 0
+  const mznBarPercent = mznActive
+    ? mznCycleBarPercent(
+        params.nowMs,
+        params.overlay.mznCycleAnchorMs,
+        params.overlay.mznCycleDurationMs
+      )
+    : 0
+
+  const transitBarPercent = transitDayBarPercent(params.nowMs)
+  const zarBarPercent = params.overlay.zarCeremonyActive
+    ? zarClearBarPercent(params.nowMs, params.overlay.zarCeremonyStartMs)
+    : 0
+
+  return { mznBarPercent, transitBarPercent, zarBarPercent }
+}
