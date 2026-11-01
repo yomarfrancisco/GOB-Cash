@@ -53,7 +53,7 @@ function toastRoutingInstruction(
   id: string,
   title: string,
   body?: string,
-  item?: Pick<ActivityItem, 'kind' | 'title' | 'routingAction' | 'deskSpeaker' | 'deskStep' | 'narrative'>
+  item?: Pick<ActivityItem, 'kind' | 'title' | 'routingAction' | 'deskSpeaker' | 'deskStep'>
 ) {
   if (!id || toastedRoutingIds.has(id)) return
   toastedRoutingIds.add(id)
