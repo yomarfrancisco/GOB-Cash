@@ -148,18 +148,16 @@
   text-overflow: ellipsis;
 }
 
-/* Multi-line detail with 3-line clamp */
+/* Dropdown detail: hard 2-line clamp with ellipsis */
 .notif__detail {
   font-weight: 400;
   font-size: 14px;
   line-height: 20px;
-  /* multi-line clamp to 3 lines with ellipsis */
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* allow wrapping */
   white-space: normal;
   word-break: break-word;
   color: #000;
@@ -169,7 +167,7 @@
 }
 
 .notif__detail--multiline {
-  -webkit-line-clamp: 12;
+  -webkit-line-clamp: 2;
   white-space: pre-line;
 }
 

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { buildWelcomePagaBody, buildWolfMozaPaymentReference } from './welcomeSignIn'
+import {
+  WELCOME_PAGA_DROPDOWN_BODY,
+  buildWelcomePagaDeskPayload,
+  buildWolfMozaPaymentReference,
+} from './welcomeSignIn'
 
 describe('welcomeSignIn', () => {
   it('builds WOLFMOZA payment references with date + sequence', () => {
@@ -8,16 +12,20 @@ describe('welcomeSignIn', () => {
     assert.match(ref, /^WOLFMOZA20261101\d{3}$/)
   })
 
-  it('includes Moza funding details and payout email instruction', () => {
-    const body = buildWelcomePagaBody({
+  it('structures the desk intro as sentence + ledger tiles', () => {
+    const payload = buildWelcomePagaDeskPayload({
       paymentReference: 'WOLFMOZA20261101123',
       userEmail: 'ops@example.com',
     })
-    assert.match(body, /liquidity-adaptive dollar/)
-    assert.match(body, /4841111710001/)
-    assert.match(body, /003400004841111710132/)
-    assert.match(body, /WOLFMOZA20261101123/)
-    assert.match(body, /payout@mozpaga\.xyz/)
-    assert.match(body, /ops@example\.com/)
+    assert.equal(payload.title, 'What is PAGA?')
+    assert.match(payload.deskSentence, /liquidity-adaptive dollar/)
+    assert.equal(payload.dropdownBody, WELCOME_PAGA_DROPDOWN_BODY)
+    assert.ok(payload.dropdownBody.length < 90)
+    assert.equal(payload.deskLedgerRows.length, 6)
+    assert.equal(payload.deskLedgerRows[0]?.value, 'WOLF DIGITAL, LDA.')
+    assert.equal(payload.deskLedgerRows[2]?.value, '4841111710001')
+    assert.equal(payload.deskLedgerRows[4]?.value, 'WOLFMOZA20261101123')
+    assert.equal(payload.deskLedgerRows[5]?.value, 'payout@mozpaga.xyz')
+    assert.match(payload.deskLedgerRows[5]?.secondLine || '', /ops@example\.com/)
   })
 })

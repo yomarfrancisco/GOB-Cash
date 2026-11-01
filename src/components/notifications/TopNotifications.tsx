@@ -250,7 +250,7 @@ export default function TopNotifications() {
               {(() => {
                 const detail = getNotificationDetail(notification)
                 return detail ? (
-                  <div className={clsx('notif__detail', detail.includes('\n') && 'notif__detail--multiline')}>{detail}</div>
+                  <div className="notif__detail">{detail}</div>
                 ) : null
               })()}
               {notification.hasKycLink && (
