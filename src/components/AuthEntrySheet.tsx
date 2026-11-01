@@ -353,7 +353,7 @@ export default function AuthEntrySheet() {
 
               {/* Legal text */}
               <p className={styles.legal}>
-                PAGA is a <strong>liquidity-adaptive settlement network for constrained currency corridors</strong>. It keeps FX flowing even when any single bank is dry or offline.{' '}
+                PAGA sells <strong>liquidity-adaptive dollars to constrained currency corridors</strong>. It keeps FX flowing even when any single bank is dry or offline.{' '}
                 <em>
                   Authorised FSP 52815 and Co-operative bank{' '}
                   <a
@@ -398,7 +398,7 @@ export default function AuthEntrySheet() {
 
               {/* Legal text */}
               <p className={styles.legal}>
-                PAGA is a <strong>liquidity-adaptive settlement network for constrained currency corridors</strong>. It keeps FX flowing even when any single bank is dry or offline.{' '}
+                PAGA sells <strong>liquidity-adaptive dollars to constrained currency corridors</strong>. It keeps FX flowing even when any single bank is dry or offline.{' '}
                 <em>
                   Authorised FSP 52815 and Co-operative bank{' '}
                   <a
