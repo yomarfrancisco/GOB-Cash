@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { DM_Sans, Inter } from 'next/font/google'
 import './globals.css'
 import IosKeyboardShim from '@/components/IosKeyboardShim'
 import TopNotifications from '@/components/notifications/TopNotifications'
@@ -32,13 +31,6 @@ import PaymentDetailsSheetWrapper from '@/components/PaymentDetailsSheetWrapper'
 import WhatsAppClaimBootstrap from '@/components/WhatsAppClaimBootstrap'
 import ProfilePreviewSheetWrapper from '@/components/ProfilePreviewSheetWrapper'
 import FirebaseAuthListener from '@/components/FirebaseAuthListener'
-
-const inter = Inter({ subsets: ['latin'] })
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-dm-sans',
-})
 
 export const metadata: Metadata = {
   title: 'GoBankless — Global Money Movement in Cash & Stablecoins',
@@ -101,6 +93,13 @@ export default function RootLayout({
       <head>
         {/* Disable iOS Safari phone number auto-detection to avoid blue/underlined flashes */}
         <meta name="format-detection" content="telephone=no" />
+        {/* Runtime Google Fonts — avoids flaky next/font build-time fetches on Vercel. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
         {/* Preload ActionSheet icons for immediate display */}
         <link rel="preload" href="/assets/Tether.png" as="image" type="image/png" />
         {/* Structured data (JSON-LD) */}
@@ -119,7 +118,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} ${dmSans.variable}`}>
+      <body className="app-font-root">
         <script
           dangerouslySetInnerHTML={{
             __html: `
