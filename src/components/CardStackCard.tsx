@@ -268,7 +268,7 @@ export default function CardStackCard({
     cashZAR = alloc.cashCents / 100
     ethZAR = alloc.ethCents / 100
     zwdZAR = alloc.zwdCents / 100
-    cashMZN = alloc.mznCents / 100
+    cashMZN = (alloc.mznCents ?? 0) / 100
   }
   
   const shouldUseCompactSizing =
