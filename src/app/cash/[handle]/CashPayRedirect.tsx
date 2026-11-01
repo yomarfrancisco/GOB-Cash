@@ -6,13 +6,12 @@ import { useAuthStore } from '@/store/auth'
 
 export default function CashPayRedirect({ handle }: { handle: string }) {
   const router = useRouter()
-  const { isAuthed, authReady } = useAuthStore()
+  const { authReady } = useAuthStore()
 
   useEffect(() => {
     if (!authReady || !handle) return
-    const q = `cash=${encodeURIComponent(handle)}`
-    router.replace(isAuthed ? `/profile?${q}` : `/?${q}`)
-  }, [authReady, isAuthed, handle, router])
+    router.replace(`/?cash=${encodeURIComponent(handle)}`)
+  }, [authReady, handle, router])
 
   return null
 }

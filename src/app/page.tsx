@@ -32,6 +32,7 @@ import MapHelperSheet from '@/components/MapHelperSheet'
 import InternalTransferSheet from '@/components/InternalTransferSheet'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
 import { useNotificationStore } from '@/store/notifications'
+import { useNotificationsStore } from '@/state/notifications'
 import HomeStreamSection from '@/components/HomeStreamSection'
 import { DEMO_ANIMATIONS_ENABLED } from '@/lib/flags'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
@@ -192,7 +193,7 @@ function HomeContent() {
       if (resumedAuthedCashKeypadRef.current) return
       resumedAuthedCashKeypadRef.current = true
       clearCashPaySession()
-      router.replace(`/profile?cash=${encodeURIComponent(handle)}`)
+      openConversionKeypad(true, handle)
       return
     }
 
@@ -202,6 +203,25 @@ function HomeContent() {
     saveCashPayResume(fromQuery)
     openConversionKeypad(true, fromQuery)
   }, [authReady, isAuthed, openConversionKeypad, router])
+
+  // Deep-link quarantine: ?desk=1 / ?activity=1 opens the routing desk on Home.
+  useEffect(() => {
+    if (!authReady || typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('desk') !== '1' && params.get('activity') !== '1') return
+
+    const openDesk = () => useNotificationsStore.getState().openNotifications()
+    if (!isAuthed) {
+      requireAuth(openDesk)
+    } else {
+      openDesk()
+    }
+
+    params.delete('desk')
+    params.delete('activity')
+    const next = params.toString()
+    router.replace(next ? `/?${next}` : '/', { scroll: false })
+  }, [authReady, isAuthed, requireAuth, router])
   const [sendAmountZAR, setSendAmountZAR] = useState(0)
   const [sendRecipient, setSendRecipient] = useState('')
   const [sendMethod, setSendMethod] = useState<'email' | 'brics' | null>(null)

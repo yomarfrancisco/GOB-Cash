@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
         allParams: Object.fromEntries(searchParams.entries()),
       })
       // Redirect to profile with error
-      return NextResponse.redirect(new URL('/profile?error=missing_ref', request.url))
+      return NextResponse.redirect(new URL('/?error=missing_ref', request.url))
     }
     
     // Get payment record from Firestore
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     
     if (!paymentDoc.exists) {
       console.error('[PayFast Return] Payment not found', { ref })
-      return NextResponse.redirect(new URL('/profile?error=payment_not_found', request.url))
+      return NextResponse.redirect(new URL('/?error=payment_not_found', request.url))
     }
     
     const paymentData = paymentDoc.data()!
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
         pfPaymentId,
       })
       // Already processed - redirect to profile
-      return NextResponse.redirect(new URL(`/profile?ref=${ref}`, request.url))
+      return NextResponse.redirect(new URL(`/?ref=${ref}`, request.url))
     }
     
     // Verify amount matches (within cents tolerance)
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
         pfPaymentId,
       })
       // Still PENDING - redirect to profile (client will retry)
-      return NextResponse.redirect(new URL(`/profile?ref=${ref}&status=pending`, request.url))
+      return NextResponse.redirect(new URL(`/?ref=${ref}&status=pending`, request.url))
     }
     
     // Get user ID from payment
@@ -268,11 +268,11 @@ export async function GET(request: NextRequest) {
     }
     
     // Redirect to profile with success
-    return NextResponse.redirect(new URL(`/profile?ref=${ref}&credited=${credited}`, request.url))
+    return NextResponse.redirect(new URL(`/?ref=${ref}&credited=${credited}`, request.url))
   } catch (error: any) {
     console.error('[PayFast Return] Error:', error)
     // Redirect to profile with error
-    return NextResponse.redirect(new URL('/profile?error=return_processing_failed', request.url))
+    return NextResponse.redirect(new URL('/?error=return_processing_failed', request.url))
   }
 }
 

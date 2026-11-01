@@ -33,7 +33,7 @@ export async function pushWelcomeSignInNotification(title: string) {
     title,
     body: needsKyc ? WELCOME_KYC_BODY : WELCOME_BODY,
     actor: { type: 'system', avatar: MOZPAGA_ADMIN_AVATAR, name: 'MozPaga' },
-    routeOnTap: needsKyc ? '/profile' : undefined,
+    routeOnTap: needsKyc ? '/' : undefined,
     hasKycLink: needsKyc,
   })
 }

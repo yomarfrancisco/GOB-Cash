@@ -72,6 +72,6 @@ export async function recordDepositProofPending(params: {
       avatar: DEPOSIT_AVATAR,
       name: 'Ama',
     },
-    routeOnTap: '/profile?activity=1',
+    routeOnTap: '/?desk=1',
   })
 }

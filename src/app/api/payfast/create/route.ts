@@ -28,8 +28,8 @@ const getPayFastConfig = () => {
   const merchantKey = process.env.PAYFAST_MERCHANT_KEY
   const passphrase = process.env.PAYFAST_PASSPHRASE
   const notifyUrl = process.env.PAYFAST_NOTIFY_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://gobankless.app'}/api/payfast/notify`
-  const returnUrl = process.env.PAYFAST_RETURN_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://gobankless.app'}/profile`
-  const cancelUrl = process.env.PAYFAST_CANCEL_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://gobankless.app'}/profile`
+  const returnUrl = process.env.PAYFAST_RETURN_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://gobankless.app'}/`
+  const cancelUrl = process.env.PAYFAST_CANCEL_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://gobankless.app'}/`
 
   if (!merchantId || !merchantKey || !passphrase) {
     throw new Error('PayFast configuration missing. Set PAYFAST_MERCHANT_ID, PAYFAST_MERCHANT_KEY, and PAYFAST_PASSPHRASE')

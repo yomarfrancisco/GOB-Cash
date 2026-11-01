@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function ActivityPage() {
-  redirect('/profile?activity=1')
+  redirect('/?desk=1')
 }
-

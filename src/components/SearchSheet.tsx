@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import ActionSheet from './ActionSheet'
 import { useSearchSheet } from '@/store/useSearchSheet'
@@ -60,7 +59,6 @@ const MAX_SUGGESTED_CONTACTS = 10 // Top N contacts to show in Suggested section
 export default function SearchSheet() {
   const { isOpen, close } = useSearchSheet()
   const [searchQuery, setSearchQuery] = useState('')
-  const router = useRouter()
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const { openSheet } = useProfilePreviewSheet()
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
@@ -188,32 +186,16 @@ export default function SearchSheet() {
   const handleAgentClick = (agent: SearchAgent) => {
     // Extract handle without $ prefix
     const handleWithoutPrefix = agent.handle.replace(/^\$/, '')
-    
-    if (isAuthed) {
-      // Authenticated: open profile in tall popup sheet
-      openSheet(handleWithoutPrefix, true) // Pass fromSearch=true
-      // Keep search sheet open (don't close it)
-    } else {
-      // Unauthenticated: navigate to full-page profile view
-      close() // Close the search modal first
-      router.push(`/profile/${handleWithoutPrefix}?fromSearch=1`)
-    }
+    // Stay on Home — open preview sheet (never /profile).
+    openSheet(handleWithoutPrefix, true)
   }
 
   const handleContactClick = (contact: RankedContact) => {
     // Extract handle without $ prefix if present
     const handle = contact.handle || contact.email || contact.phone || ''
     const handleWithoutPrefix = handle.replace(/^\$/, '')
-    
-    if (isAuthed) {
-      // Authenticated: open profile in tall popup sheet
-      openSheet(handleWithoutPrefix, true) // Pass fromSearch=true
-      // Keep search sheet open (don't close it)
-    } else {
-      // Unauthenticated: navigate to full-page profile view
-      close() // Close the search modal first
-      router.push(`/profile/${handleWithoutPrefix}?fromSearch=1`)
-    }
+    // Stay on Home — open preview sheet (never /profile).
+    openSheet(handleWithoutPrefix, true)
     
     // Scroll to top to show the selected contact
     if (scrollContainerRef.current) {

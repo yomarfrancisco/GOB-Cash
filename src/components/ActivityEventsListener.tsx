@@ -42,7 +42,7 @@ function toastWeeklyStatement(id: string, title: string, body?: string) {
       avatar: SA_LIAISON_AVATAR,
       name: DESK_TEAM.leo.name,
     },
-    routeOnTap: '/profile?activity=1',
+    routeOnTap: '/?desk=1',
   })
 }
 
@@ -69,7 +69,7 @@ function toastRoutingInstruction(
       avatar: who.avatar,
       name: who.name,
     },
-    routeOnTap: '/profile?activity=1',
+    routeOnTap: '/?desk=1',
     autoDismissMs: 15000,
   })
 }
@@ -118,7 +118,7 @@ export default function ActivityEventsListener() {
                 avatar: isWithdraw ? WITHDRAW_AVATAR : DEPOSIT_AVATAR,
                 name: 'Ama',
               },
-              routeOnTap: '/profile?activity=1',
+              routeOnTap: '/?desk=1',
             })
           }
         },

@@ -673,7 +673,7 @@ function ActivityItemCard({
   const handleKycLink = (event: React.MouseEvent) => {
     event.stopPropagation()
     closeNotifications()
-    router.push(item.routeOnTap || '/profile')
+    router.push(item.routeOnTap || '/')
   }
 
   const handleKycCta = (event: React.MouseEvent) => {

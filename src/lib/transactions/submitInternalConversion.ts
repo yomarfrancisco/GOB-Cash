@@ -98,7 +98,7 @@ export async function submitInternalConversion(params: {
           avatar,
           name: isZarSale ? 'Leo' : 'Amina',
         },
-        routeOnTap: '/profile?activity=1',
+        routeOnTap: '/?desk=1',
       })
       return result
     }
@@ -121,7 +121,7 @@ export async function submitInternalConversion(params: {
           avatar,
           name: isZarSale ? 'Leo' : 'Ama',
         },
-        routeOnTap: '/profile?activity=1',
+        routeOnTap: '/?desk=1',
       })
     }
 

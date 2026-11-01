@@ -114,11 +114,17 @@ export default function TopNotifications() {
 
   const handleTap = (notification: NotificationItem) => {
     requireAuth(() => {
-      // If authed, allow navigation
+      // Stay on Home / desk — never send the user to /profile.
       if (notification.routeOnTap) {
-        router.push(notification.routeOnTap)
+        const raw = notification.routeOnTap
+        const href = raw.startsWith('/profile')
+          ? raw.includes('activity=1')
+            ? '/?desk=1'
+            : '/'
+          : raw
+        router.push(href)
       } else {
-        router.push('/transactions')
+        router.push('/')
       }
       handleDismiss(notification.id)
     })
@@ -255,7 +261,7 @@ export default function TopNotifications() {
                   onClick={(event) => {
                     event.stopPropagation()
                     triggerHaptic()
-                    router.push(notification.routeOnTap || '/profile')
+                    router.push(notification.routeOnTap || '/')
                     handleDismiss(notification.id)
                   }}
                 >

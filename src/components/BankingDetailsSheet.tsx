@@ -263,7 +263,7 @@ export default function BankingDetailsSheet() {
                 avatar: '/assets/avatar - profile (2).png',
                 name: 'Ama',
               },
-              routeOnTap: '/profile?activity=1',
+              routeOnTap: '/?desk=1',
             })
           } catch (error) {
             console.warn('[BankingDetailsSheet] Withdrawal created; notification persist failed.', error)

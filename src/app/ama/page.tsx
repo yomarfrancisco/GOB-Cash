@@ -3,14 +3,13 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-// Convenience route: /ama redirects to /profile/ama
+/** Legacy /ama convenience route — stay on Home. */
 export default function AmaPage() {
   const router = useRouter()
-  
+
   useEffect(() => {
-    router.replace('/profile/ama')
+    router.replace('/')
   }, [router])
 
   return null
 }
-

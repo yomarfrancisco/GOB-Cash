@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       workflow_id: DIDIT_KYC_WORKFLOW_ID,
       vendor_data: uid,
-      callback: `${appUrl}/profile`,
+      callback: `${appUrl}/`,
     }),
   })
 

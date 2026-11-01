@@ -41,7 +41,7 @@ export default function ProfileOther({ profile }: ProfileOtherProps) {
     // TODO: Implement share functionality
     console.log('Share profile:', profile.userHandle)
     if (typeof window !== 'undefined' && navigator.share) {
-      const profileUrl = `https://gobankless.app/profile/${profile.userHandle.replace('@', '')}`
+      const profileUrl = `https://gobankless.app/`
       navigator.share({
         title: `${profile.fullName} on GoBankless`,
         text: `Check out ${profile.userHandle} on GoBankless`,
