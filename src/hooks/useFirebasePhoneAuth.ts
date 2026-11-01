@@ -110,7 +110,9 @@ export function useFirebasePhoneAuth() {
 
       closeAllAuth()
 
-      void pushWelcomeSignInNotification('Signed in with phone')
+      void pushWelcomeSignInNotification({
+        isNewUser: Boolean(result.additionalUserInfo?.isNewUser),
+      })
 
       setIsVerifyingCode(false)
       return user

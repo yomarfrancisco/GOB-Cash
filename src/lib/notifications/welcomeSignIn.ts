@@ -1,6 +1,7 @@
 'use client'
 
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
+import type { User } from 'firebase/auth'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { DESK_TEAM } from '@/lib/desk/threadModel'
 import { useActivityStore } from '@/store/activity'
@@ -12,6 +13,43 @@ export const WELCOME_PAGA_EVENT_ID = 'welcome-paga-intro-v2'
 /** Short dropdown copy — keep ≤2 lines in the top toast. */
 export const WELCOME_PAGA_DROPDOWN_BODY =
   'Fund MZN at Moza Banco to buy dollars within 24 hours.'
+
+function welcomeDoneStorageKey(uid: string): string {
+  return `welcome-paga-done:${uid}`
+}
+
+function readWelcomeDone(uid: string): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(welcomeDoneStorageKey(uid)) === '1'
+  } catch {
+    return false
+  }
+}
+
+function markWelcomeDone(uid: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(welcomeDoneStorageKey(uid), '1')
+  } catch {
+    // private mode
+  }
+}
+
+/** True only for a brand-new account on this sign-in, not returning logins. */
+export function isFirstSignupSession(
+  user: Pick<User, 'metadata'>,
+  opts?: { isNewUser?: boolean }
+): boolean {
+  if (opts?.isNewUser === true) return true
+  const created = Date.parse(user.metadata.creationTime || '')
+  const lastSignIn = Date.parse(user.metadata.lastSignInTime || '')
+  if (!Number.isFinite(created) || !Number.isFinite(lastSignIn)) return false
+  // creation ≈ last sign-in means this is the account's first auth session
+  const sameSession = Math.abs(lastSignIn - created) < 90_000
+  const recentlyCreated = Date.now() - created < 15 * 60_000
+  return sameSession && recentlyCreated
+}
 
 /** Payment ref pattern: WOLFMOZA + YYYYMMDD + 3-digit sequence. */
 export function buildWolfMozaPaymentReference(now = new Date()): string {
@@ -90,7 +128,6 @@ function pushLocalDeskIntro(params: {
   deskSentence: string
   deskLedgerRows: NonNullable<ActivityItem['deskLedgerRows']>
   dropdownBody: string
-  paymentReference: string
 }) {
   const createdAt = Date.now()
   useActivityStore.getState().add({
@@ -124,24 +161,52 @@ function pushLocalDeskIntro(params: {
   })
 }
 
+export type PushWelcomeOpts = {
+  /** From Firebase additionalUserInfo.isNewUser when available. */
+  isNewUser?: boolean
+}
+
 /**
- * After auth: first session without a welcome desk post gets the Routing Manager
- * fund/payout intro on the desk, plus a short dropdown toast (desk does not auto-open).
+ * First signup only: Routing Manager fund/payout intro on the desk + short toast.
+ * Returning logins must never re-toast or re-seed.
  */
-export async function pushWelcomeSignInNotification(_title: string) {
+export async function pushWelcomeSignInNotification(
+  _titleOrOpts?: string | PushWelcomeOpts,
+  maybeOpts?: PushWelcomeOpts
+) {
+  const opts: PushWelcomeOpts =
+    typeof _titleOrOpts === 'object' && _titleOrOpts
+      ? _titleOrOpts
+      : maybeOpts || {}
+
   const user = getFirebaseAuth().currentUser
   if (!user) return
 
+  if (readWelcomeDone(user.uid)) return
+
+  // Returning accounts: never seed. Remember locally so we skip next time too.
+  if (!isFirstSignupSession(user, opts)) {
+    markWelcomeDone(user.uid)
+    return
+  }
+
   const eventRef = doc(getFirestoreDb(), 'users', user.uid, 'activityEvents', WELCOME_PAGA_EVENT_ID)
+  const userRef = doc(getFirestoreDb(), 'users', user.uid)
 
   try {
-    const existing = await getDoc(eventRef)
-    if (existing.exists()) return
+    const [existingEvent, userSnap] = await Promise.all([getDoc(eventRef), getDoc(userRef)])
+    if (existingEvent.exists() || userSnap.data()?.welcomePagaIntroAt) {
+      markWelcomeDone(user.uid)
+      return
+    }
   } catch (error) {
+    // Fail closed — do not toast returning sessions when the check cannot run.
     console.warn('[Welcome] Failed to check welcome post', error)
+    return
   }
 
   if (useActivityStore.getState().items.some((item) => item.id === WELCOME_PAGA_EVENT_ID)) {
+    markWelcomeDone(user.uid)
     return
   }
 
@@ -156,8 +221,8 @@ export async function pushWelcomeSignInNotification(_title: string) {
     deskSentence: payload.deskSentence,
     deskLedgerRows: payload.deskLedgerRows,
     dropdownBody: payload.dropdownBody,
-    paymentReference,
   })
+  markWelcomeDone(user.uid)
 
   try {
     await setDoc(eventRef, {
@@ -174,6 +239,9 @@ export async function pushWelcomeSignInNotification(_title: string) {
       paymentReference,
       createdAt: serverTimestamp(),
       recordingSource: 'USER_UI',
+    })
+    await updateDoc(userRef, { welcomePagaIntroAt: serverTimestamp() }).catch(async () => {
+      await setDoc(userRef, { welcomePagaIntroAt: serverTimestamp() }, { merge: true })
     })
   } catch (error) {
     console.warn('[Welcome] Failed to persist Routing Manager intro', error)

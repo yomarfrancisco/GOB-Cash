@@ -30,13 +30,15 @@ export function useFirebaseAuth() {
 
       try {
         // Try popup first (preferred UX)
-        await signInWithPopup(auth, googleProvider)
+        const credential = await signInWithPopup(auth, googleProvider)
         console.log('[FirebaseAuth] Google sign-in success (popup)')
 
         // Close auth sheets - FirebaseAuthListener will update isAuthed
         closeAllAuth()
 
-        void pushWelcomeSignInNotification('Signed in with Google')
+        void pushWelcomeSignInNotification({
+          isNewUser: Boolean(credential.additionalUserInfo?.isNewUser),
+        })
       } catch (popupErr: any) {
         // If popup is blocked, fall back to redirect
         if (popupErr?.code === 'auth/popup-blocked') {

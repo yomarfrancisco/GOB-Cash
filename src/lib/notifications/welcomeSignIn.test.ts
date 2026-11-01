@@ -4,6 +4,7 @@ import {
   WELCOME_PAGA_DROPDOWN_BODY,
   buildWelcomePagaDeskPayload,
   buildWolfMozaPaymentReference,
+  isFirstSignupSession,
 } from './welcomeSignIn'
 
 describe('welcomeSignIn', () => {
@@ -27,5 +28,25 @@ describe('welcomeSignIn', () => {
     assert.equal(payload.deskLedgerRows[4]?.value, 'WOLFMOZA20261101123')
     assert.equal(payload.deskLedgerRows[5]?.value, 'payout@mozpaga.xyz')
     assert.match(payload.deskLedgerRows[5]?.secondLine || '', /ops@example\.com/)
+  })
+
+  it('treats only first signup as welcome-eligible', () => {
+    const now = new Date()
+    assert.equal(
+      isFirstSignupSession(
+        { metadata: { creationTime: now.toISOString(), lastSignInTime: now.toISOString() } },
+        { isNewUser: true }
+      ),
+      true
+    )
+    assert.equal(
+      isFirstSignupSession({
+        metadata: {
+          creationTime: '2020-01-01T00:00:00.000Z',
+          lastSignInTime: now.toISOString(),
+        },
+      }),
+      false
+    )
   })
 })
