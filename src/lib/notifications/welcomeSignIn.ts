@@ -94,6 +94,16 @@ export function buildWelcomePagaDeskPayload(params: {
         value: '003400004841111710132',
       },
       {
+        label: 'SWIFT',
+        value: 'MOZAMZMA',
+        valueStrong: true,
+      },
+      {
+        label: 'IBAN MZN',
+        value: 'MZ59003400004841111710132',
+        valueStrong: true,
+      },
+      {
         label: 'Reference',
         value: params.paymentReference,
         valueStrong: true,
