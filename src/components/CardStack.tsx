@@ -703,7 +703,6 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             onTouchEnd={(e) => handleTouchEnd(e, cardIdx)}
             onApyPillClick={onApyPillClick}
             fxRates={fxRates}
-            showRatePill={!(card.type === 'mzn' && !isAdmin)}
             style={{
               position: 'absolute',
               width: effectiveStyle.width,
