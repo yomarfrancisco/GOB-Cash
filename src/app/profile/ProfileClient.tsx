@@ -1082,8 +1082,10 @@ export default function ProfileClient() {
         } : undefined}
         fxRateMZNperZAR={
           amountEntryPoint === 'conversionKeypad'
-            ? // Pink Buy ZAR (Mt→R) and lime Sell ZAR (R→Mt) both quote the minor at SELL@.
-              sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
+            ? // Pink Buy ZAR (Mt→R) @ SELL; lime Sell ZAR (R→Mt) @ COST.
+              conversionDestination === 'MZN'
+                ? costMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
+                : sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
             : typeof fxRates?.rates?.MZN === 'number'
               ? fxRates.rates.MZN
               : undefined
