@@ -353,7 +353,7 @@ export default function AuthEntrySheet() {
 
               {/* Legal text */}
               <p className={styles.legal}>
-                PAGA sells <strong>dollars to closed-currency markets</strong>.{' '}
+                We sell <strong>dollars to closed-currency markets</strong>.{' '}
                 <em>
                   Authorised FSP 52815 and Co-operative bank{' '}
                   <a
@@ -398,7 +398,7 @@ export default function AuthEntrySheet() {
 
               {/* Legal text */}
               <p className={styles.legal}>
-                PAGA sells <strong>dollars to closed-currency markets</strong>.{' '}
+                We sell <strong>dollars to closed-currency markets</strong>.{' '}
                 <em>
                   Authorised FSP 52815 and Co-operative bank{' '}
                   <a
