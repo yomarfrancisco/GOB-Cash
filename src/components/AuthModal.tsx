@@ -164,7 +164,7 @@ export default function AuthModal() {
               </p>
             )}
             <p className={styles.legal}>
-              PAGA sells <strong>liquidity-adaptive dollars to constrained currency corridors</strong>. It keeps FX flowing even when any single bank is dry or offline.{' '}
+              PAGA sells <strong>liquidity-adaptive dollars to closed-currency markets</strong>.{' '}
               <em>
                 Authorised FSP 52815 and Co-operative bank{' '}
                 <a

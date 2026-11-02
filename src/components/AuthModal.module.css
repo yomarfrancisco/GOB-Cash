@@ -647,7 +647,7 @@
   width: 283px;
   max-width: 100%;
   text-align: center;
-  font-size: 13px;
+  font-size: 19.5px; /* 13px × 1.5 */
   font-weight: 300;
   opacity: 0.5;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
