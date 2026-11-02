@@ -846,7 +846,8 @@ function HomeContent() {
           const next = conversionDestination === 'ZAR' ? 'MZN' : 'ZAR'
           if (conversionPrefill !== undefined && conversionPrefill > 0) {
             const mid = typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0
-            const rate = conversionDestination === 'MZN' ? sellMznPerZar(mid) : costMznPerZar(mid)
+            // Both Buy ZAR (Mt major) and Sell ZAR (R major) show the pair at SELL@.
+            const rate = sellMznPerZar(mid)
             setConversionPrefill(
               next === 'ZAR' ? zarToMzn(conversionPrefill, rate) : mznToZar(conversionPrefill, rate)
             )
@@ -861,9 +862,8 @@ function HomeContent() {
         } : undefined}
         fxRateMZNperZAR={
           amountEntryPoint === 'conversionKeypad'
-            ? (conversionDestination === 'MZN'
-                ? sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
-                : costMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0))
+            ? // Pink Buy ZAR (Mt→R) and lime Sell ZAR (R→Mt) both quote the minor at SELL@.
+              sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
             : typeof fxRates?.rates?.MZN === 'number'
               ? fxRates.rates.MZN
               : undefined
