@@ -450,15 +450,15 @@ export default function CardStackCard({
 
     if (card.type === 'mzn') {
       return {
-        strong: 'BUY@',
-        label: `${costRate.toFixed(2)}Mt/R`,
+        strong: `${costRate.toFixed(2)}Mt/R`,
+        label: '',
       }
     }
 
     if (card.type === 'savings') {
       return {
-        strong: 'SELL@',
-        label: `${sellRate.toFixed(2)}Mt/R`,
+        strong: `${sellRate.toFixed(2)}Mt/R`,
+        label: '',
       }
     }
 
