@@ -450,7 +450,7 @@ export default function CardStackCard({
 
     if (card.type === 'mzn') {
       return {
-        strong: 'COST@',
+        strong: 'BUY@',
         label: `${costRate.toFixed(2)}Mt/R`,
       }
     }
