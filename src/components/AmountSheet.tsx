@@ -428,10 +428,9 @@ export default function AmountSheet({
   const primaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.ZAR : CURRENCY_FLAG.MZN
   const secondaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.MZN : CURRENCY_FLAG.ZAR
   const secondaryAmount = formatAmountWithDot(isZarPrimaryKeypad ? amountMZN : amountZAR)
-  // Pink: ZAR = MZN / SELL. Green: MZN = ZAR × COST. USD = ZAR × live USD/ZAR
-  // (= COST-MZN ÷ cost MZN-per-USD). Same live mid either path.
+  // Pink only: ZAR = MZN / SELL; USD = ZAR × live USD/ZAR. Green keeps Moz + MZN alone.
   const amountUsdMinor = zarToUsd(amountZAR, fxRateUSDperZAR ?? 0)
-  const showUsdMinorPill = usePinkKeypad || useLimeGreenBackground
+  const showUsdMinorPill = usePinkKeypad
 
   const secondaryChip = isConversionKeypad && onToggleConversion ? (
     <button
