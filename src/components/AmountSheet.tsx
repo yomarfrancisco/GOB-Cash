@@ -6,7 +6,7 @@ import ActionSheet from './ActionSheet'
 import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
 import { exceedsAvailableMzn, exceedsAvailableZar, formatAmountWithDot, formatMZN, formatZARWithDot } from '@/lib/money'
-import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsdt } from '@/lib/mznZar'
+import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsd, zarToUsdt } from '@/lib/mznZar'
 import { formatAgentCashTitle, saveCashPayResume } from '@/lib/agentCashQr'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
@@ -38,6 +38,7 @@ function applyKey(current: string, key: string): string {
 const CURRENCY_FLAG = {
   ZAR: { src: '/assets/south%20africa.svg', alt: 'South Africa' },
   MZN: { src: '/assets/mozambique.svg', alt: 'Mozambique' },
+  USD: { src: '/assets/united_states.png', alt: 'United States' },
 } as const
 
 type AmountSheetProps = {
@@ -47,6 +48,8 @@ type AmountSheetProps = {
   flowType?: 'payment' | 'transfer' // default 'payment'
   balanceMZN?: number
   fxRateMZNperZAR?: number
+  /** Live USD per 1 ZAR from `/api/fx/latest` (raw mid). Pink keypad USD minor. */
+  fxRateUSDperZAR?: number
   ctaLabel?: string
   onSubmit?: (payload: {
     amountMZN: number
@@ -84,6 +87,7 @@ export default function AmountSheet({
   flowType = 'payment',
   balanceMZN,
   fxRateMZNperZAR = MZN_PER_ZAR,
+  fxRateUSDperZAR,
   ctaLabel,
   onSubmit,
   onAmountSubmit,
@@ -424,6 +428,42 @@ export default function AmountSheet({
   const primaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.ZAR : CURRENCY_FLAG.MZN
   const secondaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.MZN : CURRENCY_FLAG.ZAR
   const secondaryAmount = formatAmountWithDot(isZarPrimaryKeypad ? amountMZN : amountZAR)
+  // Pink (MZN major): ZAR = MZN / SELL; USD = ZAR × live USD/ZAR mid.
+  const amountUsdMinor = zarToUsd(amountZAR, fxRateUSDperZAR ?? 0)
+  const showUsdMinorPill = usePinkKeypad
+
+  const secondaryChip = isConversionKeypad && onToggleConversion ? (
+    <button
+      type="button"
+      className="amount-sheet__usdt-chip amount-sheet__usdt-chip--swap"
+      onClick={() => {
+        if (gateGuestPay) {
+          blockGuestPay()
+          return
+        }
+        onToggleConversion?.()
+      }}
+      aria-label={isZarPrimaryKeypad ? 'Switch to Metical keypad' : 'Switch to Rand keypad'}
+    >
+      <img
+        src={secondaryFlag.src}
+        alt=""
+        className="amount-sheet__flag amount-sheet__flag--sm"
+        draggable={false}
+      />
+      {secondaryAmount}
+    </button>
+  ) : (
+    <div className="amount-sheet__usdt-chip">
+      <img
+        src={secondaryFlag.src}
+        alt=""
+        className="amount-sheet__flag amount-sheet__flag--sm"
+        draggable={false}
+      />
+      {secondaryAmount}
+    </div>
+  )
 
   return (
     <ActionSheet
@@ -488,37 +528,21 @@ export default function AmountSheet({
                 />
               </div>
             </div>
-            {isConversionKeypad && onToggleConversion ? (
-              <button
-                type="button"
-                className="amount-sheet__usdt-chip amount-sheet__usdt-chip--swap"
-                onClick={() => {
-                  if (gateGuestPay) {
-                    blockGuestPay()
-                    return
-                  }
-                  onToggleConversion?.()
-                }}
-                aria-label={isZarPrimaryKeypad ? 'Switch to Metical keypad' : 'Switch to Rand keypad'}
-              >
-                <img
-                  src={secondaryFlag.src}
-                  alt=""
-                  className="amount-sheet__flag amount-sheet__flag--sm"
-                  draggable={false}
-                />
-                {secondaryAmount}
-              </button>
-            ) : (
-              <div className="amount-sheet__usdt-chip">
-                <img
-                  src={secondaryFlag.src}
-                  alt=""
-                  className="amount-sheet__flag amount-sheet__flag--sm"
-                  draggable={false}
-                />
-                {secondaryAmount}
+            {showUsdMinorPill ? (
+              <div className="amount-sheet__minor-row">
+                {secondaryChip}
+                <div className="amount-sheet__usdt-chip" aria-label={`${formatAmountWithDot(amountUsdMinor)} USD`}>
+                  <img
+                    src={CURRENCY_FLAG.USD.src}
+                    alt=""
+                    className="amount-sheet__flag amount-sheet__flag--sm"
+                    draggable={false}
+                  />
+                  {formatAmountWithDot(amountUsdMinor)}
+                </div>
               </div>
+            ) : (
+              secondaryChip
             )}
           </div>
           <AmountKeypad

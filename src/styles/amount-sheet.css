@@ -175,6 +175,21 @@
   letter-spacing: -0.2px; /* Slight negative letter spacing */
 }
 
+.amount-sheet__minor-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.amount-sheet__minor-row .amount-sheet__usdt-chip {
+  padding: 8px 12px;
+  font-size: 15px;
+}
+
 .amount-sheet__usdt-chip {
   display: inline-flex;
   align-items: center;

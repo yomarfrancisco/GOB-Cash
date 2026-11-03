@@ -405,7 +405,7 @@ export default function ProfileClient() {
   const hasUnseenActivity = useActivityUnreadStore(selectHasUnseenLiquidityActivity)
   const { guardAuthed } = useRequireAuth()
   const { open: openPaymentDetails, close: closePaymentDetails } = usePaymentDetailsSheet()
-  const { rates: fxRates } = useFxRates(['MZN'])
+  const { rates: fxRates } = useFxRates(['USD', 'MZN'])
   const { open: openDepositAccountSheet } = useCardDepositAccountSheet()
 
   useEffect(() => {
@@ -1089,6 +1089,11 @@ export default function ProfileClient() {
             : typeof fxRates?.rates?.MZN === 'number'
               ? fxRates.rates.MZN
               : undefined
+        }
+        fxRateUSDperZAR={
+          typeof fxRates?.rates?.USD === 'number' && fxRates.rates.USD > 0
+            ? fxRates.rates.USD
+            : undefined
         }
         depositMethod={depositMethod}
         customFeeText={amountMode === 'deposit' && amountEntryPoint === 'cardDeposit' && depositMethod === 'card' ? 'excl. 3% transaction fee' : undefined}

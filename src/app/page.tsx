@@ -871,6 +871,11 @@ function HomeContent() {
               ? fxRates.rates.MZN
               : undefined
         }
+        fxRateUSDperZAR={
+          typeof fxRates?.rates?.USD === 'number' && fxRates.rates.USD > 0
+            ? fxRates.rates.USD
+            : undefined
+        }
         onScanClick={
           amountEntryPoint === 'cashButton' || amountEntryPoint === 'conversionKeypad'
             ? () => {
