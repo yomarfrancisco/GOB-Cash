@@ -582,12 +582,9 @@ export default function CardStackCard({
                 <span className="amt-dot card-amounts__dot">.</span>
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
-              {/* ZAR + MZN inventory: major only. ROUTE keeps the ≈ minor line. */}
-              {isTransitZar && (
-                <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                  <span>≈ 0 MZN</span>
-                </div>
-              )}
+              <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
+                <span>≈ 0 {isMeticalAmount ? 'ZAR' : 'MZN'}</span>
+              </div>
             </>
           ) : (
             <>
@@ -629,24 +626,21 @@ export default function CardStackCard({
                   )}
                 />
               </div>
-              {/* Hide ≈ minor on ZAR / MZN inventory; keep it on ROUTE. */}
-              {isTransitZar && (
-                <div
-                  className="card-amounts__usdt"
-                  aria-label={`approximately ${convertedAmount.toFixed(2)} MZN`}
-                  suppressHydrationWarning
-                >
-                  <span aria-hidden>≈ </span>
-                  <SlotCounter
-                    key={`${balanceKey}-converted`}
-                    value={convertedAmount}
-                    format={formatEquivalenceAmount}
-                    durationMs={isBalanceReady ? 700 : 0}
-                    className="card-amounts__usdt-value"
-                  />
-                  <span style={{ marginLeft: '4px' }}>MZN</span>
-                </div>
-              )}
+              <div
+                className="card-amounts__usdt"
+                aria-label={`approximately ${convertedAmount.toFixed(2)} ${isMeticalAmount ? 'ZAR' : 'MZN'}`}
+                suppressHydrationWarning
+              >
+                <span aria-hidden>≈ </span>
+                <SlotCounter
+                  key={`${balanceKey}-converted`}
+                  value={convertedAmount}
+                  format={formatEquivalenceAmount}
+                  durationMs={isBalanceReady ? 700 : 0}
+                  className="card-amounts__usdt-value"
+                />
+                <span style={{ marginLeft: '4px' }}>{isMeticalAmount ? 'ZAR' : 'MZN'}</span>
+              </div>
             </>
           )}
         </div>
