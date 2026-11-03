@@ -1,16 +1,17 @@
 /**
- * UI-only home-card day clock: MZN → TRANSIT drip on a variable 5–30s cycle,
+ * UI-only home-card day clock: MZN → TRANSIT drip on a variable 20–50s cycle,
  * TRANSIT bar to 09:00 SAST, ZAR 15s clear ceremony at 09:00. No wallet writes.
  */
 
 import { sastParts, sastToUtcMs } from '@/lib/routing/routingTime'
 
-/** Baseline / minimum fast MZN cycle (also the unit for drip scaling). */
-export const MZN_DRIP_CYCLE_MIN_MS = 5_000
-export const MZN_DRIP_CYCLE_MAX_MS = 30_000
-/** @deprecated Use MZN_DRIP_CYCLE_MIN_MS — kept as the 5s scale unit. */
-export const MZN_DRIP_CYCLE_MS = MZN_DRIP_CYCLE_MIN_MS
-export const FIVE_SECOND_MS = MZN_DRIP_CYCLE_MIN_MS
+/** Fast MZN drip cycle length bounds. */
+export const MZN_DRIP_CYCLE_MIN_MS = 20_000
+export const MZN_DRIP_CYCLE_MAX_MS = 50_000
+/** 5s drip scale unit (drip size grows with cycle length relative to this). */
+export const FIVE_SECOND_MS = 5_000
+/** @deprecated Use FIVE_SECOND_MS for drip scale; MIN/MAX for cycle length. */
+export const MZN_DRIP_CYCLE_MS = FIVE_SECOND_MS
 export const ZAR_CLEAR_CEREMONY_MS = 15_000
 
 /** Previous 09:00 SAST at or before nowMs. */
@@ -95,7 +96,7 @@ export function microDripMzn(params: {
   const visible = Math.max(0, params.visibleMzn)
   if (!(visible > 0)) return 0
   // ~0.05% of visible per 5s baseline, scaled by cycle length; capped by remaining share.
-  const scale = cycleMs / MZN_DRIP_CYCLE_MIN_MS
+  const scale = cycleMs / FIVE_SECOND_MS
   const slice = Math.max(
     0.01,
     Math.min(visible * 0.0005 * scale, visible * (cycleMs / remainingMs))
@@ -121,7 +122,7 @@ export type TransitDayOverlay = {
   zarCeremonyStartMs: number | null
   /** Anchor for the current MZN cycle. */
   mznCycleAnchorMs: number
-  /** Length of the current MZN cycle (5–30s). */
+  /** Length of the current MZN cycle (20–50s). */
   mznCycleDurationMs: number
 }
 

@@ -161,7 +161,7 @@ body {
 
 .gobankless-logo {
   position: absolute;
-  top: 48px;
+  top: 38px; /* 10px closer to the top edge than the glass icon row */
   left: 16px;
   width: 120px;
   height: 90px; /* Distressed_PAGA aspect (~4:3) */

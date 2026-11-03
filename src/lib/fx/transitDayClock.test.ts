@@ -47,7 +47,7 @@ describe('transitDayClock', () => {
     assert.ok(drip < 10_000)
   })
 
-  it('picks cycle lengths inside 5–30s', () => {
+  it('picks cycle lengths inside 20–50s', () => {
     for (let i = 0; i < 40; i++) {
       const ms = randomMznDripCycleMs(() => i / 40)
       assert.ok(ms >= MZN_DRIP_CYCLE_MIN_MS)
