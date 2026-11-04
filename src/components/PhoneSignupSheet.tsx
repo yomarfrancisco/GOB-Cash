@@ -193,7 +193,7 @@ export default function PhoneSignupSheet() {
               </p>
               <p className={styles.legalAuth}>
                 <em>
-                  Authorised FSP 52815 and Co-operative bank{' '}
+                  Authorised FSP 52815 and Co-op bank{' '}
                   <a
                     href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
                     target="_blank"
