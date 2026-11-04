@@ -666,6 +666,32 @@
   font-weight: 300;
 }
 
+/* Keeps main + auth lines as one form child so gap doesn't stack with the offset. */
+.legalBlock {
+  width: 283px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Authorisation line: two blank lines below the main hand copy, 12px. */
+.legalAuth {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 300;
+  opacity: 0.5;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin: calc(2 * 1.4 * 14px) 0 0;
+  line-height: 1.4;
+}
+
+.legalAuth em {
+  font-style: italic;
+  font-weight: 300;
+}
+
 /* Auth Entry Sheet Styles */
 .authEntryForm {
   width: 344px;

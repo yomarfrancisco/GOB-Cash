@@ -352,17 +352,21 @@ export default function AuthEntrySheet() {
               </p>
 
               {/* Legal text */}
-              <p className={styles.legal}>
-                We sell <strong>dollars to closed-currency markets</strong>.{' '}
-                <em>
-                  Authorised FSP 52815 and Co-operative bank{' '}
-                  <a
-                    href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >CFI0024</a>.
-                </em>
-              </p>
+              <div className={styles.legalBlock}>
+                <p className={styles.legal}>
+                  We sell <strong>dollars to closed-currency markets</strong>.
+                </p>
+                <p className={styles.legalAuth}>
+                  <em>
+                    Authorised FSP 52815 and Co-operative bank{' '}
+                    <a
+                      href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >CFI0024</a>.
+                  </em>
+                </p>
+              </div>
             </form>
           ) : (
             <div className={clsx(styles.form, styles.authEntryForm)}>
@@ -397,17 +401,21 @@ export default function AuthEntrySheet() {
               </p>
 
               {/* Legal text */}
-              <p className={styles.legal}>
-                We sell <strong>dollars to closed-currency markets</strong>.{' '}
-                <em>
-                  Authorised FSP 52815 and Co-operative bank{' '}
-                  <a
-                    href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >CFI0024</a>.
-                </em>
-              </p>
+              <div className={styles.legalBlock}>
+                <p className={styles.legal}>
+                  We sell <strong>dollars to closed-currency markets</strong>.
+                </p>
+                <p className={styles.legalAuth}>
+                  <em>
+                    Authorised FSP 52815 and Co-operative bank{' '}
+                    <a
+                      href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >CFI0024</a>.
+                  </em>
+                </p>
+              </div>
             </div>
           )}
         </div>
