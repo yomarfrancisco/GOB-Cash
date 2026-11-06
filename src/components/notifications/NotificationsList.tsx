@@ -1505,10 +1505,12 @@ export function NotificationsList({
     [allItems, deskBlocked]
   )
   const latestActivityId = useMemo(() => {
-    if (deskBlocked) return KYC_GATE_ID
-    // Newest post in the feed (feedItems is newest-first), including ledger groups.
-    return feedItems.find((item) => item.thinking !== true)?.id ?? null
-  }, [feedItems, deskBlocked])
+    // Newest real desk post. Never use the synthetic KYC gate — it is excluded from
+    // progressive reveal, so Liquidity Report / plan actions would never appear.
+    return (
+      feedItems.find((item) => item.thinking !== true && item.id !== KYC_GATE_ID)?.id ?? null
+    )
+  }, [feedItems])
 
   const revealItems = useMemo(
     () =>
