@@ -24,6 +24,7 @@ import {
   type FnbEvent,
 } from './fnbParse'
 import { capitecNoticeCopy, isCapitecSender, parseCapitecReceipt, type CapitecReceipt } from './capitecParse'
+import { capitecPdfPasswordList } from './capitecPdfPasswords'
 import { capitecSettlementCopy, parseCapitecSettlement, type CapitecSettlement } from './capitecSettlement'
 import { parseFnbSettlement, fnbSettlementCopy } from '../settlement/fnbSettlement'
 import { applyCapitecPayoutToInvoices, applyFnbGrossSettlementToInvoices } from '../settlement/issueInvoices'
@@ -192,13 +193,16 @@ export const inbound_archiveBankMail = functions
       throw new Error('archive_retryable')
     }
     if (outcome.ok) {
+      const capitecPasswords = capitecPdfPasswordList(capitecPdfPassword.value())
       await recordMozaCardPurchase(ingress.resendEmailId, bucket)
       await recordMozaWithdrawal(ingress.resendEmailId, bucket)
       await recordFnbMzTransfer(ingress.resendEmailId, bucket)
       await recordFnbNotice(ingress.resendEmailId, bucket)
       await recordMznProof(ingress.resendEmailId, bucket)
-      await recordCapitecReceipt(ingress.resendEmailId, bucket)
-      await recordCapitecSettlement(ingress.resendEmailId, bucket, capitecPdfPassword.value())
+      // Settlement PDFs are account-locked — run before receipt so a locked PDF
+      // cannot abort the archive before payout reconcile.
+      await recordCapitecSettlement(ingress.resendEmailId, bucket, capitecPasswords)
+      await recordCapitecReceipt(ingress.resendEmailId, bucket, capitecPasswords)
       // Balance photos / Cursor rate notes may not be bank-authenticated.
       await recordRealisedRateNote(ingress.resendEmailId, bucket)
       await resumeAutonomousSettlement(ingress.resendEmailId)
@@ -942,7 +946,8 @@ async function publishMznNotice(docId: string, proof: MznProof): Promise<void> {
 
 async function recordCapitecReceipt(
   emailId: string,
-  bucket: { file(path: string): { download(): Promise<[Buffer]> } }
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } },
+  passwords: readonly string[] = []
 ): Promise<void> {
   const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
   const snap = await evidenceRef.get()
@@ -956,7 +961,17 @@ async function recordCapitecReceipt(
   const pdf = (evidence.attachments || []).find((row) => /pdf/i.test(row.contentType) || /\.pdf$/i.test(row.safeFilename))
   if (!pdf) return
   const [bytes] = await bucket.file(pdf.storagePath).download()
-  const text = await pdfText(bytes)
+  let text = ''
+  try {
+    text = await pdfText(bytes, passwords)
+  } catch (error) {
+    const locked = /password/i.test(error instanceof Error ? error.message : '')
+    safeLog.info('capitec_skipped', {
+      emailId,
+      reason: locked ? 'pdf_locked' : 'pdf_text_failed',
+    })
+    return
+  }
   const receipt = parseCapitecReceipt(text)
   if (!receipt) return
   const docId = receipt.transactionNumber || `pdf-${pdf.sha256.slice(0, 32)}`
@@ -1001,7 +1016,7 @@ async function recordCapitecReceipt(
 async function recordCapitecSettlement(
   emailId: string,
   bucket: { file(path: string): { download(): Promise<[Buffer]> } },
-  password: string
+  passwords: readonly string[]
 ): Promise<void> {
   const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
   const snap = await evidenceRef.get()
@@ -1012,15 +1027,22 @@ async function recordCapitecSettlement(
   const [bytes] = await bucket.file(pdf.storagePath).download()
   let text = ''
   try {
-    text = await pdfText(bytes, password || undefined)
+    text = await pdfText(bytes, passwords)
   } catch (error) {
     const locked = /password/i.test(error instanceof Error ? error.message : '')
     if (locked) safeLog.info('capitec_pdf_locked', { emailId, reason: 'password' })
+    else safeLog.info('capitec_pdf_locked', { emailId, reason: 'pdf_text_failed' })
     return
   }
   const settlement = parseCapitecSettlement(text)
   if (!settlement) return
-  const docId = (settlement.reference || `pdf-${pdf.sha256.slice(0, 32)}`).replace(/[^\w.-]+/g, '-')
+  // Capitec reuses the same PosSettle reference across merchants on a day —
+  // always include merchantId (or pdf hash) so BRICS AI ≠ Econometrica collide.
+  const docId = (
+    settlement.merchantId
+      ? `capitec-settle-${settlement.merchantId}-${settlement.reference || pdf.sha256.slice(0, 12)}`
+      : settlement.reference || `pdf-${pdf.sha256.slice(0, 32)}`
+  ).replace(/[^\w.-]+/g, '-')
   const eventRef = db().collection('bankCapitecEvents').doc(docId)
   await db().runTransaction(async (tx) => {
     const existing = await tx.get(eventRef)
@@ -1180,6 +1202,43 @@ export const inbound_backfillFnb = functions
       return
     }
     const bucket = admin.storage().bucket()
+    const capitecPasswords = capitecPdfPasswordList(capitecPdfPassword.value())
+    const mode = String(
+      (req.query && (req.query as { mode?: string }).mode) ||
+        (req.body && typeof req.body === 'object' ? (req.body as { mode?: string }).mode : '') ||
+        ''
+    )
+
+    // Focused reprocess for locked Capitec settlement PDFs (avoids full-inbox timeout).
+    if (mode === 'capitecSettlements') {
+      const recent = await db()
+        .collection(EVIDENCE_COLLECTION)
+        .orderBy('createdAt', 'desc')
+        .limit(200)
+        .get()
+      const targets = recent.docs.filter((doc) => {
+        const x = doc.data() as EvidenceRecord
+        return (
+          /settlement summary/i.test(String(x.subject || '')) &&
+          /capitecbank\.co\.za/i.test(String(x.from || '')) &&
+          x.parseStatus !== 'parsed'
+        )
+      })
+      let settled = 0
+      const errors: string[] = []
+      for (const doc of targets) {
+        try {
+          await recordCapitecSettlement(doc.id, bucket, capitecPasswords)
+          const after = await doc.ref.get()
+          if (after.data()?.capitecKind === 'settlement_summary') settled += 1
+        } catch (error) {
+          errors.push(`${doc.id}:${error instanceof Error ? error.message : String(error)}`)
+        }
+      }
+      res.status(200).json({ ok: true, mode, scanned: targets.length, settled, errors })
+      return
+    }
+
     const recent = await db().collection(EVIDENCE_COLLECTION).orderBy('createdAt', 'desc').limit(120).get()
     const quarantined = await db()
       .collection(EVIDENCE_COLLECTION)
@@ -1193,14 +1252,22 @@ export const inbound_backfillFnb = functions
     let reauthed = 0
     for (const doc of byId.values()) {
       const before = doc.data() as EvidenceRecord
-      await recordMozaCardPurchase(doc.id, bucket)
-      await recordMozaWithdrawal(doc.id, bucket)
-      await recordFnbMzTransfer(doc.id, bucket)
-      await recordFnbNotice(doc.id, bucket)
-      await recordMznProof(doc.id, bucket)
-      await recordCapitecReceipt(doc.id, bucket)
-      await recordCapitecSettlement(doc.id, bucket, capitecPdfPassword.value())
-      await resumeAutonomousSettlement(doc.id)
+      try {
+        await recordMozaCardPurchase(doc.id, bucket)
+        await recordMozaWithdrawal(doc.id, bucket)
+        await recordFnbMzTransfer(doc.id, bucket)
+        await recordFnbNotice(doc.id, bucket)
+        await recordMznProof(doc.id, bucket)
+        await recordCapitecSettlement(doc.id, bucket, capitecPasswords)
+        await recordCapitecReceipt(doc.id, bucket, capitecPasswords)
+        await resumeAutonomousSettlement(doc.id)
+      } catch (error) {
+        safeLog.info('backfill_doc_failed', {
+          emailId: doc.id,
+          reason: error instanceof Error ? error.message.slice(0, 120) : 'error',
+        })
+        continue
+      }
       const after = await db().collection('bankFnbEvents').doc(doc.id).get()
       if (after.exists) recorded += 1
       const evidence = await db().collection(EVIDENCE_COLLECTION).doc(doc.id).get()
