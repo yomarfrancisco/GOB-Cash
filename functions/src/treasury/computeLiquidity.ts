@@ -13,6 +13,10 @@ import {
   type ChannelTicket,
   type EftDeskBook,
 } from '../routing/channelSplit'
+import {
+  costMznPerZarFromSell,
+  MZN_PER_ZAR_FALLBACK,
+} from '../fx/quotedMznZar'
 
 /** Same 09:00 SAST rule as enRouteSettle.nextSettleAt09hSast — local to avoid admin init. */
 function nextClearMs(fromMs: number): number {
@@ -358,11 +362,12 @@ export async function computeLiquidity(
     bufferUsedZar = money(Number(data.bufferUsed || 0))
   }
 
-  const rate = pickLiquidityRate({
-    frozenCostRate: frozenCost,
-    orderSellRate: orderSell,
-    openWeightedCostRate: openWeight > 0 ? openWeighted / openWeight : 0,
-  })
+  const rate =
+    pickLiquidityRate({
+      frozenCostRate: frozenCost,
+      orderSellRate: orderSell,
+      openWeightedCostRate: openWeight > 0 ? openWeighted / openWeight : 0,
+    }) || costMznPerZarFromSell(MZN_PER_ZAR_FALLBACK)
 
   return assembleLiquidityPipe({
     atMs: at,

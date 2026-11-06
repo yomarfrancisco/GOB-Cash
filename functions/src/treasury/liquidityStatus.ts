@@ -5,7 +5,7 @@
 
 import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
-import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
+import { CONVERSION_ROUTING_KIND } from '../routing/conversionRouter'
 import {
   computeLiquidity,
   diffLiquiditySnapshots,
@@ -21,6 +21,41 @@ const db = admin.firestore()
 
 function money(n: number): number {
   return roundMajor(n)
+}
+
+/** Any signed-in client with MZN/ZAR/earnings on book (successfully funded). */
+async function assertFundedCaller(uid: string): Promise<void> {
+  const userRef = db.collection('users').doc(uid)
+  const [mznSnap, zarSnap, earnSnap] = await Promise.all([
+    userRef.collection('wallets').doc('cashMZN').get(),
+    userRef.collection('wallets').doc('cashZAR').get(),
+    userRef.collection('wallets').doc('earnings').get(),
+  ])
+  const cashMzn = money(Number(mznSnap.data()?.fiatBalance || 0))
+  const cashZar = money(Number(zarSnap.data()?.fiatBalance || 0))
+  const earnings = money(Number(earnSnap.data()?.fiatBalance || 0))
+  if (cashMzn > 0.005 || cashZar > 0.005 || earnings > 0.005) return
+
+  // Past successful MZN funding even if the wallet was later converted to zero.
+  try {
+    const fundedSnap = await db
+      .collection('transactions')
+      .where('userId', '==', uid)
+      .where('destinationCurrency', '==', 'MZN')
+      .where('status', '==', 'SETTLED')
+      .limit(1)
+      .get()
+    if (!fundedSnap.empty) return
+  } catch (error) {
+    console.warn('[liquidity] funded history scan skipped', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+
+  throw new functions.https.HttpsError(
+    'failed-precondition',
+    'Liquidity report is available after your account is funded'
+  )
 }
 
 function pctLiquid(liquid: number, funded: number): string {
@@ -256,12 +291,7 @@ export const admin_publishLiquidityStatus = functions
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Login required')
     }
-    if (context.auth.uid !== ROUTING_ADMIN_UID) {
-      throw new functions.https.HttpsError(
-        'permission-denied',
-        'Liquidity report is limited to the designated admin user'
-      )
-    }
+    await assertFundedCaller(context.auth.uid)
     return publishLiquidityStatus(context.auth.uid)
   })
 
@@ -271,11 +301,6 @@ export const admin_getLiquidityStrip = functions
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Login required')
     }
-    if (context.auth.uid !== ROUTING_ADMIN_UID) {
-      throw new functions.https.HttpsError(
-        'permission-denied',
-        'Liquidity strip is limited to the designated admin user'
-      )
-    }
+    await assertFundedCaller(context.auth.uid)
     return getLiquidityStrip(context.auth.uid)
   })
