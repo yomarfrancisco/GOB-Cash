@@ -9,9 +9,9 @@ import {
 import { reserveSplitDeskCopy } from './reserveDeskCopy'
 
 describe('reserveBooks', () => {
-  it('boots ZAR at R30k and MZN at Mt 0', () => {
-    assert.equal(RESERVE_DEFAULTS.ZAR.fiatBalance, 30_000)
-    assert.equal(RESERVE_DEFAULTS.ZAR.targetBalance, 30_000)
+  it('boots ZAR at R100k and MZN at Mt 0', () => {
+    assert.equal(RESERVE_DEFAULTS.ZAR.fiatBalance, 100_000)
+    assert.equal(RESERVE_DEFAULTS.ZAR.targetBalance, 100_000)
     assert.equal(RESERVE_DEFAULTS.MZN.fiatBalance, 0)
     assert.equal(RESERVE_DEFAULTS.MZN.targetBalance, 0)
   })

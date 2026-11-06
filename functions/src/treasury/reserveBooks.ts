@@ -14,12 +14,12 @@ export type ReserveBook = {
   updatedAt?: FirebaseFirestore.Timestamp | string | null
 }
 
-/** Bootstrap: R30k ZAR live; Mt 0 MZN until funded. */
+/** Bootstrap: R100k ZAR live; Mt 0 MZN until funded. */
 export const RESERVE_DEFAULTS: Record<
   ReserveCurrency,
   { fiatBalance: number; targetBalance: number }
 > = {
-  ZAR: { fiatBalance: 30_000, targetBalance: 30_000 },
+  ZAR: { fiatBalance: 100_000, targetBalance: 100_000 },
   MZN: { fiatBalance: 0, targetBalance: 0 },
 }
 
