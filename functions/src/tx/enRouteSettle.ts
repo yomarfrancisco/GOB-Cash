@@ -446,9 +446,12 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
     const suppressDesk = tx.suppressDeskActivity === true
 
     try {
-      const didSettle = await db.runTransaction(async (t): Promise<boolean> => {
+      const settleOutcome = await db.runTransaction(
+        async (t): Promise<{ ok: boolean; landCreditMinor: number }> => {
         const fresh = await t.get(doc.ref)
-        if (!fresh.exists || fresh.data()?.status !== 'EN_ROUTE') return false
+        if (!fresh.exists || fresh.data()?.status !== 'EN_ROUTE') {
+          return { ok: false, landCreditMinor: 0 }
+        }
 
         const bookingEventRef = userRef.collection('activityEvents').doc(doc.id)
         const bookingSnap = await t.get(bookingEventRef)
@@ -468,7 +471,7 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
                 : {}),
             })
           }
-          return true
+          return { ok: true, landCreditMinor: 0 }
         }
 
         const rateForBody = clearsToZar
@@ -490,7 +493,7 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
             reconciliationReason: 'earnings_below_open_lot',
             updatedAt: now,
           })
-          return false
+          return { ok: false, landCreditMinor: 0 }
         }
 
         // All reads before writes. Admin clears may divert land into shared reserve
@@ -586,6 +589,7 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
           status: 'SETTLED',
           instructionStatus: 'SETTLED',
           actualDestinationAmountMinor: destMinor,
+          landCreditMinor,
           statusUpdatedAt: now,
           updatedAt: now,
           settledAt: now,
@@ -629,10 +633,10 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
             })
           }
         }
-        return true
+        return { ok: true, landCreditMinor: clearsToZar ? landCreditMinor : 0 }
       })
 
-      if (!didSettle) continue
+      if (!settleOutcome.ok) continue
       // Refresh nextSettleAt from remaining open lots.
       const remaining = await db
         .collection('transactions')
@@ -655,6 +659,23 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
         { merge: true }
       )
       settled += 1
+
+      // Wallet land (after reserve refill) is liquid for the daily bank payout.
+      if (clearsToZar && !markSimulated && settleOutcome.landCreditMinor > 0) {
+        try {
+          const { accrueLiquidZar } = await import('../treasury/liquidZarCycle')
+          await accrueLiquidZar({
+            userId,
+            amountMajor: settleOutcome.landCreditMinor / 100,
+          })
+        } catch (error) {
+          console.warn('[settleDueEnRouteLots] liquid accrue skipped', {
+            txId: doc.id,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
+
       // Planned/simulated clears still move wallets; skip live desk automation hooks.
       if (clearsToZar && !markSimulated) {
         try {

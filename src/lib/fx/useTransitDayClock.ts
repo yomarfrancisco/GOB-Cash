@@ -42,6 +42,7 @@ function formatCountdown(ms: number): string {
 export function useTransitDayClock(params: {
   enabled: boolean
   walletMzn: number
+  walletZar?: number
   walletTransitZar?: number
   sellMznPerZar: number
   remainingPlannedMzn?: number
@@ -181,6 +182,7 @@ export function useTransitDayClock(params: {
     ? inventoryTimeBarPercents({
         nowMs,
         walletMzn: params.walletMzn,
+        walletZar: params.walletZar,
         walletTransitZar: params.walletTransitZar,
         overlay,
       })

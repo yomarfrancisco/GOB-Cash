@@ -125,26 +125,40 @@ describe('transitDayClock', () => {
     )
   })
 
-  it('keeps all inventory bars empty until MZN is funded or ROUTE has a book', () => {
+  it('keeps inventory bars empty until MZN or ZAR book is funded', () => {
     const now = Date.now()
     const overlay = createInitialOverlay(now, () => 0)
-    assert.equal(inventoryBarsArmed({ walletMzn: 0, walletTransitZar: 0 }), false)
+    assert.equal(inventoryBarsArmed({ walletMzn: 0, walletZar: 0, walletTransitZar: 0 }), false)
     const empty = inventoryTimeBarPercents({
       nowMs: now,
       walletMzn: 0,
+      walletZar: 0,
       walletTransitZar: 0,
       overlay,
     })
     assert.deepEqual(empty, { mznBarPercent: 0, transitBarPercent: 0, zarBarPercent: 0 })
 
-    const funded = inventoryTimeBarPercents({
+    const mznOnly = inventoryTimeBarPercents({
       nowMs: now + 2_500,
       walletMzn: 10_000,
+      walletZar: 0,
       walletTransitZar: 0,
       overlay: { ...overlay, mznCycleAnchorMs: now, mznCycleDurationMs: 5_000 },
     })
-    assert.equal(funded.mznBarPercent, 50)
-    assert.ok(funded.transitBarPercent > 0)
-    assert.equal(funded.zarBarPercent, 0)
+    assert.equal(mznOnly.mznBarPercent, 50)
+    // Day bar lives on the ZAR card — idle until liquid or in-route ZAR exists.
+    assert.equal(mznOnly.transitBarPercent, 0)
+    assert.equal(mznOnly.zarBarPercent, 0)
+
+    const zarBook = inventoryTimeBarPercents({
+      nowMs: now + 2_500,
+      walletMzn: 0,
+      walletZar: 100,
+      walletTransitZar: 50,
+      overlay,
+    })
+    assert.equal(zarBook.mznBarPercent, 0)
+    assert.ok(zarBook.transitBarPercent > 0)
+    assert.ok(zarBook.zarBarPercent > 0)
   })
 })

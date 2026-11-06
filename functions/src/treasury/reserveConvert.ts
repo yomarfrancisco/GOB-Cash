@@ -170,6 +170,18 @@ export async function payInstantFromReserve(
     })
   })
 
+  // Instant ZAR from reserve is liquid now — counts toward the daily bank payout.
+  if (params.destCurrency === 'ZAR' && destMajor > 0) {
+    try {
+      const { accrueLiquidZar } = await import('./liquidZarCycle')
+      await accrueLiquidZar({ userId: params.userId, amountMajor: destMajor })
+    } catch (error) {
+      console.warn('[payInstantFromReserve] liquid accrue skipped', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
   return { txId, destMajor, sourceMajor }
 }
 
@@ -320,6 +332,17 @@ export async function drainEnRouteQueueFromReserve(
     if (ok) {
       cleared += 1
       available = roundMajor(available - need)
+      if (clearsToZar) {
+        try {
+          const { accrueLiquidZar } = await import('./liquidZarCycle')
+          await accrueLiquidZar({ userId, amountMajor: need })
+        } catch (error) {
+          console.warn('[drainEnRouteQueueFromReserve] liquid accrue skipped', {
+            txId: doc.id,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
     }
   }
   return cleared

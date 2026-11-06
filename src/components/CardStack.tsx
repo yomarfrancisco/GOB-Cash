@@ -96,16 +96,14 @@ const allCardsData: CardData[] = [
   },
 ]
 
-// Mozambique and South Africa cash cards plus the Rewards / PROFIT card.
-// Rewards sits as an extension of ZAR (balance is earnings, not inventory).
-const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd']
+// Home: MZN + ZAR only. ROUTE (yieldSurprise) is collapsed into the ZAR card.
+const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd', 'yieldSurprise']
 
 function homeCardsForAdmin(_isAdmin: boolean): CardData[] {
   const visible = allCardsData.filter((card) => !ALWAYS_HIDDEN_CARD_TYPES.includes(card.type))
-  // Land / refresh: ZAR → TRANSIT → MZN (admin and non-admin).
+  // ZAR ↔ MZN (ROUTE balance is included on the ZAR card).
   return [...visible].sort((a, b) => {
-    const rank = (type: CardType) =>
-      type === 'savings' ? 0 : type === 'yieldSurprise' ? 1 : type === 'mzn' ? 2 : 3
+    const rank = (type: CardType) => (type === 'savings' ? 0 : type === 'mzn' ? 1 : 2)
     return rank(a.type) - rank(b.type)
   })
 }
@@ -185,6 +183,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const transitClock = useTransitDayClock({
     enabled: Boolean(isBalanceReady && !demoMode),
     walletMzn,
+    walletZar,
     walletTransitZar,
     sellMznPerZar: sellMznPerZar(liveMzn),
   })
@@ -228,17 +227,16 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     if (!isBalanceReady || demoMode || inventoryOrderAppliedRef.current) return
     if (!(liveMzn > 0) && walletMzn > 0) return
     inventoryOrderAppliedRef.current = true
-    const dominant = inventoryDominantCard(walletMzn, walletZar, costMznPerZar(liveMzn))
+    // ZAR inventory includes in-route (earnings) — ROUTE is collapsed into the ZAR card.
+    const zarBook = walletZar + walletTransitZar
+    const dominant = inventoryDominantCard(walletMzn, zarBook, costMznPerZar(liveMzn))
     const dominantIdx = cardsData.findIndex((c) => c.type === dominant)
-    const transitIdx = cardsData.findIndex((c) => c.type === 'yieldSurprise')
     if (dominantIdx < 0) return
     setOrder(() => {
-      const rest = cardsData
-        .map((_, i) => i)
-        .filter((i) => i !== dominantIdx && i !== transitIdx)
-      return transitIdx >= 0 ? [dominantIdx, transitIdx, ...rest] : [dominantIdx, ...rest]
+      const rest = cardsData.map((_, i) => i).filter((i) => i !== dominantIdx)
+      return [dominantIdx, ...rest]
     })
-  }, [isAuthed, isBalanceReady, demoMode, liveMzn, walletMzn, walletZar, cardsData])
+  }, [isAuthed, isBalanceReady, demoMode, liveMzn, walletMzn, walletZar, walletTransitZar, cardsData])
 
   const [flashDirection, setFlashDirection] = useState<Record<CardType, 'up' | 'down' | null>>({
     savings: null,
@@ -594,13 +592,14 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
 
       const releaseRouted = async () => {
         if (!(routedAmt > 0)) return
+        // ROUTE is collapsed into ZAR — flip/flash the ZAR card for in-transit credit.
         try {
-          await flipToCard('yieldSurprise', 'forward')
+          await flipToCard('savings', 'forward')
         } catch {
           /* still release holds */
         }
         setTransitCreditHold(0)
-        setFlashDirection((prev) => ({ ...prev, yieldSurprise: 'up' }))
+        setFlashDirection((prev) => ({ ...prev, savings: 'up' }))
         await sleep(SHOCK_DEST_FLASH_MS)
       }
 
@@ -825,20 +824,32 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             timeBarPercent={
               card.type === 'mzn'
                 ? transitClock.mznBarPercent
-                : card.type === 'yieldSurprise'
-                  ? transitClock.transitBarPercent
-                  : card.type === 'savings'
-                    ? transitClock.zarBarPercent
-                    : null
+                : card.type === 'savings'
+                  ? // Day bar that lived on ROUTE — now on ZAR (liquid + in-route).
+                    transitClock.transitBarPercent
+                  : null
             }
             displayMajorOffset={
               card.type === 'mzn'
                 ? transitClock.displayMznOffset - mznCreditHold
-                : card.type === 'yieldSurprise'
-                  ? transitClock.displayTransitZarOffset - transitCreditHold
-                  : card.type === 'savings'
-                    ? transitClock.displayZarOffset - zarCreditHold
-                    : 0
+                : card.type === 'savings'
+                  ? // Combine liquid ZAR + in-route earnings on the ZAR card.
+                    walletTransitZar +
+                    transitClock.displayZarOffset +
+                    transitClock.displayTransitZarOffset -
+                    zarCreditHold -
+                    transitCreditHold
+                  : 0
+            }
+            liquidZarMajor={
+              card.type === 'savings'
+                ? Math.max(0, walletZar - zarCreditHold)
+                : null
+            }
+            inRouteZarMajor={
+              card.type === 'savings'
+                ? Math.max(0, walletTransitZar - transitCreditHold)
+                : null
             }
           />
         )

@@ -162,15 +162,17 @@ export function createInitialOverlay(
   }
 }
 
-/** True once MZN has been funded or a ROUTE book already exists. */
+/** True once MZN, liquid ZAR, or in-route ZAR exists. */
 export function inventoryBarsArmed(params: {
   walletMzn: number
+  walletZar?: number
   walletTransitZar?: number
   overlayMznDelta?: number
   overlayTransitZarDelta?: number
 }): boolean {
   return (
     Number(params.walletMzn) > 0 ||
+    Number(params.walletZar) > 0 ||
     Number(params.walletTransitZar) > 0 ||
     Number(params.overlayMznDelta) > 0 ||
     Number(params.overlayTransitZarDelta) > 0
@@ -180,12 +182,14 @@ export function inventoryBarsArmed(params: {
 /**
  * Home time-bar percents with empty-until-funded rules:
  * - no history → all 0
- * - MZN funded → MZN fast cycle + ROUTE day fill
- * - ZAR → only the 09:00 clear ceremony
+ * - MZN funded → MZN fast drip cycle
+ * - ZAR card (liquid + in-route) → day fill toward 09:00 (former ROUTE bar)
+ * - zarBarPercent kept for ceremony flicker if needed
  */
 export function inventoryTimeBarPercents(params: {
   nowMs: number
   walletMzn: number
+  walletZar?: number
   walletTransitZar?: number
   overlay: Pick<
     TransitDayOverlay,
@@ -199,6 +203,7 @@ export function inventoryTimeBarPercents(params: {
 }): { mznBarPercent: number; transitBarPercent: number; zarBarPercent: number } {
   const armed = inventoryBarsArmed({
     walletMzn: params.walletMzn,
+    walletZar: params.walletZar,
     walletTransitZar: params.walletTransitZar,
     overlayMznDelta: params.overlay.mznDelta,
     overlayTransitZarDelta: params.overlay.transitZarDelta,
@@ -217,10 +222,15 @@ export function inventoryTimeBarPercents(params: {
       )
     : 0
 
-  const transitBarPercent = transitDayBarPercent(params.nowMs)
+  // Day bar drives the ZAR card (ROUTE collapsed into ZAR).
+  const zarBookActive =
+    Number(params.walletZar) > 0 ||
+    Number(params.walletTransitZar) > 0 ||
+    Number(params.overlay.transitZarDelta) > 0
+  const transitBarPercent = zarBookActive ? transitDayBarPercent(params.nowMs) : 0
   const zarBarPercent = params.overlay.zarCeremonyActive
     ? zarClearBarPercent(params.nowMs, params.overlay.zarCeremonyStartMs)
-    : 0
+    : transitBarPercent
 
   return { mznBarPercent, transitBarPercent, zarBarPercent }
 }

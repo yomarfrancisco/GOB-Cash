@@ -65,6 +65,7 @@ export function storyFromConversionResult(params: {
       return {
         kind: 'route_only',
         sourceCard: 'mzn',
+        // ROUTE collapsed into ZAR card — still track routed R for hold/flash.
         routed: { amount: routed > EPS ? routed : roundMajor(params.amountZAR) },
       }
     }
