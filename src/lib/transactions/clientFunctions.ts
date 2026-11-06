@@ -1050,6 +1050,28 @@ export async function admin_simulateNext72hDesk(): Promise<ConversionRoutingSumm
   return result.data as ConversionRoutingSummary
 }
 
+/** Desk Status → Liquidity status lookback card (received / liquid / clearing / ETA). */
+export async function admin_publishLiquidityStatus(): Promise<{
+  eventId: string
+  receivedMzn: number
+  liquidZar: number
+  clearingZar: number
+  nextClearMs: number | null
+  sentence: string
+}> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'admin_publishLiquidityStatus')
+  const result = await fn({})
+  return result.data as {
+    eventId: string
+    receivedMzn: number
+    liquidZar: number
+    clearingZar: number
+    nextClearMs: number | null
+    sentence: string
+  }
+}
+
 /** Leave Planned mode and restore the live desk clock. */
 export async function admin_exitDeskPlan(): Promise<ConversionRoutingSummary> {
   const functions = getFunctionsInstance()

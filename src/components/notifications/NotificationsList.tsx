@@ -12,7 +12,7 @@ import {
   downloadSettlementInvoice,
   admin_submitConversionRoutingFeedback,
   admin_simulateNextDeskDay,
-  admin_simulateNext72hDesk,
+  admin_publishLiquidityStatus,
   admin_exitDeskPlan,
 } from '@/lib/transactions/clientFunctions'
 import { isConversionInFlight } from '@/lib/transactions/submitInternalConversion'
@@ -505,10 +505,10 @@ function ActivityItemCard({
   catchupActive,
   planMode,
   showNext24h,
-  showNext72h,
+  showStatus,
   showRealtime,
   onNext24h,
-  onNext72h,
+  onStatus,
   onRealtime,
   liveSellMznPerZar,
 }: {
@@ -525,10 +525,10 @@ function ActivityItemCard({
   catchupActive?: boolean
   planMode?: 'live' | 'planned'
   showNext24h?: boolean
-  showNext72h?: boolean
+  showStatus?: boolean
   showRealtime?: boolean
   onNext24h?: () => void
-  onNext72h?: () => void
+  onStatus?: () => void
   onRealtime?: () => void
   liveSellMznPerZar?: number | null
 }) {
@@ -850,10 +850,10 @@ function ActivityItemCard({
         item={item}
         planBusy={planBusy}
         showNext24h={showNext24h}
-        showNext72h={showNext72h}
+        showStatus={showStatus}
         showRealtime={showRealtime}
         onNext24h={onNext24h}
-        onNext72h={onNext72h}
+        onStatus={onStatus}
         onRealtime={onRealtime}
       />
     )
@@ -1021,7 +1021,7 @@ function ActivityItemCard({
           showExecuted ||
           showKycLink ||
           showNext24h ||
-          showNext72h ||
+          showStatus ||
           showRealtime) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
@@ -1198,21 +1198,21 @@ function ActivityItemCard({
                 Next 24h
               </button>
             )}
-            {showNext72h && (
+            {showStatus && (
               <button
                 type="button"
                 className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Simulate the next 72 hours on the desk"
+                aria-label="Show liquidity status"
                 aria-busy={planBusy === true}
                 disabled={planBusy === true || confirmState !== 'idle'}
                 onClick={(event) => {
                   event.stopPropagation()
-                  onNext72h?.()
+                  onStatus?.()
                 }}
               >
-                Next 72h
+                Status
               </button>
             )}
             {showRealtime && (
@@ -1299,7 +1299,7 @@ function ActivitySection({
   planBusy,
   catchupActive,
   onNext24h,
-  onNext72h,
+  onStatus,
   onRealtime,
   liveSellMznPerZar,
 }: {
@@ -1321,7 +1321,7 @@ function ActivitySection({
   planBusy: boolean
   catchupActive: boolean
   onNext24h: () => void
-  onNext72h: () => void
+  onStatus: () => void
   onRealtime: () => void
   liveSellMznPerZar?: number | null
 }) {
@@ -1350,7 +1350,7 @@ function ActivitySection({
       <div className={styles.activityList}>
         {visibleItems.map((item) => {
           const settled = item.thinking === true || isSettled(item.id)
-          // Next 24h / 72h always ride the newest feed post — not an older awaiting card.
+          // Next 24h / Status always ride the newest feed post — not an older awaiting card.
           const isPlanHost =
             Boolean(latestActivityId) && item.id === latestActivityId && item.thinking !== true
           return (
@@ -1369,10 +1369,10 @@ function ActivitySection({
                 catchupActive={catchupActive}
                 planMode={planMode}
                 showNext24h={!lockDeskActions && isPlanHost}
-                showNext72h={!lockDeskActions && isPlanHost}
+                showStatus={!lockDeskActions && isPlanHost}
                 showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
                 onNext24h={onNext24h}
-                onNext72h={onNext72h}
+                onStatus={onStatus}
                 onRealtime={onRealtime}
                 liveSellMznPerZar={liveSellMznPerZar}
               />
@@ -1787,13 +1787,13 @@ export function NotificationsList({
     }
   }
 
-  const handleNext72h = async () => {
+  const handleStatus = async () => {
     if (deskBlocked || planBusy) return
     setPlanBusy(true)
     try {
-      applySimSummaryAndKeypad(await admin_simulateNext72hDesk())
+      await admin_publishLiquidityStatus()
     } catch (error) {
-      console.error('[Activity] Next 72h failed:', error)
+      console.error('[Activity] Liquidity status failed:', error)
     } finally {
       setPlanBusy(false)
     }
@@ -1832,7 +1832,7 @@ export function NotificationsList({
     planBusy,
     catchupActive: reveal.catchupActive,
     onNext24h: () => void handleNext24h(),
-    onNext72h: () => void handleNext72h(),
+    onStatus: () => void handleStatus(),
     onRealtime: () => void handleRealtime(),
     liveSellMznPerZar,
   }

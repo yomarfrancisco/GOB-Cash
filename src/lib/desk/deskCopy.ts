@@ -25,6 +25,7 @@ export function displayDeskTitle(title: string | undefined | null): string {
   }
   if (/^Step 5\s*·\s*Place ZAR$/i.test(out)) return 'Step 5 · Place ZAR'
   if (/^Step 6\s*·\s*What happened$/i.test(out)) return 'Step 6 · Day lookback'
+  if (/^Liquidity status$/i.test(out)) return 'Liquidity status'
   if (/^Sell ZAR\b/i.test(out)) return 'Step 4 · Send ZAR'
   if (/^Restock ZAR\b/i.test(out)) return 'Step 5 · Replace ZAR'
   if (/^ZAR sourced at COST\b/i.test(out)) return 'Step 5 · Replace ZAR'

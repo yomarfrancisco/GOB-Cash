@@ -171,19 +171,19 @@ export function DeskEventGroupCard({
   item,
   planBusy,
   showNext24h,
-  showNext72h,
+  showStatus,
   showRealtime,
   onNext24h,
-  onNext72h,
+  onStatus,
   onRealtime,
 }: {
   item: ActivityItem
   planBusy?: boolean
   showNext24h?: boolean
-  showNext72h?: boolean
+  showStatus?: boolean
   showRealtime?: boolean
   onNext24h?: () => void
-  onNext72h?: () => void
+  onStatus?: () => void
   onRealtime?: () => void
 }) {
   const group = item.deskEventGroup
@@ -197,7 +197,7 @@ export function DeskEventGroupCard({
       ? '≡'
       : group.source.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase())
   const isBankFeed = group.source !== 'wallet'
-  const showPlanActions = Boolean(showNext24h || showNext72h || showRealtime)
+  const showPlanActions = Boolean(showNext24h || showStatus || showRealtime)
 
   return (
     <article
@@ -266,21 +266,21 @@ export function DeskEventGroupCard({
                 Next 24h
               </button>
             ) : null}
-            {showNext72h ? (
+            {showStatus ? (
               <button
                 type="button"
                 className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Simulate the next 72 hours on the desk"
+                aria-label="Show liquidity status"
                 aria-busy={planBusy === true}
                 disabled={planBusy === true}
                 onClick={(event) => {
                   event.stopPropagation()
-                  onNext72h?.()
+                  onStatus?.()
                 }}
               >
-                Next 72h
+                Status
               </button>
             ) : null}
             {showRealtime ? (

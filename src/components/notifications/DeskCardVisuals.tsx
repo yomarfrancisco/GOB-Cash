@@ -107,11 +107,17 @@ export function DeskCardVisuals({ item }: { item: ActivityItem }) {
   if (
     item.deskLedgerRows?.length ||
     item.deskBankEmailRound?.due ||
-    item.deskBankExpectedReplies
+    item.deskBankExpectedReplies ||
+    item.deskChart
   ) {
     return (
       <>
         {item.deskLedgerRows?.length ? <DeskStepBlock rows={item.deskLedgerRows} /> : null}
+        {item.deskChart ? (
+          <div className={styles.deskVisuals}>
+            <DeskChart chart={item.deskChart} />
+          </div>
+        ) : null}
         {item.deskBankEmailRound?.due ? (
           <BankEmailRoundBlock
             round={item.deskBankEmailRound}
