@@ -492,6 +492,54 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
           })
           return false
         }
+
+        // All reads before writes. Admin clears may divert land into shared reserve
+        // when the treasury doc already exists (seeded by conversions / bootstrap).
+        let landCreditMinor = destMinor
+        let reserveCreditMajor = 0
+        let reserveCurrency: 'ZAR' | 'MZN' | null = null
+        let reserveBalance = 0
+        let reserveTarget = 0
+        let reserveExists = false
+        try {
+          const { ROUTING_ADMIN_UID } = await import('../routing/conversionRouter')
+          if (userId === ROUTING_ADMIN_UID && !markSimulated) {
+            const {
+              reserveRef,
+              refillTowardTarget,
+              RESERVE_DEFAULTS,
+              roundMajor: rMaj,
+            } = await import('../treasury/reserveBooks')
+            reserveCurrency = clearsToZar ? 'ZAR' : 'MZN'
+            const rSnap = await t.get(reserveRef(reserveCurrency))
+            reserveExists = rSnap.exists
+            const defaults = RESERVE_DEFAULTS[reserveCurrency]
+            reserveBalance = rSnap.exists
+              ? rMaj(Number(rSnap.data()?.fiatBalance || 0))
+              : defaults.fiatBalance
+            reserveTarget = rSnap.exists
+              ? rMaj(
+                  Number(
+                    rSnap.data()?.targetBalance != null
+                      ? rSnap.data()?.targetBalance
+                      : defaults.targetBalance
+                  )
+                )
+              : defaults.targetBalance
+            const { toReserve, surplus } = refillTowardTarget({
+              balance: reserveBalance,
+              targetBalance: reserveTarget,
+              availableCredit: destMinor / 100,
+            })
+            landCreditMinor = Math.round(surplus * 100)
+            reserveCreditMajor = toReserve
+          }
+        } catch {
+          landCreditMinor = destMinor
+          reserveCreditMajor = 0
+          reserveCurrency = null
+        }
+
         const debit = earningsDebitMinor
 
         t.update(earningsRef, {
@@ -499,8 +547,28 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
           updatedAt: now,
         })
 
+        if (reserveCurrency && reserveCreditMajor > 0) {
+          const { reserveRef, roundMajor: rMaj } = await import('../treasury/reserveBooks')
+          const ref = reserveRef(reserveCurrency)
+          if (reserveExists) {
+            t.update(ref, {
+              fiatBalance: rMaj(reserveBalance + reserveCreditMajor),
+              updatedAt: now,
+            })
+          } else {
+            const { RESERVE_DEFAULTS } = await import('../treasury/reserveBooks')
+            t.set(ref, {
+              currency: reserveCurrency,
+              fiatBalance: rMaj(reserveBalance + reserveCreditMajor),
+              targetBalance: reserveTarget || RESERVE_DEFAULTS[reserveCurrency].targetBalance,
+              updatedAt: now,
+              createdAt: now,
+            })
+          }
+        }
+
         const landNext =
-          (Math.round(Number(landData.fiatBalance || 0) * 100) + destMinor) / 100
+          (Math.round(Number(landData.fiatBalance || 0) * 100) + landCreditMinor) / 100
         if (!landSnap.exists) {
           t.set(landRef, {
             walletId: clearsToZar ? 'cashZAR' : 'cashMZN',
@@ -627,6 +695,20 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
         error: error instanceof Error ? error.message : String(error),
       })
     }
+  }
+
+  // After clears may have topped reserve, drain FCFS EN_ROUTE queue early.
+  try {
+    const { drainEnRouteQueueFromReserve } = await import('../treasury/reserveConvert')
+    const zarN = await drainEnRouteQueueFromReserve('ZAR', 20)
+    const mznN = await drainEnRouteQueueFromReserve('MZN', 20)
+    if (zarN || mznN) {
+      console.log('[settleDueEnRouteLots] reserve queue drained', { zarN, mznN })
+    }
+  } catch (error) {
+    console.warn('[settleDueEnRouteLots] reserve drain skipped', {
+      error: error instanceof Error ? error.message : String(error),
+    })
   }
 
   return settled

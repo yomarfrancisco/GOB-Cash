@@ -49,6 +49,7 @@ export { tx_createBankWithdrawalRequest, onBankWithdrawalCreated } from './tx/cr
 export { getBankWithdrawalProof } from './tx/getBankWithdrawalProof'
 export { tx_createInternalConversion } from './tx/createInternalConversion'
 export { tx_settleEnRouteSweep } from './tx/enRouteSettle'
+export { onTreasuryReserveWrite } from './treasury/onTreasuryReserveWrite'
 export {
   autonomousSettlementEvery5Minutes,
   autonomousSettlementWatchdog,

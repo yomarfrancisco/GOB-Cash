@@ -1,10 +1,10 @@
 /**
  * Cloud Function: tx_createInternalConversion
  *
- * ZAR→MZN sales and `$` capital shocks (Buy ZAR / Sell ZAR) book onto EN ROUTE
- * (earnings) for every account until the next 09:00 SAST clear
- * (→ cashMZN at SELL, or → cashZAR at COST).
- * Desk Step 5 restocks can still credit cashZAR immediately when matched to a play.
+ * Live conversions draw a shared ZAR/MZN treasury reserve FCFS for an instant
+ * leg; any remainder books EN ROUTE until the next 09:00 SAST clear.
+ * `$` capital shocks still book full EN ROUTE (buy-desk narrative).
+ * Planned desk skips reserve (deterministic).
  */
 
 import * as functions from 'firebase-functions'
@@ -220,159 +220,213 @@ export const tx_createInternalConversion = functions
     const suppressDesk =
       data?.suppressDeskActivity === true || Boolean(data?.routingPlay)
 
-    // ZAR sales book EN ROUTE until next 09:00 SAST; restocks credit cashZAR now.
-    if (isZarSale) {
-      const { bookZarSaleToEnRoute } = await import('./enRouteSettle')
-      // Desk Send already has Step 4 — still post Part 2 "ZAR booked" (not CONVERSION_INSTRUCTED).
-      let plannedMeta: { simulated?: true; planRunId?: string } = {}
-      let expectedDestinationMzn: number | undefined
-      if (data?.routingPlay) {
-        try {
-          const currentSnap = await db.collection('adminConversionCurrent').doc(userId).get()
-          const testRunId = currentSnap.data()?.testRunId
-          if (typeof testRunId === 'string' && testRunId) {
-            const testSnap = await db.collection('adminConversionTests').doc(testRunId).get()
-            const td = testSnap.data() || {}
-            if (td.deskMode === 'planned') {
-              plannedMeta = {
-                simulated: true,
-                ...(typeof td.planRunId === 'string' && td.planRunId
-                  ? { planRunId: td.planRunId }
-                  : {}),
-              }
+    // Planned desk stays full EN_ROUTE (deterministic). Live uses shared reserve FCFS.
+    let plannedMeta: { simulated?: true; planRunId?: string } = {}
+    let expectedDestinationMzn: number | undefined
+    if (data?.routingPlay) {
+      try {
+        const currentSnap = await db.collection('adminConversionCurrent').doc(userId).get()
+        const testRunId = currentSnap.data()?.testRunId
+        if (typeof testRunId === 'string' && testRunId) {
+          const testSnap = await db.collection('adminConversionTests').doc(testRunId).get()
+          const td = testSnap.data() || {}
+          if (td.deskMode === 'planned') {
+            plannedMeta = {
+              simulated: true,
+              ...(typeof td.planRunId === 'string' && td.planRunId
+                ? { planRunId: td.planRunId }
+                : {}),
             }
+          }
+          if (isZarSale) {
             const { parseOrderLedger, sellMznForZar } = await import('../routing/orderLedger')
             const ledger = parseOrderLedger(td.orderLedger)
             if (ledger && ledger.sellRate > 0) {
-              // Prefer stamped mznAtSell when ZAR matches the day order; else same formula.
               expectedDestinationMzn =
                 Math.abs(ledger.zar - sourceAmountMajor) < 0.05 && ledger.mznAtSell > 0
                   ? ledger.mznAtSell
                   : sellMznForZar(sourceAmountMajor, ledger.sellRate)
             }
           }
-        } catch {
-          /* treat as live */
         }
+      } catch {
+        /* treat as live */
       }
-      const booked = await bookZarSaleToEnRoute({
+    }
+
+    const skipReserve = plannedMeta.simulated === true
+    const groupId =
+      typeof data?.groupId === 'string' && data.groupId.trim()
+        ? data.groupId.trim()
+        : db.collection('transactions').doc().id
+    const deskSuppress = data?.routingPlay ? false : suppressDesk
+
+    const { bookZarSaleToEnRoute, bookMznSaleToEnRoute } = await import('./enRouteSettle')
+    const {
+      planReserveSplit,
+      payInstantFromReserve,
+      publishReserveSplitNotice,
+    } = await import('../treasury/reserveConvert')
+
+    // —— ZAR → MZN: draw MZN reserve for instant leg; remainder EN_ROUTE ——
+    if (isZarSale) {
+      const wantMzn =
+        typeof expectedDestinationMzn === 'number' && expectedDestinationMzn > 0
+          ? roundMajor(expectedDestinationMzn)
+          : roundMajor(sourceAmountMajor * sellRate)
+      const split = skipReserve
+        ? {
+            instantDest: 0,
+            routedDest: wantMzn,
+            instantSource: 0,
+            routedSource: sourceAmountMajor,
+          }
+        : await planReserveSplit({
+            destCurrency: 'MZN',
+            wantDest: wantMzn,
+            totalSource: sourceAmountMajor,
+          })
+
+      let instantTxId: string | null = null
+      let routedTxId: string | null = null
+      let settleAtMs: number | null = null
+
+      if (split.instantDest > 0 && split.instantSource > 0) {
+        const instant = await payInstantFromReserve({
+          userId,
+          sourceCurrency: 'ZAR',
+          destCurrency: 'MZN',
+          sourceMajor: split.instantSource,
+          destMajor: split.instantDest,
+          fxRateMZNperZar: sellRate,
+          costRate,
+          sellRate,
+          groupId,
+          namedClient,
+          suppressDeskActivity: deskSuppress,
+        })
+        instantTxId = instant.txId
+      }
+
+      if (split.routedSource > 0) {
+        const routedRewards =
+          split.routedSource >= sourceAmountMajor - 0.001
+            ? rewardsMznMinor
+            : Math.round((rewardsMznMinor * split.routedSource) / Math.max(sourceAmountMajor, 0.01))
+        const booked = await bookZarSaleToEnRoute({
+          userId,
+          sourceAmountZar: split.routedSource,
+          sellRate,
+          costRate,
+          rewardsMznMinor: routedRewards,
+          namedClient,
+          groupId,
+          suppressDeskActivity: true,
+          simulated: plannedMeta.simulated === true,
+          planRunId: plannedMeta.planRunId,
+          settleImmediately: plannedMeta.simulated === true,
+          expectedDestinationMzn: split.routedDest > 0 ? split.routedDest : undefined,
+        })
+        routedTxId = booked.txId
+        settleAtMs = booked.settleAtMs
+      }
+
+      await publishReserveSplitNotice({
         userId,
-        sourceAmountZar: sourceAmountMajor,
-        sellRate,
-        costRate,
-        rewardsMznMinor,
-        namedClient,
-        groupId: typeof data?.groupId === 'string' && data.groupId.trim() ? data.groupId.trim() : undefined,
-        suppressDeskActivity: data?.routingPlay ? false : suppressDesk,
-        simulated: plannedMeta.simulated === true,
-        planRunId: plannedMeta.planRunId,
-        settleImmediately: plannedMeta.simulated === true,
-        expectedDestinationMzn,
+        groupId,
+        destCurrency: 'MZN',
+        fundedDest: wantMzn,
+        instantDest: split.instantDest,
+        routedDest: split.routedDest,
+        settleAtMs,
+        suppressDeskActivity: deskSuppress,
       })
+
+      const txId = routedTxId || instantTxId || groupId
       try {
-        await sendAgentConversionProofEmail(booked.txId)
+        await sendAgentConversionProofEmail(txId)
       } catch (error) {
         console.error('[tx_createInternalConversion] Agent proof email failed (non-blocking)', {
-          txId: booked.txId,
+          txId,
           error: error instanceof Error ? error.message : String(error),
         })
       }
-      return { txId: booked.txId, enRoute: true, settleAtMs: booked.settleAtMs }
+      return {
+        txId,
+        groupId,
+        enRoute: split.routedDest > 0,
+        settleAtMs,
+        reserveInstantMzn: split.instantDest,
+        reserveRoutedMzn: split.routedDest,
+      }
     }
 
-    const sourceWalletRef = db.collection('users').doc(userId).collection('wallets').doc('cashMZN')
-    const destinationWalletRef = db.collection('users').doc(userId).collection('wallets').doc('cashZAR')
-    const txRef = db.collection('transactions').doc()
-    const txId = txRef.id
-    const now = admin.firestore.Timestamp.now()
-    const groupId = typeof data?.groupId === 'string' && data.groupId.trim() ? data.groupId.trim() : txId
-    const sourceLabel = `Mt ${sourceAmountMajor.toFixed(2)}`
-    const destLabel = `R${settlementMajor.toFixed(2)}`
-
-    await db.runTransaction(async (t) => {
-      const sourceSnap = await t.get(sourceWalletRef)
-      const destSnap = await t.get(destinationWalletRef)
-      const sourceData = sourceSnap.exists ? sourceSnap.data()! : { fiatBalance: 0 }
-      const destData = destSnap.exists ? destSnap.data()! : { fiatBalance: 0 }
-      const availableMinor = Math.round(Number(sourceData.fiatBalance || 0) * 100)
-
-      if (!sourceSnap.exists || sourceAmountMinor > availableMinor) {
-        throw new functions.https.HttpsError('failed-precondition', 'Insufficient MZN balance.')
-      }
-
-      t.update(sourceWalletRef, {
-        fiatBalance: (availableMinor - sourceAmountMinor) / 100,
-        updatedAt: now,
-      })
-      if (!destSnap.exists) {
-        t.set(destinationWalletRef, {
-          walletId: 'cashZAR',
-          kind: 'cash',
-          displayCurrency: 'ZAR',
-          fiatBalance: expectedDestinationMinor / 100,
-          usdtBalance: 0,
-          updatedAt: now,
+    // —— MZN → ZAR: draw ZAR reserve for instant leg; remainder EN_ROUTE ——
+    const wantZar = expectedDestinationMajor
+    const split = skipReserve
+      ? {
+          instantDest: 0,
+          routedDest: wantZar,
+          instantSource: 0,
+          routedSource: sourceAmountMajor,
+        }
+      : await planReserveSplit({
+          destCurrency: 'ZAR',
+          wantDest: wantZar,
+          totalSource: sourceAmountMajor,
         })
-      } else {
-        t.update(destinationWalletRef, {
-          fiatBalance: (Math.round(Number(destData.fiatBalance || 0) * 100) + expectedDestinationMinor) / 100,
-          updatedAt: now,
-        })
-      }
 
-      t.set(txRef, {
-        id: txId,
+    let instantTxId: string | null = null
+    let routedTxId: string | null = null
+    let settleAtMs: number | null = null
+
+    if (split.instantDest > 0 && split.instantSource > 0) {
+      const instant = await payInstantFromReserve({
         userId,
-        type: 'CONVERSION',
-        transactionType: 'CONVERSION',
-        uiAction: 'PAY',
-        instructionSource: 'USER_INSTRUCTED',
-        recordingSource: 'USER_UI',
-        executionChannel: 'INTERNAL',
-        status: 'INITIATED',
-        instructionStatus: 'INITIATED',
-        sourceCurrency,
-        destinationCurrency,
-        currency: sourceCurrency,
-        sourceAmountMinor,
-        expectedDestinationAmountMinor: expectedDestinationMinor,
-        actualDestinationAmountMinor: null,
-        quotedRate: fxRateMZNperZAR,
-        buyRateMZNperZAR: restockBlendedCost,
-        costRateMZNperZAR: restockBlendedCost,
-        sellRateMZNperZAR: sellRate,
-        rewardsMznMinor: null,
-        clientDestinationAmountMinor: Math.round(reportedDestMajor * 100),
-        amountMzn: sourceAmountMajor,
-        amountZar: expectedDestinationMajor,
-        fxRateMZNperZAR,
-        counterpartyHandle: namedClient?.handle || null,
-        counterpartyUserId: namedClient?.userId || null,
+        sourceCurrency: 'MZN',
+        destCurrency: 'ZAR',
+        sourceMajor: split.instantSource,
+        destMajor: split.instantDest,
+        fxRateMZNperZar: fxRateMZNperZAR,
+        costRate: restockBlendedCost,
+        sellRate,
         groupId,
-        createdAt: now,
-        statusUpdatedAt: now,
-        updatedAt: now,
+        namedClient,
+        suppressDeskActivity: deskSuppress,
       })
+      instantTxId = instant.txId
+    }
 
-      if (!suppressDesk) {
-        t.set(db.collection('users').doc(userId).collection('activityEvents').doc(txId), {
-          id: txId,
-          kind: 'CONVERSION_INSTRUCTED',
-          title: 'ZAR sourced at COST',
-          body: `${sourceLabel} to ${destLabel} · COST ${costRate.toFixed(2)} Mt/R`,
-          actorType: 'ai_manager',
-          avatarKind: 'convert_mzn',
-          amountCurrency: sourceCurrency,
-          amountValue: sourceAmountMajor,
-          amountSign: 'debit',
-          txId,
-          hasDownloadButton: true,
-          createdAt: now,
-          recordingSource: 'USER_UI',
-        })
-      }
+    if (split.routedSource > 0) {
+      const booked = await bookMznSaleToEnRoute({
+        userId,
+        sourceAmountMzn: split.routedSource,
+        sellRate,
+        costRate: restockBlendedCost,
+        expectedDestinationZar: split.routedDest,
+        namedClient,
+        groupId,
+        suppressDeskActivity: true,
+        simulated: plannedMeta.simulated === true,
+        planRunId: plannedMeta.planRunId,
+        settleImmediately: plannedMeta.simulated === true,
+      })
+      routedTxId = booked.txId
+      settleAtMs = booked.settleAtMs
+    }
+
+    await publishReserveSplitNotice({
+      userId,
+      groupId,
+      destCurrency: 'ZAR',
+      fundedDest: wantZar,
+      instantDest: split.instantDest,
+      routedDest: split.routedDest,
+      settleAtMs,
+      suppressDeskActivity: deskSuppress,
     })
 
+    const txId = routedTxId || instantTxId || groupId
     try {
       await sendAgentConversionProofEmail(txId)
     } catch (error) {
@@ -382,5 +436,13 @@ export const tx_createInternalConversion = functions
       })
     }
 
-    return { txId }
+    return {
+      txId,
+      groupId,
+      enRoute: split.routedDest > 0,
+      settleAtMs,
+      reserveInstantZar: split.instantDest,
+      reserveRoutedZar: split.routedDest,
+    }
   })
+
