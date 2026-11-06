@@ -175,6 +175,8 @@ export function sharedDripProgress(params: {
   const completedCycles = Math.floor(elapsed / cycleMs)
   const cycleFrac = Math.min(1, (elapsed % cycleMs) / cycleMs)
 
+  // Amounts move only on completed cycles — never mid-cycle. The bar alone
+  // tracks cycleFrac so the drip still feels continuous without twitching R/Mt.
   let remaining = walletMzn
   let plannedLeft = Math.max(0, Number(params.remainingPlannedMzn) || 0)
   for (let i = 0; i < completedCycles; i++) {
@@ -189,19 +191,6 @@ export function sharedDripProgress(params: {
     const take = Math.min(remaining, drip)
     remaining = Math.round((remaining - take) * 100) / 100
     if (plannedLeft > 0) plannedLeft = Math.max(0, Math.round((plannedLeft - take) * 100) / 100)
-  }
-
-  if (remaining > 0 && cycleFrac > 0) {
-    const atMs = dayStart + (completedCycles + 1) * cycleMs
-    const fullCycleDrip = microDripMzn({
-      remainingPlannedMzn: plannedLeft,
-      visibleMzn: remaining,
-      nowMs: atMs,
-      cycleDurationMs: cycleMs,
-    })
-    const partial = Math.round(fullCycleDrip * cycleFrac * 100) / 100
-    const take = Math.min(remaining, partial)
-    remaining = Math.round((remaining - take) * 100) / 100
   }
 
   const drippedMzn = Math.max(0, Math.round((walletMzn - remaining) * 100) / 100)

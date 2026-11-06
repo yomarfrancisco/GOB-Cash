@@ -151,6 +151,24 @@ describe('transitDayClock', () => {
     assert.ok(Math.abs(before - after) < 0.02)
   })
 
+  it('holds card amounts steady mid-cycle; only the bar advances', () => {
+    const dayStart = lastSettleAt09hSast(Date.now())
+    const early = sharedDripProgress({
+      walletMzn: 50_000,
+      sellMznPerZar: 4.65,
+      nowMs: dayStart + SHARED_MZN_DRIP_CYCLE_MS * 3 + 1_000,
+    })
+    const late = sharedDripProgress({
+      walletMzn: 50_000,
+      sellMznPerZar: 4.65,
+      nowMs: dayStart + SHARED_MZN_DRIP_CYCLE_MS * 3 + 30_000,
+    })
+    assert.equal(early.drippedMzn, late.drippedMzn)
+    assert.equal(early.displayMznOffset, late.displayMznOffset)
+    assert.equal(early.displayTransitZarOffset, late.displayTransitZarOffset)
+    assert.ok(late.mznCycleBarPercent > early.mznCycleBarPercent)
+  })
+
   it('keeps inventory bars empty until MZN or ZAR book is funded', () => {
     const now = Date.now()
     const overlay = createInitialOverlay(now, () => 0)
