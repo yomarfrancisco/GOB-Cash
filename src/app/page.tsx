@@ -932,16 +932,7 @@ function HomeContent() {
                 capitalShock: true,
               })
           void run
-            .then((result) => {
-              if (play || !result?.capitalShock) return
-              // Reveal only what landed now (reserve instant); remainder stays on ROUTE.
-              const creditZar =
-                typeof (result as { reserveInstantZar?: number }).reserveInstantZar === 'number'
-                  ? Number((result as { reserveInstantZar?: number }).reserveInstantZar)
-                  : amountZAR
-              if (!(creditZar > 0)) return
-              void cardStackRef.current?.playCapitalShockReveal({ creditZar })
-            })
+            // Card story is emitted from submitInternalConversion (reserve / route / split).
             .catch((error: any) => {
             useRoutingPlaybackStore.getState().clear()
             const message = String(error?.message || '')

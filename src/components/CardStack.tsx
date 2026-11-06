@@ -18,6 +18,12 @@ import { inventoryDominantCard } from '@/lib/fx/inventoryDominant'
 import { costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
+import type { ConversionStory } from '@/lib/animations/conversionStory'
+import {
+  inferredStoriesSuppressed,
+  setConversionStoryPlayer,
+} from '@/lib/animations/conversionStoryBus'
+import { conversionStoryFromWalletTransition } from '@/lib/animations/settlementPlayback'
 
 // Temporary FX rate (will be wired to real API later)
 const FX_USD_ZAR_DEFAULT = 18.1
@@ -148,14 +154,16 @@ export type CardStackHandle = {
   cycleNext: () => void
   flipToCard: (cardType: CardType, direction?: 'forward' | 'back') => Promise<void>
   revealCreditSurprise: () => void
-  /** After Buy/Sell ZAR shock: let source flash, shuffle to TRANSIT, then release R credit. */
+  /** @deprecated Prefer playConversionStory — kept for callers still on capital-shock reveal. */
   playCapitalShockReveal: (params: { creditZar: number }) => Promise<void>
+  /** Reserve / ROUTE / split / 09:00 clear — one consistent card story. */
+  playConversionStory: (story: ConversionStory) => Promise<void>
 }
 
 const FLIP_DURATION_MS = FLIP_MS
 /** Match CardStackCard SlotCounter duration so source ↓ is readable before shuffle. */
 const SHOCK_SOURCE_FLASH_MS = 750
-const SHOCK_TRANSIT_FLASH_MS = 750
+const SHOCK_DEST_FLASH_MS = 750
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -184,6 +192,12 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const [phase, setPhase] = useState<'idle' | 'animating'>('idle')
   /** Holds back TRANSIT R so the up-tick plays after shuffle, not under the source card. */
   const [transitCreditHold, setTransitCreditHold] = useState(0)
+  const [zarCreditHold, setZarCreditHold] = useState(0)
+  const [mznCreditHold, setMznCreditHold] = useState(0)
+  const storyPlayingRef = useRef(false)
+  const walletStoryPrevRef = useRef<{ cashZAR: number; cashMZN: number; earnings: number } | null>(
+    null
+  )
   const touchStartY = useRef<number>(0)
   const touchEndY = useRef<number>(0)
   const inventoryOrderAppliedRef = useRef(false)
@@ -545,39 +559,126 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     }, FLIP_DURATION_MS + 50) // Wait for any ongoing animation + buffer
   }, [order, specialMode, isAnimating, externalFlipControllerRef, onCreditSurprise])
 
+  const playConversionStory = useCallback(
+    async (story: ConversionStory) => {
+      if (storyPlayingRef.current) return
+      storyPlayingRef.current = true
+      externalFlipControllerRef?.current?.pause()
+      aiCycleControllerRef?.current?.pause()
+
+      const instantAmt = Math.round((Number(story.instant?.amount) || 0) * 100) / 100
+      const routedAmt = Math.round((Number(story.routed?.amount) || 0) * 100) / 100
+      const instantCard = story.instant?.card
+
+      // Hold destination credits so they appear only after the flip.
+      if (instantCard === 'savings' && instantAmt > 0) setZarCreditHold(instantAmt)
+      if (instantCard === 'mzn' && instantAmt > 0) setMznCreditHold(instantAmt)
+      if (routedAmt > 0) setTransitCreditHold(routedAmt)
+
+      // Source debit is already in wallets — let flash-down read.
+      setFlashDirection((prev) => ({ ...prev, [story.sourceCard]: 'down' }))
+      await sleep(SHOCK_SOURCE_FLASH_MS)
+
+      const releaseInstant = async () => {
+        if (!instantCard || !(instantAmt > 0)) return
+        try {
+          await flipToCard(instantCard, 'forward')
+        } catch {
+          /* still release holds */
+        }
+        if (instantCard === 'savings') setZarCreditHold(0)
+        if (instantCard === 'mzn') setMznCreditHold(0)
+        setFlashDirection((prev) => ({ ...prev, [instantCard]: 'up' }))
+        await sleep(SHOCK_DEST_FLASH_MS)
+      }
+
+      const releaseRouted = async () => {
+        if (!(routedAmt > 0)) return
+        try {
+          await flipToCard('yieldSurprise', 'forward')
+        } catch {
+          /* still release holds */
+        }
+        setTransitCreditHold(0)
+        setFlashDirection((prev) => ({ ...prev, yieldSurprise: 'up' }))
+        await sleep(SHOCK_DEST_FLASH_MS)
+      }
+
+      try {
+        if (story.kind === 'reserve_only' || story.kind === 'clear_to_zar' || story.kind === 'clear_to_mzn') {
+          await releaseInstant()
+        } else if (story.kind === 'route_only') {
+          await releaseRouted()
+        } else if (story.kind === 'split') {
+          await releaseInstant()
+          await releaseRouted()
+        }
+      } finally {
+        setZarCreditHold(0)
+        setMznCreditHold(0)
+        setTransitCreditHold(0)
+        externalFlipControllerRef?.current?.resume()
+        aiCycleControllerRef?.current?.resume()
+        storyPlayingRef.current = false
+      }
+    },
+    [flipToCard, externalFlipControllerRef, aiCycleControllerRef]
+  )
+
   const playCapitalShockReveal = useCallback(
     async (params: { creditZar: number }) => {
       const credit = Math.round((Number(params.creditZar) || 0) * 100) / 100
       if (!(credit > 0)) return
-
-      externalFlipControllerRef?.current?.pause()
-      aiCycleControllerRef?.current?.pause()
-
-      // Wallet already includes the credit — hold it back until TRANSIT is on top.
-      setTransitCreditHold(credit)
-      await sleep(SHOCK_SOURCE_FLASH_MS)
-
-      try {
-        await flipToCard('yieldSurprise', 'forward')
-      } catch {
-        // Still release so the balance is not stuck hidden.
-      }
-
-      setFlashDirection((prev) => ({ ...prev, yieldSurprise: 'up' }))
-      setTransitCreditHold(0)
-      await sleep(SHOCK_TRANSIT_FLASH_MS)
-
-      externalFlipControllerRef?.current?.resume()
-      aiCycleControllerRef?.current?.resume()
+      // Legacy: treat as ROUTE-only credit (pre-reserve callers).
+      await playConversionStory({
+        kind: 'route_only',
+        sourceCard: 'mzn',
+        routed: { amount: credit },
+      })
     },
-    [flipToCard, externalFlipControllerRef, aiCycleControllerRef]
+    [playConversionStory]
   )
+
+  useEffect(() => {
+    setConversionStoryPlayer((story) => {
+      void playConversionStory(story)
+    })
+    return () => setConversionStoryPlayer(null)
+  }, [playConversionStory])
+
+  // 09:00 clear / inferred wallet stories when no explicit conversion story is playing.
+  useEffect(() => {
+    if (!isAuthed || !isBalanceReady || demoMode) return
+    const next = {
+      cashZAR: walletZar,
+      cashMZN: walletMzn,
+      earnings: walletTransitZar,
+    }
+    const prev = walletStoryPrevRef.current
+    walletStoryPrevRef.current = next
+    if (!prev) return
+    if (storyPlayingRef.current || inferredStoriesSuppressed()) return
+    const story = conversionStoryFromWalletTransition(prev, next)
+    if (!story) return
+    // Explicit submit path owns book/reserve stories; only auto-play clears here.
+    if (story.kind !== 'clear_to_zar' && story.kind !== 'clear_to_mzn') return
+    void playConversionStory(story)
+  }, [
+    isAuthed,
+    isBalanceReady,
+    demoMode,
+    walletZar,
+    walletMzn,
+    walletTransitZar,
+    playConversionStory,
+  ])
 
   useImperativeHandle(ref, () => ({
     cycleNext,
     flipToCard,
     revealCreditSurprise,
     playCapitalShockReveal,
+    playConversionStory,
   }))
 
   const handleCardClick = (index: number) => {
@@ -732,11 +833,11 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             }
             displayMajorOffset={
               card.type === 'mzn'
-                ? transitClock.displayMznOffset
+                ? transitClock.displayMznOffset - mznCreditHold
                 : card.type === 'yieldSurprise'
                   ? transitClock.displayTransitZarOffset - transitCreditHold
                   : card.type === 'savings'
-                    ? transitClock.displayZarOffset
+                    ? transitClock.displayZarOffset - zarCreditHold
                     : 0
             }
           />

@@ -5,6 +5,8 @@ import { useNotificationStore } from '@/store/notifications'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { tx_createInternalConversion } from '@/lib/transactions/clientFunctions'
 import type { ConversionDestination } from '@/store/usePayIntoSheet'
+import { storyFromConversionResult } from '@/lib/animations/conversionStory'
+import { requestConversionStory } from '@/lib/animations/conversionStoryBus'
 
 let conversionInFlight = false
 
@@ -34,7 +36,16 @@ export async function submitInternalConversion(params: {
   routingPlay?: { testRunId: string; cycleNumber: number; action: 'deploy' | 'replenish' } | null
   /** Desk step already owns the narrative — skip conversion activity + POP toast. */
   suppressDeskActivity?: boolean
-}): Promise<{ txId: string; capitalShock?: boolean }> {
+}): Promise<{
+  txId: string
+  capitalShock?: boolean
+  enRoute?: boolean
+  reserveInstantZar?: number
+  reserveRoutedZar?: number
+  reserveInstantMzn?: number
+  reserveRoutedMzn?: number
+  amountZar?: number
+}> {
   if (conversionInFlight) {
     throw new Error(CONVERSION_IN_FLIGHT_MESSAGE)
   }
@@ -84,17 +95,42 @@ export async function submitInternalConversion(params: {
       })
     }
 
+    const story = storyFromConversionResult({
+      destination: params.destination,
+      amountZAR: params.amountZAR,
+      amountMZN: params.amountMZN,
+      reserveInstantZar: result.reserveInstantZar,
+      reserveRoutedZar: result.reserveRoutedZar,
+      reserveInstantMzn: result.reserveInstantMzn,
+      reserveRoutedMzn: result.reserveRoutedMzn,
+      enRoute: result.enRoute,
+    })
+    requestConversionStory(story)
+
     if (result.capitalShock) {
-      // Buy and Sell capital shocks book ZAR onto ROUTE — SA Bank Liaison.
       const who = DESK_TEAM.leo
+      const instantZar = Number(result.reserveInstantZar || 0)
+      const routedZar = Number(result.reserveRoutedZar || 0)
+      const title =
+        instantZar > 0 && !(routedZar > 0)
+          ? 'ZAR paid from reserve'
+          : instantZar > 0 && routedZar > 0
+            ? 'ZAR split · reserve + ROUTE'
+            : 'ZAR booked'
+      const body =
+        instantZar > 0 && !(routedZar > 0)
+          ? `${sourceLabel} · paid out now from reserve.`
+          : instantZar > 0 && routedZar > 0
+            ? `${sourceLabel} · part paid now from reserve · remainder on ROUTE.`
+            : isZarSale
+              ? `${sourceLabel} booked until 09:00 next window. Day tickets are on $-Route.`
+              : `${sourceLabel} sold · ${destLabel} clears ~09:00 next window.`
       useNotificationStore.getState().pushNotification({
         id: result.txId,
         kind: 'ai_trade',
-        title: 'ZAR booked',
-        body: isZarSale
-          ? `${sourceLabel} booked until 09:00 next window. Day tickets are on $-Route.`
-          : `${sourceLabel} sold · ${destLabel} clears ~09:00 next window.`,
-        // Canonical desk card is the Firestore EN_ROUTE_BOOKED activityEvent.
+        title,
+        body,
+        // Canonical desk card is the Firestore activityEvent.
         skipActivityStore: true,
         actor: {
           type: 'ai_manager',

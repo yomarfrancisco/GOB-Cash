@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { settlementPlaybackForTransition } from './settlementPlayback'
+import {
+  conversionStoryFromWalletTransition,
+  settlementPlaybackForTransition,
+} from './settlementPlayback'
 
 describe('settlementPlaybackForTransition', () => {
   it('plays the MZN card when EN ROUTE clears into MZN', () => {
@@ -41,5 +44,14 @@ describe('settlementPlaybackForTransition', () => {
       ),
       null
     )
+  })
+
+  it('infers clear-to-ZAR story with amount', () => {
+    const story = conversionStoryFromWalletTransition(
+      { cashZAR: 100, cashMZN: 500, earnings: 50 },
+      { cashZAR: 150, cashMZN: 500, earnings: 0 }
+    )
+    assert.equal(story?.kind, 'clear_to_zar')
+    assert.equal(story?.instant?.amount, 50)
   })
 })
