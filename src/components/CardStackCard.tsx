@@ -113,14 +113,10 @@ type CardStackCardProps = {
   onApyPillClick?: (cardType: CardType, amount: number) => void
   fxRates?: FxRates | null // Exchange rates from server
   showRatePill?: boolean
-  /** UI-only day-clock time bar 0–100 (MZN / TRANSIT / ZAR). */
+  /** UI-only bar 0–100 (MZN drip cycle, or ZAR liquid share of combined book). */
   timeBarPercent?: number | null
   /** UI-only major-unit offset applied on top of the wallet balance. */
   displayMajorOffset?: number
-  /** Liquid ZAR (cashZAR) when ROUTE is collapsed into the ZAR card. */
-  liquidZarMajor?: number | null
-  /** In-route ZAR (earnings) shown under the combined ZAR total. */
-  inRouteZarMajor?: number | null
 }
 
 export default function CardStackCard({
@@ -144,8 +140,6 @@ export default function CardStackCard({
   showRatePill = true,
   timeBarPercent = null,
   displayMajorOffset = 0,
-  liquidZarMajor = null,
-  inRouteZarMajor = null,
 }: CardStackCardProps) {
   const { alloc, allocPct } = useWalletAlloc()
 
@@ -632,43 +626,21 @@ export default function CardStackCard({
                   )}
                 />
               </div>
-              {card.type === 'savings' &&
-              (liquidZarMajor != null || inRouteZarMajor != null) ? (
-                <div
-                  className="card-amounts__usdt"
-                  aria-label={`liquid ${Number(liquidZarMajor || 0).toFixed(2)} rand, in route ${Number(inRouteZarMajor || 0).toFixed(2)} rand`}
-                  suppressHydrationWarning
-                >
-                  <span>
-                    {`R ${Number(liquidZarMajor || 0).toLocaleString('en-ZA', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })} liquid`}
-                    {Number(inRouteZarMajor || 0) > 0.005
-                      ? ` · R ${Number(inRouteZarMajor || 0).toLocaleString('en-ZA', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })} clearing`
-                      : ''}
-                  </span>
-                </div>
-              ) : (
-                <div
-                  className="card-amounts__usdt"
-                  aria-label={`approximately ${convertedAmount.toFixed(2)} ${isMeticalAmount ? 'ZAR' : 'MZN'}`}
-                  suppressHydrationWarning
-                >
-                  <span aria-hidden>≈ </span>
-                  <SlotCounter
-                    key={`${balanceKey}-converted`}
-                    value={convertedAmount}
-                    format={formatEquivalenceAmount}
-                    durationMs={isBalanceReady ? 700 : 0}
-                    className="card-amounts__usdt-value"
-                  />
-                  <span style={{ marginLeft: '4px' }}>{isMeticalAmount ? 'ZAR' : 'MZN'}</span>
-                </div>
-              )}
+              <div
+                className="card-amounts__usdt"
+                aria-label={`approximately ${convertedAmount.toFixed(2)} ${isMeticalAmount ? 'ZAR' : 'MZN'}`}
+                suppressHydrationWarning
+              >
+                <span aria-hidden>≈ </span>
+                <SlotCounter
+                  key={`${balanceKey}-converted`}
+                  value={convertedAmount}
+                  format={formatEquivalenceAmount}
+                  durationMs={isBalanceReady ? 700 : 0}
+                  className="card-amounts__usdt-value"
+                />
+                <span style={{ marginLeft: '4px' }}>{isMeticalAmount ? 'ZAR' : 'MZN'}</span>
+              </div>
             </>
           )}
         </div>

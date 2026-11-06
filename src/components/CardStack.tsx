@@ -15,7 +15,7 @@ import { useIsAdminUser } from '@/lib/restrictions'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { useTransitDayClock } from '@/lib/fx/useTransitDayClock'
 import { inventoryDominantCard } from '@/lib/fx/inventoryDominant'
-import { costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
+import { sellMznPerZar } from '@/lib/mznZar'
 import { useWalletStore } from '@/store/wallets'
 import { useAppModeStore } from '@/store/appMode'
 import type { ConversionStory } from '@/lib/animations/conversionStory'
@@ -227,9 +227,9 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     if (!isBalanceReady || demoMode || inventoryOrderAppliedRef.current) return
     if (!(liveMzn > 0) && walletMzn > 0) return
     inventoryOrderAppliedRef.current = true
-    // ZAR inventory includes in-route (earnings) — ROUTE is collapsed into the ZAR card.
+    // Inventory @ sell: MZN card + ZAR book (liquid + in-route) = total corridor stock.
     const zarBook = walletZar + walletTransitZar
-    const dominant = inventoryDominantCard(walletMzn, zarBook, costMznPerZar(liveMzn))
+    const dominant = inventoryDominantCard(walletMzn, zarBook, sellMznPerZar(liveMzn))
     const dominantIdx = cardsData.findIndex((c) => c.type === dominant)
     if (dominantIdx < 0) return
     setOrder(() => {
@@ -753,6 +753,21 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const BOTTOM_BUFFER_PX = 0 // Reduced from 20 to 0 to close gap to map section (80% total reduction - removed buffer entirely)
   const stackMinHeight = BASE_HEIGHT_PX + (VISIBLE_COUNT - 1) * Y_STEP_PX + BOTTOM_BUFFER_PX
 
+  // ZAR bar = liquid share of the combined R book (cash + in-route).
+  const zarLiquidMajor = Math.max(
+    0,
+    walletZar + transitClock.displayZarOffset - zarCreditHold
+  )
+  const zarInRouteMajor = Math.max(
+    0,
+    walletTransitZar + transitClock.displayTransitZarOffset - transitCreditHold
+  )
+  const zarBookMajor = zarLiquidMajor + zarInRouteMajor
+  const zarLiquidBarPercent =
+    zarBookMajor > 0.005
+      ? Math.max(0, Math.min(100, (zarLiquidMajor / zarBookMajor) * 100))
+      : 0
+
   return (
     <div 
       className={CARD_FLIP_CLASSES.stack}
@@ -825,31 +840,20 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
               card.type === 'mzn'
                 ? transitClock.mznBarPercent
                 : card.type === 'savings'
-                  ? // Day bar that lived on ROUTE — now on ZAR (liquid + in-route).
-                    transitClock.transitBarPercent
+                  ? zarLiquidBarPercent
                   : null
             }
             displayMajorOffset={
               card.type === 'mzn'
                 ? transitClock.displayMznOffset - mznCreditHold
                 : card.type === 'savings'
-                  ? // Combine liquid ZAR + in-route earnings on the ZAR card.
+                  ? // Combined book: liquid cashZAR + in-route earnings on one R total.
                     walletTransitZar +
                     transitClock.displayZarOffset +
                     transitClock.displayTransitZarOffset -
                     zarCreditHold -
                     transitCreditHold
                   : 0
-            }
-            liquidZarMajor={
-              card.type === 'savings'
-                ? Math.max(0, walletZar - zarCreditHold)
-                : null
-            }
-            inRouteZarMajor={
-              card.type === 'savings'
-                ? Math.max(0, walletTransitZar - transitCreditHold)
-                : null
             }
           />
         )
