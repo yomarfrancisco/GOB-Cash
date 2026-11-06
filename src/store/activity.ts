@@ -151,6 +151,33 @@ export type ActivityItem = {
   }
   /** Client-side same-day desk event ledger (synthetic group item). */
   deskEventGroup?: import('@/lib/desk/deskEventGroups').DeskEventGroup
+  /** Liquidity report (pipe) — live or frozen snapshot. */
+  liquidityLive?: boolean
+  liquidityChanges?: string[]
+  liquidityReport?: {
+    live: boolean
+    chips: string[]
+    fullLiquidityLabel: string
+    fullLiquidityAt: number | null
+    liquidZar: number
+    fundedZar: number
+    fundedMzn: number
+    rate: number
+    liquidPct: string
+    pipeSegments: Array<{ kind: string; amountZar: number }>
+    timeline: Array<{
+      kind: string
+      amountZar: number
+      landsAt: number | null
+      label: string
+      whenLabel: string
+      done: boolean
+    }>
+    note: string
+    withdrawZar: number
+    reconciled: boolean
+    unaccountedZar: number
+  }
 }
 
 const MAX_ACTIVITY_ITEMS = 80

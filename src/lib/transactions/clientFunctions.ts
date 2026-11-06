@@ -1050,13 +1050,14 @@ export async function admin_simulateNext72hDesk(): Promise<ConversionRoutingSumm
   return result.data as ConversionRoutingSummary
 }
 
-/** Desk Status → Liquidity status lookback card (received / liquid / clearing / ETA). */
+/** Desk Liquidity → live Liquidity report (pipe). */
 export async function admin_publishLiquidityStatus(): Promise<{
   eventId: string
-  receivedMzn: number
+  fundedMzn: number
   liquidZar: number
-  clearingZar: number
-  nextClearMs: number | null
+  fundedZar: number
+  fullLiquidityAt: number | null
+  reconciled: boolean
   sentence: string
 }> {
   const functions = getFunctionsInstance()
@@ -1064,11 +1065,34 @@ export async function admin_publishLiquidityStatus(): Promise<{
   const result = await fn({})
   return result.data as {
     eventId: string
-    receivedMzn: number
+    fundedMzn: number
     liquidZar: number
-    clearingZar: number
-    nextClearMs: number | null
+    fundedZar: number
+    fullLiquidityAt: number | null
+    reconciled: boolean
     sentence: string
+  }
+}
+
+/** Compact live strip payload (no feed write). */
+export async function admin_getLiquidityStrip(): Promise<{
+  fullLiquidityLabel: string
+  liquidZar: number
+  fundedZar: number
+  liquidPct: number
+  rate: number
+  computedAt: number
+}> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'admin_getLiquidityStrip')
+  const result = await fn({})
+  return result.data as {
+    fullLiquidityLabel: string
+    liquidZar: number
+    fundedZar: number
+    liquidPct: number
+    rate: number
+    computedAt: number
   }
 }
 

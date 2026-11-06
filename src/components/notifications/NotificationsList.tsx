@@ -13,6 +13,7 @@ import {
   admin_submitConversionRoutingFeedback,
   admin_simulateNextDeskDay,
   admin_publishLiquidityStatus,
+  admin_getLiquidityStrip,
   admin_exitDeskPlan,
 } from '@/lib/transactions/clientFunctions'
 import { isConversionInFlight } from '@/lib/transactions/submitInternalConversion'
@@ -53,6 +54,10 @@ import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
 import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCard'
+import {
+  LiquidityLiveStrip,
+  LiquidityReportCard,
+} from '@/components/notifications/LiquidityReportCard'
 import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
 import { TypewriterText } from '@/components/desk/TypewriterText'
 import { highlightDeskText } from '@/lib/desk/highlightDeskText'
@@ -835,7 +840,10 @@ function ActivityItemCard({
     }
   }
 
-  const displaySentence = sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
+  const isLiquidityReport = Boolean(item.liquidityReport)
+  const displaySentence = isLiquidityReport
+    ? ''
+    : sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
     ? 'Download invoices'
     : /^Step\s*6\b/i.test(title)
@@ -934,7 +942,7 @@ function ActivityItemCard({
           </div>
         ) : (
           <>
-            {(statusChip || item.deskPendingChip || planChip) && (
+            {!isLiquidityReport && (statusChip || item.deskPendingChip || planChip) && (
               <div className={styles.chipRow}>
                 {statusChip ? <StatusChip label={statusChip} /> : null}
                 {item.deskPendingChip ? (
@@ -956,6 +964,27 @@ function ActivityItemCard({
                 ) : null}
               </div>
             )}
+            {isLiquidityReport && (!typing || titleDone) ? (
+              <LiquidityReportCard
+                item={item}
+                onShare={() => {
+                  const text = [
+                    item.title,
+                    item.liquidityReport?.fullLiquidityLabel,
+                    item.deskSentence || item.body,
+                  ]
+                    .filter(Boolean)
+                    .join('\n')
+                  if (typeof navigator !== 'undefined' && navigator.share) {
+                    void navigator.share({ title: item.title, text }).catch(() => {
+                      void navigator.clipboard?.writeText(text)
+                    })
+                  } else {
+                    void navigator.clipboard?.writeText(text)
+                  }
+                }}
+              />
+            ) : null}
             {askCard && item.userReply ? (
               <div className={styles.activityUserReply}>
                 <div className={styles.activityUserReplyLabel}>
@@ -988,13 +1017,14 @@ function ActivityItemCard({
                 Ledger: {ledgerFailures[0]}
               </div>
             ) : null}
-            {item.routingStepMessage || item.deskLedgerRows
-              ? titleDone
-                ? <DeskCardVisuals item={item} />
-                : null
-              : actionsUnlocked
-                ? <DeskCardVisuals item={item} />
-                : null}
+            {!isLiquidityReport &&
+              (item.routingStepMessage || item.deskLedgerRows
+                ? titleDone
+                  ? <DeskCardVisuals item={item} />
+                  : null
+                : actionsUnlocked
+                  ? <DeskCardVisuals item={item} />
+                  : null)}
             {!askCard && item.userReply && actionsUnlocked ? (
               <div className={styles.activityUserReply}>
                 <div className={styles.activityUserReplyLabel}>
@@ -1204,7 +1234,7 @@ function ActivityItemCard({
                 className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Show liquidity status"
+                aria-label="Show liquidity report"
                 aria-busy={planBusy === true}
                 disabled={planBusy === true || confirmState !== 'idle'}
                 onClick={(event) => {
@@ -1212,7 +1242,7 @@ function ActivityItemCard({
                   onStatus?.()
                 }}
               >
-                Status
+                Liquidity
               </button>
             )}
             {showRealtime && (
@@ -1402,6 +1432,13 @@ export function NotificationsList({
   const remoteItems = prefetchedItems ?? subscribedItems
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
   const [visibleCount, setVisibleCount] = useState(ACTIVITY_PAGE_SIZE)
+  const [liqStrip, setLiqStrip] = useState<{
+    fullLiquidityLabel: string
+    liquidZar: number
+    fundedZar: number
+    liquidPct: number
+  } | null>(null)
+  const [liqStripHidden, setLiqStripHidden] = useState(false)
 
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -1659,9 +1696,75 @@ export function NotificationsList({
     [pagedItems]
   )
 
+  useEffect(() => {
+    if (deskBlocked) return
+    let cancelled = false
+    const pull = async () => {
+      try {
+        const row = await admin_getLiquidityStrip()
+        if (!cancelled) {
+          setLiqStrip({
+            fullLiquidityLabel: row.fullLiquidityLabel,
+            liquidZar: row.liquidZar,
+            fundedZar: row.fundedZar,
+            liquidPct: row.liquidPct,
+          })
+        }
+      } catch {
+        /* strip is best-effort */
+      }
+    }
+    void pull()
+    const id = window.setInterval(() => void pull(), 20_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [deskBlocked, latestActivityId])
+
+  useEffect(() => {
+    const root = listRootRef.current
+    if (!root) return
+    const feed = root.closest('[data-desk-feed]')
+    const observeTarget = () => root.querySelector('[data-liquidity-live="true"]')
+    let observer: IntersectionObserver | null = null
+    const attach = () => {
+      observer?.disconnect()
+      const el = observeTarget()
+      if (!el) {
+        setLiqStripHidden(false)
+        return
+      }
+      observer = new IntersectionObserver(
+        (entries) => {
+          const hit = entries.some((e) => e.isIntersecting && e.intersectionRatio > 0.15)
+          setLiqStripHidden(hit)
+        },
+        { root: feed instanceof Element ? feed : null, threshold: [0, 0.15, 0.5] }
+      )
+      observer.observe(el)
+    }
+    attach()
+    const mo = new MutationObserver(() => attach())
+    mo.observe(root, { childList: true, subtree: true })
+    return () => {
+      observer?.disconnect()
+      mo.disconnect()
+    }
+  }, [pagedItems.length, latestActivityId])
+
   const handleRoutingAsk = async (source: ActivityItem, message: string) => {
     if (deskBlocked || isKycGateItem(source)) {
       throw new Error('Complete KYC before continuing.')
+    }
+    const trimmed = message.trim().toLowerCase()
+    if (/^(status|liquidity)\b/.test(trimmed) || trimmed === 'liquidity report') {
+      await admin_publishLiquidityStatus()
+      requestAnimationFrame(() => {
+        const el = listRootRef.current?.querySelector('[data-liquidity-live="true"]')
+        el?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      })
+      return
     }
     const routing =
       allItems.find(isAwaitingRoutingItem) ||
@@ -1792,8 +1895,12 @@ export function NotificationsList({
     setPlanBusy(true)
     try {
       await admin_publishLiquidityStatus()
+      requestAnimationFrame(() => {
+        const el = listRootRef.current?.querySelector('[data-liquidity-live="true"]')
+        el?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      })
     } catch (error) {
-      console.error('[Activity] Liquidity status failed:', error)
+      console.error('[Activity] Liquidity report failed:', error)
     } finally {
       setPlanBusy(false)
     }
@@ -1871,6 +1978,18 @@ export function NotificationsList({
             </p>
           )}
         </div>
+        {!deskBlocked && liqStrip ? (
+          <div className={styles.liqStripDock}>
+            <LiquidityLiveStrip
+              fullBy={liqStrip.fullLiquidityLabel}
+              liquidZar={liqStrip.liquidZar}
+              fundedZar={liqStrip.fundedZar}
+              liquidPct={liqStrip.liquidPct}
+              hidden={liqStripHidden}
+              onNewReport={() => void handleStatus()}
+            />
+          </div>
+        ) : null}
       </div>
     </>
   )

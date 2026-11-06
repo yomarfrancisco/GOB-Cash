@@ -1,313 +1,252 @@
 /**
- * Desk "Status" → Liquidity status lookback.
- * Same card anatomy as Step 6 · Day lookback (sentence + ledger rows).
+ * Desk "Liquidity" → Liquidity report (pipe model).
+ * Live report recomputes; older reports freeze with a "Changed since" diff.
  */
 
 import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
 import { CONVERSION_ROUTING_KIND, ROUTING_ADMIN_UID } from '../routing/conversionRouter'
-import { formatVisibleSast } from '../routing/routingTime'
-import { nextSettleAt09hSast } from '../tx/enRouteSettle'
+import {
+  computeLiquidity,
+  diffLiquiditySnapshots,
+  formatChipClock,
+  formatLiquidityWhen,
+  formatLiquidityZar,
+  type LiquiditySnapshot,
+  type LiquidityState,
+} from './computeLiquidity'
 import { roundMajor } from './reserveBooks'
 
 const db = admin.firestore()
-const LOOKBACK_MS = 72 * 60 * 60 * 1000
 
-function fmtZar(n: number): string {
-  return `R${roundMajor(n).toLocaleString('en-ZA', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
+function money(n: number): number {
+  return roundMajor(n)
 }
 
-function fmtMzn(n: number): string {
-  return `Mt ${roundMajor(n).toLocaleString('en-ZA', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
+function pctLiquid(liquid: number, funded: number): string {
+  if (!(funded > 0)) return '0%'
+  const p = (liquid / funded) * 100
+  if (p < 0.05) return '0%'
+  if (p < 10) return `${p.toFixed(1)}%`
+  return `${Math.round(p)}%`
 }
 
-function fmtRate(n: number): string {
-  if (!(n > 0)) return '—'
-  return `${n.toFixed(4)} MZN/ZAR`
-}
-
-function hoursUntil(targetMs: number, nowMs: number): string {
-  const ms = Math.max(0, targetMs - nowMs)
-  const h = Math.floor(ms / 3_600_000)
-  const m = Math.floor((ms % 3_600_000) / 60_000)
-  if (h <= 0) return `${m}m`
-  if (m <= 0) return `${h}h`
-  return `${h}h ${String(m).padStart(2, '0')}m`
-}
-
-function tsMillis(raw: unknown): number | null {
-  if (raw && typeof (raw as { toMillis?: () => number }).toMillis === 'function') {
-    const ms = (raw as { toMillis: () => number }).toMillis()
-    return Number.isFinite(ms) && ms > 0 ? ms : null
+function groupTimeline(states: LiquidityState[], nowMs: number): Array<{
+  kind: LiquidityState['kind']
+  amountZar: number
+  landsAt: number | null
+  label: string
+  whenLabel: string
+  done: boolean
+}> {
+  // Collapse same landsAt + kind
+  const map = new Map<string, { kind: LiquidityState['kind']; amountZar: number; landsAt: number | null; label: string }>()
+  for (const s of states) {
+    const key = `${s.kind}:${s.landsAt ?? 'now'}`
+    const prev = map.get(key)
+    if (prev) {
+      prev.amountZar = money(prev.amountZar + s.amountZar)
+    } else {
+      map.set(key, { ...s })
+    }
   }
-  if (typeof raw === 'number' && raw > 0) return raw
-  return null
+  const rows = [...map.values()].sort((a, b) => {
+    if (a.kind === 'liquid') return -1
+    if (b.kind === 'liquid') return 1
+    return (a.landsAt ?? 0) - (b.landsAt ?? 0)
+  })
+  return rows.map((r) => ({
+    ...r,
+    whenLabel: r.kind === 'liquid' ? 'Now' : formatLiquidityWhen(r.landsAt, nowMs),
+    done: r.kind === 'liquid',
+  }))
 }
 
 export type LiquidityStatusReport = {
   eventId: string
-  receivedMzn: number
+  fundedMzn: number
   liquidZar: number
-  clearingZar: number
-  nextClearMs: number | null
+  fundedZar: number
+  fullLiquidityAt: number | null
+  reconciled: boolean
   sentence: string
 }
 
+async function freezePriorLiveReports(
+  adminUid: string,
+  live: LiquiditySnapshot,
+  now: admin.firestore.Timestamp
+): Promise<void> {
+  const events = db.collection('users').doc(adminUid).collection('activityEvents')
+  // Single-field filter to avoid a composite index; narrow in memory.
+  const snap = await events.where('liquidityLive', '==', true).limit(12).get()
+  if (snap.empty) return
+
+  const batch = db.batch()
+  let writes = 0
+  for (const doc of snap.docs) {
+    const data = doc.data() || {}
+    if (data.routingAction !== 'liquidity_report' && data.routingAction !== 'liquidity_status') {
+      continue
+    }
+    const prior = data.liquiditySnapshot as LiquiditySnapshot | undefined
+    const asAtMs =
+      typeof prior?.computedAt === 'number'
+        ? prior.computedAt
+        : data.createdAt?.toMillis?.() || live.computedAt
+    const changes = prior ? diffLiquiditySnapshots(prior, live) : []
+    batch.set(
+      doc.ref,
+      {
+        liquidityLive: false,
+        deskStatusChip: `Snapshot · as at ${formatChipClock(asAtMs)}`,
+        liquidityChanges: changes,
+        liquidityFrozenAt: now,
+        updatedAt: now,
+      },
+      { merge: true }
+    )
+    writes += 1
+  }
+  if (writes > 0) await batch.commit()
+}
+
 /**
- * Snapshot wallets + open EN_ROUTE + recent clears, publish a desk lookback card.
+ * Publish a live Liquidity report at the bottom of the desk feed.
  */
 export async function publishLiquidityStatus(adminUid: string): Promise<LiquidityStatusReport> {
   const nowMs = Date.now()
   const now = admin.firestore.Timestamp.fromMillis(nowMs)
-  const since = admin.firestore.Timestamp.fromMillis(nowMs - LOOKBACK_MS)
-  const userRef = db.collection('users').doc(adminUid)
+  const pipe = await computeLiquidity(adminUid, nowMs)
 
-  const [mznSnap, zarSnap, earnSnap] = await Promise.all([
-    userRef.collection('wallets').doc('cashMZN').get(),
-    userRef.collection('wallets').doc('cashZAR').get(),
-    userRef.collection('wallets').doc('earnings').get(),
-  ])
-  const receivedMzn = roundMajor(Number(mznSnap.data()?.fiatBalance || 0))
-  const liquidZar = roundMajor(Number(zarSnap.data()?.fiatBalance || 0))
-  const earningsZar = roundMajor(Number(earnSnap.data()?.fiatBalance || 0))
-
-  // Open lots still clearing into ZAR (or selling out of ZAR book).
-  const openSnap = await db
-    .collection('transactions')
-    .where('userId', '==', adminUid)
-    .where('status', '==', 'EN_ROUTE')
-    .limit(80)
-    .get()
-
-  let clearingZar = 0
-  let earliestSettleMs: number | null = null
-  let openWeightedRate = 0
-  let openRateWeight = 0
-  for (const doc of openSnap.docs) {
-    const tx = doc.data() || {}
-    const dest = String(tx.destinationCurrency || '')
-    const destMinor = Math.round(Number(tx.expectedDestinationAmountMinor || 0))
-    const sourceMinor = Math.round(Number(tx.sourceAmountMinor || 0))
-    // Buy ZAR / MZN→ZAR: dest is ZAR on earnings until clear.
-    // Sell ZAR: source is ZAR already left cash — still "in route" until MZN lands.
-    const zarInLot =
-      dest === 'ZAR'
-        ? destMinor / 100
-        : String(tx.sourceCurrency || '') === 'ZAR'
-          ? sourceMinor / 100
-          : 0
-    if (zarInLot > 0) clearingZar = roundMajor(clearingZar + zarInLot)
-    const settleMs = tsMillis(tx.settleAt)
-    if (settleMs != null) {
-      earliestSettleMs =
-        earliestSettleMs == null ? settleMs : Math.min(earliestSettleMs, settleMs)
-    }
-    const rate = Number(tx.costRateMZNperZAR || tx.sellRateMZNperZAR || tx.quotedRate || 0)
-    if (rate > 0 && zarInLot > 0) {
-      openWeightedRate += rate * zarInLot
-      openRateWeight += zarInLot
-    }
-  }
-  // Prefer wallet earnings as the clearing book when present (ROUTE collapsed into ZAR).
-  if (earningsZar > clearingZar) clearingZar = earningsZar
-
-  // Recent ZAR clears (became liquid) in the lookback window.
-  // Prefer createdAt index (userId + createdAt) — filter dest/status in memory.
-  let clearedZarLookback = 0
-  let clearedWeightedRate = 0
-  let clearedRateWeight = 0
-  let lastClearedMs: number | null = null
-  try {
-    const recentSnap = await db
-      .collection('transactions')
-      .where('userId', '==', adminUid)
-      .where('createdAt', '>=', since)
-      .orderBy('createdAt', 'desc')
-      .limit(80)
-      .get()
-    for (const doc of recentSnap.docs) {
-      const tx = doc.data() || {}
-      if (tx.status !== 'SETTLED' && tx.instructionStatus !== 'SETTLED') continue
-      if (String(tx.destinationCurrency || '') !== 'ZAR') continue
-      if (tx.settlementPath === 'daily_liquid_zar') continue
-      const settledMs = tsMillis(tx.settledAt) || tsMillis(tx.updatedAt) || tsMillis(tx.createdAt)
-      const destMinor = Math.round(
-        Number(tx.actualDestinationAmountMinor || tx.expectedDestinationAmountMinor || 0)
-      )
-      const zar = destMinor / 100
-      if (!(zar > 0)) continue
-      clearedZarLookback = roundMajor(clearedZarLookback + zar)
-      const rate = Number(tx.costRateMZNperZAR || tx.quotedRate || 0)
-      if (rate > 0) {
-        clearedWeightedRate += rate * zar
-        clearedRateWeight += zar
-      }
-      if (settledMs != null && (lastClearedMs == null || settledMs > lastClearedMs)) {
-        lastClearedMs = settledMs
-      }
-    }
-  } catch (error) {
-    console.warn('[publishLiquidityStatus] recent clears scan skipped', {
-      error: error instanceof Error ? error.message : String(error),
+  if (!pipe.reconciled) {
+    console.error('[liquidity_report] not reconciled', {
+      unaccountedZar: pipe.unaccountedZar,
+      fundedZar: pipe.fundedZar,
+      states: pipe.states.map((s) => ({ kind: s.kind, amountZar: s.amountZar })),
     })
   }
 
-  // Last MZN credit signal from wallet updatedAt (best-effort when no inbound ledger).
-  const mznUpdatedMs = tsMillis(mznSnap.data()?.updatedAt)
+  await freezePriorLiveReports(adminUid, pipe, now)
 
-  const nextClearMs =
-    earliestSettleMs != null && earliestSettleMs > nowMs
-      ? earliestSettleMs
-      : clearingZar > 0.005
-        ? nextSettleAt09hSast(nowMs)
-        : null
+  const timeline = groupTimeline(pipe.states, nowMs)
+  const fullLabel =
+    pipe.fullLiquidityAt == null && pipe.liquidZar >= pipe.fundedZar - 0.02
+      ? 'Now'
+      : formatLiquidityWhen(pipe.fullLiquidityAt, nowMs)
+  const liquidPct = pctLiquid(pipe.liquidZar, pipe.fundedZar)
+  const sentence = `${formatLiquidityZar(pipe.liquidZar)} of ${formatLiquidityZar(pipe.fundedZar)} liquid now · ${liquidPct}`
 
-  const clearedRate = clearedRateWeight > 0 ? clearedWeightedRate / clearedRateWeight : 0
-  const openRate = openRateWeight > 0 ? openWeightedRate / openRateWeight : 0
+  const pipeSegments = pipe.states.map((s) => ({
+    kind: s.kind,
+    amountZar: s.amountZar,
+  }))
 
-  const receivedWhen =
-    mznUpdatedMs != null ? formatVisibleSast(mznUpdatedMs, nowMs) : 'on book'
-  const liquidWhen =
-    lastClearedMs != null
-      ? `${formatVisibleSast(lastClearedMs, nowMs)} · ${fmtRate(clearedRate)}`
-      : liquidZar > 0.005
-        ? 'on wallet'
-        : '—'
-  const clearingWhen =
-    nextClearMs != null
-      ? `clears ~${formatVisibleSast(nextClearMs, nowMs)}${openRate > 0 ? ` · ${fmtRate(openRate)}` : ''}`
-      : clearingZar > 0.005
-        ? 'awaiting clear window'
-        : 'nothing on ROUTE'
-  const fullWhen =
-    nextClearMs != null
-      ? `${hoursUntil(nextClearMs, nowMs)} · ~${formatVisibleSast(nextClearMs, nowMs)}`
-      : liquidZar > 0.005 && !(clearingZar > 0.005)
-        ? 'book already liquid'
-        : 'no clearing lot'
+  const dayKey = formatLiquidityWhen(nowMs, nowMs).replace(/[^\w.-]+/g, '-').slice(0, 24)
+  const eventId = `liquidity-report-${dayKey}-${nowMs}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
+  const title = 'Liquidity report'
 
-  const sentenceParts: string[] = []
-  sentenceParts.push(`${fmtMzn(receivedMzn)} received`)
-  if (clearedZarLookback > 0.005) {
-    sentenceParts.push(`${fmtZar(clearedZarLookback)} cleared to liquid in the last 72h`)
-  } else if (liquidZar > 0.005) {
-    sentenceParts.push(`${fmtZar(liquidZar)} liquid now`)
-  } else {
-    sentenceParts.push('no liquid ZAR on wallet')
-  }
-  if (clearingZar > 0.005) {
-    sentenceParts.push(`${fmtZar(clearingZar)} still clearing`)
-  }
-  if (nextClearMs != null) {
-    sentenceParts.push(`full clear in ${hoursUntil(nextClearMs, nowMs)}`)
-  }
-  const sentence = `${sentenceParts.join(' · ')}.`
-
-  const deskLedgerRows = [
-    {
-      label: 'Received',
-      value: fmtMzn(receivedMzn),
-      secondLine: receivedWhen,
-    },
-    {
-      label: 'Liquid ZAR',
-      value: fmtZar(liquidZar),
-      valueStrong: liquidZar > 0.005,
-      secondLine:
-        clearedZarLookback > 0.005
-          ? `${fmtZar(clearedZarLookback)} cleared · ${liquidWhen}`
-          : liquidWhen,
-    },
-    {
-      label: 'Still clearing',
-      value: fmtZar(clearingZar),
-      secondLine: clearingWhen,
-    },
-    {
-      label: 'Full liquidity',
-      value: nextClearMs != null ? hoursUntil(nextClearMs, nowMs) : '—',
-      valueStrong: true,
-      secondLine: fullWhen,
-    },
+  const chips: string[] = [
+    `Live · updated ${formatChipClock(nowMs)}`,
+    pipe.reconciled
+      ? 'All funds accounted for'
+      : `Not reconciled · ${formatLiquidityZar(Math.abs(pipe.unaccountedZar))} unaccounted`,
   ]
 
-  const dayKey = formatVisibleSast(nowMs, nowMs).replace(/[^\w.-]+/g, '-').slice(0, 24)
-  const eventId = `liquidity-status-${dayKey}-${nowMs}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
-  const title = 'Liquidity status'
-
-  const mznAsZarRate = openRate > 0 ? openRate : clearedRate
-  const deskChart = {
-    title: 'Book split',
-    unit: 'ZAR' as const,
-    series: [
+  await db
+    .collection('users')
+    .doc(adminUid)
+    .collection('activityEvents')
+    .doc(eventId)
+    .set(
       {
-        label: 'ZAR',
-        points: [
-          { label: 'Liquid', value: liquidZar },
-          { label: 'Clearing', value: clearingZar },
-          {
-            label: 'MZN',
-            value: mznAsZarRate > 0 ? roundMajor(receivedMzn / mznAsZarRate) : 0,
-          },
-        ],
+        id: eventId,
+        kind: CONVERSION_ROUTING_KIND,
+        title,
+        body: sentence,
+        deskSentence: sentence,
+        deskStatusChip: chips[0],
+        deskPendingChip: chips[1],
+        dropdownTitle: title,
+        dropdownBody: sentence,
+        actorType: 'ai_manager',
+        avatarKind: 'convert_zar',
+        amountCurrency: 'ZAR',
+        amountValue: pipe.liquidZar,
+        amountSign: 'credit',
+        txId: eventId,
+        hasDownloadButton: false,
+        awaitingConfirm: false,
+        routingBlocked: false,
+        status: 'recorded',
+        routingAction: 'liquidity_report',
+        deskSpeaker: 'sam',
+        deskStep: 6,
+        createdAt: now,
+        updatedAt: now,
+        recordingSource: 'SYSTEM',
+        liquidityLive: true,
+        liquiditySnapshot: pipe,
+        liquidityReport: {
+          live: true,
+          chips,
+          fullLiquidityLabel: fullLabel,
+          fullLiquidityAt: pipe.fullLiquidityAt,
+          liquidZar: pipe.liquidZar,
+          fundedZar: pipe.fundedZar,
+          fundedMzn: pipe.fundedMzn,
+          rate: pipe.rate,
+          liquidPct,
+          pipeSegments,
+          timeline,
+          note: 'Times are estimates. New funding extends the job; held amounts roll to the next window.',
+          withdrawZar: pipe.liquidZar > 0.005 ? pipe.liquidZar : 0,
+          reconciled: pipe.reconciled,
+          unaccountedZar: pipe.unaccountedZar,
+        },
+        // Back-compat for any older clients still reading liquidityStatus.
+        liquidityStatus: {
+          receivedMzn: pipe.fundedMzn,
+          liquidZar: pipe.liquidZar,
+          clearingZar: pipe.clearingZar,
+          nextClearMs: pipe.fullLiquidityAt,
+        },
       },
-    ],
-  }
-
-  await userRef.collection('activityEvents').doc(eventId).set(
-    {
-      id: eventId,
-      kind: CONVERSION_ROUTING_KIND,
-      title,
-      body: sentence,
-      deskSentence: sentence,
-      deskStatusChip: 'Status',
-      deskLedgerRows,
-      deskChart,
-      dropdownTitle: title,
-      dropdownBody: sentence,
-      actorType: 'ai_manager',
-      avatarKind: 'convert_zar',
-      amountCurrency: 'ZAR',
-      amountValue: liquidZar,
-      amountSign: 'credit',
-      txId: eventId,
-      hasDownloadButton: false,
-      awaitingConfirm: false,
-      routingBlocked: false,
-      status: 'recorded',
-      routingAction: 'liquidity_status',
-      deskSpeaker: 'sam',
-      deskStep: 6,
-      createdAt: now,
-      updatedAt: now,
-      recordingSource: 'SYSTEM',
-      liquidityStatus: {
-        receivedMzn,
-        liquidZar,
-        clearingZar,
-        clearedZarLookback,
-        clearedRate: roundMajor(clearedRate),
-        openRate: roundMajor(openRate),
-        nextClearMs,
-      },
-    },
-    { merge: true }
-  )
+      { merge: true }
+    )
 
   return {
     eventId,
-    receivedMzn,
-    liquidZar,
-    clearingZar,
-    nextClearMs,
+    fundedMzn: pipe.fundedMzn,
+    liquidZar: pipe.liquidZar,
+    fundedZar: pipe.fundedZar,
+    fullLiquidityAt: pipe.fullLiquidityAt,
+    reconciled: pipe.reconciled,
     sentence,
+  }
+}
+
+/** Lightweight strip payload (no activity write). */
+export async function getLiquidityStrip(adminUid: string): Promise<{
+  fullLiquidityLabel: string
+  liquidZar: number
+  fundedZar: number
+  liquidPct: number
+  rate: number
+  computedAt: number
+}> {
+  const pipe = await computeLiquidity(adminUid, Date.now())
+  const fullLiquidityLabel =
+    pipe.fullLiquidityAt == null && pipe.liquidZar >= pipe.fundedZar - 0.02
+      ? 'now'
+      : formatLiquidityWhen(pipe.fullLiquidityAt, pipe.computedAt).split(' · ')[0] || '—'
+  return {
+    fullLiquidityLabel,
+    liquidZar: pipe.liquidZar,
+    fundedZar: pipe.fundedZar,
+    liquidPct: pipe.fundedZar > 0 ? pipe.liquidZar / pipe.fundedZar : 0,
+    rate: pipe.rate,
+    computedAt: pipe.computedAt,
   }
 }
 
@@ -320,8 +259,23 @@ export const admin_publishLiquidityStatus = functions
     if (context.auth.uid !== ROUTING_ADMIN_UID) {
       throw new functions.https.HttpsError(
         'permission-denied',
-        'Liquidity status is limited to the designated admin user'
+        'Liquidity report is limited to the designated admin user'
       )
     }
     return publishLiquidityStatus(context.auth.uid)
+  })
+
+export const admin_getLiquidityStrip = functions
+  .region('us-central1')
+  .https.onCall(async (_data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Login required')
+    }
+    if (context.auth.uid !== ROUTING_ADMIN_UID) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Liquidity strip is limited to the designated admin user'
+      )
+    }
+    return getLiquidityStrip(context.auth.uid)
   })

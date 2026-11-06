@@ -272,7 +272,7 @@ export function DeskEventGroupCard({
                 className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Show liquidity status"
+                aria-label="Show liquidity report"
                 aria-busy={planBusy === true}
                 disabled={planBusy === true}
                 onClick={(event) => {
@@ -280,7 +280,7 @@ export function DeskEventGroupCard({
                   onStatus?.()
                 }}
               >
-                Status
+                Liquidity
               </button>
             ) : null}
             {showRealtime ? (

@@ -809,3 +809,374 @@
   display: inline-block;
 }
 
+
+/* —— Liquidity report (pipe) —— */
+.liqReport {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.liqLiveChip {
+  border-color: transparent;
+  background: #d8f0e4;
+  color: #0f3d2e;
+  gap: 4px;
+}
+
+.liqOkChip {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: #fff;
+  gap: 4px;
+}
+
+.liqBadChip {
+  border-color: transparent;
+  background: #ffe0e0;
+  color: #7a1010;
+}
+
+.liqSnapshotChip {
+  border-color: rgba(0, 0, 0, 0.18);
+  background: #fff;
+}
+
+.liqHero {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.liqEyebrow {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  color: #6b6b6b;
+}
+
+.liqHeroDate {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--desk-ink, #18181b);
+  line-height: 1.2;
+}
+
+.liqHeroSub {
+  font-size: 13px;
+  color: #555;
+  margin-top: 2px;
+}
+
+.liqPipeCard {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  background: #fff;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.liqPipeEnds {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.liqPipeBlock {
+  flex: 1;
+  border-radius: 10px;
+  padding: 10px 10px 8px;
+  min-width: 0;
+}
+
+.liqPipeIn {
+  background: #f4a6c4;
+}
+
+.liqPipeOut {
+  background: #cfe8dc;
+}
+
+.liqPipeLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+.liqPipeAmt {
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 2px;
+  word-break: break-all;
+}
+
+.liqPipeHint {
+  font-size: 11px;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.liqPipeArrow {
+  align-self: center;
+  font-size: 16px;
+  color: #888;
+  flex: 0 0 auto;
+}
+
+.liqPipeBar {
+  display: flex;
+  height: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f0ebe3;
+  gap: 1px;
+}
+
+.liqPipeSeg {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+}
+
+.liqPipeCaption {
+  font-size: 11px;
+  color: #6b6b6b;
+  line-height: 1.35;
+}
+
+.liqWhenTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #6b6b6b;
+  margin-bottom: 6px;
+}
+
+.liqWhenList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.liqWhenRow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.liqWhenDone,
+.liqWhenPend {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.liqWhenDone {
+  background: #cfe8dc;
+  color: #0f3d2e;
+  font-weight: 700;
+}
+
+.liqWhenPend {
+  border: 1.5px dashed rgba(0, 0, 0, 0.28);
+  color: transparent;
+}
+
+.liqWhenBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.liqWhenTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.liqWhenSub {
+  font-size: 12px;
+  color: #6b6b6b;
+  margin-top: 1px;
+}
+
+.liqWhenTotal {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.liqNote {
+  margin: 0;
+  font-size: 12px;
+  color: #6b6b6b;
+  line-height: 1.4;
+}
+
+.liqActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.liqOutlineBtn {
+  flex: 1;
+  min-width: 120px;
+  appearance: none;
+  background: #fff;
+  border: 1.5px solid var(--desk-ink, #18181b);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--desk-ink, #18181b);
+  cursor: pointer;
+}
+
+.liqOutlineBtn:active {
+  transform: scale(0.98);
+}
+
+.liqFrozenBox {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fff;
+}
+
+.liqFrozenRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  color: #444;
+}
+
+.liqFrozenRow strong {
+  color: var(--desk-ink, #18181b);
+}
+
+.liqChangedBox {
+  background: #fff6d6;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.liqChangedTitle {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.liqChangedBox ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #444;
+}
+
+.liqChangedBox li {
+  margin: 2px 0;
+}
+
+.liqStrip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: calc(100% - 24px);
+  max-width: 420px;
+  margin: 0 auto 10px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--desk-ink, #18181b);
+  border-radius: 14px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.liqStripTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.liqStripLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.liqStripDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22a06b;
+  flex: 0 0 auto;
+}
+
+.liqStripMuted {
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.liqStripLink {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  flex: 0 0 auto;
+}
+
+.liqStripBar {
+  height: 5px;
+  border-radius: 999px;
+  background: #e8dfd0;
+  overflow: hidden;
+}
+
+.liqStripBar > span {
+  display: block;
+  height: 100%;
+  background: #18181b;
+  border-radius: 999px;
+}
+
+.liqStripBottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #555;
+}
+
+.liqStripDock {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  padding: 0 0 env(safe-area-inset-bottom, 0);
+  pointer-events: none;
+}
+
+.liqStripDock > * {
+  pointer-events: auto;
+}

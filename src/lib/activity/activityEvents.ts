@@ -88,6 +88,64 @@ export type ActivityEventDoc = {
   operatingPolicyVersion?: string
   operatingBrief?: ActivityItem['operatingBrief']
   ticketSplits?: Array<{ cardId?: number; amountZar?: number; bankShort?: string }>
+  liquidityLive?: boolean
+  liquidityChanges?: unknown
+  liquidityReport?: unknown
+}
+
+function asLiquidityReport(raw: unknown): ActivityItem['liquidityReport'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  const r = raw as Record<string, unknown>
+  if (typeof r.liquidZar !== 'number' || typeof r.fundedZar !== 'number') return undefined
+  const chips = Array.isArray(r.chips)
+    ? r.chips.filter((c): c is string => typeof c === 'string')
+    : []
+  const pipeSegments = Array.isArray(r.pipeSegments)
+    ? r.pipeSegments.flatMap((seg) => {
+        if (!seg || typeof seg !== 'object') return []
+        const s = seg as Record<string, unknown>
+        if (typeof s.kind !== 'string' || typeof s.amountZar !== 'number') return []
+        return [{ kind: s.kind, amountZar: s.amountZar }]
+      })
+    : []
+  const timeline = Array.isArray(r.timeline)
+    ? r.timeline.flatMap((row) => {
+        if (!row || typeof row !== 'object') return []
+        const t = row as Record<string, unknown>
+        if (typeof t.kind !== 'string' || typeof t.amountZar !== 'number') return []
+        return [
+          {
+            kind: t.kind,
+            amountZar: t.amountZar,
+            landsAt: typeof t.landsAt === 'number' ? t.landsAt : null,
+            label: typeof t.label === 'string' ? t.label : '',
+            whenLabel: typeof t.whenLabel === 'string' ? t.whenLabel : '',
+            done: t.done === true,
+          },
+        ]
+      })
+    : []
+  return {
+    live: r.live !== false,
+    chips,
+    fullLiquidityLabel:
+      typeof r.fullLiquidityLabel === 'string' ? r.fullLiquidityLabel : '—',
+    fullLiquidityAt: typeof r.fullLiquidityAt === 'number' ? r.fullLiquidityAt : null,
+    liquidZar: r.liquidZar,
+    fundedZar: r.fundedZar,
+    fundedMzn: typeof r.fundedMzn === 'number' ? r.fundedMzn : 0,
+    rate: typeof r.rate === 'number' ? r.rate : 0,
+    liquidPct: typeof r.liquidPct === 'string' ? r.liquidPct : '0%',
+    pipeSegments,
+    timeline,
+    note:
+      typeof r.note === 'string'
+        ? r.note
+        : 'Times are estimates. New funding extends the job; held amounts roll to the next window.',
+    withdrawZar: typeof r.withdrawZar === 'number' ? r.withdrawZar : 0,
+    reconciled: r.reconciled !== false,
+    unaccountedZar: typeof r.unaccountedZar === 'number' ? r.unaccountedZar : 0,
+  }
 }
 
 function asDeskLedgerRows(
@@ -523,6 +581,11 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       data.operatingBrief && typeof data.operatingBrief === 'object'
         ? (data.operatingBrief as ActivityItem['operatingBrief'])
         : undefined,
+    liquidityLive: data.liquidityLive === true,
+    liquidityChanges: Array.isArray(data.liquidityChanges)
+      ? data.liquidityChanges.filter((line): line is string => typeof line === 'string')
+      : undefined,
+    liquidityReport: asLiquidityReport(data.liquidityReport),
   }
 }
 
