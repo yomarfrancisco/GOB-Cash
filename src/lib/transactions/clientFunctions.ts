@@ -688,7 +688,17 @@ export async function tx_createInternalConversion(params: {
   routingPlay?: { testRunId: string; cycleNumber: number; action: 'deploy' | 'replenish' } | null
   /** Skip CONVERSION_INSTRUCTED / POP activity on the desk feed. */
   suppressDeskActivity?: boolean
-}): Promise<{ txId: string; capitalShock?: boolean; amountZar?: number }> {
+}): Promise<{
+  txId: string
+  capitalShock?: boolean
+  amountZar?: number
+  enRoute?: boolean
+  settleAtMs?: number | null
+  reserveInstantZar?: number
+  reserveRoutedZar?: number
+  reserveInstantMzn?: number
+  reserveRoutedMzn?: number
+}> {
   const app = getFirebaseApp()
   const functions = getFunctionsInstance()
   if (!app || !functions) {
@@ -696,7 +706,17 @@ export async function tx_createInternalConversion(params: {
   }
   const fn = httpsCallable(functions, 'tx_createInternalConversion')
   const result = await fn(params)
-  return result.data as { txId: string; capitalShock?: boolean; amountZar?: number }
+  return result.data as {
+    txId: string
+    capitalShock?: boolean
+    amountZar?: number
+    enRoute?: boolean
+    settleAtMs?: number | null
+    reserveInstantZar?: number
+    reserveRoutedZar?: number
+    reserveInstantMzn?: number
+    reserveRoutedMzn?: number
+  }
 }
 
 /**

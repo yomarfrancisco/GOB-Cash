@@ -92,51 +92,139 @@ export const tx_createInternalConversion = functions
     const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
     const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
 
-    // `$` keypad capital shock: every account books EN ROUTE both ways
-    // (Buy ZAR → TRANSIT → cashZAR at 09:00; Sell ZAR → TRANSIT → cashMZN at SELL).
-    // Desk window re-solve stays admin-only.
+    // `$` keypad capital shock: shared reserve pays instant FCFS; remainder EN_ROUTE.
+    // Desk window re-solve stays admin-only on sell-side.
     if (data?.capitalShock === true) {
       const { bookZarSaleToEnRoute, bookMznSaleToEnRoute } = await import('./enRouteSettle')
-      let shockZar: number
-      let shockMzn: number
-      let bookedTxId: string | null = null
+      const {
+        planReserveSplit,
+        payInstantFromReserve,
+        publishReserveSplitNotice,
+      } = await import('../treasury/reserveConvert')
+      const groupId = db.collection('transactions').doc().id
+
       if (isZarSale) {
-        shockZar = roundMajor(sourceAmount)
-        shockMzn = 0
-        const rewardsMznMajor = mznRewardsFromZar(shockZar, sellRate, costRate)
-        const booked = await bookZarSaleToEnRoute({
-          userId,
-          sourceAmountZar: shockZar,
-          sellRate,
-          costRate,
-          rewardsMznMinor: Math.round(rewardsMznMajor * 100),
-          namedClient,
-          suppressDeskActivity: false,
+        const shockZar = roundMajor(sourceAmount)
+        const wantMzn = roundMajor(shockZar * sellRate)
+        const split = await planReserveSplit({
+          destCurrency: 'MZN',
+          wantDest: wantMzn,
+          totalSource: shockZar,
         })
-        bookedTxId = booked.txId
-      } else {
-        // Buy ZAR: MZN must already be in wallet → TRANSIT now → cashZAR at 09:00.
-        // Desk Steps 1–3 are seeded below (suppress the thin EN_ROUTE_BOOKED bubble).
-        shockMzn = roundMajor(sourceAmount)
-        shockZar = roundMajor(sourceAmount / costRate)
+        let instantTxId: string | null = null
+        let routedTxId: string | null = null
+        let settleAtMs: number | null = null
+
+        if (split.instantDest > 0 && split.instantSource > 0) {
+          const instant = await payInstantFromReserve({
+            userId,
+            sourceCurrency: 'ZAR',
+            destCurrency: 'MZN',
+            sourceMajor: split.instantSource,
+            destMajor: split.instantDest,
+            fxRateMZNperZar: sellRate,
+            costRate,
+            sellRate,
+            groupId,
+            namedClient,
+          })
+          instantTxId = instant.txId
+        }
+        if (split.routedSource > 0) {
+          const rewardsMznMajor = mznRewardsFromZar(split.routedSource, sellRate, costRate)
+          const booked = await bookZarSaleToEnRoute({
+            userId,
+            sourceAmountZar: split.routedSource,
+            sellRate,
+            costRate,
+            rewardsMznMinor: Math.round(rewardsMznMajor * 100),
+            namedClient,
+            groupId,
+            suppressDeskActivity: true,
+            expectedDestinationMzn: split.routedDest > 0 ? split.routedDest : undefined,
+          })
+          routedTxId = booked.txId
+          settleAtMs = booked.settleAtMs
+        }
+        await publishReserveSplitNotice({
+          userId,
+          groupId,
+          destCurrency: 'MZN',
+          fundedDest: wantMzn,
+          instantDest: split.instantDest,
+          routedDest: split.routedDest,
+          settleAtMs,
+        })
+        if (isRoutingAdmin) {
+          const { applyAdminCapitalShock } = await import('./adminConversionRouting')
+          await applyAdminCapitalShock({
+            adminUid: userId,
+            kind: 'sell_zar',
+            amountZar: shockZar,
+            amountMzn: wantMzn,
+          })
+        }
+        return {
+          txId: routedTxId || instantTxId || groupId,
+          groupId,
+          capitalShock: true,
+          amountZar: shockZar,
+          enRoute: split.routedDest > 0,
+          settleAtMs,
+          reserveInstantMzn: split.instantDest,
+          reserveRoutedMzn: split.routedDest,
+        }
+      }
+
+      // Buy ZAR: pink keypad Mt → draw ZAR reserve, remainder on ROUTE.
+      const shockMzn = roundMajor(sourceAmount)
+      const wantZar = roundMajor(shockMzn / costRate)
+      const split = await planReserveSplit({
+        destCurrency: 'ZAR',
+        wantDest: wantZar,
+        totalSource: shockMzn,
+      })
+      let instantTxId: string | null = null
+      let routedTxId: string | null = null
+      let settleAtMs: number | null = null
+      let shockZar = wantZar
+
+      if (split.instantDest > 0 && split.instantSource > 0) {
+        const instant = await payInstantFromReserve({
+          userId,
+          sourceCurrency: 'MZN',
+          destCurrency: 'ZAR',
+          sourceMajor: split.instantSource,
+          destMajor: split.instantDest,
+          fxRateMZNperZar: costRate,
+          costRate,
+          sellRate,
+          groupId,
+          namedClient,
+        })
+        instantTxId = instant.txId
+      }
+      if (split.routedSource > 0) {
         const booked = await bookMznSaleToEnRoute({
           userId,
-          sourceAmountMzn: shockMzn,
+          sourceAmountMzn: split.routedSource,
           sellRate,
           costRate,
-          expectedDestinationZar: shockZar,
+          expectedDestinationZar: split.routedDest,
           namedClient,
+          groupId,
           suppressDeskActivity: true,
         })
-        bookedTxId = booked.txId
-        shockZar = booked.expectedZar
+        routedTxId = booked.txId
+        settleAtMs = booked.settleAtMs
+        shockZar = roundMajor(split.instantDest + booked.expectedZar)
         try {
           const { seedBuyZarDeskDay } = await import('./buyZarDeskDay')
           await seedBuyZarDeskDay({
             userId,
             txId: booked.txId,
-            amountMzn: shockMzn,
-            amountZar: shockZar,
+            amountMzn: split.routedSource,
+            amountZar: split.routedDest,
             costRate,
             sellRate,
             settleAtMs: booked.settleAtMs,
@@ -145,21 +233,24 @@ export const tx_createInternalConversion = functions
           console.warn('[createInternalConversion] buy desk day seed failed', error)
         }
       }
-      // Sell-side window re-solve stays admin-only; Buy ZAR uses buy Steps 1–6 instead.
-      if (isRoutingAdmin && isZarSale) {
-        const { applyAdminCapitalShock } = await import('./adminConversionRouting')
-        await applyAdminCapitalShock({
-          adminUid: userId,
-          kind: 'sell_zar',
-          amountZar: shockZar,
-          amountMzn: shockMzn,
-        })
-      }
+      await publishReserveSplitNotice({
+        userId,
+        groupId,
+        destCurrency: 'ZAR',
+        fundedDest: wantZar,
+        instantDest: split.instantDest,
+        routedDest: split.routedDest,
+        settleAtMs,
+      })
       return {
-        txId: bookedTxId || `shock-${Date.now()}`,
+        txId: routedTxId || instantTxId || groupId,
+        groupId,
         capitalShock: true,
         amountZar: shockZar,
-        enRoute: true,
+        enRoute: split.routedDest > 0,
+        settleAtMs,
+        reserveInstantZar: split.instantDest,
+        reserveRoutedZar: split.routedDest,
       }
     }
 

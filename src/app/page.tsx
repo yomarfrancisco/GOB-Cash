@@ -934,7 +934,13 @@ function HomeContent() {
           void run
             .then((result) => {
               if (play || !result?.capitalShock) return
-              void cardStackRef.current?.playCapitalShockReveal({ creditZar: amountZAR })
+              // Reveal only what landed now (reserve instant); remainder stays on ROUTE.
+              const creditZar =
+                typeof (result as { reserveInstantZar?: number }).reserveInstantZar === 'number'
+                  ? Number((result as { reserveInstantZar?: number }).reserveInstantZar)
+                  : amountZAR
+              if (!(creditZar > 0)) return
+              void cardStackRef.current?.playCapitalShockReveal({ creditZar })
             })
             .catch((error: any) => {
             useRoutingPlaybackStore.getState().clear()
