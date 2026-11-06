@@ -170,19 +170,15 @@ function LedgerBody({ group }: { group: DeskEventGroup }) {
 export function DeskEventGroupCard({
   item,
   planBusy,
-  showNext24h,
   showStatus,
   showRealtime,
-  onNext24h,
   onStatus,
   onRealtime,
 }: {
   item: ActivityItem
   planBusy?: boolean
-  showNext24h?: boolean
   showStatus?: boolean
   showRealtime?: boolean
-  onNext24h?: () => void
   onStatus?: () => void
   onRealtime?: () => void
 }) {
@@ -197,7 +193,7 @@ export function DeskEventGroupCard({
       ? '≡'
       : group.source.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase())
   const isBankFeed = group.source !== 'wallet'
-  const showPlanActions = Boolean(showNext24h || showStatus || showRealtime)
+  const showPlanActions = Boolean(showStatus || showRealtime)
 
   return (
     <article
@@ -249,23 +245,6 @@ export function DeskEventGroupCard({
         <LedgerBody group={group} />
         {showPlanActions ? (
           <div className={styles.activityActionRow}>
-            {showNext24h ? (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Simulate the next 24 hours on the desk"
-                aria-busy={planBusy === true}
-                disabled={planBusy === true}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onNext24h?.()
-                }}
-              >
-                Next 24h
-              </button>
-            ) : null}
             {showStatus ? (
               <button
                 type="button"

@@ -11,7 +11,6 @@ import {
   downloadWeeklySettlementProof,
   downloadSettlementInvoice,
   admin_submitConversionRoutingFeedback,
-  admin_simulateNextDeskDay,
   admin_publishLiquidityStatus,
   admin_getLiquidityStrip,
   admin_exitDeskPlan,
@@ -509,10 +508,8 @@ function ActivityItemCard({
   planBusy,
   catchupActive,
   planMode,
-  showNext24h,
   showStatus,
   showRealtime,
-  onNext24h,
   onStatus,
   onRealtime,
   liveSellMznPerZar,
@@ -529,10 +526,8 @@ function ActivityItemCard({
   planBusy?: boolean
   catchupActive?: boolean
   planMode?: 'live' | 'planned'
-  showNext24h?: boolean
   showStatus?: boolean
   showRealtime?: boolean
-  onNext24h?: () => void
   onStatus?: () => void
   onRealtime?: () => void
   liveSellMznPerZar?: number | null
@@ -857,10 +852,8 @@ function ActivityItemCard({
       <DeskEventGroupCard
         item={item}
         planBusy={planBusy}
-        showNext24h={showNext24h}
         showStatus={showStatus}
         showRealtime={showRealtime}
-        onNext24h={onNext24h}
         onStatus={onStatus}
         onRealtime={onRealtime}
       />
@@ -965,25 +958,7 @@ function ActivityItemCard({
               </div>
             )}
             {isLiquidityReport && (!typing || titleDone) ? (
-              <LiquidityReportCard
-                item={item}
-                onShare={() => {
-                  const text = [
-                    item.title,
-                    item.liquidityReport?.fullLiquidityLabel,
-                    item.deskSentence || item.body,
-                  ]
-                    .filter(Boolean)
-                    .join('\n')
-                  if (typeof navigator !== 'undefined' && navigator.share) {
-                    void navigator.share({ title: item.title, text }).catch(() => {
-                      void navigator.clipboard?.writeText(text)
-                    })
-                  } else {
-                    void navigator.clipboard?.writeText(text)
-                  }
-                }}
-              />
+              <LiquidityReportCard item={item} />
             ) : null}
             {askCard && item.userReply ? (
               <div className={styles.activityUserReply}>
@@ -1050,7 +1025,6 @@ function ActivityItemCard({
           showProposalActions ||
           showExecuted ||
           showKycLink ||
-          showNext24h ||
           showStatus ||
           showRealtime) && (
           <div className={styles.activityActionRow}>
@@ -1211,23 +1185,6 @@ function ActivityItemCard({
                 </button>
               </>
             )}
-            {showNext24h && (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Simulate the next 24 hours on the desk"
-                aria-busy={planBusy === true}
-                disabled={planBusy === true || confirmState !== 'idle'}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onNext24h?.()
-                }}
-              >
-                Next 24h
-              </button>
-            )}
             {showStatus && (
               <button
                 type="button"
@@ -1328,7 +1285,6 @@ function ActivitySection({
   plannedAnchorCycle,
   planBusy,
   catchupActive,
-  onNext24h,
   onStatus,
   onRealtime,
   liveSellMznPerZar,
@@ -1350,7 +1306,6 @@ function ActivitySection({
   plannedAnchorCycle: number | null
   planBusy: boolean
   catchupActive: boolean
-  onNext24h: () => void
   onStatus: () => void
   onRealtime: () => void
   liveSellMznPerZar?: number | null
@@ -1398,10 +1353,8 @@ function ActivitySection({
                 planBusy={planBusy}
                 catchupActive={catchupActive}
                 planMode={planMode}
-                showNext24h={!lockDeskActions && isPlanHost}
                 showStatus={!lockDeskActions && isPlanHost}
                 showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
-                onNext24h={onNext24h}
                 onStatus={onStatus}
                 onRealtime={onRealtime}
                 liveSellMznPerZar={liveSellMznPerZar}
@@ -1438,7 +1391,8 @@ export function NotificationsList({
     fundedZar: number
     liquidPct: number
   } | null>(null)
-  const [liqStripHidden, setLiqStripHidden] = useState(false)
+  /** Live strip only when the user has scrolled up off the bottom anchor. */
+  const [deskBottomPinned, setDeskBottomPinned] = useState(true)
 
   // Runtime validator: auto-clear bad data
   useEffect(() => {
@@ -1640,7 +1594,9 @@ export function NotificationsList({
 
     const onScroll = () => {
       const distanceFromBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight
-      bottomPinnedRef.current = distanceFromBottom <= 48
+      const pinned = distanceFromBottom <= 48
+      bottomPinnedRef.current = pinned
+      setDeskBottomPinned(pinned)
       if (frame) cancelAnimationFrame(frame)
       frame = requestAnimationFrame(syncFromScroll)
     }
@@ -1721,37 +1677,6 @@ export function NotificationsList({
       window.clearInterval(id)
     }
   }, [deskBlocked, latestActivityId])
-
-  useEffect(() => {
-    const root = listRootRef.current
-    if (!root) return
-    const feed = root.closest('[data-desk-feed]')
-    const observeTarget = () => root.querySelector('[data-liquidity-live="true"]')
-    let observer: IntersectionObserver | null = null
-    const attach = () => {
-      observer?.disconnect()
-      const el = observeTarget()
-      if (!el) {
-        setLiqStripHidden(false)
-        return
-      }
-      observer = new IntersectionObserver(
-        (entries) => {
-          const hit = entries.some((e) => e.isIntersecting && e.intersectionRatio > 0.15)
-          setLiqStripHidden(hit)
-        },
-        { root: feed instanceof Element ? feed : null, threshold: [0, 0.15, 0.5] }
-      )
-      observer.observe(el)
-    }
-    attach()
-    const mo = new MutationObserver(() => attach())
-    mo.observe(root, { childList: true, subtree: true })
-    return () => {
-      observer?.disconnect()
-      mo.disconnect()
-    }
-  }, [pagedItems.length, latestActivityId])
 
   const handleRoutingAsk = async (source: ActivityItem, message: string) => {
     if (deskBlocked || isKycGateItem(source)) {
@@ -1847,54 +1772,13 @@ export function NotificationsList({
     })
   }
 
-  const applySimSummaryAndKeypad = (summary: Awaited<ReturnType<typeof admin_simulateNextDeskDay>>) => {
-    applyPlanSummary(summary)
-    if (typeof summary.plannedClockMs === 'number' && summary.plannedClockMs > 0) {
-      setDeskFocus(summary.plannedClockMs, typeof summary.cycleNumber === 'number' ? summary.cycleNumber : null)
-    }
-    const gate = summary.awaitingKeypad
-    if (gate === 'send' || gate === 'restock') {
-      const amountZAR = Number(summary.keypadAmountZar || 0)
-      const amountMZN = Number(summary.keypadAmountMzn || 0)
-      if (gate === 'send' && amountZAR > 0) {
-        openDeskKeypad({
-          destination: 'MZN',
-          amountZAR,
-          amountMZN,
-          testRunId: summary.testRunId,
-          cycleNumber: summary.cycleNumber,
-          routingAction: 'deploy',
-        })
-      } else if (gate === 'restock' && amountMZN > 0) {
-        openDeskKeypad({
-          destination: 'ZAR',
-          amountZAR,
-          amountMZN,
-          testRunId: summary.testRunId,
-          cycleNumber: summary.cycleNumber,
-          routingAction: 'replenish',
-        })
-      }
-    }
-  }
-
-  const handleNext24h = async () => {
-    if (deskBlocked || planBusy) return
-    setPlanBusy(true)
-    try {
-      applySimSummaryAndKeypad(await admin_simulateNextDeskDay())
-    } catch (error) {
-      console.error('[Activity] Next 24h failed:', error)
-    } finally {
-      setPlanBusy(false)
-    }
-  }
-
   const handleStatus = async () => {
     if (deskBlocked || planBusy) return
     setPlanBusy(true)
     try {
       await admin_publishLiquidityStatus()
+      bottomPinnedRef.current = true
+      setDeskBottomPinned(true)
       requestAnimationFrame(() => {
         const el = listRootRef.current?.querySelector('[data-liquidity-live="true"]')
         el?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -1938,7 +1822,6 @@ export function NotificationsList({
     plannedAnchorCycle,
     planBusy,
     catchupActive: reveal.catchupActive,
-    onNext24h: () => void handleNext24h(),
     onStatus: () => void handleStatus(),
     onRealtime: () => void handleRealtime(),
     liveSellMznPerZar,
@@ -1985,7 +1868,7 @@ export function NotificationsList({
               liquidZar={liqStrip.liquidZar}
               fundedZar={liqStrip.fundedZar}
               liquidPct={liqStrip.liquidPct}
-              hidden={liqStripHidden}
+              hidden={deskBottomPinned}
               onNewReport={() => void handleStatus()}
             />
           </div>

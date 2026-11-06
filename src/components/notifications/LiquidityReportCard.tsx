@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Download } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
 import styles from '@/app/activity/activity.module.css'
 
@@ -58,14 +59,39 @@ function PipeBar({
   )
 }
 
+function downloadLiquidityReport(item: ActivityItem) {
+  const report = item.liquidityReport
+  if (!report) return
+  const lines = [
+    'Liquidity report',
+    `Full liquidity: ${report.fullLiquidityLabel}`,
+    `${fmtZar(report.liquidZar)} of ${fmtZar(report.fundedZar)} liquid now · ${report.liquidPct}`,
+    `Rate: ${fmtRate(report.rate)}`,
+    `Funded: ${fmtMzn(report.fundedMzn)}`,
+    '',
+    'When it becomes liquid:',
+    ...report.timeline.map(
+      (row) => `- ${row.whenLabel}: ${fmtZar(row.amountZar)} · ${row.label}`
+    ),
+    `- Total funded: ${fmtZar(report.fundedZar)} (${fmtMzn(report.fundedMzn)} @ ${report.rate.toFixed(4)})`,
+    '',
+    report.note,
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `liquidity-report-${item.id}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function LiquidityReportCard({
   item,
   onWithdraw,
-  onShare,
 }: {
   item: ActivityItem
   onWithdraw?: (amountZar: number) => void
-  onShare?: () => void
 }) {
   const report = item.liquidityReport
   const [expanded, setExpanded] = useState(false)
@@ -115,7 +141,7 @@ export function LiquidityReportCard({
         ) : null}
         <button
           type="button"
-          className={styles.liqOutlineBtn}
+          className={styles.replyButton}
           onClick={(e) => {
             e.stopPropagation()
             setExpanded(true)
@@ -235,11 +261,11 @@ export function LiquidityReportCard({
 
       <p className={styles.liqNote}>{report.note}</p>
 
-      <div className={styles.liqActions}>
+      <div className={styles.activityActionRow}>
         {withdrawZar > 0 && onWithdraw ? (
           <button
             type="button"
-            className={styles.liqOutlineBtn}
+            className={styles.replyButton}
             onClick={(e) => {
               e.stopPropagation()
               onWithdraw(withdrawZar)
@@ -250,13 +276,15 @@ export function LiquidityReportCard({
         ) : null}
         <button
           type="button"
-          className={styles.liqOutlineBtn}
+          className={styles.replyButton}
+          aria-label="Download liquidity report"
           onClick={(e) => {
             e.stopPropagation()
-            onShare?.()
+            downloadLiquidityReport(item)
           }}
         >
-          Share report
+          <Download size={16} strokeWidth={2.2} />
+          Download Report
         </button>
       </div>
     </div>
