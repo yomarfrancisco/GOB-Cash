@@ -1357,7 +1357,8 @@ function ActivitySection({
                 planBusy={planBusy}
                 catchupActive={catchupActive}
                 planMode={planMode}
-                showStatus={!lockDeskActions && isPlanHost}
+                // Liquidity is for any funded client — do not hide behind KYC / deskBlocked.
+                showStatus={isPlanHost}
                 showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
                 onStatus={onStatus}
                 onRealtime={onRealtime}
@@ -1657,7 +1658,10 @@ export function NotificationsList({
   )
 
   useEffect(() => {
-    if (deskBlocked) return
+    if (!isAuthed) {
+      setLiqStrip(null)
+      return
+    }
     let cancelled = false
     const pull = async () => {
       try {
@@ -1671,7 +1675,7 @@ export function NotificationsList({
           })
         }
       } catch {
-        /* strip is best-effort */
+        if (!cancelled) setLiqStrip(null)
       }
     }
     void pull()
@@ -1680,12 +1684,9 @@ export function NotificationsList({
       cancelled = true
       window.clearInterval(id)
     }
-  }, [deskBlocked, latestActivityId])
+  }, [isAuthed, latestActivityId])
 
   const handleRoutingAsk = async (source: ActivityItem, message: string) => {
-    if (deskBlocked || isKycGateItem(source)) {
-      throw new Error('Complete KYC before continuing.')
-    }
     const trimmed = message.trim().toLowerCase()
     if (/^(status|liquidity)\b/.test(trimmed) || trimmed === 'liquidity report') {
       await admin_publishLiquidityStatus()
@@ -1694,6 +1695,9 @@ export function NotificationsList({
         el?.scrollIntoView({ behavior: 'smooth', block: 'end' })
       })
       return
+    }
+    if (deskBlocked || isKycGateItem(source)) {
+      throw new Error('Complete KYC before continuing.')
     }
     const routing =
       allItems.find(isAwaitingRoutingItem) ||
@@ -1777,7 +1781,7 @@ export function NotificationsList({
   }
 
   const handleStatus = async () => {
-    if (deskBlocked || planBusy) return
+    if (planBusy) return
     setPlanBusy(true)
     try {
       await admin_publishLiquidityStatus()
@@ -1865,7 +1869,7 @@ export function NotificationsList({
             </p>
           )}
         </div>
-        {!deskBlocked && liqStrip ? (
+        {liqStrip ? (
           <div className={styles.liqStripDock}>
             <LiquidityLiveStrip
               fullBy={liqStrip.fullLiquidityLabel}

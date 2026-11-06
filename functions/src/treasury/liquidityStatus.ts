@@ -23,7 +23,7 @@ function money(n: number): number {
   return roundMajor(n)
 }
 
-/** Any signed-in client with MZN/ZAR/earnings on book (successfully funded). */
+/** Any signed-in client with MZN/ZAR/earnings on book, or a past funding credit. */
 async function assertFundedCaller(uid: string): Promise<void> {
   const userRef = db.collection('users').doc(uid)
   const [mznSnap, zarSnap, earnSnap] = await Promise.all([
@@ -36,16 +36,23 @@ async function assertFundedCaller(uid: string): Promise<void> {
   const earnings = money(Number(earnSnap.data()?.fiatBalance || 0))
   if (cashMzn > 0.005 || cashZar > 0.005 || earnings > 0.005) return
 
-  // Past successful MZN funding even if the wallet was later converted to zero.
+  // Past funding even if the wallet was later spent down.
   try {
-    const fundedSnap = await db
-      .collection('transactions')
-      .where('userId', '==', uid)
-      .where('destinationCurrency', '==', 'MZN')
-      .where('status', '==', 'SETTLED')
-      .limit(1)
-      .get()
-    if (!fundedSnap.empty) return
+    const [mznSettled, depositEvents] = await Promise.all([
+      db
+        .collection('transactions')
+        .where('userId', '==', uid)
+        .where('destinationCurrency', '==', 'MZN')
+        .where('status', '==', 'SETTLED')
+        .limit(1)
+        .get(),
+      userRef
+        .collection('activityEvents')
+        .where('kind', 'in', ['mzn_deposited', 'EXTERNAL_DEPOSIT_CONFIRMED', 'DEPOSIT_CREDITED'])
+        .limit(1)
+        .get(),
+    ])
+    if (!mznSettled.empty || !depositEvents.empty) return
   } catch (error) {
     console.warn('[liquidity] funded history scan skipped', {
       error: error instanceof Error ? error.message : String(error),
