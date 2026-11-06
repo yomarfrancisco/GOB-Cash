@@ -958,7 +958,11 @@ function ActivityItemCard({
               </div>
             )}
             {isLiquidityReport && (!typing || titleDone) ? (
-              <LiquidityReportCard item={item} />
+              <LiquidityReportCard
+                item={item}
+                onNewReport={showStatus ? () => onStatus?.() : undefined}
+                newReportBusy={planBusy === true}
+              />
             ) : null}
             {askCard && item.userReply ? (
               <div className={styles.activityUserReply}>
@@ -1025,7 +1029,7 @@ function ActivityItemCard({
           showProposalActions ||
           showExecuted ||
           showKycLink ||
-          showStatus ||
+          (showStatus && !isLiquidityReport) ||
           showRealtime) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
@@ -1185,7 +1189,7 @@ function ActivityItemCard({
                 </button>
               </>
             )}
-            {showStatus && (
+            {showStatus && !isLiquidityReport && (
               <button
                 type="button"
                 className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
@@ -1199,7 +1203,7 @@ function ActivityItemCard({
                   onStatus?.()
                 }}
               >
-                Liquidity
+                Liquidity Report
               </button>
             )}
             {showRealtime && (

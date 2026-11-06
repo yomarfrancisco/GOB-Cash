@@ -89,9 +89,13 @@ function downloadLiquidityReport(item: ActivityItem) {
 export function LiquidityReportCard({
   item,
   onWithdraw,
+  onNewReport,
+  newReportBusy,
 }: {
   item: ActivityItem
   onWithdraw?: (amountZar: number) => void
+  onNewReport?: () => void
+  newReportBusy?: boolean
 }) {
   const report = item.liquidityReport
   const [expanded, setExpanded] = useState(false)
@@ -284,8 +288,25 @@ export function LiquidityReportCard({
           }}
         >
           <Download size={16} strokeWidth={2.2} />
-          Download Report
+          Download
         </button>
+        {onNewReport ? (
+          <button
+            type="button"
+            className={[styles.replyButton, newReportBusy ? styles.confirmButtonLoading : '']
+              .filter(Boolean)
+              .join(' ')}
+            aria-label="Post a new liquidity report"
+            aria-busy={newReportBusy === true}
+            disabled={newReportBusy === true}
+            onClick={(e) => {
+              e.stopPropagation()
+              onNewReport()
+            }}
+          >
+            Liquidity Report
+          </button>
+        ) : null}
       </div>
     </div>
   )

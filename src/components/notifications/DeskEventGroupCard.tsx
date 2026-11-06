@@ -259,7 +259,7 @@ export function DeskEventGroupCard({
                   onStatus?.()
                 }}
               >
-                Liquidity
+                Liquidity Report
               </button>
             ) : null}
             {showRealtime ? (
