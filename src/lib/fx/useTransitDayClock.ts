@@ -10,6 +10,7 @@ import {
   mznToTransitZar,
   nextSettleAt09hSastExclusive,
   randomMznDripCycleMs,
+  resolveZarClearOverlayAction,
   type TransitDayOverlay,
 } from '@/lib/fx/transitDayClock'
 
@@ -97,14 +98,15 @@ export function useTransitDayClock(params: {
         }
 
         const lastNine = lastSettleAt09hSast(t)
+        const clearAction = resolveZarClearOverlayAction({
+          nowMs: t,
+          lastNineMs: lastNine,
+          lastNineHandledMs: lastNineHandledRef.current,
+          transitZarDelta: prev.transitZarDelta,
+          zarCeremonyActive: prev.zarCeremonyActive,
+        })
 
-        if (
-          !prev.zarCeremonyActive &&
-          lastNine !== lastNineHandledRef.current &&
-          t >= lastNine &&
-          t - lastNine < ZAR_CLEAR_CEREMONY_MS + 2_000 &&
-          prev.transitZarDelta > 0
-        ) {
+        if (clearAction === 'start_ceremony') {
           lastNineHandledRef.current = lastNine
           return {
             ...prev,
@@ -113,12 +115,19 @@ export function useTransitDayClock(params: {
           }
         }
 
+        if (clearAction === 'instant_reset') {
+          // Missed the live 09:00 window — drop UI drip immediately (no wallet writes).
+          lastNineHandledRef.current = lastNine
+          return createInitialOverlay(t)
+        }
+
         if (
           prev.zarCeremonyActive &&
           prev.zarCeremonyStartMs != null &&
           t - prev.zarCeremonyStartMs >= ZAR_CLEAR_CEREMONY_MS
         ) {
           // Drop UI drip overlays. ZAR major comes from the daily wallet batch.
+          lastNineHandledRef.current = lastNine
           return {
             ...createInitialOverlay(t),
           }

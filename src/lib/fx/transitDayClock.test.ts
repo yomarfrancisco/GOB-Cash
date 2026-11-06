@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 import {
   MZN_DRIP_CYCLE_MAX_MS,
   MZN_DRIP_CYCLE_MIN_MS,
+  ZAR_CLEAR_CATCHUP_GRACE_MS,
   createInitialOverlay,
   inventoryBarsArmed,
   inventoryTimeBarPercents,
@@ -11,6 +12,7 @@ import {
   mznToTransitZar,
   randomMznDripCycleMs,
   remainingFiveSecondTicksUntil,
+  resolveZarClearOverlayAction,
   transitDayBarPercent,
   zarClearBarPercent,
 } from './transitDayClock'
@@ -77,6 +79,50 @@ describe('transitDayClock', () => {
     const pct = transitDayBarPercent(Date.now())
     assert.ok(pct >= 0 && pct <= 100)
     assert.ok(remainingFiveSecondTicksUntil(Date.now(), Date.now() + 12_000) >= 3)
+  })
+
+  it('starts live ceremony inside the grace window and catch-up resets after miss', () => {
+    const lastNine = 1_000_000
+    assert.equal(
+      resolveZarClearOverlayAction({
+        nowMs: lastNine + 5_000,
+        lastNineMs: lastNine,
+        lastNineHandledMs: 0,
+        transitZarDelta: 1200,
+        zarCeremonyActive: false,
+      }),
+      'start_ceremony'
+    )
+    assert.equal(
+      resolveZarClearOverlayAction({
+        nowMs: lastNine + ZAR_CLEAR_CATCHUP_GRACE_MS + 1,
+        lastNineMs: lastNine,
+        lastNineHandledMs: 0,
+        transitZarDelta: 1200,
+        zarCeremonyActive: false,
+      }),
+      'instant_reset'
+    )
+    assert.equal(
+      resolveZarClearOverlayAction({
+        nowMs: lastNine + 60_000,
+        lastNineMs: lastNine,
+        lastNineHandledMs: lastNine,
+        transitZarDelta: 1200,
+        zarCeremonyActive: false,
+      }),
+      'none'
+    )
+    assert.equal(
+      resolveZarClearOverlayAction({
+        nowMs: lastNine + 60_000,
+        lastNineMs: lastNine,
+        lastNineHandledMs: 0,
+        transitZarDelta: 0,
+        zarCeremonyActive: false,
+      }),
+      'none'
+    )
   })
 
   it('keeps all inventory bars empty until MZN is funded or ROUTE has a book', () => {

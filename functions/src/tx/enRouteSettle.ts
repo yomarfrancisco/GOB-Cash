@@ -423,7 +423,8 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
     const mznRef = userRef.collection('wallets').doc('cashMZN')
     const zarRef = userRef.collection('wallets').doc('cashZAR')
 
-    // Planned desk must not mutate live wallets / earnings — checkpoint rewind is incomplete.
+    // Planned/simulated books still credit live earnings on book — settle must
+    // reverse that debit. Only skip live desk side-effects for simulated meta.
     let plannedDesk = false
     let planRunId: string | null =
       typeof tx.planRunId === 'string' && tx.planRunId ? tx.planRunId : null
@@ -440,7 +441,7 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
       /* treat as live if mode lookup fails */
     }
 
-    const simulatedLot = tx.simulated === true || plannedDesk
+    const markSimulated = tx.simulated === true || plannedDesk
     // Still post ZAR cleared for Planned — only skip when the book was desk-suppressed.
     const suppressDesk = tx.suppressDeskActivity === true
 
@@ -462,6 +463,9 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
               statusUpdatedAt: now,
               updatedAt: now,
               settledAt: now,
+              ...(markSimulated
+                ? { simulated: true, ...(planRunId ? { planRunId } : {}) }
+                : {}),
             })
           }
           return true
@@ -473,54 +477,6 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
         const clearBody = clearsToZar
           ? `${(zarMinorForUi / 100).toFixed(2)} ZAR @ ${rateForBody.toFixed(4)} (cost)`
           : `${(mznMinorForUi / 100).toFixed(2)} MZN @ ${rateForBody.toFixed(4)}`
-
-        // Simulated lots: mark settled without touching live wallets.
-        if (simulatedLot) {
-          t.update(doc.ref, {
-            status: 'SETTLED',
-            instructionStatus: 'SETTLED',
-            actualDestinationAmountMinor: destMinor,
-            statusUpdatedAt: now,
-            updatedAt: now,
-            settledAt: now,
-            simulated: true,
-            ...(planRunId ? { planRunId } : {}),
-          })
-          if (!suppressDesk) {
-            const clearFields = {
-              kind: 'EN_ROUTE_CLEARED',
-              title: 'ZAR cleared',
-              deskStatusChip: 'Cleared',
-              body: clearBody,
-              actorType: 'ai_manager',
-              avatarKind: clearsToZar ? 'convert_zar' : 'convert_mzn',
-              amountCurrency: 'ZAR',
-              amountValue: zarMinorForUi / 100,
-              amountSign: 'debit' as const,
-              pairedAmountValue: mznMinorForUi / 100,
-              txId: doc.id,
-              hasDownloadButton: false,
-              status: 'recorded',
-              routingAction: 'en_route_clear',
-              deskSpeaker: clearsToZar ? 'leo' : 'amina',
-              simulated: true,
-              ...(planRunId ? { planRunId } : {}),
-              updatedAt: now,
-              clearedAt: now,
-              recordingSource: 'SYSTEM',
-            }
-            if (bookingSnap.exists) {
-              t.update(bookingEventRef, clearFields)
-            } else {
-              t.set(bookingEventRef, {
-                id: doc.id,
-                ...clearFields,
-                createdAt: now,
-              })
-            }
-          }
-          return true
-        }
 
         const earningsSnap = await t.get(earningsRef)
         const landRef = clearsToZar ? zarRef : mznRef
@@ -565,9 +521,12 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
           statusUpdatedAt: now,
           updatedAt: now,
           settledAt: now,
+          ...(markSimulated
+            ? { simulated: true, ...(planRunId ? { planRunId } : {}) }
+            : {}),
         })
 
-        // Live: update the booking bubble in place (same id as the conversion tx).
+        // Update the booking bubble in place (same id as the conversion tx).
         if (!suppressDesk && fresh.data()?.suppressDeskActivity !== true) {
           const clearFields = {
             kind: 'EN_ROUTE_CLEARED',
@@ -588,6 +547,9 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
             updatedAt: now,
             clearedAt: now,
             recordingSource: 'SYSTEM',
+            ...(markSimulated
+              ? { simulated: true, ...(planRunId ? { planRunId } : {}) }
+              : {}),
           }
           if (bookingSnap.exists) {
             t.update(bookingEventRef, clearFields)
@@ -625,7 +587,8 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
         { merge: true }
       )
       settled += 1
-      if (clearsToZar && !simulatedLot) {
+      // Planned/simulated clears still move wallets; skip live desk automation hooks.
+      if (clearsToZar && !markSimulated) {
         try {
           const { completeBuyZarDeskDayAfterClear } = await import('./buyZarDeskDay')
           await completeBuyZarDeskDayAfterClear({
@@ -642,7 +605,7 @@ export async function settleDueEnRouteLots(limit = 40): Promise<number> {
           })
         }
       }
-      if (!simulatedLot) {
+      if (!markSimulated) {
         try {
           const { ROUTING_ADMIN_UID } = await import('../routing/conversionRouter')
           if (userId === ROUTING_ADMIN_UID) {

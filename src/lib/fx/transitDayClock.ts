@@ -13,6 +13,27 @@ export const FIVE_SECOND_MS = 5_000
 /** @deprecated Use FIVE_SECOND_MS for drip scale; MIN/MAX for cycle length. */
 export const MZN_DRIP_CYCLE_MS = FIVE_SECOND_MS
 export const ZAR_CLEAR_CEREMONY_MS = 15_000
+/** Live ceremony start window after 09:00 SAST; past this → instant overlay catch-up. */
+export const ZAR_CLEAR_CATCHUP_GRACE_MS = ZAR_CLEAR_CEREMONY_MS + 2_000
+
+/**
+ * Decide how to clear the UI-only TRANSIT drip after a 09:00 SAST boundary.
+ * Long-lived sessions that miss the live ceremony window must still drop the overlay.
+ */
+export function resolveZarClearOverlayAction(params: {
+  nowMs: number
+  lastNineMs: number
+  lastNineHandledMs: number
+  transitZarDelta: number
+  zarCeremonyActive: boolean
+}): 'start_ceremony' | 'instant_reset' | 'none' {
+  if (params.zarCeremonyActive) return 'none'
+  if (!(params.lastNineMs > 0) || params.lastNineMs === params.lastNineHandledMs) return 'none'
+  if (!(params.nowMs >= params.lastNineMs)) return 'none'
+  if (!(params.transitZarDelta > 0)) return 'none'
+  if (params.nowMs - params.lastNineMs < ZAR_CLEAR_CATCHUP_GRACE_MS) return 'start_ceremony'
+  return 'instant_reset'
+}
 
 /** Previous 09:00 SAST at or before nowMs. */
 export function lastSettleAt09hSast(nowMs: number): number {
