@@ -116,6 +116,34 @@
   line-height: 1;
 }
 
+/* User avatar badge over the desk mark (bottom-right). */
+.nav-avatar--desk {
+  overflow: visible;
+}
+
+.nav-desk-user-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1.5px solid #ffffff;
+  background: #f3f4f6;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.nav-desk-user-badge__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
 /* Notification dot positioned on avatar container */
 .nav-avatar-container .nav-notification-dot {
   position: absolute;
@@ -128,5 +156,13 @@
   border: 2px solid white;
   z-index: 20;
   pointer-events: none;
+}
+
+/* Keep unread pip clear of the user badge. */
+.nav-avatar--desk .nav-notification-dot {
+  top: -3px;
+  right: -3px;
+  left: auto;
+  bottom: auto;
 }
 

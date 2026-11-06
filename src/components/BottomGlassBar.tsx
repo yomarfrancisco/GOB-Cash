@@ -11,6 +11,8 @@ import { selectHasUnseenLiquidityActivity, useActivityUnreadStore } from '@/stor
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import { useNotificationsStore } from '@/state/notifications'
+import { useUserProfileStore } from '@/store/userProfile'
+import { USER_PLACEHOLDER_AVATAR } from '@/lib/avatarAssets'
 import { logout } from '@/lib/logout'
 import '@/styles/bottom-glass.css'
 
@@ -33,6 +35,8 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
   const hasUnseenActivity = useActivityUnreadStore(selectHasUnseenLiquidityActivity)
+  const profileAvatarUrl = useUserProfileStore((s) => s.profile.avatarUrl)
+  const deskUserAvatar = profileAvatarUrl || USER_PLACEHOLDER_AVATAR
   const lastDeskTapAtRef = useRef(0)
   const deskOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
@@ -162,7 +166,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           }}
           onClick={handleDeskClick}
         >
-          <div className="nav-avatar-container nav-avatar--real">
+          <div className="nav-avatar-container nav-avatar--real nav-avatar--desk">
             <div className="nav-avatar-image-wrapper">
               <Image
                 src="/assets/benjamin_grey_square.png"
@@ -172,6 +176,20 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
                 sizes="28px"
               />
             </div>
+            {/* User face over the desk mark — you at the desk. */}
+            {isAuthed ? (
+              <span className="nav-desk-user-badge" aria-hidden>
+                <Image
+                  src={deskUserAvatar}
+                  alt=""
+                  width={16}
+                  height={16}
+                  className="nav-desk-user-badge__img"
+                  sizes="16px"
+                  unoptimized={deskUserAvatar.startsWith('data:') || deskUserAvatar.includes('firebasestorage')}
+                />
+              </span>
+            ) : null}
           </div>
           {hasUnseenActivity && (
             <span className="nav-notification-dot" aria-label="New liquidity manager activity" />
