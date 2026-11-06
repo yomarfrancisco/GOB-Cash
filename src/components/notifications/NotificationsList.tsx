@@ -12,7 +12,6 @@ import {
   downloadSettlementInvoice,
   admin_submitConversionRoutingFeedback,
   admin_publishLiquidityStatus,
-  admin_getLiquidityStrip,
   admin_exitDeskPlan,
 } from '@/lib/transactions/clientFunctions'
 import { isConversionInFlight } from '@/lib/transactions/submitInternalConversion'
@@ -53,10 +52,7 @@ import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
 import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCard'
-import {
-  LiquidityLiveStrip,
-  LiquidityReportCard,
-} from '@/components/notifications/LiquidityReportCard'
+import { LiquidityReportCard } from '@/components/notifications/LiquidityReportCard'
 import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
 import { TypewriterText } from '@/components/desk/TypewriterText'
 import { highlightDeskText } from '@/lib/desk/highlightDeskText'
@@ -1390,15 +1386,6 @@ export function NotificationsList({
   const remoteItems = prefetchedItems ?? subscribedItems
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
   const [visibleCount, setVisibleCount] = useState(ACTIVITY_PAGE_SIZE)
-  const [liqStrip, setLiqStrip] = useState<{
-    fullLiquidityLabel: string
-    liquidZar: number
-    fundedZar: number
-    liquidPct: number
-  } | null>(null)
-  /** Live strip only when the user has scrolled up off the bottom anchor. */
-  const [deskBottomPinned, setDeskBottomPinned] = useState(true)
-
   // Runtime validator: auto-clear bad data
   useEffect(() => {
     const items = all()
@@ -1601,9 +1588,7 @@ export function NotificationsList({
 
     const onScroll = () => {
       const distanceFromBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight
-      const pinned = distanceFromBottom <= 48
-      bottomPinnedRef.current = pinned
-      setDeskBottomPinned(pinned)
+      bottomPinnedRef.current = distanceFromBottom <= 48
       if (frame) cancelAnimationFrame(frame)
       frame = requestAnimationFrame(syncFromScroll)
     }
@@ -1658,35 +1643,6 @@ export function NotificationsList({
     () => groupByTimePeriod(pagedItems),
     [pagedItems]
   )
-
-  useEffect(() => {
-    if (!isAuthed) {
-      setLiqStrip(null)
-      return
-    }
-    let cancelled = false
-    const pull = async () => {
-      try {
-        const row = await admin_getLiquidityStrip()
-        if (!cancelled) {
-          setLiqStrip({
-            fullLiquidityLabel: row.fullLiquidityLabel,
-            liquidZar: row.liquidZar,
-            fundedZar: row.fundedZar,
-            liquidPct: row.liquidPct,
-          })
-        }
-      } catch {
-        if (!cancelled) setLiqStrip(null)
-      }
-    }
-    void pull()
-    const id = window.setInterval(() => void pull(), 20_000)
-    return () => {
-      cancelled = true
-      window.clearInterval(id)
-    }
-  }, [isAuthed, latestActivityId])
 
   const handleRoutingAsk = async (source: ActivityItem, message: string) => {
     const trimmed = message.trim().toLowerCase()
@@ -1788,7 +1744,6 @@ export function NotificationsList({
     try {
       await admin_publishLiquidityStatus()
       bottomPinnedRef.current = true
-      setDeskBottomPinned(true)
       requestAnimationFrame(() => {
         const el = listRootRef.current?.querySelector('[data-liquidity-live="true"]')
         el?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -1871,18 +1826,6 @@ export function NotificationsList({
             </p>
           )}
         </div>
-        {liqStrip ? (
-          <div className={styles.liqStripDock}>
-            <LiquidityLiveStrip
-              fullBy={liqStrip.fullLiquidityLabel}
-              liquidZar={liqStrip.liquidZar}
-              fundedZar={liqStrip.fundedZar}
-              liquidPct={liqStrip.liquidPct}
-              hidden={deskBottomPinned}
-              onNewReport={() => void handleStatus()}
-            />
-          </div>
-        ) : null}
       </div>
     </>
   )
