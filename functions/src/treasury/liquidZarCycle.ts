@@ -95,8 +95,13 @@ export type LiquidZarPayoutResult = {
 }
 
 /**
- * Withdraw accrued liquid ZAR (capped by cashZAR balance) to the bank account
- * and post a desk notice. Idempotent per cycle key.
+ * Withdraw liquid ZAR (cashZAR wallet) to the bank account and post a desk notice.
+ * Idempotent per cycle key.
+ *
+ * cashZAR is the liquid book — the full balance is what became available to
+ * withdraw (reserve fills, clears, EFTs, and any pre-cycle remainder). Accrual
+ * is informational only; never leave un-accrued cashZAR stranded as "liquid"
+ * on the card after the daily sweep.
  */
 export async function payoutLiquidZarForUser(params: {
   userId: string
@@ -104,11 +109,8 @@ export async function payoutLiquidZarForUser(params: {
 }): Promise<LiquidZarPayoutResult> {
   const userId = params.userId
   const nowMs = params.nowMs ?? Date.now()
-  // Payout closes the cycle that just ended at the most recent 09:00.
-  // At 09:15, liquidCycleKeyAt is today's date (= cycle that started today at 09:00).
-  // Accrual from the prior 24h lived under yesterday's key until 09:00 clears
-  // rolled into today's key — so we pay whatever is currently accrued, then
-  // stamp paidCycleKey so we don't double-pay.
+  // Payout closes at ~09:15: drain whatever is liquid now (prior cycle + any
+  // 09:00 clear that just landed).
   const cycleKey = liquidCycleKeyAt(nowMs)
   const paidId = `liquid-zar-payout-${cycleKey}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
   const userRef = db().collection('users').doc(userId)
@@ -147,9 +149,9 @@ export async function payoutLiquidZarForUser(params: {
     const zarData = zarSnap.data() || {}
     const balance = roundMajor(Number(zarData.fiatBalance || 0))
     const accrued = roundMajor(Number(zarData[LIQUID_CYCLE_ACCRUED_FIELD] || 0))
-    const amount = roundMajor(Math.min(balance, accrued))
+    // Drain the liquid wallet itself — not only the post-feature accrual counter.
+    const amount = balance
     if (!(amount > 0.005)) {
-      // Still clear accrual so a zero day doesn't block the next cycle's stamp.
       t.update(zarRef, {
         [LIQUID_CYCLE_ACCRUED_FIELD]: 0,
         [LIQUID_CYCLE_KEY_FIELD]: cycleKey,
@@ -170,6 +172,7 @@ export async function payoutLiquidZarForUser(params: {
       [LIQUID_CYCLE_KEY_FIELD]: cycleKey,
       liquidCycleLastPayoutAt: now,
       liquidCycleLastPayoutZar: amount,
+      liquidCycleLastAccruedZar: accrued,
       updatedAt: now,
     })
 

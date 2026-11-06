@@ -246,31 +246,6 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     btc: null,
     yieldSurprise: null,
   })
-  const dripFlashPrevRef = useRef({
-    mzn: 0,
-    transit: 0,
-    zar: 0,
-  })
-  useEffect(() => {
-    const prev = dripFlashPrevRef.current
-    const next = {
-      mzn: transitClock.displayMznOffset,
-      transit: transitClock.displayTransitZarOffset,
-      zar: transitClock.displayZarOffset,
-    }
-    const flashes: Partial<Record<CardType, 'up' | 'down'>> = {}
-    if (next.mzn < prev.mzn - 0.0001) flashes.mzn = 'down'
-    if (next.transit > prev.transit + 0.0001) flashes.yieldSurprise = 'up'
-    if (next.zar > prev.zar + 0.0001) flashes.savings = 'up'
-    if (Object.keys(flashes).length) {
-      setFlashDirection((cur) => ({ ...cur, ...flashes }))
-    }
-    dripFlashPrevRef.current = next
-  }, [
-    transitClock.displayMznOffset,
-    transitClock.displayTransitZarOffset,
-    transitClock.displayZarOffset,
-  ])
   // Track previous values to compute direction
   // CRITICAL: For authenticated users, initialize to zero to prevent flash animation
   // when alloc changes from DEMO (initial render) to ZERO (after auth state determined)
@@ -753,15 +728,10 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const BOTTOM_BUFFER_PX = 0 // Reduced from 20 to 0 to close gap to map section (80% total reduction - removed buffer entirely)
   const stackMinHeight = BASE_HEIGHT_PX + (VISIBLE_COUNT - 1) * Y_STEP_PX + BOTTOM_BUFFER_PX
 
-  // ZAR bar = liquid share of the combined R book (cash + in-route).
-  const zarLiquidMajor = Math.max(
-    0,
-    walletZar + transitClock.displayZarOffset - zarCreditHold
-  )
-  const zarInRouteMajor = Math.max(
-    0,
-    walletTransitZar + transitClock.displayTransitZarOffset - transitCreditHold
-  )
+  // ZAR bar + amount use wallet books only — never the UI drip overlay
+  // (overlay transit R resets on refresh and is not a liquidity event).
+  const zarLiquidMajor = Math.max(0, walletZar - zarCreditHold)
+  const zarInRouteMajor = Math.max(0, walletTransitZar - transitCreditHold)
   const zarBookMajor = zarLiquidMajor + zarInRouteMajor
   const zarLiquidBarPercent =
     zarBookMajor > 0.005
@@ -844,15 +814,11 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
                   : null
             }
             displayMajorOffset={
+              // Amounts = Firestore wallets only (+ brief story holds). Never session drip.
               card.type === 'mzn'
-                ? transitClock.displayMznOffset - mznCreditHold
+                ? -mznCreditHold
                 : card.type === 'savings'
-                  ? // Combined book: liquid cashZAR + in-route earnings on one R total.
-                    walletTransitZar +
-                    transitClock.displayZarOffset +
-                    transitClock.displayTransitZarOffset -
-                    zarCreditHold -
-                    transitCreditHold
+                  ? walletTransitZar - zarCreditHold - transitCreditHold
                   : 0
             }
           />
