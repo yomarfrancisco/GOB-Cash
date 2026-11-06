@@ -3,16 +3,19 @@ import { describe, it } from 'node:test'
 import {
   MZN_DRIP_CYCLE_MAX_MS,
   MZN_DRIP_CYCLE_MIN_MS,
+  SHARED_MZN_DRIP_CYCLE_MS,
   ZAR_CLEAR_CATCHUP_GRACE_MS,
   createInitialOverlay,
   inventoryBarsArmed,
   inventoryTimeBarPercents,
+  lastSettleAt09hSast,
   microDripMzn,
   mznCycleBarPercent,
   mznToTransitZar,
   randomMznDripCycleMs,
   remainingFiveSecondTicksUntil,
   resolveZarClearOverlayAction,
+  sharedDripProgress,
   transitDayBarPercent,
   zarClearBarPercent,
 } from './transitDayClock'
@@ -123,6 +126,29 @@ describe('transitDayClock', () => {
       }),
       'none'
     )
+  })
+
+  it('shared drip is identical for the same wallet + clock on every client', () => {
+    const dayStart = lastSettleAt09hSast(Date.now())
+    const nowMs = dayStart + SHARED_MZN_DRIP_CYCLE_MS * 12 + 10_000
+    const a = sharedDripProgress({
+      walletMzn: 100_000,
+      sellMznPerZar: 4.65,
+      nowMs,
+    })
+    const b = sharedDripProgress({
+      walletMzn: 100_000,
+      sellMznPerZar: 4.65,
+      nowMs,
+    })
+    assert.deepEqual(a, b)
+    assert.ok(a.drippedMzn > 0)
+    assert.equal(a.displayMznOffset, -a.drippedMzn)
+    assert.equal(a.displayTransitZarOffset, mznToTransitZar(a.drippedMzn, 4.65))
+    // Inventory @ sell conserved: dripped MZN becomes transit R.
+    const before = 100_000 / 4.65
+    const after = (100_000 + a.displayMznOffset) / 4.65 + a.displayTransitZarOffset
+    assert.ok(Math.abs(before - after) < 0.02)
   })
 
   it('keeps inventory bars empty until MZN or ZAR book is funded', () => {

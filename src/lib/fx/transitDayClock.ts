@@ -131,6 +131,88 @@ export function mznToTransitZar(mznAmount: number, sellMznPerZar: number): numbe
   return Math.round((mznAmount / sellMznPerZar) * 100) / 100
 }
 
+/**
+ * Fixed drip cycle for every client — no Math.random, so two tabs stay aligned.
+ * Midpoint of the old 20–50s band.
+ */
+export const SHARED_MZN_DRIP_CYCLE_MS = 35_000
+
+export type SharedDripProgress = {
+  drippedMzn: number
+  /** Negative offset applied to the MZN card major. */
+  displayMznOffset: number
+  /** Positive ZAR added to the combined ZAR book (in-route). */
+  displayTransitZarOffset: number
+  /** 0–100 fill within the current shared cycle. */
+  mznCycleBarPercent: number
+}
+
+/**
+ * Slow MZN→in-route drip derived only from wallets + SAST wall clock.
+ * Same inputs ⇒ same outputs on every device (source of truth stays Firestore;
+ * this is a shared projection until the next real book/clear).
+ */
+export function sharedDripProgress(params: {
+  walletMzn: number
+  sellMznPerZar: number
+  nowMs: number
+  remainingPlannedMzn?: number
+  cycleDurationMs?: number
+}): SharedDripProgress {
+  const empty: SharedDripProgress = {
+    drippedMzn: 0,
+    displayMznOffset: 0,
+    displayTransitZarOffset: 0,
+    mznCycleBarPercent: 0,
+  }
+  const walletMzn = Math.max(0, Number(params.walletMzn) || 0)
+  const sell = Number(params.sellMznPerZar) || 0
+  if (!(walletMzn > 0) || !(sell > 0)) return empty
+
+  const cycleMs = Math.max(1, params.cycleDurationMs ?? SHARED_MZN_DRIP_CYCLE_MS)
+  const dayStart = lastSettleAt09hSast(params.nowMs)
+  const elapsed = Math.max(0, params.nowMs - dayStart)
+  const completedCycles = Math.floor(elapsed / cycleMs)
+  const cycleFrac = Math.min(1, (elapsed % cycleMs) / cycleMs)
+
+  let remaining = walletMzn
+  let plannedLeft = Math.max(0, Number(params.remainingPlannedMzn) || 0)
+  for (let i = 0; i < completedCycles; i++) {
+    if (!(remaining > 0)) break
+    const atMs = dayStart + (i + 1) * cycleMs
+    const drip = microDripMzn({
+      remainingPlannedMzn: plannedLeft,
+      visibleMzn: remaining,
+      nowMs: atMs,
+      cycleDurationMs: cycleMs,
+    })
+    const take = Math.min(remaining, drip)
+    remaining = Math.round((remaining - take) * 100) / 100
+    if (plannedLeft > 0) plannedLeft = Math.max(0, Math.round((plannedLeft - take) * 100) / 100)
+  }
+
+  if (remaining > 0 && cycleFrac > 0) {
+    const atMs = dayStart + (completedCycles + 1) * cycleMs
+    const fullCycleDrip = microDripMzn({
+      remainingPlannedMzn: plannedLeft,
+      visibleMzn: remaining,
+      nowMs: atMs,
+      cycleDurationMs: cycleMs,
+    })
+    const partial = Math.round(fullCycleDrip * cycleFrac * 100) / 100
+    const take = Math.min(remaining, partial)
+    remaining = Math.round((remaining - take) * 100) / 100
+  }
+
+  const drippedMzn = Math.max(0, Math.round((walletMzn - remaining) * 100) / 100)
+  return {
+    drippedMzn,
+    displayMznOffset: -drippedMzn,
+    displayTransitZarOffset: mznToTransitZar(drippedMzn, sell),
+    mznCycleBarPercent: Math.round(cycleFrac * 10_000) / 100,
+  }
+}
+
 export type TransitDayOverlay = {
   /** MZN deducted from wallet display (always ≥ 0). */
   mznDelta: number

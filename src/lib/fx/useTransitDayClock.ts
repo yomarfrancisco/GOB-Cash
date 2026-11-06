@@ -4,15 +4,19 @@ import { useEffect, useState } from 'react'
 import {
   inventoryBarsArmed,
   nextSettleAt09hSastExclusive,
+  sharedDripProgress,
   transitDayBarPercent,
 } from '@/lib/fx/transitDayClock'
 
 export type TransitDayClockView = {
   nowMs: number
-  /** Deterministic day fill 0–100 (same on every client for the same wall clock). */
   mznBarPercent: number
   transitBarPercent: number
   zarBarPercent: number
+  /** Shared projection: −dripped MZN (same on every client). */
+  displayMznOffset: number
+  /** Shared projection: +dripped ZAR into the combined book. */
+  displayTransitZarOffset: number
   transitCountdownLabel: string
 }
 
@@ -25,17 +29,15 @@ function formatCountdown(ms: number): string {
 }
 
 /**
- * Shared inventory clock — wall time + wallets only.
- * No session-local drip overlays (those made the same account show different
- * amounts on two tabs). Liquidity figures come from Firestore wallets.
+ * Shared inventory clock. Slow drip is a pure function of wallets + SAST time
+ * (no per-tab random state), so every open session shows the same amounts.
  */
 export function useTransitDayClock(params: {
   enabled: boolean
   walletMzn: number
   walletZar?: number
   walletTransitZar?: number
-  /** @deprecated kept for call-site compat; ignored */
-  sellMznPerZar?: number
+  sellMznPerZar: number
   remainingPlannedMzn?: number
 }): TransitDayClockView {
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -44,7 +46,8 @@ export function useTransitDayClock(params: {
     if (!params.enabled) return
     const tick = () => setNowMs(Date.now())
     tick()
-    const id = window.setInterval(tick, 1_000)
+    // 250ms so the shared drip projection eases within each 35s cycle.
+    const id = window.setInterval(tick, 250)
     return () => window.clearInterval(id)
   }, [params.enabled])
 
@@ -53,12 +56,28 @@ export function useTransitDayClock(params: {
     walletZar: params.walletZar,
     walletTransitZar: params.walletTransitZar,
   })
+
+  const drip = params.enabled
+    ? sharedDripProgress({
+        walletMzn: params.walletMzn,
+        sellMznPerZar: params.sellMznPerZar,
+        nowMs,
+        remainingPlannedMzn: params.remainingPlannedMzn,
+      })
+    : {
+        drippedMzn: 0,
+        displayMznOffset: 0,
+        displayTransitZarOffset: 0,
+        mznCycleBarPercent: 0,
+      }
+
   const dayFill = armed ? transitDayBarPercent(nowMs) : 0
-  // MZN card bar: day progress toward next 09:00 when MZN is funded.
   const mznBarPercent =
-    armed && Number(params.walletMzn) > 0 ? dayFill : 0
+    armed && Number(params.walletMzn) > 0 ? drip.mznCycleBarPercent : 0
   const zarBookActive =
-    Number(params.walletZar) > 0 || Number(params.walletTransitZar) > 0
+    Number(params.walletZar) > 0 ||
+    Number(params.walletTransitZar) > 0 ||
+    drip.displayTransitZarOffset > 0
   const transitBarPercent = zarBookActive ? dayFill : 0
 
   const nextNine = nextSettleAt09hSastExclusive(nowMs)
@@ -69,6 +88,8 @@ export function useTransitDayClock(params: {
     mznBarPercent,
     transitBarPercent,
     zarBarPercent: transitBarPercent,
+    displayMznOffset: drip.displayMznOffset,
+    displayTransitZarOffset: drip.displayTransitZarOffset,
     transitCountdownLabel: remainingMs > 0 ? formatCountdown(remainingMs) : '',
   }
 }

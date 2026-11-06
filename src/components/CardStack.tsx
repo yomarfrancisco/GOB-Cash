@@ -728,10 +728,12 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const BOTTOM_BUFFER_PX = 0 // Reduced from 20 to 0 to close gap to map section (80% total reduction - removed buffer entirely)
   const stackMinHeight = BASE_HEIGHT_PX + (VISIBLE_COUNT - 1) * Y_STEP_PX + BOTTOM_BUFFER_PX
 
-  // ZAR bar + amount use wallet books only — never the UI drip overlay
-  // (overlay transit R resets on refresh and is not a liquidity event).
+  // Liquid share of the combined ZAR book (wallets + shared drip projection).
   const zarLiquidMajor = Math.max(0, walletZar - zarCreditHold)
-  const zarInRouteMajor = Math.max(0, walletTransitZar - transitCreditHold)
+  const zarInRouteMajor = Math.max(
+    0,
+    walletTransitZar + transitClock.displayTransitZarOffset - transitCreditHold
+  )
   const zarBookMajor = zarLiquidMajor + zarInRouteMajor
   const zarLiquidBarPercent =
     zarBookMajor > 0.005
@@ -814,11 +816,14 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
                   : null
             }
             displayMajorOffset={
-              // Amounts = Firestore wallets only (+ brief story holds). Never session drip.
+              // Shared drip projection (deterministic) + brief story holds.
               card.type === 'mzn'
-                ? -mznCreditHold
+                ? transitClock.displayMznOffset - mznCreditHold
                 : card.type === 'savings'
-                  ? walletTransitZar - zarCreditHold - transitCreditHold
+                  ? walletTransitZar +
+                    transitClock.displayTransitZarOffset -
+                    zarCreditHold -
+                    transitCreditHold
                   : 0
             }
           />
