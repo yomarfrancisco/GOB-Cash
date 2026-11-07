@@ -47,7 +47,7 @@ import { useUserProfileStore } from '@/store/userProfile'
 import Avatar from '@/components/Avatar'
 import { useNotificationsStore } from '@/state/notifications'
 import { useRouter } from 'next/navigation'
-import { useSignedInKycAccess } from '@/lib/restrictions'
+import { useIsAdminUser, useSignedInKycAccess } from '@/lib/restrictions'
 import { useWalletStore } from '@/store/wallets'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import styles from '@/app/activity/activity.module.css'
@@ -1470,6 +1470,7 @@ export function NotificationsList({
   const liveSellMznPerZar =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : null
   const { deskBlocked, kycCta } = useSignedInKycAccess()
+  const isRoutingAdmin = useIsAdminUser()
   const [subscribedItems, setSubscribedItems] = useState<ActivityItem[]>([])
   const remoteItems = prefetchedItems ?? subscribedItems
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
@@ -1757,17 +1758,26 @@ export function NotificationsList({
     )
     const looksLikeBankDetails =
       /\d{6,}/.test(message.replace(/\s/g, '')) &&
-      /\b(fnb|capitec|absa|nedbank|standard\s*bank|account|beneficiary)\b/i.test(message)
+      /\b(fnb|capitec|absa|nedbank|standard\s*bank|account|beneficiary|swift)\b/i.test(message)
     if (awaitingPayoutDetails || looksLikeBankDetails) {
-      try {
-        const payout = await desk_submitPayoutBankDetails(message)
-        if (payout.handled) return
-      } catch (error) {
-        console.warn('[Activity] payout details intake skipped', error)
-      }
+      const payout = await desk_submitPayoutBankDetails(message)
+      if (payout.handled) return
+      // Do not fall through to admin routing for end users.
+      throw new Error(
+        payout.acknowledgement ||
+          payout.skipped ||
+          'Could not process payout details. Try again.'
+      )
     }
     if (deskBlocked || isKycGateItem(source)) {
       throw new Error('Complete KYC before continuing.')
+    }
+    // Conversion-routing desk planner stays admin-only. Everyone else can fund,
+    // convert via keypad, and complete first-payout details above.
+    if (!isRoutingAdmin) {
+      throw new Error(
+        'Send SA bank details here to complete payout, or ask for a liquidity report.'
+      )
     }
     const routing =
       allItems.find(isAwaitingRoutingItem) ||

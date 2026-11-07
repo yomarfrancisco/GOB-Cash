@@ -398,13 +398,26 @@ export async function submitPayoutBankDetails(params: {
     if (params.source === 'chat' && text) {
       await attachUserReplyToPayoutRequest({ userId: params.userId, rawMessage: text })
     }
-    const paid = await confirmFirstPayout({ userId: params.userId, proofNote })
-    if (!paid.ok) {
-      return { handled: false, skipped: paid.skipped || 'confirm_failed' }
-    }
-    return {
-      handled: true,
-      acknowledgement: `Full payout confirmed · ${fmtZar(paid.amountZar)} sent.`,
+    try {
+      const paid = await confirmFirstPayout({ userId: params.userId, proofNote })
+      if (!paid.ok) {
+        return {
+          handled: true,
+          acknowledgement: `Payout still pending (${paid.skipped || 'retry'}). Send your bank details again.`,
+          skipped: paid.skipped || 'confirm_failed',
+        }
+      }
+      return {
+        handled: true,
+        acknowledgement: `Full payout confirmed · ${fmtZar(paid.amountZar)} sent.`,
+      }
+    } catch (error) {
+      console.error('[submitPayoutBankDetails] confirm retry failed', error)
+      return {
+        handled: true,
+        acknowledgement: 'Payout still pending — try sending your bank details once more.',
+        skipped: 'confirm_threw',
+      }
     }
   }
 
@@ -460,17 +473,26 @@ export async function submitPayoutBankDetails(params: {
     groupId,
   })
 
-  const paid = await confirmFirstPayout({ userId: params.userId, proofNote })
-  if (!paid.ok) {
+  try {
+    const paid = await confirmFirstPayout({ userId: params.userId, proofNote })
+    if (!paid.ok) {
+      return {
+        handled: true,
+        acknowledgement: `SA account details received for ${fmtZar(zarAmount)}. Payout pending — ${paid.skipped || 'retry'}.`,
+        skipped: paid.skipped,
+      }
+    }
     return {
       handled: true,
-      acknowledgement: `SA account details received for ${fmtZar(zarAmount)}. Payout pending — ${paid.skipped || 'retry'}.`,
+      acknowledgement: `SA account details received. Full payout confirmed · ${fmtZar(paid.amountZar)} sent.`,
     }
-  }
-
-  return {
-    handled: true,
-    acknowledgement: `SA account details received. Full payout confirmed · ${fmtZar(paid.amountZar)} sent.`,
+  } catch (error) {
+    console.error('[submitPayoutBankDetails] confirm after details failed', error)
+    return {
+      handled: true,
+      acknowledgement: `SA account details received for ${fmtZar(zarAmount)}. Payout pending — send again to retry.`,
+      skipped: 'confirm_threw',
+    }
   }
 }
 
@@ -489,11 +511,15 @@ export async function confirmFirstPayout(params: {
     const zarSnap = await t.get(zarRef)
     if (!zarSnap.exists) return { ok: false, amountZar: 0, skipped: 'no_wallet' as const }
     const zarData = zarSnap.data() || {}
-    if (zarData[FIRST_PAYOUT_HOLD_FIELD] !== true) {
-      return { ok: false, amountZar: 0, skipped: 'no_hold' as const }
+    const status = String(zarData[FIRST_PAYOUT_STATUS_FIELD] || '')
+    if (status === 'done') {
+      return { ok: false, amountZar: 0, skipped: 'already_paid' as const }
     }
-    if (String(zarData[FIRST_PAYOUT_STATUS_FIELD] || '') !== 'awaiting_payout') {
-      return { ok: false, amountZar: 0, skipped: 'awaiting_details' as const }
+    const hold = zarData[FIRST_PAYOUT_HOLD_FIELD] === true
+    const hasDetails = Boolean(zarData[FIRST_PAYOUT_DETAILS_FIELD])
+    // Allow payout whenever funds are on a first-payout hold (or details already filed).
+    if (!hold && !hasDetails && status !== 'awaiting_payout') {
+      return { ok: false, amountZar: 0, skipped: 'no_hold' as const }
     }
     const amount = roundMajor(Number(zarData.fiatBalance || 0))
     if (!(amount > 0.005)) {
@@ -657,12 +683,17 @@ export const ops_confirmFirstPayout = functions
       throw new functions.https.HttpsError('unauthenticated', 'Login required')
     }
     const actor = context.auth.uid
-    if (actor !== CORE_AGENT_UID && actor !== ROUTING_ADMIN_UID) {
+    const userId =
+      typeof data?.userId === 'string' && data.userId.trim()
+        ? data.userId.trim()
+        : actor
+    // Ops can confirm any user; every account can confirm its own first payout.
+    if (
+      userId !== actor &&
+      actor !== CORE_AGENT_UID &&
+      actor !== ROUTING_ADMIN_UID
+    ) {
       throw new functions.https.HttpsError('permission-denied', 'Ops only')
-    }
-    const userId = typeof data?.userId === 'string' ? data.userId.trim() : ''
-    if (!userId) {
-      throw new functions.https.HttpsError('invalid-argument', 'userId is required')
     }
     const proofNote = typeof data?.proofNote === 'string' ? data.proofNote.trim() : undefined
     return confirmFirstPayout({ userId, proofNote, actorUid: actor })
