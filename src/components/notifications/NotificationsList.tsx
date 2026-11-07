@@ -1078,12 +1078,11 @@ function ActivityItemCard({
               </button>
             )}
             {showFundIntroActions && (
-              <div className={styles.fundIntroActions}>
+              <>
                 <button
                   type="button"
                   className={[
                     styles.confirmButton,
-                    styles.fundIntroPrimary,
                     fundWatchState === 'loading' ? styles.confirmButtonLoading : '',
                   ]
                     .filter(Boolean)
@@ -1113,11 +1112,7 @@ function ActivityItemCard({
                 </button>
                 <button
                   type="button"
-                  className={[
-                    styles.replyButton,
-                    styles.fundIntroSecondary,
-                    planBusy ? styles.confirmButtonLoading : '',
-                  ]
+                  className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
                     .filter(Boolean)
                     .join(' ')}
                   aria-label={fundIntroSecondaryLabel(fundLocale)}
@@ -1130,7 +1125,7 @@ function ActivityItemCard({
                 >
                   {fundIntroSecondaryLabel(fundLocale)}
                 </button>
-              </div>
+              </>
             )}
             {showDownload && (
               <button

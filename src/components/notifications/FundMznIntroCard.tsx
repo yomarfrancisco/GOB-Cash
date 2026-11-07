@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
 import {
@@ -131,13 +131,23 @@ function LedgerRow({
 
 export function FundMznIntroCard({
   item,
-  locale,
+  locale: localeProp = 'en',
   onLocaleChange,
 }: {
   item: ActivityItem
-  locale: FundIntroLocale
-  onLocaleChange: (locale: FundIntroLocale) => void
+  locale?: FundIntroLocale
+  onLocaleChange?: (locale: FundIntroLocale) => void
 }) {
+  const [locale, setLocale] = useState<FundIntroLocale>(localeProp)
+  useEffect(() => {
+    setLocale(localeProp)
+  }, [localeProp])
+
+  const switchLocale = (next: FundIntroLocale) => {
+    setLocale(next)
+    onLocaleChange?.(next)
+  }
+
   const copy = COPY[locale]
   const account =
     item.fundAccountNumber ||
@@ -164,9 +174,15 @@ export function FundMznIntroCard({
           type="button"
           className={[styles.langBtn, locale === 'en' ? styles.langBtnActive : ''].filter(Boolean).join(' ')}
           aria-pressed={locale === 'en'}
-          onClick={(event) => {
+          onPointerDown={(event) => {
+            event.preventDefault()
             event.stopPropagation()
-            onLocaleChange('en')
+            switchLocale('en')
+          }}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            switchLocale('en')
           }}
         >
           EN
@@ -175,9 +191,15 @@ export function FundMznIntroCard({
           type="button"
           className={[styles.langBtn, locale === 'pt' ? styles.langBtnActive : ''].filter(Boolean).join(' ')}
           aria-pressed={locale === 'pt'}
-          onClick={(event) => {
+          onPointerDown={(event) => {
+            event.preventDefault()
             event.stopPropagation()
-            onLocaleChange('pt')
+            switchLocale('pt')
+          }}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            switchLocale('pt')
           }}
         >
           PT
@@ -227,18 +249,14 @@ export function FundMznIntroCard({
         <h3 className={styles.watchTitle}>{copy.watchTitle}</h3>
         <div className={styles.miniCard} aria-hidden>
           <div className={styles.miniCardTop}>ZAR</div>
-          <div>
-            <div className={styles.miniCardAmt}>R27,371</div>
-            <div className={styles.miniCardApprox}>≈ 122,359 MZN</div>
-          </div>
-          <div className={styles.miniCardFooter}>
-            <span className={styles.ratePill}>4.47 MZN/ZAR</span>
-            <span className={styles.liqRing}>
-              <span className={styles.liqTrack}>
-                <span className={styles.liqFill} />
-              </span>
+          <div className={styles.miniCardAmt}>R27,371</div>
+          <div className={styles.miniCardApprox}>≈ 122,359 MZN</div>
+          <span className={styles.ratePill}>4.47 MZN/ZAR</span>
+          <span className={styles.liqRing} title="Liquidity bar">
+            <span className={styles.liqTrack}>
+              <span className={styles.liqFill} />
             </span>
-          </div>
+          </span>
         </div>
         <p className={styles.explain}>
           <span className={styles.explainIcon} aria-hidden>
