@@ -14,19 +14,24 @@ export type FundIntroLocale = 'en' | 'pt'
 
 const COPY = {
   en: {
-    bodyBefore: 'Send meticais to this account. We start converting the moment it lands. Liquid ZAR is ready to withdraw from ',
-    bodyBold: '09:00 every day',
-    bodyAfter: '.',
+    body: (
+      <>
+        Send meticais to this account. Up to <strong>R100,000</strong> is liquid instantly, ready to
+        pay. Anything above is liquid at <strong>09:00</strong> the next day.
+      </>
+    ),
     recipient: 'Recipient',
     bank: 'Bank',
     account: 'Account',
     reference: 'Reference',
     refNote: 'Add this reference so we can match your transfer.',
     watchTitle: 'Watch it become liquid',
-    explainBefore: 'The ',
-    explainGreen: 'green bar',
-    explainMid: ' on your ZAR card shows how much of your funding is liquid. It fills as we convert. ',
-    explainFull: 'Full bar: everything is liquid.',
+    explain: (
+      <>
+        The <strong>green bar</strong> on your ZAR card shows how much is liquid. Up to{' '}
+        <strong>R100,000</strong> fills it instantly; the rest fills at <strong>09:00</strong>.
+      </>
+    ),
     justFunded: 'Just funded',
     converting: 'Converting',
     allLiquid: 'All liquid',
@@ -36,20 +41,25 @@ const COPY = {
     copyReference: 'Copy reference',
   },
   pt: {
-    bodyBefore:
-      'Transfira meticais para esta conta. Começamos a converter assim que o valor entra. Os ZAR líquidos ficam disponíveis para levantamento a partir das ',
-    bodyBold: '09:00, todos os dias',
-    bodyAfter: '.',
+    body: (
+      <>
+        Transfira meticais para esta conta. Até <strong>R100.000</strong> ficam líquidos de
+        imediato, prontos a pagar. O restante fica líquido às <strong>09:00</strong> do dia
+        seguinte.
+      </>
+    ),
     recipient: 'Beneficiário',
     bank: 'Banco',
     account: 'Conta',
     reference: 'Referência',
     refNote: 'Inclua esta referência para conseguirmos identificar a transferência.',
     watchTitle: 'Veja ficar líquido',
-    explainBefore: 'A ',
-    explainGreen: 'barra verde',
-    explainMid: ' no seu cartão ZAR mostra quanto do financiamento já está líquido. Enche à medida que convertemos. ',
-    explainFull: 'Barra cheia: tudo líquido.',
+    explain: (
+      <>
+        A <strong>barra verde</strong> no seu cartão ZAR mostra quanto está líquido. Até{' '}
+        <strong>R100.000</strong> enche-a de imediato; o restante às <strong>09:00</strong>.
+      </>
+    ),
     justFunded: 'Acabou de financiar',
     converting: 'A converter',
     allLiquid: 'Tudo líquido',
@@ -58,7 +68,7 @@ const COPY = {
     copyAccount: 'Copiar número da conta',
     copyReference: 'Copiar referência',
   },
-} as const
+}
 
 async function copyText(value: string): Promise<boolean> {
   try {
@@ -206,11 +216,7 @@ export function FundMznIntroCard({
         </button>
       </div>
 
-      <p className={styles.body}>
-        {copy.bodyBefore}
-        <strong>{copy.bodyBold}</strong>
-        {copy.bodyAfter}
-      </p>
+      <p className={styles.body}>{copy.body}</p>
 
       <div className={styles.ledger}>
         <LedgerRow label={copy.recipient} value={recipient} strong />
@@ -262,12 +268,7 @@ export function FundMznIntroCard({
           <span className={styles.explainIcon} aria-hidden>
             <span className={styles.explainIconBar} />
           </span>
-          <span>
-            {copy.explainBefore}
-            <strong>{copy.explainGreen}</strong>
-            {copy.explainMid}
-            <strong>{copy.explainFull}</strong>
-          </span>
+          <span>{copy.explain}</span>
         </p>
         <div className={styles.legend}>
           <div className={styles.legendItem}>

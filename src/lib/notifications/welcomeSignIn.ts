@@ -17,7 +17,10 @@ export const FUND_MZN_BANK = 'Moza Banco'
 
 /** Short dropdown copy — keep ≤2 lines in the top toast. */
 export const WELCOME_PAGA_DROPDOWN_BODY =
-  'Send MZN to Moza Banco. Liquid ZAR from 09:00 daily.'
+  'Send MZN to Moza. Up to R100,000 liquid instantly.'
+
+export const FUND_MZN_DESK_SENTENCE =
+  'Send meticais to this account. Up to R100,000 is liquid instantly, ready to pay. Anything above is liquid at 09:00 the next day.'
 
 export const FUND_MZN_NOTE =
   'Most funds are liquid by 09:00 the next day. Some routes take up to 2 banking days.'
@@ -98,8 +101,7 @@ export function buildWelcomePagaDeskPayload(params: {
   void params.userEmail
   return {
     title: 'Fund your MZN account',
-    deskSentence:
-      'Send meticais to this account. We start converting the moment it lands. Liquid ZAR is ready to withdraw from 09:00 every day.',
+    deskSentence: FUND_MZN_DESK_SENTENCE,
     deskLedgerRows: [
       {
         label: 'Recipient',

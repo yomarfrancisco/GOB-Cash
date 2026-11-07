@@ -47,6 +47,7 @@ import Avatar from '@/components/Avatar'
 import { useNotificationsStore } from '@/state/notifications'
 import { useRouter } from 'next/navigation'
 import { useSignedInKycAccess } from '@/lib/restrictions'
+import { useWalletStore } from '@/store/wallets'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
@@ -582,6 +583,12 @@ function ActivityItemCard({
   const showFundMznKeypad = !lockDeskActions && actionsUnlocked && isMznShortStepCard(item)
   const isFundIntro = item.routingAction === 'fund_intro'
   const showFundIntroActions = actionsUnlocked && isFundIntro
+  const wallets = useWalletStore((s) => s.wallets)
+  const accountIsFunded =
+    Number(wallets?.cashMZN?.fiatBalance || 0) > 0.005 ||
+    Number(wallets?.cashZAR?.fiatBalance || 0) > 0.005 ||
+    Number(wallets?.earnings?.fiatBalance || 0) > 0.005
+  const showFundIntroLiquidity = showFundIntroActions && accountIsFunded
   const fundWatching = fundWatchState === 'watching' || Boolean(item.userReply)
   const showProposalActions =
     !lockDeskActions &&
@@ -1110,21 +1117,23 @@ function ActivityItemCard({
                 >
                   {fundIntroPrimaryLabel(fundLocale, fundWatching)}
                 </button>
-                <button
-                  type="button"
-                  className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                    .filter(Boolean)
-                    .join(' ')}
-                  aria-label={fundIntroSecondaryLabel(fundLocale)}
-                  aria-busy={planBusy === true}
-                  disabled={planBusy === true}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onStatus?.()
-                  }}
-                >
-                  {fundIntroSecondaryLabel(fundLocale)}
-                </button>
+                {showFundIntroLiquidity ? (
+                  <button
+                    type="button"
+                    className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-label={fundIntroSecondaryLabel(fundLocale)}
+                    aria-busy={planBusy === true}
+                    disabled={planBusy === true}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onStatus?.()
+                    }}
+                  >
+                    {fundIntroSecondaryLabel(fundLocale)}
+                  </button>
+                ) : null}
               </>
             )}
             {showDownload && (

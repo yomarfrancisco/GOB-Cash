@@ -59,7 +59,7 @@ async function main() {
 
   const ref = paymentReference()
   const deskSentence =
-    'Send meticais to this account. We start converting the moment it lands. Liquid ZAR is ready to withdraw from 09:00 every day.'
+    'Send meticais to this account. Up to R100,000 is liquid instantly, ready to pay. Anything above is liquid at 09:00 the next day.'
   const deskLedgerRows = [
     { label: 'Recipient', value: RECIPIENT, valueStrong: true },
     { label: 'Bank', value: BANK },
@@ -77,7 +77,7 @@ async function main() {
     title: 'Fund your MZN account',
     body: deskSentence,
     dropdownTitle: 'Fund your MZN account',
-    dropdownBody: 'Send MZN to Moza Banco. Liquid ZAR from 09:00 daily.',
+    dropdownBody: 'Send MZN to Moza. Up to R100,000 liquid instantly.',
     deskSentence,
     deskLedgerRows,
     deskNote,
