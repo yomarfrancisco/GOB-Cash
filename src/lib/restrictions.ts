@@ -157,7 +157,10 @@ export function useSignedInKycAccess() {
     ...access,
     kycStatus,
     kycSessionStatus,
-    deskBlocked: Boolean(isAuthed && uid && !access.canDeposit),
+    // Desk ask dock + conversion keypads stay open without KYC so Day-1
+    // fund / payout-details flows can run. Profile deposit/withdraw still
+    // use canDeposit / canWithdraw.
+    deskBlocked: false,
     kycStarted: hasStartedKyc(kycStatus, kycSessionStatus),
     kycCta: kycDeskCtaLabel(kycStatus, kycSessionStatus),
   }
