@@ -579,6 +579,8 @@ export async function confirmFirstPayout(params: {
       updatedAt: now,
     })
 
+    // Single desk + dropdown notice from SA Bank Liaison (leo). Do not also write
+    // BANK_TRANSFER_CONFIRMED — that path still uses the retired Ama avatar.
     const deskRef = db()
       .collection('users')
       .doc(params.userId)
@@ -611,27 +613,7 @@ export async function confirmFirstPayout(params: {
       routingBlocked: false,
       status: 'recorded',
       routingAction: 'payout_confirmed',
-      deskSpeaker: 'sam',
-      createdAt: now,
-      recordingSource: 'SYSTEM',
-    })
-
-    const dropRef = db()
-      .collection('users')
-      .doc(params.userId)
-      .collection('activityEvents')
-      .doc(`bank-transfer-${paidId}`.slice(0, 180))
-    t.set(dropRef, {
-      id: dropRef.id,
-      kind: 'BANK_TRANSFER_CONFIRMED',
-      title: `${zarLabel} paid out`,
-      body: `${zarLabel} sent to ${holder} · ${bankName} ${masked}`,
-      actorType: 'ai_manager',
-      avatarKind: 'zar_withdrawn',
-      amountCurrency: 'ZAR',
-      amountValue: amount,
-      amountSign: 'debit',
-      txId: paidId,
+      deskSpeaker: 'leo',
       createdAt: now,
       recordingSource: 'SYSTEM',
     })
