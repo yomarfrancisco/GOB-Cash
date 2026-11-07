@@ -63,6 +63,10 @@ export type InstantReservePayoutParams = {
   groupId: string
   namedClient?: { handle: string; userId: string } | null
   suppressDeskActivity?: boolean
+  /** Skip daily liquid accrual (first-payout hold branch). */
+  skipLiquidAccrue?: boolean
+  /** Mark cashZAR as held until SA details + PoP. */
+  setFirstPayoutHold?: boolean
 }
 
 export type InstantReservePayoutResult = {
@@ -122,6 +126,14 @@ export async function payInstantFromReserve(
     })
 
     const destNext = (Math.round(Number(destData.fiatBalance || 0) * 100) + destMinor) / 100
+    const holdPatch =
+      params.setFirstPayoutHold && params.destCurrency === 'ZAR'
+        ? {
+            firstPayoutHold: true,
+            firstPayoutStatus: 'awaiting_details',
+            firstPayoutHoldZar: destNext,
+          }
+        : {}
     if (!destSnap.exists) {
       t.set(destRef, {
         walletId: destWalletId,
@@ -130,9 +142,10 @@ export async function payInstantFromReserve(
         fiatBalance: destNext,
         usdtBalance: 0,
         updatedAt: now,
+        ...holdPatch,
       })
     } else {
-      t.update(destRef, { fiatBalance: destNext, updatedAt: now })
+      t.update(destRef, { fiatBalance: destNext, updatedAt: now, ...holdPatch })
     }
 
     t.set(txRef, {
@@ -170,8 +183,9 @@ export async function payInstantFromReserve(
     })
   })
 
-  // Instant ZAR from reserve is liquid now — counts toward the daily bank payout.
-  if (params.destCurrency === 'ZAR' && destMajor > 0) {
+  // Instant ZAR from reserve is liquid now — counts toward the daily bank payout,
+  // unless this is a first-payout hold (awaiting SA details + PoP).
+  if (params.destCurrency === 'ZAR' && destMajor > 0 && !params.skipLiquidAccrue) {
     try {
       const { accrueLiquidZar } = await import('./liquidZarCycle')
       await accrueLiquidZar({ userId: params.userId, amountMajor: destMajor })

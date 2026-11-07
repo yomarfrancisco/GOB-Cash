@@ -199,6 +199,7 @@ export const inbound_archiveBankMail = functions
       await recordFnbMzTransfer(ingress.resendEmailId, bucket)
       await recordFnbNotice(ingress.resendEmailId, bucket)
       await recordMznProof(ingress.resendEmailId, bucket)
+      await recordZarPayoutDetailsMail(ingress.resendEmailId, bucket)
       // Settlement PDFs are account-locked — run before receipt so a locked PDF
       // cannot abort the archive before payout reconcile.
       await recordCapitecSettlement(ingress.resendEmailId, bucket, capitecPasswords)
@@ -856,6 +857,55 @@ async function recordRealisedRateNote(
     safeLog.info('realised_rate_note_recorded', { emailId, reason: 'failed' })
     console.warn('realised_rate_note_failed', err)
   }
+}
+
+/** Subject `ZAR Payout {USERNAME}` → SA bank details for first-payout hold. */
+async function recordZarPayoutDetailsMail(
+  emailId: string,
+  bucket: { file(path: string): { download(): Promise<[Buffer]> } }
+): Promise<void> {
+  const evidenceRef = db().collection(EVIDENCE_COLLECTION).doc(emailId)
+  const snap = await evidenceRef.get()
+  if (!snap.exists) return
+  const evidence = snap.data() as EvidenceRecord
+  const { parseZarPayoutSubject, ingestZarPayoutEmail } = await import('../treasury/firstPayoutFlow')
+  if (!parseZarPayoutSubject(evidence.subject || '')) return
+
+  let bodyText = ''
+  try {
+    const rawPath = evidence.raw?.storagePath
+    if (rawPath) {
+      const [bytes] = await bucket.file(rawPath).download()
+      bodyText = extractMimeText(bytes).slice(0, 8000)
+    }
+  } catch {
+    safeLog.info('zar_payout_details', {
+      emailId,
+      reason: 'body_read_failed',
+    })
+  }
+  if (!bodyText.trim()) bodyText = evidence.subject || ''
+
+  const result = await ingestZarPayoutEmail({
+    subject: evidence.subject || '',
+    bodyText,
+    emailId,
+  })
+  await evidenceRef.set(
+    {
+      parseStatus: result.handled ? 'parsed' : evidence.parseStatus,
+      zarPayoutDetails: {
+        handled: result.handled,
+        userId: result.userId || null,
+        skipped: result.skipped || null,
+      },
+    },
+    { merge: true }
+  )
+  safeLog.info('zar_payout_details', {
+    emailId,
+    reason: result.handled ? 'applied' : result.skipped || 'skipped',
+  })
 }
 
 async function recordMznProof(

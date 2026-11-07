@@ -1153,3 +1153,24 @@ export async function admin_submitConversionRoutingFeedback(params: {
   return result.data as ConversionRoutingFeedbackResult
 }
 
+export async function desk_submitPayoutBankDetails(message: string): Promise<{
+  handled: boolean
+  acknowledgement?: string
+  skipped?: string
+}> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'desk_submitPayoutBankDetails')
+  const result = await fn({ message })
+  return result.data as { handled: boolean; acknowledgement?: string; skipped?: string }
+}
+
+export async function ops_confirmFirstPayout(params: {
+  userId: string
+  proofNote?: string
+}): Promise<{ ok: boolean; amountZar: number; skipped?: string }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'ops_confirmFirstPayout')
+  const result = await fn(params)
+  return result.data as { ok: boolean; amountZar: number; skipped?: string }
+}
+

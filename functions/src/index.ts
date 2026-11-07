@@ -52,6 +52,11 @@ export { tx_settleEnRouteSweep } from './tx/enRouteSettle'
 export { tx_dailyLiquidZarPayout } from './treasury/liquidZarCycle'
 export { admin_publishLiquidityStatus, admin_getLiquidityStrip } from './treasury/liquidityStatus'
 export { onTreasuryReserveWrite } from './treasury/onTreasuryReserveWrite'
+export { onCashMznWalletWrite } from './treasury/onCashMznWrite'
+export {
+  desk_submitPayoutBankDetails,
+  ops_confirmFirstPayout,
+} from './treasury/firstPayoutFlow'
 export {
   autonomousSettlementEvery5Minutes,
   autonomousSettlementWatchdog,

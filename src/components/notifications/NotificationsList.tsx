@@ -13,6 +13,7 @@ import {
   admin_submitConversionRoutingFeedback,
   admin_publishLiquidityStatus,
   admin_exitDeskPlan,
+  desk_submitPayoutBankDetails,
 } from '@/lib/transactions/clientFunctions'
 import { isConversionInFlight } from '@/lib/transactions/submitInternalConversion'
 import {
@@ -1747,6 +1748,21 @@ export function NotificationsList({
         el?.scrollIntoView({ behavior: 'smooth', block: 'end' })
       })
       return
+    }
+    // First-payout hold: SA bank details via chat (any user).
+    const awaitingPayoutDetails = allItems.some(
+      (item) => item.routingAction === 'payout_details_request'
+    )
+    const looksLikeBankDetails =
+      /\d{6,}/.test(message.replace(/\s/g, '')) &&
+      /\b(fnb|capitec|absa|nedbank|standard\s*bank|account|beneficiary)\b/i.test(message)
+    if (awaitingPayoutDetails || looksLikeBankDetails) {
+      try {
+        const payout = await desk_submitPayoutBankDetails(message)
+        if (payout.handled) return
+      } catch (error) {
+        console.warn('[Activity] payout details intake skipped', error)
+      }
     }
     if (deskBlocked || isKycGateItem(source)) {
       throw new Error('Complete KYC before continuing.')

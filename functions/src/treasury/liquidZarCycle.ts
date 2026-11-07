@@ -63,6 +63,7 @@ export async function accrueLiquidZar(params: {
   await db().runTransaction(async (t) => {
     const snap = await t.get(zarRef)
     const data = snap.exists ? snap.data() || {} : {}
+    if (data.firstPayoutHold === true) return
     // Never drop unpaid accrual on a cycle-key rollover — payout is what zeros it.
     const prevAccrued = roundMajor(Number(data[LIQUID_CYCLE_ACCRUED_FIELD] || 0))
     const next = roundMajor(prevAccrued + amount)
@@ -147,6 +148,9 @@ export async function payoutLiquidZarForUser(params: {
       return { userId, amountZar: 0, cycleKey, txId: null, skipped: 'no_wallet' }
     }
     const zarData = zarSnap.data() || {}
+    if (zarData.firstPayoutHold === true) {
+      return { userId, amountZar: 0, cycleKey, txId: null, skipped: 'first_payout_hold' }
+    }
     const balance = roundMajor(Number(zarData.fiatBalance || 0))
     const accrued = roundMajor(Number(zarData[LIQUID_CYCLE_ACCRUED_FIELD] || 0))
     // Drain the liquid wallet itself — not only the post-feature accrual counter.
