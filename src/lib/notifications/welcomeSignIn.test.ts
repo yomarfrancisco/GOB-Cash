@@ -6,7 +6,6 @@ import {
   FUND_MZN_NOTE,
   FUND_MZN_NOTE_PT,
   FUND_MZN_RECIPIENT,
-  FUND_MZN_STEPS,
   WELCOME_PAGA_DROPDOWN_BODY,
   buildWelcomePagaDeskPayload,
   buildWolfMozaPaymentReference,
@@ -26,7 +25,7 @@ describe('welcomeSignIn', () => {
     })
     assert.equal(payload.title, 'Fund your MZN account')
     assert.match(payload.deskSentence, /Send meticais/)
-    assert.match(payload.deskSentence, /liquid ZAR/)
+    assert.match(payload.deskSentence, /09:00 every day/)
     assert.doesNotMatch(payload.deskSentence, /dollar|USD|24 hours/i)
     assert.equal(payload.dropdownBody, WELCOME_PAGA_DROPDOWN_BODY)
     assert.ok(payload.dropdownBody.length < 90)
@@ -37,7 +36,6 @@ describe('welcomeSignIn', () => {
     assert.equal(payload.deskLedgerRows[2]?.copyable, true)
     assert.equal(payload.deskLedgerRows[3]?.value, 'WOLFMOZA20261101123')
     assert.equal(payload.deskLedgerRows[3]?.copyable, true)
-    assert.deepEqual(payload.deskSteps, [...FUND_MZN_STEPS])
     assert.equal(payload.deskNote, FUND_MZN_NOTE)
     assert.equal(payload.deskNoteAlt, FUND_MZN_NOTE_PT)
     assert.equal(payload.fundAccountNumber, FUND_MZN_ACCOUNT_NUMBER)

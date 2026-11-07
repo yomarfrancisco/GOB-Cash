@@ -53,6 +53,14 @@ import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
 import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCard'
 import { LiquidityReportCard } from '@/components/notifications/LiquidityReportCard'
+import {
+  fundIntroPrimaryLabel,
+  fundIntroSecondaryLabel,
+  fundIntroTitle,
+  type FundIntroLocale,
+} from '@/components/notifications/FundMznIntroCard'
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
 import { TypewriterText } from '@/components/desk/TypewriterText'
 import { highlightDeskText } from '@/lib/desk/highlightDeskText'
@@ -545,7 +553,10 @@ function ActivityItemCard({
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'pressed'>('idle')
   const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
   const [startNextState, setStartNextState] = useState<'idle' | 'loading'>('idle')
-  const [fundCopyState, setFundCopyState] = useState<'idle' | 'copied'>('idle')
+  const [fundLocale, setFundLocale] = useState<FundIntroLocale>('en')
+  const [fundWatchState, setFundWatchState] = useState<'idle' | 'loading' | 'watching'>(
+    item.userReply ? 'watching' : 'idle'
+  )
   const actionsUnlocked = entranceSettled !== false
   const showDownload = actionsUnlocked && canDownloadProof(item)
   const showStartNextRun = actionsUnlocked && !lockDeskActions && item.startNextRun === true
@@ -571,10 +582,7 @@ function ActivityItemCard({
   const showFundMznKeypad = !lockDeskActions && actionsUnlocked && isMznShortStepCard(item)
   const isFundIntro = item.routingAction === 'fund_intro'
   const showFundIntroActions = actionsUnlocked && isFundIntro
-  const fundAccountNumber =
-    item.fundAccountNumber ||
-    (item.deskLedgerRows || []).find((row) => /^account$/i.test(row.label))?.value ||
-    ''
+  const fundWatching = fundWatchState === 'watching' || Boolean(item.userReply)
   const showProposalActions =
     !lockDeskActions &&
     actionsUnlocked &&
@@ -583,7 +591,7 @@ function ActivityItemCard({
     Boolean(item.proposalId)
   const askCard = isAskCard(item)
   const typing = animateEntrance === true
-  const title = displayDeskTitle(item.title)
+  const title = isFundIntro ? fundIntroTitle(fundLocale) : displayDeskTitle(item.title)
   const bankTile = bankTileForItem({ title: title || item.title, routingAction: item.routingAction })
   // Bank · notices keep bank tiles — not Routing Manager / liaison portraits.
   // Buy Steps 3–4 are EN_ROUTE_* with deskStep; still use desk team faces.
@@ -839,7 +847,7 @@ function ActivityItemCard({
   }
 
   const isLiquidityReport = Boolean(item.liquidityReport)
-  const displaySentence = isLiquidityReport
+  const displaySentence = isLiquidityReport || isFundIntro
     ? ''
     : sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
@@ -1000,9 +1008,15 @@ function ActivityItemCard({
               </div>
             ) : null}
             {!isLiquidityReport &&
-              (item.routingStepMessage || item.deskLedgerRows
+              (item.routingStepMessage || item.deskLedgerRows || isFundIntro
                 ? titleDone
-                  ? <DeskCardVisuals item={item} />
+                  ? (
+                      <DeskCardVisuals
+                        item={item}
+                        fundLocale={fundLocale}
+                        onFundLocaleChange={setFundLocale}
+                      />
+                    )
                   : null
                 : actionsUnlocked
                   ? <DeskCardVisuals item={item} />
@@ -1064,32 +1078,49 @@ function ActivityItemCard({
               </button>
             )}
             {showFundIntroActions && (
-              <>
+              <div className={styles.fundIntroActions}>
                 <button
                   type="button"
-                  className={styles.confirmButton}
-                  aria-label="Copy Moza account number"
-                  disabled={!fundAccountNumber}
+                  className={[
+                    styles.confirmButton,
+                    styles.fundIntroPrimary,
+                    fundWatchState === 'loading' ? styles.confirmButtonLoading : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-label={fundIntroPrimaryLabel(fundLocale, fundWatching)}
+                  disabled={fundWatching || fundWatchState === 'loading'}
                   onClick={(event) => {
                     event.stopPropagation()
-                    if (!fundAccountNumber) return
-                    void navigator.clipboard.writeText(fundAccountNumber).then(
-                      () => {
-                        setFundCopyState('copied')
-                        window.setTimeout(() => setFundCopyState('idle'), 1500)
-                      },
-                      () => undefined
-                    )
+                    if (fundWatching || fundWatchState === 'loading') return
+                    const uid = getFirebaseAuth().currentUser?.uid
+                    if (!uid) return
+                    const reply = fundIntroPrimaryLabel(fundLocale, false)
+                    setFundWatchState('loading')
+                    void updateDoc(doc(getFirestoreDb(), 'users', uid, 'activityEvents', item.id), {
+                      userReply: reply,
+                      userRepliedAt: serverTimestamp(),
+                      deskPendingChip: fundLocale === 'pt' ? 'A acompanhar' : 'Watching',
+                    })
+                      .then(() => setFundWatchState('watching'))
+                      .catch((error) => {
+                        console.error('[Activity] Fund transfer watch failed:', error)
+                        setFundWatchState('idle')
+                      })
                   }}
                 >
-                  {fundCopyState === 'copied' ? 'Copied' : 'Copy account number'}
+                  {fundIntroPrimaryLabel(fundLocale, fundWatching)}
                 </button>
                 <button
                   type="button"
-                  className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  className={[
+                    styles.replyButton,
+                    styles.fundIntroSecondary,
+                    planBusy ? styles.confirmButtonLoading : '',
+                  ]
                     .filter(Boolean)
                     .join(' ')}
-                  aria-label="Show liquidity report"
+                  aria-label={fundIntroSecondaryLabel(fundLocale)}
                   aria-busy={planBusy === true}
                   disabled={planBusy === true}
                   onClick={(event) => {
@@ -1097,9 +1128,9 @@ function ActivityItemCard({
                     onStatus?.()
                   }}
                 >
-                  Liquidity report
+                  {fundIntroSecondaryLabel(fundLocale)}
                 </button>
-              </>
+              </div>
             )}
             {showDownload && (
               <button

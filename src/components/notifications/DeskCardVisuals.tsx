@@ -2,6 +2,7 @@ import type { ActivityItem } from '@/store/activity'
 import styles from '@/app/activity/activity.module.css'
 import { RoutingStepCard } from './RoutingStepCard'
 import { DeskFundExtras, DeskStepBlock } from './DeskStepBlock'
+import { FundMznIntroCard, type FundIntroLocale } from './FundMznIntroCard'
 import { BankEmailRoundBlock, BankExpectedRepliesBlock } from './BankEmailRoundBlock'
 
 const SERIES_COLOR = ['#111111', '#8aa31a', '#8a8a8a']
@@ -100,9 +101,26 @@ function DeskChart({ chart }: { chart: NonNullable<ActivityItem['deskChart']> })
   )
 }
 
-export function DeskCardVisuals({ item }: { item: ActivityItem }) {
+export function DeskCardVisuals({
+  item,
+  fundLocale = 'en',
+  onFundLocaleChange,
+}: {
+  item: ActivityItem
+  fundLocale?: FundIntroLocale
+  onFundLocaleChange?: (locale: FundIntroLocale) => void
+}) {
   if (item.routingStepMessage) {
     return <RoutingStepCard message={item.routingStepMessage} />
+  }
+  if (item.routingAction === 'fund_intro') {
+    return (
+      <FundMznIntroCard
+        item={item}
+        locale={fundLocale}
+        onLocaleChange={onFundLocaleChange || (() => undefined)}
+      />
+    )
   }
   if (
     item.deskLedgerRows?.length ||

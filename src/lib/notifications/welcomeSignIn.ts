@@ -9,7 +9,7 @@ import type { ActivityItem } from '@/store/activity'
 import { useNotificationStore } from '@/store/notifications'
 
 /** Bumped when the Day-1 fund card copy/layout changes. */
-export const WELCOME_PAGA_EVENT_ID = 'welcome-fund-mzn-v1'
+export const WELCOME_PAGA_EVENT_ID = 'welcome-fund-mzn-v2'
 
 export const FUND_MZN_ACCOUNT_NUMBER = '4841111710001'
 export const FUND_MZN_RECIPIENT = 'WOLF DIGITAL, LDA.'
@@ -19,14 +19,8 @@ export const FUND_MZN_BANK = 'Moza Banco'
 export const WELCOME_PAGA_DROPDOWN_BODY =
   'Send MZN to Moza Banco. Liquid ZAR from 09:00 daily.'
 
-export const FUND_MZN_STEPS = [
-  'Transfer MZN to this account',
-  'We convert it to liquid ZAR',
-  'Withdraw from 09:00 daily',
-] as const
-
 export const FUND_MZN_NOTE =
-  'Most funds are liquid by 09:00 the next day. Some routes take up to 2 banking days. The Liquidity report shows where every metical is.'
+  'Most funds are liquid by 09:00 the next day. Some routes take up to 2 banking days.'
 
 export const FUND_MZN_NOTE_PT =
   'A maior parte fica líquida até às 09:00 do dia seguinte; algumas rotas levam até 2 dias úteis.'
@@ -90,7 +84,6 @@ export type WelcomeFundPayload = {
   title: string
   deskSentence: string
   deskLedgerRows: NonNullable<ActivityItem['deskLedgerRows']>
-  deskSteps: string[]
   deskNote: string
   deskNoteAlt: string
   dropdownBody: string
@@ -106,7 +99,7 @@ export function buildWelcomePagaDeskPayload(params: {
   return {
     title: 'Fund your MZN account',
     deskSentence:
-      'Send meticais to the account below. We start converting the moment it lands, and your liquid ZAR is ready to withdraw from 09:00 every day.',
+      'Send meticais to this account. We start converting the moment it lands. Liquid ZAR is ready to withdraw from 09:00 every day.',
     deskLedgerRows: [
       {
         label: 'Recipient',
@@ -130,7 +123,6 @@ export function buildWelcomePagaDeskPayload(params: {
         copyable: true,
       },
     ],
-    deskSteps: [...FUND_MZN_STEPS],
     deskNote: FUND_MZN_NOTE,
     deskNoteAlt: FUND_MZN_NOTE_PT,
     dropdownBody: WELCOME_PAGA_DROPDOWN_BODY,
@@ -162,7 +154,6 @@ function pushLocalDeskIntro(payload: WelcomeFundPayload) {
     body: payload.deskSentence,
     deskSentence: payload.deskSentence,
     deskLedgerRows: payload.deskLedgerRows,
-    deskSteps: payload.deskSteps,
     deskNote: payload.deskNote,
     deskNoteAlt: payload.deskNoteAlt,
     routingAction: 'fund_intro',
@@ -270,7 +261,6 @@ export async function pushWelcomeSignInNotification(
       dropdownBody: payload.dropdownBody,
       deskSentence: payload.deskSentence,
       deskLedgerRows: payload.deskLedgerRows,
-      deskSteps: payload.deskSteps,
       deskNote: payload.deskNote,
       deskNoteAlt: payload.deskNoteAlt,
       fundAccountNumber: payload.fundAccountNumber,

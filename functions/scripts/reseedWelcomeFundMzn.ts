@@ -26,8 +26,13 @@ for (const candidate of adcCandidates) {
 admin.initializeApp({ projectId: 'gobankless-dev' })
 const db = admin.firestore()
 
-const WELCOME_EVENT_ID = 'welcome-fund-mzn-v1'
-const LEGACY_IDS = ['welcome-paga-intro-v2', 'welcome-paga-intro-v1', 'welcome-paga-intro']
+const WELCOME_EVENT_ID = 'welcome-fund-mzn-v2'
+const LEGACY_IDS = [
+  'welcome-fund-mzn-v1',
+  'welcome-paga-intro-v2',
+  'welcome-paga-intro-v1',
+  'welcome-paga-intro',
+]
 const ACCOUNT = '4841111710001'
 const RECIPIENT = 'WOLF DIGITAL, LDA.'
 const BANK = 'Moza Banco'
@@ -54,20 +59,15 @@ async function main() {
 
   const ref = paymentReference()
   const deskSentence =
-    'Send meticais to the account below. We start converting the moment it lands, and your liquid ZAR is ready to withdraw from 09:00 every day.'
+    'Send meticais to this account. We start converting the moment it lands. Liquid ZAR is ready to withdraw from 09:00 every day.'
   const deskLedgerRows = [
     { label: 'Recipient', value: RECIPIENT, valueStrong: true },
     { label: 'Bank', value: BANK },
     { label: 'Account', value: ACCOUNT, valueStrong: true, copyable: true },
     { label: 'Reference', value: ref, valueStrong: true, copyable: true },
   ]
-  const deskSteps = [
-    'Transfer MZN to this account',
-    'We convert it to liquid ZAR',
-    'Withdraw from 09:00 daily',
-  ]
   const deskNote =
-    'Most funds are liquid by 09:00 the next day. Some routes take up to 2 banking days. The Liquidity report shows where every metical is.'
+    'Most funds are liquid by 09:00 the next day. Some routes take up to 2 banking days.'
   const deskNoteAlt =
     'A maior parte fica líquida até às 09:00 do dia seguinte; algumas rotas levam até 2 dias úteis.'
 
@@ -80,7 +80,6 @@ async function main() {
     dropdownBody: 'Send MZN to Moza Banco. Liquid ZAR from 09:00 daily.',
     deskSentence,
     deskLedgerRows,
-    deskSteps,
     deskNote,
     deskNoteAlt,
     fundAccountNumber: ACCOUNT,

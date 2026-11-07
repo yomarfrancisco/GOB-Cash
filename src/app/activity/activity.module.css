@@ -523,6 +523,20 @@
   width: auto;
 }
 
+.fundIntroActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.fundIntroPrimary,
+.fundIntroSecondary {
+  width: 100%;
+  justify-content: center;
+}
+
 .replyButton {
   display: inline-flex;
   align-items: center;
