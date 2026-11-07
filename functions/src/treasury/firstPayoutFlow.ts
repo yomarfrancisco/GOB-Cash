@@ -508,7 +508,8 @@ export async function confirmFirstPayout(params: {
     .slice(0, 180)
 
   const result = await db().runTransaction(async (t) => {
-    const zarSnap = await t.get(zarRef)
+    // All reads before any writes (Firestore transaction rule).
+    const [zarSnap, mznSnap] = await Promise.all([t.get(zarRef), t.get(mznRef)])
     if (!zarSnap.exists) return { ok: false, amountZar: 0, skipped: 'no_wallet' as const }
     const zarData = zarSnap.data() || {}
     const status = String(zarData[FIRST_PAYOUT_STATUS_FIELD] || '')
@@ -548,7 +549,6 @@ export async function confirmFirstPayout(params: {
       updatedAt: now,
     })
 
-    const mznSnap = await t.get(mznRef)
     if (mznSnap.exists && Number(mznSnap.data()?.fiatBalance || 0) > 0.005) {
       t.update(mznRef, { fiatBalance: 0, updatedAt: now })
     }
