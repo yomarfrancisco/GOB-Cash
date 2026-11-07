@@ -564,6 +564,8 @@
   border-radius: 16px;
   background: #e5e5ea;
   box-sizing: border-box;
+  cursor: text;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .replyInput {
@@ -576,8 +578,19 @@
   resize: none;
   background: transparent;
   color: #111;
-  font: 400 13px/18px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* 16px avoids iOS focus-zoom and keeps the caret reliable inside the zoomed dock. */
+  font: 400 16px/22px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   outline: none;
+  caret-color: #111;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+
+.replyInput:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .replySend {
@@ -596,11 +609,20 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  opacity: 0.35;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.replySendActive {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .replySend:disabled {
   opacity: 0.35;
   cursor: default;
+  pointer-events: none;
 }
 
 .replyError {

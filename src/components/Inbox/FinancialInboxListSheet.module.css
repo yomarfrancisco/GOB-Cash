@@ -317,12 +317,37 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 4;
-  /* Full feed width: align with agent avatar left edge (same 16px as .conversationList). */
+  z-index: 5;
+  /* Same horizontal inset as .conversationList; avatar gutter lives in .deskAskRow. */
   padding: 4px 16px calc(8px + env(safe-area-inset-bottom));
   /* Compact desk density — matches the shipped Part 1 scale. */
   zoom: 0.8;
   box-sizing: border-box;
+  pointer-events: auto;
+}
+
+/* Mirror .activityItem: 44px avatar + 12px gap + content column. */
+.deskAskRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.deskAskAvatarSpacer {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.deskAskComposer {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  pointer-events: auto;
 }
 
 .activityContent .conversationList {

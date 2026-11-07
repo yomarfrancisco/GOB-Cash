@@ -1435,6 +1435,10 @@ export function NotificationsList({
   const [askText, setAskText] = useState('')
   const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
   const [askError, setAskError] = useState('')
+  const askInputRef = useRef<HTMLTextAreaElement>(null)
+  const askBusy = askState !== 'idle'
+  const askHasText = askText.length > 0
+  const askCanSend = askHasText && !askBusy && !deskBlocked && askText.trim().length > 0
   // Runtime validator: auto-clear bad data
   useEffect(() => {
     const items = all()
@@ -1900,31 +1904,55 @@ export function NotificationsList({
         </div>
       </div>
       <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
-        <div className={styles.replyFrame}>
-          <textarea
-            className={styles.replyInput}
-            rows={3}
-            value={askText}
-            placeholder={`Ask ${DESK_TEAM.sam.name}`}
-            disabled={askState !== 'idle' || deskBlocked}
-            onChange={(event) => setAskText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
+        <div className={listStyles.deskAskRow}>
+          <div className={listStyles.deskAskAvatarSpacer} aria-hidden />
+          <div className={listStyles.deskAskComposer}>
+            <div
+              className={styles.replyFrame}
+              onMouseDown={(event) => {
+                // Keep focus on the field when tapping the gray pill chrome.
+                if (event.target === askInputRef.current) return
+                if ((event.target as HTMLElement).closest('button')) return
                 event.preventDefault()
-                void handleSubmitAsk(event)
-              }
-            }}
-          />
-          <button
-            type="submit"
-            className={styles.replySend}
-            disabled={askState !== 'idle' || deskBlocked || !askText.trim()}
-            aria-label="Send"
-          >
-            <ArrowUp size={16} strokeWidth={2.4} />
-          </button>
+                askInputRef.current?.focus()
+              }}
+            >
+              <textarea
+                ref={askInputRef}
+                className={styles.replyInput}
+                rows={3}
+                value={askText}
+                placeholder={`Ask ${DESK_TEAM.sam.name}`}
+                inputMode="text"
+                enterKeyHint="send"
+                autoComplete="off"
+                autoCorrect="on"
+                spellCheck
+                // Only lock while a send is in flight — keep focus/keyboard/caret available.
+                disabled={askBusy}
+                onChange={(event) => setAskText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault()
+                    if (!askCanSend) return
+                    void handleSubmitAsk(event)
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                className={[styles.replySend, askCanSend ? styles.replySendActive : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                disabled={!askCanSend}
+                aria-label="Send"
+              >
+                <ArrowUp size={16} strokeWidth={2.4} />
+              </button>
+            </div>
+            {askError ? <p className={styles.replyError}>{askError}</p> : null}
+          </div>
         </div>
-        {askError ? <p className={styles.replyError}>{askError}</p> : null}
       </form>
     </>
   )
