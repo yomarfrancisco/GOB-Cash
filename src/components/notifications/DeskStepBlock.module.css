@@ -56,3 +56,52 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+.copyInline {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 650;
+  color: var(--desk-ink, #18181b);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.fundExtras {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  max-width: 600px;
+}
+
+.fundSteps {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--desk-muted, #5e5e66);
+}
+
+.fundSteps li {
+  margin: 2px 0;
+}
+
+.fundNote {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--desk-muted, #5e5e66);
+}
+
+.fundNoteAlt {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #8a8a8a;
+  font-style: italic;
+}

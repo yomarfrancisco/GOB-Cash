@@ -8,11 +8,28 @@ import { useActivityStore } from '@/store/activity'
 import type { ActivityItem } from '@/store/activity'
 import { useNotificationStore } from '@/store/notifications'
 
-export const WELCOME_PAGA_EVENT_ID = 'welcome-paga-intro-v2'
+/** Bumped when the Day-1 fund card copy/layout changes. */
+export const WELCOME_PAGA_EVENT_ID = 'welcome-fund-mzn-v1'
+
+export const FUND_MZN_ACCOUNT_NUMBER = '4841111710001'
+export const FUND_MZN_RECIPIENT = 'WOLF DIGITAL, LDA.'
+export const FUND_MZN_BANK = 'Moza Banco'
 
 /** Short dropdown copy — keep ≤2 lines in the top toast. */
 export const WELCOME_PAGA_DROPDOWN_BODY =
-  'Fund MZN at Moza Banco to buy dollars within 24 hours.'
+  'Send MZN to Moza Banco. Liquid ZAR from 09:00 daily.'
+
+export const FUND_MZN_STEPS = [
+  'Transfer MZN to this account',
+  'We convert it to liquid ZAR',
+  'Withdraw from 09:00 daily',
+] as const
+
+export const FUND_MZN_NOTE =
+  'Most funds are liquid by 09:00 the next day. Some routes take up to 2 banking days. The Liquidity report shows where every metical is.'
+
+export const FUND_MZN_NOTE_PT =
+  'A maior parte fica líquida até às 09:00 do dia seguinte; algumas rotas levam até 2 dias úteis.'
 
 function welcomeDoneStorageKey(uid: string): string {
   return `welcome-paga-done:${uid}`
@@ -69,62 +86,56 @@ export function buildWolfMozaPaymentReference(now = new Date()): string {
   return `WOLFMOZA${y}${m}${d}${seq}`
 }
 
-export function buildWelcomePagaDeskPayload(params: {
-  paymentReference: string
-  userEmail?: string | null
-}): {
+export type WelcomeFundPayload = {
   title: string
   deskSentence: string
   deskLedgerRows: NonNullable<ActivityItem['deskLedgerRows']>
+  deskSteps: string[]
+  deskNote: string
+  deskNoteAlt: string
   dropdownBody: string
-} {
-  const emailHint = params.userEmail?.trim() || '[user-email]'
+  fundAccountNumber: string
+  paymentReference: string
+}
+
+export function buildWelcomePagaDeskPayload(params: {
+  paymentReference: string
+  userEmail?: string | null
+}): WelcomeFundPayload {
+  void params.userEmail
   return {
-    title: 'What is PAGA?',
+    title: 'Fund your MZN account',
     deskSentence:
-      'PAGA is a liquidity-adaptive dollar for licensed FX operators in closed currency markets. Fund your MZN account to buy dollars. PAGA converts your MZN into ZAR or USD within 24 hours. Once your payment is received, the desk will update your available MZN balance immediately and begin routing FX.',
+      'Send meticais to the account below. We start converting the moment it lands, and your liquid ZAR is ready to withdraw from 09:00 every day.',
     deskLedgerRows: [
       {
         label: 'Recipient',
-        value: 'WOLF DIGITAL, LDA.',
+        value: FUND_MZN_RECIPIENT,
         valueStrong: true,
       },
       {
         label: 'Bank',
-        value: 'Moza Banco',
+        value: FUND_MZN_BANK,
       },
       {
         label: 'Account',
-        value: '4841111710001',
+        value: FUND_MZN_ACCOUNT_NUMBER,
         valueStrong: true,
-      },
-      {
-        label: 'NIB',
-        value: '003400004841111710132',
-      },
-      {
-        label: 'SWIFT',
-        value: 'MOZAMZMA',
-        valueStrong: true,
-      },
-      {
-        label: 'IBAN MZN',
-        value: 'MZ59003400004841111710132',
-        valueStrong: true,
+        copyable: true,
       },
       {
         label: 'Reference',
         value: params.paymentReference,
         valueStrong: true,
-      },
-      {
-        label: 'Payouts',
-        value: 'payout@mozpaga.xyz',
-        valueStrong: true,
-        secondLine: `Email your payout account · title: ${emailHint}`,
+        copyable: true,
       },
     ],
+    deskSteps: [...FUND_MZN_STEPS],
+    deskNote: FUND_MZN_NOTE,
+    deskNoteAlt: FUND_MZN_NOTE_PT,
     dropdownBody: WELCOME_PAGA_DROPDOWN_BODY,
+    fundAccountNumber: FUND_MZN_ACCOUNT_NUMBER,
+    paymentReference: params.paymentReference,
   }
 }
 
@@ -142,20 +153,21 @@ export function buildWelcomePagaBody(params: {
   ].join('\n')
 }
 
-function pushLocalDeskIntro(params: {
-  title: string
-  deskSentence: string
-  deskLedgerRows: NonNullable<ActivityItem['deskLedgerRows']>
-  dropdownBody: string
-}) {
+function pushLocalDeskIntro(payload: WelcomeFundPayload) {
   const createdAt = Date.now()
   useActivityStore.getState().add({
     id: WELCOME_PAGA_EVENT_ID,
     kind: 'CONVERSION_ROUTING_INSTRUCTION',
-    title: params.title,
-    body: params.deskSentence,
-    deskSentence: params.deskSentence,
-    deskLedgerRows: params.deskLedgerRows,
+    title: payload.title,
+    body: payload.deskSentence,
+    deskSentence: payload.deskSentence,
+    deskLedgerRows: payload.deskLedgerRows,
+    deskSteps: payload.deskSteps,
+    deskNote: payload.deskNote,
+    deskNoteAlt: payload.deskNoteAlt,
+    routingAction: 'fund_intro',
+    fundAccountNumber: payload.fundAccountNumber,
+    paymentReference: payload.paymentReference,
     actor: {
       type: 'ai',
       name: DESK_TEAM.sam.name,
@@ -169,8 +181,8 @@ function pushLocalDeskIntro(params: {
   useNotificationStore.getState().pushNotification({
     id: `${WELCOME_PAGA_EVENT_ID}-toast`,
     kind: 'ai_trade',
-    title: params.title,
-    body: params.dropdownBody,
+    title: payload.title,
+    body: payload.dropdownBody,
     actor: {
       type: 'ai_manager',
       avatar: DESK_TEAM.sam.avatar,
@@ -187,10 +199,9 @@ export type PushWelcomeOpts = {
 
 async function accountAlreadyHasWelcome(uid: string): Promise<boolean | null> {
   const eventRef = doc(getFirestoreDb(), 'users', uid, 'activityEvents', WELCOME_PAGA_EVENT_ID)
-  const userRef = doc(getFirestoreDb(), 'users', uid)
   try {
-    const [existingEvent, userSnap] = await Promise.all([getDoc(eventRef), getDoc(userRef)])
-    return existingEvent.exists() || Boolean(userSnap.data()?.welcomePagaIntroAt)
+    const existingEvent = await getDoc(eventRef)
+    return existingEvent.exists()
   } catch (error) {
     console.warn('[Welcome] Failed to check welcome post', error)
     return null
@@ -198,7 +209,7 @@ async function accountAlreadyHasWelcome(uid: string): Promise<boolean | null> {
 }
 
 /**
- * Once per account: Routing Manager fund/payout intro on the desk + short toast.
+ * Once per account: Routing Manager fund intro on the desk + short toast.
  * Source of truth is Firestore for this uid (survives delete+recreate as a new uid).
  * Returning logins skip once the welcome event / flag exists — not via Auth age heuristics.
  */
@@ -243,12 +254,7 @@ export async function pushWelcomeSignInNotification(
     userEmail: user.email,
   })
 
-  pushLocalDeskIntro({
-    title: payload.title,
-    deskSentence: payload.deskSentence,
-    deskLedgerRows: payload.deskLedgerRows,
-    dropdownBody: payload.dropdownBody,
-  })
+  pushLocalDeskIntro(payload)
   markWelcomeDone(user.uid)
 
   const eventRef = doc(getFirestoreDb(), 'users', user.uid, 'activityEvents', WELCOME_PAGA_EVENT_ID)
@@ -264,9 +270,14 @@ export async function pushWelcomeSignInNotification(
       dropdownBody: payload.dropdownBody,
       deskSentence: payload.deskSentence,
       deskLedgerRows: payload.deskLedgerRows,
+      deskSteps: payload.deskSteps,
+      deskNote: payload.deskNote,
+      deskNoteAlt: payload.deskNoteAlt,
+      fundAccountNumber: payload.fundAccountNumber,
+      paymentReference: payload.paymentReference,
       actorType: 'ai_manager',
       deskSpeaker: 'sam',
-      paymentReference,
+      routingAction: 'fund_intro',
       createdAt: serverTimestamp(),
       recordingSource: 'USER_UI',
     })

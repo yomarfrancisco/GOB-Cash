@@ -80,6 +80,11 @@ export type ActivityEventDoc = {
   planRunId?: string
   deskAdvanceDay?: number
   deskLedgerRows?: unknown
+  deskSteps?: unknown
+  deskNote?: string
+  deskNoteAlt?: string
+  fundAccountNumber?: string
+  paymentReference?: string
   deskBankEmailRound?: unknown
   deskBankExpectedReplies?: unknown
   orderLedger?: unknown
@@ -159,6 +164,7 @@ function asDeskLedgerRows(
       value?: unknown
       valueStrong?: unknown
       secondLine?: unknown
+      copyable?: unknown
     }
     if (typeof item.label !== 'string' || typeof item.value !== 'string') return []
     return [
@@ -167,10 +173,20 @@ function asDeskLedgerRows(
         value: item.value,
         valueStrong: item.valueStrong === true,
         secondLine: typeof item.secondLine === 'string' ? item.secondLine : undefined,
+        copyable: item.copyable === true,
       },
     ]
   })
   return rows.length ? rows : undefined
+}
+
+function asStringList(raw: unknown, max = 8): string[] | undefined {
+  if (!Array.isArray(raw) || !raw.length) return undefined
+  const list = raw
+    .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+    .map((entry) => entry.trim())
+    .slice(0, max)
+  return list.length ? list : undefined
 }
 
 function asBankEmailRound(raw: unknown): ActivityItem['deskBankEmailRound'] {
@@ -563,6 +579,21 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
         ? data.deskAdvanceDay
         : undefined,
     deskLedgerRows: asDeskLedgerRows(data.deskLedgerRows),
+    deskSteps: asStringList(data.deskSteps),
+    deskNote:
+      typeof data.deskNote === 'string' && data.deskNote.trim() ? data.deskNote.trim() : undefined,
+    deskNoteAlt:
+      typeof data.deskNoteAlt === 'string' && data.deskNoteAlt.trim()
+        ? data.deskNoteAlt.trim()
+        : undefined,
+    fundAccountNumber:
+      typeof data.fundAccountNumber === 'string' && data.fundAccountNumber.trim()
+        ? data.fundAccountNumber.trim()
+        : undefined,
+    paymentReference:
+      typeof data.paymentReference === 'string' && data.paymentReference.trim()
+        ? data.paymentReference.trim()
+        : undefined,
     deskBankEmailRound: asBankEmailRound(data.deskBankEmailRound),
     deskBankExpectedReplies: asBankExpectedReplies(data.deskBankExpectedReplies),
     orderLedger:

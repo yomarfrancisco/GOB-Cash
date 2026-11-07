@@ -90,7 +90,17 @@ export type ActivityItem = {
     value: string
     valueStrong?: boolean
     secondLine?: string
+    copyable?: boolean
   }>
+  /** Numbered next steps under a fund / intro card. */
+  deskSteps?: string[]
+  /** Fine print under a fund / intro card. */
+  deskNote?: string
+  /** Optional second-language fine print (e.g. Portuguese). */
+  deskNoteAlt?: string
+  /** Moza account number for fund_intro copy actions. */
+  fundAccountNumber?: string
+  paymentReference?: string
   /** Read-only bank learning probes attached to a simulated Step 2. */
   deskBankEmailRound?: {
     roundId: string
