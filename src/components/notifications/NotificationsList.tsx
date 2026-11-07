@@ -1437,8 +1437,8 @@ export function NotificationsList({
   const [askError, setAskError] = useState('')
   const askInputRef = useRef<HTMLTextAreaElement>(null)
   const askBusy = askState !== 'idle'
-  const askHasText = askText.length > 0
-  const askCanSend = askHasText && !askBusy && !deskBlocked && askText.trim().length > 0
+  // Light up as soon as there’s real text — don’t gate the affordance on KYC.
+  const askCanSend = !askBusy && askText.trim().length > 0
   // Runtime validator: auto-clear bad data
   useEffect(() => {
     const items = all()
@@ -1853,7 +1853,15 @@ export function NotificationsList({
   const handleSubmitAsk = async (event?: { preventDefault: () => void }) => {
     event?.preventDefault()
     const message = askText.trim()
-    if (!message || askState !== 'idle' || deskBlocked || !askAnchor) return
+    if (!message || askState !== 'idle') return
+    if (deskBlocked) {
+      setAskError('Complete KYC to message the desk.')
+      return
+    }
+    if (!askAnchor) {
+      setAskError(`${DESK_TEAM.sam.name} is not ready for that yet.`)
+      return
+    }
     setAskState('loading')
     setAskError('')
     try {
@@ -1941,9 +1949,7 @@ export function NotificationsList({
               />
               <button
                 type="submit"
-                className={[styles.replySend, askCanSend ? styles.replySendActive : '']
-                  .filter(Boolean)
-                  .join(' ')}
+                className={styles.replySend}
                 disabled={!askCanSend}
                 aria-label="Send"
               >

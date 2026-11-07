@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Check, Copy } from 'lucide-react'
 import styles from './DeskStepBlock.module.css'
 
 export type DeskLedgerRow = {
@@ -29,6 +30,7 @@ export function DeskStepBlock({ rows }: { rows: DeskLedgerRow[] }) {
     <div className={styles.card}>
       {list.map((row, index) => {
         const key = `${row.label}-${row.value}-${index}`
+        const copied = copiedKey === key
         return (
           <div
             key={key}
@@ -41,23 +43,26 @@ export function DeskStepBlock({ rows }: { rows: DeskLedgerRow[] }) {
               <span className={row.valueStrong ? styles.valueStrong : styles.value}>
                 {row.value}
                 {row.copyable ? (
-                  <>
-                    {' · '}
-                    <button
-                      type="button"
-                      className={styles.copyInline}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        void copyText(row.value).then((ok) => {
-                          if (!ok) return
-                          setCopiedKey(key)
-                          window.setTimeout(() => setCopiedKey((cur) => (cur === key ? null : cur)), 1500)
-                        })
-                      }}
-                    >
-                      {copiedKey === key ? 'Copied' : 'Copy'}
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    className={styles.copyInline}
+                    aria-label={copied ? 'Copied' : `Copy ${row.label.toLowerCase()}`}
+                    title={copied ? 'Copied' : 'Copy'}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      void copyText(row.value).then((ok) => {
+                        if (!ok) return
+                        setCopiedKey(key)
+                        window.setTimeout(() => setCopiedKey((cur) => (cur === key ? null : cur)), 1500)
+                      })
+                    }}
+                  >
+                    {copied ? (
+                      <Check size={14} strokeWidth={2.4} aria-hidden />
+                    ) : (
+                      <Copy size={14} strokeWidth={2.25} aria-hidden />
+                    )}
+                  </button>
                 ) : null}
               </span>
               {row.secondLine ? <span className={styles.second}>{row.secondLine}</span> : null}

@@ -609,14 +609,9 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0.35;
-  pointer-events: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.replySendActive {
   opacity: 1;
   pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .replySend:disabled {
