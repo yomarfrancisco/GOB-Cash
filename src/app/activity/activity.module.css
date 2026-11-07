@@ -557,9 +557,11 @@
 
 .replyFrame {
   position: relative;
+  width: 100%;
   min-height: 72px;
   padding: 10px 44px 10px 12px;
-  border-radius: 18px;
+  /* Same radius as desk ledger cards — softer 18px read as inset vs message blocks. */
+  border-radius: 16px;
   background: #e5e5ea;
   box-sizing: border-box;
 }

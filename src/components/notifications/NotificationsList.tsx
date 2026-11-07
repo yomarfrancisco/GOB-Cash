@@ -1900,31 +1900,36 @@ export function NotificationsList({
         </div>
       </div>
       <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
-        <div className={styles.replyFrame}>
-          <textarea
-            className={styles.replyInput}
-            rows={3}
-            value={askText}
-            placeholder={`Ask ${DESK_TEAM.sam.name}`}
-            disabled={askState !== 'idle' || deskBlocked}
-            onChange={(event) => setAskText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                void handleSubmitAsk(event)
-              }
-            }}
-          />
-          <button
-            type="submit"
-            className={styles.replySend}
-            disabled={askState !== 'idle' || deskBlocked || !askText.trim()}
-            aria-label="Send"
-          >
-            <ArrowUp size={16} strokeWidth={2.4} />
-          </button>
+        <div className={listStyles.deskAskRow}>
+          <div className={listStyles.deskAskAvatarSpacer} aria-hidden />
+          <div className={listStyles.deskAskComposer}>
+            <div className={styles.replyFrame}>
+              <textarea
+                className={styles.replyInput}
+                rows={3}
+                value={askText}
+                placeholder={`Ask ${DESK_TEAM.sam.name}`}
+                disabled={askState !== 'idle' || deskBlocked}
+                onChange={(event) => setAskText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault()
+                    void handleSubmitAsk(event)
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                className={styles.replySend}
+                disabled={askState !== 'idle' || deskBlocked || !askText.trim()}
+                aria-label="Send"
+              >
+                <ArrowUp size={16} strokeWidth={2.4} />
+              </button>
+            </div>
+            {askError ? <p className={styles.replyError}>{askError}</p> : null}
+          </div>
         </div>
-        {askError ? <p className={styles.replyError}>{askError}</p> : null}
       </form>
     </>
   )
