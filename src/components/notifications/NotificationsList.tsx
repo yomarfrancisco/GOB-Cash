@@ -1751,7 +1751,9 @@ export function NotificationsList({
     }
     // First-payout hold: SA bank details via chat (any user).
     const awaitingPayoutDetails = allItems.some(
-      (item) => item.routingAction === 'payout_details_request'
+      (item) =>
+        item.routingAction === 'payout_details_request' ||
+        item.routingAction === 'payout_details_received'
     )
     const looksLikeBankDetails =
       /\d{6,}/.test(message.replace(/\s/g, '')) &&

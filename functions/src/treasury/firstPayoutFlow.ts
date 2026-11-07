@@ -312,6 +312,11 @@ export async function handleCashMznCredit(params: {
       accountHolderName: String(linked.accountHolderName || username),
       groupId,
     })
+    // Linked bank on file → instant payout (no details ask).
+    await confirmFirstPayout({
+      userId: params.userId,
+      proofNote: 'Instant payout under R100,000 · linked SA account on file.',
+    })
   } else {
     await publishPayoutDetailsRequest({
       userId: params.userId,
@@ -322,6 +327,51 @@ export async function handleCashMznCredit(params: {
   }
 
   return { converted: true, zarAmount: instant.destMajor }
+}
+
+async function attachUserReplyToPayoutRequest(params: {
+  userId: string
+  rawMessage: string
+}): Promise<void> {
+  const events = db().collection('users').doc(params.userId).collection('activityEvents')
+  const snap = await events.where('routingAction', '==', 'payout_details_request').limit(10).get()
+  const now = admin.firestore.Timestamp.now()
+  const text = params.rawMessage.trim().slice(0, 2000)
+  if (!snap.empty) {
+    const newest = snap.docs
+      .slice()
+      .sort((a, b) => {
+        const am = a.data()?.createdAt?.toMillis?.() || 0
+        const bm = b.data()?.createdAt?.toMillis?.() || 0
+        return bm - am
+      })[0]
+    await newest.ref.set(
+      {
+        userReply: text,
+        userRepliedAt: now,
+        deskPendingChip: admin.firestore.FieldValue.delete(),
+        deskStatusChip: 'Details sent',
+      },
+      { merge: true }
+    )
+    return
+  }
+  // Fallback bubble if the request card was missed.
+  const id = `user-payout-details-${Date.now()}`
+  await events.doc(id).set({
+    id,
+    kind: CONVERSION_ROUTING_KIND,
+    title: 'You',
+    body: text,
+    userReply: text,
+    userRepliedAt: now,
+    actorType: 'user',
+    deskSpeaker: 'sam',
+    routingAction: 'payout_details_request',
+    status: 'recorded',
+    createdAt: now,
+    recordingSource: 'USER_UI',
+  })
 }
 
 export async function submitPayoutBankDetails(params: {
@@ -336,14 +386,32 @@ export async function submitPayoutBankDetails(params: {
     return { handled: false, skipped: 'no_hold' }
   }
   const status = String(zarData[FIRST_PAYOUT_STATUS_FIELD] || '')
-  if (status === 'awaiting_payout' || status === 'done') {
-    return { handled: false, skipped: 'already_have_details' }
+  if (status === 'done') {
+    return { handled: false, skipped: 'already_paid' }
   }
+
+  const text = params.rawMessage.trim()
+  const proofNote = 'Instant payout under R100,000 · app confirmation (bank PoP follows when available).'
+
+  // Stuck after Leo ack without RM payout — finish on any follow-up message.
+  if (status === 'awaiting_payout') {
+    if (params.source === 'chat' && text) {
+      await attachUserReplyToPayoutRequest({ userId: params.userId, rawMessage: text })
+    }
+    const paid = await confirmFirstPayout({ userId: params.userId, proofNote })
+    if (!paid.ok) {
+      return { handled: false, skipped: paid.skipped || 'confirm_failed' }
+    }
+    return {
+      handled: true,
+      acknowledgement: `Full payout confirmed · ${fmtZar(paid.amountZar)} sent.`,
+    }
+  }
+
   if (status && status !== 'awaiting_details') {
     return { handled: false, skipped: 'bad_status' }
   }
 
-  const text = params.rawMessage.trim()
   if (!looksLikeBankDetails(text) && params.source !== 'email') {
     return { handled: false, skipped: 'not_bank_details' }
   }
@@ -363,6 +431,10 @@ export async function submitPayoutBankDetails(params: {
     Number(zarData[FIRST_PAYOUT_ZAR_FIELD] || zarData.fiatBalance || 0)
   )
   const groupId = `details-${Date.now()}`
+
+  if (params.source === 'chat' || params.source === 'email') {
+    await attachUserReplyToPayoutRequest({ userId: params.userId, rawMessage: text })
+  }
 
   await zarRef.set(
     {
@@ -388,8 +460,18 @@ export async function submitPayoutBankDetails(params: {
     groupId,
   })
 
-  const acknowledgement = `SA account details received for ${fmtZar(zarAmount)}. Payout will follow with proof of payment.`
-  return { handled: true, acknowledgement }
+  const paid = await confirmFirstPayout({ userId: params.userId, proofNote })
+  if (!paid.ok) {
+    return {
+      handled: true,
+      acknowledgement: `SA account details received for ${fmtZar(zarAmount)}. Payout pending — ${paid.skipped || 'retry'}.`,
+    }
+  }
+
+  return {
+    handled: true,
+    acknowledgement: `SA account details received. Full payout confirmed · ${fmtZar(paid.amountZar)} sent.`,
+  }
 }
 
 export async function confirmFirstPayout(params: {

@@ -26,8 +26,9 @@ for (const candidate of adcCandidates) {
 admin.initializeApp({ projectId: 'gobankless-dev' })
 const db = admin.firestore()
 
-const WELCOME_EVENT_ID = 'welcome-fund-mzn-v2'
+const WELCOME_EVENT_ID = 'welcome-fund-mzn-v3'
 const LEGACY_IDS = [
+  'welcome-fund-mzn-v2',
   'welcome-fund-mzn-v1',
   'welcome-paga-intro-v2',
   'welcome-paga-intro-v1',
@@ -57,9 +58,19 @@ async function main() {
     }
   }
 
+  const userSnap = await db.collection('users').doc(uid).get()
+  const userData = userSnap.data() || {}
+  const rawName = String(userData.fullName || userData.displayName || userData.userHandle || 'there')
+    .replace(/^@+/, '')
+    .trim()
+  const firstName = rawName.split(/[\s_-]+/)[0] || 'there'
+  const greetName =
+    firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
   const ref = paymentReference()
   const deskSentence =
-    'Send meticais to this account. Up to R100,000 is liquid instantly, ready to pay. Anything above is liquid at 09:00 the next day.'
+    `Hi ${greetName}. PAGA helps you convert Metical to Rand instantly. ` +
+    `Start by funding your conversion account; send meticais to this account. ` +
+    `Up to R100,000 is liquid instantly, ready to pay. Anything above is liquid at 09:00 the next day.`
   const deskLedgerRows = [
     { label: 'Recipient', value: RECIPIENT, valueStrong: true },
     { label: 'Bank', value: BANK },

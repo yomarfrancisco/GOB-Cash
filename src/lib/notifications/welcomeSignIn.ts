@@ -9,7 +9,7 @@ import type { ActivityItem } from '@/store/activity'
 import { useNotificationStore } from '@/store/notifications'
 
 /** Bumped when the Day-1 fund card copy/layout changes. */
-export const WELCOME_PAGA_EVENT_ID = 'welcome-fund-mzn-v2'
+export const WELCOME_PAGA_EVENT_ID = 'welcome-fund-mzn-v3'
 
 export const FUND_MZN_ACCOUNT_NUMBER = '4841111710001'
 export const FUND_MZN_RECIPIENT = 'WOLF DIGITAL, LDA.'
@@ -19,8 +19,42 @@ export const FUND_MZN_BANK = 'Moza Banco'
 export const WELCOME_PAGA_DROPDOWN_BODY =
   'Send MZN to Moza. Up to R100,000 liquid instantly.'
 
-export const FUND_MZN_DESK_SENTENCE =
-  'Send meticais to this account. Up to R100,000 is liquid instantly, ready to pay. Anything above is liquid at 09:00 the next day.'
+export function firstNameFromUser(params: {
+  displayName?: string | null
+  fullName?: string | null
+  email?: string | null
+  handle?: string | null
+}): string {
+  const fromName = String(params.fullName || params.displayName || '')
+    .trim()
+    .split(/\s+/)[0]
+  if (fromName && !/^user$/i.test(fromName)) return fromName
+  const handle = String(params.handle || '')
+    .trim()
+    .replace(/^@+/, '')
+    .split(/[-_.]/)[0]
+  if (handle && handle.length >= 2) {
+    return handle.charAt(0).toUpperCase() + handle.slice(1).toLowerCase()
+  }
+  const emailLocal = String(params.email || '').split('@')[0]?.trim()
+  if (emailLocal) {
+    const token = emailLocal.split(/[._+-]/)[0] || emailLocal
+    return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase()
+  }
+  return 'there'
+}
+
+export function buildFundMznDeskSentence(firstName: string): string {
+  const name = firstName.trim() || 'there'
+  return (
+    `Hi ${name}. PAGA helps you convert Metical to Rand instantly. ` +
+    `Start by funding your conversion account; send meticais to this account. ` +
+    `Up to R100,000 is liquid instantly, ready to pay. Anything above is liquid at 09:00 the next day.`
+  )
+}
+
+/** @deprecated Prefer buildFundMznDeskSentence(firstName). */
+export const FUND_MZN_DESK_SENTENCE = buildFundMznDeskSentence('there')
 
 export const FUND_MZN_NOTE =
   'Most funds are liquid by 09:00 the next day. Some routes take up to 2 banking days.'
@@ -97,11 +131,19 @@ export type WelcomeFundPayload = {
 export function buildWelcomePagaDeskPayload(params: {
   paymentReference: string
   userEmail?: string | null
+  displayName?: string | null
+  fullName?: string | null
+  handle?: string | null
 }): WelcomeFundPayload {
-  void params.userEmail
+  const firstName = firstNameFromUser({
+    displayName: params.displayName,
+    fullName: params.fullName,
+    email: params.userEmail,
+    handle: params.handle,
+  })
   return {
     title: 'Fund your MZN account',
-    deskSentence: FUND_MZN_DESK_SENTENCE,
+    deskSentence: buildFundMznDeskSentence(firstName),
     deskLedgerRows: [
       {
         label: 'Recipient',
@@ -242,9 +284,27 @@ export async function pushWelcomeSignInNotification(
   }
 
   const paymentReference = buildWolfMozaPaymentReference()
+  let fullName: string | null = null
+  let handle: string | null = null
+  try {
+    const profileSnap = await getDoc(doc(getFirestoreDb(), 'users', user.uid))
+    const profile = profileSnap.data() || {}
+    fullName = typeof profile.fullName === 'string' ? profile.fullName : null
+    handle =
+      typeof profile.userHandle === 'string'
+        ? profile.userHandle
+        : typeof profile.handle === 'string'
+          ? profile.handle
+          : null
+  } catch {
+    // Greeting still works from Auth displayName / email.
+  }
   const payload = buildWelcomePagaDeskPayload({
     paymentReference,
     userEmail: user.email,
+    displayName: user.displayName,
+    fullName,
+    handle,
   })
 
   pushLocalDeskIntro(payload)

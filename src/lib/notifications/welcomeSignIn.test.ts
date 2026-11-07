@@ -22,9 +22,13 @@ describe('welcomeSignIn', () => {
     const payload = buildWelcomePagaDeskPayload({
       paymentReference: 'WOLFMOZA20261101123',
       userEmail: 'ops@example.com',
+      displayName: 'Ygor Francisco',
     })
     assert.equal(payload.title, 'Fund your MZN account')
-    assert.match(payload.deskSentence, /Send meticais/)
+    assert.match(payload.deskSentence, /^Hi Ygor\./)
+    assert.match(payload.deskSentence, /PAGA helps you convert Metical to Rand instantly/)
+    assert.match(payload.deskSentence, /funding your conversion account/)
+    assert.match(payload.deskSentence, /send meticais/)
     assert.match(payload.deskSentence, /R100,000/)
     assert.match(payload.deskSentence, /09:00 the next day/)
     assert.doesNotMatch(payload.deskSentence, /dollar|USD|24 hours/i)

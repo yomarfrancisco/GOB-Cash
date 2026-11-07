@@ -255,7 +255,9 @@ export function FundMznIntroCard({
         </button>
       </div>
 
-      <p className={styles.body}>{copy.body}</p>
+      <p className={styles.body}>
+        {locale === 'en' && item.deskSentence ? item.deskSentence : copy.body}
+      </p>
 
       <div className={styles.ledger}>
         <LedgerRow label={copy.recipient} value={recipient} strong />

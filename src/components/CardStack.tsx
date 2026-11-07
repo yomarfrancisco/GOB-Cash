@@ -634,8 +634,15 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     if (storyPlayingRef.current || inferredStoriesSuppressed()) return
     const story = conversionStoryFromWalletTransition(prev, next)
     if (!story) return
-    // Explicit submit path owns book/reserve stories; only auto-play clears here.
-    if (story.kind !== 'clear_to_zar' && story.kind !== 'clear_to_mzn') return
+    // Clears (09:00) and reserve-instant auto-converts (e.g. sub-R100k first fund)
+    // have no submit path — play MZN↓ → shuffle → ZAR↑ here.
+    if (
+      story.kind !== 'clear_to_zar' &&
+      story.kind !== 'clear_to_mzn' &&
+      story.kind !== 'reserve_only'
+    ) {
+      return
+    }
     void playConversionStory(story)
   }, [
     isAuthed,
