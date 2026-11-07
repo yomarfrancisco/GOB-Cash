@@ -8,7 +8,22 @@ import {
   FUND_MZN_BANK,
   FUND_MZN_RECIPIENT,
 } from '@/lib/notifications/welcomeSignIn'
+import { MZN_PER_ZAR, sellMznPerZar, zarToMzn } from '@/lib/mznZar'
 import styles from './FundMznIntroCard.module.css'
+
+/** Demo total so the bar can show R100k liquid of a larger book. */
+const DEMO_START_ZAR = 100_000
+const DEMO_END_ZAR = 160_000
+const DEMO_LIQUID_ZAR = 100_000
+const DEMO_ANIM_MS = 2200
+
+function formatZarAmount(value: number): string {
+  return `R${Math.round(value).toLocaleString('en-US')}`
+}
+
+function formatMznApprox(value: number): string {
+  return `≈ ${Math.round(value).toLocaleString('en-US')} MZN`
+}
 
 export type FundIntroLocale = 'en' | 'pt'
 
@@ -143,15 +158,31 @@ export function FundMznIntroCard({
   item,
   locale: localeProp = 'en',
   onLocaleChange,
+  sellMznPerZar: sellMznPerZarProp = null,
 }: {
   item: ActivityItem
   locale?: FundIntroLocale
   onLocaleChange?: (locale: FundIntroLocale) => void
+  sellMznPerZar?: number | null
 }) {
   const [locale, setLocale] = useState<FundIntroLocale>(localeProp)
+  const [animProgress, setAnimProgress] = useState(0)
   useEffect(() => {
     setLocale(localeProp)
   }, [localeProp])
+
+  useEffect(() => {
+    let frame = 0
+    const started = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - started) / DEMO_ANIM_MS)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setAnimProgress(eased)
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [])
 
   const switchLocale = (next: FundIntroLocale) => {
     setLocale(next)
@@ -171,6 +202,14 @@ export function FundMznIntroCard({
     item.deskLedgerRows?.find((row) => /^recipient$/i.test(row.label))?.value || FUND_MZN_RECIPIENT
   const bank = item.deskLedgerRows?.find((row) => /^bank$/i.test(row.label))?.value || FUND_MZN_BANK
   const [copiedKey, setCopiedKey] = useState<'account' | 'reference' | null>(null)
+
+  const liveSell =
+    typeof sellMznPerZarProp === 'number' && sellMznPerZarProp > 0
+      ? sellMznPerZar(sellMznPerZarProp)
+      : sellMznPerZar(MZN_PER_ZAR)
+  const demoZar = DEMO_START_ZAR + (DEMO_END_ZAR - DEMO_START_ZAR) * animProgress
+  const demoMzn = zarToMzn(demoZar, liveSell)
+  const liquidFillPct = Math.max(0, Math.min(100, (DEMO_LIQUID_ZAR / Math.max(demoZar, 1)) * 100))
 
   const markCopied = (key: 'account' | 'reference') => {
     setCopiedKey(key)
@@ -254,13 +293,12 @@ export function FundMznIntroCard({
       <section className={styles.watch} aria-label={copy.watchTitle}>
         <h3 className={styles.watchTitle}>{copy.watchTitle}</h3>
         <div className={styles.miniCard} aria-hidden>
-          <div className={styles.miniCardTop}>ZAR</div>
-          <div className={styles.miniCardAmt}>R27,371</div>
-          <div className={styles.miniCardApprox}>≈ 122,359 MZN</div>
-          <span className={styles.ratePill}>4.47 MZN/ZAR</span>
+          <div className={styles.miniCardAmt}>{formatZarAmount(demoZar)}</div>
+          <div className={styles.miniCardApprox}>{formatMznApprox(demoMzn)}</div>
+          <span className={styles.ratePill}>{liveSell.toFixed(2)}Mt/R</span>
           <span className={styles.liqRing} title="Liquidity bar">
             <span className={styles.liqTrack}>
-              <span className={styles.liqFill} />
+              <span className={styles.liqFill} style={{ width: `${liquidFillPct}%` }} />
             </span>
           </span>
         </div>

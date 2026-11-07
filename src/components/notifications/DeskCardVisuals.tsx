@@ -105,10 +105,12 @@ export function DeskCardVisuals({
   item,
   fundLocale = 'en',
   onFundLocaleChange,
+  liveSellMznPerZar = null,
 }: {
   item: ActivityItem
   fundLocale?: FundIntroLocale
   onFundLocaleChange?: (locale: FundIntroLocale) => void
+  liveSellMznPerZar?: number | null
 }) {
   if (item.routingStepMessage) {
     return <RoutingStepCard message={item.routingStepMessage} />
@@ -119,6 +121,7 @@ export function DeskCardVisuals({
         item={item}
         locale={fundLocale}
         onLocaleChange={onFundLocaleChange || (() => undefined)}
+        sellMznPerZar={liveSellMznPerZar}
       />
     )
   }

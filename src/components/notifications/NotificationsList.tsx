@@ -1022,11 +1022,17 @@ function ActivityItemCard({
                         item={item}
                         fundLocale={fundLocale}
                         onFundLocaleChange={setFundLocale}
+                        liveSellMznPerZar={liveSellMznPerZar}
                       />
                     )
                   : null
                 : actionsUnlocked
-                  ? <DeskCardVisuals item={item} />
+                  ? (
+                      <DeskCardVisuals
+                        item={item}
+                        liveSellMznPerZar={liveSellMznPerZar}
+                      />
+                    )
                   : null)}
             {!askCard && item.userReply && actionsUnlocked ? (
               <div className={styles.activityUserReply}>
