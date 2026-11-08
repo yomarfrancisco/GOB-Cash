@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Check, Download, ExternalLink, ArrowUp } from 'lucide-react'
+import { Check, Download, ExternalLink, ArrowUp, Calculator } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -1992,6 +1992,18 @@ export function NotificationsList({
     }
   }
 
+  const handleOpenCalculator = (event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (isConversionInFlight() || useRoutingPlaybackStore.getState().play) return
+    openDeskKeypad({
+      destination: 'ZAR',
+      amountZAR: 0,
+      amountMZN: 0,
+      playbackOnly: true,
+    })
+  }
+
   return (
     <>
       <div className={listStyles.conversationList} data-desk-feed>
@@ -2063,6 +2075,15 @@ export function NotificationsList({
                   }
                 }}
               />
+              <button
+                type="button"
+                className={styles.replyCalculator}
+                aria-label="Open calculator"
+                disabled={askBusy}
+                onClick={handleOpenCalculator}
+              >
+                <Calculator size={18} strokeWidth={2.2} />
+              </button>
               <button
                 type="submit"
                 className={styles.replySend}

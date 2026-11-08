@@ -576,7 +576,7 @@
   position: relative;
   width: 100%;
   min-height: 72px;
-  padding: 10px 44px 10px 12px;
+  padding: 10px 76px 10px 12px;
   /* Same radius as desk ledger cards — softer 18px read as inset vs message blocks. */
   border-radius: 16px;
   background: #e5e5ea;
@@ -610,6 +610,33 @@
   cursor: default;
 }
 
+.replyCalculator {
+  position: absolute;
+  right: 40px;
+  bottom: 8px;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #8e8e93;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 1;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.replyCalculator:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
 .replySend {
   position: absolute;
   right: 8px;
@@ -620,7 +647,7 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: #111;
+  background: #8e8e93;
   color: #fff;
   display: inline-flex;
   align-items: center;
