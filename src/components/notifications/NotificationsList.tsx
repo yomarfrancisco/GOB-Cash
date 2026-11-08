@@ -595,7 +595,7 @@ function ActivityItemCard({
     Number(wallets?.cashMZN?.fiatBalance || 0) > 0.005 ||
     Number(wallets?.cashZAR?.fiatBalance || 0) > 0.005 ||
     Number(wallets?.earnings?.fiatBalance || 0) > 0.005
-  const showFundIntroLiquidity = showFundIntroActions && accountIsFunded
+  const showFundIntroLiquidity = showFundIntroActions && accountIsFunded && showStatus === true
   const fundWatching = fundWatchState === 'watching' || Boolean(item.userReply)
   const showProposalActions =
     !lockDeskActions &&
@@ -1168,63 +1168,36 @@ function ActivityItemCard({
               </>
             )}
             {showYoureSetUpActions && (
-              <div className={[styles.activityActionRow, styles.activityActionRowTwin].join(' ')}>
-                <button
-                  type="button"
-                  className={styles.replyButton}
-                  aria-label="Fund again"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    document
-                      .querySelector('[data-routing-action="fund_intro"]')
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                  }}
-                >
-                  Fund again
-                </button>
-                <button
-                  type="button"
-                  className={styles.replyButton}
-                  aria-label="Liquidity report"
-                  aria-busy={planBusy === true}
-                  disabled={planBusy === true}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onStatus?.()
-                  }}
-                >
-                  Liquidity report
-                </button>
-              </div>
+              <button
+                type="button"
+                className={styles.replyButton}
+                aria-label="Fund again"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  document
+                    .querySelector('[data-routing-action="fund_intro"]')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }}
+              >
+                Fund again
+              </button>
             )}
             {showDownload && (
-              <div
+              <button
+                type="button"
                 className={[
-                  styles.activityActionRow,
-                  isPaidOut ? styles.paidOutProofRow : '',
+                  styles.replyButton,
+                  downloadState === 'loading' ? styles.confirmButtonLoading : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
+                aria-label={downloadVerb}
+                onClick={handleDownload}
+                disabled={downloadState !== 'idle'}
               >
-                <button
-                  type="button"
-                  className={[
-                    styles.replyButton,
-                    downloadState === 'loading' ? styles.confirmButtonLoading : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  aria-label={downloadVerb}
-                  onClick={handleDownload}
-                  disabled={downloadState !== 'idle'}
-                >
-                  <Download size={16} strokeWidth={2.2} />
-                  {downloadVerb}
-                </button>
-                {isPaidOut ? (
-                  <span className={styles.paidOutProofNote}>Bank POP to follow</span>
-                ) : null}
-              </div>
+                <Download size={16} strokeWidth={2.2} />
+                {downloadVerb}
+              </button>
             )}
             {showStepContinue && (
               <button
@@ -1511,8 +1484,8 @@ function ActivitySection({
                 planBusy={planBusy}
                 catchupActive={catchupActive}
                 planMode={planMode}
-                // Liquidity is for any funded client — do not hide behind KYC / deskBlocked.
-                showStatus={true}
+                // Liquidity is a live status report — only on the latest desk message.
+                showStatus={isPlanHost}
                 showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
                 onStatus={onStatus}
                 onRealtime={onRealtime}
