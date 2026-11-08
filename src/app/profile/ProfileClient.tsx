@@ -652,22 +652,7 @@ export default function ProfileClient() {
           <div className="overlay-glass">
             <div className="overlay-glass-inner">
               <TopGlassBar />
-              <BottomGlassBar 
-                currentPath="/profile" 
-                conversionDestination={conversionDestination}
-                onDollarClick={() => {
-                  guardAuthed(() => {
-                    clockPlayRef.current = null
-                    useRoutingPlaybackStore.getState().clear()
-                    setAgentCashKeypad(false)
-                    setAgentCashHandle(null)
-                    setConversionDestination('ZAR')
-                    setAmountMode('convert')
-                    setAmountEntryPoint('conversionKeypad')
-                    setOpenAmount(true)
-                  })
-                }} 
-              />
+              <BottomGlassBar currentPath="/profile" />
             </div>
           </div>
 

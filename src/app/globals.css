@@ -977,7 +977,7 @@ body {
   object-fit: contain;
 }
 
-/* Red notification dot on profile icon */
+/* Red notification dot on profile / desk FAB */
 .nav-notification-dot {
   position: absolute;
   top: 0;
@@ -989,6 +989,11 @@ body {
   border: 2px solid white;
   z-index: 10;
   pointer-events: none;
+}
+
+.fab-notification-dot {
+  top: 4px;
+  right: 4px;
 }
 
 .dollar-sign-container {

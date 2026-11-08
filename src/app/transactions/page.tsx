@@ -49,10 +49,6 @@ export default function TransactionsPage() {
     }
   }, [isAuthed, router])
 
-  const handleDollarClick = () => {
-    // TODO: Wire to transaction modal if needed
-  }
-
   return (
     <div className="app-shell">
       <div className="mobile-frame">
@@ -61,7 +57,7 @@ export default function TransactionsPage() {
           <div className="overlay-glass">
             <div className="overlay-glass-inner">
               <TopGlassBar />
-              <BottomGlassBar currentPath="/transactions" onDollarClick={handleDollarClick} />
+              <BottomGlassBar currentPath="/transactions" />
             </div>
           </div>
 

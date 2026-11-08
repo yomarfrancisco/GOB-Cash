@@ -656,18 +656,7 @@ function HomeContent() {
           <div className="overlay-glass">
             <div className="overlay-glass-inner">
               <TopGlassBar />
-              <BottomGlassBar 
-                currentPath="/" 
-                conversionDestination={conversionDestination}
-                onDollarClick={() => {
-                  if (!isAuthed) {
-                    requireAuth(() => {})
-                    return
-                  }
-
-                  openConversionKeypad(false)
-                }}
-              />
+              <BottomGlassBar currentPath="/" />
             </div>
           </div>
 
