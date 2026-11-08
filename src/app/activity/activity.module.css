@@ -1042,18 +1042,20 @@
 }
 
 .liqPipeIn {
-  background: #f4a6c4;
+  background: #5a2f4a;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .liqPipeOut {
-  background: #cfe8dc;
+  background: #2c2c2e;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .liqPipeLabel {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  opacity: 0.7;
+  opacity: 0.72;
 }
 
 .liqPipeAmt {
@@ -1065,7 +1067,7 @@
 
 .liqPipeHint {
   font-size: 11px;
-  opacity: 0.75;
+  opacity: 0.78;
   margin-top: 2px;
 }
 

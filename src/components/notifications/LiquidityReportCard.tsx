@@ -18,11 +18,12 @@ function fmtRate(n: number): string {
   return `${n.toFixed(4)} MZN/ZAR`
 }
 
+/** Match desk pipe cards: ZAR charcoal, mint liquid, MZN maroon accents. */
 const SEG_COLOR: Record<string, string> = {
-  liquid: '#18181b',
-  clearing: '#b8d4c8',
-  card: '#c8b8a0',
-  eft: 'repeating-linear-gradient(135deg, #f0d060 0 4px, #f8e9a0 4px 8px)',
+  liquid: '#2c2c2e',
+  clearing: '#9bdbc1',
+  card: '#5a2f4a',
+  eft: 'repeating-linear-gradient(135deg, #a8e6c3 0 4px, #9bdbc1 4px 8px)',
   held: '#ffffff',
 }
 
