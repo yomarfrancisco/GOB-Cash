@@ -335,12 +335,15 @@
   box-sizing: border-box;
 }
 
-.deskAskAvatarSpacer {
+.deskAskAvatar {
   flex-shrink: 0;
   width: 44px;
   height: 44px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: transparent;
+  align-self: flex-start;
   pointer-events: none;
-  visibility: hidden;
 }
 
 .deskAskComposer {
