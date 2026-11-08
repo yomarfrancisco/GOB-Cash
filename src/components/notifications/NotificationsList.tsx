@@ -1027,6 +1027,7 @@ function ActivityItemCard({
               item.deskLedgerRows ||
               item.deskPipes ||
               isFundIntro ||
+              item.routingAction === 'liquid_now' ||
               showInlinePayoutForm
                 ? titleDone
                   ? (

@@ -4,6 +4,7 @@ import { RoutingStepCard } from './RoutingStepCard'
 import { DeskFundExtras, DeskStepBlock } from './DeskStepBlock'
 import { FundMznIntroCard, type FundIntroLocale } from './FundMznIntroCard'
 import { DeskPayoutAccountForm } from './DeskPayoutAccountForm'
+import { LiquidNowConvertVisual } from './LiquidNowConvertVisual'
 import { BankEmailRoundBlock, BankExpectedRepliesBlock } from './BankEmailRoundBlock'
 
 const SERIES_COLOR = ['#111111', '#8aa31a', '#8a8a8a']
@@ -186,6 +187,16 @@ export function DeskCardVisuals({
         onLocaleChange={onFundLocaleChange || (() => undefined)}
         sellMznPerZar={liveSellMznPerZar}
       />
+    )
+  }
+  if (item.routingAction === 'liquid_now') {
+    return (
+      <>
+        <LiquidNowConvertVisual item={item} />
+        {showInlinePayoutForm ? (
+          <DeskPayoutAccountForm zarAmount={Number(item.amount?.value || 0)} />
+        ) : null}
+      </>
     )
   }
   if (
