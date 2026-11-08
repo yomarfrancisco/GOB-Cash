@@ -38,8 +38,6 @@ export default function FirebaseAuthListener() {
   
   const checkedRedirectRef = useRef(false)
   const lastUidRef = useRef<string | null>(null)
-  /** null = first auth callback not yet seen (session restore vs fresh sign-in). */
-  const wasSignedInRef = useRef<boolean | null>(null)
   const unsubscribeDocRef = useRef<(() => void) | null>(null)
   const unsubscribeWalletsRef = useRef<(() => void) | null>(null)
 
@@ -75,9 +73,6 @@ export default function FirebaseAuthListener() {
     // Set up auth state listener - this is the single source of truth for isAuthed
     let hasCheckedAuth = false
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      const signedIn = Boolean(user)
-      wasSignedInRef.current = signedIn
-
       if (lastUidRef.current && lastUidRef.current !== (user?.uid || null)) {
         useActivityStore.getState().clear()
         useNotificationStore.getState().clearNotifications()
