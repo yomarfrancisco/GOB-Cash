@@ -16,6 +16,11 @@ import type { WalletMap } from '@/types/wallet'
 import { setCoreAgentBalance, admin_startConversionRoutingTest, admin_confirmConversionRoutingCycle, admin_getConversionRoutingStatus, admin_submitConversionRoutingFeedback } from '@/lib/transactions/clientFunctions'
 import { AGENT_UID } from '@/types/transactions'
 import { pushWelcomeSignInNotification } from '@/lib/notifications/welcomeSignIn'
+import {
+  celebrateSignInFab,
+  clearSignInFabCelebration,
+} from '@/lib/animations/celebrateSignInFab'
+import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 
 /**
  * Client component that sets up Firebase Auth state listener
@@ -33,6 +38,8 @@ export default function FirebaseAuthListener() {
   
   const checkedRedirectRef = useRef(false)
   const lastUidRef = useRef<string | null>(null)
+  /** null = first auth callback not yet seen (session restore vs fresh sign-in). */
+  const wasSignedInRef = useRef<boolean | null>(null)
   const unsubscribeDocRef = useRef<(() => void) | null>(null)
   const unsubscribeWalletsRef = useRef<(() => void) | null>(null)
 
@@ -51,6 +58,11 @@ export default function FirebaseAuthListener() {
           if (result && result.user) {
             console.log('[Firebase] Auth redirect result user:', result.user.uid)
             await ensureUserDocument(result.user)
+            const profile = useUserProfileStore.getState().profile
+            celebrateSignInFab({
+              uid: result.user.uid,
+              avatarUrl: profile.avatarUrl || result.user.photoURL,
+            })
             void pushWelcomeSignInNotification()
             // setAuthState will be called by onAuthStateChanged below
           }
@@ -63,6 +75,10 @@ export default function FirebaseAuthListener() {
     // Set up auth state listener - this is the single source of truth for isAuthed
     let hasCheckedAuth = false
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      const signedIn = Boolean(user)
+      const isFreshSignIn = wasSignedInRef.current === false && signedIn
+      wasSignedInRef.current = signedIn
+
       if (lastUidRef.current && lastUidRef.current !== (user?.uid || null)) {
         useActivityStore.getState().clear()
         useNotificationStore.getState().clearNotifications()
@@ -143,6 +159,16 @@ export default function FirebaseAuthListener() {
           })
           // Continue gracefully - user can still use the app even if repair failed
           // The subscription below will still sync profile data from Firestore
+        }
+
+        // First post-auth beat: user avatar briefly takes over the $ FAB.
+        // Skip session restore (wasSignedInRef was null on first callback).
+        if (isFreshSignIn) {
+          const profile = useUserProfileStore.getState().profile
+          celebrateSignInFab({
+            uid: user.uid,
+            avatarUrl: profile.avatarUrl || user.photoURL,
+          })
         }
 
         // After the user doc exists: seed desk intro once per uid if missing.
@@ -312,6 +338,9 @@ export default function FirebaseAuthListener() {
           delete (window as any).gbkAdmin.conversionRoutingStatus
           delete (window as any).gbkAdmin.submitConversionRoutingFeedback
         }
+
+        clearSignInFabCelebration()
+        useAiFabHighlightStore.getState().clearAiFabHighlight()
         
         // User signed out - reset profile to default (optional, or keep last profile)
         // For now, we'll keep the profile data even after sign-out
