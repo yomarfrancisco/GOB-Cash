@@ -114,26 +114,47 @@ function DeskPipes({
     if (tone === 'bank') return styles.deskPipeBank
     return ''
   }
+  const laneLabel = (pipe: NonNullable<ActivityItem['deskPipes']>[number]) => {
+    if (pipe.label) return pipe.label
+    if (pipe.tone === 'mzn') return 'MZN'
+    if (pipe.tone === 'zar') return 'ZAR'
+    if (pipe.tone === 'bank') return 'BANK'
+    return null
+  }
   return (
     <div className={styles.deskPipesWrap}>
       <div className={styles.deskPipes} role="img" aria-label="Fund pipes">
-        {pipes.map((pipe, index) => (
-          <div key={pipe.id} className={styles.deskPipeSlot}>
-            {index > 0 ? <span className={styles.deskPipeArrow} aria-hidden>→</span> : null}
-            <div className={[styles.deskPipeCard, toneClass(pipe.tone)].filter(Boolean).join(' ')}>
-              <div className={styles.deskPipeTitle}>{pipe.title}</div>
-              {pipe.subtitle ? <div className={styles.deskPipeSub}>{pipe.subtitle}</div> : null}
-              {typeof pipe.fillPct === 'number' ? (
-                <span className={styles.deskPipeTrack}>
-                  <span
-                    className={styles.deskPipeFill}
-                    style={{ width: `${Math.max(0, Math.min(100, pipe.fillPct))}%` }}
-                  />
+        {pipes.map((pipe, index) => {
+          const label = laneLabel(pipe)
+          return (
+            <div key={pipe.id} className={styles.deskPipeSlot}>
+              {index > 0 ? (
+                <span className={styles.deskPipeArrow} aria-hidden>
+                  →
                 </span>
               ) : null}
+              <div className={[styles.deskPipeCard, toneClass(pipe.tone)].filter(Boolean).join(' ')}>
+                {label ? <div className={styles.deskPipeLabel}>{label}</div> : null}
+                <div className={styles.deskPipeTitle}>{pipe.title}</div>
+                {pipe.subtitle ? <div className={styles.deskPipeSub}>{pipe.subtitle}</div> : null}
+                {typeof pipe.fillPct === 'number' ? (
+                  <span className={styles.deskPipeTrack}>
+                    <span
+                      className={[
+                        styles.deskPipeFill,
+                        pipe.tone === 'mzn' ? styles.deskPipeFillMzn : '',
+                        pipe.tone === 'zar' ? styles.deskPipeFillZar : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      style={{ width: `${Math.max(0, Math.min(100, pipe.fillPct))}%` }}
+                    />
+                  </span>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
       {caption ? <p className={styles.deskPipeCaption}>{caption}</p> : null}
     </div>

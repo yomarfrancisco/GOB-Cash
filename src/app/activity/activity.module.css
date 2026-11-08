@@ -535,6 +535,20 @@
   width: auto;
 }
 
+.activityActionRowTwin {
+  width: 100%;
+}
+
+.activityActionRowTwin > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.activityActionRowFull > * {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
 .replyButton {
   display: inline-flex;
   align-items: center;
@@ -752,10 +766,10 @@
 }
 
 .deskPipesWrap {
-  margin: 10px 0 4px;
+  margin: 10px 0 8px;
   padding: 12px;
-  border-radius: 14px;
-  background: #f4efe6;
+  border-radius: 16px;
+  background: #f1ece3;
 }
 
 .deskPipes {
@@ -775,21 +789,25 @@
 .deskPipeArrow {
   flex: 0 0 auto;
   color: #8a8a8f;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .deskPipeCard {
   flex: 1 1 auto;
   min-width: 0;
-  border-radius: 12px;
-  padding: 10px 10px 8px;
+  border-radius: 14px;
+  padding: 10px 11px 10px;
   background: #fff;
   color: #111;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 78px;
 }
 
 .deskPipeMzn {
-  background: #5b3a62;
+  background: #5a2f4a;
   color: #fff;
 }
 
@@ -804,24 +822,33 @@
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
+.deskPipeLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
 .deskPipeTitle {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .deskPipeSub {
-  margin-top: 2px;
   font-size: 11px;
-  opacity: 0.8;
+  opacity: 0.78;
 }
 
 .deskPipeTrack {
   display: block;
-  margin-top: 8px;
+  margin-top: auto;
+  padding-top: 8px;
   height: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.2);
   overflow: hidden;
 }
 
@@ -836,11 +863,19 @@
   background: #9bdbc1;
 }
 
+.deskPipeFillMzn {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.deskPipeFillZar {
+  background: #9bdbc1;
+}
+
 .deskPipeCaption {
   margin: 10px 0 0;
   font-size: 13px;
-  font-weight: 600;
-  color: #3a3a40;
+  font-weight: 700;
+  color: #2f2f33;
 }
 
 .deskVisuals {

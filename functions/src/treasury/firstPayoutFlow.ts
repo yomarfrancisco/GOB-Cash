@@ -110,8 +110,8 @@ async function readSaLinkedBank(userId: string): Promise<LinkedBank | null> {
 
 function maskAccount(accountNumber: string): string {
   const digits = accountNumber.replace(/\s/g, '')
-  if (digits.length <= 4) return digits
-  return `${'•'.repeat(Math.max(0, digits.length - 4))}${digits.slice(-4)}`
+  if (digits.length <= 4) return `··${digits}`
+  return `··${digits.slice(-4)}`
 }
 
 async function publishActivity(
@@ -223,9 +223,17 @@ async function publishLiquidNow(params: {
       { label: 'Liquid ZAR', value: zarLabel, valueStrong: true },
     ],
     deskPipes: [
-      { id: 'mzn', title: '0 MZN', subtitle: 'all converted', fillPct: 0, tone: 'mzn' },
+      {
+        id: 'mzn',
+        label: 'MZN',
+        title: '0 MZN',
+        subtitle: 'all converted',
+        fillPct: 100,
+        tone: 'mzn',
+      },
       {
         id: 'zar',
+        label: 'ZAR',
         title: `R${Math.round(params.zarAmount).toLocaleString('en-US')}`,
         subtitle: 'liquid',
         fillPct: 100,
@@ -677,9 +685,9 @@ export async function confirmFirstPayout(params: {
       ],
       deskStatusChip: 'Paid',
       deskPipes: [
-        { id: 'mzn', title: '0 MZN', fillPct: 0, tone: 'mzn' },
-        { id: 'zar', title: 'R0', fillPct: 0, tone: 'zar' },
-        { id: 'bank', title: `BANK ${masked}`, fillPct: 0, tone: 'bank' },
+        { id: 'mzn', label: 'MZN', title: '0 MZN', fillPct: 0, tone: 'mzn' },
+        { id: 'zar', label: 'ZAR', title: 'R0', fillPct: 0, tone: 'zar' },
+        { id: 'bank', label: 'BANK', title: masked, fillPct: 0, tone: 'bank' },
       ],
       deskPipeCaption: 'Pipes clear. Nothing waiting.',
       actorType: 'ai_manager',

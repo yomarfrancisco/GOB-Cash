@@ -46,6 +46,7 @@ export type ActivityEventDoc = {
   deskSpeaker?: 'sam' | 'leo' | 'amina'
   deskPipes?: Array<{
     id?: unknown
+    label?: unknown
     title?: unknown
     subtitle?: unknown
     fillPct?: unknown
@@ -200,6 +201,7 @@ function asDeskPipes(raw: ActivityEventDoc['deskPipes']): ActivityItem['deskPipe
     return [
       {
         id,
+        label: typeof row.label === 'string' ? row.label : undefined,
         title,
         subtitle: typeof row.subtitle === 'string' ? row.subtitle : undefined,
         fillPct,

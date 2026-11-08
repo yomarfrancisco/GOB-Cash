@@ -1155,23 +1155,25 @@ function ActivityItemCard({
               </>
             )}
             {showAddPayoutAccount && (
-              <button
-                type="button"
-                className={styles.confirmButton}
-                aria-label="Add payout account"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  openPayoutAccountSheet({
-                    zarAmount: Number(item.amountValue || 0),
-                    activityEventId: item.id,
-                  })
-                }}
-              >
-                Add payout account
-              </button>
+              <div className={[styles.activityActionRow, styles.activityActionRowFull].join(' ')}>
+                <button
+                  type="button"
+                  className={styles.confirmButton}
+                  aria-label="Add payout account"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    openPayoutAccountSheet({
+                      zarAmount: Number(item.amountValue || 0),
+                      activityEventId: item.id,
+                    })
+                  }}
+                >
+                  Add payout account
+                </button>
+              </div>
             )}
             {showYoureSetUpActions && (
-              <>
+              <div className={[styles.activityActionRow, styles.activityActionRowTwin].join(' ')}>
                 <button
                   type="button"
                   className={styles.replyButton}
@@ -1198,7 +1200,7 @@ function ActivityItemCard({
                 >
                   Liquidity report
                 </button>
-              </>
+              </div>
             )}
             {showDownload && (
               <button

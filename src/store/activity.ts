@@ -95,6 +95,8 @@ export type ActivityItem = {
   /** Day-1 pipe cards (MZN → ZAR → bank). */
   deskPipes?: Array<{
     id: string
+    /** Small currency / lane label above the amount (MZN, ZAR, BANK). */
+    label?: string
     title: string
     subtitle?: string
     fillPct?: number
