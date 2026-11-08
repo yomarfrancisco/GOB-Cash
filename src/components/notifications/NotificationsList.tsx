@@ -2082,7 +2082,7 @@ export function NotificationsList({
                 disabled={askBusy}
                 onClick={handleOpenCalculator}
               >
-                <Calculator size={18} strokeWidth={2.2} />
+                <Calculator size={20} strokeWidth={2.2} />
               </button>
               <button
                 type="submit"
@@ -2090,7 +2090,7 @@ export function NotificationsList({
                 disabled={!askCanSend}
                 aria-label="Send"
               >
-                <ArrowUp size={16} strokeWidth={2.4} />
+                <ArrowUp size={18} strokeWidth={2.8} />
               </button>
             </div>
             {askError ? <p className={styles.replyError}>{askError}</p> : null}

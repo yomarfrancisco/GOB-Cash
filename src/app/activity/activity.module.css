@@ -576,7 +576,8 @@
   position: relative;
   width: 100%;
   min-height: 72px;
-  padding: 10px 76px 10px 12px;
+  /* Right inset: 36px send + 16px gap + 36px calc hit + 8px edge. */
+  padding: 10px 104px 10px 12px;
   /* Same radius as desk ledger cards — softer 18px read as inset vs message blocks. */
   border-radius: 16px;
   background: #e5e5ea;
@@ -612,10 +613,11 @@
 
 .replyCalculator {
   position: absolute;
-  right: 40px;
+  /* 8px edge + 36px send + 16px fat-finger gap */
+  right: 60px;
   bottom: 8px;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -641,8 +643,9 @@
   position: absolute;
   right: 8px;
   bottom: 8px;
-  width: 28px;
-  height: 28px;
+  /* Match Paid out card check circle. */
+  width: 36px;
+  height: 36px;
   margin: 0;
   padding: 0;
   border: 0;
