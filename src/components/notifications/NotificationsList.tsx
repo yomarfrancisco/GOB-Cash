@@ -53,6 +53,7 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
+import { paidOutDisplaySentence } from '@/components/notifications/PaidOutStackVisual'
 import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCard'
 import { LiquidityReportCard } from '@/components/notifications/LiquidityReportCard'
 import {
@@ -860,9 +861,12 @@ function ActivityItemCard({
   }
 
   const isLiquidityReport = Boolean(item.liquidityReport)
+  const isPaidOut = item.routingAction === 'payout_confirmed'
   const displaySentence = isLiquidityReport || isFundIntro
     ? ''
-    : sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
+    : isPaidOut
+      ? paidOutDisplaySentence(item)
+      : sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
     ? 'Download invoices'
     : /^Step\s*6\b/i.test(title)
@@ -1028,6 +1032,7 @@ function ActivityItemCard({
               item.deskPipes ||
               isFundIntro ||
               item.routingAction === 'liquid_now' ||
+              isPaidOut ||
               showInlinePayoutForm
                 ? titleDone
                   ? (
@@ -1193,21 +1198,33 @@ function ActivityItemCard({
               </div>
             )}
             {showDownload && (
-              <button
-                type="button"
+              <div
                 className={[
-                  styles.replyButton,
-                  downloadState === 'loading' ? styles.confirmButtonLoading : '',
+                  styles.activityActionRow,
+                  isPaidOut ? styles.paidOutProofRow : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label={downloadVerb}
-                onClick={handleDownload}
-                disabled={downloadState !== 'idle'}
               >
-                <Download size={16} strokeWidth={2.2} />
-                {downloadVerb}
-              </button>
+                <button
+                  type="button"
+                  className={[
+                    styles.replyButton,
+                    downloadState === 'loading' ? styles.confirmButtonLoading : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-label={downloadVerb}
+                  onClick={handleDownload}
+                  disabled={downloadState !== 'idle'}
+                >
+                  <Download size={16} strokeWidth={2.2} />
+                  {downloadVerb}
+                </button>
+                {isPaidOut ? (
+                  <span className={styles.paidOutProofNote}>Bank POP to follow</span>
+                ) : null}
+              </div>
             )}
             {showStepContinue && (
               <button

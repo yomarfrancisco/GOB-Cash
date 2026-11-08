@@ -5,6 +5,7 @@ import { DeskFundExtras, DeskStepBlock } from './DeskStepBlock'
 import { FundMznIntroCard, type FundIntroLocale } from './FundMznIntroCard'
 import { DeskPayoutAccountForm } from './DeskPayoutAccountForm'
 import { LiquidNowConvertVisual } from './LiquidNowConvertVisual'
+import { PaidOutStackVisual } from './PaidOutStackVisual'
 import { BankEmailRoundBlock, BankExpectedRepliesBlock } from './BankEmailRoundBlock'
 
 const SERIES_COLOR = ['#111111', '#8aa31a', '#8a8a8a']
@@ -198,6 +199,9 @@ export function DeskCardVisuals({
         ) : null}
       </>
     )
+  }
+  if (item.routingAction === 'payout_confirmed') {
+    return <PaidOutStackVisual item={item} />
   }
   if (
     item.deskPipes?.length ||

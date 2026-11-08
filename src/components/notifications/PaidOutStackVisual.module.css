@@ -1,0 +1,147 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 10px 0 8px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f3f0e8;
+  max-width: 600px;
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  color: var(--desk-ink, #18181b);
+}
+
+.stack {
+  position: relative;
+  width: 100%;
+  /* Full card + two peek strips behind it */
+  padding-top: 52px;
+}
+
+.strip,
+.front {
+  width: 100%;
+  border-radius: 14px;
+  box-sizing: border-box;
+}
+
+.strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 16px;
+  color: rgba(255, 255, 255, 0.95);
+  font-variant-numeric: tabular-nums;
+}
+
+.stripMzn {
+  top: 0;
+  background: #5a2f4a;
+  z-index: 1;
+}
+
+.stripZar {
+  top: 26px;
+  background: #2c2c2e;
+  z-index: 2;
+}
+
+.stripLane {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.stripValue {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+/* Same ID-1 ratio as Fund / Liquid now cards. */
+.front {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  aspect-ratio: 86 / 54;
+  padding: 16px 16px 52px;
+  background: #fffffe;
+  color: #18181b;
+  box-shadow: 0 8px 24px rgba(24, 24, 27, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.frontLane {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8a8f;
+  margin-bottom: 4px;
+}
+
+.frontAmt {
+  margin: 0;
+  font-size: 52px;
+  font-weight: 600;
+  letter-spacing: 0.21px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #18181b;
+}
+
+.frontSub {
+  margin-top: 6px;
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: #6b6b70;
+  font-variant-numeric: tabular-nums;
+}
+
+.bankTag {
+  position: absolute;
+  left: 16px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(24, 24, 27, 0.2);
+  background: #fff;
+  color: #18181b;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.09px;
+  box-sizing: border-box;
+}
+
+.check {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--desk-mint, #9bdbc1);
+  color: #18181b;
+}
+
+.caption {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--desk-ink-2, #3a3a40);
+}

@@ -620,8 +620,9 @@ export async function confirmFirstPayout(params: {
       lagMinutes != null
         ? `Instant, ${lagMinutes} minute${lagMinutes === 1 ? '' : 's'} after your MZN landed.`
         : 'Instant.'
-    const sentence = `${zarLabel} paid to ${holder}, ${bankName} ${masked}. ${speedLine}`
+    const sentence = `${zarLabel} is in your account. ${speedLine}`
     const instantLeft = roundMajor(Math.max(0, SUB_R100K_CAP - amount))
+    void holder
 
     t.update(zarRef, {
       fiatBalance: 0,
@@ -679,19 +680,14 @@ export async function confirmFirstPayout(params: {
       deskLedgerRows: [
         { label: 'Paid', value: zarLabel },
         { label: 'To', value: `${bankName} ${masked}` },
-        {
-          label: 'Proof',
-          value: 'Payment confirmation',
-          secondLine: 'bank POP to follow',
-        },
       ],
       deskStatusChip: 'Paid',
       deskPipes: [
         { id: 'mzn', label: 'MZN', title: '0 MZN', fillPct: 0, tone: 'mzn' },
-        { id: 'zar', label: 'ZAR', title: 'R0', fillPct: 0, tone: 'zar' },
-        { id: 'bank', label: 'BANK', title: masked, fillPct: 0, tone: 'bank' },
+        { id: 'zar', label: 'ZAR', title: 'R0 · paid out', fillPct: 0, tone: 'zar' },
+        { id: 'bank', label: 'BANK', title: `${bankName} ${masked}`, fillPct: 0, tone: 'bank' },
       ],
-      deskPipeCaption: 'Pipes clear. Nothing waiting.',
+      deskPipeCaption: 'Pipes clear. Nothing waiting with us.',
       actorType: 'ai_manager',
       avatarKind: 'zar_withdrawn',
       amountCurrency: 'ZAR',
