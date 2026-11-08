@@ -8,8 +8,8 @@ let celebratedUid: string | null = null
 let celebrateTimer: ReturnType<typeof setTimeout> | null = null
 
 /**
- * Temporary $ FAB avatar takeover after a successful interactive sign-in.
- * Same motion language as agent notification takeovers — brief, then clears.
+ * Temporary $ FAB avatar takeover after auth is confirmed — fresh sign-in
+ * and session restore / page refresh. Same motion as agent takeovers.
  */
 export function celebrateSignInFab(opts: {
   uid: string

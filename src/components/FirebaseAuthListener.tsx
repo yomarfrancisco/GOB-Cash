@@ -76,7 +76,6 @@ export default function FirebaseAuthListener() {
     let hasCheckedAuth = false
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       const signedIn = Boolean(user)
-      const isFreshSignIn = wasSignedInRef.current === false && signedIn
       wasSignedInRef.current = signedIn
 
       if (lastUidRef.current && lastUidRef.current !== (user?.uid || null)) {
@@ -161,9 +160,9 @@ export default function FirebaseAuthListener() {
           // The subscription below will still sync profile data from Firestore
         }
 
-        // First post-auth beat: user avatar briefly takes over the $ FAB.
-        // Skip session restore (wasSignedInRef was null on first callback).
-        if (isFreshSignIn) {
+        // First post-auth beat (fresh sign-in and session restore / refresh):
+        // user avatar briefly takes over the $ FAB. Once-per-uid this page load.
+        {
           const profile = useUserProfileStore.getState().profile
           celebrateSignInFab({
             uid: user.uid,
