@@ -62,7 +62,7 @@ import {
   fundIntroTitle,
   type FundIntroLocale,
 } from '@/components/notifications/FundMznIntroCard'
-import { doc, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { deleteField, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
 import { TypewriterText } from '@/components/desk/TypewriterText'
@@ -589,7 +589,9 @@ function ActivityItemCard({
     actionsUnlocked &&
     (item.routingAction === 'liquid_now' || item.routingAction === 'payout_details_request') &&
     !item.userReply
-  const showYoureSetUpActions = actionsUnlocked && item.routingAction === 'youre_set_up'
+  // Fund again only on the latest You’re set up — not older setup cards.
+  const showYoureSetUpActions =
+    actionsUnlocked && item.routingAction === 'youre_set_up' && showStatus === true
   const wallets = useWalletStore((s) => s.wallets)
   const accountIsFunded =
     Number(wallets?.cashMZN?.fiatBalance || 0) > 0.005 ||
@@ -597,6 +599,8 @@ function ActivityItemCard({
     Number(wallets?.earnings?.fiatBalance || 0) > 0.005
   const showFundIntroLiquidity = showFundIntroActions && accountIsFunded && showStatus === true
   const fundWatching = fundWatchState === 'watching' || Boolean(item.userReply)
+  // After tap, the reply is the user bubble — hide the black CTA.
+  const showFundIntroPrimary = showFundIntroActions && !item.userReply && fundWatchState !== 'watching'
   const showProposalActions =
     !lockDeskActions &&
     actionsUnlocked &&
@@ -1073,7 +1077,8 @@ function ActivityItemCard({
           showSendKeypad ||
           showRestockKeypad ||
           showFundMznKeypad ||
-          showFundIntroActions ||
+          showFundIntroPrimary ||
+          showFundIntroLiquidity ||
           showYoureSetUpActions ||
           showStepContinue ||
           showStartNextRun ||
@@ -1115,62 +1120,60 @@ function ActivityItemCard({
                 Fund MZN
               </button>
             )}
-            {showFundIntroActions && (
-              <>
-                <button
-                  type="button"
-                  className={[
-                    styles.confirmButton,
-                    fundWatchState === 'loading' ? styles.confirmButtonLoading : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  aria-label={fundIntroPrimaryLabel(fundLocale, fundWatching)}
-                  disabled={fundWatching || fundWatchState === 'loading'}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    if (fundWatching || fundWatchState === 'loading') return
-                    const uid = getFirebaseAuth().currentUser?.uid
-                    if (!uid) return
-                    const reply = fundIntroPrimaryLabel(fundLocale, false)
-                    setFundWatchState('loading')
-                    void updateDoc(doc(getFirestoreDb(), 'users', uid, 'activityEvents', item.id), {
-                      userReply: reply,
-                      userRepliedAt: serverTimestamp(),
-                      deskPendingChip: fundLocale === 'pt' ? 'A acompanhar' : 'Watching',
+            {showFundIntroPrimary && (
+              <button
+                type="button"
+                className={[
+                  styles.confirmButton,
+                  fundWatchState === 'loading' ? styles.confirmButtonLoading : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label={fundIntroPrimaryLabel(fundLocale, false)}
+                disabled={fundWatchState === 'loading'}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  if (fundWatchState === 'loading') return
+                  const uid = getFirebaseAuth().currentUser?.uid
+                  if (!uid) return
+                  const reply = fundIntroPrimaryLabel(fundLocale, false)
+                  setFundWatchState('loading')
+                  void updateDoc(doc(getFirestoreDb(), 'users', uid, 'activityEvents', item.id), {
+                    userReply: reply,
+                    userRepliedAt: serverTimestamp(),
+                    deskPendingChip: deleteField(),
+                  })
+                    .then(() => setFundWatchState('watching'))
+                    .catch((error) => {
+                      console.error('[Activity] Fund transfer watch failed:', error)
+                      setFundWatchState('idle')
                     })
-                      .then(() => setFundWatchState('watching'))
-                      .catch((error) => {
-                        console.error('[Activity] Fund transfer watch failed:', error)
-                        setFundWatchState('idle')
-                      })
-                  }}
-                >
-                  {fundIntroPrimaryLabel(fundLocale, fundWatching)}
-                </button>
-                {showFundIntroLiquidity ? (
-                  <button
-                    type="button"
-                    className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                      .filter(Boolean)
-                      .join(' ')}
-                    aria-label={fundIntroSecondaryLabel(fundLocale)}
-                    aria-busy={planBusy === true}
-                    disabled={planBusy === true}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onStatus?.()
-                    }}
-                  >
-                    {fundIntroSecondaryLabel(fundLocale)}
-                  </button>
-                ) : null}
-              </>
+                }}
+              >
+                {fundIntroPrimaryLabel(fundLocale, false)}
+              </button>
             )}
+            {showFundIntroLiquidity ? (
+              <button
+                type="button"
+                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label={fundIntroSecondaryLabel(fundLocale)}
+                aria-busy={planBusy === true}
+                disabled={planBusy === true}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onStatus?.()
+                }}
+              >
+                {fundIntroSecondaryLabel(fundLocale)}
+              </button>
+            ) : null}
             {showYoureSetUpActions && (
               <button
                 type="button"
-                className={styles.replyButton}
+                className={styles.confirmButton}
                 aria-label="Fund again"
                 onClick={(event) => {
                   event.stopPropagation()
