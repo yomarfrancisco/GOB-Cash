@@ -39,7 +39,14 @@ export function DeskPayoutAccountForm({ zarAmount }: { zarAmount: number }) {
         )
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save payout account.')
+      const firebaseErr = err as { code?: string; message?: string; details?: unknown }
+      const raw = String(firebaseErr?.message || '').trim()
+      const looksGeneric = !raw || /^internal$/i.test(raw) || /^functions\/internal$/i.test(raw)
+      setError(
+        looksGeneric
+          ? 'Payout failed — try again in a moment.'
+          : raw.replace(/^functions\//, '')
+      )
     } finally {
       setSaving(false)
     }

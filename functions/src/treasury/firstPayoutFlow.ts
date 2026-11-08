@@ -415,20 +415,21 @@ async function attachUserReplyToLiquidNow(params: {
   rawMessage: string
 }): Promise<void> {
   const events = db().collection('users').doc(params.userId).collection('activityEvents')
-  const snap = await events
-    .where('routingAction', 'in', ['liquid_now', 'payout_details_request'])
-    .limit(10)
-    .get()
   const now = admin.firestore.Timestamp.now()
   const text = params.rawMessage.trim().slice(0, 2000)
-  if (!snap.empty) {
-    const newest = snap.docs
-      .slice()
-      .sort((a, b) => {
-        const am = a.data()?.createdAt?.toMillis?.() || 0
-        const bm = b.data()?.createdAt?.toMillis?.() || 0
-        return bm - am
-      })[0]
+  // Prefer equality queries (no composite index) over `in`.
+  const [liquidSnap, legacySnap] = await Promise.all([
+    events.where('routingAction', '==', 'liquid_now').limit(10).get(),
+    events.where('routingAction', '==', 'payout_details_request').limit(10).get(),
+  ])
+  const newest = [...liquidSnap.docs, ...legacySnap.docs]
+    .slice()
+    .sort((a, b) => {
+      const am = a.data()?.createdAt?.toMillis?.() || 0
+      const bm = b.data()?.createdAt?.toMillis?.() || 0
+      return bm - am
+    })[0]
+  if (newest) {
     await newest.ref.set(
       {
         userReply: text,
@@ -586,10 +587,11 @@ export async function confirmFirstPayout(params: {
     if (!zarSnap.exists) return { ok: false, amountZar: 0, skipped: 'no_wallet' as const }
     const zarData = zarSnap.data() || {}
     const status = String(zarData[FIRST_PAYOUT_STATUS_FIELD] || '')
-    if (status === 'done') {
+    const hold = zarData[FIRST_PAYOUT_HOLD_FIELD] === true
+    // A later fund can re-open the hold after a prior Day-1 payout marked done.
+    if (status === 'done' && !hold) {
       return { ok: false, amountZar: 0, skipped: 'already_paid' as const }
     }
-    const hold = zarData[FIRST_PAYOUT_HOLD_FIELD] === true
     const hasDetails = Boolean(zarData[FIRST_PAYOUT_DETAILS_FIELD])
     // Allow payout whenever funds are on a first-payout hold (or details already filed).
     if (!hold && !hasDetails && status !== 'awaiting_payout') {
@@ -855,18 +857,46 @@ export const desk_savePayoutAccountAndPay = functions
     if (!context.auth?.uid) {
       throw new functions.https.HttpsError('unauthenticated', 'Login required')
     }
-    const result = await savePayoutAccountAndPay({
-      userId: context.auth.uid,
-      bankName: typeof data?.bankName === 'string' ? data.bankName : '',
-      accountHolderName: typeof data?.accountHolderName === 'string' ? data.accountHolderName : '',
-      accountNumber: typeof data?.accountNumber === 'string' ? data.accountNumber : '',
-      accountType: typeof data?.accountType === 'string' ? data.accountType : undefined,
-      autoPayout: data?.autoPayout !== false,
-    })
-    if (!result.ok && result.skipped === 'invalid_fields') {
-      throw new functions.https.HttpsError('invalid-argument', 'Check bank, holder, and account number')
+    try {
+      const result = await savePayoutAccountAndPay({
+        userId: context.auth.uid,
+        bankName: typeof data?.bankName === 'string' ? data.bankName : '',
+        accountHolderName: typeof data?.accountHolderName === 'string' ? data.accountHolderName : '',
+        accountNumber: typeof data?.accountNumber === 'string' ? data.accountNumber : '',
+        accountType: typeof data?.accountType === 'string' ? data.accountType : undefined,
+        autoPayout: data?.autoPayout !== false,
+      })
+      if (!result.ok) {
+        if (result.skipped === 'invalid_fields') {
+          throw new functions.https.HttpsError(
+            'invalid-argument',
+            'Check bank, holder, and account number'
+          )
+        }
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          result.skipped === 'already_paid'
+            ? 'This payout was already completed.'
+            : result.skipped === 'empty' || result.skipped === 'no_hold'
+              ? 'No liquid ZAR is waiting to pay out.'
+              : `Could not pay out (${result.skipped || 'retry'}).`
+        )
+      }
+      return { ok: true, amountZar: result.amountZar }
+    } catch (error) {
+      if (error instanceof functions.https.HttpsError) throw error
+      console.error('[desk_savePayoutAccountAndPay] failed', {
+        uid: context.auth.uid,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+      throw new functions.https.HttpsError(
+        'internal',
+        error instanceof Error && error.message
+          ? error.message
+          : 'Payout failed — try again in a moment.'
+      )
     }
-    return result
   })
 
 export const ops_confirmFirstPayout = functions

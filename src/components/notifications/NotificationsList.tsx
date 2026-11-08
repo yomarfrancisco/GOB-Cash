@@ -1075,7 +1075,11 @@ function ActivityItemCard({
           showProposalActions ||
           showExecuted ||
           showKycLink ||
-          (showStatus && !isLiquidityReport && !isFundIntro && !showYoureSetUpActions) ||
+          (showStatus &&
+            !isLiquidityReport &&
+            !isFundIntro &&
+            !showYoureSetUpActions &&
+            !showInlinePayoutForm) ||
           showRealtime) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
@@ -1317,7 +1321,11 @@ function ActivityItemCard({
                 </button>
               </>
             )}
-            {showStatus && !isLiquidityReport && !isFundIntro && !showYoureSetUpActions && (
+            {showStatus &&
+              !isLiquidityReport &&
+              !isFundIntro &&
+              !showYoureSetUpActions &&
+              !showInlinePayoutForm && (
               <button
                 type="button"
                 className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
