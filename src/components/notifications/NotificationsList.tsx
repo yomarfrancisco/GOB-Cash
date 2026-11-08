@@ -1163,7 +1163,7 @@ function ActivityItemCard({
                   onClick={(event) => {
                     event.stopPropagation()
                     openPayoutAccountSheet({
-                      zarAmount: Number(item.amountValue || 0),
+                      zarAmount: Number(item.amount?.value || 0),
                       activityEventId: item.id,
                     })
                   }}
