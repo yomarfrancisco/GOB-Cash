@@ -54,7 +54,7 @@ function resolveLiquidNowFigures(item: ActivityItem): {
 }
 
 /**
- * Stacked full-size MZN → ZAR convert visual for Liquid now.
+ * Overlapped Liquid now: MZN strip behind, full-size ZAR card in front.
  * Replays on every mount so historic desk cards get the same animation.
  */
 export function LiquidNowConvertVisual({ item }: { item: ActivityItem }) {
@@ -80,40 +80,30 @@ export function LiquidNowConvertVisual({ item }: { item: ActivityItem }) {
 
   return (
     <div className={styles.root} aria-label="Conversion to liquid ZAR">
-      <div className={[styles.card, styles.cardMzn].join(' ')}>
-        <div className={styles.lane}>MZN</div>
-        <div className={styles.amt}>{fmtMzn(mznNow)}</div>
-        <div className={styles.sub}>
-          {fmtMzn(mznIn)} in · all converted
+      <div className={styles.stack}>
+        <div className={styles.strip}>
+          <span className={styles.stripLane}>MZN</span>
+          <span className={styles.stripValue}>
+            {fmtMzn(mznNow)} · all converted
+          </span>
         </div>
-        <span className={[styles.barSlot, styles.barSlotEmpty].join(' ')} aria-hidden>
-          <span className={styles.barTrack}>
-            <span className={styles.barFill} style={{ width: '0%' }} />
+
+        <div className={styles.front}>
+          <div className={styles.lane}>ZAR</div>
+          <div className={styles.amt}>{fmtZar(zarNow)}</div>
+          <div className={styles.sub}>liquid · ready to pay out</div>
+          <span className={styles.barSlot} aria-hidden title="Liquidity bar">
+            <span className={styles.barTrack}>
+              <span className={styles.barFill} style={{ width: `${zarFillPct}%` }} />
+            </span>
           </span>
-        </span>
+        </div>
       </div>
 
-      <div className={styles.bridge}>
-        <span className={styles.arrow} aria-hidden>
-          ↓
-        </span>
-        <span className={styles.ratePill}>
-          converted at {rate.toFixed(4)} MZN/ZAR
-        </span>
-      </div>
-
-      <div className={[styles.card, styles.cardZar].join(' ')}>
-        <div className={styles.lane}>ZAR</div>
-        <div className={styles.amt}>{fmtZar(zarNow)}</div>
-        <div className={styles.sub}>liquid · ready to pay out</div>
-        <span className={[styles.barSlot, styles.barSlotLive].join(' ')} aria-hidden title="Liquidity bar">
-          <span className={styles.barTrack}>
-            <span className={styles.barFill} style={{ width: `${zarFillPct}%` }} />
-          </span>
-        </span>
-      </div>
-
-      <p className={styles.caption}>Full green bar: everything you sent is liquid.</p>
+      <p className={styles.caption}>
+        {fmtMzn(mznIn)} converted at {rate.toFixed(4)}. Full green bar: everything you sent is
+        liquid.
+      </p>
     </div>
   )
 }

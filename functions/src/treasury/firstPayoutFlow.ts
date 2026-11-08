@@ -240,7 +240,7 @@ async function publishLiquidNow(params: {
         tone: 'zar',
       },
     ],
-    deskPipeCaption: 'Full green bar: everything you sent is liquid.',
+    deskPipeCaption: `${fmtMzn(params.mznReceived)} converted at ${params.sellRate.toFixed(4)}. Full green bar: everything you sent is liquid.`,
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
     amountCurrency: 'ZAR',
