@@ -3,6 +3,7 @@ import styles from '@/app/activity/activity.module.css'
 import { RoutingStepCard } from './RoutingStepCard'
 import { DeskFundExtras, DeskStepBlock } from './DeskStepBlock'
 import { FundMznIntroCard, type FundIntroLocale } from './FundMznIntroCard'
+import { DeskPayoutAccountForm } from './DeskPayoutAccountForm'
 import { BankEmailRoundBlock, BankExpectedRepliesBlock } from './BankEmailRoundBlock'
 
 const SERIES_COLOR = ['#111111', '#8aa31a', '#8a8a8a']
@@ -166,11 +167,13 @@ export function DeskCardVisuals({
   fundLocale = 'en',
   onFundLocaleChange,
   liveSellMznPerZar = null,
+  showInlinePayoutForm = false,
 }: {
   item: ActivityItem
   fundLocale?: FundIntroLocale
   onFundLocaleChange?: (locale: FundIntroLocale) => void
   liveSellMznPerZar?: number | null
+  showInlinePayoutForm?: boolean
 }) {
   if (item.routingStepMessage) {
     return <RoutingStepCard message={item.routingStepMessage} />
@@ -193,7 +196,8 @@ export function DeskCardVisuals({
     item.deskNoteAlt ||
     item.deskBankEmailRound?.due ||
     item.deskBankExpectedReplies ||
-    item.deskChart
+    item.deskChart ||
+    showInlinePayoutForm
   ) {
     return (
       <>
@@ -215,6 +219,9 @@ export function DeskCardVisuals({
         ) : null}
         {item.deskBankExpectedReplies ? (
           <BankExpectedRepliesBlock preview={item.deskBankExpectedReplies} />
+        ) : null}
+        {showInlinePayoutForm ? (
+          <DeskPayoutAccountForm zarAmount={Number(item.amount?.value || 0)} />
         ) : null}
       </>
     )

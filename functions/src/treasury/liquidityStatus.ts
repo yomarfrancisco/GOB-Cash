@@ -36,9 +36,9 @@ async function assertFundedCaller(uid: string): Promise<void> {
   const earnings = money(Number(earnSnap.data()?.fiatBalance || 0))
   if (cashMzn > 0.005 || cashZar > 0.005 || earnings > 0.005) return
 
-  // Past funding even if the wallet was later spent down.
+  // Past funding even if the wallet was later spent / paid out.
   try {
-    const [mznSettled, depositEvents] = await Promise.all([
+    const [mznSettled, anyTx, depositEvents, day1Events] = await Promise.all([
       db
         .collection('transactions')
         .where('userId', '==', uid)
@@ -46,13 +46,25 @@ async function assertFundedCaller(uid: string): Promise<void> {
         .where('status', '==', 'SETTLED')
         .limit(1)
         .get(),
+      db.collection('transactions').where('userId', '==', uid).limit(1).get(),
       userRef
         .collection('activityEvents')
         .where('kind', 'in', ['mzn_deposited', 'EXTERNAL_DEPOSIT_CONFIRMED', 'DEPOSIT_CREDITED'])
         .limit(1)
         .get(),
+      userRef
+        .collection('activityEvents')
+        .where('routingAction', 'in', [
+          'bank_notice',
+          'liquid_now',
+          'youre_set_up',
+          'payout_confirmed',
+          'fund_intro',
+        ])
+        .limit(1)
+        .get(),
     ])
-    if (!mznSettled.empty || !depositEvents.empty) return
+    if (!mznSettled.empty || !anyTx.empty || !depositEvents.empty || !day1Events.empty) return
   } catch (error) {
     console.warn('[liquidity] funded history scan skipped', {
       error: error instanceof Error ? error.message : String(error),

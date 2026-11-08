@@ -20,7 +20,6 @@ import UsernameEditSheet from '@/components/UsernameEditSheet'
 import FullNameEditSheet from '@/components/FullNameEditSheet'
 import CardDetailsSheet from '@/components/CardDetailsSheet'
 import BankingDetailsSheet from '@/components/BankingDetailsSheet'
-import PayoutAccountSheet from '@/components/PayoutAccountSheet'
 import UsdtWalletAddressSheet from '@/components/UsdtWalletAddressSheet'
 import ProfileDescriptionSheet from '@/components/ProfileDescriptionSheet'
 import SupportSheet from '@/components/SupportSheet'
@@ -172,8 +171,6 @@ export default function RootLayout({
               <CardDetailsSheet />
               {/* Global Banking Details Sheet */}
               <BankingDetailsSheet />
-              {/* Day-1 SA payout account (once) */}
-              <PayoutAccountSheet />
               {/* Global USDT Wallet Address Sheet */}
               <UsdtWalletAddressSheet />
               {/* Global Profile Description Sheet */}

@@ -15,7 +15,6 @@ import {
   admin_exitDeskPlan,
   desk_submitPayoutBankDetails,
 } from '@/lib/transactions/clientFunctions'
-import { usePayoutAccountSheet } from '@/store/usePayoutAccountSheet'
 import { isConversionInFlight } from '@/lib/transactions/submitInternalConversion'
 import {
   markDeskKeypadOffered,
@@ -541,7 +540,6 @@ function ActivityItemCard({
 }) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
-  const openPayoutAccountSheet = usePayoutAccountSheet((s) => s.open)
   const profile = useUserProfileStore((s) => s.profile)
   const isCopied = isCopiedActivity(item)
   // Persist-only — never infer from planMode (bank notices must stay clean).
@@ -586,7 +584,7 @@ function ActivityItemCard({
   const showFundMznKeypad = !lockDeskActions && actionsUnlocked && isMznShortStepCard(item)
   const isFundIntro = item.routingAction === 'fund_intro'
   const showFundIntroActions = actionsUnlocked && isFundIntro
-  const showAddPayoutAccount =
+  const showInlinePayoutForm =
     actionsUnlocked &&
     (item.routingAction === 'liquid_now' || item.routingAction === 'payout_details_request') &&
     !item.userReply
@@ -1025,7 +1023,11 @@ function ActivityItemCard({
               </div>
             ) : null}
             {!isLiquidityReport &&
-              (item.routingStepMessage || item.deskLedgerRows || isFundIntro
+              (item.routingStepMessage ||
+              item.deskLedgerRows ||
+              item.deskPipes ||
+              isFundIntro ||
+              showInlinePayoutForm
                 ? titleDone
                   ? (
                       <DeskCardVisuals
@@ -1033,6 +1035,7 @@ function ActivityItemCard({
                         fundLocale={fundLocale}
                         onFundLocaleChange={setFundLocale}
                         liveSellMznPerZar={liveSellMznPerZar}
+                        showInlinePayoutForm={showInlinePayoutForm}
                       />
                     )
                   : null
@@ -1041,6 +1044,7 @@ function ActivityItemCard({
                       <DeskCardVisuals
                         item={item}
                         liveSellMznPerZar={liveSellMznPerZar}
+                        showInlinePayoutForm={showInlinePayoutForm}
                       />
                     )
                   : null)}
@@ -1064,7 +1068,6 @@ function ActivityItemCard({
           showRestockKeypad ||
           showFundMznKeypad ||
           showFundIntroActions ||
-          showAddPayoutAccount ||
           showYoureSetUpActions ||
           showStepContinue ||
           showStartNextRun ||
@@ -1072,7 +1075,7 @@ function ActivityItemCard({
           showProposalActions ||
           showExecuted ||
           showKycLink ||
-          (showStatus && !isLiquidityReport && !isFundIntro) ||
+          (showStatus && !isLiquidityReport && !isFundIntro && !showYoureSetUpActions) ||
           showRealtime) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
@@ -1153,24 +1156,6 @@ function ActivityItemCard({
                   </button>
                 ) : null}
               </>
-            )}
-            {showAddPayoutAccount && (
-              <div className={[styles.activityActionRow, styles.activityActionRowFull].join(' ')}>
-                <button
-                  type="button"
-                  className={styles.confirmButton}
-                  aria-label="Add payout account"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    openPayoutAccountSheet({
-                      zarAmount: Number(item.amount?.value || 0),
-                      activityEventId: item.id,
-                    })
-                  }}
-                >
-                  Add payout account
-                </button>
-              </div>
             )}
             {showYoureSetUpActions && (
               <div className={[styles.activityActionRow, styles.activityActionRowTwin].join(' ')}>
@@ -1332,7 +1317,7 @@ function ActivityItemCard({
                 </button>
               </>
             )}
-            {showStatus && !isLiquidityReport && !isFundIntro && (
+            {showStatus && !isLiquidityReport && !isFundIntro && !showYoureSetUpActions && (
               <button
                 type="button"
                 className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
@@ -1501,7 +1486,7 @@ function ActivitySection({
                 catchupActive={catchupActive}
                 planMode={planMode}
                 // Liquidity is for any funded client — do not hide behind KYC / deskBlocked.
-                showStatus={isPlanHost}
+                showStatus={true}
                 showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
                 onStatus={onStatus}
                 onRealtime={onRealtime}
