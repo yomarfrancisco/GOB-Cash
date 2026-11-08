@@ -1164,6 +1164,19 @@ export async function desk_submitPayoutBankDetails(message: string): Promise<{
   return result.data as { handled: boolean; acknowledgement?: string; skipped?: string }
 }
 
+export async function desk_savePayoutAccountAndPay(params: {
+  bankName: string
+  accountHolderName: string
+  accountNumber: string
+  accountType?: string
+  autoPayout?: boolean
+}): Promise<{ ok: boolean; amountZar: number; skipped?: string }> {
+  const functions = getFunctionsInstance()
+  const fn = httpsCallable(functions, 'desk_savePayoutAccountAndPay')
+  const result = await fn(params)
+  return result.data as { ok: boolean; amountZar: number; skipped?: string }
+}
+
 export async function ops_confirmFirstPayout(params: {
   userId: string
   proofNote?: string

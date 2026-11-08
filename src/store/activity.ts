@@ -92,6 +92,15 @@ export type ActivityItem = {
     secondLine?: string
     copyable?: boolean
   }>
+  /** Day-1 pipe cards (MZN → ZAR → bank). */
+  deskPipes?: Array<{
+    id: string
+    title: string
+    subtitle?: string
+    fillPct?: number
+    tone?: 'mzn' | 'zar' | 'bank' | string
+  }>
+  deskPipeCaption?: string
   /** Numbered next steps under a fund / intro card. */
   deskSteps?: string[]
   /** Fine print under a fund / intro card. */

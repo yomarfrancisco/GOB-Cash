@@ -9,7 +9,7 @@ import type { ActivityItem } from '@/store/activity'
 import { useNotificationStore } from '@/store/notifications'
 
 /** Bumped when the Day-1 fund card copy/layout changes. */
-export const WELCOME_PAGA_EVENT_ID = 'welcome-fund-mzn-v3'
+export const WELCOME_PAGA_EVENT_ID = 'welcome-fund-mzn-v4'
 
 export const FUND_MZN_ACCOUNT_NUMBER = '4841111710001'
 export const FUND_MZN_RECIPIENT = 'WOLF DIGITAL, LDA.'
@@ -47,8 +47,7 @@ export function firstNameFromUser(params: {
 export function buildFundMznDeskSentence(firstName: string): string {
   const name = firstName.trim() || 'there'
   return (
-    `Hi ${name}. PAGA helps you convert Metical to Rand instantly. ` +
-    `Start by funding your conversion account; send meticais to this account. ` +
+    `Hi ${name}. Send meticais to this account. ` +
     `Up to R100,000 is liquid instantly, ready to pay. Anything above is liquid at 09:00 the next day.`
   )
 }

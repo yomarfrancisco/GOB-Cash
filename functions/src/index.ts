@@ -55,6 +55,7 @@ export { onTreasuryReserveWrite } from './treasury/onTreasuryReserveWrite'
 export { onCashMznWalletWrite } from './treasury/onCashMznWrite'
 export {
   desk_submitPayoutBankDetails,
+  desk_savePayoutAccountAndPay,
   ops_confirmFirstPayout,
 } from './treasury/firstPayoutFlow'
 export {

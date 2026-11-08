@@ -101,6 +101,45 @@ function DeskChart({ chart }: { chart: NonNullable<ActivityItem['deskChart']> })
   )
 }
 
+function DeskPipes({
+  pipes,
+  caption,
+}: {
+  pipes: NonNullable<ActivityItem['deskPipes']>
+  caption?: string
+}) {
+  const toneClass = (tone?: string) => {
+    if (tone === 'mzn') return styles.deskPipeMzn
+    if (tone === 'zar') return styles.deskPipeZar
+    if (tone === 'bank') return styles.deskPipeBank
+    return ''
+  }
+  return (
+    <div className={styles.deskPipesWrap}>
+      <div className={styles.deskPipes} role="img" aria-label="Fund pipes">
+        {pipes.map((pipe, index) => (
+          <div key={pipe.id} className={styles.deskPipeSlot}>
+            {index > 0 ? <span className={styles.deskPipeArrow} aria-hidden>→</span> : null}
+            <div className={[styles.deskPipeCard, toneClass(pipe.tone)].filter(Boolean).join(' ')}>
+              <div className={styles.deskPipeTitle}>{pipe.title}</div>
+              {pipe.subtitle ? <div className={styles.deskPipeSub}>{pipe.subtitle}</div> : null}
+              {typeof pipe.fillPct === 'number' ? (
+                <span className={styles.deskPipeTrack}>
+                  <span
+                    className={styles.deskPipeFill}
+                    style={{ width: `${Math.max(0, Math.min(100, pipe.fillPct))}%` }}
+                  />
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+      {caption ? <p className={styles.deskPipeCaption}>{caption}</p> : null}
+    </div>
+  )
+}
+
 export function DeskCardVisuals({
   item,
   fundLocale = 'en',
@@ -126,6 +165,7 @@ export function DeskCardVisuals({
     )
   }
   if (
+    item.deskPipes?.length ||
     item.deskLedgerRows?.length ||
     item.deskSteps?.length ||
     item.deskNote ||
@@ -136,6 +176,9 @@ export function DeskCardVisuals({
   ) {
     return (
       <>
+        {item.deskPipes?.length ? (
+          <DeskPipes pipes={item.deskPipes} caption={item.deskPipeCaption} />
+        ) : null}
         {item.deskLedgerRows?.length ? <DeskStepBlock rows={item.deskLedgerRows} /> : null}
         <DeskFundExtras steps={item.deskSteps} note={item.deskNote} noteAlt={item.deskNoteAlt} />
         {item.deskChart ? (

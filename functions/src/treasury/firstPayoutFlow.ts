@@ -41,18 +41,32 @@ function db(): FirebaseFirestore.Firestore {
   return admin.firestore()
 }
 
+/** Client-facing amounts: 45,000.00 MZN / R11,072.05 (en-US). */
 function fmtMzn(n: number): string {
-  return `${roundMajor(n).toLocaleString('en-ZA', {
+  return `${roundMajor(n).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} MZN`
 }
 
 function fmtZar(n: number): string {
-  return `R${roundMajor(n).toLocaleString('en-ZA', {
+  return `R${roundMajor(n).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+async function sastDayAndClock(ms: number): Promise<{ dayKey: string; clock: string }> {
+  const { sastParts } = await import('../routing/routingTime')
+  const p = sastParts(ms)
+  return {
+    dayKey: `${p.year}-${pad2(p.month)}-${pad2(p.day)}`,
+    clock: `${pad2(p.hour)}:${pad2(p.minute)}`,
+  }
 }
 
 async function resolveUserIdByHandle(handleRaw: string): Promise<string | null> {
@@ -117,62 +131,108 @@ async function publishActivity(
   return true
 }
 
-export async function publishMznReceivedNotice(params: {
+/** One Moz "MZN received" card per SAST day — rows update in place. */
+export async function upsertDailyMznReceived(params: {
   userId: string
   amountMzn: number
-  eventId: string
-}): Promise<void> {
-  const amountLabel = fmtMzn(params.amountMzn)
-  const title = `${amountLabel} received`
-  const body = `${amountLabel} received. Moza liquidity for this account is up by that amount.`
-  await publishActivity(params.userId, params.eventId, {
+  atMs?: number
+}): Promise<{ dayKey: string; totalMzn: number }> {
+  const atMs = params.atMs ?? Date.now()
+  const { dayKey, clock } = await sastDayAndClock(atMs)
+  const id = `mzn-recv-day-${dayKey}`
+  const ref = db().collection('users').doc(params.userId).collection('activityEvents').doc(id)
+  const amount = roundMajor(params.amountMzn)
+  const snap = await ref.get()
+  const prevRows = Array.isArray(snap.data()?.deskLedgerRows)
+    ? (snap.data()!.deskLedgerRows as Array<{ label: string; value: string; valueStrong?: boolean }>)
+    : []
+  const transferRows = prevRows.filter((row) => !/^Total today$/i.test(row.label))
+  transferRows.push({
+    label: `${clock} Transfer · ref ..${String(atMs).slice(-4)}`,
+    value: fmtMzn(amount),
+  })
+  const totalMzn = roundMajor(
+    transferRows.reduce((sum, row) => {
+      const n = Number(String(row.value).replace(/[^\d.-]/g, ''))
+      return sum + (Number.isFinite(n) ? n : 0)
+    }, 0)
+  )
+  const rows = [
+    ...transferRows,
+    { label: 'Total today', value: fmtMzn(totalMzn), valueStrong: true },
+  ]
+  const body = `${fmtMzn(totalMzn)} received at Moza Banco. Converting now.`
+  const payload = {
+    id,
     kind: CONVERSION_ROUTING_KIND,
-    title,
+    title: 'MZN received',
     body,
     deskSentence: body,
-    dropdownTitle: title,
-    dropdownBody: `${amountLabel} · Moza`,
+    dropdownTitle: 'MZN received',
+    dropdownBody: `${fmtMzn(amount)} · Moza`,
+    deskLedgerRows: rows,
     actorType: 'ai_manager',
     avatarKind: 'convert_mzn',
     amountCurrency: 'MZN',
-    amountValue: roundMajor(params.amountMzn),
+    amountValue: totalMzn,
     amountSign: 'credit',
-    txId: params.eventId,
+    txId: id,
     hasDownloadButton: false,
     awaitingConfirm: false,
     routingBlocked: false,
     status: 'recorded',
     routingAction: 'bank_notice',
     deskSpeaker: 'amina',
-  })
+    dayKey,
+    recordingSource: 'SYSTEM',
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }
+  if (snap.exists) {
+    await ref.set(payload, { merge: true })
+  } else {
+    await ref.set({
+      ...payload,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    })
+  }
+  return { dayKey, totalMzn }
 }
 
-async function publishPayoutDetailsRequest(params: {
+/** RM: liquid ZAR ready — ask for payout account once (pending dashed chip). */
+async function publishLiquidNow(params: {
   userId: string
   zarAmount: number
-  username: string
+  mznReceived: number
+  sellRate: number
   groupId: string
 }): Promise<void> {
   const zarLabel = fmtZar(params.zarAmount)
-  const title = 'ZAR ready — payout details'
-  const body =
-    `Funds under R100,000 convert immediately. ${zarLabel} is on your ZAR card and ready to withdraw. ` +
-    `Send your South African bank details in chat, or email receipts@inbound.mozpaga.xyz with subject ` +
-    `ZAR Payout ${params.username}.`
-  const id = `payout-details-request-${params.groupId}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
+  const id = `liquid-now-${params.groupId}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
+  const body = `${zarLabel} is liquid and ready to pay out. Add your South African account once and we’ll pay out straight away, every time.`
   await publishActivity(params.userId, id, {
     kind: CONVERSION_ROUTING_KIND,
-    title,
+    title: 'Liquid now',
     body,
     deskSentence: body,
-    dropdownTitle: 'ZAR ready',
-    dropdownBody: `${zarLabel} · send SA bank details`,
+    dropdownTitle: 'Liquid now',
+    dropdownBody: `${zarLabel} · add payout account`,
+    deskPendingChip: 'Needs your payout account',
     deskLedgerRows: [
-      { label: 'Liquid now', value: zarLabel },
-      { label: 'Next', value: 'SA bank details' },
-      { label: 'Email subject', value: `ZAR Payout ${params.username}` },
+      { label: 'Received', value: fmtMzn(params.mznReceived) },
+      { label: 'Rate', value: `${params.sellRate.toFixed(4)} MZN/ZAR` },
+      { label: 'Liquid ZAR', value: zarLabel, valueStrong: true },
     ],
-    deskStatusChip: 'Awaiting details',
+    deskPipes: [
+      { id: 'mzn', title: '0 MZN', subtitle: 'all converted', fillPct: 0, tone: 'mzn' },
+      {
+        id: 'zar',
+        title: `R${Math.round(params.zarAmount).toLocaleString('en-US')}`,
+        subtitle: 'liquid',
+        fillPct: 100,
+        tone: 'zar',
+      },
+    ],
+    deskPipeCaption: '',
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
     amountCurrency: 'ZAR',
@@ -184,41 +244,36 @@ async function publishPayoutDetailsRequest(params: {
     awaitingConfirm: false,
     routingBlocked: false,
     status: 'recorded',
-    routingAction: 'payout_details_request',
+    routingAction: 'liquid_now',
     deskSpeaker: 'sam',
   })
 }
 
-async function publishDetailsReceived(params: {
+async function publishYoureSetUp(params: {
   userId: string
-  zarAmount: number
   bankName: string
   accountMasked: string
-  accountHolderName: string
+  instantLeftZar: number
   groupId: string
 }): Promise<void> {
-  const zarLabel = fmtZar(params.zarAmount)
-  const title = 'SA account details received'
-  const body = `${zarLabel} payout instructed to ${params.accountHolderName} · ${params.bankName} ${params.accountMasked}.`
-  const id = `payout-details-received-${params.groupId}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
+  const left = fmtZar(params.instantLeftZar)
+  const id = `youre-set-up-${params.groupId}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
+  const body = `From now on: send MZN, and liquid ZAR lands in ${params.bankName} ${params.accountMasked} automatically. ${left} instant left today.`
   await publishActivity(params.userId, id, {
     kind: CONVERSION_ROUTING_KIND,
-    title,
+    title: "You're set up",
     body,
     deskSentence: body,
-    dropdownTitle: 'Details received',
-    dropdownBody: `${params.bankName} · ${params.accountMasked}`,
+    dropdownTitle: "You're set up",
+    dropdownBody: `${params.bankName} ${params.accountMasked} · auto payout`,
     deskLedgerRows: [
-      { label: 'Amount', value: zarLabel },
-      { label: 'Bank', value: params.bankName },
-      { label: 'Account', value: params.accountMasked },
-      { label: 'Holder', value: params.accountHolderName },
+      { label: 'Payout to', value: `${params.bankName} ${params.accountMasked}` },
+      { label: 'Instant left today', value: left, valueStrong: true },
     ],
-    deskStatusChip: 'Awaiting payout',
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
     amountCurrency: 'ZAR',
-    amountValue: roundMajor(params.zarAmount),
+    amountValue: roundMajor(params.instantLeftZar),
     amountSign: 'credit',
     txId: id,
     groupId: params.groupId,
@@ -226,13 +281,14 @@ async function publishDetailsReceived(params: {
     awaitingConfirm: false,
     routingBlocked: false,
     status: 'recorded',
-    routingAction: 'payout_details_received',
-    deskSpeaker: 'leo',
+    routingAction: 'youre_set_up',
+    deskSpeaker: 'sam',
   })
 }
 
 /**
- * After a cashMZN credit: Moz ack, then auto-convert all when ≤ R100k vs reserve.
+ * After a cashMZN credit: one daily Moz ack, then auto-convert at the client sell
+ * rate when ≤ R100k vs reserve. Day-1 without a SA payout account → "Liquid now".
  */
 export async function handleCashMznCredit(params: {
   userId: string
@@ -243,19 +299,22 @@ export async function handleCashMznCredit(params: {
   const delta = roundMajor(params.deltaMzn)
   if (!(delta > 0.005)) return { converted: false, zarAmount: 0, skipped: 'no_delta' }
 
-  const eventId = `mzn-recv-${params.creditKey}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
-  await publishMznReceivedNotice({
+  const atMs = Date.now()
+  const { totalMzn } = await upsertDailyMznReceived({
     userId: params.userId,
     amountMzn: delta,
-    eventId,
+    atMs,
   })
 
   const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
   const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
-  if (!(costRate > 0)) return { converted: false, zarAmount: 0, skipped: 'no_rate' }
+  if (!(sellRate > 0) || !(costRate > 0)) {
+    return { converted: false, zarAmount: 0, skipped: 'no_rate' }
+  }
 
   const mznBalance = roundMajor(params.afterBalanceMzn)
-  const wantZar = roundMajor(mznBalance / costRate)
+  // Client quote = sell rate (spread stays with the desk). Cost is for books only.
+  const wantZar = roundMajor(mznBalance / sellRate)
   if (!(wantZar > 0.005)) return { converted: false, zarAmount: 0, skipped: 'dust' }
 
   const split = await planReserveSplit({
@@ -279,7 +338,7 @@ export async function handleCashMznCredit(params: {
     destCurrency: 'ZAR',
     sourceMajor: split.instantSource,
     destMajor: split.instantDest,
-    fxRateMZNperZar: costRate,
+    fxRateMZNperZar: sellRate,
     costRate,
     sellRate,
     groupId,
@@ -287,41 +346,55 @@ export async function handleCashMznCredit(params: {
     setFirstPayoutHold: true,
   })
 
+  const zarRef = db().collection('users').doc(params.userId).collection('wallets').doc('cashZAR')
+  await zarRef.set(
+    {
+      firstPayoutMznLandedAtMs: atMs,
+      firstPayoutSellRate: sellRate,
+      firstPayoutMznReceived: totalMzn,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  )
+
   const username = await readUsername(params.userId)
   const linked = await readSaLinkedBank(params.userId)
-  if (linked && (linked.accountNumber || linked.bankName)) {
-    const zarRef = db().collection('users').doc(params.userId).collection('wallets').doc('cashZAR')
+  const userSnap = await db().collection('users').doc(params.userId).get()
+  const autoPayout = userSnap.data()?.payoutAuto !== false
+  const hasPayoutAccount = Boolean(linked && (linked.accountNumber || linked.bankName))
+
+  if (hasPayoutAccount && autoPayout) {
     await zarRef.set(
       {
         [FIRST_PAYOUT_STATUS_FIELD]: 'awaiting_payout' satisfies FirstPayoutStatus,
         [FIRST_PAYOUT_DETAILS_FIELD]: {
-          bankName: String(linked.bankName || 'SA Bank'),
-          accountHolderName: String(linked.accountHolderName || username),
-          accountNumber: String(linked.accountNumber || ''),
+          bankName: String(linked!.bankName || 'SA Bank'),
+          accountHolderName: String(linked!.accountHolderName || username),
+          accountNumber: String(linked!.accountNumber || ''),
+          accountType: String((linked as LinkedBank & { accountType?: string }).accountType || 'Business current'),
           source: 'linked_bank',
         },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     )
-    await publishDetailsReceived({
-      userId: params.userId,
-      zarAmount: instant.destMajor,
-      bankName: String(linked.bankName || 'SA Bank'),
-      accountMasked: maskAccount(String(linked.accountNumber || '****')),
-      accountHolderName: String(linked.accountHolderName || username),
-      groupId,
-    })
-    // Linked bank on file → instant payout (no details ask).
     await confirmFirstPayout({
       userId: params.userId,
-      proofNote: 'Instant payout under R100,000 · linked SA account on file.',
+      proofNote: 'Payment confirmation',
     })
   } else {
-    await publishPayoutDetailsRequest({
+    await zarRef.set(
+      {
+        [FIRST_PAYOUT_STATUS_FIELD]: 'awaiting_details' satisfies FirstPayoutStatus,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    )
+    await publishLiquidNow({
       userId: params.userId,
       zarAmount: instant.destMajor,
-      username,
+      mznReceived: totalMzn,
+      sellRate,
       groupId,
     })
   }
@@ -329,12 +402,15 @@ export async function handleCashMznCredit(params: {
   return { converted: true, zarAmount: instant.destMajor }
 }
 
-async function attachUserReplyToPayoutRequest(params: {
+async function attachUserReplyToLiquidNow(params: {
   userId: string
   rawMessage: string
 }): Promise<void> {
   const events = db().collection('users').doc(params.userId).collection('activityEvents')
-  const snap = await events.where('routingAction', '==', 'payout_details_request').limit(10).get()
+  const snap = await events
+    .where('routingAction', 'in', ['liquid_now', 'payout_details_request'])
+    .limit(10)
+    .get()
   const now = admin.firestore.Timestamp.now()
   const text = params.rawMessage.trim().slice(0, 2000)
   if (!snap.empty) {
@@ -350,13 +426,12 @@ async function attachUserReplyToPayoutRequest(params: {
         userReply: text,
         userRepliedAt: now,
         deskPendingChip: admin.firestore.FieldValue.delete(),
-        deskStatusChip: 'Details sent',
+        deskStatusChip: 'Payout account saved',
       },
       { merge: true }
     )
     return
   }
-  // Fallback bubble if the request card was missed.
   const id = `user-payout-details-${Date.now()}`
   await events.doc(id).set({
     id,
@@ -367,7 +442,7 @@ async function attachUserReplyToPayoutRequest(params: {
     userRepliedAt: now,
     actorType: 'user',
     deskSpeaker: 'sam',
-    routingAction: 'payout_details_request',
+    routingAction: 'liquid_now',
     status: 'recorded',
     createdAt: now,
     recordingSource: 'USER_UI',
@@ -391,12 +466,12 @@ export async function submitPayoutBankDetails(params: {
   }
 
   const text = params.rawMessage.trim()
-  const proofNote = 'Instant payout under R100,000 · app confirmation (bank PoP follows when available).'
+  const proofNote = 'Payment confirmation'
 
-  // Stuck after Leo ack without RM payout — finish on any follow-up message.
+  // Stuck awaiting payout — finish on any follow-up message.
   if (status === 'awaiting_payout') {
     if (params.source === 'chat' && text) {
-      await attachUserReplyToPayoutRequest({ userId: params.userId, rawMessage: text })
+      await attachUserReplyToLiquidNow({ userId: params.userId, rawMessage: text })
     }
     try {
       const paid = await confirmFirstPayout({ userId: params.userId, proofNote })
@@ -409,7 +484,7 @@ export async function submitPayoutBankDetails(params: {
       }
       return {
         handled: true,
-        acknowledgement: `Full payout confirmed · ${fmtZar(paid.amountZar)} sent.`,
+        acknowledgement: `Paid out · ${fmtZar(paid.amountZar)}.`,
       }
     } catch (error) {
       console.error('[submitPayoutBankDetails] confirm retry failed', error)
@@ -443,10 +518,9 @@ export async function submitPayoutBankDetails(params: {
   const zarAmount = roundMajor(
     Number(zarData[FIRST_PAYOUT_ZAR_FIELD] || zarData.fiatBalance || 0)
   )
-  const groupId = `details-${Date.now()}`
 
   if (params.source === 'chat' || params.source === 'email') {
-    await attachUserReplyToPayoutRequest({ userId: params.userId, rawMessage: text })
+    await attachUserReplyToLiquidNow({ userId: params.userId, rawMessage: text })
   }
 
   await zarRef.set(
@@ -464,33 +538,24 @@ export async function submitPayoutBankDetails(params: {
     { merge: true }
   )
 
-  await publishDetailsReceived({
-    userId: params.userId,
-    zarAmount,
-    bankName,
-    accountMasked: maskAccount(accountNumber || '****'),
-    accountHolderName,
-    groupId,
-  })
-
   try {
     const paid = await confirmFirstPayout({ userId: params.userId, proofNote })
     if (!paid.ok) {
       return {
         handled: true,
-        acknowledgement: `SA account details received for ${fmtZar(zarAmount)}. Payout pending — ${paid.skipped || 'retry'}.`,
+        acknowledgement: `Payout account saved for ${fmtZar(zarAmount)}. Payout pending — ${paid.skipped || 'retry'}.`,
         skipped: paid.skipped,
       }
     }
     return {
       handled: true,
-      acknowledgement: `SA account details received. Full payout confirmed · ${fmtZar(paid.amountZar)} sent.`,
+      acknowledgement: `Paid out · ${fmtZar(paid.amountZar)}.`,
     }
   } catch (error) {
     console.error('[submitPayoutBankDetails] confirm after details failed', error)
     return {
       handled: true,
-      acknowledgement: `SA account details received for ${fmtZar(zarAmount)}. Payout pending — send again to retry.`,
+      acknowledgement: `Payout account saved for ${fmtZar(zarAmount)}. Payout pending — send again to retry.`,
       skipped: 'confirm_threw',
     }
   }
@@ -532,13 +597,21 @@ export async function confirmFirstPayout(params: {
       accountNumber?: string
     }
     const now = admin.firestore.Timestamp.now()
+    const nowMs = now.toMillis()
     const amountMinor = Math.round(amount * 100)
     const zarLabel = fmtZar(amount)
     const bankName = String(details.bankName || 'SA Bank')
     const holder = String(details.accountHolderName || 'account holder')
     const masked = maskAccount(String(details.accountNumber || '****'))
-    const proof = params.proofNote?.trim() || 'Proof of payment attached.'
-    const sentence = `Full payout confirmed · ${zarLabel} to ${holder} · ${bankName} ${masked}. ${proof}`
+    const landedAt = Number(zarData.firstPayoutMznLandedAtMs || 0)
+    const lagMinutes =
+      landedAt > 0 ? Math.max(1, Math.round((nowMs - landedAt) / 60_000)) : null
+    const speedLine =
+      lagMinutes != null
+        ? `Instant, ${lagMinutes} minute${lagMinutes === 1 ? '' : 's'} after your MZN landed.`
+        : 'Instant.'
+    const sentence = `${zarLabel} paid to ${holder}, ${bankName} ${masked}. ${speedLine}`
+    const instantLeft = roundMajor(Math.max(0, SUB_R100K_CAP - amount))
 
     t.update(zarRef, {
       fiatBalance: 0,
@@ -579,8 +652,7 @@ export async function confirmFirstPayout(params: {
       updatedAt: now,
     })
 
-    // Single desk + dropdown notice from SA Bank Liaison (leo). Do not also write
-    // BANK_TRANSFER_CONFIRMED — that path still uses the retired Ama avatar.
+    // One SA Bank Liaison payout card — no separate "details received".
     const deskRef = db()
       .collection('users')
       .doc(params.userId)
@@ -589,18 +661,27 @@ export async function confirmFirstPayout(params: {
     t.set(deskRef, {
       id: deskRef.id,
       kind: CONVERSION_ROUTING_KIND,
-      title: 'Full payout confirmed',
+      title: 'Paid out',
       body: sentence,
       deskSentence: sentence,
-      dropdownTitle: 'Payout confirmed',
-      dropdownBody: `${zarLabel} · PoP`,
+      dropdownTitle: 'Paid out',
+      dropdownBody: `${zarLabel} · ${bankName} ${masked}`,
       deskLedgerRows: [
         { label: 'Paid', value: zarLabel },
-        { label: 'Bank', value: bankName },
-        { label: 'Account', value: masked },
-        { label: 'Proof', value: proof },
+        { label: 'To', value: `${bankName} ${masked}` },
+        {
+          label: 'Proof',
+          value: 'Payment confirmation',
+          secondLine: 'bank POP to follow',
+        },
       ],
       deskStatusChip: 'Paid',
+      deskPipes: [
+        { id: 'mzn', title: '0 MZN', fillPct: 0, tone: 'mzn' },
+        { id: 'zar', title: 'R0', fillPct: 0, tone: 'zar' },
+        { id: 'bank', title: `BANK ${masked}`, fillPct: 0, tone: 'bank' },
+      ],
+      deskPipeCaption: 'Pipes clear. Nothing waiting.',
       actorType: 'ai_manager',
       avatarKind: 'zar_withdrawn',
       amountCurrency: 'ZAR',
@@ -618,10 +699,37 @@ export async function confirmFirstPayout(params: {
       recordingSource: 'SYSTEM',
     })
 
-    return { ok: true, amountZar: amount }
+    return {
+      ok: true as const,
+      amountZar: amount,
+      bankName,
+      accountMasked: masked,
+      instantLeftZar: instantLeft,
+      groupId: paidId,
+    }
   })
 
-  return result
+  if (
+    result.ok &&
+    typeof result.bankName === 'string' &&
+    typeof result.accountMasked === 'string' &&
+    typeof result.instantLeftZar === 'number' &&
+    typeof result.groupId === 'string'
+  ) {
+    await publishYoureSetUp({
+      userId: params.userId,
+      bankName: result.bankName,
+      accountMasked: result.accountMasked,
+      instantLeftZar: result.instantLeftZar,
+      groupId: result.groupId,
+    })
+  }
+
+  return {
+    ok: result.ok,
+    amountZar: result.amountZar,
+    skipped: result.ok ? undefined : result.skipped,
+  }
 }
 
 export async function ingestZarPayoutEmail(params: {
@@ -656,6 +764,101 @@ export const desk_submitPayoutBankDetails = functions
       rawMessage: message,
       source: 'chat',
     })
+  })
+
+/** Day-1 sheet: save SA payout account once, then pay out held ZAR. */
+export async function savePayoutAccountAndPay(params: {
+  userId: string
+  bankName: string
+  accountHolderName: string
+  accountNumber: string
+  accountType?: string
+  autoPayout?: boolean
+}): Promise<{ ok: boolean; amountZar: number; skipped?: string }> {
+  const bankName = params.bankName.trim()
+  const accountHolderName = params.accountHolderName.trim()
+  const accountNumber = params.accountNumber.replace(/\s/g, '')
+  if (!bankName || !accountHolderName || !/^\d{8,16}$/.test(accountNumber)) {
+    return { ok: false, amountZar: 0, skipped: 'invalid_fields' }
+  }
+
+  const userRef = db().collection('users').doc(params.userId)
+  const zarRef = userRef.collection('wallets').doc('cashZAR')
+  const autoPayout = params.autoPayout !== false
+  const accountType = (params.accountType || 'Business current').trim() || 'Business current'
+
+  const userSnap = await userRef.get()
+  const existingBanks = Array.isArray(userSnap.data()?.linkedBanks)
+    ? (userSnap.data()!.linkedBanks as Array<Record<string, unknown>>)
+    : []
+  const nextBank = {
+    id: `sa-${accountNumber.slice(-4)}-${Date.now().toString(36)}`,
+    country: 'South Africa',
+    bankName,
+    accountHolderName,
+    accountNumber,
+    accountType,
+    isDefault: true,
+  }
+  const linkedBanks = [
+    ...existingBanks
+      .filter((bank) => String(bank.accountNumber || '') !== accountNumber)
+      .map((bank) => ({ ...bank, isDefault: false })),
+    nextBank,
+  ]
+  await userRef.set(
+    {
+      payoutAuto: autoPayout,
+      linkedBanks,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  )
+
+  await zarRef.set(
+    {
+      [FIRST_PAYOUT_STATUS_FIELD]: 'awaiting_payout' satisfies FirstPayoutStatus,
+      [FIRST_PAYOUT_DETAILS_FIELD]: {
+        bankName,
+        accountHolderName,
+        accountNumber,
+        accountType,
+        source: 'payout_sheet',
+      },
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  )
+
+  await attachUserReplyToLiquidNow({
+    userId: params.userId,
+    rawMessage: `${bankName} · ${accountHolderName} · ${accountNumber}`,
+  })
+
+  return confirmFirstPayout({
+    userId: params.userId,
+    proofNote: 'Payment confirmation',
+  })
+}
+
+export const desk_savePayoutAccountAndPay = functions
+  .region('us-central1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth?.uid) {
+      throw new functions.https.HttpsError('unauthenticated', 'Login required')
+    }
+    const result = await savePayoutAccountAndPay({
+      userId: context.auth.uid,
+      bankName: typeof data?.bankName === 'string' ? data.bankName : '',
+      accountHolderName: typeof data?.accountHolderName === 'string' ? data.accountHolderName : '',
+      accountNumber: typeof data?.accountNumber === 'string' ? data.accountNumber : '',
+      accountType: typeof data?.accountType === 'string' ? data.accountType : undefined,
+      autoPayout: data?.autoPayout !== false,
+    })
+    if (!result.ok && result.skipped === 'invalid_fields') {
+      throw new functions.https.HttpsError('invalid-argument', 'Check bank, holder, and account number')
+    }
+    return result
   })
 
 export const ops_confirmFirstPayout = functions

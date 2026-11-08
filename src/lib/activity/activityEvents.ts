@@ -44,6 +44,14 @@ export type ActivityEventDoc = {
   cycleNumber?: number
   routingAction?: 'replenish' | 'deploy' | string
   deskSpeaker?: 'sam' | 'leo' | 'amina'
+  deskPipes?: Array<{
+    id?: unknown
+    title?: unknown
+    subtitle?: unknown
+    fillPct?: unknown
+    tone?: unknown
+  }>
+  deskPipeCaption?: string
   pairedAmountValue?: number
   feedbackAck?: string
   routingBlocked?: boolean
@@ -178,6 +186,28 @@ function asDeskLedgerRows(
     ]
   })
   return rows.length ? rows : undefined
+}
+
+function asDeskPipes(raw: ActivityEventDoc['deskPipes']): ActivityItem['deskPipes'] {
+  if (!Array.isArray(raw) || !raw.length) return undefined
+  const pipes = raw.flatMap((row, index) => {
+    if (!row || typeof row !== 'object') return []
+    const title = typeof row.title === 'string' ? row.title.trim() : ''
+    if (!title) return []
+    const id = typeof row.id === 'string' && row.id.trim() ? row.id.trim() : `pipe-${index}`
+    const fillPct = typeof row.fillPct === 'number' && Number.isFinite(row.fillPct) ? row.fillPct : undefined
+    const tone = typeof row.tone === 'string' ? row.tone : undefined
+    return [
+      {
+        id,
+        title,
+        subtitle: typeof row.subtitle === 'string' ? row.subtitle : undefined,
+        fillPct,
+        tone,
+      },
+    ]
+  })
+  return pipes.length ? pipes : undefined
 }
 
 function asStringList(raw: unknown, max = 8): string[] | undefined {
@@ -579,6 +609,11 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
         ? data.deskAdvanceDay
         : undefined,
     deskLedgerRows: asDeskLedgerRows(data.deskLedgerRows),
+    deskPipes: asDeskPipes(data.deskPipes),
+    deskPipeCaption:
+      typeof data.deskPipeCaption === 'string' && data.deskPipeCaption.trim()
+        ? data.deskPipeCaption.trim()
+        : undefined,
     deskSteps: asStringList(data.deskSteps),
     deskNote:
       typeof data.deskNote === 'string' && data.deskNote.trim() ? data.deskNote.trim() : undefined,

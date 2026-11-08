@@ -31,6 +31,8 @@ const uid = process.argv[2] || 'l4Ia5CPAxlTg39C9RhiA03qozlY2'
 const DELETE_ROUTING_ACTIONS = new Set([
   'reserve_split',
   'bank_notice',
+  'liquid_now',
+  'youre_set_up',
   'payout_details_request',
   'payout_details_received',
   'payout_confirmed',
@@ -46,7 +48,7 @@ const DELETE_KINDS = new Set([
 ])
 
 const DELETE_TITLE_RE =
-  /ZAR paid from reserve|MZN paid from reserve|received|ZAR ready|SA account details|Full payout confirmed|Daily withdrawal/i
+  /ZAR paid from reserve|MZN paid from reserve|received|ZAR ready|Liquid now|Paid out|You're set up|SA account details|Full payout confirmed|Daily withdrawal/i
 
 async function zeroWallet(walletId: string) {
   const ref = db.collection('users').doc(uid).collection('wallets').doc(walletId)

@@ -47,10 +47,6 @@ const COPY = {
         <strong>R100,000</strong> fills it instantly; the rest fills at <strong>09:00</strong>.
       </>
     ),
-    justFunded: 'Just funded',
-    converting: 'Converting',
-    allLiquid: 'All liquid',
-    note: 'Most funds are liquid by 09:00 the next day. Some routes take up to 2 banking days.',
     copied: 'Copied',
     copyAccount: 'Copy account number',
     copyReference: 'Copy reference',
@@ -75,10 +71,6 @@ const COPY = {
         <strong>R100.000</strong> enche-a de imediato; o restante às <strong>09:00</strong>.
       </>
     ),
-    justFunded: 'Acabou de financiar',
-    converting: 'A converter',
-    allLiquid: 'Tudo líquido',
-    note: 'A maior parte fica líquida até às 09:00 do dia seguinte; algumas rotas levam até 2 dias úteis.',
     copied: 'Copiado',
     copyAccount: 'Copiar número da conta',
     copyReference: 'Copiar referência',
@@ -310,27 +302,7 @@ export function FundMznIntroCard({
           </span>
           <span>{copy.explain}</span>
         </p>
-        <div className={styles.legend}>
-          <div className={styles.legendItem}>
-            <span className={styles.legendBar} />
-            <span className={styles.legendLabel}>{copy.justFunded}</span>
-          </div>
-          <div className={styles.legendItem}>
-            <span className={styles.legendBar}>
-              <span className={styles.legendFill} style={{ width: '55%' }} />
-            </span>
-            <span className={styles.legendLabel}>{copy.converting}</span>
-          </div>
-          <div className={styles.legendItem}>
-            <span className={styles.legendBar}>
-              <span className={styles.legendFill} style={{ width: '100%' }} />
-            </span>
-            <span className={styles.legendLabel}>{copy.allLiquid}</span>
-          </div>
-        </div>
       </section>
-
-      <p className={styles.note}>{copy.note}</p>
     </div>
   )
 }

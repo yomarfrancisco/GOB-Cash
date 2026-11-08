@@ -15,6 +15,7 @@ import {
   admin_exitDeskPlan,
   desk_submitPayoutBankDetails,
 } from '@/lib/transactions/clientFunctions'
+import { usePayoutAccountSheet } from '@/store/usePayoutAccountSheet'
 import { isConversionInFlight } from '@/lib/transactions/submitInternalConversion'
 import {
   markDeskKeypadOffered,
@@ -540,6 +541,7 @@ function ActivityItemCard({
 }) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
+  const openPayoutAccountSheet = usePayoutAccountSheet((s) => s.open)
   const profile = useUserProfileStore((s) => s.profile)
   const isCopied = isCopiedActivity(item)
   // Persist-only — never infer from planMode (bank notices must stay clean).
@@ -584,6 +586,11 @@ function ActivityItemCard({
   const showFundMznKeypad = !lockDeskActions && actionsUnlocked && isMznShortStepCard(item)
   const isFundIntro = item.routingAction === 'fund_intro'
   const showFundIntroActions = actionsUnlocked && isFundIntro
+  const showAddPayoutAccount =
+    actionsUnlocked &&
+    (item.routingAction === 'liquid_now' || item.routingAction === 'payout_details_request') &&
+    !item.userReply
+  const showYoureSetUpActions = actionsUnlocked && item.routingAction === 'youre_set_up'
   const wallets = useWalletStore((s) => s.wallets)
   const accountIsFunded =
     Number(wallets?.cashMZN?.fiatBalance || 0) > 0.005 ||
@@ -884,6 +891,7 @@ function ActivityItemCard({
       className={styles.activityItem}
       data-desk-item-at={item.createdAt}
       data-desk-item-cycle={typeof item.cycleNumber === 'number' ? item.cycleNumber : undefined}
+      data-routing-action={item.routingAction || undefined}
     >
       <div className={[styles.activityAvatar, bankTile ? styles.activityAvatarBank : ''].filter(Boolean).join(' ')}>
         {bankTile ? (
@@ -959,6 +967,7 @@ function ActivityItemCard({
                 {statusChip ? <StatusChip label={statusChip} /> : null}
                 {item.deskPendingChip ? (
                   <span className={[styles.planChip, styles.pendingChip].join(' ')}>
+                    <span className={styles.pendingChipDot} aria-hidden />
                     {item.deskPendingChip}
                   </span>
                 ) : null}
@@ -1055,6 +1064,8 @@ function ActivityItemCard({
           showRestockKeypad ||
           showFundMznKeypad ||
           showFundIntroActions ||
+          showAddPayoutAccount ||
+          showYoureSetUpActions ||
           showStepContinue ||
           showStartNextRun ||
           showDownload ||
@@ -1141,6 +1152,52 @@ function ActivityItemCard({
                     {fundIntroSecondaryLabel(fundLocale)}
                   </button>
                 ) : null}
+              </>
+            )}
+            {showAddPayoutAccount && (
+              <button
+                type="button"
+                className={styles.confirmButton}
+                aria-label="Add payout account"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  openPayoutAccountSheet({
+                    zarAmount: Number(item.amountValue || 0),
+                    activityEventId: item.id,
+                  })
+                }}
+              >
+                Add payout account
+              </button>
+            )}
+            {showYoureSetUpActions && (
+              <>
+                <button
+                  type="button"
+                  className={styles.replyButton}
+                  aria-label="Fund again"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    document
+                      .querySelector('[data-routing-action="fund_intro"]')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }}
+                >
+                  Fund again
+                </button>
+                <button
+                  type="button"
+                  className={styles.replyButton}
+                  aria-label="Liquidity report"
+                  aria-busy={planBusy === true}
+                  disabled={planBusy === true}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onStatus?.()
+                  }}
+                >
+                  Liquidity report
+                </button>
               </>
             )}
             {showDownload && (
@@ -1750,9 +1807,10 @@ export function NotificationsList({
       })
       return
     }
-    // First-payout hold: SA bank details via chat (any user).
+    // First-payout hold: SA bank details via chat (any user) — sheet preferred.
     const awaitingPayoutDetails = allItems.some(
       (item) =>
+        item.routingAction === 'liquid_now' ||
         item.routingAction === 'payout_details_request' ||
         item.routingAction === 'payout_details_received'
     )
