@@ -48,8 +48,10 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
       return
     }
 
+    // Auth only — never auto-open the desk after signup/sign-in.
+    // Desk opens only from an intentional $ tap while already signed in.
     if (!isAuthed) {
-      requireAuth(openRoutingDesk)
+      requireAuth(() => {})
       return
     }
 

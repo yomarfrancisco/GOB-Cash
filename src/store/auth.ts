@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { useNotificationStore } from './notifications'
+import { useNotificationsStore } from '@/state/notifications'
 import { stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import { clearCashPaySession } from '@/lib/agentCashQr'
@@ -138,6 +139,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Clear notification queue
       const { clearNotifications } = useNotificationStore.getState()
       clearNotifications()
+
+      // Always land on home after auth — desk opens only via intentional $ tap.
+      useNotificationsStore.getState().closeNotifications()
       
       // Close all auth sheets
       const pending = get().pendingAuthAction
