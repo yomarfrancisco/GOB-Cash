@@ -28,7 +28,6 @@ import {
 } from '@/lib/fx/enRouteSettlementTimer'
 import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
-import { useIsAdminUser } from '@/lib/restrictions'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -150,7 +149,6 @@ export default function CardStackCard({
   const authState = useAuthStore((state) => state.getAuthState())
   const balanceMode = useAuthStore((state) => state.getBalanceMode())
   const isAuthed = useAuthStore((state) => state.isAuthed)
-  const isAdmin = useIsAdminUser()
   const { wallets, demoMode, walletsHydrated } = useWalletStore()
   const isBalanceReady = useAppModeStore((state) => state.isBalanceReady())
   
@@ -451,10 +449,8 @@ export default function CardStackCard({
     }
 
     if (card.type === 'mzn') {
-      // Clients see sell only; cost stays admin-visible on the MZN card.
-      const rate = isAdmin ? costRate : sellRate
       return {
-        strong: `${rate.toFixed(2)}Mt/R`,
+        strong: `${costRate.toFixed(2)}Mt/R`,
         label: '',
       }
     }
@@ -589,9 +585,9 @@ export default function CardStackCard({
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
                 <span>
                   {isMeticalAmount
-                    ? 'Funded'
+                    ? 'Pay in'
                     : card.type === 'savings'
-                      ? 'Delivered'
+                      ? 'Pay out'
                       : '≈ 0 MZN'}
                 </span>
               </div>
@@ -639,10 +635,10 @@ export default function CardStackCard({
               {isMeticalAmount || card.type === 'savings' ? (
                 <div
                   className="card-amounts__usdt"
-                  aria-label={isMeticalAmount ? 'Funded' : 'Delivered'}
+                  aria-label={isMeticalAmount ? 'Pay in' : 'Pay out'}
                   suppressHydrationWarning
                 >
-                  <span>{isMeticalAmount ? 'Funded' : 'Delivered'}</span>
+                  <span>{isMeticalAmount ? 'Pay in' : 'Pay out'}</span>
                 </div>
               ) : (
                 <div
