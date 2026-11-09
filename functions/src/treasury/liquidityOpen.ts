@@ -133,40 +133,71 @@ export async function drainLiquidityQueues(params?: {
   }
 
   const limit = Math.max(1, Math.min(40, params?.limit ?? 20))
-  let queueDocs: FirebaseFirestore.QueryDocumentSnapshot[] = []
+  type QueueRow = {
+    userId: string
+    queueMzn: number
+    queuedAtMs: number
+    fiatBalance: number
+  }
+  const byUser = new Map<string, QueueRow>()
+
+  const ingestWalletDoc = (doc: FirebaseFirestore.DocumentSnapshot) => {
+    if (!(doc.id === 'cashMZN' || doc.data()?.walletId === 'cashMZN')) return
+    const userId = doc.ref.parent.parent?.id || ''
+    const data = doc.data() || {}
+    const queueMzn = roundMajor(Number(data.liquidityQueueMzn || 0))
+    if (!userId || !(queueMzn > 0.005)) return
+    byUser.set(userId, {
+      userId,
+      queueMzn,
+      queuedAtMs: Number(data.liquidityQueuedAtMs || 0),
+      fiatBalance: roundMajor(Number(data.fiatBalance || 0)),
+    })
+  }
+
   try {
     const snap = await db()
       .collectionGroup('wallets')
       .where('liquidityQueueMzn', '>', 0)
       .limit(80)
       .get()
-    queueDocs = snap.docs.filter(
-      (d: FirebaseFirestore.QueryDocumentSnapshot) =>
-        d.id === 'cashMZN' || d.data()?.walletId === 'cashMZN'
-    )
+    for (const doc of snap.docs) ingestWalletDoc(doc)
   } catch (error) {
     functions.logger.warn('[drainLiquidityQueues] collectionGroup query failed', {
       error: error instanceof Error ? error.message : String(error),
     })
-    // Leave the window unlocked so the next minute can retry once the index is ready.
-    await markerRef.delete().catch(() => undefined)
-    return []
   }
 
-  const rows = queueDocs
-    .map((doc) => {
-      const userId = doc.ref.parent.parent?.id || ''
-      const data = doc.data() || {}
-      return {
-        userId,
-        queueMzn: roundMajor(Number(data.liquidityQueueMzn || 0)),
-        queuedAtMs: Number(data.liquidityQueuedAtMs || 0),
-        fiatBalance: roundMajor(Number(data.fiatBalance || 0)),
-      }
+  // Fallback / merge: top-level queue pointers (works before the collection-group index is ready).
+  try {
+    const pointers = await db().collection('liquidityQueueMzn').limit(80).get()
+    for (const pointer of pointers.docs) {
+      const userId = String(pointer.data()?.uid || pointer.id || '')
+      if (!userId || byUser.has(userId)) continue
+      const mznSnap = await db()
+        .collection('users')
+        .doc(userId)
+        .collection('wallets')
+        .doc('cashMZN')
+        .get()
+      ingestWalletDoc(mznSnap)
+    }
+  } catch (error) {
+    functions.logger.warn('[drainLiquidityQueues] pointer fallback failed', {
+      error: error instanceof Error ? error.message : String(error),
     })
+  }
+
+  const rows = Array.from(byUser.values())
     .filter((r) => r.userId && r.queueMzn > 0.005)
     .sort((a, b) => a.queuedAtMs - b.queuedAtMs || a.userId.localeCompare(b.userId))
     .slice(0, limit)
+
+  if (!rows.length) {
+    // Leave unlocked so the next minute can retry if wallets are still indexing.
+    await markerRef.delete().catch(() => undefined)
+    return []
+  }
 
   const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
   const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
@@ -257,6 +288,19 @@ export async function drainLiquidityQueues(params?: {
         },
         { merge: true }
       )
+      const pointerRef = db().collection('liquidityQueueMzn').doc(row.userId)
+      if (residualMzn > 0.005) {
+        await pointerRef.set(
+          {
+            uid: row.userId,
+            queueMzn: residualMzn,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        )
+      } else {
+        await pointerRef.delete().catch(() => undefined)
+      }
 
       const zarLabel = fmtZar(instant.destMajor)
       const eventId = `liquidity-open-${groupId}`.slice(0, 180)
