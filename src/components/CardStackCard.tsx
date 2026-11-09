@@ -4,8 +4,10 @@ import Image from 'next/image'
 import type { StaticImageData } from 'next/image'
 import { useRef, useEffect, useState } from 'react'
 import SlotCounter from './SlotCounter'
-import { formatCardTopline } from '@/lib/formatCurrency'
+import { formatCardTopline, formatEquivalenceAmount } from '@/lib/formatCurrency'
 import {
+  mznToZar,
+  zarToMzn,
   costMznPerZar,
   sellMznPerZar,
 } from '@/lib/mznZar'
@@ -27,6 +29,8 @@ import {
 import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
 import { useIsAdminUser } from '@/lib/restrictions'
+
+const FX_USD_ZAR_DEFAULT = 18.1
 
 type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
 
@@ -215,8 +219,17 @@ export default function CardStackCard({
       : 0
   const sellRate = sellMznPerZar(liveMzn)
   const costRate = costMznPerZar(liveMzn)
+  // ZAR inventory + TRANSIT quote SELL; Moz inventory quotes COST.
+  const quotedMznPerZar =
+    card.type === 'savings' || isTransitZar ? sellRate : costRate
   const walletMajor = zar
   const displayMajor = Math.max(0, walletMajor + (Number(displayMajorOffset) || 0))
+  // Minor line: MZN card → ZAR; TRANSIT/ZAR → MZN at sell/cost.
+  const convertedAmount = isMeticalAmount
+    ? mznToZar(displayMajor, quotedMznPerZar)
+    : card.type === 'savings' || isTransitZar
+      ? zarToMzn(displayMajor, quotedMznPerZar)
+      : displayMajor / FX_USD_ZAR_DEFAULT
   const pct = allocPct(cents)
   
   // Generate a stable key for SlotCounter that changes when balance changes
@@ -565,52 +578,90 @@ export default function CardStackCard({
         <div className={`card-amounts card-amounts--${card.type} card-amounts--shifted`} suppressHydrationWarning>
           {showPlaceholder ? (
             // Placeholder/skeleton while auth state is loading
-            <div className="card-amounts__zar amount-headline" style={{ opacity: 0.5 }} suppressHydrationWarning>
-              <span className="amt-int card-amounts__whole">
-                {isMeticalAmount ? 'Mt 0' : 'R 0'}
-              </span>
-              <span className="amt-dot card-amounts__dot">.</span>
-              <span className="amt-cents card-amounts__cents">00</span>
-            </div>
+            <>
+              <div className="card-amounts__zar amount-headline" style={{ opacity: 0.5 }} suppressHydrationWarning>
+                <span className="amt-int card-amounts__whole">
+                  {isMeticalAmount ? 'Mt 0' : 'R 0'}
+                </span>
+                <span className="amt-dot card-amounts__dot">.</span>
+                <span className="amt-cents card-amounts__cents">00</span>
+              </div>
+              <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
+                <span>
+                  {isMeticalAmount
+                    ? 'Funded'
+                    : card.type === 'savings'
+                      ? 'Delivered'
+                      : '≈ 0 MZN'}
+                </span>
+              </div>
+            </>
           ) : (
-            <div
-              className={clsx('card-amounts__zar amount-headline amount-topline', {
-                'flash-up': flashDirection === 'up',
-                'flash-down': flashDirection === 'down',
-                'amount-topline--compact': shouldUseCompactSizing,
-              })}
-              aria-label={`${displayMajor.toFixed(2)} ${
-                isMeticalAmount ? 'meticais' : 'rand'
-              }`}
-              onAnimationEnd={onFlashEnd}
-              suppressHydrationWarning
-            >
-              <SlotCounter
-                key={balanceKey}
-                value={displayMajor}
-                format={formatCardTopline}
-                durationMs={isBalanceReady ? 700 : 0}
-                className="card-amounts__zar-value"
-                onStart={() => {
-                  // Flash direction is already computed and set
-                }}
-                renderMajor={(major) => (
-                  <span className="amt-int card-amounts__whole" suppressHydrationWarning>
-                    {isMeticalAmount
-                      ? `Mt ${major}`
-                      : card.type === 'savings' || isTransitZar
-                        ? `R ${major}`
-                        : major}
-                  </span>
-                )}
-                renderCents={(cents) => (
-                  <>
-                    <span className="amt-dot card-amounts__dot" suppressHydrationWarning>.</span>
-                    <span className="amt-cents card-amounts__cents" suppressHydrationWarning>{cents}</span>
-                  </>
-                )}
-              />
-            </div>
+            <>
+              <div
+                className={clsx('card-amounts__zar amount-headline amount-topline', {
+                  'flash-up': flashDirection === 'up',
+                  'flash-down': flashDirection === 'down',
+                  'amount-topline--compact': shouldUseCompactSizing,
+                })}
+                aria-label={`${displayMajor.toFixed(2)} ${
+                  isMeticalAmount ? 'meticais' : 'rand'
+                }`}
+                onAnimationEnd={onFlashEnd}
+                suppressHydrationWarning
+              >
+                <SlotCounter
+                  key={balanceKey}
+                  value={displayMajor}
+                  format={formatCardTopline}
+                  durationMs={isBalanceReady ? 700 : 0}
+                  className="card-amounts__zar-value"
+                  onStart={() => {
+                    // Flash direction is already computed and set
+                  }}
+                  renderMajor={(major) => (
+                    <span className="amt-int card-amounts__whole" suppressHydrationWarning>
+                      {isMeticalAmount
+                        ? `Mt ${major}`
+                        : card.type === 'savings' || isTransitZar
+                          ? `R ${major}`
+                          : major}
+                    </span>
+                  )}
+                  renderCents={(cents) => (
+                    <>
+                      <span className="amt-dot card-amounts__dot" suppressHydrationWarning>.</span>
+                      <span className="amt-cents card-amounts__cents" suppressHydrationWarning>{cents}</span>
+                    </>
+                  )}
+                />
+              </div>
+              {isMeticalAmount || card.type === 'savings' ? (
+                <div
+                  className="card-amounts__usdt"
+                  aria-label={isMeticalAmount ? 'Funded' : 'Delivered'}
+                  suppressHydrationWarning
+                >
+                  <span>{isMeticalAmount ? 'Funded' : 'Delivered'}</span>
+                </div>
+              ) : (
+                <div
+                  className="card-amounts__usdt"
+                  aria-label={`approximately ${convertedAmount.toFixed(2)} MZN`}
+                  suppressHydrationWarning
+                >
+                  <span aria-hidden>≈ </span>
+                  <SlotCounter
+                    key={`${balanceKey}-converted`}
+                    value={convertedAmount}
+                    format={formatEquivalenceAmount}
+                    durationMs={isBalanceReady ? 700 : 0}
+                    className="card-amounts__usdt-value"
+                  />
+                  <span style={{ marginLeft: '4px' }}>MZN</span>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

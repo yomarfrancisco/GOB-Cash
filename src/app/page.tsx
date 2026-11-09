@@ -11,6 +11,7 @@ import { useTransactSheet } from '@/store/useTransactSheet'
 import AmountSheet from '@/components/AmountSheet'
 import SendDetailsSheet from '@/components/SendDetailsSheet'
 import SuccessSheet from '@/components/SuccessSheet'
+import { formatZARWithDot } from '@/lib/money'
 import { zarToMzn, mznToZar, costMznPerZar, sellMznPerZar } from '@/lib/mznZar'
 import { defaultConversionDestination } from '@/lib/fx/inventoryDominant'
 import { useWalletAlloc } from '@/state/walletAlloc'
@@ -38,6 +39,7 @@ import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/d
 import { useAuthStore } from '@/store/auth'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { useSoundEffect } from '@/hooks/useSoundEffect'
+import { getCardDefinition } from '@/lib/cards/cardDefinitions'
 import CashMapPopup from '@/components/CashMapPopup'
 import ConvertNotificationBanner from '@/components/ConvertNotificationBanner'
 import FinancialInboxSheet from '@/components/Inbox/FinancialInboxSheet'
@@ -619,6 +621,27 @@ function HomeContent() {
     [handleHelicopterConvertClick],
   )
 
+  // Get title and subtitle - always use card definitions (same for both modes)
+  // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
+  const cardDef = getCardDefinition(topCardType === 'yieldSurprise' ? 'yield' : topCardType)
+  // Title - conditional based on auth status
+  const title = 'Inventory'
+  
+  // Show the same total-balance summary before and after sign-in.
+  const cashMZNBalance =
+    isAuthed && isBalanceReady ? ((wallets as any)?.cashMZN?.fiatBalance ?? 0) : 0
+  const cashZARBalance =
+    isAuthed && isBalanceReady ? ((wallets as any)?.cashZAR?.fiatBalance ?? 0) : 0
+  const liveMznPerZar =
+    typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0
+      ? fxRates.rates.MZN
+      : 0
+  const costRate = costMznPerZar(liveMznPerZar)
+  const totalBalanceZAR = cashZARBalance + mznToZar(cashMZNBalance, costRate)
+  const formattedBalance = formatZARWithDot(totalBalanceZAR)
+  const subtitleText = `Total: ${formattedBalance}`
+
+
   return (
     <div className="app-shell">
       <div className="mobile-frame">
@@ -660,6 +683,15 @@ function HomeContent() {
             <div className="content home-content">
               {/* Card section with shared shell */}
               <div className="sectionShell">
+                <div className="frame-parent">
+                  <div className="wallet-header">
+                    <h1 className="wallet-title">{title}</h1>
+                  </div>
+                  <div className="wallet-subtitle-container">
+                    <span className="wallet-subtitle">{subtitleText}</span>
+                  </div>
+                </div>
+
                 {/* Card Stack */}
                 <CardStack 
                   ref={cardStackRef} 
