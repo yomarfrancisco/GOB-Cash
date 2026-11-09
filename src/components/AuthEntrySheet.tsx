@@ -265,8 +265,16 @@ export default function AuthEntrySheet() {
       ariaLabelledBy={authMode === 'signup' ? headlineId : undefined}
     >
       <div className={styles.handAuthWrapper}>
-        {/* Same sheet chrome as artwork version — white fill only, no image. */}
-        <div className={styles.handAuthRoot} style={{ background: '#FFFFFF' }} />
+        <div className={styles.handAuthRoot}>
+          <Image
+            src="/assets/sign up_first contact091120264.png"
+            alt=""
+            fill
+            quality={92}
+            sizes="100vw"
+            style={{ objectFit: 'cover', objectPosition: 'center 15%' }}
+          />
+        </div>
         <div className={clsx(styles.content, styles.authEntryContent)}>
           {authMode === 'loginEntry' ? (
             <form className={clsx(styles.form, styles.authEntryForm)} onSubmit={handleSubmit}>
