@@ -314,19 +314,18 @@
   max-width: calc(100% - 72px);
   margin-left: 32px;
   margin-right: 40px;
-  padding: 10px 12px 12px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   pointer-events: auto;
-  /* Faint wash for contrast on variable glass blur — not a card. */
-  background: rgba(255, 255, 255, 0.25);
+  background: transparent;
 }
 
 .landingHeadline {
   margin: 0 0 24px;
   padding: 0;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--font-dm-sans);
   font-weight: 700;
   font-size: 44px;
   line-height: 1.04;
@@ -334,6 +333,9 @@
   color: #18181b;
   text-align: left;
   font-style: normal;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .landingGoogleButton {
@@ -368,47 +370,30 @@
 }
 
 .landingGoogleLabel {
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--font-dm-sans);
   font-weight: 600;
   font-size: 16px;
   line-height: 1.2;
   color: #1f1f1f;
   font-style: normal;
   white-space: nowrap;
+  -webkit-font-smoothing: antialiased;
 }
 
 .landingTerms {
-  margin: 0 0 6px;
+  margin: 0;
   padding: 0;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--font-dm-sans);
   font-weight: 600;
   font-size: 13px;
   line-height: 1.35;
   color: #18181b;
   text-align: left;
   font-style: normal;
+  -webkit-font-smoothing: antialiased;
 }
 
 .landingTermsLink {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  font-style: normal;
-}
-
-.landingDisclosure {
-  margin: 0;
-  padding: 0;
-  font-family: 'DM Sans', system-ui, sans-serif;
-  font-weight: 400;
-  font-size: 12px;
-  line-height: 1.35;
-  color: #3a3a40;
-  text-align: left;
-  font-style: normal;
-}
-
-.landingDisclosureLink {
   color: inherit;
   text-decoration: underline;
   text-underline-offset: 2px;

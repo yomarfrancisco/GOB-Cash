@@ -252,8 +252,6 @@ export default function AuthEntrySheet() {
 
   if (!authEntryOpen) return null
 
-  const CFI_LICENSE_URL =
-    'https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing'
   const TERMS_URL = '/terms'
   const headlineId = 'auth-entry-headline'
 
@@ -373,17 +371,6 @@ export default function AuthEntrySheet() {
                 For licensed FX operators.{' '}
                 <a href={TERMS_URL} className={styles.landingTermsLink}>
                   Terms apply.
-                </a>
-              </p>
-              <p className={styles.landingDisclosure}>
-                Authorised FSP 52815 · Co-op bank{' '}
-                <a
-                  href={CFI_LICENSE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.landingDisclosureLink}
-                >
-                  CFI0024
                 </a>
               </p>
             </div>
