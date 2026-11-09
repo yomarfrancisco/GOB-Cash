@@ -619,17 +619,6 @@ function HomeContent() {
     [handleHelicopterConvertClick],
   )
 
-  const title = 'Converted today'
-
-  // Wallet pair summary — whole units, no cents (en-US thousands).
-  const cashMZNBalance =
-    isAuthed && isBalanceReady ? ((wallets as any)?.cashMZN?.fiatBalance ?? 0) : 0
-  const cashZARBalance =
-    isAuthed && isBalanceReady ? ((wallets as any)?.cashZAR?.fiatBalance ?? 0) : 0
-  const fmtWhole = (n: number) => Math.round(Number(n) || 0).toLocaleString('en-US')
-  const subtitleText = `${fmtWhole(cashMZNBalance)} MZN → ${fmtWhole(cashZARBalance)} ZAR`
-
-
   return (
     <div className="app-shell">
       <div className="mobile-frame">
@@ -671,12 +660,17 @@ function HomeContent() {
             <div className="content home-content">
               {/* Card section with shared shell */}
               <div className="sectionShell">
-                <div className="frame-parent">
+                {/* Keep header/subtitle vertical space; hide copy so cards do not shift up. */}
+                <div className="frame-parent" aria-hidden>
                   <div className="wallet-header">
-                    <h1 className="wallet-title">{title}</h1>
+                    <h1 className="wallet-title" style={{ visibility: 'hidden' }}>
+                      Converted today
+                    </h1>
                   </div>
                   <div className="wallet-subtitle-container">
-                    <span className="wallet-subtitle">{subtitleText}</span>
+                    <span className="wallet-subtitle" style={{ visibility: 'hidden' }}>
+                      0 MZN → 0 ZAR
+                    </span>
                   </div>
                 </div>
 
