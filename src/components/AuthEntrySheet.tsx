@@ -264,7 +264,9 @@ export default function AuthEntrySheet() {
       className="handAuthSheet"
       ariaLabelledBy={authMode === 'signup' ? headlineId : undefined}
     >
-      <div className={styles.handAuthWrapper} style={{ background: '#FFFFFF' }}>
+      <div className={styles.handAuthWrapper}>
+        {/* Same sheet chrome as artwork version — white fill only, no image. */}
+        <div className={styles.handAuthRoot} style={{ background: '#FFFFFF' }} />
         <div className={clsx(styles.content, styles.authEntryContent)}>
           {authMode === 'loginEntry' ? (
             <form className={clsx(styles.form, styles.authEntryForm)} onSubmit={handleSubmit}>

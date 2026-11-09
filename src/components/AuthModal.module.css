@@ -296,10 +296,9 @@
   top: calc(50% - 80px) !important; /* Shifted down by 30px from default (110px -> 80px) */
 }
 
-/* Entry sheet content — upper-middle, left-aligned over the sheet backdrop. */
+/* Entry sheet content — upper-middle of the sheet, left-aligned. */
 .authEntryContent {
   top: 260px !important;
-  z-index: 1;
   justify-content: flex-start !important;
   align-items: flex-start !important;
   padding-top: 0;
