@@ -257,7 +257,7 @@ export default function AuthEntrySheet() {
       <div className={styles.handAuthWrapper}>
         <div className={styles.handAuthRoot}>
           <Image
-            src="/assets/core/signup-first contact091120261.png"
+            src="/assets/core/signup-first contact091120262.png"
             alt=""
             fill
             quality={92}
@@ -265,19 +265,6 @@ export default function AuthEntrySheet() {
             style={{ objectFit: 'cover', objectPosition: 'center 15%' }}
           />
         </div>
-        {authMode === 'signup' ? (
-          <div className={styles.authEntryHeader}>
-            <Image
-              src="/assets/sign up black2.png"
-              alt="Sign Up"
-              className={styles.authEntryLogo}
-              width={120}
-              height={120}
-              sizes="120px"
-              quality={92}
-            />
-          </div>
-        ) : null}
         <div className={clsx(styles.content, styles.authEntryContent)}>
           {authMode === 'loginEntry' ? (
             <form className={clsx(styles.form, styles.authEntryForm)} onSubmit={handleSubmit}>
