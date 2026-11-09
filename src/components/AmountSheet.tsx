@@ -77,6 +77,11 @@ type AmountSheetProps = {
   autoPlayAmount?: number
   /** Desk catch-up: animate keys then dismiss without converting. */
   playbackOnly?: boolean
+  /**
+   * Desk calculator: quote MZN to fund for a ZAR outcome (sell rate both tabs).
+   * No balance gate, no scan, CTA is "Fund this".
+   */
+  fundCalculator?: boolean
 }
 
 export default function AmountSheet({
@@ -109,6 +114,7 @@ export default function AmountSheet({
   agentCashHandle = null,
   autoPlayAmount,
   playbackOnly = false,
+  fundCalculator = false,
 }: AmountSheetProps) {
   const [amount, setAmount] = useState('0')
   const [conversionBusy, setConversionBusy] = useState(false)
@@ -172,8 +178,9 @@ export default function AmountSheet({
     const nextMZN = isZarPrimaryKeypad
       ? Math.round(zarToMzn(typed, fxRateMZNperZAR) * 100) / 100
       : typed
-    // Only the source wallet must cover the typed amount (Sell ZAR → ZAR; Buy ZAR / Sell MZN → MZN).
+    // Fund calculator quotes a wire — no wallet debit. Convert keypads still gate on balance.
     if (
+      !fundCalculator &&
       !fromAutoPlay &&
       (isZarPrimaryKeypad
         ? exceedsAvailableZar(nextZAR, displayBalanceZAR)
@@ -401,17 +408,21 @@ export default function AmountSheet({
     ((isConversionKeypad && conversionDestination === 'ZAR') ||
       (isWithdrawKeypad && !isZarPrimaryKeypad)) &&
     exceedsAvailableMzn(amountMZN, displayBalanceMZN)
-  const keypadFeeText = exceedsZarBalance
-    ? 'Insufficient ZAR balance.'
-    : exceedsMznBalance
-    ? 'Insufficient MZN balance.'
-    : customFeeText
+  const keypadFeeText = fundCalculator
+    ? undefined
+    : exceedsZarBalance
+      ? 'Insufficient ZAR balance.'
+      : exceedsMznBalance
+        ? 'Insufficient MZN balance.'
+        : customFeeText
 
   // Format amount for display (remove leading zeros except "0.")
   const displayAmount = amount === '0' ? '0' : amount.replace(/^0+(?=\d)/, '')
 
-  const showScanIcon = Boolean(onScanClick) && (isConversionKeypad || entryPoint === 'cashButton')
+  const showScanIcon =
+    !fundCalculator && Boolean(onScanClick) && (isConversionKeypad || entryPoint === 'cashButton')
   const hideModeLabel = entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || isConversionKeypad || isWithdrawKeypad
+  const hideWalletBalance = fundCalculator
 
   // Lime when Rand is large; pink when Metical is large.
   const isSponsorButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'sponsorButton'
@@ -471,7 +482,10 @@ export default function AmountSheet({
       size="tall"
     >
       <div className={`amount-sheet amount-sheet-wrapper ${isHelicopterConvert ? 'amount-sheet--cash-transactions' : ''}`}>
-        <div className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''}`} style={{ height: 'var(--hdr-h, 118px)' }}>
+        <div
+          className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''} ${fundCalculator ? 'amount-sheet__header--fund-calc' : ''}`}
+          style={{ height: fundCalculator ? 'var(--hdr-h, 72px)' : 'var(--hdr-h, 118px)' }}
+        >
           {showScanIcon && (
             <button
               onClick={() => {
@@ -489,19 +503,21 @@ export default function AmountSheet({
             </button>
           )}
           <div className="amount-sheet__header-content">
-            <div
-              className={`amount-sheet__balance${agentCash ? ' amount-sheet__balance--cash-handle' : ''}`}
-              title={agentCash ? formatAgentCashTitle(agentCashHandle) : undefined}
-            >
-              {agentCash ? (
-                formatAgentCashTitle(agentCashHandle)
-              ) : (
-                <>
-                  {isZarPrimaryKeypad ? formatZARWithDot(displayBalanceZAR) : formatMZN(displayBalanceMZN)}{' '}
-                  <span className="amount-sheet__balance-label">balance</span>
-                </>
-              )}
-            </div>
+            {hideWalletBalance ? null : (
+              <div
+                className={`amount-sheet__balance${agentCash ? ' amount-sheet__balance--cash-handle' : ''}`}
+                title={agentCash ? formatAgentCashTitle(agentCashHandle) : undefined}
+              >
+                {agentCash ? (
+                  formatAgentCashTitle(agentCashHandle)
+                ) : (
+                  <>
+                    {isZarPrimaryKeypad ? formatZARWithDot(displayBalanceZAR) : formatMZN(displayBalanceMZN)}{' '}
+                    <span className="amount-sheet__balance-label">balance</span>
+                  </>
+                )}
+              </div>
+            )}
             {!hideModeLabel && <div className="amount-sheet__title">{modeLabel}</div>}
           </div>
           {/* Close button is provided by ActionSheet (as-close-only) */}
@@ -651,9 +667,13 @@ export default function AmountSheet({
                 runConversionExchange()
               }}
               type="button"
-              disabled={!isPositive || exceedsZarBalance || exceedsMznBalance || conversionBusy}
+              disabled={
+                !isPositive ||
+                conversionBusy ||
+                (!fundCalculator && (exceedsZarBalance || exceedsMznBalance))
+              }
             >
-              {isZarPrimaryKeypad ? 'Sell ZAR' : 'Buy ZAR'}
+              {fundCalculator ? 'Fund this' : isZarPrimaryKeypad ? 'Sell ZAR' : 'Buy ZAR'}
             </button>
           ) : entryPoint === 'cashButton' ? (
             // Dual buttons for $ button entry point: "Request" and "Pay"

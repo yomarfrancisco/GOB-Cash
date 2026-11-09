@@ -56,6 +56,8 @@ export type ActivityEventDoc = {
   liquidNowMode?: 'full' | 'partial' | 'none' | string
   mznResidual?: number
   mznConverted?: number
+  fundTargetMzn?: number
+  fundTargetZar?: number
   pairedAmountValue?: number
   feedbackAck?: string
   routingBlocked?: boolean
@@ -625,6 +627,8 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
         : undefined,
     mznResidual: typeof data.mznResidual === 'number' ? data.mznResidual : undefined,
     mznConverted: typeof data.mznConverted === 'number' ? data.mznConverted : undefined,
+    fundTargetMzn: typeof data.fundTargetMzn === 'number' ? data.fundTargetMzn : undefined,
+    fundTargetZar: typeof data.fundTargetZar === 'number' ? data.fundTargetZar : undefined,
     deskSteps: asStringList(data.deskSteps),
     deskNote:
       typeof data.deskNote === 'string' && data.deskNote.trim() ? data.deskNote.trim() : undefined,

@@ -584,6 +584,7 @@ function ActivityItemCard({
   const showRestockKeypad = !lockDeskActions && actionsUnlocked && isRestockKeypadCard(item)
   const showFundMznKeypad = !lockDeskActions && actionsUnlocked && isMznShortStepCard(item)
   const isFundIntro = item.routingAction === 'fund_intro'
+  const isFundWire = item.routingAction === 'fund_wire'
   const showFundIntroActions = actionsUnlocked && isFundIntro
   const showInlinePayoutForm =
     actionsUnlocked &&
@@ -866,7 +867,7 @@ function ActivityItemCard({
 
   const isLiquidityReport = Boolean(item.liquidityReport)
   const isPaidOut = item.routingAction === 'payout_confirmed'
-  const displaySentence = isLiquidityReport || isFundIntro
+  const displaySentence = isLiquidityReport || isFundIntro || isFundWire
     ? ''
     : isPaidOut
       ? paidOutDisplaySentence(item)
@@ -1035,6 +1036,7 @@ function ActivityItemCard({
               item.deskLedgerRows ||
               item.deskPipes ||
               isFundIntro ||
+              isFundWire ||
               item.routingAction === 'liquid_now' ||
               isPaidOut ||
               showInlinePayoutForm
@@ -1996,12 +1998,13 @@ export function NotificationsList({
   const handleOpenCalculator = (event: React.MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
-    if (isConversionInFlight() || useRoutingPlaybackStore.getState().play) return
+    if (isConversionInFlight()) return
+    // Independent of open routing plays — calculator is a fund-wire quote, not a cycle confirm.
     openDeskKeypad({
       destination: 'ZAR',
       amountZAR: 0,
       amountMZN: 0,
-      playbackOnly: true,
+      routingAction: 'fund_calc',
     })
   }
 

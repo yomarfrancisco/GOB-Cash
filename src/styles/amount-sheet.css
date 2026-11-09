@@ -91,6 +91,10 @@
   font-weight: 300;
 }
 
+.amount-sheet__header--fund-calc {
+  min-height: 56px;
+}
+
 /* Title below balance */
 .amount-sheet__title {
   text-align: center;

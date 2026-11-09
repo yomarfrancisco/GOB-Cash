@@ -116,6 +116,9 @@ export type ActivityItem = {
   /** Moza account number for fund_intro copy actions. */
   fundAccountNumber?: string
   paymentReference?: string
+  /** Desk calculator fund-wire target amounts (sell-rate quote). */
+  fundTargetMzn?: number
+  fundTargetZar?: number
   /** Read-only bank learning probes attached to a simulated Step 2. */
   deskBankEmailRound?: {
     roundId: string

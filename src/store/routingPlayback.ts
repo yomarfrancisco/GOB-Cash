@@ -7,8 +7,12 @@ export type RoutingPlayback = {
   amountMZN: number
   testRunId?: string
   cycleNumber?: number
-  /** deploy / replenish confirm the open desk card; mzn_fund only tops up the MZN wallet. */
-  routingAction?: 'replenish' | 'deploy' | 'mzn_fund'
+  /**
+   * deploy / replenish confirm the open desk card;
+   * mzn_fund tops up the MZN wallet;
+   * fund_calc is the desk calculator → bank-wire fund instructions (no convert).
+   */
+  routingAction?: 'replenish' | 'deploy' | 'mzn_fund' | 'fund_calc'
   /**
    * Catch-up / replay: animate the keypad then dismiss without submitting.
    * Live awaiting cards leave this unset so Sell confirms the open step.

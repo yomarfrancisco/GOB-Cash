@@ -180,7 +180,7 @@ export function DeskCardVisuals({
   if (item.routingStepMessage) {
     return <RoutingStepCard message={item.routingStepMessage} />
   }
-  if (item.routingAction === 'fund_intro') {
+  if (item.routingAction === 'fund_intro' || item.routingAction === 'fund_wire') {
     return (
       <FundMznIntroCard
         item={item}

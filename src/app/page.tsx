@@ -52,6 +52,7 @@ import { submitInternalConversion } from '@/lib/transactions/submitInternalConve
 import { submitRoutingConversion } from '@/lib/transactions/submitRoutingConversion'
 import { resumeDeskAfterKeypad } from '@/lib/desk/openDeskKeypad'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
+import { pushFundWireRequest } from '@/lib/notifications/fundWireRequest'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { prefetchActionSheetIcons } from '@/lib/prefetchActionSheetIcons'
@@ -786,8 +787,11 @@ function HomeContent() {
         flowType={flowType}
         balanceMZN={0}
         playbackOnly={Boolean(routingPlay?.playbackOnly)}
+        fundCalculator={routingPlay?.routingAction === 'fund_calc'}
         autoPlayAmount={
-          routingPlay && amountEntryPoint === 'conversionKeypad'
+          routingPlay &&
+          amountEntryPoint === 'conversionKeypad' &&
+          routingPlay.routingAction !== 'fund_calc'
             ? routingPlay.destination === 'ZAR'
               ? routingPlay.amountMZN
               : routingPlay.amountZAR > 0
@@ -815,11 +819,15 @@ function HomeContent() {
         conversionDestination={conversionDestination}
         onToggleConversion={amountEntryPoint === 'conversionKeypad' ? () => {
           const next = conversionDestination === 'ZAR' ? 'MZN' : 'ZAR'
+          const isFundCalc = routingPlay?.routingAction === 'fund_calc'
           if (conversionPrefill !== undefined && conversionPrefill > 0) {
             const mid = typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0
-            // Reciprocal quotes: Sell ZAR (R major) @ COST; Buy ZAR (Mt major) @ SELL.
-            const rate =
-              conversionDestination === 'MZN' ? costMznPerZar(mid) : sellMznPerZar(mid)
+            // Fund calculator: both tabs @ SELL. Convert: Sell ZAR @ COST; Buy ZAR @ SELL.
+            const rate = isFundCalc
+              ? sellMznPerZar(mid)
+              : conversionDestination === 'MZN'
+                ? costMznPerZar(mid)
+                : sellMznPerZar(mid)
             setConversionPrefill(
               next === 'ZAR' ? zarToMzn(conversionPrefill, rate) : mznToZar(conversionPrefill, rate)
             )
@@ -834,10 +842,13 @@ function HomeContent() {
         } : undefined}
         fxRateMZNperZAR={
           amountEntryPoint === 'conversionKeypad'
-            ? // Pink Buy ZAR (Mt→R) @ SELL; lime Sell ZAR (R→Mt) @ COST.
-              conversionDestination === 'MZN'
-                ? costMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
-                : sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
+            ? routingPlay?.routingAction === 'fund_calc'
+              ? // Fund calculator: both tabs quote MZN to fund ↔ ZAR out @ SELL.
+                sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
+              : // Pink Buy ZAR (Mt→R) @ SELL; lime Sell ZAR (R→Mt) @ COST.
+                conversionDestination === 'MZN'
+                  ? costMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
+                  : sellMznPerZar(typeof fxRates?.rates?.MZN === 'number' ? fxRates.rates.MZN : 0)
             : typeof fxRates?.rates?.MZN === 'number'
               ? fxRates.rates.MZN
               : undefined
@@ -848,7 +859,8 @@ function HomeContent() {
             : undefined
         }
         onScanClick={
-          amountEntryPoint === 'cashButton' || amountEntryPoint === 'conversionKeypad'
+          amountEntryPoint === 'cashButton' ||
+          (amountEntryPoint === 'conversionKeypad' && routingPlay?.routingAction !== 'fund_calc')
             ? () => {
                 guardAuthed(() => {
                   setOpenAmount(false)
@@ -887,6 +899,13 @@ function HomeContent() {
           clockPlayRef.current = null
           if (play?.playbackOnly) {
             useRoutingPlaybackStore.getState().clear()
+            return
+          }
+          // Desk calculator: bank-wire instructions only — no wallet convert.
+          if (play?.routingAction === 'fund_calc') {
+            useRoutingPlaybackStore.getState().clear()
+            void pushFundWireRequest({ amountMZN, amountZAR })
+            resumeDeskAfterKeypad()
             return
           }
           // Claim play before onClose so dismiss-restore does not race the submit path.
