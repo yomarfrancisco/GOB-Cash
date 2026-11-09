@@ -148,6 +148,9 @@ export async function drainLiquidityQueues(params?: {
     functions.logger.warn('[drainLiquidityQueues] collectionGroup query failed', {
       error: error instanceof Error ? error.message : String(error),
     })
+    // Leave the window unlocked so the next minute can retry once the index is ready.
+    await markerRef.delete().catch(() => undefined)
+    return []
   }
 
   const rows = queueDocs
