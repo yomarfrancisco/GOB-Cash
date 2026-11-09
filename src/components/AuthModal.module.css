@@ -678,6 +678,20 @@
 /* Signup sheet: no FSP line / login link — drop the tagline lower under the CTA. */
 .legalBlockSignup {
   margin-top: 48px;
+  gap: 2px;
+}
+
+.legalCaveat {
+  width: 283px;
+  max-width: 100%;
+  text-align: center;
+  font-family: 'Caveat', 'Inter', cursive;
+  font-size: 22px;
+  font-weight: 500;
+  opacity: 0.7;
+  margin: 0;
+  line-height: 1.2;
+  color: #000;
 }
 
 /* Authorisation line: two blank lines below the main hand copy, 12px. */
