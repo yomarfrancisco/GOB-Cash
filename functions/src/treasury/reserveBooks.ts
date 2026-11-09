@@ -161,6 +161,49 @@ export async function allocateAndDebitReserve(
   return funded
 }
 
+/**
+ * Product promise: amounts ≤ target convert instantly. If the book is drained
+ * below `minimumMajor`, top it back up (prefer refill to targetBalance).
+ */
+export async function ensureReserveAtLeast(
+  currency: ReserveCurrency,
+  minimumMajor: number
+): Promise<{ toppedUp: number; balance: number }> {
+  const minimum = roundMajor(Math.max(0, minimumMajor))
+  const ref = reserveRef(currency)
+  return db().runTransaction(async (t) => {
+    const snap = await t.get(ref)
+    const defaults = RESERVE_DEFAULTS[currency]
+    const now = admin.firestore.Timestamp.now()
+    if (!snap.exists) {
+      const seedBal = roundMajor(Math.max(defaults.fiatBalance, minimum))
+      t.set(ref, {
+        currency,
+        fiatBalance: seedBal,
+        targetBalance: defaults.targetBalance,
+        updatedAt: now,
+        createdAt: now,
+      })
+      return { toppedUp: seedBal, balance: seedBal }
+    }
+    const data = snap.data() || {}
+    const balance = roundMajor(Number(data.fiatBalance || 0))
+    const targetBalance = roundMajor(
+      Number(data.targetBalance != null ? data.targetBalance : defaults.targetBalance)
+    )
+    if (!(minimum > 0) || balance + 0.02 >= minimum) {
+      return { toppedUp: 0, balance }
+    }
+    const desired = roundMajor(
+      Math.max(minimum, targetBalance > 0 ? targetBalance : minimum)
+    )
+    const toppedUp = roundMajor(desired - balance)
+    const newBal = roundMajor(balance + toppedUp)
+    t.update(ref, { fiatBalance: newBal, updatedAt: now })
+    return { toppedUp, balance: newBal }
+  })
+}
+
 export async function creditReserve(
   t: FirebaseFirestore.Transaction,
   currency: ReserveCurrency,

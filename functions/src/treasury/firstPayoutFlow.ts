@@ -1,8 +1,9 @@
 /**
- * Sub-R100k first-fund → hold ZAR → collect SA payout details → confirm payout.
+ * First-fund → hold liquid ZAR → collect SA payout details → confirm payout.
  *
- * Branch: MZN credit converts fully to ≤ R100k against reserve → cashZAR held
- * (firstPayoutHold). No daily liquid drip until PoP clears the hold.
+ * Instant slice = min(want, daily R100k left, reserve). Residual MZN stays on
+ * cashMZN for the next 09:00 liquidity window (FCFS). Liquid ZAR is held
+ * (firstPayoutHold) until PoP clears.
  */
 
 import * as admin from 'firebase-admin'
@@ -14,7 +15,7 @@ import {
   MZN_ZAR_MARKUP_RECEIVE_MZN,
 } from '../fx/quotedMznZar'
 import { planReserveSplit, payInstantFromReserve } from './reserveConvert'
-import { roundMajor } from './reserveBooks'
+import { ensureReserveAtLeast, roundMajor } from './reserveBooks'
 import {
   looksLikeBankDetails,
   normalizeHandle,
@@ -198,49 +199,101 @@ export async function upsertDailyMznReceived(params: {
   return { dayKey, totalMzn }
 }
 
-/** RM: liquid ZAR ready — ask for payout account once (pending dashed chip). */
+type LiquidNowMode = 'full' | 'partial' | 'none'
+
+/** Routing Manager: liquid ZAR ready (or queued) — ask for payout account once. */
 async function publishLiquidNow(params: {
   userId: string
   zarAmount: number
   mznReceived: number
+  mznConverted: number
+  mznResidual: number
   sellRate: number
   groupId: string
+  mode: LiquidNowMode
 }): Promise<void> {
   const zarLabel = fmtZar(params.zarAmount)
+  const residualLabel = fmtMzn(params.mznResidual)
   const id = `liquid-now-${params.groupId}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
-  const body = `${zarLabel} is liquid and ready to pay out. Add your South African account once and we’ll pay out straight away, every time.`
+  const mode = params.mode
+  const title =
+    mode === 'none' ? 'Queued for liquidity' : mode === 'partial' ? 'Part liquid' : 'Liquid now'
+  const body =
+    mode === 'none'
+      ? `No instant liquidity left today. ${residualLabel} is queued for 09:00 tomorrow (first come, first served on the reserve). Add your South African account once so we can pay out as soon as it clears.`
+      : mode === 'partial'
+        ? `${zarLabel} is liquid and ready to pay out. ${residualLabel} is queued for 09:00 tomorrow. Add your South African account once and we’ll pay out straight away, every time.`
+        : `${zarLabel} is liquid and ready to pay out. Add your South African account once and we’ll pay out straight away, every time.`
+  const wantZar = params.sellRate > 0 ? roundMajor(params.mznReceived / params.sellRate) : 0
+  const fillPct =
+    mode === 'full'
+      ? 100
+      : mode === 'none'
+        ? 0
+        : wantZar > 0
+          ? Math.max(0, Math.min(100, Math.round((params.zarAmount / wantZar) * 100)))
+          : 0
+  const mznTitle = mode === 'full' ? '0 MZN' : residualLabel
+  const mznSubtitle =
+    mode === 'full'
+      ? `${fmtMzn(params.mznReceived)} in · all converted`
+      : mode === 'partial'
+        ? `${fmtMzn(params.mznConverted)} converted · ${residualLabel} queued`
+        : `${fmtMzn(params.mznReceived)} in · waiting for liquidity`
+  const zarSubtitle =
+    mode === 'none' ? 'nothing instant today · queued 09:00' : 'liquid · ready to pay out'
+  const caption =
+    mode === 'full'
+      ? `${fmtMzn(params.mznReceived)} converted at ${params.sellRate.toFixed(4)}. Full green bar: everything you sent is liquid.`
+      : mode === 'partial'
+        ? `${fmtMzn(params.mznConverted)} → ${zarLabel} at ${params.sellRate.toFixed(4)}. Green bar: liquid share today. ${residualLabel} ready 09:00 tomorrow.`
+        : `No instant convert today. ${residualLabel} joins the liquidity queue for 09:00 tomorrow.`
+  const ledgerRows: Array<{ label: string; value: string; valueStrong?: boolean }> = [
+    { label: 'Received', value: fmtMzn(params.mznReceived) },
+    { label: 'Rate', value: `${params.sellRate.toFixed(4)} MZN/ZAR` },
+    { label: 'Liquid ZAR', value: zarLabel, valueStrong: mode !== 'none' },
+  ]
+  if (mode !== 'full') {
+    ledgerRows.push({
+      label: 'Queued',
+      value: residualLabel,
+      valueStrong: mode === 'none',
+    })
+    ledgerRows.push({ label: 'Ready', value: '09:00 SAST' })
+  }
   await publishActivity(params.userId, id, {
     kind: CONVERSION_ROUTING_KIND,
-    title: 'Liquid now',
+    title,
     body,
     deskSentence: body,
-    dropdownTitle: 'Liquid now',
-    dropdownBody: `${zarLabel} · add payout account`,
+    dropdownTitle: title,
+    dropdownBody:
+      mode === 'none'
+        ? `${residualLabel} · queued 09:00`
+        : mode === 'partial'
+          ? `${zarLabel} liquid · ${residualLabel} queued`
+          : `${zarLabel} · add payout account`,
     deskPendingChip: 'Needs your payout account',
-    deskLedgerRows: [
-      { label: 'Received', value: fmtMzn(params.mznReceived) },
-      { label: 'Rate', value: `${params.sellRate.toFixed(4)} MZN/ZAR` },
-      { label: 'Liquid ZAR', value: zarLabel, valueStrong: true },
-    ],
+    deskLedgerRows: ledgerRows,
     deskPipes: [
       {
         id: 'mzn',
         label: 'MZN',
-        title: '0 MZN',
-        subtitle: `${fmtMzn(params.mznReceived)} in · all converted`,
-        fillPct: 0,
+        title: mznTitle,
+        subtitle: mznSubtitle,
+        fillPct: mode === 'full' ? 0 : Math.max(0, 100 - fillPct),
         tone: 'mzn',
       },
       {
         id: 'zar',
         label: 'ZAR',
         title: zarLabel,
-        subtitle: 'liquid · ready to pay out',
-        fillPct: 100,
+        subtitle: zarSubtitle,
+        fillPct,
         tone: 'zar',
       },
     ],
-    deskPipeCaption: `${fmtMzn(params.mznReceived)} converted at ${params.sellRate.toFixed(4)}. Full green bar: everything you sent is liquid.`,
+    deskPipeCaption: caption,
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
     amountCurrency: 'ZAR',
@@ -253,7 +306,11 @@ async function publishLiquidNow(params: {
     routingBlocked: false,
     status: 'recorded',
     routingAction: 'liquid_now',
+    // Internal id `sam` → Routing Manager on the desk (not a named "Sam" agent).
     deskSpeaker: 'sam',
+    liquidNowMode: mode,
+    mznResidual: roundMajor(params.mznResidual),
+    mznConverted: roundMajor(params.mznConverted),
   })
 }
 
@@ -295,24 +352,32 @@ async function publishYoureSetUp(params: {
 }
 
 /**
- * After a cashMZN credit: one daily Moz ack, then auto-convert at the client sell
- * rate when ≤ R100k vs reserve. Day-1 without a SA payout account → "Liquid now".
+ * After a cashMZN credit: Moz ack, then instant-convert
+ * min(want, daily R100k left) against reserve. Residual MZN stays queued.
+ * Day-1 without a SA payout account → Routing Manager "Liquid now" / partial / queued.
  */
 export async function handleCashMznCredit(params: {
   userId: string
   deltaMzn: number
   afterBalanceMzn: number
   creditKey: string
-}): Promise<{ converted: boolean; zarAmount: number; skipped?: string }> {
+  /** Catch-up / ops: skip adding another Moza "received" row. */
+  skipDailyNotice?: boolean
+}): Promise<{ converted: boolean; zarAmount: number; skipped?: string; mode?: LiquidNowMode }> {
   const delta = roundMajor(params.deltaMzn)
   if (!(delta > 0.005)) return { converted: false, zarAmount: 0, skipped: 'no_delta' }
 
   const atMs = Date.now()
-  const { totalMzn } = await upsertDailyMznReceived({
-    userId: params.userId,
-    amountMzn: delta,
-    atMs,
-  })
+  const { dayKey } = await sastDayAndClock(atMs)
+  let totalMzn = roundMajor(params.afterBalanceMzn)
+  if (!params.skipDailyNotice) {
+    const upserted = await upsertDailyMznReceived({
+      userId: params.userId,
+      amountMzn: delta,
+      atMs,
+    })
+    totalMzn = upserted.totalMzn
+  }
 
   const costRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP_RECEIVE_MZN)
   const sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
@@ -325,72 +390,84 @@ export async function handleCashMznCredit(params: {
   const wantZar = roundMajor(mznBalance / sellRate)
   if (!(wantZar > 0.005)) return { converted: false, zarAmount: 0, skipped: 'dust' }
 
-  const split = await planReserveSplit({
-    destCurrency: 'ZAR',
-    wantDest: wantZar,
-    totalSource: mznBalance,
-  })
-
-  // Entire book must fit under R100k and available reserve — no ROUTE in this branch.
-  if (wantZar > SUB_R100K_CAP + 0.02) {
-    return { converted: false, zarAmount: 0, skipped: 'above_r100k' }
-  }
-  if (split.routedDest > 0.02 || split.instantDest + 0.02 < wantZar) {
-    return { converted: false, zarAmount: 0, skipped: 'reserve_short' }
-  }
-
-  const groupId = `first-payout-${params.creditKey}`.replace(/[^\w.-]+/g, '-').slice(0, 120)
-  const instant = await payInstantFromReserve({
-    userId: params.userId,
-    sourceCurrency: 'MZN',
-    destCurrency: 'ZAR',
-    sourceMajor: split.instantSource,
-    destMajor: split.instantDest,
-    fxRateMZNperZar: sellRate,
-    costRate,
-    sellRate,
-    groupId,
-    skipLiquidAccrue: true,
-    setFirstPayoutHold: true,
-  })
-
   const zarRef = db().collection('users').doc(params.userId).collection('wallets').doc('cashZAR')
-  await zarRef.set(
-    {
-      firstPayoutMznLandedAtMs: atMs,
-      firstPayoutSellRate: sellRate,
-      firstPayoutMznReceived: totalMzn,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  )
+  const mznRef = db().collection('users').doc(params.userId).collection('wallets').doc('cashMZN')
+  const zarSnap = await zarRef.get()
+  const zarData = zarSnap.data() || {}
+  const usedKey = String(zarData.dailyLiquidKey || '')
+  const usedZar =
+    usedKey === dayKey ? roundMajor(Number(zarData.dailyLiquidUsedZar || 0)) : 0
+  const dailyLeft = roundMajor(Math.max(0, SUB_R100K_CAP - usedZar))
+  const instantTarget = roundMajor(Math.min(wantZar, dailyLeft))
+  const groupId = `first-payout-${params.creditKey}`.replace(/[^\w.-]+/g, '-').slice(0, 120)
 
-  const username = await readUsername(params.userId)
-  const linked = await readSaLinkedBank(params.userId)
-  const userSnap = await db().collection('users').doc(params.userId).get()
-  const autoPayout = userSnap.data()?.payoutAuto !== false
-  const hasPayoutAccount = Boolean(linked && (linked.accountNumber || linked.bankName))
-
-  if (hasPayoutAccount && autoPayout) {
+  const finishDesk = async (args: {
+    zarAmount: number
+    mznConverted: number
+    mznResidual: number
+    mode: LiquidNowMode
+  }) => {
     await zarRef.set(
       {
-        [FIRST_PAYOUT_STATUS_FIELD]: 'awaiting_payout' satisfies FirstPayoutStatus,
-        [FIRST_PAYOUT_DETAILS_FIELD]: {
-          bankName: String(linked!.bankName || 'SA Bank'),
-          accountHolderName: String(linked!.accountHolderName || username),
-          accountNumber: String(linked!.accountNumber || ''),
-          accountType: String((linked as LinkedBank & { accountType?: string }).accountType || 'Business current'),
-          source: 'linked_bank',
-        },
+        firstPayoutMznLandedAtMs: atMs,
+        firstPayoutSellRate: sellRate,
+        firstPayoutMznReceived: totalMzn,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     )
-    await confirmFirstPayout({
-      userId: params.userId,
-      proofNote: 'Payment confirmation',
-    })
-  } else {
+    if (args.mznResidual > 0.005) {
+      await mznRef.set(
+        {
+          liquidityQueueMzn: args.mznResidual,
+          liquidityQueuedAtMs: atMs,
+          liquidityQueueDayKey: dayKey,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      )
+    } else {
+      await mznRef.set(
+        {
+          liquidityQueueMzn: 0,
+          liquidityQueuedAtMs: admin.firestore.FieldValue.delete(),
+          liquidityQueueDayKey: admin.firestore.FieldValue.delete(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      )
+    }
+
+    const username = await readUsername(params.userId)
+    const linked = await readSaLinkedBank(params.userId)
+    const userSnap = await db().collection('users').doc(params.userId).get()
+    const autoPayout = userSnap.data()?.payoutAuto !== false
+    const hasPayoutAccount = Boolean(linked && (linked.accountNumber || linked.bankName))
+
+    if (args.zarAmount > 0.005 && hasPayoutAccount && autoPayout) {
+      await zarRef.set(
+        {
+          [FIRST_PAYOUT_STATUS_FIELD]: 'awaiting_payout' satisfies FirstPayoutStatus,
+          [FIRST_PAYOUT_DETAILS_FIELD]: {
+            bankName: String(linked!.bankName || 'SA Bank'),
+            accountHolderName: String(linked!.accountHolderName || username),
+            accountNumber: String(linked!.accountNumber || ''),
+            accountType: String(
+              (linked as LinkedBank & { accountType?: string }).accountType || 'Business current'
+            ),
+            source: 'linked_bank',
+          },
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      )
+      await confirmFirstPayout({
+        userId: params.userId,
+        proofNote: 'Payment confirmation',
+      })
+      return
+    }
+
     await zarRef.set(
       {
         [FIRST_PAYOUT_STATUS_FIELD]: 'awaiting_details' satisfies FirstPayoutStatus,
@@ -400,14 +477,96 @@ export async function handleCashMznCredit(params: {
     )
     await publishLiquidNow({
       userId: params.userId,
-      zarAmount: instant.destMajor,
+      zarAmount: args.zarAmount,
       mznReceived: totalMzn,
+      mznConverted: args.mznConverted,
+      mznResidual: args.mznResidual,
       sellRate,
       groupId,
+      mode: args.mode,
     })
   }
 
-  return { converted: true, zarAmount: instant.destMajor }
+  // Option 3: daily liquid already exhausted.
+  if (!(instantTarget > 0.005)) {
+    await finishDesk({
+      zarAmount: 0,
+      mznConverted: 0,
+      mznResidual: mznBalance,
+      mode: 'none',
+    })
+    return { converted: false, zarAmount: 0, skipped: 'daily_cap', mode: 'none' }
+  }
+
+  // Honour the daily liquid promise: refill reserve up to this slice (≤ R100k).
+  const topped = await ensureReserveAtLeast('ZAR', instantTarget)
+  if (topped.toppedUp > 0.005) {
+    functions.logger.info('[handleCashMznCredit] topped ZAR reserve for liquid promise', {
+      userId: params.userId,
+      instantTarget,
+      toppedUp: topped.toppedUp,
+      balance: topped.balance,
+    })
+  }
+
+  const sourceForSlice = roundMajor(instantTarget * sellRate)
+  const split = await planReserveSplit({
+    destCurrency: 'ZAR',
+    wantDest: instantTarget,
+    totalSource: Math.min(mznBalance, sourceForSlice),
+  })
+
+  const instantZar = roundMajor(split.instantDest)
+  const instantMzn = roundMajor(split.instantSource)
+  const residualMzn = roundMajor(Math.max(0, mznBalance - instantMzn))
+  const mode: LiquidNowMode =
+    instantZar > 0.005 && residualMzn <= 0.005
+      ? 'full'
+      : instantZar > 0.005
+        ? 'partial'
+        : 'none'
+
+  if (!(instantZar > 0.005) || !(instantMzn > 0.005)) {
+    await finishDesk({
+      zarAmount: 0,
+      mznConverted: 0,
+      mznResidual: mznBalance,
+      mode: 'none',
+    })
+    return { converted: false, zarAmount: 0, skipped: 'reserve_short', mode: 'none' }
+  }
+
+  const instant = await payInstantFromReserve({
+    userId: params.userId,
+    sourceCurrency: 'MZN',
+    destCurrency: 'ZAR',
+    sourceMajor: instantMzn,
+    destMajor: instantZar,
+    fxRateMZNperZar: sellRate,
+    costRate,
+    sellRate,
+    groupId,
+    skipLiquidAccrue: true,
+    setFirstPayoutHold: true,
+  })
+
+  await zarRef.set(
+    {
+      dailyLiquidKey: dayKey,
+      dailyLiquidUsedZar: roundMajor(usedZar + instant.destMajor),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  )
+
+  await finishDesk({
+    zarAmount: instant.destMajor,
+    mznConverted: instantMzn,
+    mznResidual: residualMzn,
+    mode,
+  })
+
+  return { converted: true, zarAmount: instant.destMajor, mode }
 }
 
 async function attachUserReplyToLiquidNow(params: {
@@ -582,8 +741,10 @@ export async function confirmFirstPayout(params: {
     .slice(0, 180)
 
   const result = await db().runTransaction(async (t) => {
-    // All reads before any writes (Firestore transaction rule).
-    const [zarSnap, mznSnap] = await Promise.all([t.get(zarRef), t.get(mznRef)])
+    // All reads before any writes (Firestore transaction rule). Sequential
+    // gets avoid rare Promise.all + transaction quirks in admin SDK.
+    const zarSnap = await t.get(zarRef)
+    const mznSnap = await t.get(mznRef)
     if (!zarSnap.exists) return { ok: false, amountZar: 0, skipped: 'no_wallet' as const }
     const zarData = zarSnap.data() || {}
     const status = String(zarData[FIRST_PAYOUT_STATUS_FIELD] || '')
@@ -793,34 +954,7 @@ export async function savePayoutAccountAndPay(params: {
   const autoPayout = params.autoPayout !== false
   const accountType = (params.accountType || 'Business current').trim() || 'Business current'
 
-  const userSnap = await userRef.get()
-  const existingBanks = Array.isArray(userSnap.data()?.linkedBanks)
-    ? (userSnap.data()!.linkedBanks as Array<Record<string, unknown>>)
-    : []
-  const nextBank = {
-    id: `sa-${accountNumber.slice(-4)}-${Date.now().toString(36)}`,
-    country: 'South Africa',
-    bankName,
-    accountHolderName,
-    accountNumber,
-    accountType,
-    isDefault: true,
-  }
-  const linkedBanks = [
-    ...existingBanks
-      .filter((bank) => String(bank.accountNumber || '') !== accountNumber)
-      .map((bank) => ({ ...bank, isDefault: false })),
-    nextBank,
-  ]
-  await userRef.set(
-    {
-      payoutAuto: autoPayout,
-      linkedBanks,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  )
-
+  // Wallet hold first — payout must not depend on directory/profile side effects.
   await zarRef.set(
     {
       [FIRST_PAYOUT_STATUS_FIELD]: 'awaiting_payout' satisfies FirstPayoutStatus,
@@ -836,15 +970,65 @@ export async function savePayoutAccountAndPay(params: {
     { merge: true }
   )
 
-  await attachUserReplyToLiquidNow({
-    userId: params.userId,
-    rawMessage: `${bankName} · ${accountHolderName} · ${accountNumber}`,
-  })
+  try {
+    const userSnap = await userRef.get()
+    const existingBanks = Array.isArray(userSnap.data()?.linkedBanks)
+      ? (userSnap.data()!.linkedBanks as Array<Record<string, unknown>>)
+      : []
+    const nextBank = {
+      id: `sa-${accountNumber.slice(-4)}-${Date.now().toString(36)}`,
+      country: 'South Africa',
+      bankName,
+      accountHolderName,
+      accountNumber,
+      accountType,
+      isDefault: true,
+    }
+    const linkedBanks = [
+      ...existingBanks
+        .filter((bank) => String(bank.accountNumber || '') !== accountNumber)
+        .map((bank) => ({ ...bank, isDefault: false })),
+      nextBank,
+    ]
+    await userRef.set(
+      {
+        payoutAuto: autoPayout,
+        linkedBanks,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    )
+  } catch (error) {
+    console.error('[savePayoutAccountAndPay] linkedBanks write failed (continuing payout)', {
+      userId: params.userId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+
+  try {
+    await attachUserReplyToLiquidNow({
+      userId: params.userId,
+      rawMessage: `${bankName} · ${accountHolderName} · ${accountNumber}`,
+    })
+  } catch (error) {
+    console.error('[savePayoutAccountAndPay] desk reply attach failed (continuing payout)', {
+      userId: params.userId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
 
   return confirmFirstPayout({
     userId: params.userId,
     proofNote: 'Payment confirmation',
   })
+}
+
+function isHttpsError(error: unknown): error is functions.https.HttpsError {
+  if (error instanceof functions.https.HttpsError) return true
+  // instanceof can fail across duplicate firebase-functions bundles in Cloud Functions.
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { code?: unknown; httpErrorCode?: unknown }
+  return typeof candidate.code === 'string' && candidate.httpErrorCode != null
 }
 
 export const desk_savePayoutAccountAndPay = functions
@@ -880,14 +1064,15 @@ export const desk_savePayoutAccountAndPay = functions
       }
       return { ok: true, amountZar: result.amountZar }
     } catch (error) {
-      if (error instanceof functions.https.HttpsError) throw error
+      if (isHttpsError(error)) throw error
       console.error('[desk_savePayoutAccountAndPay] failed', {
         uid: context.auth.uid,
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       })
+      // failed-precondition (not internal) so the real message reaches the client.
       throw new functions.https.HttpsError(
-        'internal',
+        'failed-precondition',
         error instanceof Error && error.message
           ? error.message
           : 'Payout failed — try again in a moment.'
