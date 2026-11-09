@@ -339,8 +339,6 @@ export default function AuthEntrySheet() {
                 Meticais in.
                 <br />
                 Rand out.
-                <br />
-                Immediately.
               </h1>
               <button
                 type="button"
