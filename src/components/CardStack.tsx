@@ -22,9 +22,11 @@ import { useAppModeStore } from '@/store/appMode'
 import type { ConversionStory } from '@/lib/animations/conversionStory'
 import {
   inferredStoriesSuppressed,
+  requestConversionStory,
   setConversionStoryPlayer,
 } from '@/lib/animations/conversionStoryBus'
 import { conversionStoryFromWalletTransition } from '@/lib/animations/settlementPlayback'
+import { useActivityStore } from '@/store/activity'
 
 // Temporary FX rate (will be wired to real API later)
 const FX_USD_ZAR_DEFAULT = 18.1
@@ -595,6 +597,29 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       try {
         if (story.kind === 'reserve_only' || story.kind === 'clear_to_zar' || story.kind === 'clear_to_mzn') {
           await releaseInstant()
+        } else if (story.kind === 'partial_liquid') {
+          // Opt2: MZN↓ → ZAR↑ → flip back so residual MZN is visible.
+          await releaseInstant()
+          try {
+            await flipToCard(story.sourceCard, 'forward')
+          } catch {
+            /* leave on ZAR if flip fails */
+          }
+          await sleep(SHOCK_DEST_FLASH_MS)
+        } else if (story.kind === 'queued_liquid') {
+          // Opt3: glance at ZAR (R0) then return to queued MZN.
+          try {
+            await flipToCard('savings', 'forward')
+          } catch {
+            /* still return */
+          }
+          await sleep(SHOCK_DEST_FLASH_MS)
+          try {
+            await flipToCard(story.sourceCard, 'forward')
+          } catch {
+            /* stay */
+          }
+          await sleep(SHOCK_DEST_FLASH_MS)
         } else if (story.kind === 'route_only') {
           await releaseRouted()
         } else if (story.kind === 'split') {
@@ -648,12 +673,13 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     if (storyPlayingRef.current || inferredStoriesSuppressed()) return
     const story = conversionStoryFromWalletTransition(prev, next)
     if (!story) return
-    // Clears (09:00) and reserve-instant auto-converts (e.g. sub-R100k first fund)
-    // have no submit path — play MZN↓ → shuffle → ZAR↑ here.
+    // Clears (09:00) and reserve-instant auto-converts (Opt1 full / Opt2 partial)
+    // have no submit path — play the card story here.
     if (
       story.kind !== 'clear_to_zar' &&
       story.kind !== 'clear_to_mzn' &&
-      story.kind !== 'reserve_only'
+      story.kind !== 'reserve_only' &&
+      story.kind !== 'partial_liquid'
     ) {
       return
     }
@@ -667,6 +693,41 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     walletTransitZar,
     playConversionStory,
   ])
+
+  // Opt3: no wallet convert — desk liquid_now (none) drives MZN → ZAR(R0) → MZN.
+  const activityItems = useActivityStore((s) => s.items)
+  const queuedStorySeenRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (!isAuthed || !isBalanceReady || demoMode) return
+    if (storyPlayingRef.current || inferredStoriesSuppressed()) return
+    const now = Date.now()
+    for (const item of activityItems) {
+      if (item.routingAction !== 'liquid_now') continue
+      if (queuedStorySeenRef.current.has(item.id)) continue
+      // Skip hydration / history — only live arrivals.
+      if (!(item.createdAt > 0) || now - item.createdAt > 25_000) {
+        queuedStorySeenRef.current.add(item.id)
+        continue
+      }
+      const mode = (item as { liquidNowMode?: string }).liquidNowMode
+      const isNone =
+        mode === 'none' ||
+        (typeof item.amount?.value === 'number' &&
+          item.amount.value <= 0.005 &&
+          /queued for liquidity/i.test(item.title || ''))
+      if (!isNone) {
+        queuedStorySeenRef.current.add(item.id)
+        continue
+      }
+      queuedStorySeenRef.current.add(item.id)
+      requestConversionStory({
+        kind: 'queued_liquid',
+        sourceCard: 'mzn',
+        instant: { card: 'savings', amount: 0 },
+      })
+      break
+    }
+  }, [activityItems, isAuthed, isBalanceReady, demoMode])
 
   useImperativeHandle(ref, () => ({
     cycleNext,

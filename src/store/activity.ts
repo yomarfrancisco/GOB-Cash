@@ -103,6 +103,10 @@ export type ActivityItem = {
     tone?: 'mzn' | 'zar' | 'bank' | string
   }>
   deskPipeCaption?: string
+  /** Day-1 liquid now mode from Routing Manager. */
+  liquidNowMode?: 'full' | 'partial' | 'none'
+  mznResidual?: number
+  mznConverted?: number
   /** Numbered next steps under a fund / intro card. */
   deskSteps?: string[]
   /** Fine print under a fund / intro card. */

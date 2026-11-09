@@ -2,6 +2,8 @@ import type { CardType } from '@/components/CardStack'
 
 export type ConversionStoryKind =
   | 'reserve_only'
+  | 'partial_liquid'
+  | 'queued_liquid'
   | 'route_only'
   | 'split'
   | 'clear_to_zar'

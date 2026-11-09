@@ -53,6 +53,9 @@ export type ActivityEventDoc = {
     tone?: unknown
   }>
   deskPipeCaption?: string
+  liquidNowMode?: 'full' | 'partial' | 'none' | string
+  mznResidual?: number
+  mznConverted?: number
   pairedAmountValue?: number
   feedbackAck?: string
   routingBlocked?: boolean
@@ -616,6 +619,12 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       typeof data.deskPipeCaption === 'string' && data.deskPipeCaption.trim()
         ? data.deskPipeCaption.trim()
         : undefined,
+    liquidNowMode:
+      data.liquidNowMode === 'full' || data.liquidNowMode === 'partial' || data.liquidNowMode === 'none'
+        ? data.liquidNowMode
+        : undefined,
+    mznResidual: typeof data.mznResidual === 'number' ? data.mznResidual : undefined,
+    mznConverted: typeof data.mznConverted === 'number' ? data.mznConverted : undefined,
     deskSteps: asStringList(data.deskSteps),
     deskNote:
       typeof data.deskNote === 'string' && data.deskNote.trim() ? data.deskNote.trim() : undefined,

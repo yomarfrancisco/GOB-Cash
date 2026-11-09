@@ -426,6 +426,19 @@ export async function handleCashMznCredit(params: {
         },
         { merge: true }
       )
+      await db()
+        .collection('liquidityQueueMzn')
+        .doc(params.userId)
+        .set(
+          {
+            uid: params.userId,
+            queueMzn: args.mznResidual,
+            queuedAtMs: atMs,
+            dayKey,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        )
     } else {
       await mznRef.set(
         {
@@ -436,6 +449,7 @@ export async function handleCashMznCredit(params: {
         },
         { merge: true }
       )
+      await db().collection('liquidityQueueMzn').doc(params.userId).delete().catch(() => undefined)
     }
 
     const username = await readUsername(params.userId)

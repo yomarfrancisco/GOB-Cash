@@ -54,4 +54,24 @@ describe('settlementPlaybackForTransition', () => {
     assert.equal(story?.kind, 'clear_to_zar')
     assert.equal(story?.instant?.amount, 50)
   })
+
+  it('infers partial_liquid when residual MZN remains after reserve convert', () => {
+    const story = conversionStoryFromWalletTransition(
+      { cashZAR: 0, cashMZN: 2_000_000, earnings: 0 },
+      { cashZAR: 100_000, cashMZN: 1_550_000, earnings: 0 }
+    )
+    assert.equal(story?.kind, 'partial_liquid')
+    assert.equal(story?.sourceCard, 'mzn')
+    assert.equal(story?.instant?.card, 'savings')
+    assert.equal(story?.instant?.amount, 100_000)
+  })
+
+  it('infers reserve_only when MZN fully converts', () => {
+    const story = conversionStoryFromWalletTransition(
+      { cashZAR: 0, cashMZN: 40_000, earnings: 0 },
+      { cashZAR: 10_000, cashMZN: 0, earnings: 0 }
+    )
+    assert.equal(story?.kind, 'reserve_only')
+    assert.equal(story?.instant?.amount, 10_000)
+  })
 })

@@ -81,6 +81,14 @@ export function conversionStoryFromWalletTransition(
 
   // Reserve instant buy ZAR (MZN → ZAR, no earnings)
   if (zarCredit >= CENT_EPSILON && mznDebit >= CENT_EPSILON && Math.abs(earningsCredit) < CENT_EPSILON) {
+    // Residual MZN left → Opt2: MZN↓ → ZAR↑ → flip back to MZN.
+    if (current.cashMZN >= CENT_EPSILON) {
+      return {
+        kind: 'partial_liquid',
+        sourceCard: 'mzn',
+        instant: { card: 'savings', amount: roundMajor(zarCredit) },
+      }
+    }
     return {
       kind: 'reserve_only',
       sourceCard: 'mzn',
