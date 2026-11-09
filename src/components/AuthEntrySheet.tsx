@@ -376,19 +376,9 @@ export default function AuthEntrySheet() {
               </button>
 
               {/* Legal text */}
-              <div className={styles.legalBlock}>
+              <div className={clsx(styles.legalBlock, styles.legalBlockSignup)}>
                 <p className={styles.legal}>
                   We sell <strong>dollars to closed-currency markets</strong>.
-                </p>
-                <p className={styles.legalAuth}>
-                  <em>
-                    Authorised FSP 52815 and Co-op bank{' '}
-                    <a
-                      href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >CFI0024</a>.
-                  </em>
                 </p>
               </div>
             </div>

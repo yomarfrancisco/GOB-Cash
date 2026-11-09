@@ -675,6 +675,11 @@
   align-items: center;
 }
 
+/* Signup sheet: no FSP line / login link — drop the tagline lower under the CTA. */
+.legalBlockSignup {
+  margin-top: 48px;
+}
+
 /* Authorisation line: two blank lines below the main hand copy, 12px. */
 .legalAuth {
   width: 100%;
