@@ -6,7 +6,6 @@ import { useRef } from 'react'
 import clsx from 'clsx'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
-import { selectHasUnseenLiquidityActivity, useActivityUnreadStore } from '@/store/activityUnread'
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import { useNotificationsStore } from '@/state/notifications'
@@ -31,7 +30,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const closeNotifications = useNotificationsStore((state) => state.closeNotifications)
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
-  const hasUnseenActivity = useActivityUnreadStore(selectHasUnseenLiquidityActivity)
   const lastDeskTapAtRef = useRef(0)
   const deskOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -125,9 +123,6 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
           </div>
         </div>
       </button>
-      {hasUnseenActivity ? (
-        <span className="nav-notification-dot fab-notification-dot" aria-label="New liquidity manager activity" />
-      ) : null}
       <div className="nav-label" aria-hidden="true" />
     </div>
   )
