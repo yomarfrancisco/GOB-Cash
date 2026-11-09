@@ -163,8 +163,8 @@ body {
   position: absolute;
   top: 38px; /* 10px closer to the top edge than the glass icon row */
   left: 16px;
-  width: 96px; /* 60% of prior 160px Go_B size */
-  height: 49px;
+  width: 64px; /* Distressed charcoal G monogram */
+  height: 64px;
   object-fit: contain;
   z-index: 2;
   background: transparent !important;

@@ -53,13 +53,13 @@ export default function TopGlassBar({ hideLogo = false, glassShardSrc }: TopGlas
           />
         ) : (
           <Image
-            src="/assets/core/Go_B%20logo.png"
+            src="/assets/core/Distressed_Charcoal_G_Logo.png"
             alt="GoBankless"
             className="gobankless-logo"
-            width={96}
-            height={49}
+            width={64}
+            height={64}
             priority
-            sizes="96px"
+            sizes="64px"
             quality={92}
           />
         )

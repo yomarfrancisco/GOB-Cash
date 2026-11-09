@@ -17,8 +17,8 @@
   justify-content: center;
   align-items: center;
   width: 100%;
-  max-width: 108px; /* 60% of prior Go_B splash size */
-  aspect-ratio: 1548 / 792; /* Go_B logo.png */
+  max-width: 108px;
+  aspect-ratio: 1 / 1; /* Distressed_Charcoal_G_Logo.png */
   position: relative;
 }
 

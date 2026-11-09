@@ -8,7 +8,7 @@ export default function SplashScreenOverlay() {
     <div className={styles.wrap} aria-hidden>
       <div className={styles.logoWrapper}>
         <Image
-          src="/assets/core/Go_B%20logo.png"
+          src="/assets/core/Distressed_Charcoal_G_Logo.png"
           alt="GoBankless"
           fill
           style={{ objectFit: 'contain' }}
