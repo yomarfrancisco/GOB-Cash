@@ -341,7 +341,7 @@ export default function AuthEntrySheet() {
               {/* Legal text */}
               <div className={styles.legalBlock}>
                 <p className={styles.legal}>
-                  <strong>We sell dollars and rands to closed-currency corridors.</strong>
+                  <strong>We sell liquidity-adaptive dollars to closed-currency corridors.</strong>
                 </p>
                 <p className={styles.legalAuth}>
                   <em>
@@ -378,7 +378,7 @@ export default function AuthEntrySheet() {
               {/* Legal text */}
               <div className={styles.legalBlock}>
                 <p className={styles.legal}>
-                  <strong>We sell dollars and rands to closed-currency corridors.</strong>
+                  <strong>We sell liquidity-adaptive dollars to closed-currency corridors.</strong>
                 </p>
                 <p className={styles.legalAuth}>
                   <em>
