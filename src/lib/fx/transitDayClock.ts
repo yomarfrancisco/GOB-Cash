@@ -35,20 +35,38 @@ export function resolveZarClearOverlayAction(params: {
   return 'instant_reset'
 }
 
-/** Previous 09:00 SAST at or before nowMs. */
+/**
+ * Liquidity open (SAST). TEMP test window 21:55 — restore to 9, 0 after live check.
+ */
+export const LIQUIDITY_OPEN_HOUR_SAST = 21
+export const LIQUIDITY_OPEN_MINUTE_SAST = 55
+
+/** Previous liquidity open at or before nowMs (name kept for callers). */
 export function lastSettleAt09hSast(nowMs: number): number {
   const p = sastParts(nowMs)
-  const todayNine = sastToUtcMs(p.year, p.month, p.day, 9, 0, 0)
-  if (nowMs >= todayNine) return todayNine
-  return todayNine - 24 * 60 * 60 * 1000
+  const todayOpen = sastToUtcMs(
+    p.year,
+    p.month,
+    p.day,
+    LIQUIDITY_OPEN_HOUR_SAST,
+    LIQUIDITY_OPEN_MINUTE_SAST
+  )
+  if (nowMs >= todayOpen) return todayOpen
+  return todayOpen - 24 * 60 * 60 * 1000
 }
 
-/** Next 09:00 SAST strictly after nowMs (if exactly 09:00, returns tomorrow). */
+/** Next liquidity open strictly after nowMs (name kept for callers). */
 export function nextSettleAt09hSastExclusive(nowMs: number): number {
   const p = sastParts(nowMs)
-  const todayNine = sastToUtcMs(p.year, p.month, p.day, 9, 0, 0)
-  if (nowMs < todayNine) return todayNine
-  return todayNine + 24 * 60 * 60 * 1000
+  const todayOpen = sastToUtcMs(
+    p.year,
+    p.month,
+    p.day,
+    LIQUIDITY_OPEN_HOUR_SAST,
+    LIQUIDITY_OPEN_MINUTE_SAST
+  )
+  if (nowMs < todayOpen) return todayOpen
+  return todayOpen + 24 * 60 * 60 * 1000
 }
 
 /** 0–100: progress of the day window from last 09:00 → next 09:00. */
