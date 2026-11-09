@@ -8,6 +8,7 @@ import { formatCardTopline, formatEquivalenceAmount } from '@/lib/formatCurrency
 import {
   mznToZar,
   zarToMzn,
+  zarToUsd,
   costMznPerZar,
   sellMznPerZar,
 } from '@/lib/mznZar'
@@ -217,17 +218,28 @@ export default function CardStackCard({
       : 0
   const sellRate = sellMznPerZar(liveMzn)
   const costRate = costMznPerZar(liveMzn)
-  // ZAR inventory + TRANSIT quote SELL; Moz inventory quotes COST.
+  const liveUsdPerZar =
+    typeof fxRates?.rates?.USD === 'number' && fxRates.rates.USD > 0
+      ? fxRates.rates.USD
+      : 1 / FX_USD_ZAR_DEFAULT
+  // ZAR inventory + TRANSIT quote SELL; Moz inventory quotes COST (rate pills).
   const quotedMznPerZar =
     card.type === 'savings' || isTransitZar ? sellRate : costRate
   const walletMajor = zar
   const displayMajor = Math.max(0, walletMajor + (Number(displayMajorOffset) || 0))
-  // Minor line: MZN card → ZAR; TRANSIT/ZAR → MZN at sell/cost.
+  // Minor USD on inventory cards:
+  // - Moz (pay-in): MZN → ZAR @ SELL → × USD API  (pre-payout book)
+  // - ZAR (pay-out): ZAR → MZN @ COST → ZAR → × USD API ≡ ZAR × USD mid
+  //   (realized rand after PAGA margin; cost round-trip keeps the formula explicit)
   const convertedAmount = isMeticalAmount
-    ? mznToZar(displayMajor, quotedMznPerZar)
-    : card.type === 'savings' || isTransitZar
-      ? zarToMzn(displayMajor, quotedMznPerZar)
-      : displayMajor / FX_USD_ZAR_DEFAULT
+    ? zarToUsd(mznToZar(displayMajor, sellRate), liveUsdPerZar)
+    : card.type === 'savings'
+      ? zarToUsd(mznToZar(zarToMzn(displayMajor, costRate), costRate), liveUsdPerZar)
+      : isTransitZar
+        ? zarToMzn(displayMajor, quotedMznPerZar)
+        : displayMajor / FX_USD_ZAR_DEFAULT
+  const showUsdMinor = isMeticalAmount || card.type === 'savings'
+  const minorCurrencyLabel = showUsdMinor ? 'USD' : 'MZN'
   const pct = allocPct(cents)
   
   // Generate a stable key for SlotCounter that changes when balance changes
@@ -584,11 +596,7 @@ export default function CardStackCard({
               </div>
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
                 <span>
-                  {isMeticalAmount
-                    ? 'Pay in'
-                    : card.type === 'savings'
-                      ? 'Pay out'
-                      : '≈ 0 MZN'}
+                  {showUsdMinor ? '≈ 0 USD' : '≈ 0 MZN'}
                 </span>
               </div>
             </>
@@ -632,31 +640,21 @@ export default function CardStackCard({
                   )}
                 />
               </div>
-              {isMeticalAmount || card.type === 'savings' ? (
-                <div
-                  className="card-amounts__usdt"
-                  aria-label={isMeticalAmount ? 'Pay in' : 'Pay out'}
-                  suppressHydrationWarning
-                >
-                  <span>{isMeticalAmount ? 'Pay in' : 'Pay out'}</span>
-                </div>
-              ) : (
-                <div
-                  className="card-amounts__usdt"
-                  aria-label={`approximately ${convertedAmount.toFixed(2)} MZN`}
-                  suppressHydrationWarning
-                >
-                  <span aria-hidden>≈ </span>
-                  <SlotCounter
-                    key={`${balanceKey}-converted`}
-                    value={convertedAmount}
-                    format={formatEquivalenceAmount}
-                    durationMs={isBalanceReady ? 700 : 0}
-                    className="card-amounts__usdt-value"
-                  />
-                  <span style={{ marginLeft: '4px' }}>MZN</span>
-                </div>
-              )}
+              <div
+                className="card-amounts__usdt"
+                aria-label={`approximately ${convertedAmount.toFixed(2)} ${minorCurrencyLabel}`}
+                suppressHydrationWarning
+              >
+                <span aria-hidden>≈ </span>
+                <SlotCounter
+                  key={`${balanceKey}-converted-${minorCurrencyLabel}`}
+                  value={convertedAmount}
+                  format={formatEquivalenceAmount}
+                  durationMs={isBalanceReady ? 700 : 0}
+                  className="card-amounts__usdt-value"
+                />
+                <span style={{ marginLeft: '4px' }}>{minorCurrencyLabel}</span>
+              </div>
             </>
           )}
         </div>
