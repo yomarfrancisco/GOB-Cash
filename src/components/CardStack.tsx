@@ -216,6 +216,11 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const touchStartY = useRef<number>(0)
   const touchEndY = useRef<number>(0)
   const inventoryOrderAppliedRef = useRef(false)
+  // Live stack position for chained flipToCard awaits (stale React state would skip the Opt2 return).
+  const orderRef = useRef(order)
+  const isAnimatingRef = useRef(isAnimating)
+  orderRef.current = order
+  isAnimatingRef.current = isAnimating
 
   // Special mode state for credit surprise animation
   const [specialMode, setSpecialMode] = useState<'credit' | null>(null)
@@ -384,35 +389,33 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
 
   // Flip to a specific card type
   const flipToCard = useCallback(
-    async (targetCardType: CardType, direction: 'forward' | 'back' = 'forward'): Promise<void> => {
+    async (targetCardType: CardType, _direction: 'forward' | 'back' = 'forward'): Promise<void> => {
       const targetIndex = getCardIndex(targetCardType)
       if (targetIndex === -1) return
 
-      const currentTopIndex = order[0]
+      // Read live order — chained awaits in playConversionStory must not see a stale top card.
+      const liveOrder = orderRef.current
+      const currentTopIndex = liveOrder[0]
       if (currentTopIndex === targetIndex) {
         return // Already on top
       }
 
-      // Find target position in current order
-      const targetPosition = order.indexOf(targetIndex)
+      const targetPosition = liveOrder.indexOf(targetIndex)
+      if (targetPosition <= 0) return
 
-      // If target is already top, no flip needed
-      if (targetPosition === 0) return
-
-      // Calculate how many cycles needed
-      let cyclesNeeded = targetPosition
+      const cyclesNeeded = targetPosition
 
       return new Promise((resolve) => {
         let pollCount = 0
         const MAX_POLL_COUNT = 20 // Maximum number of times to poll (20 * 350ms = 7 seconds max wait)
-        
+
         const performCycle = (remaining: number) => {
           if (remaining === 0) {
             resolve()
             return
           }
 
-          if (isAnimating) {
+          if (isAnimatingRef.current) {
             pollCount++
             // Safety: If we've been waiting too long, resolve anyway to prevent infinite blocking
             if (pollCount > MAX_POLL_COUNT) {
@@ -428,12 +431,18 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
 
           // Reset poll count when we can proceed
           pollCount = 0
+          isAnimatingRef.current = true
           setIsAnimating(true)
           setPhase('animating')
 
           setTimeout(() => {
-            setOrder((prevOrder) => [...prevOrder.slice(1), prevOrder[0]])
+            setOrder((prevOrder) => {
+              const next = [...prevOrder.slice(1), prevOrder[0]]
+              orderRef.current = next
+              return next
+            })
             setPhase('idle')
+            isAnimatingRef.current = false
             setIsAnimating(false)
 
             // Continue with next cycle if needed
@@ -448,7 +457,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
         performCycle(cyclesNeeded)
       })
     },
-    [order, isAnimating, getCardIndex]
+    [getCardIndex]
   )
 
   const cycle = () => {
@@ -694,7 +703,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     playConversionStory,
   ])
 
-  // Opt3: no wallet convert — desk liquid_now (none) drives MZN → ZAR(R0) → MZN.
+  // Desk liquid_now backup: Opt3 always; Opt2 if wallet inference missed the debit step.
   const activityItems = useActivityStore((s) => s.items)
   const queuedStorySeenRef = useRef<Set<string>>(new Set())
   useEffect(() => {
@@ -709,23 +718,37 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
         queuedStorySeenRef.current.add(item.id)
         continue
       }
-      const mode = (item as { liquidNowMode?: string }).liquidNowMode
-      const isNone =
-        mode === 'none' ||
-        (typeof item.amount?.value === 'number' &&
+      const mode =
+        item.liquidNowMode ||
+        ((typeof item.amount?.value === 'number' &&
           item.amount.value <= 0.005 &&
-          /queued for liquidity/i.test(item.title || ''))
-      if (!isNone) {
+          /queued for liquidity/i.test(item.title || '')
+          ? 'none'
+          : undefined) as 'full' | 'partial' | 'none' | undefined)
+      if (mode === 'none') {
         queuedStorySeenRef.current.add(item.id)
-        continue
+        requestConversionStory({
+          kind: 'queued_liquid',
+          sourceCard: 'mzn',
+          instant: { card: 'savings', amount: 0 },
+        })
+        break
+      }
+      if (mode === 'partial') {
+        const zarOut = Math.round((Number(item.amount?.value) || 0) * 100) / 100
+        if (!(zarOut > 0.005)) {
+          queuedStorySeenRef.current.add(item.id)
+          continue
+        }
+        queuedStorySeenRef.current.add(item.id)
+        requestConversionStory({
+          kind: 'partial_liquid',
+          sourceCard: 'mzn',
+          instant: { card: 'savings', amount: zarOut },
+        })
+        break
       }
       queuedStorySeenRef.current.add(item.id)
-      requestConversionStory({
-        kind: 'queued_liquid',
-        sourceCard: 'mzn',
-        instant: { card: 'savings', amount: 0 },
-      })
-      break
     }
   }, [activityItems, isAuthed, isBalanceReady, demoMode])
 
