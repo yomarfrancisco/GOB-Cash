@@ -38,6 +38,8 @@ export function useTransitDayClock(params: {
   walletZar?: number
   walletTransitZar?: number
   sellMznPerZar: number
+  /** When this MZN book arrived — drip only counts cycles after this. */
+  mznSinceMs?: number | null
   remainingPlannedMzn?: number
 }): TransitDayClockView {
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -62,6 +64,7 @@ export function useTransitDayClock(params: {
         walletMzn: params.walletMzn,
         sellMznPerZar: params.sellMznPerZar,
         nowMs,
+        sinceMs: params.mznSinceMs,
         remainingPlannedMzn: params.remainingPlannedMzn,
       })
     : {

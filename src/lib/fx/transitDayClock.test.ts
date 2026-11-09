@@ -169,6 +169,30 @@ describe('transitDayClock', () => {
     assert.ok(late.mznCycleBarPercent > early.mznCycleBarPercent)
   })
 
+  it('anchors drip to sinceMs so evening residual does not replay the whole day', () => {
+    const dayStart = lastSettleAt09hSast(Date.now())
+    const evening = dayStart + 10 * 60 * 60 * 1000 // ~19:00 same SAST day
+    const landedAt = evening - 2 * 60 * 1000 // arrived 2 minutes ago
+    const residual = 1_551_788.22
+    const retro = sharedDripProgress({
+      walletMzn: residual,
+      sellMznPerZar: 4.48,
+      nowMs: evening,
+    })
+    const anchored = sharedDripProgress({
+      walletMzn: residual,
+      sellMznPerZar: 4.48,
+      nowMs: evening,
+      sinceMs: landedAt,
+    })
+    // Unanchored evening book would look like a huge instant convert.
+    assert.ok(retro.displayTransitZarOffset > 50_000)
+    // Two minutes ≈ a few cycles → only a few rand of projected transit.
+    assert.ok(anchored.drippedMzn < 20_000)
+    assert.ok(anchored.displayTransitZarOffset < 5_000)
+    assert.ok(residual + anchored.displayMznOffset > residual * 0.98)
+  })
+
   it('keeps inventory bars empty until MZN or ZAR book is funded', () => {
     const now = Date.now()
     const overlay = createInitialOverlay(now, () => 0)

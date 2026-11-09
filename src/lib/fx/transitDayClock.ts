@@ -148,14 +148,20 @@ export type SharedDripProgress = {
 }
 
 /**
- * Slow MZN→in-route drip derived only from wallets + SAST wall clock.
+ * Slow MZN→in-route drip derived from wallets + SAST wall clock.
  * Same inputs ⇒ same outputs on every device (source of truth stays Firestore;
  * this is a shared projection until the next real book/clear).
+ *
+ * `sinceMs` anchors the drip to when this MZN book arrived (credit / queue time).
+ * Without it, a large evening balance would replay every cycle since 09:00 and
+ * look like hundreds of thousands of rand moved in minutes.
  */
 export function sharedDripProgress(params: {
   walletMzn: number
   sellMznPerZar: number
   nowMs: number
+  /** When this MZN balance episode started (credit / residual queue). */
+  sinceMs?: number | null
   remainingPlannedMzn?: number
   cycleDurationMs?: number
 }): SharedDripProgress {
@@ -171,7 +177,12 @@ export function sharedDripProgress(params: {
 
   const cycleMs = Math.max(1, params.cycleDurationMs ?? SHARED_MZN_DRIP_CYCLE_MS)
   const dayStart = lastSettleAt09hSast(params.nowMs)
-  const elapsed = Math.max(0, params.nowMs - dayStart)
+  const sinceRaw = Number(params.sinceMs)
+  const anchorMs =
+    Number.isFinite(sinceRaw) && sinceRaw > 0
+      ? Math.max(dayStart, sinceRaw)
+      : dayStart
+  const elapsed = Math.max(0, params.nowMs - anchorMs)
   const completedCycles = Math.floor(elapsed / cycleMs)
   const cycleFrac = Math.min(1, (elapsed % cycleMs) / cycleMs)
 
@@ -181,7 +192,7 @@ export function sharedDripProgress(params: {
   let plannedLeft = Math.max(0, Number(params.remainingPlannedMzn) || 0)
   for (let i = 0; i < completedCycles; i++) {
     if (!(remaining > 0)) break
-    const atMs = dayStart + (i + 1) * cycleMs
+    const atMs = anchorMs + (i + 1) * cycleMs
     const drip = microDripMzn({
       remainingPlannedMzn: plannedLeft,
       visibleMzn: remaining,
