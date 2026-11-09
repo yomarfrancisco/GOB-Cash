@@ -11,11 +11,17 @@ import {
 import { MZN_PER_ZAR, sellMznPerZar, zarToMzn } from '@/lib/mznZar'
 import styles from './FundMznIntroCard.module.css'
 
-/** Demo total so the bar can show R100k liquid of a larger book. */
-const DEMO_START_ZAR = 100_000
+/**
+ * Educational demo: count R0 → R160k.
+ * Phase 1 (to R100k): green bar fills as liquid grows.
+ * Phase 2 (to R160k): liquid stays R100k, so the bar share shrinks.
+ */
+const DEMO_START_ZAR = 0
 const DEMO_END_ZAR = 160_000
 const DEMO_LIQUID_ZAR = 100_000
-const DEMO_ANIM_MS = 2200
+/** Share of the timeline spent filling up to the liquid cap. */
+const DEMO_LIQUID_PHASE = 0.58
+const DEMO_ANIM_MS = 2800
 /** Pause after a full fill before the educational loop restarts. */
 const DEMO_LOOP_GAP_MS = 10_000
 
@@ -25,6 +31,29 @@ function formatZarAmount(value: number): string {
 
 function formatMznApprox(value: number): string {
   return `≈ ${Math.round(value).toLocaleString('en-US')} MZN`
+}
+
+/** Map 0–1 progress onto amount, spending more time on the liquid fill phase. */
+function demoZarForProgress(progress: number): number {
+  const t = Math.max(0, Math.min(1, progress))
+  if (t <= DEMO_LIQUID_PHASE) {
+    const local = DEMO_LIQUID_PHASE <= 0 ? 1 : t / DEMO_LIQUID_PHASE
+    return DEMO_START_ZAR + (DEMO_LIQUID_ZAR - DEMO_START_ZAR) * local
+  }
+  const local = (t - DEMO_LIQUID_PHASE) / Math.max(1e-6, 1 - DEMO_LIQUID_PHASE)
+  return DEMO_LIQUID_ZAR + (DEMO_END_ZAR - DEMO_LIQUID_ZAR) * local
+}
+
+/** Liquid share of the growing book — fills to 100% by R100k, then eases down. */
+function demoLiquidFillPct(demoZar: number): number {
+  if (!(demoZar > 0)) return 0
+  const liquid = Math.min(DEMO_LIQUID_ZAR, demoZar)
+  if (demoZar <= DEMO_LIQUID_ZAR) {
+    // Phase 1: bar fills with liquid capacity.
+    return Math.max(0, Math.min(100, (liquid / DEMO_LIQUID_ZAR) * 100))
+  }
+  // Phase 2: liquid capped; share of total shrinks.
+  return Math.max(0, Math.min(100, (liquid / demoZar) * 100))
 }
 
 export type FundIntroLocale = 'en' | 'pt'
@@ -272,9 +301,9 @@ export function FundMznIntroCard({
     typeof sellMznPerZarProp === 'number' && sellMznPerZarProp > 0
       ? sellMznPerZar(sellMznPerZarProp)
       : sellMznPerZar(MZN_PER_ZAR)
-  const demoZar = DEMO_START_ZAR + (DEMO_END_ZAR - DEMO_START_ZAR) * animProgress
+  const demoZar = demoZarForProgress(animProgress)
   const demoMzn = zarToMzn(demoZar, liveSell)
-  const liquidFillPct = Math.max(0, Math.min(100, (DEMO_LIQUID_ZAR / Math.max(demoZar, 1)) * 100))
+  const liquidFillPct = demoLiquidFillPct(demoZar)
   const firstName =
     item.deskSentence?.match(/^(?:Hi|Olá)\s+([^.,]+)/i)?.[1]?.trim() ||
     item.actor?.name?.trim().split(/\s+/)[0] ||
