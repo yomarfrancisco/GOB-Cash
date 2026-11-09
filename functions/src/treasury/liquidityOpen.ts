@@ -1,6 +1,5 @@
 /**
- * Liquidity open window — normally 09:00 SAST.
- * TEMP test: 21:55 SAST so we can watch the residual drain live; flip back after.
+ * Liquidity open window — 09:00 SAST.
  */
 
 import * as admin from 'firebase-admin'
@@ -14,9 +13,8 @@ import { CONVERSION_ROUTING_KIND } from '../routing/conversionRouter'
 import { ensureReserveAtLeast, roundMajor } from './reserveBooks'
 import { planReserveSplit, payInstantFromReserve } from './reserveConvert'
 
-/** TEMP — restore to hour 9, minute 0 after the live test. */
-export const LIQUIDITY_OPEN_HOUR_SAST = 21
-export const LIQUIDITY_OPEN_MINUTE_SAST = 15
+export const LIQUIDITY_OPEN_HOUR_SAST = 9
+export const LIQUIDITY_OPEN_MINUTE_SAST = 0
 
 export const DAILY_LIQUID_ZAR_CAP = 100_000
 

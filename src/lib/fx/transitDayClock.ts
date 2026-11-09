@@ -36,10 +36,10 @@ export function resolveZarClearOverlayAction(params: {
 }
 
 /**
- * Liquidity open (SAST). TEMP test window 21:15 — restore to 9, 0 after live check.
+ * Liquidity open (SAST).
  */
-export const LIQUIDITY_OPEN_HOUR_SAST = 21
-export const LIQUIDITY_OPEN_MINUTE_SAST = 15
+export const LIQUIDITY_OPEN_HOUR_SAST = 9
+export const LIQUIDITY_OPEN_MINUTE_SAST = 0
 
 /** Previous liquidity open at or before nowMs (name kept for callers). */
 export function lastSettleAt09hSast(nowMs: number): number {
