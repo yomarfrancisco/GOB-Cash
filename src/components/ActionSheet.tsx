@@ -15,9 +15,19 @@ type Props = {
   children: React.ReactNode
   className?: string
   size?: SheetSize // default 'compact'
+  ariaLabelledBy?: string
 }
 
-export default function ActionSheet({ open, title, onClose, onOverlayClick, children, className, size = 'compact' }: Props) {
+export default function ActionSheet({
+  open,
+  title,
+  onClose,
+  onOverlayClick,
+  children,
+  className,
+  size = 'compact',
+  ariaLabelledBy,
+}: Props) {
   const sheetRef = useRef<HTMLDivElement>(null)
   const [isClosing, setIsClosing] = useState(false)
   const [shouldRender, setShouldRender] = useState(false)
@@ -67,7 +77,12 @@ export default function ActionSheet({ open, title, onClose, onOverlayClick, chil
   if (!shouldRender) return null
 
   return ReactDOM.createPortal(
-    <div className={`as-root ${isClosing ? 'as-root-closing' : ''}`} aria-modal="true" role="dialog">
+    <div
+      className={`as-root ${isClosing ? 'as-root-closing' : ''}`}
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby={ariaLabelledBy}
+    >
       <button className="as-overlay" aria-label={onOverlayClick ? 'Sign in to continue' : 'Close'} onClick={onOverlayClick || onClose} />
       <div 
         className={`as-sheet as-sheet-${size} ${className || ''} ${isClosing ? 'as-sheet-closing' : ''}`} 

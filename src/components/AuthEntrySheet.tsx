@@ -252,8 +252,20 @@ export default function AuthEntrySheet() {
 
   if (!authEntryOpen) return null
 
+  const CFI_LICENSE_URL =
+    'https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing'
+  const TERMS_URL = '/terms'
+  const headlineId = 'auth-entry-headline'
+
   return (
-    <ActionSheet open={authEntryOpen} onClose={dismissAuth} title="" size="tall" className="handAuthSheet">
+    <ActionSheet
+      open={authEntryOpen}
+      onClose={dismissAuth}
+      title=""
+      size="tall"
+      className="handAuthSheet"
+      ariaLabelledBy={authMode === 'signup' ? headlineId : undefined}
+    >
       <div className={styles.handAuthWrapper}>
         <div className={styles.handAuthRoot}>
           <Image
@@ -268,7 +280,6 @@ export default function AuthEntrySheet() {
         <div className={clsx(styles.content, styles.authEntryContent)}>
           {authMode === 'loginEntry' ? (
             <form className={clsx(styles.form, styles.authEntryForm)} onSubmit={handleSubmit}>
-              {/* Continue with Google button */}
               <button
                 type="button"
                 className={styles.authEntrySocialButton}
@@ -276,26 +287,22 @@ export default function AuthEntrySheet() {
               >
                 <Image
                   src="/assets/Group.svg"
-                  alt="Google"
+                  alt=""
                   width={20}
                   height={20}
                   sizes="20px"
                   quality={92}
                   className={styles.authEntrySocialIcon}
                 />
-                <span className={styles.authEntrySocialText}>
-                  {authMode === 'loginEntry' ? 'Sign in with Google' : 'Sign up with Google'}
-                </span>
+                <span className={styles.authEntrySocialText}>Sign in with Google</span>
               </button>
 
-              {/* Divider with "or" */}
               <div className={styles.authEntryDivider}>
                 <div className={styles.authEntryDividerLine} />
                 <span className={styles.authEntryDividerText}>or</span>
                 <div className={styles.authEntryDividerLine} />
               </div>
 
-              {/* Username or phone input - pill shape with in-field submit button */}
               <div className={styles.inputShellPill}>
                 <input
                   type="text"
@@ -310,7 +317,6 @@ export default function AuthEntrySheet() {
                   }}
                   placeholder="Username or phone number"
                 />
-                {/* Submit button - appears when there's text */}
                 {identifier.trim().length > 0 && (
                   <button
                     type="button"
@@ -326,7 +332,6 @@ export default function AuthEntrySheet() {
                 )}
               </div>
 
-              {/* Sign up link */}
               <p className={styles.switchAuthText}>
                 Don&apos;t have an account?{' '}
                 <button
@@ -337,60 +342,50 @@ export default function AuthEntrySheet() {
                   Sign up
                 </button>
               </p>
-
-              {/* Legal text */}
-              <div className={styles.legalBlock}>
-                <p className={styles.legal}>
-                  <strong>Immediate Cross-border Payments</strong>
-                </p>
-                <p className={styles.legalAuth}>
-                  <em>
-                    Authorised FSP 52815 and Co-op bank{' '}
-                    <a
-                      href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >CFI0024</a>.
-                  </em>
-                </p>
-              </div>
             </form>
           ) : (
-            <div className={clsx(styles.form, styles.authEntryForm)}>
-              {/* Sign up with Google button */}
+            <div className={styles.landingSignIn}>
+              <h1 id={headlineId} className={styles.landingHeadline}>
+                Meticais in.
+                <br />
+                Rand out.
+                <br />
+                Immediately.
+              </h1>
               <button
                 type="button"
-                className={styles.authEntrySocialButton}
+                className={styles.landingGoogleButton}
                 onClick={handleGoogleClick}
+                aria-label="Continue with Google"
               >
                 <Image
                   src="/assets/Group.svg"
-                  alt="Google"
+                  alt=""
                   width={20}
                   height={20}
                   sizes="20px"
                   quality={92}
-                  className={styles.authEntrySocialIcon}
+                  className={styles.landingGoogleIcon}
                 />
-                <span className={styles.authEntrySocialText}>Continue with Google</span>
+                <span className={styles.landingGoogleLabel}>Continue with Google</span>
               </button>
-
-              {/* Legal text */}
-              <div className={styles.legalBlock}>
-                <p className={styles.legal}>
-                  <strong>Immediate Cross-border Payments</strong>
-                </p>
-                <p className={styles.legalAuth}>
-                  <em>
-                    Authorised FSP 52815 and Co-op bank{' '}
-                    <a
-                      href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >CFI0024</a>.
-                  </em>
-                </p>
-              </div>
+              <p className={styles.landingTerms}>
+                For licensed FX operators.{' '}
+                <a href={TERMS_URL} className={styles.landingTermsLink}>
+                  Terms apply.
+                </a>
+              </p>
+              <p className={styles.landingDisclosure}>
+                Authorised FSP 52815 · Co-op bank{' '}
+                <a
+                  href={CFI_LICENSE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.landingDisclosureLink}
+                >
+                  CFI0024
+                </a>
+              </p>
             </div>
           )}
         </div>

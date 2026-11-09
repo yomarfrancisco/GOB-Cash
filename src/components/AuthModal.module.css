@@ -296,12 +296,123 @@
   top: calc(50% - 80px) !important; /* Shifted down by 30px from default (110px -> 80px) */
 }
 
-/* Entry sheet content - moved down by 55px total (232px + 40px + 15px = 287px) */
+/* Entry sheet content — upper-middle of the frosted glass, left-aligned. */
 .authEntryContent {
-  top: 287px !important;
+  top: 260px !important;
+  justify-content: flex-start !important;
   align-items: flex-start !important;
   padding-top: 0;
   padding-bottom: 40px;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Landing · sign in — left edge 32px / right margin 40px, not centred. */
+.landingSignIn {
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: calc(100% - 72px);
+  margin-left: 32px;
+  margin-right: 40px;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  pointer-events: auto;
+  /* Faint wash for contrast on variable glass blur — not a card. */
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.landingHeadline {
+  margin: 0 0 24px;
+  padding: 0;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 44px;
+  line-height: 1.04;
+  letter-spacing: -1.2px;
+  color: #18181b;
+  text-align: left;
+  font-style: normal;
+}
+
+.landingGoogleButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+  min-height: 48px;
+  padding: 0 20px 0 16px;
+  margin: 0 0 12px;
+  border-radius: 24px;
+  border: 1px solid #747775;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.landingGoogleButton:hover {
+  opacity: 0.94;
+}
+
+.landingGoogleButton:active {
+  transform: scale(0.98);
+}
+
+.landingGoogleIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.landingGoogleLabel {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.2;
+  color: #1f1f1f;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.landingTerms {
+  margin: 0 0 6px;
+  padding: 0;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #18181b;
+  text-align: left;
+  font-style: normal;
+}
+
+.landingTermsLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-style: normal;
+}
+
+.landingDisclosure {
+  margin: 0;
+  padding: 0;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #3a3a40;
+  text-align: left;
+  font-style: normal;
+}
+
+.landingDisclosureLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-style: normal;
 }
 
 .form {
