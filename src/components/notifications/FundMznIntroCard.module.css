@@ -206,38 +206,34 @@
   box-sizing: border-box;
 }
 
-/* Home bar is 48×4 (#A8E6C3); illustrate at 2× length with the same green. */
-.liqRing {
+/*
+ * Same mechanics as home .card-health-bar-container / fill:
+ * track is the full width; fill width % is of the track only.
+ * Sized relative to the mini card (not a fixed px ring with a green border).
+ */
+.liqTrack {
   position: absolute;
   right: 16px;
-  bottom: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 143px;
-  height: 22px;
-  border-radius: 999px;
-  border: 1.5px solid #a8e6c3;
-  box-sizing: border-box;
-  padding: 0 8px;
-  background: rgba(0, 0, 0, 0.22);
-}
-
-.liqTrack {
-  width: 100%;
-  height: 8px;
+  bottom: 24px;
+  width: 42%;
+  max-width: 168px;
+  min-width: 96px;
+  height: 6px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.22);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .liqFill {
   display: block;
   height: 100%;
-  width: 62%;
-  border-radius: 9999px;
+  width: 0%;
+  border-radius: inherit;
   background: #a8e6c3;
-  transition: width 50ms linear;
+  transform-origin: left center;
+  /* Width is driven every frame — no CSS transition fighting the rAF. */
+  transition: none;
 }
 
 .explain {
@@ -258,20 +254,19 @@
 .explainIcon {
   flex-shrink: 0;
   width: 36px;
-  height: 14px;
-  margin-top: 3px;
+  height: 6px;
+  margin-top: 6px;
   border-radius: 999px;
-  border: 1.5px solid #a8e6c3;
+  background: rgba(24, 24, 27, 0.12);
+  overflow: hidden;
   box-sizing: border-box;
-  padding: 2px 3px;
-  background: rgba(168, 230, 195, 0.16);
 }
 
 .explainIconBar {
   display: block;
-  width: 62%;
+  width: 70%;
   height: 100%;
-  border-radius: 999px;
+  border-radius: inherit;
   background: #a8e6c3;
 }
 

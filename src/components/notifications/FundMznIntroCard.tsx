@@ -394,10 +394,16 @@ export function FundMznIntroCard({
           <div className={styles.miniCardAmt}>{formatZarAmount(demoZar)}</div>
           <div className={styles.miniCardApprox}>{formatMznApprox(demoMzn)}</div>
           <span className={styles.ratePill}>{liveSell.toFixed(2)}Mt/R</span>
-          <span className={styles.liqRing} title="Liquidity bar">
-            <span className={styles.liqTrack}>
-              <span className={styles.liqFill} style={{ width: `${liquidFillPct}%` }} />
-            </span>
+          <span
+            className={styles.liqTrack}
+            title="Liquidity bar"
+            role="img"
+            aria-label={`Liquid ${Math.round(liquidFillPct)} percent`}
+          >
+            <span
+              className={styles.liqFill}
+              style={{ width: `${Math.max(0, Math.min(100, liquidFillPct))}%` }}
+            />
           </span>
         </div>
         <p className={styles.explain}>
