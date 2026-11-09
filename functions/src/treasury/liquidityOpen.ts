@@ -16,7 +16,7 @@ import { planReserveSplit, payInstantFromReserve } from './reserveConvert'
 
 /** TEMP — restore to hour 9, minute 0 after the live test. */
 export const LIQUIDITY_OPEN_HOUR_SAST = 21
-export const LIQUIDITY_OPEN_MINUTE_SAST = 55
+export const LIQUIDITY_OPEN_MINUTE_SAST = 15
 
 export const DAILY_LIQUID_ZAR_CAP = 100_000
 
