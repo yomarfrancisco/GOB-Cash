@@ -47,12 +47,24 @@ export function firstNameFromUser(params: {
 export function buildFundMznDeskSentence(firstName: string): string {
   const name = firstName.trim() || 'there'
   return (
-    `Hi ${name}. PAGA helps you convert MZN to ZAR instantly. ` +
-    `To receive (or pay out) ZAR in South Africa simply (a) Fund your Meticais wallet up to R100,000. ` +
-    `It's instantly liquid: meaning it's converted and ready to pay out. ` +
-    `Anything above R100k is at 09:00 the next day/s. ` +
-    `(b) Your routing Manager will then obtain SA banking details to payout. ` +
-    `Your MZN account on PAGA follows:`
+    `Hi ${name}. PAGA turns your meticais into rand you can pay out in South Africa.\n\n` +
+    `1. Send MZN to the account below. The first R100,000 each day is converted instantly and ready to pay out. ` +
+    `Anything above that is ready at 09:00 the next day.\n\n` +
+    `2. Tell us where to pay. The Routing Manager will ask for your South African bank account once. ` +
+    `After that, we pay out automatically.\n\n` +
+    `Your PAGA MZN account:`
+  )
+}
+
+export function buildFundMznDeskSentencePt(firstName: string): string {
+  const name = firstName.trim() || 'aí'
+  return (
+    `Olá ${name}. O PAGA converte os seus meticais em rands que pode pagar na África do Sul.\n\n` +
+    `1. Envie MZN para a conta abaixo. Os primeiros R100.000 de cada dia são convertidos de imediato e ficam prontos a pagar. ` +
+    `O que ultrapassar esse valor fica pronto às 09:00 do dia seguinte.\n\n` +
+    `2. Diga-nos para onde pagar. O Routing Manager pede-lhe a sua conta bancária sul-africana uma única vez. ` +
+    `A partir daí, pagamos automaticamente.\n\n` +
+    `A sua conta MZN no PAGA:`
   )
 }
 

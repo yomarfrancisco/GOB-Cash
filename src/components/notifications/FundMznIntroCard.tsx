@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, Copy } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
 import {
-  buildFundMznDeskSentence,
   FUND_MZN_ACCOUNT_NUMBER,
   FUND_MZN_BANK,
   FUND_MZN_RECIPIENT,
@@ -30,17 +29,48 @@ function formatMznApprox(value: number): string {
 
 export type FundIntroLocale = 'en' | 'pt'
 
+function fundIntroBodyEn(name: string): ReactNode {
+  return (
+    <>
+      Hi {name}. PAGA turns your meticais into rand you can pay out in South Africa.
+      <br />
+      <br />
+      <strong>1. Send MZN to the account below.</strong> The first R100,000 each day is converted
+      instantly and ready to pay out. Anything above that is ready at 09:00 the next day.
+      <br />
+      <br />
+      <strong>2. Tell us where to pay.</strong> The Routing Manager will ask for your South African
+      bank account once. After that, we pay out automatically.
+      <br />
+      <br />
+      Your PAGA MZN account:
+    </>
+  )
+}
+
+function fundIntroBodyPt(name: string): ReactNode {
+  return (
+    <>
+      Olá {name}. O PAGA converte os seus meticais em rands que pode pagar na África do Sul.
+      <br />
+      <br />
+      <strong>1. Envie MZN para a conta abaixo.</strong> Os primeiros R100.000 de cada dia são
+      convertidos de imediato e ficam prontos a pagar. O que ultrapassar esse valor fica pronto às
+      09:00 do dia seguinte.
+      <br />
+      <br />
+      <strong>2. Diga-nos para onde pagar.</strong> O Routing Manager pede-lhe a sua conta bancária
+      sul-africana uma única vez. A partir daí, pagamos automaticamente.
+      <br />
+      <br />
+      A sua conta MZN no PAGA:
+    </>
+  )
+}
+
 const COPY = {
   en: {
-    body: (
-      <>
-        PAGA helps you convert MZN to ZAR instantly. To receive (or pay out) ZAR in South Africa
-        simply (a) Fund your Meticais wallet up to <strong>R100,000</strong>. It&apos;s instantly
-        liquid: meaning it&apos;s converted and ready to pay out. Anything above R100k is at{' '}
-        <strong>09:00</strong> the next day/s. (b) Your routing Manager will then obtain SA banking
-        details to payout. Your MZN account on PAGA follows:
-      </>
-    ),
+    body: fundIntroBodyEn,
     recipient: 'Recipient',
     bank: 'Bank',
     account: 'Account',
@@ -58,15 +88,7 @@ const COPY = {
     copyReference: 'Copy reference',
   },
   pt: {
-    body: (
-      <>
-        A PAGA ajuda a converter MZN em ZAR de imediato. Para receber (ou pagar) ZAR na África do
-        Sul: (a) financie a sua carteira de meticais até <strong>R100.000</strong>. Fica líquido de
-        imediato — convertido e pronto a pagar. Acima de R100k, às <strong>09:00</strong> do(s)
-        dia(s) seguinte(s). (b) O seu routing Manager obtém depois os dados bancários SA para o
-        payout. A sua conta MZN na PAGA segue:
-      </>
-    ),
+    body: fundIntroBodyPt,
     recipient: 'Beneficiário',
     bank: 'Banco',
     account: 'Conta',
@@ -254,10 +276,9 @@ export function FundMznIntroCard({
   const demoMzn = zarToMzn(demoZar, liveSell)
   const liquidFillPct = Math.max(0, Math.min(100, (DEMO_LIQUID_ZAR / Math.max(demoZar, 1)) * 100))
   const firstName =
-    item.deskSentence?.match(/^Hi\s+([^.,]+)/i)?.[1]?.trim() ||
+    item.deskSentence?.match(/^(?:Hi|Olá)\s+([^.,]+)/i)?.[1]?.trim() ||
     item.actor?.name?.trim().split(/\s+/)[0] ||
-    'there'
-  const enSentence = buildFundMznDeskSentence(firstName)
+    (locale === 'pt' ? 'aí' : 'there')
 
   const markCopied = (key: 'account' | 'reference') => {
     setCopiedKey(key)
@@ -303,7 +324,7 @@ export function FundMznIntroCard({
         </button>
       </div>
 
-      <p className={styles.body}>{locale === 'en' ? enSentence : copy.body}</p>
+      <p className={styles.body}>{copy.body(firstName)}</p>
 
       <div className={styles.ledger}>
         <LedgerRow label={copy.recipient} value={recipient} strong />
