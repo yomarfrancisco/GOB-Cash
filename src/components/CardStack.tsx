@@ -178,11 +178,14 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const walletMzn = Number(wallets?.cashMZN?.fiatBalance || 0)
   const walletZar = Number(wallets?.cashZAR?.fiatBalance || 0)
   const walletTransitZar = Number(wallets?.earnings?.fiatBalance || 0)
+  // Queued residual waits for 09:00 — do not drip it onto the ZAR card as fake liquid.
+  const liquidityQueueMzn = Number((wallets?.cashMZN as { liquidityQueueMzn?: number } | undefined)?.liquidityQueueMzn || 0)
+  const suppressMznDrip = liquidityQueueMzn > 0.005
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : 0
   const transitClock = useTransitDayClock({
-    enabled: Boolean(isBalanceReady && !demoMode),
-    walletMzn,
+    enabled: Boolean(isBalanceReady && !demoMode && !suppressMznDrip),
+    walletMzn: suppressMznDrip ? 0 : walletMzn,
     walletZar,
     walletTransitZar,
     sellMznPerZar: sellMznPerZar(liveMzn),

@@ -794,9 +794,9 @@ export async function confirmFirstPayout(params: {
       updatedAt: now,
     })
 
-    if (mznSnap.exists && Number(mznSnap.data()?.fiatBalance || 0) > 0.005) {
-      t.update(mznRef, { fiatBalance: 0, updatedAt: now })
-    }
+    // Keep residual / liquidity-queue MZN — Day-1 may only convert the liquid slice.
+    // (Older all-or-nothing path wiped MZN here; that erased queued books.)
+    void mznSnap
 
     const txRef = db().collection('transactions').doc(paidId)
     t.set(txRef, {
@@ -844,11 +844,32 @@ export async function confirmFirstPayout(params: {
       ],
       deskStatusChip: 'Paid',
       deskPipes: [
-        { id: 'mzn', label: 'MZN', title: '0 MZN', fillPct: 0, tone: 'mzn' },
+        {
+          id: 'mzn',
+          label: 'MZN',
+          title:
+            Number(mznSnap.data()?.liquidityQueueMzn || mznSnap.data()?.fiatBalance || 0) > 0.005
+              ? fmtMzn(
+                  Number(mznSnap.data()?.liquidityQueueMzn || mznSnap.data()?.fiatBalance || 0)
+                )
+              : '0 MZN',
+          subtitle:
+            Number(mznSnap.data()?.liquidityQueueMzn || mznSnap.data()?.fiatBalance || 0) > 0.005
+              ? 'residual · queued 09:00'
+              : undefined,
+          fillPct:
+            Number(mznSnap.data()?.liquidityQueueMzn || mznSnap.data()?.fiatBalance || 0) > 0.005
+              ? 100
+              : 0,
+          tone: 'mzn',
+        },
         { id: 'zar', label: 'ZAR', title: 'R0 · paid out', fillPct: 0, tone: 'zar' },
         { id: 'bank', label: 'BANK', title: `${bankName} ${masked}`, fillPct: 0, tone: 'bank' },
       ],
-      deskPipeCaption: 'Pipes clear. Nothing waiting with us.',
+      deskPipeCaption:
+        Number(mznSnap.data()?.liquidityQueueMzn || mznSnap.data()?.fiatBalance || 0) > 0.005
+          ? `${fmtMzn(Number(mznSnap.data()?.liquidityQueueMzn || mznSnap.data()?.fiatBalance || 0))} still queued for 09:00. Liquid ZAR is paid out.`
+          : 'Pipes clear. Nothing waiting with us.',
       actorType: 'ai_manager',
       avatarKind: 'zar_withdrawn',
       amountCurrency: 'ZAR',
