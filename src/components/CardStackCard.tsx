@@ -28,6 +28,7 @@ import {
 } from '@/lib/fx/enRouteSettlementTimer'
 import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
+import { useIsAdminUser } from '@/lib/restrictions'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -149,6 +150,7 @@ export default function CardStackCard({
   const authState = useAuthStore((state) => state.getAuthState())
   const balanceMode = useAuthStore((state) => state.getBalanceMode())
   const isAuthed = useAuthStore((state) => state.isAuthed)
+  const isAdmin = useIsAdminUser()
   const { wallets, demoMode, walletsHydrated } = useWalletStore()
   const isBalanceReady = useAppModeStore((state) => state.isBalanceReady())
   
@@ -449,8 +451,10 @@ export default function CardStackCard({
     }
 
     if (card.type === 'mzn') {
+      // Clients see sell only; cost stays admin-visible on the MZN card.
+      const rate = isAdmin ? costRate : sellRate
       return {
-        strong: `${costRate.toFixed(2)}Mt/R`,
+        strong: `${rate.toFixed(2)}Mt/R`,
         label: '',
       }
     }
@@ -583,7 +587,13 @@ export default function CardStackCard({
                 <span className="amt-cents card-amounts__cents">00</span>
               </div>
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
-                <span>≈ 0 {isMeticalAmount ? 'ZAR' : 'MZN'}</span>
+                <span>
+                  {isMeticalAmount
+                    ? 'MZN Funded'
+                    : card.type === 'savings'
+                      ? 'ZAR delivered'
+                      : '≈ 0 MZN'}
+                </span>
               </div>
             </>
           ) : (
@@ -626,21 +636,31 @@ export default function CardStackCard({
                   )}
                 />
               </div>
-              <div
-                className="card-amounts__usdt"
-                aria-label={`approximately ${convertedAmount.toFixed(2)} ${isMeticalAmount ? 'ZAR' : 'MZN'}`}
-                suppressHydrationWarning
-              >
-                <span aria-hidden>≈ </span>
-                <SlotCounter
-                  key={`${balanceKey}-converted`}
-                  value={convertedAmount}
-                  format={formatEquivalenceAmount}
-                  durationMs={isBalanceReady ? 700 : 0}
-                  className="card-amounts__usdt-value"
-                />
-                <span style={{ marginLeft: '4px' }}>{isMeticalAmount ? 'ZAR' : 'MZN'}</span>
-              </div>
+              {isMeticalAmount || card.type === 'savings' ? (
+                <div
+                  className="card-amounts__usdt"
+                  aria-label={isMeticalAmount ? 'MZN Funded' : 'ZAR delivered'}
+                  suppressHydrationWarning
+                >
+                  <span>{isMeticalAmount ? 'MZN Funded' : 'ZAR delivered'}</span>
+                </div>
+              ) : (
+                <div
+                  className="card-amounts__usdt"
+                  aria-label={`approximately ${convertedAmount.toFixed(2)} MZN`}
+                  suppressHydrationWarning
+                >
+                  <span aria-hidden>≈ </span>
+                  <SlotCounter
+                    key={`${balanceKey}-converted`}
+                    value={convertedAmount}
+                    format={formatEquivalenceAmount}
+                    durationMs={isBalanceReady ? 700 : 0}
+                    className="card-amounts__usdt-value"
+                  />
+                  <span style={{ marginLeft: '4px' }}>MZN</span>
+                </div>
+              )}
             </>
           )}
         </div>
