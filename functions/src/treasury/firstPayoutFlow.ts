@@ -16,6 +16,7 @@ import {
 } from '../fx/quotedMznZar'
 import { planReserveSplit, payInstantFromReserve } from './reserveConvert'
 import { ensureReserveAtLeast, roundMajor } from './reserveBooks'
+import { DAILY_LIQUID_ZAR_CAP as SUB_R100K_CAP } from './dailyLiquidZar'
 import {
   looksLikeBankDetails,
   normalizeHandle,
@@ -35,7 +36,6 @@ export const FIRST_PAYOUT_DETAILS_FIELD = 'firstPayoutDetails'
 
 export type FirstPayoutStatus = 'awaiting_details' | 'awaiting_payout' | 'done'
 
-const SUB_R100K_CAP = 100_000
 const CORE_AGENT_UID = 'xHKmkizXhPOU25vwTIB6dxhMzSH2'
 
 function db(): FirebaseFirestore.Firestore {

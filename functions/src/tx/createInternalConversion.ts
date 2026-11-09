@@ -177,13 +177,21 @@ export const tx_createInternalConversion = functions
       }
 
       // Buy ZAR: pink keypad Mt → draw ZAR reserve, remainder on ROUTE.
+      // Instant leg is also clipped to the user's daily R100k liquid budget.
       const shockMzn = roundMajor(sourceAmount)
       const wantZar = roundMajor(shockMzn / costRate)
-      const split = await planReserveSplit({
+      const {
+        clipReserveSplitToDailyLiquid,
+        readDailyLiquidState,
+        bumpDailyLiquidUsed,
+      } = await import('../treasury/dailyLiquidZar')
+      const daily = await readDailyLiquidState(userId)
+      let split = await planReserveSplit({
         destCurrency: 'ZAR',
         wantDest: wantZar,
         totalSource: shockMzn,
       })
+      split = clipReserveSplitToDailyLiquid(split, daily.leftZar)
       let instantTxId: string | null = null
       let routedTxId: string | null = null
       let settleAtMs: number | null = null
@@ -203,6 +211,12 @@ export const tx_createInternalConversion = functions
           namedClient,
         })
         instantTxId = instant.txId
+        await bumpDailyLiquidUsed({
+          userId,
+          dayKey: daily.dayKey,
+          previousUsedZar: daily.usedZar,
+          addZar: instant.destMajor,
+        })
       }
       if (split.routedSource > 0) {
         const booked = await bookMznSaleToEnRoute({
@@ -453,9 +467,23 @@ export const tx_createInternalConversion = functions
     }
 
     // —— MZN → ZAR: draw ZAR reserve for instant leg; remainder EN_ROUTE ——
+    // Live (non-desk) converts share the same daily R100k instant budget as day-1.
     const wantZar = expectedDestinationMajor
-    const split = skipReserve
+    const {
+      clipReserveSplitToDailyLiquid,
+      readDailyLiquidState,
+      bumpDailyLiquidUsed,
+    } = await import('../treasury/dailyLiquidZar')
+    const enforceDailyCap = !skipReserve && !data?.routingPlay
+    const daily = enforceDailyCap
+      ? await readDailyLiquidState(userId)
+      : { dayKey: '', usedZar: 0, leftZar: Number.POSITIVE_INFINITY }
+    let split = skipReserve
       ? {
+          destCurrency: 'ZAR' as const,
+          wantDest: wantZar,
+          totalSource: sourceAmountMajor,
+          reserveAvailable: 0,
           instantDest: 0,
           routedDest: wantZar,
           instantSource: 0,
@@ -466,6 +494,9 @@ export const tx_createInternalConversion = functions
           wantDest: wantZar,
           totalSource: sourceAmountMajor,
         })
+    if (enforceDailyCap) {
+      split = clipReserveSplitToDailyLiquid(split, daily.leftZar)
+    }
 
     let instantTxId: string | null = null
     let routedTxId: string | null = null
@@ -486,6 +517,14 @@ export const tx_createInternalConversion = functions
         suppressDeskActivity: deskSuppress,
       })
       instantTxId = instant.txId
+      if (enforceDailyCap) {
+        await bumpDailyLiquidUsed({
+          userId,
+          dayKey: daily.dayKey,
+          previousUsedZar: daily.usedZar,
+          addZar: instant.destMajor,
+        })
+      }
     }
 
     if (split.routedSource > 0) {

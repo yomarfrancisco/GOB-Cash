@@ -12,11 +12,12 @@ import {
 import { CONVERSION_ROUTING_KIND } from '../routing/conversionRouter'
 import { ensureReserveAtLeast, roundMajor } from './reserveBooks'
 import { planReserveSplit, payInstantFromReserve } from './reserveConvert'
+import { DAILY_LIQUID_ZAR_CAP } from './dailyLiquidZar'
 
 export const LIQUIDITY_OPEN_HOUR_SAST = 9
 export const LIQUIDITY_OPEN_MINUTE_SAST = 0
 
-export const DAILY_LIQUID_ZAR_CAP = 100_000
+export { DAILY_LIQUID_ZAR_CAP }
 
 const SAST_OFFSET_MS = 2 * 60 * 60 * 1000
 
