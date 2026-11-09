@@ -257,7 +257,7 @@ export default function AuthEntrySheet() {
       <div className={styles.handAuthWrapper}>
         <div className={styles.handAuthRoot}>
           <Image
-            src="/assets/core/signup-first contact091120262.png"
+            src="/assets/sign up - first contact.png"
             alt=""
             fill
             quality={92}
@@ -372,20 +372,8 @@ export default function AuthEntrySheet() {
                   quality={92}
                   className={styles.authEntrySocialIcon}
                 />
-                <span className={styles.authEntrySocialText}>Sign up with Google</span>
+                <span className={styles.authEntrySocialText}>Continue with Google</span>
               </button>
-
-              {/* Log in link */}
-              <p className={styles.switchAuthText}>
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  className={styles.switchAuthLink}
-                  onClick={() => setAuthMode('loginEntry')}
-                >
-                  Log in
-                </button>
-              </p>
 
               {/* Legal text */}
               <div className={styles.legalBlock}>

@@ -89,7 +89,7 @@ export default function AuthModal() {
       <div className={styles.handAuthWrapper}>
         <div className={styles.handAuthRoot}>
           <Image
-            src="/assets/core/signup-first contact091120262.png"
+            src="/assets/sign up - first contact.png"
             alt=""
             fill
             quality={92}

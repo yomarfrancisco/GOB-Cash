@@ -6,7 +6,7 @@
  */
 
 const AUTH_IMAGES = [
-  '/assets/core/signup-first contact091120262.png',
+  '/assets/sign up - first contact.png',
   '/assets/sign_up - phone2.png',
 ] as const
 
