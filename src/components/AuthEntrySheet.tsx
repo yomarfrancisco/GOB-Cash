@@ -257,7 +257,7 @@ export default function AuthEntrySheet() {
       <div className={styles.handAuthWrapper}>
         <div className={styles.handAuthRoot}>
           <Image
-            src="/assets/sign up - first contact.png"
+            src="/assets/core/signup-first contact091120261.png"
             alt=""
             fill
             quality={92}
