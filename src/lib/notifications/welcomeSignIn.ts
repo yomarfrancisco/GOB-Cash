@@ -47,8 +47,12 @@ export function firstNameFromUser(params: {
 export function buildFundMznDeskSentence(firstName: string): string {
   const name = firstName.trim() || 'there'
   return (
-    `Hi ${name}. Send meticais to this account. ` +
-    `Up to R100,000 is liquid instantly, ready to pay. Anything above is liquid at 09:00 the next day.`
+    `Hi ${name}. PAGA helps you convert MZN to ZAR instantly. ` +
+    `To receive (or pay out) ZAR in South Africa simply (a) Fund your Meticais wallet up to R100,000. ` +
+    `It's instantly liquid: meaning it's converted and ready to pay out. ` +
+    `Anything above R100k is at 09:00 the next day/s. ` +
+    `(b) Your routing Manager will then obtain SA banking details to payout. ` +
+    `Your MZN account on PAGA follows:`
   )
 }
 

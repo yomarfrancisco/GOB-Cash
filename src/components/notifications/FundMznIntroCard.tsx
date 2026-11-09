@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
 import {
+  buildFundMznDeskSentence,
   FUND_MZN_ACCOUNT_NUMBER,
   FUND_MZN_BANK,
   FUND_MZN_RECIPIENT,
@@ -16,6 +17,8 @@ const DEMO_START_ZAR = 100_000
 const DEMO_END_ZAR = 160_000
 const DEMO_LIQUID_ZAR = 100_000
 const DEMO_ANIM_MS = 2200
+/** Pause after a full fill before the educational loop restarts. */
+const DEMO_LOOP_GAP_MS = 10_000
 
 function formatZarAmount(value: number): string {
   return `R${Math.round(value).toLocaleString('en-US')}`
@@ -31,8 +34,11 @@ const COPY = {
   en: {
     body: (
       <>
-        Send meticais to this account. Up to <strong>R100,000</strong> is liquid instantly, ready to
-        pay. Anything above is liquid at <strong>09:00</strong> the next day.
+        PAGA helps you convert MZN to ZAR instantly. To receive (or pay out) ZAR in South Africa
+        simply (a) Fund your Meticais wallet up to <strong>R100,000</strong>. It&apos;s instantly
+        liquid: meaning it&apos;s converted and ready to pay out. Anything above R100k is at{' '}
+        <strong>09:00</strong> the next day/s. (b) Your routing Manager will then obtain SA banking
+        details to payout. Your MZN account on PAGA follows:
       </>
     ),
     recipient: 'Recipient',
@@ -54,9 +60,11 @@ const COPY = {
   pt: {
     body: (
       <>
-        Transfira meticais para esta conta. Até <strong>R100.000</strong> ficam líquidos de
-        imediato, prontos a pagar. O restante fica líquido às <strong>09:00</strong> do dia
-        seguinte.
+        A PAGA ajuda a converter MZN em ZAR de imediato. Para receber (ou pagar) ZAR na África do
+        Sul: (a) financie a sua carteira de meticais até <strong>R100.000</strong>. Fica líquido de
+        imediato — convertido e pronto a pagar. Acima de R100k, às <strong>09:00</strong> do(s)
+        dia(s) seguinte(s). (b) O seu routing Manager obtém depois os dados bancários SA para o
+        payout. A sua conta MZN na PAGA segue:
       </>
     ),
     recipient: 'Beneficiário',
@@ -159,22 +167,65 @@ export function FundMznIntroCard({
 }) {
   const [locale, setLocale] = useState<FundIntroLocale>(localeProp)
   const [animProgress, setAnimProgress] = useState(0)
+  const [inView, setInView] = useState(true)
+  const rootRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     setLocale(localeProp)
   }, [localeProp])
 
+  // Pause the educational fill when scrolled off or desk closed (unmount).
   useEffect(() => {
-    let frame = 0
-    const started = performance.now()
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - started) / DEMO_ANIM_MS)
-      const eased = 1 - Math.pow(1 - t, 3)
-      setAnimProgress(eased)
-      if (t < 1) frame = requestAnimationFrame(tick)
-    }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
+    const node = rootRef.current
+    if (!node || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setInView(Boolean(entry?.isIntersecting && (entry.intersectionRatio ?? 0) > 0.12))
+      },
+      { threshold: [0, 0.12, 0.35, 0.7] }
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (!inView) {
+      setAnimProgress(0)
+      return
+    }
+
+    let frame = 0
+    let gapTimer: ReturnType<typeof setTimeout> | null = null
+    let cancelled = false
+
+    const play = () => {
+      if (cancelled) return
+      setAnimProgress(0)
+      const started = performance.now()
+      const tick = (now: number) => {
+        if (cancelled) return
+        const t = Math.min(1, (now - started) / DEMO_ANIM_MS)
+        const eased = 1 - Math.pow(1 - t, 3)
+        setAnimProgress(eased)
+        if (t < 1) {
+          frame = requestAnimationFrame(tick)
+          return
+        }
+        gapTimer = setTimeout(() => {
+          gapTimer = null
+          play()
+        }, DEMO_LOOP_GAP_MS)
+      }
+      frame = requestAnimationFrame(tick)
+    }
+
+    play()
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(frame)
+      if (gapTimer) clearTimeout(gapTimer)
+    }
+  }, [inView])
 
   const switchLocale = (next: FundIntroLocale) => {
     setLocale(next)
@@ -202,6 +253,11 @@ export function FundMznIntroCard({
   const demoZar = DEMO_START_ZAR + (DEMO_END_ZAR - DEMO_START_ZAR) * animProgress
   const demoMzn = zarToMzn(demoZar, liveSell)
   const liquidFillPct = Math.max(0, Math.min(100, (DEMO_LIQUID_ZAR / Math.max(demoZar, 1)) * 100))
+  const firstName =
+    item.deskSentence?.match(/^Hi\s+([^.,]+)/i)?.[1]?.trim() ||
+    item.actor?.name?.trim().split(/\s+/)[0] ||
+    'there'
+  const enSentence = buildFundMznDeskSentence(firstName)
 
   const markCopied = (key: 'account' | 'reference') => {
     setCopiedKey(key)
@@ -209,7 +265,7 @@ export function FundMznIntroCard({
   }
 
   return (
-    <div className={styles.root}>
+    <div className={styles.root} ref={rootRef}>
       <div className={styles.langSwitch} role="group" aria-label="Language">
         <button
           type="button"
@@ -247,9 +303,7 @@ export function FundMznIntroCard({
         </button>
       </div>
 
-      <p className={styles.body}>
-        {locale === 'en' && item.deskSentence ? item.deskSentence : copy.body}
-      </p>
+      <p className={styles.body}>{locale === 'en' ? enSentence : copy.body}</p>
 
       <div className={styles.ledger}>
         <LedgerRow label={copy.recipient} value={recipient} strong />
