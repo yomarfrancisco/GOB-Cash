@@ -377,7 +377,7 @@ export default function AuthEntrySheet() {
 
               {/* Legal text */}
               <div className={clsx(styles.legalBlock, styles.legalBlockSignup)}>
-                <p className={styles.legal}>We sell dollars</p>
+                <p className={styles.legalSignupLead}>We sell dollars</p>
                 <p className={styles.legalCaveat}>to closed-currency markets</p>
               </div>
             </div>
