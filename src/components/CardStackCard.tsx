@@ -589,9 +589,9 @@ export default function CardStackCard({
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
                 <span>
                   {isMeticalAmount
-                    ? 'MZN Funded'
+                    ? 'Funded'
                     : card.type === 'savings'
-                      ? 'ZAR delivered'
+                      ? 'Delivered'
                       : '≈ 0 MZN'}
                 </span>
               </div>
@@ -639,10 +639,10 @@ export default function CardStackCard({
               {isMeticalAmount || card.type === 'savings' ? (
                 <div
                   className="card-amounts__usdt"
-                  aria-label={isMeticalAmount ? 'MZN Funded' : 'ZAR delivered'}
+                  aria-label={isMeticalAmount ? 'Funded' : 'Delivered'}
                   suppressHydrationWarning
                 >
-                  <span>{isMeticalAmount ? 'MZN Funded' : 'ZAR delivered'}</span>
+                  <span>{isMeticalAmount ? 'Funded' : 'Delivered'}</span>
                 </div>
               ) : (
                 <div
