@@ -14,6 +14,7 @@ import { useAuthStore } from '@/store/auth'
 import { useIsAdminUser } from '@/lib/restrictions'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { useTransitDayClock } from '@/lib/fx/useTransitDayClock'
+import { zarLiquidityJourneyBarPercent } from '@/lib/fx/transitDayClock'
 import { inventoryDominantCard } from '@/lib/fx/inventoryDominant'
 import { sellMznPerZar } from '@/lib/mznZar'
 import { useWalletStore } from '@/store/wallets'
@@ -748,17 +749,26 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const BOTTOM_BUFFER_PX = 0 // Reduced from 20 to 0 to close gap to map section (80% total reduction - removed buffer entirely)
   const stackMinHeight = BASE_HEIGHT_PX + (VISIBLE_COUNT - 1) * Y_STEP_PX + BOTTOM_BUFFER_PX
 
-  // Liquid share of the combined ZAR book (wallets + shared drip projection).
+  // ZAR green bar = dripped ÷ next-09:00 liquidity available (≤ R100k), not 09→09 clock.
+  const sellForBar = sellMznPerZar(liveMzn)
+  const zarJourneyBarPercent = zarLiquidityJourneyBarPercent({
+    walletMzn,
+    drippedZar: Math.max(0, transitClock.displayTransitZarOffset - transitCreditHold),
+    sellMznPerZar: sellForBar,
+  })
+  // No residual left: fall back to liquid share of the combined ZAR book.
   const zarLiquidMajor = Math.max(0, walletZar - zarCreditHold)
   const zarInRouteMajor = Math.max(
     0,
     walletTransitZar + transitClock.displayTransitZarOffset - transitCreditHold
   )
   const zarBookMajor = zarLiquidMajor + zarInRouteMajor
-  const zarLiquidBarPercent =
+  const zarLiquidSharePercent =
     zarBookMajor > 0.005
       ? Math.max(0, Math.min(100, (zarLiquidMajor / zarBookMajor) * 100))
       : 0
+  const zarLiquidBarPercent =
+    walletMzn > 0.005 ? zarJourneyBarPercent : zarLiquidSharePercent
 
   return (
     <div 

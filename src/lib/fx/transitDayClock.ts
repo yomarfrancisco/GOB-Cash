@@ -131,6 +131,28 @@ export function mznToTransitZar(mznAmount: number, sellMznPerZar: number): numbe
   return Math.round((mznAmount / sellMznPerZar) * 100) / 100
 }
 
+/** Daily instant liquid promise (same cap as first-fund / next 09:00 window). */
+export const DAILY_LIQUID_ZAR_CAP = 100_000
+
+/**
+ * ZAR card green bar: dripped / next-09:00 liquidity available to this user.
+ * Denominator = min(full residual in ZAR, daily R100k cap) — not wall-clock 09→09.
+ */
+export function zarLiquidityJourneyBarPercent(params: {
+  walletMzn: number
+  drippedZar: number
+  sellMznPerZar: number
+  dailyLiquidZarCap?: number
+}): number {
+  const sell = Number(params.sellMznPerZar) || 0
+  const residualZar = mznToTransitZar(Math.max(0, params.walletMzn), sell)
+  const cap = Math.max(0, Number(params.dailyLiquidZarCap ?? DAILY_LIQUID_ZAR_CAP) || 0)
+  const availableAtNine = Math.min(residualZar, cap > 0 ? cap : residualZar)
+  if (!(availableAtNine > 0.005)) return 0
+  const dripped = Math.max(0, Number(params.drippedZar) || 0)
+  return Math.max(0, Math.min(100, (dripped / availableAtNine) * 100))
+}
+
 /**
  * Fixed drip cycle for every client — no Math.random, so two tabs stay aligned.
  * Midpoint of the old 20–50s band.

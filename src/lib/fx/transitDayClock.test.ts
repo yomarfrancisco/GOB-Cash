@@ -4,6 +4,7 @@ import {
   MZN_DRIP_CYCLE_MAX_MS,
   MZN_DRIP_CYCLE_MIN_MS,
   SHARED_MZN_DRIP_CYCLE_MS,
+  DAILY_LIQUID_ZAR_CAP,
   ZAR_CLEAR_CATCHUP_GRACE_MS,
   createInitialOverlay,
   inventoryBarsArmed,
@@ -18,6 +19,7 @@ import {
   sharedDripProgress,
   transitDayBarPercent,
   zarClearBarPercent,
+  zarLiquidityJourneyBarPercent,
 } from './transitDayClock'
 
 describe('transitDayClock', () => {
@@ -167,6 +169,27 @@ describe('transitDayClock', () => {
     assert.equal(early.displayMznOffset, late.displayMznOffset)
     assert.equal(early.displayTransitZarOffset, late.displayTransitZarOffset)
     assert.ok(late.mznCycleBarPercent > early.mznCycleBarPercent)
+  })
+
+  it('ZAR journey bar is dripped ÷ next-09:00 liquidity (capped at R100k)', () => {
+    // Mt 1.55M @ 4.48 ≈ R346k residual → available tomorrow = R100k cap
+    const sell = 4.48
+    const walletMzn = 1_551_788.22
+    const drippedZar = 10_000
+    const pct = zarLiquidityJourneyBarPercent({
+      walletMzn,
+      drippedZar,
+      sellMznPerZar: sell,
+      dailyLiquidZarCap: DAILY_LIQUID_ZAR_CAP,
+    })
+    assert.ok(Math.abs(pct - 10) < 0.05)
+    // Small residual under the cap: bar uses full residual as denominator
+    const small = zarLiquidityJourneyBarPercent({
+      walletMzn: 4.48 * 20_000, // R20k residual
+      drippedZar: 5_000,
+      sellMznPerZar: sell,
+    })
+    assert.ok(Math.abs(small - 25) < 0.05)
   })
 
   it('anchors drip to sinceMs so evening residual does not replay the whole day', () => {
