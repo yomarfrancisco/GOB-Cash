@@ -72,9 +72,9 @@ export function resumeDeskAfterKeypad(): void {
  */
 export function openHeaderFundCalculator(): boolean {
   if (isConversionInFlight()) return false
-  // destination ZAR → pink MZN-primary keypad (Buy ZAR / fund quote).
+  // destination MZN → green ZAR-primary keypad (Sell ZAR / fund quote).
   const play: RoutingPlayback = {
-    destination: 'ZAR',
+    destination: 'MZN',
     amountZAR: 0,
     amountMZN: 0,
     routingAction: 'fund_calc',
