@@ -152,20 +152,134 @@ export function mznToTransitZar(mznAmount: number, sellMznPerZar: number): numbe
 /** Daily instant liquid promise (same cap as first-fund / next 09:00 window). */
 export const DAILY_LIQUID_ZAR_CAP = 100_000
 
+/** Bank sweep after the 09:00 open (matches tx_dailyLiquidZarPayout). */
+export const LIQUIDITY_PAYOUT_MINUTE_SAST = 15
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** Next 09:15 SAST bank send at or after the next liquidity open. */
+export function nextLiquidBankSendAtMs(nowMs: number): number {
+  const nextOpen = nextSettleAt09hSastExclusive(nowMs)
+  return nextOpen + LIQUIDITY_PAYOUT_MINUTE_SAST * 60 * 1000
+}
+
 /**
- * ZAR card green bar: dripped / next-09:00 liquidity available to this user.
- * Denominator = min(full residual in ZAR, daily R100k cap) — not wall-clock 09→09.
+ * Relative payout label for the fund calculator header.
+ * "Payout in Xm / Xh / Xd" from now → target.
+ */
+export function formatPayoutEtaLabel(targetMs: number, nowMs: number): string {
+  const delta = Math.max(0, targetMs - nowMs)
+  if (!(delta > 30_000)) return 'Payout in 1m'
+  const mins = Math.ceil(delta / 60_000)
+  if (mins < 60) return `Payout in ${Math.max(1, mins)}m`
+  const hours = Math.ceil(delta / 3_600_000)
+  if (hours < 24) return `Payout in ${hours}h`
+  const days = Math.ceil(delta / DAY_MS)
+  return `Payout in ${Math.max(1, days)}d`
+}
+
+function finiteNonNeg(n: unknown, fallback: number): number {
+  const v = Number(n)
+  return Number.isFinite(v) ? Math.max(0, v) : fallback
+}
+
+/**
+ * How many 09:00 opens until `amountZar` is fully paid, given:
+ * - per-user daily liquid cap
+ * - zarReserve pool size each open (assumed refill)
+ * - FCFS queue already booked ahead of this claim
+ *
+ * Instant slice (same-day, no open wait) is min(dailyLeft, reserve − queueAhead).
+ * Returns null when amount is empty/zero (UI shows blank).
+ */
+export function estimateFundPayoutOpens(params: {
+  amountZar: number
+  dailyLeftZar?: number | null
+  reservePoolZar?: number | null
+  queueAheadZar?: number | null
+  dailyCapZar?: number
+}): { kind: 'instant' } | { kind: 'opens'; opens: number } | null {
+  const amount = finiteNonNeg(params.amountZar, 0)
+  if (!(amount > 0.005)) return null
+
+  const dailyCap = finiteNonNeg(params.dailyCapZar, DAILY_LIQUID_ZAR_CAP) || DAILY_LIQUID_ZAR_CAP
+  const dailyLeft = finiteNonNeg(params.dailyLeftZar, dailyCap)
+  // Explicit 0 reserve means empty till (not Instant). Missing → assume a full daily till.
+  const reservePool =
+    params.reservePoolZar == null || !Number.isFinite(Number(params.reservePoolZar))
+      ? dailyCap
+      : Math.max(0, Number(params.reservePoolZar))
+  const queueAhead = finiteNonNeg(params.queueAheadZar, 0)
+  // Future opens: assume the till refills to at least one daily cap when live reserve is empty.
+  const reservePerOpen = reservePool > 0.005 ? reservePool : dailyCap
+
+  const instantCap = Math.min(dailyLeft, Math.max(0, reservePool - queueAhead))
+  if (amount <= instantCap + 0.005) return { kind: 'instant' }
+
+  let remaining = Math.round((amount - instantCap) * 100) / 100
+  let ahead = queueAhead
+  let opens = 0
+  // Bound runaway simulations (e.g. absurd keypad amounts).
+  const maxOpens = 1_000_000
+
+  while (remaining > 0.005 && opens < maxOpens) {
+    opens += 1
+    let pool = reservePerOpen
+    const clearAhead = Math.min(ahead, pool)
+    ahead = Math.round((ahead - clearAhead) * 100) / 100
+    pool = Math.round((pool - clearAhead) * 100) / 100
+    const take = Math.min(remaining, dailyCap, pool)
+    remaining = Math.round((remaining - take) * 100) / 100
+  }
+
+  return { kind: 'opens', opens: Math.max(1, opens) }
+}
+
+/**
+ * Fund-calculator header estimate.
+ * - blank when amount is 0
+ * - Instant payout when the full amount fits today's apportionable liquid
+ * - otherwise Payout in Xm/Xh/Xd from daily reserve + FCFS queue projection
+ */
+export function fundCalculatorPayoutLabel(params: {
+  amountZar: number
+  nowMs: number
+  dailyLeftZar?: number | null
+  reservePoolZar?: number | null
+  queueAheadZar?: number | null
+  dailyCapZar?: number
+}): string {
+  const plan = estimateFundPayoutOpens(params)
+  if (!plan) return ''
+  if (plan.kind === 'instant') return 'Instant payout'
+
+  const nextOpen = nextSettleAt09hSastExclusive(params.nowMs)
+  const payAt =
+    nextOpen +
+    (Math.max(1, plan.opens) - 1) * DAY_MS +
+    LIQUIDITY_PAYOUT_MINUTE_SAST * 60 * 1000
+  return formatPayoutEtaLabel(payAt, params.nowMs)
+}
+
+/**
+ * ZAR card green bar: dripped ÷ next-open zarReserve booking (FCFS + queue).
+ * No booking ⇒ 0 — day-1 does not invent availability; routing acceleration
+ * is a separate story that can raise the bound later.
  */
 export function zarLiquidityJourneyBarPercent(params: {
   walletMzn: number
   drippedZar: number
   sellMznPerZar: number
+  /** @deprecated Day-1 bound is nextOpenBookedZar only; kept for call-site compat. */
   dailyLiquidZarCap?: number
+  /** Booked against zarReserve for next 09:00 — sole day-1 ZAR journey bound. */
+  nextOpenBookedZar?: number | null
 }): number {
-  const sell = Number(params.sellMznPerZar) || 0
-  const residualZar = mznToTransitZar(Math.max(0, params.walletMzn), sell)
-  const cap = Math.max(0, Number(params.dailyLiquidZarCap ?? DAILY_LIQUID_ZAR_CAP) || 0)
-  const availableAtNine = Math.min(residualZar, cap > 0 ? cap : residualZar)
+  void params.walletMzn
+  void params.sellMznPerZar
+  void params.dailyLiquidZarCap
+  const bookedRaw = params.nextOpenBookedZar
+  if (bookedRaw == null || !Number.isFinite(Number(bookedRaw))) return 0
+  const availableAtNine = Math.max(0, Number(bookedRaw))
   if (!(availableAtNine > 0.005)) return 0
   const dripped = Math.max(0, Number(params.drippedZar) || 0)
   return Math.max(0, Math.min(100, (dripped / availableAtNine) * 100))
@@ -204,6 +318,12 @@ export function sharedDripProgress(params: {
   sinceMs?: number | null
   remainingPlannedMzn?: number
   cycleDurationMs?: number
+  /**
+   * Ceiling on projected transit ZAR from next-open zarReserve + FCFS booking.
+   * Day-1: this is the only bound. Routing may raise it later when that story exists.
+   * Pass 0 / omit when no plan — do not invent a daily-cap ceiling in the UI.
+   */
+  maxDripZar?: number | null
 }): SharedDripProgress {
   const empty: SharedDripProgress = {
     drippedMzn: 0,
@@ -214,6 +334,20 @@ export function sharedDripProgress(params: {
   const walletMzn = Math.max(0, Number(params.walletMzn) || 0)
   const sell = Number(params.sellMznPerZar) || 0
   if (!(walletMzn > 0) || !(sell > 0)) return empty
+
+  // null/undefined = no server booking yet → do not invent a zero ceiling.
+  const maxZar =
+    params.maxDripZar != null && Number.isFinite(Number(params.maxDripZar))
+      ? Math.max(0, Number(params.maxDripZar))
+      : null
+  const maxMzn =
+    maxZar != null ? Math.round(maxZar * sell * 100) / 100 : null
+  if (maxMzn != null && !(maxMzn > 0.005)) {
+    return {
+      ...empty,
+      mznCycleBarPercent: 0,
+    }
+  }
 
   const cycleMs = Math.max(1, params.cycleDurationMs ?? SHARED_MZN_DRIP_CYCLE_MS)
   const dayStart = lastSettleAt09hSast(params.nowMs)
@@ -230,8 +364,10 @@ export function sharedDripProgress(params: {
   // tracks cycleFrac so the drip still feels continuous without twitching R/Mt.
   let remaining = walletMzn
   let plannedLeft = Math.max(0, Number(params.remainingPlannedMzn) || 0)
+  let drippedSoFar = 0
   for (let i = 0; i < completedCycles; i++) {
     if (!(remaining > 0)) break
+    if (maxMzn != null && drippedSoFar >= maxMzn - 0.005) break
     const atMs = anchorMs + (i + 1) * cycleMs
     const drip = microDripMzn({
       remainingPlannedMzn: plannedLeft,
@@ -239,16 +375,28 @@ export function sharedDripProgress(params: {
       nowMs: atMs,
       cycleDurationMs: cycleMs,
     })
-    const take = Math.min(remaining, drip)
+    let take = Math.min(remaining, drip)
+    if (maxMzn != null) {
+      take = Math.min(take, Math.max(0, maxMzn - drippedSoFar))
+    }
     remaining = Math.round((remaining - take) * 100) / 100
+    drippedSoFar = Math.round((drippedSoFar + take) * 100) / 100
     if (plannedLeft > 0) plannedLeft = Math.max(0, Math.round((plannedLeft - take) * 100) / 100)
   }
 
-  const drippedMzn = Math.max(0, Math.round((walletMzn - remaining) * 100) / 100)
+  let drippedMzn = Math.max(0, Math.round((walletMzn - remaining) * 100) / 100)
+  if (maxMzn != null && drippedMzn > maxMzn) {
+    drippedMzn = maxMzn
+  }
+  let displayTransitZarOffset = mznToTransitZar(drippedMzn, sell)
+  if (maxZar != null && displayTransitZarOffset > maxZar) {
+    displayTransitZarOffset = Math.round(maxZar * 100) / 100
+    drippedMzn = Math.round(displayTransitZarOffset * sell * 100) / 100
+  }
   return {
     drippedMzn,
     displayMznOffset: -drippedMzn,
-    displayTransitZarOffset: mznToTransitZar(drippedMzn, sell),
+    displayTransitZarOffset,
     mznCycleBarPercent: Math.round(cycleFrac * 10_000) / 100,
   }
 }

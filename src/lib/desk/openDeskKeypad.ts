@@ -65,3 +65,24 @@ export function resumeDeskAfterKeypad(): void {
     window.setTimeout(() => releaseDeskReveal(), 40)
   }, 220)
 }
+
+/**
+ * Header calculator: MZN fund keypad over home. Dismiss stays on home;
+ * "Fund this" opens the desk via resumeDeskAfterKeypad.
+ */
+export function openHeaderFundCalculator(): boolean {
+  if (isConversionInFlight()) return false
+  // destination ZAR → pink MZN-primary keypad (Buy ZAR / fund quote).
+  const play: RoutingPlayback = {
+    destination: 'ZAR',
+    amountZAR: 0,
+    amountMZN: 0,
+    routingAction: 'fund_calc',
+  }
+  const current = useRoutingPlaybackStore.getState().play
+  if (current && sameRoutingPlay(current, play)) return false
+
+  useRoutingPlaybackStore.getState().requestPlay(play)
+  useNotificationsStore.getState().closeNotifications()
+  return true
+}

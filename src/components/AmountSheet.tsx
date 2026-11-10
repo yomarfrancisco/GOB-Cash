@@ -8,10 +8,20 @@ import FitAmount from './FitAmount'
 import { exceedsAvailableMzn, exceedsAvailableZar, formatAmountWithDot, formatMZN, formatZARWithDot } from '@/lib/money'
 import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsdt } from '@/lib/mznZar'
 import { formatAgentCashTitle, saveCashPayResume } from '@/lib/agentCashQr'
+import {
+  DAILY_LIQUID_ZAR_CAP,
+  fundCalculatorPayoutLabel,
+} from '@/lib/fx/transitDayClock'
+import { sastParts } from '@/lib/routing/routingTime'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
 import '@/styles/amount-sheet.css'
+
+function sastDayKey(nowMs: number): string {
+  const p = sastParts(nowMs)
+  return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`
+}
 
 function wait(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -119,6 +129,7 @@ export default function AmountSheet({
   const [amount, setAmount] = useState('0')
   const [conversionBusy, setConversionBusy] = useState(false)
   const [pressedKey, setPressedKey] = useState<string | null>(null)
+  const [payoutNowMs, setPayoutNowMs] = useState(() => Date.now())
   const autoPlayRef = useRef(false)
   const conversionBusyRef = useRef(false)
   const { isAuthed, requireAuth } = useAuthStore()
@@ -167,10 +178,20 @@ export default function AmountSheet({
       setConversionBusy(false)
       conversionBusyRef.current = false
       setPressedKey(null)
+      setPayoutNowMs(Date.now())
     } else {
       autoPlayRef.current = false
     }
   }, [open, initialAmount, autoPlayAmount])
+
+  // Keep fund-calc "Paid in Xm" labels fresh while the sheet is open.
+  useEffect(() => {
+    if (!open || !fundCalculator) return
+    const tick = () => setPayoutNowMs(Date.now())
+    tick()
+    const id = window.setInterval(tick, 30_000)
+    return () => window.clearInterval(id)
+  }, [open, fundCalculator])
 
   const runConversionExchange = (typed = parseFloat(amount) || 0, fromAutoPlay = false) => {
     if (!(typed > 0) || conversionBusyRef.current) return
@@ -422,7 +443,38 @@ export default function AmountSheet({
   const showScanIcon =
     !fundCalculator && Boolean(onScanClick) && (isConversionKeypad || entryPoint === 'cashButton')
   const hideModeLabel = entryPoint === 'cashButton' || entryPoint === 'depositKeypad' || isConversionKeypad || isWithdrawKeypad
-  const hideWalletBalance = fundCalculator
+  const zarWalletRaw = wallets?.cashZAR as
+    | { dailyLiquidKey?: string; dailyLiquidUsedZar?: number }
+    | undefined
+  const mznWalletRaw = wallets?.cashMZN as
+    | {
+        nextOpenReservePoolZar?: number
+        nextOpenQueueAheadZar?: number
+        nextOpenComputedAtMs?: number
+      }
+    | undefined
+  const dailyLiquidLeftZar = (() => {
+    if (!fundCalculator) return DAILY_LIQUID_ZAR_CAP
+    const dayKey = sastDayKey(payoutNowMs)
+    const usedKey = String(zarWalletRaw?.dailyLiquidKey || '')
+    const used =
+      usedKey === dayKey ? Math.max(0, Number(zarWalletRaw?.dailyLiquidUsedZar) || 0) : 0
+    return Math.max(0, DAILY_LIQUID_ZAR_CAP - used)
+  })()
+  const hasNextOpenPlan = Number(mznWalletRaw?.nextOpenComputedAtMs) > 0
+  const fundPayoutEstimate = fundCalculator
+    ? fundCalculatorPayoutLabel({
+        amountZar: amountZAR,
+        nowMs: payoutNowMs,
+        dailyLeftZar: dailyLiquidLeftZar,
+        reservePoolZar: hasNextOpenPlan
+          ? Math.max(0, Number(mznWalletRaw?.nextOpenReservePoolZar) || 0)
+          : DAILY_LIQUID_ZAR_CAP,
+        queueAheadZar: hasNextOpenPlan
+          ? Math.max(0, Number(mznWalletRaw?.nextOpenQueueAheadZar) || 0)
+          : 0,
+      })
+    : null
 
   // Lime when Rand is large; pink when Metical is large.
   const isSponsorButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'sponsorButton'
@@ -503,7 +555,11 @@ export default function AmountSheet({
             </button>
           )}
           <div className="amount-sheet__header-content">
-            {hideWalletBalance ? null : (
+            {fundCalculator ? (
+              <div className="amount-sheet__balance" aria-live="polite">
+                {fundPayoutEstimate}
+              </div>
+            ) : (
               <div
                 className={`amount-sheet__balance${agentCash ? ' amount-sheet__balance--cash-handle' : ''}`}
                 title={agentCash ? formatAgentCashTitle(agentCashHandle) : undefined}

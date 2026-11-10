@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Check, Download, ExternalLink, ArrowUp, Calculator } from 'lucide-react'
+import { Check, Download, ExternalLink, ArrowUp } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -866,7 +866,15 @@ function ActivityItemCard({
   }
 
   const isLiquidityReport = Boolean(item.liquidityReport)
-  const isPaidOut = item.routingAction === 'payout_confirmed'
+  const isPaidOut =
+    item.routingAction === 'payout_confirmed' ||
+    (item.routingAction === 'daily_liquid_zar_payout' &&
+      !/^scheduled$/i.test(String(item.deskPendingChip || '')) &&
+      (item as { payoutScheduled?: boolean }).payoutScheduled !== true)
+  const isScheduledPayout =
+    item.routingAction === 'daily_liquid_zar_payout' &&
+    ((item as { payoutScheduled?: boolean }).payoutScheduled === true ||
+      /^scheduled$/i.test(String(item.deskPendingChip || '')))
   const displaySentence = isLiquidityReport || isFundIntro || isFundWire
     ? ''
     : isPaidOut
@@ -1038,6 +1046,8 @@ function ActivityItemCard({
               isFundIntro ||
               isFundWire ||
               item.routingAction === 'liquid_now' ||
+              item.routingAction === 'liquidity_queue_residual' ||
+              isScheduledPayout ||
               isPaidOut ||
               showInlinePayoutForm
                 ? titleDone
@@ -1995,19 +2005,6 @@ export function NotificationsList({
     }
   }
 
-  const handleOpenCalculator = (event: React.MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    if (isConversionInFlight()) return
-    // Independent of open routing plays — calculator is a fund-wire quote, not a cycle confirm.
-    openDeskKeypad({
-      destination: 'ZAR',
-      amountZAR: 0,
-      amountMZN: 0,
-      routingAction: 'fund_calc',
-    })
-  }
-
   return (
     <>
       <div className={listStyles.conversationList} data-desk-feed>
@@ -2088,15 +2085,6 @@ export function NotificationsList({
                   }
                 }}
               />
-              <button
-                type="button"
-                className={styles.replyCalculator}
-                aria-label="Open calculator"
-                disabled={askBusy}
-                onClick={handleOpenCalculator}
-              >
-                <Calculator size={20} strokeWidth={2.2} />
-              </button>
               <button
                 type="submit"
                 className={styles.replySend}

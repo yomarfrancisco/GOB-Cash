@@ -774,11 +774,16 @@ function HomeContent() {
           setConversionPrefill(undefined)
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
-          // Dismiss path: keypad out, then desk text resumes. Submit clears play first.
-          if (useRoutingPlaybackStore.getState().play || clockPlayRef.current) {
-            clockPlayRef.current = null
-            resumeDeskAfterKeypad()
+          // Dismiss path: keypad out, then desk text resumes (except header fund calc → home).
+          const pendingPlay = useRoutingPlaybackStore.getState().play || clockPlayRef.current
+          clockPlayRef.current = null
+          if (!pendingPlay) return
+          if (pendingPlay.routingAction === 'fund_calc') {
+            // Header calculator dismiss stays on home; "Fund this" already cleared play.
+            useRoutingPlaybackStore.getState().clear()
+            return
           }
+          resumeDeskAfterKeypad()
         }}
         agentCash={agentCashKeypad}
         agentCashHandle={agentCashHandle}
@@ -901,9 +906,10 @@ function HomeContent() {
             useRoutingPlaybackStore.getState().clear()
             return
           }
-          // Desk calculator: bank-wire instructions only — no wallet convert.
+          // Header calculator "Fund this": bank-wire instructions, then open desk.
           if (play?.routingAction === 'fund_calc') {
             useRoutingPlaybackStore.getState().clear()
+            clockPlayRef.current = null
             void pushFundWireRequest({ amountMZN, amountZAR })
             resumeDeskAfterKeypad()
             return

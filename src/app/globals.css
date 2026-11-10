@@ -121,7 +121,8 @@ body {
 .overlay-glass .icon-group,
 .overlay-glass .nav-container,
 .overlay-glass .dollar-sign-contained,
-.overlay-glass .nav-item {
+.overlay-glass .nav-item,
+.overlay-glass .header-calculator-btn {
   pointer-events: auto;
 }
 
@@ -168,6 +169,33 @@ body {
   object-fit: contain;
   z-index: 2;
   background: transparent !important;
+}
+
+/* Mirror of G logo band: same top/height, opposite side of the header glass. */
+.header-calculator-btn {
+  position: absolute;
+  top: 38px;
+  right: 16px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: #2c2c2e;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.header-calculator-btn:active {
+  opacity: 0.7;
 }
 
 .spraypaint-effect {

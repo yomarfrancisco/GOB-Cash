@@ -4,15 +4,17 @@ import {
   MZN_DRIP_CYCLE_MAX_MS,
   MZN_DRIP_CYCLE_MIN_MS,
   SHARED_MZN_DRIP_CYCLE_MS,
-  DAILY_LIQUID_ZAR_CAP,
   ZAR_CLEAR_CATCHUP_GRACE_MS,
   createInitialOverlay,
+  formatPayoutEtaLabel,
+  fundCalculatorPayoutLabel,
   inventoryBarsArmed,
   inventoryTimeBarPercents,
   lastSettleAt09hSast,
   microDripMzn,
   mznCycleBarPercent,
   mznToTransitZar,
+  nextLiquidBankSendAtMs,
   randomMznDripCycleMs,
   remainingFiveSecondTicksUntil,
   resolveZarClearOverlayAction,
@@ -21,6 +23,7 @@ import {
   zarClearBarPercent,
   zarLiquidityJourneyBarPercent,
 } from './transitDayClock'
+import { sastToUtcMs } from '@/lib/routing/routingTime'
 
 describe('transitDayClock', () => {
   it('sizes micro drip from planned residual over remaining window, scaled by cycle', () => {
@@ -171,26 +174,74 @@ describe('transitDayClock', () => {
     assert.ok(late.mznCycleBarPercent > early.mznCycleBarPercent)
   })
 
-  it('ZAR journey bar is dripped ÷ next-09:00 liquidity (capped at R100k)', () => {
-    // Mt 1.55M @ 4.48 ≈ R346k residual → available tomorrow = R100k cap
+  it('ZAR journey bar is 0 without a next-open booking (no invented daily ceiling)', () => {
+    const sell = 4.48
+    const pct = zarLiquidityJourneyBarPercent({
+      walletMzn: 1_551_788.22,
+      drippedZar: 10_000,
+      sellMznPerZar: sell,
+    })
+    assert.equal(pct, 0)
+    assert.equal(
+      zarLiquidityJourneyBarPercent({
+        walletMzn: 1_551_788.22,
+        drippedZar: 10_000,
+        sellMznPerZar: sell,
+        nextOpenBookedZar: null,
+      }),
+      0
+    )
+  })
+
+  it('projects no ZAR drip when day-1 bound is 0 (no reserve booking yet)', () => {
     const sell = 4.48
     const walletMzn = 1_551_788.22
-    const drippedZar = 10_000
+    const dayStart = lastSettleAt09hSast(Date.now())
+    const nowMs = dayStart + SHARED_MZN_DRIP_CYCLE_MS * 500
+    const none = sharedDripProgress({
+      walletMzn,
+      sellMznPerZar: sell,
+      nowMs,
+      sinceMs: dayStart,
+      maxDripZar: 0,
+    })
+    assert.equal(none.displayTransitZarOffset, 0)
+    assert.equal(none.drippedMzn, 0)
+  })
+
+  it('ZAR journey bar and drip respect next-open zarReserve booking', () => {
+    const sell = 4.48
+    const walletMzn = 1_551_788.22
+    // Booking is only R40k (FCFS left this much of zarReserve)
+    const booked = 40_000
     const pct = zarLiquidityJourneyBarPercent({
       walletMzn,
-      drippedZar,
+      drippedZar: 10_000,
       sellMznPerZar: sell,
-      dailyLiquidZarCap: DAILY_LIQUID_ZAR_CAP,
+      nextOpenBookedZar: booked,
     })
-    assert.ok(Math.abs(pct - 10) < 0.05)
-    // Small residual under the cap: bar uses full residual as denominator
-    const small = zarLiquidityJourneyBarPercent({
-      walletMzn: 4.48 * 20_000, // R20k residual
-      drippedZar: 5_000,
+    assert.ok(Math.abs(pct - 25) < 0.05)
+
+    const dayStart = lastSettleAt09hSast(Date.now())
+    // ~500 cycles ≈ enough projected ZAR to exceed a R40k booking without the cap.
+    const nowMs = dayStart + SHARED_MZN_DRIP_CYCLE_MS * 500
+    const uncapped = sharedDripProgress({
+      walletMzn,
       sellMznPerZar: sell,
+      nowMs,
+      sinceMs: dayStart,
     })
-    assert.ok(Math.abs(small - 25) < 0.05)
+    const capped = sharedDripProgress({
+      walletMzn,
+      sellMznPerZar: sell,
+      nowMs,
+      sinceMs: dayStart,
+      maxDripZar: booked,
+    })
+    assert.ok(uncapped.displayTransitZarOffset > booked)
+    assert.ok(capped.displayTransitZarOffset <= booked + 0.02)
   })
+
 
   it('anchors drip to sinceMs so evening residual does not replay the whole day', () => {
     const dayStart = lastSettleAt09hSast(Date.now())
@@ -251,5 +302,65 @@ describe('transitDayClock', () => {
     assert.equal(zarBook.mznBarPercent, 0)
     assert.ok(zarBook.transitBarPercent > 0)
     assert.ok(zarBook.zarBarPercent > 0)
+  })
+
+  it('formats payout ETA as Payout in m / h / d', () => {
+    const now = sastToUtcMs(2026, 11, 10, 10, 0)
+    assert.equal(formatPayoutEtaLabel(now + 10_000, now), 'Payout in 1m')
+    assert.equal(formatPayoutEtaLabel(now + 2 * 60_000, now), 'Payout in 2m')
+    assert.equal(formatPayoutEtaLabel(now + 3 * 3_600_000, now), 'Payout in 3h')
+    assert.equal(formatPayoutEtaLabel(now + 26 * 3_600_000, now), 'Payout in 2d')
+  })
+
+  it('fund calculator: blank at zero; Instant when apportionable; multi-day from reserve', () => {
+    const morning = sastToUtcMs(2026, 11, 10, 8, 0)
+    assert.equal(
+      fundCalculatorPayoutLabel({ amountZar: 0, nowMs: morning, dailyLeftZar: 100_000 }),
+      ''
+    )
+    assert.equal(
+      fundCalculatorPayoutLabel({
+        amountZar: 50_000,
+        nowMs: morning,
+        dailyLeftZar: 100_000,
+        reservePoolZar: 100_000,
+        queueAheadZar: 0,
+      }),
+      'Instant payout'
+    )
+    // Queue already books the whole till — not Instant.
+    assert.notEqual(
+      fundCalculatorPayoutLabel({
+        amountZar: 50_000,
+        nowMs: morning,
+        dailyLeftZar: 100_000,
+        reservePoolZar: 100_000,
+        queueAheadZar: 100_000,
+      }),
+      'Instant payout'
+    )
+    // R150k: R100k Instant-capable, R50k at today's 09:15 → Payout in 2h
+    assert.equal(
+      fundCalculatorPayoutLabel({
+        amountZar: 150_000,
+        nowMs: morning,
+        dailyLeftZar: 100_000,
+        reservePoolZar: 100_000,
+        queueAheadZar: 0,
+      }),
+      'Payout in 2h'
+    )
+    // Absurd amount cannot clear in 23h — needs many R100k opens.
+    const huge = fundCalculatorPayoutLabel({
+      amountZar: 20_000_000_000,
+      nowMs: morning,
+      dailyLeftZar: 100_000,
+      reservePoolZar: 100_000,
+      queueAheadZar: 0,
+    })
+    assert.match(huge, /^Payout in \d+d$/)
+    const days = Number(huge.replace(/\D/g, ''))
+    assert.ok(days > 1000)
+    assert.equal(nextLiquidBankSendAtMs(morning), sastToUtcMs(2026, 11, 10, 9, 15))
   })
 })
