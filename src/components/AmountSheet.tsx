@@ -10,6 +10,7 @@ import { MZN_PER_ZAR, mznToZar, zarToMzn, zarToUsdt } from '@/lib/mznZar'
 import { formatAgentCashTitle, saveCashPayResume } from '@/lib/agentCashQr'
 import {
   DAILY_LIQUID_ZAR_CAP,
+  FUND_CALC_MAX_ZAR,
   fundCalculatorPayoutLabel,
 } from '@/lib/fx/transitDayClock'
 import { sastParts } from '@/lib/routing/routingTime'
@@ -89,7 +90,7 @@ type AmountSheetProps = {
   playbackOnly?: boolean
   /**
    * Desk calculator: quote MZN to fund for a ZAR outcome (sell rate both tabs).
-   * No balance gate, no scan, CTA is "Fund this".
+   * No balance gate, no scan, CTA is "Fund my MZN account".
    */
   fundCalculator?: boolean
 }
@@ -199,6 +200,7 @@ export default function AmountSheet({
     const nextMZN = isZarPrimaryKeypad
       ? Math.round(zarToMzn(typed, fxRateMZNperZAR) * 100) / 100
       : typed
+    if (fundCalculator && nextZAR > FUND_CALC_MAX_ZAR + 0.005) return
     // Fund calculator quotes a wire — no wallet debit. Convert keypads still gate on balance.
     if (
       !fundCalculator &&
@@ -274,7 +276,7 @@ export default function AmountSheet({
   const handleNumberChange = (next: string) => {
     // Enforce max 2 decimal places
     if (next.includes('.')) {
-      const [whole, decimal] = next.split('.')
+      const [, decimal] = next.split('.')
       if (decimal && decimal.length > 2) {
         return
       }
@@ -286,6 +288,14 @@ export default function AmountSheet({
     // Prevent leading zeros except "0."
     if (next.length > 1 && next[0] === '0' && next[1] !== '.') {
       return
+    }
+    // Fund calculator: hard-cap at R100m (or MZN sell-equivalent).
+    if (fundCalculator) {
+      const typed = parseFloat(next)
+      if (Number.isFinite(typed) && typed > 0) {
+        const typedZar = isZarPrimaryKeypad ? typed : mznToZar(typed, fxRateMZNperZAR)
+        if (typedZar > FUND_CALC_MAX_ZAR + 0.005) return
+      }
     }
     setAmount(next)
   }
@@ -729,7 +739,7 @@ export default function AmountSheet({
                 (!fundCalculator && (exceedsZarBalance || exceedsMznBalance))
               }
             >
-              {fundCalculator ? 'Fund this' : isZarPrimaryKeypad ? 'Sell ZAR' : 'Buy ZAR'}
+              {fundCalculator ? 'Fund my MZN account' : isZarPrimaryKeypad ? 'Sell ZAR' : 'Buy ZAR'}
             </button>
           ) : entryPoint === 'cashButton' ? (
             // Dual buttons for $ button entry point: "Request" and "Pay"

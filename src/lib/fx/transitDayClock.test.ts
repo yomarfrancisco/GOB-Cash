@@ -304,12 +304,12 @@ describe('transitDayClock', () => {
     assert.ok(zarBook.zarBarPercent > 0)
   })
 
-  it('formats payout ETA as Payout in m / h / d', () => {
+  it('formats payout ETA as ZAR out in m / h / d', () => {
     const now = sastToUtcMs(2026, 11, 10, 10, 0)
-    assert.equal(formatPayoutEtaLabel(now + 10_000, now), 'Payout in 1m')
-    assert.equal(formatPayoutEtaLabel(now + 2 * 60_000, now), 'Payout in 2m')
-    assert.equal(formatPayoutEtaLabel(now + 3 * 3_600_000, now), 'Payout in 3h')
-    assert.equal(formatPayoutEtaLabel(now + 26 * 3_600_000, now), 'Payout in 2d')
+    assert.equal(formatPayoutEtaLabel(now + 10_000, now), 'ZAR out in 1m')
+    assert.equal(formatPayoutEtaLabel(now + 2 * 60_000, now), 'ZAR out in 2m')
+    assert.equal(formatPayoutEtaLabel(now + 3 * 3_600_000, now), 'ZAR out in 3h')
+    assert.equal(formatPayoutEtaLabel(now + 26 * 3_600_000, now), 'ZAR out in 2d')
   })
 
   it('fund calculator: blank at zero; Instant when apportionable; multi-day from reserve', () => {
@@ -326,7 +326,7 @@ describe('transitDayClock', () => {
         reservePoolZar: 100_000,
         queueAheadZar: 0,
       }),
-      'Instant payout'
+      'Instant ZAR payout'
     )
     // Queue already books the whole till — not Instant.
     assert.notEqual(
@@ -337,9 +337,9 @@ describe('transitDayClock', () => {
         reservePoolZar: 100_000,
         queueAheadZar: 100_000,
       }),
-      'Instant payout'
+      'Instant ZAR payout'
     )
-    // R150k: R100k Instant-capable, R50k at today's 09:15 → Payout in 2h
+    // R150k: R100k Instant-capable, R50k at today's 09:15 → ZAR out in 2h
     assert.equal(
       fundCalculatorPayoutLabel({
         amountZar: 150_000,
@@ -348,7 +348,7 @@ describe('transitDayClock', () => {
         reservePoolZar: 100_000,
         queueAheadZar: 0,
       }),
-      'Payout in 2h'
+      'ZAR out in 2h'
     )
     // Absurd amount cannot clear in 23h — needs many R100k opens.
     const huge = fundCalculatorPayoutLabel({
@@ -358,7 +358,7 @@ describe('transitDayClock', () => {
       reservePoolZar: 100_000,
       queueAheadZar: 0,
     })
-    assert.match(huge, /^Payout in \d+d$/)
+    assert.match(huge, /^ZAR out in \d+d$/)
     const days = Number(huge.replace(/\D/g, ''))
     assert.ok(days > 1000)
     assert.equal(nextLiquidBankSendAtMs(morning), sastToUtcMs(2026, 11, 10, 9, 15))

@@ -162,19 +162,22 @@ export function nextLiquidBankSendAtMs(nowMs: number): number {
   return nextOpen + LIQUIDITY_PAYOUT_MINUTE_SAST * 60 * 1000
 }
 
+/** Max ZAR (or MZN sell-equivalent) the fund calculator will quote. */
+export const FUND_CALC_MAX_ZAR = 100_000_000
+
 /**
  * Relative payout label for the fund calculator header.
- * "Payout in Xm / Xh / Xd" from now → target.
+ * "ZAR out in Xm / Xh / Xd" from now → target.
  */
 export function formatPayoutEtaLabel(targetMs: number, nowMs: number): string {
   const delta = Math.max(0, targetMs - nowMs)
-  if (!(delta > 30_000)) return 'Payout in 1m'
+  if (!(delta > 30_000)) return 'ZAR out in 1m'
   const mins = Math.ceil(delta / 60_000)
-  if (mins < 60) return `Payout in ${Math.max(1, mins)}m`
+  if (mins < 60) return `ZAR out in ${Math.max(1, mins)}m`
   const hours = Math.ceil(delta / 3_600_000)
-  if (hours < 24) return `Payout in ${hours}h`
+  if (hours < 24) return `ZAR out in ${hours}h`
   const days = Math.ceil(delta / DAY_MS)
-  return `Payout in ${Math.max(1, days)}d`
+  return `ZAR out in ${Math.max(1, days)}d`
 }
 
 function finiteNonNeg(n: unknown, fallback: number): number {
@@ -237,8 +240,8 @@ export function estimateFundPayoutOpens(params: {
 /**
  * Fund-calculator header estimate.
  * - blank when amount is 0
- * - Instant payout when the full amount fits today's apportionable liquid
- * - otherwise Payout in Xm/Xh/Xd from daily reserve + FCFS queue projection
+ * - Instant ZAR payout when the full amount fits today's apportionable liquid
+ * - otherwise ZAR out in Xm/Xh/Xd from daily reserve + FCFS queue projection
  */
 export function fundCalculatorPayoutLabel(params: {
   amountZar: number
@@ -250,7 +253,7 @@ export function fundCalculatorPayoutLabel(params: {
 }): string {
   const plan = estimateFundPayoutOpens(params)
   if (!plan) return ''
-  if (plan.kind === 'instant') return 'Instant payout'
+  if (plan.kind === 'instant') return 'Instant ZAR payout'
 
   const nextOpen = nextSettleAt09hSastExclusive(params.nowMs)
   const payAt =
