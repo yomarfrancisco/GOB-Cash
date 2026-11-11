@@ -13,7 +13,7 @@
       "npm --prefix \"$RESOURCE_DIR\" run build"
     ],
     "postdeploy": [
-      "npm --prefix \"$RESOURCE_DIR\" exec -- tsx scripts/ensureCallableInvokers.ts desk_savePayoutAccountAndPay desk_submitPayoutBankDetails ops_confirmFirstPayout"
+      "npm --prefix \"$RESOURCE_DIR\" exec -- tsx \"$RESOURCE_DIR/scripts/ensureCallableInvokers.ts\" desk_savePayoutAccountAndPay desk_submitPayoutBankDetails ops_confirmFirstPayout"
     ]
   }
 }
