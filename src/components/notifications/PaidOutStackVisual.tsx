@@ -2,6 +2,7 @@
 
 import { Check } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
+import { formatDeskMajorMzn, formatDeskMajorZar } from '@/lib/desk/deskMoneyFormat'
 import { formatVisibleSast } from '@/lib/routing/routingTime'
 import styles from './PaidOutStackVisual.module.css'
 
@@ -12,14 +13,12 @@ function parseMajor(raw: string | undefined | null): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-function fmtZar(n: number): string {
-  return `R${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
 function resolvePaidOutFigures(item: ActivityItem): {
   zarPaid: number
+  mznResidual: number
   bankTag: string
   receivedClock: string
+  pipesClear: boolean
 } {
   const rows = item.deskLedgerRows || []
   const paid =
@@ -30,26 +29,34 @@ function resolvePaidOutFigures(item: ActivityItem): {
   const bankPipe = item.deskPipes?.find((pipe) => pipe.tone === 'bank' || pipe.id === 'bank')
   const bankTag = toRow || bankPipe?.title?.trim() || 'Your bank'
   const receivedClock = formatVisibleSast(item.createdAt) || ''
-  return { zarPaid: paid, bankTag, receivedClock }
+  const mznFromPlan =
+    typeof item.routingPlan?.mznResidual === 'number' ? item.routingPlan.mznResidual : null
+  const mznFromRow =
+    parseMajor(rows.find((row) => /^mzn|residual|converting/i.test(row.label))?.value) ?? null
+  const mznPipe = item.deskPipes?.find((pipe) => pipe.tone === 'mzn' || pipe.id === 'mzn')
+  const mznFromPipe = parseMajor(mznPipe?.title) ?? parseMajor(mznPipe?.subtitle)
+  const mznResidual = mznFromPlan ?? mznFromRow ?? mznFromPipe ?? 0
+  const pipesClear = !(mznResidual > 0.005)
+  return { zarPaid: paid, mznResidual, bankTag, receivedClock, pipesClear }
 }
 
 /** Overlapped MZN → ZAR → bank stack for Paid out. Works on historic cards too. */
 export function PaidOutStackVisual({ item }: { item: ActivityItem }) {
-  const { zarPaid, bankTag, receivedClock } = resolvePaidOutFigures(item)
+  const { zarPaid, mznResidual, bankTag, receivedClock, pipesClear } = resolvePaidOutFigures(item)
   return (
     <div className={styles.root} aria-label="Payout complete">
       <div className={styles.stack}>
         <div className={[styles.strip, styles.stripMzn].join(' ')} aria-hidden>
           <span className={styles.stripLane}>MZN</span>
-          <span className={styles.stripValue}>0 MZN</span>
+          <span className={styles.stripValue}>{formatDeskMajorMzn(mznResidual)}</span>
         </div>
         <div className={[styles.strip, styles.stripZar].join(' ')} aria-hidden>
           <span className={styles.stripLane}>ZAR</span>
-          <span className={styles.stripValue}>R0 · paid out</span>
+          <span className={styles.stripValue}>R 0 · all paid out</span>
         </div>
         <div className={styles.front}>
           <div className={styles.frontLane}>Your bank</div>
-          <div className={styles.frontAmt}>{fmtZar(zarPaid)}</div>
+          <div className={styles.frontAmt}>{formatDeskMajorZar(zarPaid)}</div>
           <div className={styles.frontSub}>
             received{receivedClock ? ` · ${receivedClock}` : ''}
           </div>
@@ -59,7 +66,9 @@ export function PaidOutStackVisual({ item }: { item: ActivityItem }) {
           </span>
         </div>
       </div>
-      <p className={styles.caption}>Pipes clear. Nothing waiting with us.</p>
+      {pipesClear ? (
+        <p className={styles.caption}>Pipes clear. Nothing waiting with us.</p>
+      ) : null}
     </div>
   )
 }
@@ -72,6 +81,6 @@ export function paidOutDisplaySentence(item: ActivityItem): string {
     item.deskSentence?.match(/Instant,[^.]*\./)?.[0] ||
     item.deskSentence?.match(/Instant\./)?.[0] ||
     'Instant.'
-  if (zar != null && zar > 0) return `${fmtZar(zar)} is in your account. ${speed}`
+  if (zar != null && zar > 0) return `${formatDeskMajorZar(zar)} is in your account. ${speed}`
   return item.deskSentence || item.body || ''
 }

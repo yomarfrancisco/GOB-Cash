@@ -6,6 +6,8 @@ import {
   SHARED_MZN_DRIP_CYCLE_MS,
   ZAR_CLEAR_CATCHUP_GRACE_MS,
   createInitialOverlay,
+  DAILY_LIQUID_ZAR_CAP,
+  PLANNED_CARD_DAY_TARGET_ZAR,
   formatPayoutEtaLabel,
   fundCalculatorPayoutLabel,
   inventoryBarsArmed,
@@ -13,11 +15,14 @@ import {
   lastSettleAt09hSast,
   microDripMzn,
   mznCycleBarPercent,
+  mznFastCycleArmed,
   mznToTransitZar,
   nextLiquidBankSendAtMs,
+  nextSettleAt09hSastExclusive,
   randomMznDripCycleMs,
   remainingFiveSecondTicksUntil,
   resolveZarClearOverlayAction,
+  routingPlanDripCeilingZar,
   sharedDripProgress,
   transitDayBarPercent,
   zarClearBarPercent,
@@ -174,7 +179,7 @@ describe('transitDayClock', () => {
     assert.ok(late.mznCycleBarPercent > early.mznCycleBarPercent)
   })
 
-  it('ZAR journey bar is 0 without a next-open booking (no invented daily ceiling)', () => {
+  it('ZAR journey bar is 0 without a routing-plan residual bound', () => {
     const sell = 4.48
     const pct = zarLiquidityJourneyBarPercent({
       walletMzn: 1_551_788.22,
@@ -187,13 +192,13 @@ describe('transitDayClock', () => {
         walletMzn: 1_551_788.22,
         drippedZar: 10_000,
         sellMznPerZar: sell,
-        nextOpenBookedZar: null,
+        journeyBoundZar: null,
       }),
       0
     )
   })
 
-  it('projects no ZAR drip when day-1 bound is 0 (no reserve booking yet)', () => {
+  it('projects no ZAR drip when residual ceiling is 0 (nothing queued)', () => {
     const sell = 4.48
     const walletMzn = 1_551_788.22
     const dayStart = lastSettleAt09hSast(Date.now())
@@ -209,39 +214,127 @@ describe('transitDayClock', () => {
     assert.equal(none.drippedMzn, 0)
   })
 
-  it('ZAR journey bar and drip respect next-open zarReserve booking', () => {
+  it('drip ceiling is planned card day (~R30k), not R100k till or full residual', () => {
     const sell = 4.48
-    const walletMzn = 1_551_788.22
-    // Booking is only R40k (FCFS left this much of zarReserve)
-    const booked = 40_000
-    const pct = zarLiquidityJourneyBarPercent({
-      walletMzn,
-      drippedZar: 10_000,
+    const queueMzn = 1_551_788.22 // ~R346k residual
+    // Live booking wins when present, capped at planned day target.
+    assert.equal(
+      routingPlanDripCeilingZar({
+        queueMzn,
+        sellMznPerZar: sell,
+        nextOpenBookedZar: 40_000,
+      }),
+      PLANNED_CARD_DAY_TARGET_ZAR
+    )
+    assert.equal(
+      routingPlanDripCeilingZar({
+        queueMzn,
+        sellMznPerZar: sell,
+        nextOpenBookedZar: 20_000,
+      }),
+      20_000
+    )
+    // No booking → journey toward planned card day (~R30k), not R100k.
+    const ceiling = routingPlanDripCeilingZar({
+      queueMzn,
       sellMznPerZar: sell,
-      nextOpenBookedZar: booked,
+      nextOpenBookedZar: 0,
+      reservePoolZar: 0,
+      queueAheadZar: 0,
     })
-    assert.ok(Math.abs(pct - 25) < 0.05)
+    assert.equal(ceiling, PLANNED_CARD_DAY_TARGET_ZAR)
+    assert.ok(ceiling < DAILY_LIQUID_ZAR_CAP)
+    assert.ok(ceiling < queueMzn / sell)
+    assert.equal(
+      routingPlanDripCeilingZar({ queueMzn: 0, sellMznPerZar: sell, nextOpenBookedZar: 0 }),
+      0
+    )
 
     const dayStart = lastSettleAt09hSast(Date.now())
-    // ~500 cycles ≈ enough projected ZAR to exceed a R40k booking without the cap.
     const nowMs = dayStart + SHARED_MZN_DRIP_CYCLE_MS * 500
-    const uncapped = sharedDripProgress({
-      walletMzn,
+    const dripped = sharedDripProgress({
+      walletMzn: queueMzn,
       sellMznPerZar: sell,
       nowMs,
       sinceMs: dayStart,
+      maxDripZar: ceiling,
     })
-    const capped = sharedDripProgress({
-      walletMzn,
+    assert.ok(dripped.displayTransitZarOffset > 0)
+    assert.ok(dripped.displayTransitZarOffset <= ceiling + 0.02)
+
+    const pct = zarLiquidityJourneyBarPercent({
+      walletMzn: queueMzn,
+      drippedZar: ceiling * 0.48,
       sellMznPerZar: sell,
-      nowMs,
-      sinceMs: dayStart,
-      maxDripZar: booked,
+      journeyBoundZar: ceiling,
     })
-    assert.ok(uncapped.displayTransitZarOffset > booked)
-    assert.ok(capped.displayTransitZarOffset <= booked + 0.02)
+    assert.ok(Math.abs(pct - 48) < 0.05)
   })
 
+  it('paces next-open slice from queuedAt → next open (does not fill early)', () => {
+    const sell = 4.48
+    const ceiling = PLANNED_CARD_DAY_TARGET_ZAR
+    const queueMzn = 1_551_788.22
+    // Fixed SAST morning: open at 09:00.
+    const dayStart = sastToUtcMs(2026, 11, 11, 9, 0)
+    const nextOpen = nextSettleAt09hSastExclusive(dayStart + 60_000)
+    assert.equal(nextOpen, dayStart + 24 * 60 * 60 * 1000)
+
+    const halfWindow = dayStart + (nextOpen - dayStart) / 2
+    // Snap to a completed-cycle boundary so amounts are stable.
+    const halfCycles = Math.floor((halfWindow - dayStart) / SHARED_MZN_DRIP_CYCLE_MS)
+    const atHalf = dayStart + halfCycles * SHARED_MZN_DRIP_CYCLE_MS
+    const mid = sharedDripProgress({
+      walletMzn: queueMzn,
+      sellMznPerZar: sell,
+      nowMs: atHalf + 1_000,
+      sinceMs: dayStart,
+      maxDripZar: ceiling,
+    })
+    // ~50% of R100k, not the full residual and not 100% early.
+    assert.ok(mid.displayTransitZarOffset > ceiling * 0.4)
+    assert.ok(mid.displayTransitZarOffset < ceiling * 0.6)
+    assert.ok(mid.mznCycleBarPercent > 0)
+
+    // Final in-window cycle → snap full for this slot and freeze the fast bar.
+    const nearOpen = nextOpen - SHARED_MZN_DRIP_CYCLE_MS / 2
+    const late = sharedDripProgress({
+      walletMzn: queueMzn,
+      sellMznPerZar: sell,
+      nowMs: nearOpen,
+      sinceMs: dayStart,
+      maxDripZar: ceiling,
+    })
+    assert.ok(late.displayTransitZarOffset >= ceiling - 0.02)
+    assert.equal(late.mznCycleBarPercent, 0)
+  })
+
+  it('freezes fast cycle when next liquidity slot is fully apportioned', () => {
+    assert.equal(mznFastCycleArmed({ maxDripZar: 0, drippedZar: 0 }), false)
+    assert.equal(mznFastCycleArmed({ maxDripZar: 100_000, drippedZar: 100_000 }), false)
+    assert.equal(mznFastCycleArmed({ maxDripZar: 100_000, drippedZar: 99_999 }), true)
+    assert.equal(mznFastCycleArmed({ maxDripZar: null, drippedZar: 50_000 }), true)
+
+    const sell = 4.48
+    const dayStart = lastSettleAt09hSast(Date.now())
+    const nextOpen = nextSettleAt09hSastExclusive(dayStart + 1)
+    // Final cycle before open → slot fully apportioned; fast cycle must not spin.
+    const full = sharedDripProgress({
+      walletMzn: 1_000_000,
+      sellMznPerZar: sell,
+      nowMs: nextOpen - SHARED_MZN_DRIP_CYCLE_MS / 2,
+      sinceMs: dayStart,
+      maxDripZar: 10_000,
+    })
+    assert.ok(full.displayTransitZarOffset >= 10_000 - 0.02)
+    assert.equal(full.mznCycleBarPercent, 0)
+
+    // Out-of-sync: dripped already at ceiling mid-window → still frozen.
+    assert.equal(
+      mznFastCycleArmed({ maxDripZar: 10_000, drippedZar: 10_000 }),
+      false
+    )
+  })
 
   it('anchors drip to sinceMs so evening residual does not replay the whole day', () => {
     const dayStart = lastSettleAt09hSast(Date.now())

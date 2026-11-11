@@ -114,17 +114,23 @@ export function remainingFiveSecondTicksUntil(nowMs: number, untilMs: number): n
 
 /**
  * Micro MZN drip for one completed cycle of `cycleDurationMs`.
- * Scaled so a longer cycle deposits proportionally more toward 09:00.
+ * When `remainingPlannedMzn` is set (journey slice), paces that amount over the
+ * window ending at `untilMs` (default: next 09:00). Longer cycles deposit more.
  */
 export function microDripMzn(params: {
   remainingPlannedMzn: number
   visibleMzn: number
   nowMs: number
   cycleDurationMs?: number
+  /** Journey end (next liquidity open). Defaults to next 09:00 SAST. */
+  untilMs?: number
 }): number {
   const cycleMs = Math.max(1, params.cycleDurationMs ?? MZN_DRIP_CYCLE_MIN_MS)
-  const nextNine = nextSettleAt09hSastExclusive(params.nowMs)
-  const remainingMs = Math.max(cycleMs, nextNine - params.nowMs)
+  const until =
+    params.untilMs != null && Number.isFinite(Number(params.untilMs))
+      ? Number(params.untilMs)
+      : nextSettleAt09hSastExclusive(params.nowMs)
+  const remainingMs = Math.max(cycleMs, until - params.nowMs)
   const planned = Number.isFinite(params.remainingPlannedMzn)
     ? Math.max(0, params.remainingPlannedMzn)
     : 0
@@ -149,8 +155,14 @@ export function mznToTransitZar(mznAmount: number, sellMznPerZar: number): numbe
   return Math.round((mznAmount / sellMznPerZar) * 100) / 100
 }
 
-/** Daily instant liquid promise (same cap as first-fund / next 09:00 window). */
+/** Daily instant liquid promise (zarReserve / first-fund till). */
 export const DAILY_LIQUID_ZAR_CAP = 100_000
+
+/**
+ * Planned card/POS day target (established network ceiling).
+ * Drip journey + routing-plan card legs use this — not the R100k till.
+ */
+export const PLANNED_CARD_DAY_TARGET_ZAR = 30_000
 
 /** Bank sweep after the 09:00 open (matches tx_dailyLiquidZarPayout). */
 export const LIQUIDITY_PAYOUT_MINUTE_SAST = 15
@@ -264,28 +276,73 @@ export function fundCalculatorPayoutLabel(params: {
 }
 
 /**
- * ZAR card green bar: dripped ÷ next-open zarReserve booking (FCFS + queue).
- * No booking ⇒ 0 — day-1 does not invent availability; routing acceleration
- * is a separate story that can raise the bound later.
+ * ZAR card green bar: dripped ÷ this journey's bound (next liquidity event slice).
+ * Prefer `journeyBoundZar`; `nextOpenBookedZar` kept as a legacy alias.
  */
 export function zarLiquidityJourneyBarPercent(params: {
   walletMzn: number
   drippedZar: number
   sellMznPerZar: number
-  /** @deprecated Day-1 bound is nextOpenBookedZar only; kept for call-site compat. */
+  /** @deprecated unused */
   dailyLiquidZarCap?: number
-  /** Booked against zarReserve for next 09:00 — sole day-1 ZAR journey bound. */
+  /** Ceiling for this open's journey (usually next-event allocatable ZAR). */
+  journeyBoundZar?: number | null
+  /** @deprecated Prefer journeyBoundZar. */
   nextOpenBookedZar?: number | null
 }): number {
   void params.walletMzn
   void params.sellMznPerZar
   void params.dailyLiquidZarCap
-  const bookedRaw = params.nextOpenBookedZar
-  if (bookedRaw == null || !Number.isFinite(Number(bookedRaw))) return 0
-  const availableAtNine = Math.max(0, Number(bookedRaw))
-  if (!(availableAtNine > 0.005)) return 0
+  const boundRaw =
+    params.journeyBoundZar != null ? params.journeyBoundZar : params.nextOpenBookedZar
+  if (boundRaw == null || !Number.isFinite(Number(boundRaw))) return 0
+  const bound = Math.max(0, Number(boundRaw))
+  if (!(bound > 0.005)) return 0
   const dripped = Math.max(0, Number(params.drippedZar) || 0)
-  return Math.max(0, Math.min(100, (dripped / availableAtNine) * 100))
+  return Math.max(0, Math.min(100, (dripped / bound) * 100))
+}
+
+/**
+ * Home-card drip ceiling for the journey to the *next* card liquidity open.
+ *
+ * Fill toward the planned day target (card/POS infrastructure) → 09:00 drains
+ * the ZAR card → drip continues. Excess residual is EFT (T+2), not a bigger drip.
+ *
+ * Priority:
+ * 1. Live next-open booking when > 0, capped at planned day target
+ * 2. Else min(plannedDayTarget, residualZar)
+ * 3. Else 0 — no queue / nothing allocatable
+ */
+export function routingPlanDripCeilingZar(params: {
+  queueMzn: number
+  sellMznPerZar: number
+  nextOpenBookedZar?: number | null
+  queueAheadZar?: number | null
+  reservePoolZar?: number | null
+  /** @deprecated Prefer plannedDayTargetZar — was R100k till, now card day. */
+  dailyCapZar?: number
+  plannedDayTargetZar?: number
+}): number {
+  const dayTarget =
+    Math.max(
+      0,
+      Number(params.plannedDayTargetZar) ||
+        Number(params.dailyCapZar) ||
+        PLANNED_CARD_DAY_TARGET_ZAR
+    ) || PLANNED_CARD_DAY_TARGET_ZAR
+
+  const booked = Number(params.nextOpenBookedZar)
+  if (Number.isFinite(booked) && booked > 0.005) {
+    return Math.round(Math.min(booked, dayTarget) * 100) / 100
+  }
+
+  const sell = Number(params.sellMznPerZar) || 0
+  const queueMzn = Math.max(0, Number(params.queueMzn) || 0)
+  if (!(queueMzn > 0.005) || !(sell > 0)) return 0
+
+  const residualZar = Math.round((queueMzn / sell) * 100) / 100
+  const firstSlice = Math.min(dayTarget, residualZar)
+  return firstSlice > 0.005 ? Math.round(firstSlice * 100) / 100 : 0
 }
 
 /**
@@ -305,6 +362,25 @@ export type SharedDripProgress = {
 }
 
 /**
+ * Fast MZN cycle is only armed while the next liquidity slot still has room.
+ * If that slot is fully apportioned (dripped ≥ ceiling) — or the ceiling is 0 —
+ * the cycle must not spin, even when clock / FX / UI get out of sync.
+ */
+export function mznFastCycleArmed(params: {
+  maxDripZar?: number | null
+  drippedZar: number
+}): boolean {
+  if (params.maxDripZar == null || !Number.isFinite(Number(params.maxDripZar))) {
+    // No journey ceiling → uncapped path may still cycle.
+    return true
+  }
+  const ceiling = Math.max(0, Number(params.maxDripZar))
+  if (!(ceiling > 0.005)) return false
+  const dripped = Math.max(0, Number(params.drippedZar) || 0)
+  return dripped < ceiling - 0.005
+}
+
+/**
  * Slow MZN→in-route drip derived from wallets + SAST wall clock.
  * Same inputs ⇒ same outputs on every device (source of truth stays Firestore;
  * this is a shared projection until the next real book/clear).
@@ -312,6 +388,10 @@ export type SharedDripProgress = {
  * `sinceMs` anchors the drip to when this MZN book arrived (credit / queue time).
  * Without it, a large evening balance would replay every cycle since 09:00 and
  * look like hundreds of thousands of rand moved in minutes.
+ *
+ * When `maxDripZar` is set (next-open allocatable slice), the drip paces that
+ * amount linearly from queuedAt → next 09:00 — not the full multi-day residual.
+ * Once the journey slice is full, the fast MZN cycle bar freezes (no empty spins).
  */
 export function sharedDripProgress(params: {
   walletMzn: number
@@ -322,9 +402,8 @@ export function sharedDripProgress(params: {
   remainingPlannedMzn?: number
   cycleDurationMs?: number
   /**
-   * Ceiling on projected transit ZAR from next-open zarReserve + FCFS booking.
-   * Day-1: this is the only bound. Routing may raise it later when that story exists.
-   * Pass 0 / omit when no plan — do not invent a daily-cap ceiling in the UI.
+   * Ceiling on projected transit ZAR for this journey to the next open
+   * (booked or first estimated daily slice). Pass 0 when nothing is allocatable.
    */
   maxDripZar?: number | null
 }): SharedDripProgress {
@@ -354,6 +433,7 @@ export function sharedDripProgress(params: {
 
   const cycleMs = Math.max(1, params.cycleDurationMs ?? SHARED_MZN_DRIP_CYCLE_MS)
   const dayStart = lastSettleAt09hSast(params.nowMs)
+  const nextOpen = nextSettleAt09hSastExclusive(params.nowMs)
   const sinceRaw = Number(params.sinceMs)
   const anchorMs =
     Number.isFinite(sinceRaw) && sinceRaw > 0
@@ -363,44 +443,67 @@ export function sharedDripProgress(params: {
   const completedCycles = Math.floor(elapsed / cycleMs)
   const cycleFrac = Math.min(1, (elapsed % cycleMs) / cycleMs)
 
-  // Amounts move only on completed cycles — never mid-cycle. The bar alone
-  // tracks cycleFrac so the drip still feels continuous without twitching R/Mt.
-  let remaining = walletMzn
-  let plannedLeft = Math.max(0, Number(params.remainingPlannedMzn) || 0)
-  let drippedSoFar = 0
-  for (let i = 0; i < completedCycles; i++) {
-    if (!(remaining > 0)) break
-    if (maxMzn != null && drippedSoFar >= maxMzn - 0.005) break
-    const atMs = anchorMs + (i + 1) * cycleMs
-    const drip = microDripMzn({
-      remainingPlannedMzn: plannedLeft,
-      visibleMzn: remaining,
-      nowMs: atMs,
-      cycleDurationMs: cycleMs,
-    })
-    let take = Math.min(remaining, drip)
-    if (maxMzn != null) {
-      take = Math.min(take, Math.max(0, maxMzn - drippedSoFar))
+  let drippedMzn = 0
+
+  if (maxMzn != null) {
+    // Journey drip: fill next-open slice evenly from queuedAt → next open.
+    // Amounts only step on completed cycles (bar alone tracks cycleFrac).
+    const journeyMs = Math.max(cycleMs, nextOpen - anchorMs)
+    const completedMs = completedCycles * cycleMs
+    // Snap full once no further in-window cycle can land (avoids a tail of
+    // empty spins when journeyMs is not an exact multiple of cycleMs), or
+    // once the liquidity open has arrived.
+    const maxCyclesInWindow = Math.floor(journeyMs / cycleMs)
+    const journeyFrac =
+      params.nowMs >= nextOpen || completedCycles >= maxCyclesInWindow
+        ? 1
+        : Math.min(1, completedMs / journeyMs)
+    const target = Math.min(walletMzn, maxMzn * journeyFrac)
+    drippedMzn = Math.round(target * 100) / 100
+  } else {
+    // Uncapped path (tests / no booking): micro-drip remaining plan or visible.
+    let remaining = walletMzn
+    let plannedLeft = Math.max(0, Number(params.remainingPlannedMzn) || 0)
+    let drippedSoFar = 0
+    for (let i = 0; i < completedCycles; i++) {
+      if (!(remaining > 0)) break
+      const atMs = anchorMs + (i + 1) * cycleMs
+      const drip = microDripMzn({
+        remainingPlannedMzn: plannedLeft,
+        visibleMzn: remaining,
+        nowMs: atMs,
+        cycleDurationMs: cycleMs,
+        untilMs: nextOpen,
+      })
+      const take = Math.min(remaining, drip)
+      remaining = Math.round((remaining - take) * 100) / 100
+      drippedSoFar = Math.round((drippedSoFar + take) * 100) / 100
+      if (plannedLeft > 0) {
+        plannedLeft = Math.max(0, Math.round((plannedLeft - take) * 100) / 100)
+      }
     }
-    remaining = Math.round((remaining - take) * 100) / 100
-    drippedSoFar = Math.round((drippedSoFar + take) * 100) / 100
-    if (plannedLeft > 0) plannedLeft = Math.max(0, Math.round((plannedLeft - take) * 100) / 100)
+    drippedMzn = Math.max(0, Math.round((walletMzn - remaining) * 100) / 100)
   }
 
-  let drippedMzn = Math.max(0, Math.round((walletMzn - remaining) * 100) / 100)
-  if (maxMzn != null && drippedMzn > maxMzn) {
-    drippedMzn = maxMzn
-  }
   let displayTransitZarOffset = mznToTransitZar(drippedMzn, sell)
   if (maxZar != null && displayTransitZarOffset > maxZar) {
     displayTransitZarOffset = Math.round(maxZar * 100) / 100
     drippedMzn = Math.round(displayTransitZarOffset * sell * 100) / 100
   }
+
+  // Hard stop: next slot fully apportioned → no empty fast-cycle spins.
+  const mznCycleBarPercent = mznFastCycleArmed({
+    maxDripZar: maxZar,
+    drippedZar: displayTransitZarOffset,
+  })
+    ? Math.round(cycleFrac * 10_000) / 100
+    : 0
+
   return {
     drippedMzn,
     displayMznOffset: -drippedMzn,
     displayTransitZarOffset,
-    mznCycleBarPercent: Math.round(cycleFrac * 10_000) / 100,
+    mznCycleBarPercent,
   }
 }
 

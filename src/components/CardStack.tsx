@@ -14,7 +14,10 @@ import { useAuthStore } from '@/store/auth'
 import { useIsAdminUser } from '@/lib/restrictions'
 import type { FxRates } from '@/lib/exchangeRates/useFxRates'
 import { useTransitDayClock } from '@/lib/fx/useTransitDayClock'
-import { zarLiquidityJourneyBarPercent } from '@/lib/fx/transitDayClock'
+import {
+  routingPlanDripCeilingZar,
+  zarLiquidityJourneyBarPercent,
+} from '@/lib/fx/transitDayClock'
 import { inventoryDominantCard } from '@/lib/fx/inventoryDominant'
 import { sellMznPerZar } from '@/lib/mznZar'
 import { useWalletStore } from '@/store/wallets'
@@ -182,7 +185,15 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const walletZar = Number(wallets?.cashZAR?.fiatBalance || 0)
   const walletTransitZar = Number(wallets?.earnings?.fiatBalance || 0)
   const mznWallet = wallets?.cashMZN as
-    | { liquidityQueuedAtMs?: number; updatedAt?: { toMillis?: () => number } | number }
+    | {
+        liquidityQueuedAtMs?: number
+        liquidityQueueMzn?: number
+        nextOpenBookedZar?: number
+        nextOpenQueueAheadZar?: number
+        nextOpenReservePoolZar?: number
+        nextOpenComputedAtMs?: number
+        updatedAt?: { toMillis?: () => number } | number
+      }
     | undefined
   // Drip from when this MZN episode landed — never replay every cycle since 09:00.
   const mznSinceMs =
@@ -195,13 +206,40 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
           : null
   const liveMzn =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : 0
+  const sellForDrip = sellMznPerZar(liveMzn)
+  // Journey = next liquidity event only (booked or ~daily instant). Full residual
+  // is the multi-day routing plan; 09:00 drains ZAR, then drip continues.
+  const hasNextOpenPlan = Number(mznWallet?.nextOpenComputedAtMs) > 0
+  const nextOpenBookedZar = hasNextOpenPlan
+    ? Math.max(0, Number(mznWallet?.nextOpenBookedZar) || 0)
+    : null
+  const queueMzn = Math.max(
+    0,
+    Number(mznWallet?.liquidityQueueMzn) > 0.005
+      ? Number(mznWallet?.liquidityQueueMzn)
+      : Number(mznWallet?.liquidityQueuedAtMs) > 0 && walletMzn > 0.005
+        ? walletMzn
+        : 0
+  )
+  const maxDripZar = routingPlanDripCeilingZar({
+    queueMzn,
+    sellMznPerZar: sellForDrip,
+    nextOpenBookedZar,
+    queueAheadZar: hasNextOpenPlan
+      ? Math.max(0, Number(mznWallet?.nextOpenQueueAheadZar) || 0)
+      : 0,
+    reservePoolZar: hasNextOpenPlan
+      ? Math.max(0, Number(mznWallet?.nextOpenReservePoolZar) || 0)
+      : null,
+  })
   const transitClock = useTransitDayClock({
     enabled: Boolean(isBalanceReady && !demoMode),
     walletMzn,
     walletZar,
     walletTransitZar,
-    sellMznPerZar: sellMznPerZar(liveMzn),
+    sellMznPerZar: sellForDrip,
     mznSinceMs,
+    maxDripZar,
   })
   const [isAnimating, setIsAnimating] = useState(false)
   const [phase, setPhase] = useState<'idle' | 'animating'>('idle')
@@ -833,12 +871,12 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const BOTTOM_BUFFER_PX = 0 // Reduced from 20 to 0 to close gap to map section (80% total reduction - removed buffer entirely)
   const stackMinHeight = BASE_HEIGHT_PX + (VISIBLE_COUNT - 1) * Y_STEP_PX + BOTTOM_BUFFER_PX
 
-  // ZAR green bar = dripped ÷ next-09:00 liquidity available (≤ R100k), not 09→09 clock.
-  const sellForBar = sellMznPerZar(liveMzn)
+  // ZAR green bar = dripped ÷ next liquidity-event slice (then drain @ 09:00).
   const zarJourneyBarPercent = zarLiquidityJourneyBarPercent({
     walletMzn,
     drippedZar: Math.max(0, transitClock.displayTransitZarOffset - transitCreditHold),
-    sellMznPerZar: sellForBar,
+    sellMznPerZar: sellForDrip,
+    journeyBoundZar: maxDripZar > 0.005 ? maxDripZar : null,
   })
   // No residual left: fall back to liquid share of the combined ZAR book.
   const zarLiquidMajor = Math.max(0, walletZar - zarCreditHold)
@@ -853,6 +891,13 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       : 0
   const zarLiquidBarPercent =
     walletMzn > 0.005 ? zarJourneyBarPercent : zarLiquidSharePercent
+  // If next-open ZAR is fully apportioned (or journey bar is full), freeze MZN cycle.
+  const mznCyclePercent =
+    zarJourneyBarPercent >= 99.5 ||
+    (maxDripZar > 0.005 &&
+      transitClock.displayTransitZarOffset - transitCreditHold >= maxDripZar - 0.005)
+      ? 0
+      : transitClock.mznBarPercent
 
   return (
     <div 
@@ -924,7 +969,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
             isSpecialCard={isSpecialCard}
             timeBarPercent={
               card.type === 'mzn'
-                ? transitClock.mznBarPercent
+                ? mznCyclePercent
                 : card.type === 'savings'
                   ? zarLiquidBarPercent
                   : null

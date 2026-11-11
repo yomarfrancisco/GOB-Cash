@@ -278,6 +278,73 @@ export function markOverdueEftTickets(
   }
 }
 
+/**
+ * EFT slip past hard T+2: mark overdue, then re-instruct a fresh EFT bulk for the
+ * unpaid amount (insurance) while card continuum continues separately.
+ * Does not invent card settlement from EFT failure.
+ */
+export function reinstructEftOnSlip(params: {
+  book: EftDeskBook | null | undefined
+  nowMs: number
+  unpaidZar: number
+  shockId?: string
+}): {
+  book: EftDeskBook
+  overdue: ChannelTicket[]
+  reinstruct: ChannelSplitResult | null
+} {
+  const marked = markOverdueEftTickets(params.book, params.nowMs)
+  const unpaid = roundMoney(Math.max(0, params.unpaidZar))
+  if (!(unpaid > 0.009)) {
+    return { book: marked.book, overdue: marked.overdue, reinstruct: null }
+  }
+
+  const shockId = params.shockId || `eft-slip-${params.nowMs}`
+  const instructedAt = new Date(params.nowMs).toISOString()
+  const due = bankingDeadlineIso(
+    params.nowMs,
+    EFT_POLICY_V1.hardClearBankingDays,
+    EFT_POLICY_V1.hardClearHourSast
+  )
+  const soft = bankingDeadlineIso(
+    params.nowMs,
+    EFT_POLICY_V1.softClearBankingDays,
+    EFT_POLICY_V1.softClearHourSast
+  )
+  const eftTickets: ChannelTicket[] = []
+  let left = unpaid
+  let i = 0
+  while (left > 0.009 && i < 40) {
+    const chunk = roundMoney(Math.min(left, EFT_POLICY_V1.maxTicketZar))
+    eftTickets.push({
+      channel: 'eft',
+      amountZar: chunk,
+      expectedSettledBy: due,
+      status: 'open',
+      economicPaymentId: `${shockId}-reinstruct-${i}`,
+      instructedAt,
+      notes: [
+        `Re-instructed after T+2 slip · card continuum continues`,
+        `Soft warn ${soft}`,
+      ],
+    })
+    left = roundMoney(left - chunk)
+    i += 1
+  }
+
+  const reinstruct: ChannelSplitResult = {
+    enRouteZar: unpaid,
+    replacementZar: unpaid,
+    cardZar: 0,
+    eftZar: unpaid,
+    cardTickets: [],
+    eftTickets,
+    summary: `EFT slip reinstruct ${formatZar(unpaid)} · card continuum continues.`,
+  }
+  const book = mergeEftBook(marked.book, reinstruct)
+  return { book, overdue: marked.overdue, reinstruct }
+}
+
 /** Settle a matched EFT ticket by economicPaymentId (live bank_transfer). */
 export function settleEftTicket(
   book: EftDeskBook | null | undefined,

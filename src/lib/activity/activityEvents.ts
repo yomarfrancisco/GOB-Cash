@@ -110,6 +110,60 @@ export type ActivityEventDoc = {
   liquidityLive?: boolean
   liquidityChanges?: unknown
   liquidityReport?: unknown
+  routingPlan?: unknown
+}
+
+function asRoutingPlan(raw: unknown): ActivityItem['routingPlan'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  const r = raw as Record<string, unknown>
+  if (typeof r.fundedMzn !== 'number' || typeof r.zarTotal !== 'number') return undefined
+  const legs = Array.isArray(r.legs)
+    ? r.legs.flatMap((row) => {
+        if (!row || typeof row !== 'object') return []
+        const leg = row as Record<string, unknown>
+        if (typeof leg.amountZar !== 'number') return []
+        const confidence =
+          leg.confidence === 'now' || leg.confidence === 'reserved' || leg.confidence === 'estimated'
+            ? leg.confidence
+            : 'estimated'
+        const channelRaw = leg.channel
+        const channel =
+          channelRaw === 'instant' || channelRaw === 'card' || channelRaw === 'eft'
+            ? channelRaw
+            : undefined
+        return [
+          {
+            whenLabel: typeof leg.whenLabel === 'string' ? leg.whenLabel : '',
+            subLabel: typeof leg.subLabel === 'string' ? leg.subLabel : '',
+            amountZar: leg.amountZar,
+            confidence,
+            chip: typeof leg.chip === 'string' ? leg.chip : 'Estimated',
+            landsAtMs: typeof leg.landsAtMs === 'number' ? leg.landsAtMs : null,
+            ...(channel ? { channel } : {}),
+          },
+        ]
+      })
+    : []
+  if (!legs.length) return undefined
+  return {
+    sentence: typeof r.sentence === 'string' ? r.sentence : '',
+    fundedMzn: r.fundedMzn,
+    zarTotal: r.zarTotal,
+    zarLiquid: typeof r.zarLiquid === 'number' ? r.zarLiquid : 0,
+    mznResidual: typeof r.mznResidual === 'number' ? r.mznResidual : 0,
+    rate: typeof r.rate === 'number' ? r.rate : 0,
+    liquidPct: typeof r.liquidPct === 'number' ? r.liquidPct : 0,
+    legs,
+    fullLiquidAtMs: typeof r.fullLiquidAtMs === 'number' ? r.fullLiquidAtMs : null,
+    fullLiquidLabel: typeof r.fullLiquidLabel === 'string' ? r.fullLiquidLabel : '—',
+    payoutBankTag: typeof r.payoutBankTag === 'string' ? r.payoutBankTag : null,
+    note:
+      typeof r.note === 'string'
+        ? r.note
+        : 'If a time moves, this plan updates and we will tell you.',
+    ...(typeof r.cardZar === 'number' ? { cardZar: r.cardZar } : {}),
+    ...(typeof r.eftZar === 'number' ? { eftZar: r.eftZar } : {}),
+  }
 }
 
 function asLiquidityReport(raw: unknown): ActivityItem['liquidityReport'] {
@@ -667,6 +721,7 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       ? data.liquidityChanges.filter((line): line is string => typeof line === 'string')
       : undefined,
     liquidityReport: asLiquidityReport(data.liquidityReport),
+    routingPlan: asRoutingPlan(data.routingPlan),
   }
 }
 

@@ -239,7 +239,11 @@ export default function CardStackCard({
         ? zarToMzn(displayMajor, quotedMznPerZar)
         : displayMajor / FX_USD_ZAR_DEFAULT
   const showUsdMinor = isMeticalAmount || card.type === 'savings'
-  const minorCurrencyLabel = showUsdMinor ? 'USD' : 'MZN'
+  const minorCurrencyLabel = showUsdMinor
+    ? isMeticalAmount
+      ? 'USD in'
+      : 'USD out'
+    : 'MZN'
   const pct = allocPct(cents)
   
   // Generate a stable key for SlotCounter that changes when balance changes
@@ -596,7 +600,11 @@ export default function CardStackCard({
               </div>
               <div className="card-amounts__usdt" style={{ opacity: 0.5 }} suppressHydrationWarning>
                 <span>
-                  {showUsdMinor ? '≈ 0 USD' : '≈ 0 MZN'}
+                  {showUsdMinor
+                    ? isMeticalAmount
+                      ? '≈ 0 USD in'
+                      : '≈ 0 USD out'
+                    : '≈ 0 MZN'}
                 </span>
               </div>
             </>

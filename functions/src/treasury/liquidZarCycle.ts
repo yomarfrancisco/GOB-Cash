@@ -22,6 +22,8 @@ function db(): FirebaseFirestore.Firestore {
 export const LIQUID_CYCLE_ACCRUED_FIELD = 'liquidCycleAccruedZar'
 /** Wallet field: SAST calendar day (YYYY-MM-DD) of the cycle start (last 09:00). */
 export const LIQUID_CYCLE_KEY_FIELD = 'liquidCycleKey'
+/** Top-level pointer so 09:15 sweep finds users without waiting on a collectionGroup index. */
+export const LIQUID_ZAR_ACCRUAL_POINTERS = 'liquidZarCycleAccrued'
 
 /** SAST date key for the open daily cycle (last 09:00 at or before now). */
 export function liquidCycleKeyAt(nowMs: number = Date.now()): string {
@@ -85,6 +87,20 @@ export async function accrueLiquidZar(params: {
       t.update(zarRef, patch)
     }
   })
+
+  // Pointer for the 09:15 sweep (works before / without the collectionGroup index).
+  await db()
+    .collection(LIQUID_ZAR_ACCRUAL_POINTERS)
+    .doc(params.userId)
+    .set(
+      {
+        uid: params.userId,
+        accruedZar: admin.firestore.FieldValue.increment(amount),
+        cycleKey,
+        updatedAt: now,
+      },
+      { merge: true }
+    )
 }
 
 export type LiquidZarPayoutResult = {
@@ -120,8 +136,16 @@ export async function payoutLiquidZarForUser(params: {
   const txRef = db().collection('transactions').doc(paidId)
   const now = admin.firestore.Timestamp.fromMillis(nowMs)
 
+  const isAlreadyPaidEvent = (data: FirebaseFirestore.DocumentData | undefined) => {
+    if (!data) return false
+    if (data.payoutScheduled === true) return false
+    const chip = String(data.deskStatusChip || data.deskPendingChip || '')
+    if (/^scheduled$/i.test(chip)) return false
+    return true
+  }
+
   const existing = await eventRef.get()
-  if (existing.exists) {
+  if (existing.exists && isAlreadyPaidEvent(existing.data())) {
     return {
       userId,
       amountZar: Number(existing.data()?.amountValue || 0),
@@ -133,7 +157,7 @@ export async function payoutLiquidZarForUser(params: {
 
   const result = await db().runTransaction(async (t): Promise<LiquidZarPayoutResult> => {
     const eventSnap = await t.get(eventRef)
-    if (eventSnap.exists) {
+    if (eventSnap.exists && isAlreadyPaidEvent(eventSnap.data())) {
       return {
         userId,
         amountZar: Number(eventSnap.data()?.amountValue || 0),
@@ -163,12 +187,25 @@ export async function payoutLiquidZarForUser(params: {
         liquidCycleLastPayoutZar: 0,
         updatedAt: now,
       })
+      t.delete(db().collection(LIQUID_ZAR_ACCRUAL_POINTERS).doc(userId))
       return { userId, amountZar: 0, cycleKey, txId: null, skipped: 'nothing_liquid' }
     }
 
     const amountMinor = Math.round(amount * 100)
     const balanceMinor = Math.round(balance * 100)
-    const sentence = `${fmtZar(amount)} withdrawn to account · liquid from the prior 24h cycle.`
+    const details = (zarData.firstPayoutDetails || {}) as {
+      bankName?: string
+      accountNumber?: string
+      accountHolderName?: string
+    }
+    const bankName = String(details.bankName || '').trim() || 'account'
+    const digits = String(details.accountNumber || '').replace(/\s/g, '')
+    const masked =
+      digits.length > 4 ? `··${digits.slice(-4)}` : digits ? `··${digits}` : ''
+    const bankTag = masked ? `${bankName} ${masked}` : bankName
+    const scheduledBank = String(eventSnap.data()?.payoutBankTag || '').trim()
+    const toTag = scheduledBank || bankTag
+    const sentence = `${fmtZar(amount)} is in your account · paid from the 09:00 liquid window.`
 
     t.update(zarRef, {
       fiatBalance: (balanceMinor - amountMinor) / 100,
@@ -179,65 +216,79 @@ export async function payoutLiquidZarForUser(params: {
       liquidCycleLastAccruedZar: accrued,
       updatedAt: now,
     })
+    t.delete(db().collection(LIQUID_ZAR_ACCRUAL_POINTERS).doc(userId))
 
-    t.set(txRef, {
-      id: paidId,
-      userId,
-      type: 'BANK_WITHDRAWAL',
-      transactionType: 'BANK_WITHDRAWAL',
-      uiAction: 'WITHDRAW',
-      instructionSource: 'SYSTEM',
-      recordingSource: 'SYSTEM',
-      executionChannel: 'INTERNAL',
-      status: 'SETTLED',
-      instructionStatus: 'SETTLED',
-      settlementPath: 'daily_liquid_zar',
-      sourceCurrency: 'ZAR',
-      destinationCurrency: 'ZAR',
-      currency: 'ZAR',
-      sourceAmountMinor: amountMinor,
-      expectedDestinationAmountMinor: amountMinor,
-      actualDestinationAmountMinor: amountMinor,
-      amountZar: amount,
-      liquidCycleKey: cycleKey,
-      createdAt: now,
-      settledAt: now,
-      statusUpdatedAt: now,
-      updatedAt: now,
-    })
+    t.set(
+      txRef,
+      {
+        id: paidId,
+        userId,
+        type: 'BANK_WITHDRAWAL',
+        transactionType: 'BANK_WITHDRAWAL',
+        uiAction: 'WITHDRAW',
+        instructionSource: 'SYSTEM',
+        recordingSource: 'SYSTEM',
+        executionChannel: 'INTERNAL',
+        status: 'SETTLED',
+        instructionStatus: 'SETTLED',
+        settlementPath: 'daily_liquid_zar',
+        sourceCurrency: 'ZAR',
+        destinationCurrency: 'ZAR',
+        currency: 'ZAR',
+        sourceAmountMinor: amountMinor,
+        expectedDestinationAmountMinor: amountMinor,
+        actualDestinationAmountMinor: amountMinor,
+        amountZar: amount,
+        liquidCycleKey: cycleKey,
+        createdAt: now,
+        settledAt: now,
+        statusUpdatedAt: now,
+        updatedAt: now,
+      },
+      { merge: true }
+    )
 
-    t.set(eventRef, {
-      id: paidId,
-      kind: 'WITHDRAWAL_INSTRUCTED',
-      title: 'Daily withdrawal to account',
-      body: sentence,
-      deskSentence: sentence,
-      dropdownTitle: 'Withdrawn',
-      dropdownBody: `${fmtZar(amount)} · prior 24h liquid`,
-      deskStatusChip: 'Withdrawn',
-      deskLedgerRows: [
-        { label: 'Liquid (prior 24h)', value: fmtZar(amount) },
-        { label: 'To account', value: fmtZar(amount) },
-        { label: 'Cycle', value: cycleKey },
-      ],
-      deskStep: 5,
-      actorType: 'ai_manager',
-      avatarKind: 'zar_withdrawn',
-      amountCurrency: 'ZAR',
-      amountValue: amount,
-      amountSign: 'debit',
-      txId: paidId,
-      groupId: paidId,
-      hasDownloadButton: false,
-      awaitingConfirm: false,
-      routingBlocked: false,
-      status: 'recorded',
-      routingAction: 'daily_liquid_zar_payout',
-      deskSpeaker: 'leo',
-      liquidCycleKey: cycleKey,
-      createdAt: now,
-      recordingSource: 'SYSTEM',
-    })
+    // Morph the 09:00 "Scheduled" notice into Paid out (no second message).
+    t.set(
+      eventRef,
+      {
+        id: paidId,
+        kind: 'WITHDRAWAL_INSTRUCTED',
+        title: 'Paid out',
+        body: sentence,
+        deskSentence: sentence,
+        dropdownTitle: 'Paid out',
+        dropdownBody: `${fmtZar(amount)} · ${toTag}`,
+        deskStatusChip: 'Paid',
+        deskPendingChip: admin.firestore.FieldValue.delete(),
+        deskLedgerRows: [
+          { label: 'Paid', value: fmtZar(amount), valueStrong: true },
+          { label: 'To', value: toTag },
+          { label: 'Cycle', value: cycleKey },
+        ],
+        deskStep: 5,
+        actorType: 'ai_manager',
+        avatarKind: 'zar_withdrawn',
+        amountCurrency: 'ZAR',
+        amountValue: amount,
+        amountSign: 'debit',
+        txId: paidId,
+        groupId: paidId,
+        hasDownloadButton: true,
+        awaitingConfirm: false,
+        routingBlocked: false,
+        status: 'recorded',
+        routingAction: 'daily_liquid_zar_payout',
+        deskSpeaker: 'leo',
+        liquidCycleKey: cycleKey,
+        payoutScheduled: false,
+        payoutPaidAtMs: nowMs,
+        payoutBankTag: toTag,
+        updatedAt: now,
+        recordingSource: 'SYSTEM',
+      },
+      { merge: true }
+    )
 
     return { userId, amountZar: amount, cycleKey, txId: paidId }
   })
@@ -269,6 +320,19 @@ export async function payoutLiquidZarDaily(limit = 40): Promise<LiquidZarPayoutR
     }
   } catch (error) {
     console.warn('[payoutLiquidZarDaily] collectionGroup scan skipped', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+
+  // Pointer fallback — same pattern as liquidityQueueMzn (index-independent).
+  try {
+    const pointers = await db().collection(LIQUID_ZAR_ACCRUAL_POINTERS).limit(limit).get()
+    for (const doc of pointers.docs) {
+      const userId = String(doc.data()?.uid || doc.id || '')
+      if (userId) candidates.push(userId)
+    }
+  } catch (error) {
+    console.warn('[payoutLiquidZarDaily] accrual pointer scan skipped', {
       error: error instanceof Error ? error.message : String(error),
     })
   }

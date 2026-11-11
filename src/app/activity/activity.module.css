@@ -339,6 +339,70 @@
   color: var(--desk-muted, #5e5e66);
 }
 
+/* Headline-style meta: Sender · HH:MM (+ optional PT chip). */
+.activityMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 6px;
+  min-width: 0;
+}
+
+.activityMeta {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 500;
+  color: var(--desk-muted, #5e5e66);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activityMetaLang {
+  appearance: none;
+  border: 1px solid var(--desk-border, #e2ded3);
+  background: #fff;
+  color: var(--desk-ink, #18181b);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font: 650 11px/1 var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.activityHeadline {
+  margin: 0;
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -1.3px;
+  color: var(--desk-ink, #18181b);
+  -webkit-font-smoothing: antialiased;
+}
+
+.activityOneLiner {
+  margin: 8px 0 0;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--desk-muted, #5e5e66);
+}
+
+.activitySmallMeta {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--desk-muted, #5e5e66);
+  font-variant-numeric: tabular-nums;
+}
+
 .activitySpeakerRole {
   display: none;
 }

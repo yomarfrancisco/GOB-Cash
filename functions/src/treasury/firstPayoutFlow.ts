@@ -17,6 +17,8 @@ import {
 import { planReserveSplit, payInstantFromReserve } from './reserveConvert'
 import { ensureReserveAtLeast, roundMajor } from './reserveBooks'
 import { DAILY_LIQUID_ZAR_CAP as SUB_R100K_CAP } from './dailyLiquidZar'
+import { readUserNextOpenBooking, refreshNextOpenBookings } from './nextOpenBooking'
+import { assembleRoutingPlan } from './routingPlan'
 import {
   looksLikeBankDetails,
   normalizeHandle,
@@ -103,10 +105,32 @@ type LinkedBank = {
 async function readSaLinkedBank(userId: string): Promise<LinkedBank | null> {
   const snap = await db().collection('users').doc(userId).get()
   const banks = (snap.data()?.linkedBanks || []) as LinkedBank[]
-  if (!Array.isArray(banks) || banks.length === 0) return null
-  const sa = banks.filter((b) => /south\s*africa|^za$/i.test(String(b.country || '')))
-  const pool = sa.length ? sa : banks
-  return pool.find((b) => b.isDefault) || pool[0] || null
+  if (Array.isArray(banks) && banks.length > 0) {
+    const sa = banks.filter((b) => /south\s*africa|^za$/i.test(String(b.country || '')))
+    const pool = sa.length ? sa : banks
+    const hit = pool.find((b) => b.isDefault) || pool[0] || null
+    if (hit) return hit
+  }
+  // Fall back to Day-1 payout details stored on cashZAR (linkedBanks may be empty).
+  const zarSnap = await db()
+    .collection('users')
+    .doc(userId)
+    .collection('wallets')
+    .doc('cashZAR')
+    .get()
+  const details = zarSnap.data()?.[FIRST_PAYOUT_DETAILS_FIELD] as
+    | (LinkedBank & { accountNumber?: string; bankName?: string; accountHolderName?: string })
+    | undefined
+  if (details && (details.accountNumber || details.bankName)) {
+    return {
+      bankName: String(details.bankName || 'SA Bank'),
+      accountHolderName: String(details.accountHolderName || ''),
+      accountNumber: String(details.accountNumber || ''),
+      country: 'ZA',
+      isDefault: true,
+    }
+  }
+  return null
 }
 
 function maskAccount(accountNumber: string): string {
@@ -216,10 +240,41 @@ async function publishLiquidNow(params: {
   const residualLabel = fmtMzn(params.mznResidual)
   const id = `liquid-now-${params.groupId}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
   const mode = params.mode
-  const title =
-    mode === 'none' ? 'Queued for liquidity' : mode === 'partial' ? 'Part liquid' : 'Liquid now'
-  const body =
-    mode === 'none'
+
+  const booking = await readUserNextOpenBooking(params.userId)
+  const linked = await readSaLinkedBank(params.userId)
+  const bankTag =
+    linked?.bankName && linked?.accountNumber
+      ? `${linked.bankName} ${maskAccount(linked.accountNumber)}`
+      : linked?.bankName
+        ? String(linked.bankName)
+        : null
+  const routingPlan =
+    mode !== 'full'
+      ? assembleRoutingPlan({
+          nowMs: Date.now(),
+          fundedMzn: params.mznReceived,
+          zarLiquid: params.zarAmount,
+          mznResidual: params.mznResidual,
+          rate: params.sellRate,
+          nextOpenBookedZar: booking?.bookedZar ?? 0,
+          nextOpenAtMs: booking?.openAtMs ?? null,
+          reservePoolZar: booking?.reservePoolZar ?? null,
+          queueAheadZar: booking?.queueAheadZar ?? 0,
+          payoutBankTag: bankTag,
+        })
+      : null
+
+  const title = routingPlan
+    ? 'Your routing plan'
+    : mode === 'none'
+      ? 'Queued for liquidity'
+      : mode === 'partial'
+        ? 'Part liquid'
+        : 'Liquid now'
+  const body = routingPlan
+    ? routingPlan.sentence
+    : mode === 'none'
       ? `No instant liquidity left today. ${residualLabel} is queued for 09:00 tomorrow (first come, first served on the reserve). Add your South African account once so we can pay out as soon as it clears.`
       : mode === 'partial'
         ? `${zarLabel} is liquid and ready to pay out. ${residualLabel} is queued for 09:00 tomorrow. Add your South African account once and we’ll pay out straight away, every time.`
@@ -311,6 +366,7 @@ async function publishLiquidNow(params: {
     liquidNowMode: mode,
     mznResidual: roundMajor(params.mznResidual),
     mznConverted: roundMajor(params.mznConverted),
+    ...(routingPlan ? { routingPlan } : {}),
   })
 }
 
@@ -452,24 +508,40 @@ export async function handleCashMznCredit(params: {
       await db().collection('liquidityQueueMzn').doc(params.userId).delete().catch(() => undefined)
     }
 
+    // Recompute FCFS next-open bookings against real zarReserve after queue change.
+    try {
+      await refreshNextOpenBookings({ sellRate })
+    } catch (error) {
+      functions.logger.warn('[handleCashMznCredit] next-open booking refresh failed', {
+        userId: params.userId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+
     const username = await readUsername(params.userId)
     const linked = await readSaLinkedBank(params.userId)
     const userSnap = await db().collection('users').doc(params.userId).get()
     const autoPayout = userSnap.data()?.payoutAuto !== false
-    const hasPayoutAccount = Boolean(linked && (linked.accountNumber || linked.bankName))
+    const zarFresh = (await zarRef.get()).data() || {}
+    const existingStatus = String(zarFresh[FIRST_PAYOUT_STATUS_FIELD] || '')
+    const hasDetailsOnWallet = Boolean(zarFresh[FIRST_PAYOUT_DETAILS_FIELD])
+    const hasPayoutAccount = Boolean(
+      (linked && (linked.accountNumber || linked.bankName)) || hasDetailsOnWallet
+    )
 
     if (args.zarAmount > 0.005 && hasPayoutAccount && autoPayout) {
       await zarRef.set(
         {
           [FIRST_PAYOUT_STATUS_FIELD]: 'awaiting_payout' satisfies FirstPayoutStatus,
           [FIRST_PAYOUT_DETAILS_FIELD]: {
-            bankName: String(linked!.bankName || 'SA Bank'),
-            accountHolderName: String(linked!.accountHolderName || username),
-            accountNumber: String(linked!.accountNumber || ''),
+            bankName: String(linked?.bankName || 'SA Bank'),
+            accountHolderName: String(linked?.accountHolderName || username),
+            accountNumber: String(linked?.accountNumber || ''),
             accountType: String(
-              (linked as LinkedBank & { accountType?: string }).accountType || 'Business current'
+              (linked as (LinkedBank & { accountType?: string }) | null)?.accountType ||
+                'Business current'
             ),
-            source: 'linked_bank',
+            source: linked ? 'linked_bank' : 'wallet_details',
           },
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
@@ -482,13 +554,16 @@ export async function handleCashMznCredit(params: {
       return
     }
 
-    await zarRef.set(
-      {
-        [FIRST_PAYOUT_STATUS_FIELD]: 'awaiting_details' satisfies FirstPayoutStatus,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    )
+    // Never downgrade a completed / already-filed payout back to awaiting_details.
+    if (existingStatus !== 'done' && !hasPayoutAccount) {
+      await zarRef.set(
+        {
+          [FIRST_PAYOUT_STATUS_FIELD]: 'awaiting_details' satisfies FirstPayoutStatus,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      )
+    }
     await publishLiquidNow({
       userId: params.userId,
       zarAmount: args.zarAmount,

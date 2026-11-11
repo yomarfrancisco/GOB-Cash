@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   inventoryBarsArmed,
+  mznFastCycleArmed,
   nextSettleAt09hSastExclusive,
   sharedDripProgress,
   transitDayBarPercent,
@@ -41,6 +42,8 @@ export function useTransitDayClock(params: {
   /** When this MZN book arrived — drip only counts cycles after this. */
   mznSinceMs?: number | null
   remainingPlannedMzn?: number
+  /** Cap projected transit ZAR to the next liquidity-event slice. */
+  maxDripZar?: number | null
 }): TransitDayClockView {
   const [nowMs, setNowMs] = useState(() => Date.now())
 
@@ -66,6 +69,7 @@ export function useTransitDayClock(params: {
         nowMs,
         sinceMs: params.mznSinceMs,
         remainingPlannedMzn: params.remainingPlannedMzn,
+        maxDripZar: params.maxDripZar,
       })
     : {
         drippedMzn: 0,
@@ -75,8 +79,15 @@ export function useTransitDayClock(params: {
       }
 
   const dayFill = armed ? transitDayBarPercent(nowMs) : 0
-  const mznBarPercent =
-    armed && Number(params.walletMzn) > 0 ? drip.mznCycleBarPercent : 0
+  // Belt-and-suspenders: never animate the fast cycle once the next slot is full.
+  const cycleArmed =
+    armed &&
+    Number(params.walletMzn) > 0 &&
+    mznFastCycleArmed({
+      maxDripZar: params.maxDripZar,
+      drippedZar: drip.displayTransitZarOffset,
+    })
+  const mznBarPercent = cycleArmed ? drip.mznCycleBarPercent : 0
   const zarBookActive =
     Number(params.walletZar) > 0 ||
     Number(params.walletTransitZar) > 0 ||

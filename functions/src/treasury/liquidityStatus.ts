@@ -16,6 +16,7 @@ import {
   type LiquidityState,
 } from './computeLiquidity'
 import { roundMajor } from './reserveBooks'
+import { refreshNextOpenBookings } from './nextOpenBooking'
 
 const db = admin.firestore()
 
@@ -171,6 +172,15 @@ async function freezePriorLiveReports(
 export async function publishLiquidityStatus(adminUid: string): Promise<LiquidityStatusReport> {
   const nowMs = Date.now()
   const now = admin.firestore.Timestamp.fromMillis(nowMs)
+  // Refresh reserve+queue bookings first so the report answers "where / why"
+  // from the live zarReserve + FCFS queue (AI-routing acceleration later).
+  try {
+    await refreshNextOpenBookings({ nowMs })
+  } catch (error) {
+    console.warn('[liquidity_report] next-open booking refresh failed', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
   const pipe = await computeLiquidity(adminUid, nowMs)
 
   if (!pipe.reconciled) {
@@ -253,7 +263,7 @@ export async function publishLiquidityStatus(adminUid: string): Promise<Liquidit
           liquidPct,
           pipeSegments,
           timeline,
-          note: 'Times are estimates. New funding extends the job; held amounts roll to the next window.',
+          note: 'Where your money is: liquid now, booked against zarReserve for the next 09:00 open, or still queued in FCFS for a later open. Times are estimates; new funding and queue changes move the booking.',
           withdrawZar: pipe.liquidZar > 0.005 ? pipe.liquidZar : 0,
           reconciled: pipe.reconciled,
           unaccountedZar: pipe.unaccountedZar,

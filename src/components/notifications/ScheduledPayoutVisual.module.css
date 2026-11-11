@@ -1,0 +1,199 @@
+/* Template: Fund MZN intro `.watch` + `.miniCard` (light casing + ID-1 ZAR card). */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 10px 0 8px;
+  max-width: 600px;
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  color: var(--desk-ink, #18181b);
+}
+
+.watch {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f3f0e8;
+}
+
+.watchTitle {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--desk-muted, #5e5e66);
+}
+
+/* Same ID-1 ratio as Fund MZN intro / home Inventory cards. */
+.miniCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 86 / 54;
+  padding: 16px 16px 52px;
+  border-radius: 14px;
+  background: #2c2c2e;
+  color: #f5f5f5;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.lane {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.72;
+  margin-bottom: 4px;
+}
+
+.amt {
+  margin: 0;
+  font-size: 52px;
+  font-weight: 600;
+  letter-spacing: 0.21px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.sub {
+  margin-top: 6px;
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.liqTrack {
+  position: absolute;
+  right: 16px;
+  bottom: 24px;
+  width: 42%;
+  max-width: 168px;
+  min-width: 96px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.liqFill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: #a8e6c3;
+}
+
+.countdownBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.countdown {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--desk-ink, #18181b);
+}
+
+.countdownBig {
+  margin: 4px 0 2px;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -1.2px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--desk-ink, #18181b);
+  -webkit-font-smoothing: antialiased;
+}
+
+.track {
+  height: 6px;
+  border-radius: 999px;
+  background: #ddd7c8;
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  background: #1c1c1e;
+  border-radius: 999px;
+  transition: width 200ms linear;
+}
+
+.trackLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--desk-muted, #5e5e66);
+}
+
+.destRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--desk-border, #e2ded3);
+  border-radius: 14px;
+  background: var(--desk-bg-card, #fffffe);
+}
+
+.destCopy {
+  min-width: 0;
+}
+
+.destBank {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--desk-ink, #18181b);
+}
+
+.destHolder {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--desk-muted, #5e5e66);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.changeBtn {
+  appearance: none;
+  align-self: stretch;
+  border: 1px solid var(--desk-ink, #18181b);
+  background: #fff;
+  border-radius: 999px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--desk-ink, #18181b);
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.changeBtn:hover {
+  background: #f7f4ee;
+}
+
+.note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--desk-muted, #5e5e66);
+}

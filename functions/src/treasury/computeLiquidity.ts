@@ -9,10 +9,12 @@ import {
   EFT_POLICY_V1,
   nextCardSettleByIso,
   openEftZar,
-  splitReplacementChannels,
-  type ChannelTicket,
   type EftDeskBook,
 } from '../routing/channelSplit'
+import {
+  packDualRailResidual,
+  PLANNED_CARD_DAY_TARGET_ZAR,
+} from './routingPlan'
 import {
   costMznPerZarFromSell,
   MZN_PER_ZAR_FALLBACK,
@@ -30,7 +32,14 @@ function roundMajor(value: number): number {
 const CURRENT = 'adminConversionCurrent'
 const TESTS = 'adminConversionTests'
 
-export type LiquidityStateKind = 'liquid' | 'clearing' | 'card' | 'eft' | 'held'
+export type LiquidityStateKind =
+  | 'liquid'
+  | 'clearing'
+  | 'reserve'
+  | 'queued'
+  | 'card'
+  | 'eft'
+  | 'held'
 
 export type LiquidityState = {
   kind: LiquidityStateKind
@@ -120,28 +129,11 @@ function openEftStates(book: EftDeskBook | null | undefined, nowMs: number): Liq
   return out
 }
 
-function cardStatesFromTickets(tickets: ChannelTicket[]): LiquidityState[] {
-  const byDay = new Map<number, number>()
-  for (const t of tickets) {
-    if (!(t.amountZar > 0.005)) continue
-    const due = Date.parse(t.expectedSettledBy)
-    if (!Number.isFinite(due)) continue
-    byDay.set(due, money((byDay.get(due) || 0) + t.amountZar))
-  }
-  return [...byDay.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([landsAt, amountZar]) => ({
-      kind: 'card' as const,
-      amountZar,
-      landsAt,
-      label: 'card window',
-    }))
-}
-
 /**
  * Pure pipe math. `remainingToConvertZar` is MZN still on the wallet ÷ rate.
- * Open EFT tickets are preferred; the rest of the residual is scheduled via
- * existing splitReplacementChannels (card windows + any extra EFT).
+ *
+ * Residual schedule matches the client routing plan: planned card days
+ * (infrastructure day target) + parallel EFT T+2. Live open EFT tickets still count.
  */
 export function assembleLiquidityPipe(input: {
   atMs: number
@@ -151,6 +143,15 @@ export function assembleLiquidityPipe(input: {
   rate: number
   eftBook?: EftDeskBook | null
   bufferUsedZar?: number
+  /** Booked against zarReserve for the next 09:00 open (FCFS + daily cap). */
+  nextOpenBookedZar?: number
+  nextOpenAtMs?: number | null
+  nextOpenQueueRank?: number | null
+  nextOpenQueueAheadZar?: number
+  nextOpenSkipReason?: string | null
+  nextOpenReservePoolZar?: number
+  /** True when a next-open plan was computed for this wallet. */
+  hasNextOpenPlan?: boolean
 }): LiquiditySnapshot {
   const atMs = input.atMs
   const rate = input.rate > 0 ? input.rate : 0
@@ -193,47 +194,38 @@ export function assembleLiquidityPipe(input: {
     residual = 0
   }
 
+  const openAtMs =
+    typeof input.nextOpenAtMs === 'number' && input.nextOpenAtMs > 0
+      ? input.nextOpenAtMs
+      : nextClearMs(atMs)
+  const bookedCap = money(Math.max(0, Number(input.nextOpenBookedZar) || 0))
+
+  // Same dual-rail as the client routing plan: planned card days + parallel EFT T+2.
   if (residual > 0.005) {
-    const split = splitReplacementChannels({
-      amountZar: residual,
+    const packed = packDualRailResidual({
+      residualZar: residual,
       nowMs: atMs,
-      shockId: `liq-${atMs}`,
+      nextOpenAtMs: openAtMs,
+      plannedDayTargetZar: PLANNED_CARD_DAY_TARGET_ZAR,
+      nextOpenBookedZar: bookedCap > 0.005 ? bookedCap : null,
     })
-    // If we already counted live EFT, only take card tickets from this split.
-    const cardOnly =
-      openEft > 0.005
-        ? split.cardTickets
-        : [...split.cardTickets, ...split.eftTickets]
-    if (openEft > 0.005) {
-      for (const row of cardStatesFromTickets(split.cardTickets)) states.push(row)
-      // Any EFT slice from the residual split that wasn't in the live book.
-      for (const t of split.eftTickets) {
-        const amountZar = money(t.amountZar)
-        if (!(amountZar > 0.005)) continue
-        const due = Date.parse(t.expectedSettledBy)
-        states.push({
-          kind: 'eft',
-          amountZar,
-          landsAt: Number.isFinite(due) ? due : null,
-          label: 'EFT · T+2 banking days',
-        })
-      }
-    } else {
-      for (const row of cardStatesFromTickets(cardOnly.filter((t) => t.channel === 'card'))) {
-        states.push(row)
-      }
-      for (const t of cardOnly.filter((t) => t.channel === 'eft')) {
-        const amountZar = money(t.amountZar)
-        if (!(amountZar > 0.005)) continue
-        const due = Date.parse(t.expectedSettledBy)
-        states.push({
-          kind: 'eft',
-          amountZar,
-          landsAt: Number.isFinite(due) ? due : null,
-          label: 'EFT · T+2 banking days',
-        })
-      }
+    for (const c of packed.cardLegs) {
+      states.push({
+        kind: 'card',
+        amountZar: c.amountZar,
+        landsAt: c.landsAtMs,
+        label: c.reserved ? 'card · reserved · planned day' : 'card · planned day',
+      })
     }
+    if (packed.eftZar > 0.005) {
+      states.push({
+        kind: 'eft',
+        amountZar: packed.eftZar,
+        landsAt: packed.eftAtMs,
+        label: 'EFT · T+2 banking days',
+      })
+    }
+    residual = 0
   }
 
   // Held: sold float awaiting a route (bufferUsed) that isn't covered by states above,
@@ -305,9 +297,23 @@ export async function computeLiquidity(
     db.collection(CURRENT).doc(clientId).get(),
   ])
 
-  const cashMzn = money(Number(mznSnap.data()?.fiatBalance || 0))
+  const mznData = mznSnap.data() || {}
+  const cashMzn = money(Number(mznData.fiatBalance || 0))
   const liquidZar = money(Number(zarSnap.data()?.fiatBalance || 0))
   const earningsZar = money(Number(earnSnap.data()?.fiatBalance || 0))
+  const nextOpenBookedZar = money(Number(mznData.nextOpenBookedZar || 0))
+  const nextOpenAtMs =
+    typeof mznData.nextOpenAtMs === 'number' && mznData.nextOpenAtMs > 0
+      ? mznData.nextOpenAtMs
+      : null
+  const nextOpenQueueRank =
+    typeof mznData.nextOpenQueueRank === 'number' ? mznData.nextOpenQueueRank : null
+  const nextOpenQueueAheadZar = money(Number(mznData.nextOpenQueueAheadZar || 0))
+  const nextOpenSkipReason =
+    typeof mznData.nextOpenSkipReason === 'string' ? mznData.nextOpenSkipReason : null
+  const nextOpenReservePoolZar = money(Number(mznData.nextOpenReservePoolZar || 0))
+  const hasNextOpenPlan =
+    typeof mznData.nextOpenComputedAtMs === 'number' && mznData.nextOpenComputedAtMs > 0
 
   let clearingZar = earningsZar
   let openWeighted = 0
@@ -377,6 +383,13 @@ export async function computeLiquidity(
     rate,
     eftBook,
     bufferUsedZar,
+    nextOpenBookedZar,
+    nextOpenAtMs,
+    nextOpenQueueRank,
+    nextOpenQueueAheadZar,
+    nextOpenSkipReason,
+    nextOpenReservePoolZar,
+    hasNextOpenPlan,
   })
 }
 

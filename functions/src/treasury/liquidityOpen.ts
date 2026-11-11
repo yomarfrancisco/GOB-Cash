@@ -13,6 +13,11 @@ import { CONVERSION_ROUTING_KIND } from '../routing/conversionRouter'
 import { ensureReserveAtLeast, roundMajor } from './reserveBooks'
 import { planReserveSplit, payInstantFromReserve } from './reserveConvert'
 import { DAILY_LIQUID_ZAR_CAP } from './dailyLiquidZar'
+import { readUserNextOpenBooking, refreshNextOpenBookings } from './nextOpenBooking'
+import { assembleRoutingPlan } from './routingPlan'
+import { liquidCycleKeyAt } from './liquidZarCycle'
+
+const FIRST_PAYOUT_DETAILS_FIELD = 'firstPayoutDetails'
 
 export const LIQUIDITY_OPEN_HOUR_SAST = 9
 export const LIQUIDITY_OPEN_MINUTE_SAST = 0
@@ -37,6 +42,190 @@ function fmtZar(n: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
+}
+
+function maskAccount(accountNumber: string): string {
+  const digits = String(accountNumber || '').replace(/\s/g, '')
+  if (digits.length <= 4) return `··${digits}`
+  return `··${digits.slice(-4)}`
+}
+
+function formatOpenLabel(ms: number): string {
+  const shifted = new Date(ms + SAST_OFFSET_MS)
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const day = shifted.getUTCDate()
+  const mon = months[shifted.getUTCMonth()]
+  const hh = String(shifted.getUTCHours()).padStart(2, '0')
+  const mm = String(shifted.getUTCMinutes()).padStart(2, '0')
+  return `${day} ${mon} ${hh}:${mm}`
+}
+
+async function publishScheduledLiquidPayout(params: {
+  userId: string
+  zarAmount: number
+  openMs: number
+  cycleKey: string
+}): Promise<void> {
+  const zarSnap = await db()
+    .collection('users')
+    .doc(params.userId)
+    .collection('wallets')
+    .doc('cashZAR')
+    .get()
+  const details = (zarSnap.data()?.[FIRST_PAYOUT_DETAILS_FIELD] || {}) as {
+    bankName?: string
+    accountNumber?: string
+    accountHolderName?: string
+  }
+  const bankName = String(details.bankName || '').trim() || 'your bank'
+  const masked = maskAccount(String(details.accountNumber || ''))
+  const holder = String(details.accountHolderName || '').trim()
+  const bankTag = masked && masked !== '··' ? `${bankName} ${masked}` : bankName
+  const sendAtMs = params.openMs + 15 * 60 * 1000
+  const zarLabel = fmtZar(params.zarAmount)
+  const sentence = `${zarLabel} is liquid and goes to ${bankTag} at 09:15. Want it elsewhere? Change the account before then.`
+  const eventId = `liquid-zar-payout-${params.cycleKey}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
+  await db()
+    .collection('users')
+    .doc(params.userId)
+    .collection('activityEvents')
+    .doc(eventId)
+    .set(
+      {
+        id: eventId,
+        kind: CONVERSION_ROUTING_KIND,
+        title: 'Paying out at 09:15',
+        body: sentence,
+        deskSentence: sentence,
+        dropdownTitle: 'Paying out',
+        dropdownBody: `${zarLabel} · ${bankTag} · 09:15`,
+        deskStatusChip: '',
+        deskPendingChip: 'Scheduled',
+        deskLedgerRows: [
+          { label: 'Liquid', value: zarLabel, valueStrong: true },
+          { label: 'To', value: bankTag },
+          { label: 'Leaves', value: '09:15' },
+        ],
+        actorType: 'ai_manager',
+        avatarKind: 'zar_withdrawn',
+        amountCurrency: 'ZAR',
+        amountValue: params.zarAmount,
+        amountSign: 'credit',
+        txId: eventId,
+        groupId: eventId,
+        hasDownloadButton: false,
+        awaitingConfirm: false,
+        routingBlocked: false,
+        status: 'recorded',
+        routingAction: 'daily_liquid_zar_payout',
+        deskSpeaker: 'leo',
+        liquidCycleKey: params.cycleKey,
+        payoutScheduled: true,
+        payoutSendAtMs: sendAtMs,
+        payoutLiquidAtMs: params.openMs,
+        payoutBankTag: bankTag,
+        payoutBankHolder: holder,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        recordingSource: 'SYSTEM',
+      },
+      { merge: true }
+    )
+}
+
+async function publishResidualQueueNotice(params: {
+  userId: string
+  residualMzn: number
+  windowKey: string
+  nextOpenAtMs: number | null
+}): Promise<void> {
+  if (!(params.residualMzn > 0.005)) return
+  const when =
+    params.nextOpenAtMs && params.nextOpenAtMs > 0
+      ? formatOpenLabel(params.nextOpenAtMs)
+      : 'the next 09:00 open'
+  const mznLabel = fmtMzn(params.residualMzn)
+  const fallbackSentence = `${mznLabel} queued for ${when} · waiting on reserve`
+  const eventId = `liquidity-queue-residual-${params.windowKey}-${params.userId}`
+    .replace(/[^\w.-]+/g, '-')
+    .slice(0, 180)
+
+  const booking = await readUserNextOpenBooking(params.userId)
+  const zarSnap = await db()
+    .collection('users')
+    .doc(params.userId)
+    .collection('wallets')
+    .doc('cashZAR')
+    .get()
+  const details = (zarSnap.data()?.[FIRST_PAYOUT_DETAILS_FIELD] || {}) as {
+    bankName?: string
+    accountNumber?: string
+  }
+  const bankName = String(details.bankName || '').trim()
+  const masked = maskAccount(String(details.accountNumber || ''))
+  const bankTag =
+    bankName && masked && masked !== '··' ? `${bankName} ${masked}` : bankName || null
+
+  let sellRate = 0
+  try {
+    sellRate = await fetchQuotedMznPerZar(MZN_ZAR_MARKUP)
+  } catch {
+    sellRate = 0
+  }
+
+  const routingPlan = assembleRoutingPlan({
+    nowMs: Date.now(),
+    fundedMzn: params.residualMzn,
+    zarLiquid: 0,
+    mznResidual: params.residualMzn,
+    rate: sellRate > 0 ? sellRate : 4.47,
+    nextOpenBookedZar: booking?.bookedZar ?? 0,
+    nextOpenAtMs: booking?.openAtMs ?? params.nextOpenAtMs,
+    reservePoolZar: booking?.reservePoolZar ?? null,
+    queueAheadZar: booking?.queueAheadZar ?? 0,
+    payoutBankTag: bankTag,
+  })
+  const sentence = routingPlan?.sentence || fallbackSentence
+
+  await db()
+    .collection('users')
+    .doc(params.userId)
+    .collection('activityEvents')
+    .doc(eventId)
+    .set(
+      {
+        id: eventId,
+        kind: CONVERSION_ROUTING_KIND,
+        title: routingPlan ? 'Your routing plan' : 'Still queued',
+        body: sentence,
+        deskSentence: sentence,
+        dropdownTitle: routingPlan ? 'Routing plan' : 'Queued',
+        dropdownBody: sentence,
+        deskLedgerRows: [
+          { label: 'Queued', value: mznLabel, valueStrong: true },
+          { label: 'Next open', value: when },
+          { label: 'Why', value: 'Waiting on zarReserve' },
+        ],
+        actorType: 'ai_manager',
+        avatarKind: 'convert_zar',
+        amountCurrency: 'MZN',
+        amountValue: params.residualMzn,
+        amountSign: 'debit',
+        txId: eventId,
+        groupId: eventId,
+        hasDownloadButton: false,
+        awaitingConfirm: false,
+        routingBlocked: false,
+        status: 'recorded',
+        routingAction: routingPlan ? 'routing_plan' : 'liquidity_queue_residual',
+        deskSpeaker: 'sam',
+        mznResidual: params.residualMzn,
+        liquidNowMode: 'none',
+        ...(routingPlan ? { routingPlan } : {}),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        recordingSource: 'SYSTEM',
+      },
+      { merge: true }
+    )
 }
 
 function sastParts(ms: number): { year: number; month: number; day: number; hour: number; minute: number } {
@@ -313,21 +502,14 @@ export async function drainLiquidityQueues(params?: {
             id: eventId,
             kind: CONVERSION_ROUTING_KIND,
             title: 'Liquidity open',
-            body: `${zarLabel} from your queue is liquid now. ${
-              residualMzn > 0.005
-                ? `${fmtMzn(residualMzn)} remains queued for the next window.`
-                : 'Queue cleared.'
-            }`,
+            body: `${zarLabel} from your queue is liquid now.`,
             deskSentence: `${zarLabel} from your queue is liquid now.`,
             dropdownTitle: 'Liquidity open',
-            dropdownBody: `${zarLabel} · queue cleared`,
+            dropdownBody: `${zarLabel} · liquid`,
             deskLedgerRows: [
               { label: 'Converted', value: fmtMzn(split.instantSource) },
               { label: 'Rate', value: `${sellRate.toFixed(4)} MZN/ZAR` },
               { label: 'Liquid ZAR', value: zarLabel, valueStrong: true },
-              ...(residualMzn > 0.005
-                ? [{ label: 'Still queued', value: fmtMzn(residualMzn) }]
-                : []),
             ],
             actorType: 'ai_manager',
             avatarKind: 'convert_zar',
@@ -348,6 +530,22 @@ export async function drainLiquidityQueues(params?: {
           { merge: true }
         )
 
+      // SA Bank Liaison: scheduled 09:15 sweep (same event id the payout job completes).
+      const cycleKey = liquidCycleKeyAt(openMs)
+      try {
+        await publishScheduledLiquidPayout({
+          userId: row.userId,
+          zarAmount: instant.destMajor,
+          openMs,
+          cycleKey,
+        })
+      } catch (error) {
+        functions.logger.warn('[drainLiquidityQueues] scheduled payout notice failed', {
+          userId: row.userId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+
       results.push({
         userId: row.userId,
         zarAmount: instant.destMajor,
@@ -365,6 +563,33 @@ export async function drainLiquidityQueues(params?: {
         mznConverted: 0,
         mznResidual: mznBalance,
         skipped: 'convert_error',
+      })
+    }
+  }
+
+  // After all converts: refresh FCFS bookings, then tell each residual claimant why.
+  let planNextOpenAt: number | null = null
+  try {
+    const plan = await refreshNextOpenBookings()
+    planNextOpenAt = plan.openAtMs
+  } catch (error) {
+    functions.logger.warn('[drainLiquidityQueues] post-drain booking refresh failed', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+  for (const r of results) {
+    if (!(r.mznResidual > 0.005)) continue
+    try {
+      await publishResidualQueueNotice({
+        userId: r.userId,
+        residualMzn: r.mznResidual,
+        windowKey,
+        nextOpenAtMs: planNextOpenAt,
+      })
+    } catch (error) {
+      functions.logger.warn('[drainLiquidityQueues] residual queue notice failed', {
+        userId: r.userId,
+        error: error instanceof Error ? error.message : String(error),
       })
     }
   }
@@ -399,6 +624,15 @@ export const tx_drainLiquidityQueues = functions
         considered: results.length,
         paid: paid.length,
         totalZar: roundMajor(paid.reduce((s, r) => s + r.zarAmount, 0)),
+      })
+    }
+    // Always refresh next-open bookings (even outside the drain window) so
+    // drip + liquidity report stay aligned with real zarReserve + FCFS queue.
+    try {
+      await refreshNextOpenBookings()
+    } catch (error) {
+      functions.logger.warn('[tx_drainLiquidityQueues] next-open booking refresh failed', {
+        error: error instanceof Error ? error.message : String(error),
       })
     }
     return null

@@ -6,6 +6,7 @@ import {
   channelMixOf,
   nextCardSettleByIso,
   openEftZar,
+  reinstructEftOnSlip,
   splitReplacementChannels,
   mergeEftBook,
 } from './channelSplit'
@@ -53,5 +54,24 @@ describe('channelSplit', () => {
     const first = advanceEftBookPlannedDay(mergeEftBook(null, split), Date.parse('2026-10-20T10:00:00+02:00'))
     assert.ok(first.book.tickets.every((t) => t.status === 'submitted' || t.status === 'settled'))
     assert.equal(first.settledZar, 0)
+  })
+
+  it('on EFT T+2 slip, re-instructs EFT insurance without inventing card settle', () => {
+    const now = Date.parse('2026-10-20T10:00:00+02:00')
+    const split = splitReplacementChannels({ amountZar: 1_000_000, nowMs: now, shockId: 'slip-1' })
+    const book = mergeEftBook(null, split)
+    const pastDue = Date.parse(split.eftTickets[0]!.expectedSettledBy) + 60_000
+    const result = reinstructEftOnSlip({
+      book,
+      nowMs: pastDue,
+      unpaidZar: split.eftZar,
+      shockId: 'slip-1-retry',
+    })
+    assert.ok(result.overdue.length >= 1)
+    assert.ok(result.reinstruct)
+    assert.equal(result.reinstruct!.cardZar, 0)
+    assert.equal(result.reinstruct!.eftZar, split.eftZar)
+    assert.ok(result.reinstruct!.eftTickets.every((t) => t.channel === 'eft' && t.status === 'open'))
+    assert.ok(openEftZar(result.book) >= split.eftZar)
   })
 })

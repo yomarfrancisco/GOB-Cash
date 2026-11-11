@@ -9,6 +9,12 @@ import {
   FUND_MZN_RECIPIENT,
 } from '@/lib/notifications/welcomeSignIn'
 import { MZN_PER_ZAR, sellMznPerZar, zarToMzn } from '@/lib/mznZar'
+import {
+  formatDeskMajorMzn,
+  formatDeskMajorZar,
+  formatDeskMinorZar,
+} from '@/lib/desk/deskMoneyFormat'
+import { DeskDisclosure } from './DeskDisclosure'
 import styles from './FundMznIntroCard.module.css'
 
 /**
@@ -27,11 +33,11 @@ const DEMO_ANIM_MS = 2800
 const DEMO_LOOP_GAP_MS = 10_000
 
 function formatZarAmount(value: number): string {
-  return `R${Math.round(value).toLocaleString('en-US')}`
+  return formatDeskMajorZar(value)
 }
 
 function formatMznApprox(value: number): string {
-  return `≈ ${Math.round(value).toLocaleString('en-US')} MZN`
+  return `≈ ${formatDeskMajorMzn(value)}`
 }
 
 /** Map 0–1 progress onto amount, spending more time on the liquid fill phase. */
@@ -55,10 +61,8 @@ function demoLiquidFillPct(demoZar: number): number {
   if (!(demoZar > 0)) return 0
   const liquid = Math.min(DEMO_LIQUID_ZAR, demoZar)
   if (demoZar <= DEMO_LIQUID_ZAR) {
-    // Phase 1: bar fills with liquid capacity.
     return Math.max(0, Math.min(100, (liquid / DEMO_LIQUID_ZAR) * 100))
   }
-  // Phase 2: liquid capped; share of total shrinks.
   return Math.max(0, Math.min(100, (liquid / demoZar) * 100))
 }
 
@@ -76,9 +80,6 @@ function fundIntroBodyEn(name: string): ReactNode {
       <br />
       <strong>2. Tell us where to pay.</strong> The Routing Manager will ask for your South African
       bank account once. After that, we pay out automatically.
-      <br />
-      <br />
-      Your PAGA MZN account:
     </>
   )
 }
@@ -96,9 +97,6 @@ function fundIntroBodyPt(name: string): ReactNode {
       <br />
       <strong>2. Diga-nos para onde pagar.</strong> O Routing Manager pede-lhe a sua conta bancária
       sul-africana uma única vez. A partir daí, pagamos automaticamente.
-      <br />
-      <br />
-      A sua conta MZN no PAGA:
     </>
   )
 }
@@ -106,12 +104,13 @@ function fundIntroBodyPt(name: string): ReactNode {
 const COPY = {
   en: {
     body: fundIntroBodyEn,
-    recipient: 'Recipient',
+    recipient: 'Name',
     bank: 'Bank',
     account: 'Account',
     reference: 'Reference',
-    refNote: 'Add this reference so we can match your transfer.',
+    refNote: 'Use the reference so we can match your transfer.',
     watchTitle: 'Watch it become liquid',
+    howItWorks: 'How it works',
     explain: (
       <>
         The <strong>green bar</strong> on your ZAR card shows how much is liquid. Up to{' '}
@@ -124,12 +123,13 @@ const COPY = {
   },
   pt: {
     body: fundIntroBodyPt,
-    recipient: 'Beneficiário',
+    recipient: 'Nome',
     bank: 'Banco',
     account: 'Conta',
     reference: 'Referência',
-    refNote: 'Inclua esta referência para conseguirmos identificar a transferência.',
+    refNote: 'Use a referência para conseguirmos identificar a transferência.',
     watchTitle: 'Veja ficar líquido',
+    howItWorks: 'Como funciona',
     explain: (
       <>
         A <strong>barra verde</strong> no seu cartão ZAR mostra quanto está líquido. Até{' '}
@@ -232,7 +232,6 @@ export function FundMznIntroCard({
     setLocale(localeProp)
   }, [localeProp])
 
-  // Pause the educational fill when scrolled off or desk closed (unmount).
   useEffect(() => {
     const node = rootRef.current
     if (!node || typeof IntersectionObserver === 'undefined') return
@@ -285,10 +284,8 @@ export function FundMznIntroCard({
     }
   }, [inView])
 
-  const switchLocale = (next: FundIntroLocale) => {
-    setLocale(next)
-    onLocaleChange?.(next)
-  }
+  // Keep onLocaleChange wired for shell PT chip; card no longer owns the toggle UI.
+  void onLocaleChange
 
   const copy = COPY[locale]
   const account =
@@ -300,7 +297,8 @@ export function FundMznIntroCard({
     item.deskLedgerRows?.find((row) => /^reference$/i.test(row.label))?.value ||
     ''
   const recipient =
-    item.deskLedgerRows?.find((row) => /^recipient$/i.test(row.label))?.value || FUND_MZN_RECIPIENT
+    item.deskLedgerRows?.find((row) => /^recipient$/i.test(row.label) || /^name$/i.test(row.label))
+      ?.value || FUND_MZN_RECIPIENT
   const bank = item.deskLedgerRows?.find((row) => /^bank$/i.test(row.label))?.value || FUND_MZN_BANK
   const [copiedKey, setCopiedKey] = useState<'account' | 'reference' | null>(null)
 
@@ -327,18 +325,6 @@ export function FundMznIntroCard({
     item.deskSentence?.match(/^(?:Hi|Olá)\s+([^.,]+)/i)?.[1]?.trim() ||
     item.actor?.name?.trim().split(/\s+/)[0] ||
     (locale === 'pt' ? 'aí' : 'there')
-  const wireBody =
-    locale === 'pt' ? (
-      <>
-        Envie <strong>{formatMznApprox(wireMzn).replace(/^≈\s*/, '')}</strong> para a conta abaixo
-        para financiar cerca de <strong>{formatZarAmount(wireZar)}</strong>.
-      </>
-    ) : (
-      <>
-        Send <strong>{formatMznApprox(wireMzn).replace(/^≈\s*/, '')}</strong> to the account below
-        to fund about <strong>{formatZarAmount(wireZar)}</strong>.
-      </>
-    )
 
   const markCopied = (key: 'account' | 'reference') => {
     setCopiedKey(key)
@@ -347,61 +333,7 @@ export function FundMznIntroCard({
 
   return (
     <div className={styles.root} ref={rootRef}>
-      <div className={styles.langSwitch} role="group" aria-label="Language">
-        <button
-          type="button"
-          className={[styles.langBtn, locale === 'en' ? styles.langBtnActive : ''].filter(Boolean).join(' ')}
-          aria-pressed={locale === 'en'}
-          onPointerDown={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            switchLocale('en')
-          }}
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            switchLocale('en')
-          }}
-        >
-          EN
-        </button>
-        <button
-          type="button"
-          className={[styles.langBtn, locale === 'pt' ? styles.langBtnActive : ''].filter(Boolean).join(' ')}
-          aria-pressed={locale === 'pt'}
-          onPointerDown={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            switchLocale('pt')
-          }}
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            switchLocale('pt')
-          }}
-        >
-          PT
-        </button>
-      </div>
-
-      <p className={styles.body}>{isWire ? wireBody : copy.body(firstName)}</p>
-
       <div className={styles.ledger}>
-        {isWire ? (
-          <>
-            <LedgerRow
-              label={locale === 'pt' ? 'Enviar' : 'Send'}
-              value={formatMznApprox(wireMzn).replace(/^≈\s*/, '')}
-              strong
-            />
-            <LedgerRow
-              label={locale === 'pt' ? 'Recebe' : 'Gets you'}
-              value={`about ${formatZarAmount(wireZar)}`}
-              strong
-            />
-          </>
-        ) : null}
-        <LedgerRow label={copy.recipient} value={recipient} strong />
         <LedgerRow label={copy.bank} value={bank} />
         <LedgerRow
           label={copy.account}
@@ -423,70 +355,88 @@ export function FundMznIntroCard({
           copyable
           copyLabel={copy.copyReference}
           copied={copiedKey === 'reference'}
-          last
           onCopy={() => {
             void copyText(reference).then((ok) => {
               if (ok) markCopied('reference')
             })
           }}
         />
+        <LedgerRow label={copy.recipient} value={recipient} strong last />
         <p className={styles.refNote}>{copy.refNote}</p>
       </div>
 
-      <section className={styles.watch} aria-label={copy.watchTitle}>
-        <h3 className={styles.watchTitle}>
-          {isWire
-            ? locale === 'pt'
-              ? 'O que acontece no cartão'
-              : 'What lands on your card'
-            : copy.watchTitle}
-        </h3>
-        <div className={styles.miniCard} aria-hidden>
-          <div className={styles.miniCardAmt}>{formatZarAmount(demoZar)}</div>
-          <div className={styles.miniCardApprox}>{formatMznApprox(demoMzn)}</div>
-          <span className={styles.ratePill}>{liveSell.toFixed(2)}Mt/R</span>
-          <span
-            className={styles.liqTrack}
-            title="Liquidity bar"
-            role="img"
-            aria-label={`Liquid ${Math.round(liquidFillPct)} percent`}
-          >
-            <span
-              className={styles.liqFill}
-              style={{ width: `${Math.max(0, Math.min(100, liquidFillPct))}%` }}
-            />
-          </span>
-        </div>
-        <p className={styles.explain}>
-          <span className={styles.explainIcon} aria-hidden>
-            <span className={styles.explainIconBar} />
-          </span>
-          <span>
-            {isWire ? (
-              locale === 'pt' ? (
-                <>
-                  A <strong>barra verde</strong> mostra quanto deste financiamento fica líquido já
-                  (até <strong>R100.000</strong>/dia). O restante às <strong>09:00</strong>.
-                </>
-              ) : (
-                <>
-                  The <strong>green bar</strong> shows how much of this fund is liquid now (up to{' '}
-                  <strong>R100,000</strong>/day). The rest lands at <strong>09:00</strong>.
-                </>
-              )
+      <DeskDisclosure label={copy.howItWorks}>
+        <p className={styles.body}>{copy.body(firstName)}</p>
+        {isWire ? (
+          <p className={styles.body}>
+            {locale === 'pt' ? (
+              <>
+                Envie <strong>{formatMznApprox(wireMzn).replace(/^≈\s*/, '')}</strong> para financiar
+                cerca de <strong>{formatDeskMinorZar(wireZar)}</strong>.
+              </>
             ) : (
-              copy.explain
+              <>
+                Send <strong>{formatMznApprox(wireMzn).replace(/^≈\s*/, '')}</strong> to fund about{' '}
+                <strong>{formatDeskMinorZar(wireZar)}</strong>.
+              </>
             )}
-          </span>
-        </p>
-      </section>
+          </p>
+        ) : null}
+        <section className={styles.watch} aria-label={copy.watchTitle}>
+          <h3 className={styles.watchTitle}>
+            {isWire
+              ? locale === 'pt'
+                ? 'O que acontece no cartão'
+                : 'What lands on your card'
+              : copy.watchTitle}
+          </h3>
+          <div className={styles.miniCard} aria-hidden>
+            <div className={styles.miniCardAmt}>{formatZarAmount(demoZar)}</div>
+            <div className={styles.miniCardApprox}>{formatMznApprox(demoMzn)}</div>
+            <span className={styles.ratePill}>{liveSell.toFixed(2)} Mt/R</span>
+            <span
+              className={styles.liqTrack}
+              title="Liquidity bar"
+              role="img"
+              aria-label={`Liquid ${Math.round(liquidFillPct)} percent`}
+            >
+              <span
+                className={styles.liqFill}
+                style={{ width: `${Math.max(0, Math.min(100, liquidFillPct))}%` }}
+              />
+            </span>
+          </div>
+          <p className={styles.explain}>
+            <span className={styles.explainIcon} aria-hidden>
+              <span className={styles.explainIconBar} />
+            </span>
+            <span>
+              {isWire ? (
+                locale === 'pt' ? (
+                  <>
+                    A <strong>barra verde</strong> mostra quanto deste financiamento fica líquido já
+                    (até <strong>R100.000</strong>/dia). O restante às <strong>09:00</strong>.
+                  </>
+                ) : (
+                  <>
+                    The <strong>green bar</strong> shows how much of this fund is liquid now (up to{' '}
+                    <strong>R100,000</strong>/day). The rest lands at <strong>09:00</strong>.
+                  </>
+                )
+              ) : (
+                copy.explain
+              )}
+            </span>
+          </p>
+        </section>
+      </DeskDisclosure>
     </div>
   )
 }
 
 export function fundIntroPrimaryLabel(locale: FundIntroLocale, watching: boolean): string {
-  if (locale === 'pt') return watching ? 'A acompanhar a transferência' : 'Já enviei a transferência'
-  return watching ? 'Watching for your transfer' : "I've sent the transfer"
+  if (locale === 'pt') return watching ? 'A acompanhar a transferência' : 'Já enviei'
+  return watching ? 'Watching for your transfer' : "I've sent it"
 }
 
 export function fundIntroSecondaryLabel(locale: FundIntroLocale): string {

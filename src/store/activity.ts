@@ -179,6 +179,31 @@ export type ActivityItem = {
   }
   /** Client-side same-day desk event ledger (synthetic group item). */
   deskEventGroup?: import('@/lib/desk/deskEventGroups').DeskEventGroup
+  /** Over-instant routing plan (card planned days + parallel EFT T+2). */
+  routingPlan?: {
+    sentence: string
+    fundedMzn: number
+    zarTotal: number
+    zarLiquid: number
+    mznResidual: number
+    rate: number
+    liquidPct: number
+    legs: Array<{
+      whenLabel: string
+      subLabel: string
+      amountZar: number
+      confidence: 'now' | 'reserved' | 'estimated' | string
+      chip: string
+      landsAtMs: number | null
+      channel?: 'instant' | 'card' | 'eft' | string
+    }>
+    fullLiquidAtMs: number | null
+    fullLiquidLabel: string
+    payoutBankTag: string | null
+    note: string
+    cardZar?: number
+    eftZar?: number
+  }
   /** Liquidity report (pipe) — live or frozen snapshot. */
   liquidityLive?: boolean
   liquidityChanges?: string[]

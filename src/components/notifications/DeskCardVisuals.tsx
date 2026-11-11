@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ActivityItem } from '@/store/activity'
 import styles from '@/app/activity/activity.module.css'
 import { RoutingStepCard } from './RoutingStepCard'
@@ -6,7 +7,14 @@ import { FundMznIntroCard, type FundIntroLocale } from './FundMznIntroCard'
 import { DeskPayoutAccountForm } from './DeskPayoutAccountForm'
 import { LiquidNowConvertVisual } from './LiquidNowConvertVisual'
 import { PaidOutStackVisual } from './PaidOutStackVisual'
+import { hasRoutingPlan, RoutingPlanVisual } from './RoutingPlanVisual'
+import {
+  isPaidLiquidPayout,
+  isScheduledLiquidPayout,
+  ScheduledPayoutVisual,
+} from './ScheduledPayoutVisual'
 import { BankEmailRoundBlock, BankExpectedRepliesBlock } from './BankEmailRoundBlock'
+import { DeskDisclosure } from './DeskDisclosure'
 
 const SERIES_COLOR = ['#111111', '#8aa31a', '#8a8a8a']
 
@@ -177,6 +185,8 @@ export function DeskCardVisuals({
   liveSellMznPerZar?: number | null
   showInlinePayoutForm?: boolean
 }) {
+  const [changeAccountOpen, setChangeAccountOpen] = useState(false)
+
   if (item.routingStepMessage) {
     return <RoutingStepCard message={item.routingStepMessage} />
   }
@@ -190,6 +200,18 @@ export function DeskCardVisuals({
       />
     )
   }
+  if (hasRoutingPlan(item) || item.routingAction === 'routing_plan') {
+    return (
+      <>
+        <RoutingPlanVisual item={item} />
+        {showInlinePayoutForm ? (
+          <DeskPayoutAccountForm
+            zarAmount={Number(item.amount?.value || item.routingPlan?.zarLiquid || 0)}
+          />
+        ) : null}
+      </>
+    )
+  }
   if (item.routingAction === 'liquid_now') {
     return (
       <>
@@ -200,8 +222,28 @@ export function DeskCardVisuals({
       </>
     )
   }
-  if (item.routingAction === 'payout_confirmed') {
+  if (isScheduledLiquidPayout(item)) {
+    return (
+      <>
+        <ScheduledPayoutVisual
+          item={item}
+          onChangeAccount={() => setChangeAccountOpen((v) => !v)}
+        />
+        {changeAccountOpen ? (
+          <DeskPayoutAccountForm zarAmount={Number(item.amount?.value || 0)} />
+        ) : null}
+      </>
+    )
+  }
+  if (item.routingAction === 'payout_confirmed' || isPaidLiquidPayout(item)) {
     return <PaidOutStackVisual item={item} />
+  }
+  if (item.routingAction === 'bank_notice' && item.deskLedgerRows?.length) {
+    return (
+      <DeskDisclosure label="Details">
+        <DeskStepBlock rows={item.deskLedgerRows} />
+      </DeskDisclosure>
+    )
   }
   if (
     item.deskPipes?.length ||
