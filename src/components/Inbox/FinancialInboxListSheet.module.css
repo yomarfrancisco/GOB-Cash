@@ -358,7 +358,7 @@
   pointer-events: none;
 }
 
-/* Occupies the former user-avatar gutter beside Ask. */
+/* Left of the user avatar beside Ask. */
 .deskAskCalc {
   flex-shrink: 0;
   width: 44px;

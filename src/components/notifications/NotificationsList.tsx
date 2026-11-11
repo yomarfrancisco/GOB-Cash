@@ -1518,6 +1518,7 @@ export function NotificationsList({
   const askBusy = askState !== 'idle'
   // Light up as soon as there’s real text — don’t gate the affordance on KYC.
   const askCanSend = !askBusy && askText.trim().length > 0
+  const askProfile = useUserProfileStore((s) => s.profile)
   // Runtime validator: auto-clear bad data
   useEffect(() => {
     const items = all()
@@ -2073,6 +2074,16 @@ export function NotificationsList({
               <circle cx="16" cy="16.5" r="1.15" fill="currentColor" />
             </svg>
           </button>
+          <div className={listStyles.deskAskAvatar} aria-hidden={!askProfile.fullName && !askProfile.userHandle}>
+            <Avatar
+              avatarUrl={askProfile.avatarUrl || null}
+              name={askProfile.fullName}
+              handle={askProfile.userHandle}
+              email={askProfile.email}
+              size={44}
+              rounded={12}
+            />
+          </div>
           <div className={listStyles.deskAskComposer}>
             <div
               className={styles.replyFrame}
