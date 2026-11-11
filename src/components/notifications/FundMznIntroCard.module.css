@@ -7,38 +7,6 @@
   color: var(--desk-ink, #18181b);
 }
 
-.langSwitch {
-  display: inline-flex;
-  align-self: flex-start;
-  padding: 3px;
-  border-radius: 999px;
-  background: #ece8dd;
-  gap: 0;
-  position: relative;
-  z-index: 2;
-  pointer-events: auto;
-}
-
-.langBtn {
-  appearance: none;
-  border: 0;
-  margin: 0;
-  padding: 7px 14px;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--desk-muted, #5e5e66);
-  font: 650 12px/1 var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  pointer-events: auto;
-}
-
-.langBtnActive {
-  background: var(--desk-ink, #18181b);
-  color: #fff;
-}
-
 .body {
   margin: 0;
   font-size: var(--desk-body, 15px);
@@ -50,84 +18,117 @@
   font-weight: 700;
 }
 
-.ledger {
-  background: var(--desk-bg-card, #fffffe);
-  border: 1px solid var(--desk-border, #e2ded3);
-  border-radius: 16px;
-  padding: 2px 4px 2px 14px;
+/* MZN-coloured transfer panel — same family as MZN cards, not a card back. */
+.transferPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 14px 14px 16px;
+  border-radius: 14px;
+  background: #5a2f4a;
+  color: #f5f5f5;
+  box-shadow: 0 6px 18px rgba(42, 20, 34, 0.18);
 }
 
-.ledgerRow {
+.transferTop {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  min-height: 44px;
-  padding: 8px 6px 8px 0;
-  border-bottom: 1px solid var(--desk-row-rule, #ece8dd);
-  background: transparent;
-  width: 100%;
-  box-sizing: border-box;
-  text-align: left;
-  font: inherit;
-  color: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.78;
 }
 
-.ledgerRowStatic {
-  cursor: default;
+.transferBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.ledgerRowCopyable {
-  cursor: pointer;
+.transferLabel {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.72;
+}
+
+.transferValueRow {
+  appearance: none;
   border: 0;
-  border-radius: 10px;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  max-width: 100%;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-.ledgerRowCopyable:active {
-  background: rgba(0, 0, 0, 0.04);
+.transferValue {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 
-.ledgerRowLast {
-  border-bottom: 0;
+.transferName {
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.78;
 }
 
-.ledgerLabel {
-  flex-shrink: 0;
-  font-size: var(--desk-meta, 13px);
-  color: var(--desk-muted, #5e5e66);
-}
-
-.ledgerValue {
+.referenceChip {
+  appearance: none;
+  border: 0;
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
-  font-size: var(--desk-card-value, 14px);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  color: var(--desk-ink, #18181b);
+  gap: 10px;
+  max-width: 100%;
+  border-radius: 10px;
+  background: var(--desk-yellow, #ffd36b);
+  color: #1c1c1e;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.ledgerValueStrong {
-  font-weight: 650;
+.referenceValue {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
 }
 
 .copyIcon {
   flex-shrink: 0;
-  color: var(--desk-ink, #18181b);
+  width: 32px;
+  height: 32px;
+  padding: 8px;
+  box-sizing: border-box;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.refNote {
-  margin: 0 10px 10px 0;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: #f7efc8;
-  color: #5c4b12;
-  font-size: 12px;
-  line-height: 1.35;
-  font-weight: 550;
+.copyIconDark {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 8px;
+  box-sizing: border-box;
+  color: #1c1c1e;
 }
 
 .watch {

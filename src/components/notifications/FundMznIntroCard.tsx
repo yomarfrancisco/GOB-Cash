@@ -9,6 +9,11 @@ import {
   FUND_MZN_RECIPIENT,
 } from '@/lib/notifications/welcomeSignIn'
 import { MZN_PER_ZAR, sellMznPerZar, zarToMzn } from '@/lib/mznZar'
+import {
+  formatDeskMajorMzn,
+  formatDeskMajorZar,
+  formatDeskMinorZar,
+} from '@/lib/desk/deskMoneyFormat'
 import { DeskDisclosure } from './DeskDisclosure'
 import styles from './FundMznIntroCard.module.css'
 
@@ -21,21 +26,10 @@ import styles from './FundMznIntroCard.module.css'
 const DEMO_START_ZAR = 0
 const DEMO_END_ZAR = 160_000
 const DEMO_LIQUID_ZAR = 100_000
-/** Share of the timeline spent filling up to the liquid cap. */
 const DEMO_LIQUID_PHASE = 0.58
 const DEMO_ANIM_MS = 2800
-/** Pause after a full fill before the educational loop restarts. */
 const DEMO_LOOP_GAP_MS = 10_000
 
-function formatZarAmount(value: number): string {
-  return `R${Math.round(value).toLocaleString('en-US')}`
-}
-
-function formatMznApprox(value: number): string {
-  return `≈ ${Math.round(value).toLocaleString('en-US')} MZN`
-}
-
-/** Map 0–1 progress onto amount, spending more time on the liquid fill phase. */
 function demoZarForProgress(progress: number, endZar = DEMO_END_ZAR): number {
   const t = Math.max(0, Math.min(1, progress))
   const end = Math.max(DEMO_START_ZAR, endZar)
@@ -51,7 +45,6 @@ function demoZarForProgress(progress: number, endZar = DEMO_END_ZAR): number {
   return liquidCap + (end - liquidCap) * local
 }
 
-/** Liquid share of the growing book — fills to 100% by R100k, then eases down. */
 function demoLiquidFillPct(demoZar: number): number {
   if (!(demoZar > 0)) return 0
   const liquid = Math.min(DEMO_LIQUID_ZAR, demoZar)
@@ -99,11 +92,9 @@ function fundIntroBodyPt(name: string): ReactNode {
 const COPY = {
   en: {
     body: fundIntroBodyEn,
-    recipient: 'Name',
-    bank: 'Bank',
-    account: 'Account',
-    reference: 'Reference',
-    refNote: 'Use the reference so we can match your transfer.',
+    transferLabel: 'BANK TRANSFER · MZN',
+    accountLabel: 'Account',
+    referenceLabel: 'Reference · add it so we can match you',
     watchTitle: 'Watch it become liquid',
     howItWorks: 'How it works',
     explain: (
@@ -118,11 +109,9 @@ const COPY = {
   },
   pt: {
     body: fundIntroBodyPt,
-    recipient: 'Nome',
-    bank: 'Banco',
-    account: 'Conta',
-    reference: 'Referência',
-    refNote: 'Use a referência para conseguirmos identificar a transferência.',
+    transferLabel: 'TRANSFERÊNCIA · MZN',
+    accountLabel: 'Conta',
+    referenceLabel: 'Referência · inclua para identificarmos',
     watchTitle: 'Veja ficar líquido',
     howItWorks: 'Como funciona',
     explain: (
@@ -144,66 +133,6 @@ async function copyText(value: string): Promise<boolean> {
   } catch {
     return false
   }
-}
-
-function LedgerRow({
-  label,
-  value,
-  strong,
-  copyable,
-  copyLabel,
-  copied,
-  onCopy,
-  last,
-}: {
-  label: string
-  value: string
-  strong?: boolean
-  copyable?: boolean
-  copyLabel?: string
-  copied?: boolean
-  onCopy?: () => void
-  last?: boolean
-}) {
-  const valueClass = [styles.ledgerValue, strong ? styles.ledgerValueStrong : ''].filter(Boolean).join(' ')
-  const rowClass = [
-    styles.ledgerRow,
-    copyable ? styles.ledgerRowCopyable : styles.ledgerRowStatic,
-    last ? styles.ledgerRowLast : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
-
-  if (!copyable) {
-    return (
-      <div className={rowClass}>
-        <span className={styles.ledgerLabel}>{label}</span>
-        <span className={valueClass}>{value}</span>
-      </div>
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      className={rowClass}
-      aria-label={copied ? COPY.en.copied : copyLabel}
-      onClick={(event) => {
-        event.stopPropagation()
-        onCopy?.()
-      }}
-    >
-      <span className={styles.ledgerLabel}>{label}</span>
-      <span className={valueClass}>
-        {value}
-        {copied ? (
-          <Check className={styles.copyIcon} size={15} strokeWidth={2.4} aria-hidden />
-        ) : (
-          <Copy className={styles.copyIcon} size={15} strokeWidth={2.25} aria-hidden />
-        )}
-      </span>
-    </button>
-  )
 }
 
 function resolveWireAmounts(
@@ -247,6 +176,9 @@ export function FundMznIntroCard({
   useEffect(() => {
     setLocale(localeProp)
   }, [localeProp])
+
+  // Locale is controlled from the shell PT chip.
+  void onLocaleChange
 
   useEffect(() => {
     const node = rootRef.current
@@ -300,11 +232,6 @@ export function FundMznIntroCard({
     }
   }, [inView])
 
-  const switchLocale = (next: FundIntroLocale) => {
-    setLocale(next)
-    onLocaleChange?.(next)
-  }
-
   const copy = COPY[locale]
   const account =
     item.fundAccountNumber ||
@@ -342,73 +269,56 @@ export function FundMznIntroCard({
 
   return (
     <div className={styles.root} ref={rootRef}>
-      <div className={styles.langSwitch} role="group" aria-label="Language">
-        <button
-          type="button"
-          className={[styles.langBtn, locale === 'en' ? styles.langBtnActive : ''].filter(Boolean).join(' ')}
-          aria-pressed={locale === 'en'}
-          onPointerDown={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            switchLocale('en')
-          }}
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            switchLocale('en')
-          }}
-        >
-          EN
-        </button>
-        <button
-          type="button"
-          className={[styles.langBtn, locale === 'pt' ? styles.langBtnActive : ''].filter(Boolean).join(' ')}
-          aria-pressed={locale === 'pt'}
-          onPointerDown={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            switchLocale('pt')
-          }}
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            switchLocale('pt')
-          }}
-        >
-          PT
-        </button>
-      </div>
+      <div className={styles.transferPanel}>
+        <div className={styles.transferTop}>
+          <span>{copy.transferLabel}</span>
+          <span>{bank}</span>
+        </div>
 
-      <div className={styles.ledger}>
-        <LedgerRow label={copy.bank} value={bank} />
-        <LedgerRow
-          label={copy.account}
-          value={account}
-          strong
-          copyable
-          copyLabel={copy.copyAccount}
-          copied={copiedKey === 'account'}
-          onCopy={() => {
-            void copyText(account).then((ok) => {
-              if (ok) markCopied('account')
-            })
-          }}
-        />
-        <LedgerRow
-          label={copy.reference}
-          value={reference}
-          strong
-          copyable
-          copyLabel={copy.copyReference}
-          copied={copiedKey === 'reference'}
-          onCopy={() => {
-            void copyText(reference).then((ok) => {
-              if (ok) markCopied('reference')
-            })
-          }}
-        />
-        <LedgerRow label={copy.recipient} value={recipient} strong last />
-        <p className={styles.refNote}>{copy.refNote}</p>
+        <div className={styles.transferBlock}>
+          <div className={styles.transferLabel}>{copy.accountLabel}</div>
+          <button
+            type="button"
+            className={styles.transferValueRow}
+            aria-label={copiedKey === 'account' ? copy.copied : copy.copyAccount}
+            onClick={(event) => {
+              event.stopPropagation()
+              void copyText(account).then((ok) => {
+                if (ok) markCopied('account')
+              })
+            }}
+          >
+            <span className={styles.transferValue}>{account}</span>
+            {copiedKey === 'account' ? (
+              <Check className={styles.copyIcon} size={16} strokeWidth={2.4} aria-hidden />
+            ) : (
+              <Copy className={styles.copyIcon} size={16} strokeWidth={2.25} aria-hidden />
+            )}
+          </button>
+          <div className={styles.transferName}>{recipient}</div>
+        </div>
+
+        <div className={styles.transferBlock}>
+          <div className={styles.transferLabel}>{copy.referenceLabel}</div>
+          <button
+            type="button"
+            className={styles.referenceChip}
+            aria-label={copiedKey === 'reference' ? copy.copied : copy.copyReference}
+            onClick={(event) => {
+              event.stopPropagation()
+              void copyText(reference).then((ok) => {
+                if (ok) markCopied('reference')
+              })
+            }}
+          >
+            <span className={styles.referenceValue}>{reference}</span>
+            {copiedKey === 'reference' ? (
+              <Check className={styles.copyIconDark} size={16} strokeWidth={2.4} aria-hidden />
+            ) : (
+              <Copy className={styles.copyIconDark} size={16} strokeWidth={2.25} aria-hidden />
+            )}
+          </button>
+        </div>
       </div>
 
       <DeskDisclosure label={copy.howItWorks}>
@@ -417,13 +327,13 @@ export function FundMznIntroCard({
           <p className={styles.body}>
             {locale === 'pt' ? (
               <>
-                Envie <strong>{formatMznApprox(wireMzn).replace(/^≈\s*/, '')}</strong> para financiar
-                cerca de <strong>{formatZarAmount(wireZar)}</strong>.
+                Envie <strong>{formatDeskMajorMzn(wireMzn)}</strong> para financiar cerca de{' '}
+                <strong>{formatDeskMinorZar(wireZar)}</strong>.
               </>
             ) : (
               <>
-                Send <strong>{formatMznApprox(wireMzn).replace(/^≈\s*/, '')}</strong> to fund about{' '}
-                <strong>{formatZarAmount(wireZar)}</strong>.
+                Send <strong>{formatDeskMajorMzn(wireMzn)}</strong> to fund about{' '}
+                <strong>{formatDeskMinorZar(wireZar)}</strong>.
               </>
             )}
           </p>
@@ -437,8 +347,8 @@ export function FundMznIntroCard({
               : copy.watchTitle}
           </h3>
           <div className={styles.miniCard} aria-hidden>
-            <div className={styles.miniCardAmt}>{formatZarAmount(demoZar)}</div>
-            <div className={styles.miniCardApprox}>{formatMznApprox(demoMzn)}</div>
+            <div className={styles.miniCardAmt}>{formatDeskMajorZar(demoZar)}</div>
+            <div className={styles.miniCardApprox}>≈ {formatDeskMajorMzn(demoMzn)}</div>
             <span className={styles.ratePill}>{liveSell.toFixed(2)} Mt/R</span>
             <span
               className={styles.liqTrack}
@@ -493,8 +403,9 @@ export function fundIntroTitle(locale: FundIntroLocale, item?: ActivityItem): st
   if (item?.routingAction === 'fund_wire') {
     const { mzn } = resolveWireAmounts(item, null)
     if (mzn > 0) {
-      const major = Math.round(mzn).toLocaleString('en-US')
-      return locale === 'pt' ? `Envie ${major} MZN.` : `Send ${major} MZN.`
+      return locale === 'pt'
+        ? `Envie ${formatDeskMajorMzn(mzn)}.`
+        : `Send ${formatDeskMajorMzn(mzn)}.`
     }
   }
   return locale === 'pt' ? 'Envie MZN aqui.' : 'Send MZN here.'
@@ -505,8 +416,8 @@ export function fundIntroLine(locale: FundIntroLocale, item?: ActivityItem): str
     const { zar } = resolveWireAmounts(item, null)
     if (zar > 0) {
       return locale === 'pt'
-        ? `Recebe cerca de ${formatZarAmount(zar)}.`
-        : `You get about ${formatZarAmount(zar)}.`
+        ? `Recebe cerca de ${formatDeskMinorZar(zar)}.`
+        : `You get about ${formatDeskMinorZar(zar)}.`
     }
   }
   return locale === 'pt'

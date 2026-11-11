@@ -971,10 +971,25 @@ function ActivityItemCard({
                 {highlightDeskText(title, styles.activityFigure)}
               </div>
             )}
-            <div className={styles.activityTime}>
-              {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-                ? formatVisibleSast(item.createdAt)
-                : formatRelativeShort(item.createdAt)}
+            <div className={styles.activityTimeCluster}>
+              {(isFundIntro || isFundWire) ? (
+                <button
+                  type="button"
+                  className={styles.activityLangChip}
+                  aria-label={fundLocale === 'en' ? 'Switch to Portuguese' : 'Switch to English'}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setFundLocale(fundLocale === 'en' ? 'pt' : 'en')
+                  }}
+                >
+                  {fundLocale === 'en' ? 'PT' : 'EN'}
+                </button>
+              ) : null}
+              <div className={styles.activityTime}>
+                {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+                  ? formatVisibleSast(item.createdAt)
+                  : formatRelativeShort(item.createdAt)}
+              </div>
             </div>
           </div>
         </div>
