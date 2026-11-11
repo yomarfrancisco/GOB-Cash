@@ -774,14 +774,12 @@ function HomeContent() {
           setConversionPrefill(undefined)
           setAgentCashKeypad(false)
           setAgentCashHandle(null)
-          // Dismiss path: keypad out, then desk text resumes (except header fund calc → home).
+          // Dismiss path: keypad out, then desk text resumes (fund calc included).
           const pendingPlay = useRoutingPlaybackStore.getState().play || clockPlayRef.current
           clockPlayRef.current = null
           if (!pendingPlay) return
           if (pendingPlay.routingAction === 'fund_calc') {
-            // Header calculator dismiss stays on home; "Fund this" already cleared play.
             useRoutingPlaybackStore.getState().clear()
-            return
           }
           resumeDeskAfterKeypad()
         }}

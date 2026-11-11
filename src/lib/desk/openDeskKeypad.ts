@@ -67,8 +67,8 @@ export function resumeDeskAfterKeypad(): void {
 }
 
 /**
- * Header calculator: MZN fund keypad over home. Dismiss stays on home;
- * "Fund this" opens the desk via resumeDeskAfterKeypad.
+ * Desk Ask calculator: MZN fund keypad over home.
+ * Dismiss or "Get a quote" both reopen the desk via resumeDeskAfterKeypad.
  */
 export function openHeaderFundCalculator(): boolean {
   if (isConversionInFlight()) return false

@@ -90,7 +90,7 @@ type AmountSheetProps = {
   playbackOnly?: boolean
   /**
    * Desk calculator: quote MZN to fund for a ZAR outcome (sell rate both tabs).
-   * No balance gate, no scan, CTA is "Fund my MZN account".
+   * No balance gate, no scan, CTA is "Get a quote".
    */
   fundCalculator?: boolean
 }
@@ -647,7 +647,7 @@ export default function AmountSheet({
             customFeeText={keypadFeeText}
           />
         </div>
-        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${usePinkKeypad ? 'amount-cta--pink' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: fundCalculator ? '0px' : '88px' }}>
+        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${usePinkKeypad ? 'amount-cta--pink' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {withdrawOnly ? (
             // Force single button for withdrawal flow
             <button 
@@ -722,7 +722,7 @@ export default function AmountSheet({
                 Monthly
               </button>
             </>
-          ) : fundCalculator ? null : isConversionKeypad ? (
+          ) : isConversionKeypad ? (
             <button
               className="amount-keypad__cta"
               onClick={() => {
@@ -736,11 +736,10 @@ export default function AmountSheet({
               disabled={
                 !isPositive ||
                 conversionBusy ||
-                exceedsZarBalance ||
-                exceedsMznBalance
+                (!fundCalculator && (exceedsZarBalance || exceedsMznBalance))
               }
             >
-              {isZarPrimaryKeypad ? 'Sell ZAR' : 'Buy ZAR'}
+              {fundCalculator ? 'Get a quote' : isZarPrimaryKeypad ? 'Sell ZAR' : 'Buy ZAR'}
             </button>
           ) : entryPoint === 'cashButton' ? (
             // Dual buttons for $ button entry point: "Request" and "Pay"
