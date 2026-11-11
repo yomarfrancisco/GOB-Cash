@@ -6,7 +6,7 @@ import { useNotificationsStore } from '@/state/notifications'
 import { useActivityUnreadStore } from '@/store/activityUnread'
 import { NotificationsList } from './NotificationsList'
 import { DESK_RING, DESK_TEAM, type DeskAgent } from '@/lib/desk/threadModel'
-import { useDeskSpeakerStore } from '@/store/deskSpeaker'
+import { useDeskSpeakerStore, type DeskFloor } from '@/store/deskSpeaker'
 import { useDeskFocusStore } from '@/store/deskFocus'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import { formatSastShortDayLabel } from '@/lib/routing/routingTime'
@@ -20,6 +20,8 @@ import { useDeskPlanStore } from '@/store/deskPlan'
 import { resetDeskRevealForLiveRestore } from '@/lib/desk/useProgressiveReveal'
 import { isDeskRevealHeld } from '@/lib/desk/deskRevealGate'
 import { useAuthStore } from '@/store/auth'
+import { useUserProfileStore } from '@/store/userProfile'
+import Avatar from '@/components/Avatar'
 import { SpeakerAvatar } from './SpeakerAvatar'
 import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 
@@ -27,17 +29,36 @@ import listStyles from '../Inbox/FinancialInboxListSheet.module.css'
 let plannedExitOnPageLoadDone = false
 
 /** Ring slot for each agent: the active one sits in front; the others retain their order behind. */
-const SLOT_CLASS = [listStyles.deskSlotTop, listStyles.deskSlotLeft, listStyles.deskSlotRight] as const
+const SLOT_CLASS = [
+  listStyles.deskSlotTop,
+  listStyles.deskSlotLeft,
+  listStyles.deskSlotRight,
+  listStyles.deskSlotHidden,
+] as const
 
-function slotFor(agent: DeskAgent, active: DeskAgent): string {
-  const offset = (DESK_RING.indexOf(agent) - DESK_RING.indexOf(active) + DESK_RING.length) % DESK_RING.length
+function slotForAgent(agent: DeskAgent, floor: DeskFloor, active: DeskAgent): string {
+  if (floor === 'you') {
+    // User takes centre; current speaker slides left; next right; third parks hidden.
+    const activeIdx = DESK_RING.indexOf(active)
+    if (agent === active) return listStyles.deskSlotLeft
+    if (agent === DESK_RING[(activeIdx + 1) % DESK_RING.length]) return listStyles.deskSlotRight
+    return listStyles.deskSlotHidden
+  }
+  const offset =
+    (DESK_RING.indexOf(agent) - DESK_RING.indexOf(floor) + DESK_RING.length) % DESK_RING.length
   return SLOT_CLASS[offset]
+}
+
+function slotForYou(floor: DeskFloor): string {
+  return floor === 'you' ? listStyles.deskSlotTop : listStyles.deskSlotHidden
 }
 
 export default function NotificationsSheet() {
   const { isNotificationsOpen, closeNotifications } = useNotificationsStore()
   const isAuthed = useAuthStore((s) => s.isAuthed)
   const active = useDeskSpeakerStore((s) => s.active)
+  const floor = useDeskSpeakerStore((s) => s.floor)
+  const askProfile = useUserProfileStore((s) => s.profile)
   const focusAt = useDeskFocusStore((s) => s.focusAt)
   const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
   const setLive = useDeskPlanStore((s) => s.setLive)
@@ -159,17 +180,30 @@ export default function NotificationsSheet() {
         <div className={listStyles.activitySearchOverlay}>
           <div className={listStyles.deskHeader}>
             <div className={listStyles.deskTeamStack} aria-hidden>
-              {DESK_RING.map((id) => (
-                <div key={id} className={`${listStyles.deskStackFace} ${slotFor(id, active)}`}>
-                  <SpeakerAvatar
-                    agent={id}
-                    size={id === active ? 56 : 40}
-                    speaking={id === active}
-                    shape="circle"
-                    priority
-                  />
-                </div>
-              ))}
+              {DESK_RING.map((id) => {
+                const speaking = floor !== 'you' && id === floor
+                return (
+                  <div key={id} className={`${listStyles.deskStackFace} ${slotForAgent(id, floor, active)}`}>
+                    <SpeakerAvatar
+                      agent={id}
+                      size={speaking ? 56 : 40}
+                      speaking={speaking}
+                      shape="circle"
+                      priority
+                    />
+                  </div>
+                )
+              })}
+              <div className={`${listStyles.deskStackFace} ${slotForYou(floor)}`}>
+                <Avatar
+                  avatarUrl={askProfile.avatarUrl || null}
+                  name={askProfile.fullName}
+                  handle={askProfile.userHandle}
+                  email={askProfile.email}
+                  size={floor === 'you' ? 56 : 40}
+                  rounded={999}
+                />
+              </div>
             </div>
             <p className={listStyles.deskHeaderDate}>{headerDate}</p>
           </div>

@@ -1,9 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { Calculator } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { openHeaderFundCalculator } from '@/lib/desk/openDeskKeypad'
 
 type TopGlassBarProps = {
   hideLogo?: boolean // Hide logo for third-party profiles
@@ -14,17 +12,12 @@ type TopGlassBarProps = {
 export default function TopGlassBar({
   hideLogo = false,
   glassShardSrc,
-  hideIcons = false,
 }: TopGlassBarProps = {}) {
   const pathname = usePathname()
   const isActivityPage = pathname === '/activity'
 
   const defaultGlassShard = '/assets/core/glass-top-4.png'
   const glassShard = glassShardSrc || defaultGlassShard
-
-  const handleOpenCalculator = () => {
-    openHeaderFundCalculator()
-  }
 
   return (
     <div className="page-title-gobankless">
@@ -74,16 +67,6 @@ export default function TopGlassBar({
           />
         )
       )}
-      {!hideIcons && !isActivityPage ? (
-        <button
-          type="button"
-          className="header-calculator-btn"
-          aria-label="Open calculator"
-          onClick={handleOpenCalculator}
-        >
-          <Calculator size={26} strokeWidth={2.1} aria-hidden />
-        </button>
-      ) : null}
     </div>
   )
 }

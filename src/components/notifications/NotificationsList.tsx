@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Check, Download, ExternalLink, ArrowUp } from 'lucide-react'
+import { ArrowUp, Calculator, Check, Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -19,6 +19,7 @@ import { isConversionInFlight } from '@/lib/transactions/submitInternalConversio
 import {
   markDeskKeypadOffered,
   openDeskKeypad,
+  openHeaderFundCalculator,
   routingKeypadOfferKey,
   wasDeskKeypadOffered,
 } from '@/lib/desk/openDeskKeypad'
@@ -29,7 +30,13 @@ import { formatVisibleSast } from '@/lib/routing/routingTime'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
 import { bankTileForItem } from '@/lib/activity/bankTiles'
-import { DESK_TEAM, deskAgentFor, activeDeskAgent, addressedDeskAgent } from '@/lib/desk/threadModel'
+import {
+  DESK_TEAM,
+  deskAgentFor,
+  activeDeskAgent,
+  addressedDeskAgent,
+  isDeskVoiceItem,
+} from '@/lib/desk/threadModel'
 import { DESK_CATCHUP_MS, useProgressiveReveal } from '@/lib/desk/useProgressiveReveal'
 import { useDeskSpeakerStore } from '@/store/deskSpeaker'
 import { useDeskFocusStore } from '@/store/deskFocus'
@@ -58,13 +65,10 @@ import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCar
 import { LiquidityReportCard } from '@/components/notifications/LiquidityReportCard'
 import {
   fundIntroLine,
-  fundIntroPrimaryLabel,
   fundIntroSecondaryLabel,
   fundIntroTitle,
   type FundIntroLocale,
 } from '@/components/notifications/FundMznIntroCard'
-import { deleteField, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
-import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
 import { TypewriterText } from '@/components/desk/TypewriterText'
 import { highlightDeskText } from '@/lib/desk/highlightDeskText'
@@ -558,9 +562,6 @@ function ActivityItemCard({
   const [proposalState, setProposalState] = useState<'idle' | 'accepting' | 'discarding'>('idle')
   const [startNextState, setStartNextState] = useState<'idle' | 'loading'>('idle')
   const [fundLocale, setFundLocale] = useState<FundIntroLocale>('en')
-  const [fundWatchState, setFundWatchState] = useState<'idle' | 'loading' | 'watching'>(
-    item.userReply ? 'watching' : 'idle'
-  )
   const actionsUnlocked = entranceSettled !== false
   const showDownload = actionsUnlocked && canDownloadProof(item)
   const showStartNextRun = actionsUnlocked && !lockDeskActions && item.startNextRun === true
@@ -602,9 +603,6 @@ function ActivityItemCard({
     Number(wallets?.cashZAR?.fiatBalance || 0) > 0.005 ||
     Number(wallets?.earnings?.fiatBalance || 0) > 0.005
   const showFundIntroLiquidity = showFundIntroActions && accountIsFunded && showStatus === true
-  const fundWatching = fundWatchState === 'watching' || Boolean(item.userReply)
-  // After tap, the reply is the user bubble — hide the black CTA.
-  const showFundIntroPrimary = showFundIntroActions && !item.userReply && fundWatchState !== 'watching'
   const showProposalActions =
     !lockDeskActions &&
     actionsUnlocked &&
@@ -1101,7 +1099,6 @@ function ActivityItemCard({
           showSendKeypad ||
           showRestockKeypad ||
           showFundMznKeypad ||
-          showFundIntroPrimary ||
           showFundIntroLiquidity ||
           showYoureSetUpActions ||
           showStepContinue ||
@@ -1142,39 +1139,6 @@ function ActivityItemCard({
                 onClick={handleFundMznKeypad}
               >
                 Fund MZN
-              </button>
-            )}
-            {showFundIntroPrimary && (
-              <button
-                type="button"
-                className={[
-                  styles.confirmButton,
-                  fundWatchState === 'loading' ? styles.confirmButtonLoading : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label={fundIntroPrimaryLabel(fundLocale, false)}
-                disabled={fundWatchState === 'loading'}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  if (fundWatchState === 'loading') return
-                  const uid = getFirebaseAuth().currentUser?.uid
-                  if (!uid) return
-                  const reply = fundIntroPrimaryLabel(fundLocale, false)
-                  setFundWatchState('loading')
-                  void updateDoc(doc(getFirestoreDb(), 'users', uid, 'activityEvents', item.id), {
-                    userReply: reply,
-                    userRepliedAt: serverTimestamp(),
-                    deskPendingChip: deleteField(),
-                  })
-                    .then(() => setFundWatchState('watching'))
-                    .catch((error) => {
-                      console.error('[Activity] Fund transfer watch failed:', error)
-                      setFundWatchState('idle')
-                    })
-                }}
-              >
-                {fundIntroPrimaryLabel(fundLocale, false)}
               </button>
             )}
             {showFundIntroLiquidity ? (
@@ -1610,9 +1574,7 @@ export function NotificationsList({
     return merged.sort((a, b) => b.createdAt - a.createdAt)
   }, [localItems, remoteItems, thinkingItem])
   const setActiveAgent = useDeskSpeakerStore((s) => s.setActive)
-  useEffect(() => {
-    setActiveAgent(activeDeskAgent(allItems))
-  }, [allItems, setActiveAgent])
+  const flashYouSpeaker = useDeskSpeakerStore((s) => s.flashYou)
   const kycGateStampRef = useRef(Date.now())
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
@@ -1687,6 +1649,42 @@ export function NotificationsList({
     const pending = pagedItems.find((item) => !reveal.visibleIds.has(item.id) && item.thinking !== true)
     return pending ? deskAgentFor(pending) : 'sam'
   }, [pagedItems, reveal.showDots, reveal.visibleIds])
+
+  // Header ring: centre face follows the agent currently typing / about to speak.
+  useEffect(() => {
+    if (reveal.typingId) {
+      const typing = pagedItems.find((item) => item.id === reveal.typingId)
+      if (typing) {
+        setActiveAgent(deskAgentFor(typing))
+        return
+      }
+    }
+    if (reveal.showDots && nextRevealSpeaker) {
+      setActiveAgent(nextRevealSpeaker)
+      return
+    }
+    const latestVisible = [...pagedItems]
+      .reverse()
+      .find(
+        (item) =>
+          reveal.visibleIds.has(item.id) &&
+          item.thinking !== true &&
+          isDeskVoiceItem(item)
+      )
+    if (latestVisible) {
+      setActiveAgent(deskAgentFor(latestVisible))
+      return
+    }
+    setActiveAgent(activeDeskAgent(allItems))
+  }, [
+    allItems,
+    nextRevealSpeaker,
+    pagedItems,
+    reveal.showDots,
+    reveal.typingId,
+    reveal.visibleIds,
+    setActiveAgent,
+  ])
 
   const applyFocusFromItem = useCallback(
     (item: ActivityItem | null | undefined) => {
@@ -2008,6 +2006,7 @@ export function NotificationsList({
     try {
       await handleRoutingAsk(askAnchor, message)
       setAskText('')
+      flashYouSpeaker()
     } catch (error) {
       setAskError(
         error instanceof Error ? error.message : `${DESK_TEAM.sam.name} could not take that just now.`
@@ -2054,6 +2053,17 @@ export function NotificationsList({
       </div>
       <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
         <div className={listStyles.deskAskRow}>
+          <button
+            type="button"
+            className={listStyles.deskAskCalc}
+            aria-label="Open calculator"
+            onClick={(event) => {
+              event.preventDefault()
+              openHeaderFundCalculator()
+            }}
+          >
+            <Calculator size={22} strokeWidth={2.1} aria-hidden />
+          </button>
           <div className={listStyles.deskAskAvatar} aria-hidden={!askProfile.fullName && !askProfile.userHandle}>
             <Avatar
               avatarUrl={askProfile.avatarUrl || null}

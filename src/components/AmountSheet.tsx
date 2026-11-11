@@ -647,7 +647,7 @@ export default function AmountSheet({
             customFeeText={keypadFeeText}
           />
         </div>
-        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${usePinkKeypad ? 'amount-cta--pink' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${usePinkKeypad ? 'amount-cta--pink' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: fundCalculator ? '0px' : '88px' }}>
           {withdrawOnly ? (
             // Force single button for withdrawal flow
             <button 
@@ -722,7 +722,7 @@ export default function AmountSheet({
                 Monthly
               </button>
             </>
-          ) : isConversionKeypad ? (
+          ) : fundCalculator ? null : isConversionKeypad ? (
             <button
               className="amount-keypad__cta"
               onClick={() => {
@@ -736,10 +736,11 @@ export default function AmountSheet({
               disabled={
                 !isPositive ||
                 conversionBusy ||
-                (!fundCalculator && (exceedsZarBalance || exceedsMznBalance))
+                exceedsZarBalance ||
+                exceedsMznBalance
               }
             >
-              {fundCalculator ? 'Fund my MZN account' : isZarPrimaryKeypad ? 'Sell ZAR' : 'Buy ZAR'}
+              {isZarPrimaryKeypad ? 'Sell ZAR' : 'Buy ZAR'}
             </button>
           ) : entryPoint === 'cashButton' ? (
             // Dual buttons for $ button entry point: "Request" and "Pay"
