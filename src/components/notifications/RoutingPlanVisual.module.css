@@ -107,22 +107,6 @@
   background: #9bdbc1;
 }
 
-.nextRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 2px 0 0;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--desk-ink, #18181b);
-  font-variant-numeric: tabular-nums;
-}
-
-.nextRow strong {
-  font-weight: 700;
-}
-
 .when {
   background: #fffffe;
   border: 1px solid #e2ded3;

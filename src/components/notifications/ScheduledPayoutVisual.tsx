@@ -34,7 +34,7 @@ export function isPaidLiquidPayout(item: ActivityItem): boolean {
   )
 }
 
-/** 09:00→09:15 scheduled sweep: ZAR card + countdown. Change account is shell CTA. */
+/** 09:00→09:15 scheduled sweep: ZAR card + countdown + destination. */
 export function ScheduledPayoutVisual({
   item,
   onChangeAccount,
@@ -46,9 +46,16 @@ export function ScheduledPayoutVisual({
     typeof item.amount?.value === 'number'
       ? Math.abs(item.amount.value)
       : Number(
-          String(item.deskLedgerRows?.find((r) => /^liquid$/i.test(r.label))?.value || '')
-            .replace(/[^\d.-]/g, '')
+          String(item.deskLedgerRows?.find((r) => /^liquid$/i.test(r.label))?.value || '').replace(
+            /[^\d.-]/g,
+            ''
+          )
         ) || 0
+  const bankTag =
+    String((item as { payoutBankTag?: string }).payoutBankTag || '').trim() ||
+    item.deskLedgerRows?.find((r) => /^to$/i.test(r.label))?.value?.trim() ||
+    'Your bank'
+  const holder = String((item as { payoutBankHolder?: string }).payoutBankHolder || '').trim()
   const liquidAt =
     readMs(item, 'payoutLiquidAtMs') ||
     (typeof item.createdAt === 'number' ? item.createdAt : Date.now())
@@ -68,11 +75,12 @@ export function ScheduledPayoutVisual({
   return (
     <div className={styles.root} aria-label="Scheduled payout">
       <section className={styles.watch} aria-label="Liquid ZAR leaving at 09:15">
+        <h3 className={styles.watchTitle}>Leaving at 09:15</h3>
         <div className={styles.miniCard}>
           <div className={styles.lane}>ZAR</div>
           <div className={styles.amt}>{formatDeskMajorZar(amount)}</div>
           <div className={styles.sub}>
-            {done ? 'ready · sending now' : 'ready · leaves at 09:15'}
+            {done ? 'liquid · sending now' : 'liquid · leaves at 09:15'}
           </div>
           <span className={styles.liqTrack} aria-hidden title="Liquidity bar">
             <span className={styles.liqFill} />
@@ -80,8 +88,8 @@ export function ScheduledPayoutVisual({
         </div>
 
         <div className={styles.countdownBlock}>
-          <div className={styles.countdownBig} aria-live="polite">
-            {done ? '0:00' : formatCountdown(remaining)}
+          <div className={styles.countdown}>
+            {done ? 'Sending…' : `${formatCountdown(remaining)} until it's sent`}
           </div>
           <div
             className={styles.track}
@@ -90,14 +98,26 @@ export function ScheduledPayoutVisual({
           >
             <span className={styles.fill} style={{ width: `${elapsed * 100}%` }} />
           </div>
+          <div className={styles.trackLabels}>
+            <span>09:00 liquid</span>
+            <span>09:15 sent</span>
+          </div>
         </div>
       </section>
 
-      {onChangeAccount ? (
-        <button type="button" className={styles.changeBtn} onClick={onChangeAccount}>
-          Change account
-        </button>
-      ) : null}
+      <div className={styles.destRow}>
+        <div className={styles.destCopy}>
+          <div className={styles.destBank}>{bankTag}</div>
+          {holder ? <div className={styles.destHolder}>{holder}</div> : null}
+        </div>
+        {onChangeAccount ? (
+          <button type="button" className={styles.changeBtn} onClick={onChangeAccount}>
+            Change
+          </button>
+        ) : null}
+      </div>
+
+      <p className={styles.note}>Changes made after 09:14 apply to the next payout.</p>
     </div>
   )
 }

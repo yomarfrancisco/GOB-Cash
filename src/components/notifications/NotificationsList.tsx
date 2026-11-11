@@ -62,12 +62,6 @@ import {
   fundIntroTitle,
   type FundIntroLocale,
 } from '@/components/notifications/FundMznIntroCard'
-import {
-  formatDeskClock,
-  resolveDeskHeadlineCopy,
-  shouldHideStatusChip,
-  usesHeadlineStyle,
-} from '@/lib/desk/deskHeadlineCopy'
 import { deleteField, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { SpeakerAvatar } from '@/components/notifications/SpeakerAvatar'
@@ -573,18 +567,12 @@ function ActivityItemCard({
   const isKycGate = isKycGateItem(item)
   const kycCta = item.kycAction === 'update' ? 'Update KYC' : 'Start KYC'
   const isRoutingInstruction = item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-  const isFundIntro = item.routingAction === 'fund_intro'
-  const isFundWire = item.routingAction === 'fund_wire'
-  const headlineStyle = usesHeadlineStyle(item)
-  const headlineCopy = headlineStyle ? resolveDeskHeadlineCopy(item) : null
   const executedLabel =
     actionsUnlocked && isRoutingInstruction && item.status === 'completed' && !item.thinking
       ? executedPillLabel({ title: item.title, routingAction: item.routingAction })
       : null
-  const rawStatusChip = item.deskStatusChip || executedLabel || null
-  const statusChip =
-    headlineStyle && shouldHideStatusChip(rawStatusChip) ? null : rawStatusChip
-  const showExecuted = Boolean(executedLabel) && !item.deskStatusChip && !headlineStyle
+  const statusChip = item.deskStatusChip || executedLabel || null
+  const showExecuted = Boolean(executedLabel) && !item.deskStatusChip
   const confirmItem = showRoutingActions ? confirmTargetForCard(item) : null
   // Cash moves open the conversion keypad (desk closes first; keypad dismisses before bubbles resume).
   const showSendKeypad =
@@ -595,6 +583,8 @@ function ActivityItemCard({
     !isSequentialStepCard(confirmItem)
   const showRestockKeypad = !lockDeskActions && actionsUnlocked && isRestockKeypadCard(item)
   const showFundMznKeypad = !lockDeskActions && actionsUnlocked && isMznShortStepCard(item)
+  const isFundIntro = item.routingAction === 'fund_intro'
+  const isFundWire = item.routingAction === 'fund_wire'
   const showFundIntroActions = actionsUnlocked && isFundIntro
   const showInlinePayoutForm =
     actionsUnlocked &&
@@ -602,6 +592,9 @@ function ActivityItemCard({
     (item.routingAction === 'liquid_now' ||
       item.routingAction === 'payout_details_request' ||
       (item.routingAction === 'routing_plan' && Number(item.routingPlan?.zarLiquid || 0) > 0.005))
+  // Fund again only on the latest You’re set up — not older setup cards.
+  const showYoureSetUpActions =
+    actionsUnlocked && item.routingAction === 'youre_set_up' && showStatus === true
   const wallets = useWalletStore((s) => s.wallets)
   const accountIsFunded =
     Number(wallets?.cashMZN?.fiatBalance || 0) > 0.005 ||
@@ -619,19 +612,13 @@ function ActivityItemCard({
     Boolean(item.proposalId)
   const askCard = isAskCard(item)
   const typing = animateEntrance === true
-  const title = headlineCopy?.headline
-    ? headlineCopy.headline
-    : isFundIntro
-      ? fundIntroTitle(fundLocale)
-      : displayDeskTitle(item.title)
+  const title = isFundIntro ? fundIntroTitle(fundLocale) : displayDeskTitle(item.title)
   const bankTile = bankTileForItem({ title: title || item.title, routingAction: item.routingAction })
   // Bank · notices keep bank tiles — not Routing Manager / liaison portraits.
   // Buy Steps 3–4 are EN_ROUTE_* with deskStep; still use desk team faces.
-  // Headline-style fund/routing cards always use desk speaker faces when set.
   const deskAgent: DeskAgent | null =
     !bankTile &&
-    (headlineStyle ||
-      item.thinking ||
+    (item.thinking ||
       item.kind === 'CONVERSION_ROUTING_INSTRUCTION' ||
       item.kind === 'EN_ROUTE_BOOKED' ||
       item.kind === 'EN_ROUTE_CLEARED' ||
@@ -881,19 +868,6 @@ function ActivityItemCard({
   }
 
   const isLiquidityReport = Boolean(item.liquidityReport)
-  // Still cash on MZN or ZAR (incl. in-route drip) → Liquidity Report stays on the
-  // latest Routing Manager message (moves off the plan onto You’re set up after payout).
-  const hasOutstandingCash =
-    Number(wallets?.cashMZN?.fiatBalance || 0) > 0.005 ||
-    Number(wallets?.cashZAR?.fiatBalance || 0) > 0.005 ||
-    Number(wallets?.earnings?.fiatBalance || 0) > 0.005
-  const showLiquidityReportCta =
-    actionsUnlocked &&
-    showStatus === true &&
-    !isLiquidityReport &&
-    !isFundIntro &&
-    hasOutstandingCash &&
-    Boolean(onStatus)
   const isPaidOut =
     item.routingAction === 'payout_confirmed' ||
     (item.routingAction === 'daily_liquid_zar_payout' &&
@@ -903,13 +877,11 @@ function ActivityItemCard({
     item.routingAction === 'daily_liquid_zar_payout' &&
     ((item as { payoutScheduled?: boolean }).payoutScheduled === true ||
       /^scheduled$/i.test(String(item.deskPendingChip || '')))
-  const displaySentence = headlineCopy?.line
-    ? headlineCopy.line
-    : isLiquidityReport || isFundIntro || isFundWire
-      ? ''
-      : isPaidOut
-        ? paidOutDisplaySentence(item)
-        : sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
+  const displaySentence = isLiquidityReport || isFundIntro || isFundWire
+    ? ''
+    : isPaidOut
+      ? paidOutDisplaySentence(item)
+      : sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
     ? 'Download invoices'
     : /^Step\s*6\b/i.test(title)
@@ -972,40 +944,15 @@ function ActivityItemCard({
       </div>
       <div className={styles.activityContent}>
         <div className={styles.msgHeaderText}>
-          {headlineStyle ? (
-            <div className={styles.activityMetaRow}>
-              <div className={styles.activityMeta}>
-                {(bankTile?.label || deskSpeaker?.name || item.actor?.name || 'Desk') +
-                  ' · ' +
-                  formatDeskClock(item.createdAt)}
-              </div>
-              {(isFundIntro || isFundWire) ? (
-                <button
-                  type="button"
-                  className={styles.activityMetaLang}
-                  aria-label={fundLocale === 'en' ? 'Switch to Portuguese' : 'Switch to English'}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    setFundLocale(fundLocale === 'en' ? 'pt' : 'en')
-                  }}
-                >
-                  {fundLocale === 'en' ? 'PT' : 'EN'}
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <>
-              {bankTile || deskSpeaker ? (
-                <div className={styles.activitySpeaker}>{bankTile?.label || deskSpeaker?.name}</div>
-              ) : null}
-            </>
-          )}
+          {bankTile || deskSpeaker ? (
+            <div className={styles.activitySpeaker}>{bankTile?.label || deskSpeaker?.name}</div>
+          ) : null}
           <div className={styles.activityHeader}>
             {typing && title ? (
               <TypewriterText
                 text={title}
                 animate
-                className={headlineStyle ? styles.activityHeadline : styles.activityTitle}
+                className={styles.activityTitle}
                 figureClassName={styles.activityFigure}
                 highlightFigures
                 charsPerTick={5}
@@ -1013,17 +960,15 @@ function ActivityItemCard({
                 onComplete={handleTitleTyped}
               />
             ) : (
-              <div className={headlineStyle ? styles.activityHeadline : styles.activityTitle}>
+              <div className={styles.activityTitle}>
                 {highlightDeskText(title, styles.activityFigure)}
               </div>
             )}
-            {!headlineStyle ? (
-              <div className={styles.activityTime}>
-                {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-                  ? formatVisibleSast(item.createdAt)
-                  : formatRelativeShort(item.createdAt)}
-              </div>
-            ) : null}
+            <div className={styles.activityTime}>
+              {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+                ? formatVisibleSast(item.createdAt)
+                : formatRelativeShort(item.createdAt)}
+            </div>
           </div>
         </div>
         {item.thinking ? (
@@ -1057,6 +1002,13 @@ function ActivityItemCard({
                 ) : null}
               </div>
             )}
+            {isLiquidityReport && (!typing || titleDone) ? (
+              <LiquidityReportCard
+                item={item}
+                onNewReport={showStatus ? () => onStatus?.() : undefined}
+                newReportBusy={planBusy === true}
+              />
+            ) : null}
             {askCard && item.userReply ? (
               <div className={styles.activityUserReply}>
                 <div className={styles.activityUserReplyLabel}>
@@ -1074,7 +1026,7 @@ function ActivityItemCard({
               <TypewriterText
                 text={displaySentence}
                 animate={typing}
-                className={headlineStyle ? styles.activityOneLiner : styles.activityBody}
+                className={styles.activityBody}
                 figureClassName={styles.activityFigure}
                 highlightFigures
                 charsPerTick={4}
@@ -1083,12 +1035,6 @@ function ActivityItemCard({
               />
             ) : typing && !displaySentence && titleDone ? (
               <TypewriterCompleteSignal onComplete={handleBodyTyped} />
-            ) : null}
-            {headlineCopy?.smallMeta && (!typing || titleDone) ? (
-              <div className={styles.activitySmallMeta}>{headlineCopy.smallMeta}</div>
-            ) : null}
-            {isLiquidityReport && (!typing || titleDone) ? (
-              <LiquidityReportCard item={item} />
             ) : null}
             {ledgerFailures.length ? (
               <div className={styles.devLedgerBadge} role="status">
@@ -1149,13 +1095,18 @@ function ActivityItemCard({
           showFundMznKeypad ||
           showFundIntroPrimary ||
           showFundIntroLiquidity ||
+          showYoureSetUpActions ||
           showStepContinue ||
           showStartNextRun ||
           showDownload ||
           showProposalActions ||
           showExecuted ||
           showKycLink ||
-          showLiquidityReportCta ||
+          (showStatus &&
+            !isLiquidityReport &&
+            !isFundIntro &&
+            !showYoureSetUpActions &&
+            !showInlinePayoutForm) ||
           showRealtime) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
@@ -1235,6 +1186,21 @@ function ActivityItemCard({
                 {fundIntroSecondaryLabel(fundLocale)}
               </button>
             ) : null}
+            {showYoureSetUpActions && (
+              <button
+                type="button"
+                className={styles.confirmButton}
+                aria-label="Fund again"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  document
+                    .querySelector('[data-routing-action="fund_intro"]')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }}
+              >
+                Fund again
+              </button>
+            )}
             {showDownload && (
               <button
                 type="button"
@@ -1365,7 +1331,11 @@ function ActivityItemCard({
                 </button>
               </>
             )}
-            {showLiquidityReportCta && (
+            {showStatus &&
+              !isLiquidityReport &&
+              !isFundIntro &&
+              !showYoureSetUpActions &&
+              !showInlinePayoutForm && (
               <button
                 type="button"
                 className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']

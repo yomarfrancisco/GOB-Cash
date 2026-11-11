@@ -5,10 +5,8 @@ import { desk_savePayoutAccountAndPay } from '@/lib/transactions/clientFunctions
 import { getPayoutBanks } from '@/config/payoutBanks'
 import styles from './DeskPayoutAccountForm.module.css'
 
-import { formatDeskMajorZar } from '@/lib/desk/deskMoneyFormat'
-
 function formatZar(n: number): string {
-  return formatDeskMajorZar(n)
+  return `R${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export function DeskPayoutAccountForm({ zarAmount }: { zarAmount: number }) {
@@ -24,18 +22,12 @@ export function DeskPayoutAccountForm({ zarAmount }: { zarAmount: number }) {
   const onSave = async () => {
     if (saving) return
     setError(null)
-    const holder = accountHolderName.trim()
-    const number = accountNumber.replace(/\s/g, '')
-    if (!bankName.trim() || !holder || !/^\d{8,16}$/.test(number)) {
-      setError('Check bank, account holder, and account number.')
-      return
-    }
     setSaving(true)
     try {
       const result = await desk_savePayoutAccountAndPay({
         bankName,
-        accountHolderName: holder,
-        accountNumber: number,
+        accountHolderName,
+        accountNumber,
         accountType,
         autoPayout,
       })
@@ -48,13 +40,8 @@ export function DeskPayoutAccountForm({ zarAmount }: { zarAmount: number }) {
       }
     } catch (err) {
       const firebaseErr = err as { code?: string; message?: string; details?: unknown }
-      const code = String(firebaseErr?.code || '')
       const raw = String(firebaseErr?.message || '').trim()
-      const looksGeneric =
-        !raw ||
-        /^internal$/i.test(raw) ||
-        /^functions\/internal$/i.test(raw) ||
-        code === 'functions/internal'
+      const looksGeneric = !raw || /^internal$/i.test(raw) || /^functions\/internal$/i.test(raw)
       setError(
         looksGeneric
           ? 'Payout failed — try again in a moment.'
@@ -68,6 +55,10 @@ export function DeskPayoutAccountForm({ zarAmount }: { zarAmount: number }) {
   return (
     <div className={styles.form}>
       <div className={styles.card}>
+        <p className={styles.eyebrow}>Once only</p>
+        <h3 className={styles.title}>Your payout account</h3>
+        <p className={styles.subtitle}>Where your liquid ZAR goes. Must be in your company&apos;s name.</p>
+
         <div className={styles.fields}>
           <label className={styles.field}>
             <span className={styles.label}>Bank</span>
@@ -102,7 +93,7 @@ export function DeskPayoutAccountForm({ zarAmount }: { zarAmount: number }) {
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value.replace(/[^\d\s]/g, ''))}
               inputMode="numeric"
-              placeholder="1055972319"
+              placeholder="1055902139"
               autoComplete="off"
             />
           </label>

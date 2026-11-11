@@ -14,7 +14,6 @@ import {
   ScheduledPayoutVisual,
 } from './ScheduledPayoutVisual'
 import { BankEmailRoundBlock, BankExpectedRepliesBlock } from './BankEmailRoundBlock'
-import { DeskDisclosure } from './DeskDisclosure'
 
 const SERIES_COLOR = ['#111111', '#8aa31a', '#8a8a8a']
 
@@ -237,13 +236,6 @@ export function DeskCardVisuals({
   }
   if (item.routingAction === 'payout_confirmed' || isPaidLiquidPayout(item)) {
     return <PaidOutStackVisual item={item} />
-  }
-  if (item.routingAction === 'bank_notice' && item.deskLedgerRows?.length) {
-    return (
-      <DeskDisclosure label="Details">
-        <DeskStepBlock rows={item.deskLedgerRows} />
-      </DeskDisclosure>
-    )
   }
   if (
     item.deskPipes?.length ||
