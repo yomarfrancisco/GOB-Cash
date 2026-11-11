@@ -14,7 +14,6 @@ import {
   formatDeskMajorZar,
   formatDeskMinorZar,
 } from '@/lib/desk/deskMoneyFormat'
-import { DeskDisclosure } from './DeskDisclosure'
 import styles from './FundMznIntroCard.module.css'
 
 /**
@@ -68,6 +67,9 @@ function fundIntroBodyEn(name: string): ReactNode {
       <br />
       <strong>2. Tell us where to pay.</strong> The Routing Manager will ask for your South African
       bank account once. After that, we pay out automatically.
+      <br />
+      <br />
+      Your PAGA MZN account:
     </>
   )
 }
@@ -85,6 +87,9 @@ function fundIntroBodyPt(name: string): ReactNode {
       <br />
       <strong>2. Diga-nos para onde pagar.</strong> O Routing Manager pede-lhe a sua conta bancária
       sul-africana uma única vez. A partir daí, pagamos automaticamente.
+      <br />
+      <br />
+      A sua conta MZN no PAGA:
     </>
   )
 }
@@ -92,11 +97,9 @@ function fundIntroBodyPt(name: string): ReactNode {
 const COPY = {
   en: {
     body: fundIntroBodyEn,
-    transferLabel: 'BANK TRANSFER · MZN',
-    accountLabel: 'Account',
-    referenceLabel: 'Reference · add it so we can match you',
+    accountLabel: 'NIB',
+    refPrefix: 'REF:',
     watchTitle: 'Watch it become liquid',
-    howItWorks: 'How it works',
     explain: (
       <>
         The <strong>green bar</strong> on your ZAR card shows how much is liquid. Up to{' '}
@@ -104,16 +107,14 @@ const COPY = {
       </>
     ),
     copied: 'Copied',
-    copyAccount: 'Copy account number',
+    copyAccount: 'Copy NIB',
     copyReference: 'Copy reference',
   },
   pt: {
     body: fundIntroBodyPt,
-    transferLabel: 'TRANSFERÊNCIA · MZN',
-    accountLabel: 'Conta',
-    referenceLabel: 'Referência · inclua para identificarmos',
+    accountLabel: 'NIB',
+    refPrefix: 'REF:',
     watchTitle: 'Veja ficar líquido',
-    howItWorks: 'Como funciona',
     explain: (
       <>
         A <strong>barra verde</strong> no seu cartão ZAR mostra quanto está líquido. Até{' '}
@@ -121,7 +122,7 @@ const COPY = {
       </>
     ),
     copied: 'Copiado',
-    copyAccount: 'Copiar número da conta',
+    copyAccount: 'Copiar NIB',
     copyReference: 'Copiar referência',
   },
 }
@@ -269,37 +270,50 @@ export function FundMznIntroCard({
 
   return (
     <div className={styles.root} ref={rootRef}>
-      <div className={styles.transferPanel}>
-        <div className={styles.transferTop}>
-          <span>{copy.transferLabel}</span>
-          <span>{bank}</span>
-        </div>
+      {isWire ? (
+        <p className={styles.body}>
+          {locale === 'pt' ? (
+            <>
+              Envie <strong>{formatDeskMajorMzn(wireMzn)}</strong> para a conta abaixo para financiar
+              cerca de <strong>{formatDeskMinorZar(wireZar)}</strong>.
+            </>
+          ) : (
+            <>
+              Send <strong>{formatDeskMajorMzn(wireMzn)}</strong> to the account below to fund about{' '}
+              <strong>{formatDeskMinorZar(wireZar)}</strong>.
+            </>
+          )}
+        </p>
+      ) : (
+        <p className={styles.body}>{copy.body(firstName)}</p>
+      )}
 
-        <div className={styles.transferBlock}>
-          <div className={styles.transferLabel}>{copy.accountLabel}</div>
-          <button
-            type="button"
-            className={styles.transferValueRow}
-            aria-label={copiedKey === 'account' ? copy.copied : copy.copyAccount}
-            onClick={(event) => {
-              event.stopPropagation()
-              void copyText(account).then((ok) => {
-                if (ok) markCopied('account')
-              })
-            }}
-          >
-            <span className={styles.transferValue}>{account}</span>
-            {copiedKey === 'account' ? (
-              <Check className={styles.copyIcon} size={16} strokeWidth={2.4} aria-hidden />
-            ) : (
-              <Copy className={styles.copyIcon} size={16} strokeWidth={2.25} aria-hidden />
-            )}
-          </button>
-          <div className={styles.transferName}>{recipient}</div>
-        </div>
+      <section className={styles.watch} aria-label={bank}>
+        <h3 className={styles.watchTitle}>{bank}</h3>
+        <div className={styles.transferPanel}>
+          <div className={styles.transferBlock}>
+            <div className={styles.transferLabel}>{copy.accountLabel}</div>
+            <button
+              type="button"
+              className={styles.transferValueRow}
+              aria-label={copiedKey === 'account' ? copy.copied : copy.copyAccount}
+              onClick={(event) => {
+                event.stopPropagation()
+                void copyText(account).then((ok) => {
+                  if (ok) markCopied('account')
+                })
+              }}
+            >
+              <span className={styles.transferValue}>{account}</span>
+              {copiedKey === 'account' ? (
+                <Check className={styles.copyIcon} size={16} strokeWidth={2.4} aria-hidden />
+              ) : (
+                <Copy className={styles.copyIcon} size={16} strokeWidth={2.25} aria-hidden />
+              )}
+            </button>
+            <div className={styles.transferName}>{recipient}</div>
+          </div>
 
-        <div className={styles.transferBlock}>
-          <div className={styles.transferLabel}>{copy.referenceLabel}</div>
           <button
             type="button"
             className={styles.referenceChip}
@@ -311,6 +325,7 @@ export function FundMznIntroCard({
               })
             }}
           >
+            <span className={styles.referencePrefix}>{copy.refPrefix}</span>
             <span className={styles.referenceValue}>{reference}</span>
             {copiedKey === 'reference' ? (
               <Check className={styles.copyIconDark} size={16} strokeWidth={2.4} aria-hidden />
@@ -319,73 +334,55 @@ export function FundMznIntroCard({
             )}
           </button>
         </div>
-      </div>
+      </section>
 
-      <DeskDisclosure label={copy.howItWorks}>
-        <p className={styles.body}>{copy.body(firstName)}</p>
-        {isWire ? (
-          <p className={styles.body}>
-            {locale === 'pt' ? (
-              <>
-                Envie <strong>{formatDeskMajorMzn(wireMzn)}</strong> para financiar cerca de{' '}
-                <strong>{formatDeskMinorZar(wireZar)}</strong>.
-              </>
-            ) : (
-              <>
-                Send <strong>{formatDeskMajorMzn(wireMzn)}</strong> to fund about{' '}
-                <strong>{formatDeskMinorZar(wireZar)}</strong>.
-              </>
-            )}
-          </p>
-        ) : null}
-        <section className={styles.watch} aria-label={copy.watchTitle}>
-          <h3 className={styles.watchTitle}>
-            {isWire
-              ? locale === 'pt'
-                ? 'O que acontece no cartão'
-                : 'What lands on your card'
-              : copy.watchTitle}
-          </h3>
-          <div className={styles.miniCard} aria-hidden>
-            <div className={styles.miniCardAmt}>{formatDeskMajorZar(demoZar)}</div>
-            <div className={styles.miniCardApprox}>≈ {formatDeskMajorMzn(demoMzn)}</div>
-            <span className={styles.ratePill}>{liveSell.toFixed(2)} Mt/R</span>
+      <section className={styles.watch} aria-label={copy.watchTitle}>
+        <h3 className={styles.watchTitle}>
+          {isWire
+            ? locale === 'pt'
+              ? 'O que acontece no cartão'
+              : 'What lands on your card'
+            : copy.watchTitle}
+        </h3>
+        <div className={styles.miniCard} aria-hidden>
+          <div className={styles.miniCardAmt}>{formatDeskMajorZar(demoZar)}</div>
+          <div className={styles.miniCardApprox}>≈ {formatDeskMajorMzn(demoMzn)}</div>
+          <span className={styles.ratePill}>{liveSell.toFixed(2)} Mt/R</span>
+          <span
+            className={styles.liqTrack}
+            title="Liquidity bar"
+            role="img"
+            aria-label={`Liquid ${Math.round(liquidFillPct)} percent`}
+          >
             <span
-              className={styles.liqTrack}
-              title="Liquidity bar"
-              role="img"
-              aria-label={`Liquid ${Math.round(liquidFillPct)} percent`}
-            >
-              <span
-                className={styles.liqFill}
-                style={{ width: `${Math.max(0, Math.min(100, liquidFillPct))}%` }}
-              />
-            </span>
-          </div>
-          <p className={styles.explain}>
-            <span className={styles.explainIcon} aria-hidden>
-              <span className={styles.explainIconBar} />
-            </span>
-            <span>
-              {isWire ? (
-                locale === 'pt' ? (
-                  <>
-                    A <strong>barra verde</strong> mostra quanto deste financiamento fica líquido já
-                    (até <strong>R100.000</strong>/dia). O restante às <strong>09:00</strong>.
-                  </>
-                ) : (
-                  <>
-                    The <strong>green bar</strong> shows how much of this fund is liquid now (up to{' '}
-                    <strong>R100,000</strong>/day). The rest lands at <strong>09:00</strong>.
-                  </>
-                )
+              className={styles.liqFill}
+              style={{ width: `${Math.max(0, Math.min(100, liquidFillPct))}%` }}
+            />
+          </span>
+        </div>
+        <p className={styles.explain}>
+          <span className={styles.explainIcon} aria-hidden>
+            <span className={styles.explainIconBar} />
+          </span>
+          <span>
+            {isWire ? (
+              locale === 'pt' ? (
+                <>
+                  A <strong>barra verde</strong> mostra quanto deste financiamento fica líquido já
+                  (até <strong>R100.000</strong>/dia). O restante às <strong>09:00</strong>.
+                </>
               ) : (
-                copy.explain
-              )}
-            </span>
-          </p>
-        </section>
-      </DeskDisclosure>
+                <>
+                  The <strong>green bar</strong> shows how much of this fund is liquid now (up to{' '}
+                  <strong>R100,000</strong>/day). The rest lands at <strong>09:00</strong>.
+                </>
+              )
+            ) : (
+              copy.explain
+            )}
+          </span>
+        </p>
+      </section>
     </div>
   )
 }

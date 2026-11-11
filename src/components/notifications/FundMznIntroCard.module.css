@@ -18,28 +18,20 @@
   font-weight: 700;
 }
 
-/* MZN-coloured transfer panel — same family as MZN cards, not a card back. */
+/* Same footprint as .miniCard (86/54), inside the beige watch shell. */
 .transferPanel {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 14px 14px 16px;
+  justify-content: space-between;
+  width: 100%;
+  aspect-ratio: 86 / 54;
+  padding: 16px;
   border-radius: 14px;
   background: #5a2f4a;
   color: #f5f5f5;
-  box-shadow: 0 6px 18px rgba(42, 20, 34, 0.18);
-}
-
-.transferTop {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.78;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .transferBlock {
@@ -50,8 +42,10 @@
 }
 
 .transferLabel {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   opacity: 0.72;
 }
 
@@ -63,7 +57,7 @@
   margin: 0;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-height: 32px;
   max-width: 100%;
   text-align: left;
@@ -73,11 +67,11 @@
 }
 
 .transferValue {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
-  line-height: 1.15;
+  line-height: 1.1;
   overflow-wrap: anywhere;
 }
 
@@ -90,26 +84,39 @@
 .referenceChip {
   appearance: none;
   border: 0;
-  margin: 2px 0 0;
+  margin: 0;
   padding: 8px 10px;
   min-height: 36px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  width: 100%;
   max-width: 100%;
   border-radius: 10px;
   background: var(--desk-yellow, #ffd36b);
   color: #1c1c1e;
   text-align: left;
   cursor: pointer;
+  box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
 
+.referencePrefix {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 .referenceValue {
-  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   line-height: 1.25;
 }
 
