@@ -74,11 +74,10 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
                 <LegIcon confidence={leg.confidence} channel={leg.channel} />
                 <div className={styles.whenBody}>
                   <div className={styles.whenTop}>
-                    <span className={styles.whenWhen}>
-                      {leg.whenLabel} / {status}
-                    </span>
+                    <span className={styles.whenWhen}>{leg.whenLabel}</span>
                     <span className={styles.whenAmt}>{formatDeskMajorZar(leg.amountZar)}</span>
                   </div>
+                  <div className={styles.whenSub}>{status}</div>
                 </div>
               </li>
             )
@@ -90,7 +89,9 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
         </div>
       </section>
 
-      <p className={styles.note}>{plan.note}</p>
+      <p className={styles.note}>
+        Each part pays out to your bank as it lands. If a time moves, we&apos;ll tell you.
+      </p>
     </div>
   )
 }

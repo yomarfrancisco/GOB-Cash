@@ -61,7 +61,7 @@ describe('routingPlan', () => {
     assert.equal(eftLegs.length, 1)
     assert.equal(eftLegs[0].chip, 'EFT · T+2')
     assert.match(plan!.sentence, /EFT in parallel/i)
-    assert.match(plan!.note, /re-instruct EFT/i)
+    assert.match(plan!.note, /pays out to your bank as it lands/i)
     assert.ok(!plan!.legs.some((l) => /guaranteed/i.test(l.chip)))
   })
 

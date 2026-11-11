@@ -430,9 +430,7 @@ export function assembleRoutingPlan(params: {
   }
 
   const bank = params.payoutBankTag?.trim() || null
-  const note = bank
-    ? `Everything pays out to ${bank} as it lands. Card follows planned day capacity; EFT runs in parallel. If EFT slips past T+2, card continues and we re-instruct EFT together.`
-    : `Add your South African payout account once — everything pays out as it lands. Card follows planned day capacity; EFT runs in parallel. If EFT slips past T+2, card continues and we re-instruct EFT together.`
+  const note = `Each part pays out to your bank as it lands. If a time moves, we'll tell you.`
 
   return {
     sentence,
