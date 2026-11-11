@@ -58,15 +58,15 @@ export type FundIntroLocale = 'en' | 'pt'
 function fundIntroBodyEn(name: string): ReactNode {
   return (
     <>
-      Hi {name}. PAGA turns your meticais into rand you can pay out in South Africa.
+      Hi {name}. PAGA turns meticais into rand.
       <br />
       <br />
-      <strong>1. Send MZN to the account below.</strong> R100,000 each day is converted instantly and
-      ready to pay out. Anything above that is paid out at 09:00 daily.
+      <strong>1. Send MZN to the account below.</strong> R100,000 is converted instantly and ready to
+      pay out. Anything above that is ready at 09:00 daily.
       <br />
       <br />
-      <strong>2. Tell us where to pay.</strong> The Routing Manager will ask for your South African
-      bank account. After that, we pay out automatically.
+      <strong>2. Tell us where to pay.</strong> The Routing Manager will ask for a South African bank
+      account. After that, we pay out automatically.
       <br />
       <br />
       Your PAGA MZN account:
@@ -77,14 +77,14 @@ function fundIntroBodyEn(name: string): ReactNode {
 function fundIntroBodyPt(name: string): ReactNode {
   return (
     <>
-      Olá {name}. O PAGA converte os seus meticais em rands que pode pagar na África do Sul.
+      Olá {name}. O PAGA converte meticais em rand.
       <br />
       <br />
-      <strong>1. Envie MZN para a conta abaixo.</strong> R100.000 por dia são convertidos de imediato
-      e ficam prontos a pagar. O que ultrapassar esse valor é pago às 09:00 todos os dias.
+      <strong>1. Envie MZN para a conta abaixo.</strong> R100.000 são convertidos de imediato e ficam
+      prontos a pagar. O que ultrapassar esse valor fica pronto às 09:00 todos os dias.
       <br />
       <br />
-      <strong>2. Diga-nos para onde pagar.</strong> O Routing Manager pede-lhe a sua conta bancária
+      <strong>2. Diga-nos para onde pagar.</strong> O Routing Manager pede uma conta bancária
       sul-africana. A partir daí, pagamos automaticamente.
       <br />
       <br />

@@ -881,8 +881,9 @@ function ActivityItemCard({
     item.routingAction === 'daily_liquid_zar_payout' &&
     ((item as { payoutScheduled?: boolean }).payoutScheduled === true ||
       /^scheduled$/i.test(String(item.deskPendingChip || '')))
-  const displaySentence =
-    isFundIntro || isFundWire
+  const displaySentence = isFundIntro
+    ? ''
+    : isFundWire
       ? fundIntroLine(fundLocale, item)
       : isLiquidityReport
         ? ''
@@ -971,25 +972,10 @@ function ActivityItemCard({
                 {highlightDeskText(title, styles.activityFigure)}
               </div>
             )}
-            <div className={styles.activityTimeCluster}>
-              {(isFundIntro || isFundWire) ? (
-                <button
-                  type="button"
-                  className={styles.activityLangChip}
-                  aria-label={fundLocale === 'en' ? 'Switch to Portuguese' : 'Switch to English'}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    setFundLocale(fundLocale === 'en' ? 'pt' : 'en')
-                  }}
-                >
-                  {fundLocale === 'en' ? 'PT' : 'EN'}
-                </button>
-              ) : null}
-              <div className={styles.activityTime}>
-                {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-                  ? formatVisibleSast(item.createdAt)
-                  : formatRelativeShort(item.createdAt)}
-              </div>
+            <div className={styles.activityTime}>
+              {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
+                ? formatVisibleSast(item.createdAt)
+                : formatRelativeShort(item.createdAt)}
             </div>
           </div>
         </div>
