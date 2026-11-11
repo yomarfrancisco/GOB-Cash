@@ -374,7 +374,6 @@
   justify-content: center;
   cursor: pointer;
   align-self: flex-start;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
   -webkit-tap-highlight-color: transparent;
 }
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { ArrowUp, Check, Download, ExternalLink } from 'lucide-react'
+import { ArrowUp, Calculator, Check, Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -2049,30 +2049,7 @@ export function NotificationsList({
               openHeaderFundCalculator()
             }}
           >
-            {/* Compact keypad glyph — cleaner than Lucide Calculator at this size. */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <rect
-                x="3.5"
-                y="2.5"
-                width="17"
-                height="19"
-                rx="3"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              />
-              <path
-                d="M7.5 7h9"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-              <circle cx="8" cy="12" r="1.15" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.15" fill="currentColor" />
-              <circle cx="16" cy="12" r="1.15" fill="currentColor" />
-              <circle cx="8" cy="16.5" r="1.15" fill="currentColor" />
-              <circle cx="12" cy="16.5" r="1.15" fill="currentColor" />
-              <circle cx="16" cy="16.5" r="1.15" fill="currentColor" />
-            </svg>
+            <Calculator size={22} strokeWidth={2} aria-hidden />
           </button>
           <div className={listStyles.deskAskAvatar} aria-hidden={!askProfile.fullName && !askProfile.userHandle}>
             <Avatar
