@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, CircleDashed, Star } from 'lucide-react'
+import { Check, CircleDashed } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
 import {
   formatDeskMajorMzn,
@@ -13,17 +13,13 @@ function LegIcon({ confidence, channel }: { confidence: string; channel?: string
   if (confidence === 'now' || channel === 'instant') {
     return <Check className={`${styles.whenIcon} ${styles.whenIconNow}`} size={16} strokeWidth={2.6} aria-hidden />
   }
-  if (confidence === 'reserved' || channel === 'card') {
-    return <Star className={styles.whenIcon} size={16} strokeWidth={2.2} aria-hidden />
-  }
   return <CircleDashed className={styles.whenIcon} size={16} strokeWidth={2.2} aria-hidden />
 }
 
-function chipClass(confidence: string, channel?: string): string {
-  if (confidence === 'now' || channel === 'instant') return `${styles.chip} ${styles.chipNow}`
-  if (channel === 'eft') return `${styles.chip} ${styles.chipEft}`
-  if (confidence === 'reserved' || channel === 'card') return `${styles.chip} ${styles.chipReserved}`
-  return `${styles.chip} ${styles.chipEstimated}`
+/** Client status only — never Card / EFT channel copy. */
+function legStatus(confidence: string, channel?: string): string {
+  if (confidence === 'now' || channel === 'instant') return 'Ready'
+  return 'Booked'
 }
 
 /** Designer routing plan: stacked cards + timed legs (CTA lives on the desk action row). */
@@ -71,30 +67,23 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
       <section className={styles.when} aria-label="When each part lands">
         <h3 className={styles.whenTitle}>When each part lands</h3>
         <ul className={styles.whenList}>
-          {plan.legs.map((leg, i) => (
-            <li key={`${leg.whenLabel}-${leg.amountZar}-${i}`} className={styles.whenRow}>
-              <LegIcon confidence={leg.confidence} channel={leg.channel} />
-              <div className={styles.whenBody}>
-                <div className={styles.whenTop}>
-                  <span className={styles.whenWhen}>{leg.whenLabel}</span>
-                  <span className={styles.whenAmt}>{formatDeskMajorZar(leg.amountZar)}</span>
+          {plan.legs.map((leg, i) => {
+            const status = legStatus(leg.confidence, leg.channel)
+            return (
+              <li key={`${leg.whenLabel}-${leg.amountZar}-${i}`} className={styles.whenRow}>
+                <LegIcon confidence={leg.confidence} channel={leg.channel} />
+                <div className={styles.whenBody}>
+                  <div className={styles.whenTop}>
+                    <span className={styles.whenWhen}>
+                      {leg.whenLabel} / {status}
+                    </span>
+                    <span className={styles.whenAmt}>{formatDeskMajorZar(leg.amountZar)}</span>
+                  </div>
                 </div>
-                <div className={styles.whenSub}>{leg.subLabel}</div>
-                <span className={chipClass(leg.confidence, leg.channel)}>{leg.chip}</span>
-              </div>
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
-        {(plan.cardZar != null && plan.cardZar > 0.005) || (plan.eftZar != null && plan.eftZar > 0.005) ? (
-          <div className={styles.railSummary} aria-label="Dual-rail summary">
-            {plan.cardZar != null && plan.cardZar > 0.005 ? (
-              <span>Card {formatDeskMajorZar(plan.cardZar)}</span>
-            ) : null}
-            {plan.eftZar != null && plan.eftZar > 0.005 ? (
-              <span>EFT {formatDeskMajorZar(plan.eftZar)}</span>
-            ) : null}
-          </div>
-        ) : null}
         <div className={styles.whenTotal}>
           <span>Total</span>
           <span>{formatDeskMajorZar(plan.zarTotal)}</span>

@@ -195,59 +195,6 @@
   white-space: nowrap;
 }
 
-.whenSub {
-  margin-top: 2px;
-  font-size: 12px;
-  color: #8e8e93;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 6px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 650;
-  border: 1px solid #d7d3c8;
-  color: #3a3a3c;
-  background: #fff;
-}
-
-.chipNow {
-  border-color: #9bdbc1;
-  background: #eaf6f0;
-  color: #2f7a57;
-}
-
-.chipReserved {
-  border-color: #111;
-  color: #111;
-}
-
-.chipEstimated {
-  border-style: dashed;
-  color: #6b6b70;
-}
-
-.chipEft {
-  border-style: dashed;
-  border-color: #5a6a8a;
-  background: #eef1f7;
-  color: #3a4a6a;
-}
-
-.railSummary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 4px 0 2px;
-  font-size: 12px;
-  font-weight: 650;
-  color: #5e5e66;
-  font-variant-numeric: tabular-nums;
-}
-
 .whenTotal {
   display: flex;
   align-items: baseline;
