@@ -61,12 +61,12 @@ function fundIntroBodyEn(name: string): ReactNode {
       Hi {name}. PAGA turns your meticais into rand you can pay out in South Africa.
       <br />
       <br />
-      <strong>1. Send MZN to the account below.</strong> The first R100,000 each day is converted
-      instantly and ready to pay out. Anything above that is ready at 09:00 the next day.
+      <strong>1. Send MZN to the account below.</strong> R100,000 each day is converted instantly and
+      ready to pay out. Anything above that is paid out at 09:00 daily.
       <br />
       <br />
       <strong>2. Tell us where to pay.</strong> The Routing Manager will ask for your South African
-      bank account once. After that, we pay out automatically.
+      bank account. After that, we pay out automatically.
       <br />
       <br />
       Your PAGA MZN account:
@@ -80,13 +80,12 @@ function fundIntroBodyPt(name: string): ReactNode {
       Olá {name}. O PAGA converte os seus meticais em rands que pode pagar na África do Sul.
       <br />
       <br />
-      <strong>1. Envie MZN para a conta abaixo.</strong> Os primeiros R100.000 de cada dia são
-      convertidos de imediato e ficam prontos a pagar. O que ultrapassar esse valor fica pronto às
-      09:00 do dia seguinte.
+      <strong>1. Envie MZN para a conta abaixo.</strong> R100.000 por dia são convertidos de imediato
+      e ficam prontos a pagar. O que ultrapassar esse valor é pago às 09:00 todos os dias.
       <br />
       <br />
       <strong>2. Diga-nos para onde pagar.</strong> O Routing Manager pede-lhe a sua conta bancária
-      sul-africana uma única vez. A partir daí, pagamos automaticamente.
+      sul-africana. A partir daí, pagamos automaticamente.
       <br />
       <br />
       A sua conta MZN no PAGA:
