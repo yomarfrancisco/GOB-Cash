@@ -1,0 +1,144 @@
+/* Template: Fund MZN intro `.watch` + `.miniCard` (beige casing + ID-1 card). */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 10px 0 8px;
+  max-width: 600px;
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  color: var(--desk-ink, #18181b);
+}
+
+.watch {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f3f0e8;
+}
+
+.watchTitle {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--desk-muted, #5e5e66);
+}
+
+/* MZN inventory card — same ID-1 ratio as home / fund intro. */
+.miniCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 86 / 54;
+  padding: 16px 16px 52px;
+  border-radius: 14px;
+  background: #5a2f4a;
+  color: #f5f5f5;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.lane {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.72;
+  margin-bottom: 4px;
+}
+
+.amt {
+  margin: 0;
+  font-size: 52px;
+  font-weight: 600;
+  letter-spacing: 0.21px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.approx {
+  margin-top: 6px;
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.ratePill {
+  position: absolute;
+  left: 16px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.09px;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+
+.liqTrack {
+  position: absolute;
+  right: 16px;
+  bottom: 24px;
+  width: 42%;
+  max-width: 168px;
+  min-width: 96px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.liqFill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: #9bdbc1;
+}
+
+.explain {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--desk-muted, #5e5e66);
+}
+
+.explainIcon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 4px;
+  background: rgba(90, 47, 74, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.explainIconBar {
+  display: block;
+  width: 10px;
+  height: 3px;
+  border-radius: 999px;
+  background: #5a2f4a;
+}

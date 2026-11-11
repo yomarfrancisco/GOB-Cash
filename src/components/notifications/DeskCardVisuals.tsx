@@ -6,6 +6,7 @@ import { DeskFundExtras, DeskStepBlock } from './DeskStepBlock'
 import { FundMznIntroCard, type FundIntroLocale } from './FundMznIntroCard'
 import { DeskPayoutAccountForm } from './DeskPayoutAccountForm'
 import { LiquidNowConvertVisual } from './LiquidNowConvertVisual'
+import { isMznReceivedNotice, MznReceivedVisual } from './MznReceivedVisual'
 import { PaidOutStackVisual } from './PaidOutStackVisual'
 import { hasRoutingPlan, RoutingPlanVisual } from './RoutingPlanVisual'
 import {
@@ -210,6 +211,9 @@ export function DeskCardVisuals({
         ) : null}
       </>
     )
+  }
+  if (isMznReceivedNotice(item)) {
+    return <MznReceivedVisual item={item} sellMznPerZar={liveSellMznPerZar} />
   }
   if (item.routingAction === 'liquid_now') {
     return (
