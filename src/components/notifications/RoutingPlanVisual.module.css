@@ -8,6 +8,16 @@
   color: var(--desk-ink, #18181b);
 }
 
+/* Same beige casing as Fund intro / MZN received. */
+.watch {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f3f0e8;
+}
+
 .stack {
   position: relative;
   width: 100%;
@@ -57,47 +67,56 @@
 
 .amt {
   margin: 0;
-  font-size: 36px;
+  font-size: 52px;
   font-weight: 600;
   letter-spacing: 0.21px;
   font-variant-numeric: tabular-nums;
-  line-height: 1.05;
+  line-height: 1;
   color: rgba(255, 255, 255, 0.95);
 }
 
 .sub {
-  margin-top: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  opacity: 0.78;
+  margin-top: 6px;
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
   font-variant-numeric: tabular-nums;
 }
 
 .ratePill {
   position: absolute;
   left: 16px;
-  bottom: 14px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  font-size: 11px;
-  font-weight: 650;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.09px;
   font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
 }
 
+/* Same track footprint on both cards (and vs Fund / MZN received). */
 .liqTrack {
   position: absolute;
   right: 16px;
-  bottom: 16px;
-  left: 16px;
+  bottom: 24px;
+  width: 42%;
+  max-width: 168px;
+  min-width: 96px;
   height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.22);
   overflow: hidden;
-}
-
-.cardMzn .liqTrack {
-  left: 120px;
+  box-sizing: border-box;
 }
 
 .liqFill {

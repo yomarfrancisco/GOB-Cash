@@ -39,32 +39,34 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
 
   return (
     <div className={styles.root} aria-label="Your routing plan">
-      <div className={styles.stack}>
-        <div className={`${styles.card} ${styles.cardMzn}`}>
-          <div className={styles.lane}>MZN</div>
-          <div className={styles.amt}>{formatDeskMajorMzn(plan.mznResidual)}</div>
-          <div className={styles.sub}>routing · of {formatDeskMajorMzn(plan.fundedMzn)} in</div>
-          <span className={styles.ratePill}>{formatDeskRateMtPerZar(plan.rate)}</span>
-          <span className={styles.liqTrack} role="img" aria-label={`Routing ${Math.round(mznBar)} percent`}>
-            <span className={styles.liqFill} style={{ width: `${mznBar}%` }} />
-          </span>
-        </div>
-
-        <div className={styles.flowArrow} aria-hidden>
-          ↓
-        </div>
-
-        <div className={`${styles.card} ${styles.cardZar}`}>
-          <div className={styles.lane}>ZAR</div>
-          <div className={styles.amt}>{formatDeskMajorZar(plan.zarLiquid)}</div>
-          <div className={styles.sub}>
-            liquid now · {plan.liquidPct}% of {formatDeskMajorZar(plan.zarTotal)}
+      <section className={styles.watch} aria-label="Conversion cards">
+        <div className={styles.stack}>
+          <div className={`${styles.card} ${styles.cardMzn}`}>
+            <div className={styles.lane}>MZN</div>
+            <div className={styles.amt}>{formatDeskMajorMzn(plan.mznResidual)}</div>
+            <div className={styles.sub}>routing · of {formatDeskMajorMzn(plan.fundedMzn)} in</div>
+            <span className={styles.ratePill}>{formatDeskRateMtPerZar(plan.rate)}</span>
+            <span className={styles.liqTrack} role="img" aria-label={`Routing ${Math.round(mznBar)} percent`}>
+              <span className={styles.liqFill} style={{ width: `${mznBar}%` }} />
+            </span>
           </div>
-          <span className={styles.liqTrack} role="img" aria-label={`Liquid ${plan.liquidPct} percent`}>
-            <span className={styles.liqFill} style={{ width: `${zarBar}%` }} />
-          </span>
+
+          <div className={styles.flowArrow} aria-hidden>
+            ↓
+          </div>
+
+          <div className={`${styles.card} ${styles.cardZar}`}>
+            <div className={styles.lane}>ZAR</div>
+            <div className={styles.amt}>{formatDeskMajorZar(plan.zarLiquid)}</div>
+            <div className={styles.sub}>
+              liquid now · {plan.liquidPct}% of {formatDeskMajorZar(plan.zarTotal)}
+            </div>
+            <span className={styles.liqTrack} role="img" aria-label={`Liquid ${plan.liquidPct} percent`}>
+              <span className={styles.liqFill} style={{ width: `${zarBar}%` }} />
+            </span>
+          </div>
         </div>
-      </div>
+      </section>
 
       <section className={styles.when} aria-label="When each part lands">
         <h3 className={styles.whenTitle}>When each part lands</h3>
