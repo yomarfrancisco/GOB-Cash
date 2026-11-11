@@ -401,6 +401,14 @@ export function assembleRoutingPlan(params: {
     })
   }
 
+  // Chronological for the client table — never rail order (card then EFT).
+  legs.sort((a, b) => {
+    const aMs = a.landsAtMs == null ? 0 : a.landsAtMs
+    const bMs = b.landsAtMs == null ? 0 : b.landsAtMs
+    if (aMs !== bMs) return aMs - bMs
+    return 0
+  })
+
   const landTimes = legs
     .map((l) => l.landsAtMs)
     .filter((t): t is number => typeof t === 'number' && t > 0)
@@ -411,23 +419,10 @@ export function assembleRoutingPlan(params: {
       ? formatPlanWhenLabel(fullLiquidAtMs).replace(' · ', ' ')
       : '—'
 
-  let sentence: string
-  if (packed.eftZar > 0.005 && packed.cardZar > 0.005) {
-    sentence =
-      zarLiquid > 0.005
-        ? `${fmtMzn(fundedMzn)} becomes ${fmtZar(zarTotal)}. ${fmtZar(zarLiquid)} is liquid now. ${fmtZar(packed.cardZar)} runs on card over the next ${packed.cardLegs.length} operating days; ${fmtZar(packed.eftZar)} goes EFT in parallel (T+2). Fully liquid by ${fullLiquidLabel}.`
-        : `${fmtMzn(fundedMzn)} becomes ${fmtZar(zarTotal)}. ${fmtZar(packed.cardZar)} runs on card over the next ${packed.cardLegs.length} operating days; ${fmtZar(packed.eftZar)} goes EFT in parallel (T+2). Fully liquid by ${fullLiquidLabel}.`
-  } else if (packed.cardZar > 0.005) {
-    sentence =
-      zarLiquid > 0.005
-        ? `${fmtMzn(fundedMzn)} becomes ${fmtZar(zarTotal)}. ${fmtZar(zarLiquid)} is liquid now. The rest lands on card by ${fullLiquidLabel}.`
-        : `${fmtMzn(fundedMzn)} becomes ${fmtZar(zarTotal)}. Lands on card by ${fullLiquidLabel}.`
-  } else {
-    sentence =
-      zarLiquid > 0.005
-        ? `${fmtMzn(fundedMzn)} becomes ${fmtZar(zarTotal)}. ${fmtZar(zarLiquid)} is liquid now. The rest is EFT (T+2), fully liquid by ${fullLiquidLabel}.`
-        : `${fmtMzn(fundedMzn)} becomes ${fmtZar(zarTotal)}. EFT (T+2), fully liquid by ${fullLiquidLabel}.`
-  }
+  const sentence =
+    zarLiquid > 0.005
+      ? `${fmtMzn(fundedMzn)} at Moza Banco. Converting to rand now. ${fmtZar(zarLiquid)} is liquid now. Fully liquid by ${fullLiquidLabel}.`
+      : `${fmtMzn(fundedMzn)} at Moza Banco. Converting to rand now. Fully liquid by ${fullLiquidLabel}.`
 
   const bank = params.payoutBankTag?.trim() || null
   const note = `Each part pays out to your bank as it lands. If a time moves, we'll tell you.`

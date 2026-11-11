@@ -22,6 +22,40 @@ function legStatus(confidence: string, channel?: string): string {
   return 'Booked'
 }
 
+function fmtMinorMzn(n: number): string {
+  return `${Math.abs(Number(n) || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} MZN`
+}
+
+function fmtMinorZar(n: number): string {
+  return `R${Math.abs(Number(n) || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+/** Opening desk line from live plan numbers (overrides stored EFT/T+2 copy). */
+export function formatRoutingPlanDeskSentence(
+  plan: NonNullable<ActivityItem['routingPlan']>
+): string {
+  const liquid =
+    plan.zarLiquid > 0.005 ? ` ${fmtMinorZar(plan.zarLiquid)} is liquid now.` : ''
+  const by = plan.fullLiquidLabel?.trim() || '—'
+  return `${fmtMinorMzn(plan.fundedMzn)} at Moza Banco. Converting to rand now.${liquid} Fully liquid by ${by}.`
+}
+
+function legsByLanding(
+  legs: NonNullable<ActivityItem['routingPlan']>['legs']
+): NonNullable<ActivityItem['routingPlan']>['legs'] {
+  return [...legs].sort((a, b) => {
+    const aMs = a.landsAtMs == null ? 0 : a.landsAtMs
+    const bMs = b.landsAtMs == null ? 0 : b.landsAtMs
+    return aMs - bMs
+  })
+}
+
 /** Designer routing plan: stacked cards + timed legs (CTA lives on the desk action row). */
 export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
   const plan = item.routingPlan
@@ -32,6 +66,7 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
       ? Math.max(0, Math.min(100, (plan.mznResidual / plan.fundedMzn) * 100))
       : 0
   const zarBar = Math.max(0, Math.min(100, plan.liquidPct))
+  const legs = legsByLanding(plan.legs)
 
   return (
     <div className={styles.root} aria-label="Your routing plan">
@@ -67,7 +102,7 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
       <section className={styles.when} aria-label="When each part lands">
         <h3 className={styles.whenTitle}>When each part lands</h3>
         <ul className={styles.whenList}>
-          {plan.legs.map((leg, i) => {
+          {legs.map((leg, i) => {
             const status = legStatus(leg.confidence, leg.channel)
             return (
               <li key={`${leg.whenLabel}-${leg.amountZar}-${i}`} className={styles.whenRow}>

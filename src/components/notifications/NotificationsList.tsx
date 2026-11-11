@@ -59,6 +59,7 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
+import { formatRoutingPlanDeskSentence } from '@/components/notifications/RoutingPlanVisual'
 import { paidOutDisplaySentence } from '@/components/notifications/PaidOutStackVisual'
 import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCard'
 import { LiquidityReportCard } from '@/components/notifications/LiquidityReportCard'
@@ -634,14 +635,19 @@ function ActivityItemCard({
   const isSendCard =
     item.routingAction === 'deploy' || /^Step\s*4\b/i.test(title) || /^Sell ZAR\b/i.test(item.title || '')
   // Structured step card / ledger owns the copy — skip live Mt/COST overlays on Steps 1–6.
+  const routingPlanSentence = item.routingPlan
+    ? formatRoutingPlanDeskSentence(item.routingPlan)
+    : null
   const body =
-    item.routingStepMessage || item.deskLedgerRows || item.deskSentence
-      ? item.deskSentence || ''
-      : isRecycleCard
-        ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
-        : isSendCard
-          ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
-          : displayDeskBody(item.body)
+    routingPlanSentence
+      ? routingPlanSentence
+      : item.routingStepMessage || item.deskLedgerRows || item.deskSentence
+        ? item.deskSentence || ''
+        : isRecycleCard
+          ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
+          : isSendCard
+            ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
+            : displayDeskBody(item.body)
   const showStepContinue =
     !lockDeskActions &&
     actionsUnlocked &&
@@ -886,7 +892,9 @@ function ActivityItemCard({
         ? ''
         : isPaidOut
           ? paidOutDisplaySentence(item)
-          : sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
+          : routingPlanSentence ||
+            sentence ||
+            (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
     ? 'Download invoices'
     : /^Step\s*6\b/i.test(title)

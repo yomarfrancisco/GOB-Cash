@@ -60,9 +60,17 @@ describe('routingPlan', () => {
     assert.ok(cardLegs.every((l) => l.amountZar <= PLANNED_CARD_DAY_TARGET_ZAR + 0.02))
     assert.equal(eftLegs.length, 1)
     assert.equal(eftLegs[0].chip, 'EFT · T+2')
-    assert.match(plan!.sentence, /EFT in parallel/i)
+    assert.match(plan!.sentence, /at Moza Banco\. Converting to rand now\./i)
+    assert.match(plan!.sentence, /Fully liquid by/i)
+    assert.doesNotMatch(plan!.sentence, /EFT|T\+2|card over/i)
     assert.match(plan!.note, /pays out to your bank as it lands/i)
     assert.ok(!plan!.legs.some((l) => /guaranteed/i.test(l.chip)))
+    // Legs are chronological (Now first), not rail order.
+    for (let i = 1; i < plan!.legs.length; i++) {
+      const prev = plan!.legs[i - 1].landsAtMs == null ? 0 : plan!.legs[i - 1].landsAtMs!
+      const next = plan!.legs[i].landsAtMs == null ? 0 : plan!.legs[i].landsAtMs!
+      assert.ok(prev <= next)
+    }
   })
 
   it('uses planned day target (~R30k), not R100k slices', () => {
