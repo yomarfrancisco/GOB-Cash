@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { ArrowUp, Calculator, Check, Download, ExternalLink } from 'lucide-react'
+import { ArrowUp, Check, Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -1518,7 +1518,6 @@ export function NotificationsList({
   const askBusy = askState !== 'idle'
   // Light up as soon as there’s real text — don’t gate the affordance on KYC.
   const askCanSend = !askBusy && askText.trim().length > 0
-  const askProfile = useUserProfileStore((s) => s.profile)
   // Runtime validator: auto-clear bad data
   useEffect(() => {
     const items = all()
@@ -2040,16 +2039,40 @@ export function NotificationsList({
       </div>
       <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
         <div className={listStyles.deskAskRow}>
-          <div className={listStyles.deskAskAvatar} aria-hidden={!askProfile.fullName && !askProfile.userHandle}>
-            <Avatar
-              avatarUrl={askProfile.avatarUrl || null}
-              name={askProfile.fullName}
-              handle={askProfile.userHandle}
-              email={askProfile.email}
-              size={44}
-              rounded={12}
-            />
-          </div>
+          <button
+            type="button"
+            className={listStyles.deskAskCalc}
+            aria-label="Open calculator"
+            onClick={(event) => {
+              event.preventDefault()
+              openHeaderFundCalculator()
+            }}
+          >
+            {/* Compact keypad glyph — cleaner than Lucide Calculator at this size. */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <rect
+                x="3.5"
+                y="2.5"
+                width="17"
+                height="19"
+                rx="3"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <path
+                d="M7.5 7h9"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <circle cx="8" cy="12" r="1.15" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.15" fill="currentColor" />
+              <circle cx="16" cy="12" r="1.15" fill="currentColor" />
+              <circle cx="8" cy="16.5" r="1.15" fill="currentColor" />
+              <circle cx="12" cy="16.5" r="1.15" fill="currentColor" />
+              <circle cx="16" cy="16.5" r="1.15" fill="currentColor" />
+            </svg>
+          </button>
           <div className={listStyles.deskAskComposer}>
             <div
               className={styles.replyFrame}
@@ -2083,17 +2106,6 @@ export function NotificationsList({
                   }
                 }}
               />
-              <button
-                type="button"
-                className={styles.replyCalc}
-                aria-label="Open calculator"
-                onClick={(event) => {
-                  event.preventDefault()
-                  openHeaderFundCalculator()
-                }}
-              >
-                <Calculator size={20} strokeWidth={2} aria-hidden />
-              </button>
               <button
                 type="submit"
                 className={styles.replySend}
