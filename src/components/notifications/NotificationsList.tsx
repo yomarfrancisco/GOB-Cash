@@ -57,6 +57,7 @@ import { paidOutDisplaySentence } from '@/components/notifications/PaidOutStackV
 import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCard'
 import { LiquidityReportCard } from '@/components/notifications/LiquidityReportCard'
 import {
+  fundIntroLine,
   fundIntroPrimaryLabel,
   fundIntroSecondaryLabel,
   fundIntroTitle,
@@ -612,7 +613,10 @@ function ActivityItemCard({
     Boolean(item.proposalId)
   const askCard = isAskCard(item)
   const typing = animateEntrance === true
-  const title = isFundIntro ? fundIntroTitle(fundLocale) : displayDeskTitle(item.title)
+  const title =
+    isFundIntro || isFundWire
+      ? fundIntroTitle(fundLocale, item)
+      : displayDeskTitle(item.title)
   const bankTile = bankTileForItem({ title: title || item.title, routingAction: item.routingAction })
   // Bank · notices keep bank tiles — not Routing Manager / liaison portraits.
   // Buy Steps 3–4 are EN_ROUTE_* with deskStep; still use desk team faces.
@@ -877,11 +881,14 @@ function ActivityItemCard({
     item.routingAction === 'daily_liquid_zar_payout' &&
     ((item as { payoutScheduled?: boolean }).payoutScheduled === true ||
       /^scheduled$/i.test(String(item.deskPendingChip || '')))
-  const displaySentence = isLiquidityReport || isFundIntro || isFundWire
-    ? ''
-    : isPaidOut
-      ? paidOutDisplaySentence(item)
-      : sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
+  const displaySentence =
+    isFundIntro || isFundWire
+      ? fundIntroLine(fundLocale, item)
+      : isLiquidityReport
+        ? ''
+        : isPaidOut
+          ? paidOutDisplaySentence(item)
+          : sentence || (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
     ? 'Download invoices'
     : /^Step\s*6\b/i.test(title)

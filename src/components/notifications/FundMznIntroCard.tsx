@@ -9,6 +9,7 @@ import {
   FUND_MZN_RECIPIENT,
 } from '@/lib/notifications/welcomeSignIn'
 import { MZN_PER_ZAR, sellMznPerZar, zarToMzn } from '@/lib/mznZar'
+import { DeskDisclosure } from './DeskDisclosure'
 import styles from './FundMznIntroCard.module.css'
 
 /**
@@ -55,10 +56,8 @@ function demoLiquidFillPct(demoZar: number): number {
   if (!(demoZar > 0)) return 0
   const liquid = Math.min(DEMO_LIQUID_ZAR, demoZar)
   if (demoZar <= DEMO_LIQUID_ZAR) {
-    // Phase 1: bar fills with liquid capacity.
     return Math.max(0, Math.min(100, (liquid / DEMO_LIQUID_ZAR) * 100))
   }
-  // Phase 2: liquid capped; share of total shrinks.
   return Math.max(0, Math.min(100, (liquid / demoZar) * 100))
 }
 
@@ -76,9 +75,6 @@ function fundIntroBodyEn(name: string): ReactNode {
       <br />
       <strong>2. Tell us where to pay.</strong> The Routing Manager will ask for your South African
       bank account once. After that, we pay out automatically.
-      <br />
-      <br />
-      Your PAGA MZN account:
     </>
   )
 }
@@ -96,9 +92,6 @@ function fundIntroBodyPt(name: string): ReactNode {
       <br />
       <strong>2. Diga-nos para onde pagar.</strong> O Routing Manager pede-lhe a sua conta bancária
       sul-africana uma única vez. A partir daí, pagamos automaticamente.
-      <br />
-      <br />
-      A sua conta MZN no PAGA:
     </>
   )
 }
@@ -106,12 +99,13 @@ function fundIntroBodyPt(name: string): ReactNode {
 const COPY = {
   en: {
     body: fundIntroBodyEn,
-    recipient: 'Recipient',
+    recipient: 'Name',
     bank: 'Bank',
     account: 'Account',
     reference: 'Reference',
-    refNote: 'Add this reference so we can match your transfer.',
+    refNote: 'Use the reference so we can match your transfer.',
     watchTitle: 'Watch it become liquid',
+    howItWorks: 'How it works',
     explain: (
       <>
         The <strong>green bar</strong> on your ZAR card shows how much is liquid. Up to{' '}
@@ -124,12 +118,13 @@ const COPY = {
   },
   pt: {
     body: fundIntroBodyPt,
-    recipient: 'Beneficiário',
+    recipient: 'Nome',
     bank: 'Banco',
     account: 'Conta',
     reference: 'Referência',
-    refNote: 'Inclua esta referência para conseguirmos identificar a transferência.',
+    refNote: 'Use a referência para conseguirmos identificar a transferência.',
     watchTitle: 'Veja ficar líquido',
+    howItWorks: 'Como funciona',
     explain: (
       <>
         A <strong>barra verde</strong> no seu cartão ZAR mostra quanto está líquido. Até{' '}
@@ -211,6 +206,27 @@ function LedgerRow({
   )
 }
 
+function resolveWireAmounts(
+  item: ActivityItem,
+  sellMznPerZarProp: number | null
+): { zar: number; mzn: number } {
+  const liveSell =
+    typeof sellMznPerZarProp === 'number' && sellMznPerZarProp > 0
+      ? sellMznPerZar(sellMznPerZarProp)
+      : sellMznPerZar(MZN_PER_ZAR)
+  const zar =
+    typeof item.fundTargetZar === 'number' && item.fundTargetZar > 0
+      ? item.fundTargetZar
+      : typeof item.amount?.value === 'number'
+        ? item.amount.value
+        : DEMO_END_ZAR
+  const mzn =
+    typeof item.fundTargetMzn === 'number' && item.fundTargetMzn > 0
+      ? item.fundTargetMzn
+      : zarToMzn(zar, liveSell)
+  return { zar, mzn }
+}
+
 export function FundMznIntroCard({
   item,
   locale: localeProp = 'en',
@@ -232,7 +248,6 @@ export function FundMznIntroCard({
     setLocale(localeProp)
   }, [localeProp])
 
-  // Pause the educational fill when scrolled off or desk closed (unmount).
   useEffect(() => {
     const node = rootRef.current
     if (!node || typeof IntersectionObserver === 'undefined') return
@@ -300,7 +315,8 @@ export function FundMznIntroCard({
     item.deskLedgerRows?.find((row) => /^reference$/i.test(row.label))?.value ||
     ''
   const recipient =
-    item.deskLedgerRows?.find((row) => /^recipient$/i.test(row.label))?.value || FUND_MZN_RECIPIENT
+    item.deskLedgerRows?.find((row) => /^recipient$/i.test(row.label) || /^name$/i.test(row.label))
+      ?.value || FUND_MZN_RECIPIENT
   const bank = item.deskLedgerRows?.find((row) => /^bank$/i.test(row.label))?.value || FUND_MZN_BANK
   const [copiedKey, setCopiedKey] = useState<'account' | 'reference' | null>(null)
 
@@ -308,16 +324,7 @@ export function FundMznIntroCard({
     typeof sellMznPerZarProp === 'number' && sellMznPerZarProp > 0
       ? sellMznPerZar(sellMznPerZarProp)
       : sellMznPerZar(MZN_PER_ZAR)
-  const wireZar =
-    typeof item.fundTargetZar === 'number' && item.fundTargetZar > 0
-      ? item.fundTargetZar
-      : typeof item.amount?.value === 'number'
-        ? item.amount.value
-        : DEMO_END_ZAR
-  const wireMzn =
-    typeof item.fundTargetMzn === 'number' && item.fundTargetMzn > 0
-      ? item.fundTargetMzn
-      : zarToMzn(wireZar, liveSell)
+  const { zar: wireZar, mzn: wireMzn } = resolveWireAmounts(item, sellMznPerZarProp)
   const demoZar = demoZarForProgress(animProgress, isWire ? wireZar : DEMO_END_ZAR)
   const demoMzn = isWire
     ? wireMzn * (wireZar > 0 ? demoZar / wireZar : 0)
@@ -327,18 +334,6 @@ export function FundMznIntroCard({
     item.deskSentence?.match(/^(?:Hi|Olá)\s+([^.,]+)/i)?.[1]?.trim() ||
     item.actor?.name?.trim().split(/\s+/)[0] ||
     (locale === 'pt' ? 'aí' : 'there')
-  const wireBody =
-    locale === 'pt' ? (
-      <>
-        Envie <strong>{formatMznApprox(wireMzn).replace(/^≈\s*/, '')}</strong> para a conta abaixo
-        para financiar cerca de <strong>{formatZarAmount(wireZar)}</strong>.
-      </>
-    ) : (
-      <>
-        Send <strong>{formatMznApprox(wireMzn).replace(/^≈\s*/, '')}</strong> to the account below
-        to fund about <strong>{formatZarAmount(wireZar)}</strong>.
-      </>
-    )
 
   const markCopied = (key: 'account' | 'reference') => {
     setCopiedKey(key)
@@ -384,24 +379,7 @@ export function FundMznIntroCard({
         </button>
       </div>
 
-      <p className={styles.body}>{isWire ? wireBody : copy.body(firstName)}</p>
-
       <div className={styles.ledger}>
-        {isWire ? (
-          <>
-            <LedgerRow
-              label={locale === 'pt' ? 'Enviar' : 'Send'}
-              value={formatMznApprox(wireMzn).replace(/^≈\s*/, '')}
-              strong
-            />
-            <LedgerRow
-              label={locale === 'pt' ? 'Recebe' : 'Gets you'}
-              value={`about ${formatZarAmount(wireZar)}`}
-              strong
-            />
-          </>
-        ) : null}
-        <LedgerRow label={copy.recipient} value={recipient} strong />
         <LedgerRow label={copy.bank} value={bank} />
         <LedgerRow
           label={copy.account}
@@ -423,76 +401,115 @@ export function FundMznIntroCard({
           copyable
           copyLabel={copy.copyReference}
           copied={copiedKey === 'reference'}
-          last
           onCopy={() => {
             void copyText(reference).then((ok) => {
               if (ok) markCopied('reference')
             })
           }}
         />
+        <LedgerRow label={copy.recipient} value={recipient} strong last />
         <p className={styles.refNote}>{copy.refNote}</p>
       </div>
 
-      <section className={styles.watch} aria-label={copy.watchTitle}>
-        <h3 className={styles.watchTitle}>
-          {isWire
-            ? locale === 'pt'
-              ? 'O que acontece no cartão'
-              : 'What lands on your card'
-            : copy.watchTitle}
-        </h3>
-        <div className={styles.miniCard} aria-hidden>
-          <div className={styles.miniCardAmt}>{formatZarAmount(demoZar)}</div>
-          <div className={styles.miniCardApprox}>{formatMznApprox(demoMzn)}</div>
-          <span className={styles.ratePill}>{liveSell.toFixed(2)}Mt/R</span>
-          <span
-            className={styles.liqTrack}
-            title="Liquidity bar"
-            role="img"
-            aria-label={`Liquid ${Math.round(liquidFillPct)} percent`}
-          >
-            <span
-              className={styles.liqFill}
-              style={{ width: `${Math.max(0, Math.min(100, liquidFillPct))}%` }}
-            />
-          </span>
-        </div>
-        <p className={styles.explain}>
-          <span className={styles.explainIcon} aria-hidden>
-            <span className={styles.explainIconBar} />
-          </span>
-          <span>
-            {isWire ? (
-              locale === 'pt' ? (
-                <>
-                  A <strong>barra verde</strong> mostra quanto deste financiamento fica líquido já
-                  (até <strong>R100.000</strong>/dia). O restante às <strong>09:00</strong>.
-                </>
-              ) : (
-                <>
-                  The <strong>green bar</strong> shows how much of this fund is liquid now (up to{' '}
-                  <strong>R100,000</strong>/day). The rest lands at <strong>09:00</strong>.
-                </>
-              )
+      <DeskDisclosure label={copy.howItWorks}>
+        <p className={styles.body}>{copy.body(firstName)}</p>
+        {isWire ? (
+          <p className={styles.body}>
+            {locale === 'pt' ? (
+              <>
+                Envie <strong>{formatMznApprox(wireMzn).replace(/^≈\s*/, '')}</strong> para financiar
+                cerca de <strong>{formatZarAmount(wireZar)}</strong>.
+              </>
             ) : (
-              copy.explain
+              <>
+                Send <strong>{formatMznApprox(wireMzn).replace(/^≈\s*/, '')}</strong> to fund about{' '}
+                <strong>{formatZarAmount(wireZar)}</strong>.
+              </>
             )}
-          </span>
-        </p>
-      </section>
+          </p>
+        ) : null}
+        <section className={styles.watch} aria-label={copy.watchTitle}>
+          <h3 className={styles.watchTitle}>
+            {isWire
+              ? locale === 'pt'
+                ? 'O que acontece no cartão'
+                : 'What lands on your card'
+              : copy.watchTitle}
+          </h3>
+          <div className={styles.miniCard} aria-hidden>
+            <div className={styles.miniCardAmt}>{formatZarAmount(demoZar)}</div>
+            <div className={styles.miniCardApprox}>{formatMznApprox(demoMzn)}</div>
+            <span className={styles.ratePill}>{liveSell.toFixed(2)} Mt/R</span>
+            <span
+              className={styles.liqTrack}
+              title="Liquidity bar"
+              role="img"
+              aria-label={`Liquid ${Math.round(liquidFillPct)} percent`}
+            >
+              <span
+                className={styles.liqFill}
+                style={{ width: `${Math.max(0, Math.min(100, liquidFillPct))}%` }}
+              />
+            </span>
+          </div>
+          <p className={styles.explain}>
+            <span className={styles.explainIcon} aria-hidden>
+              <span className={styles.explainIconBar} />
+            </span>
+            <span>
+              {isWire ? (
+                locale === 'pt' ? (
+                  <>
+                    A <strong>barra verde</strong> mostra quanto deste financiamento fica líquido já
+                    (até <strong>R100.000</strong>/dia). O restante às <strong>09:00</strong>.
+                  </>
+                ) : (
+                  <>
+                    The <strong>green bar</strong> shows how much of this fund is liquid now (up to{' '}
+                    <strong>R100,000</strong>/day). The rest lands at <strong>09:00</strong>.
+                  </>
+                )
+              ) : (
+                copy.explain
+              )}
+            </span>
+          </p>
+        </section>
+      </DeskDisclosure>
     </div>
   )
 }
 
 export function fundIntroPrimaryLabel(locale: FundIntroLocale, watching: boolean): string {
-  if (locale === 'pt') return watching ? 'A acompanhar a transferência' : 'Já enviei a transferência'
-  return watching ? 'Watching for your transfer' : "I've sent the transfer"
+  if (locale === 'pt') return watching ? 'A acompanhar a transferência' : 'Já enviei'
+  return watching ? 'Watching for your transfer' : "I've sent it"
 }
 
 export function fundIntroSecondaryLabel(locale: FundIntroLocale): string {
   return locale === 'pt' ? 'Relatório de liquidez' : 'Liquidity report'
 }
 
-export function fundIntroTitle(locale: FundIntroLocale): string {
-  return locale === 'pt' ? 'Financie a sua conta em MZN' : 'Fund your MZN account'
+export function fundIntroTitle(locale: FundIntroLocale, item?: ActivityItem): string {
+  if (item?.routingAction === 'fund_wire') {
+    const { mzn } = resolveWireAmounts(item, null)
+    if (mzn > 0) {
+      const major = Math.round(mzn).toLocaleString('en-US')
+      return locale === 'pt' ? `Envie ${major} MZN.` : `Send ${major} MZN.`
+    }
+  }
+  return locale === 'pt' ? 'Envie MZN aqui.' : 'Send MZN here.'
+}
+
+export function fundIntroLine(locale: FundIntroLocale, item?: ActivityItem): string {
+  if (item?.routingAction === 'fund_wire') {
+    const { zar } = resolveWireAmounts(item, null)
+    if (zar > 0) {
+      return locale === 'pt'
+        ? `Recebe cerca de ${formatZarAmount(zar)}.`
+        : `You get about ${formatZarAmount(zar)}.`
+    }
+  }
+  return locale === 'pt'
+    ? 'Os primeiros R100.000 por dia são instantâneos. O resto fica pronto às 09:00.'
+    : 'The first R100,000 a day is instant. The rest is ready by 09:00.'
 }
