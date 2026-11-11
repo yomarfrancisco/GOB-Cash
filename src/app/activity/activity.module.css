@@ -597,8 +597,8 @@
   position: relative;
   width: 100%;
   min-height: 72px;
-  /* Right inset: 36px send + 8px edge. */
-  padding: 10px 52px 10px 12px;
+  /* Right inset: calc + gap + send + edge. */
+  padding: 10px 92px 10px 12px;
   /* Same radius as desk ledger cards — softer 18px read as inset vs message blocks. */
   border-radius: 16px;
   background: #e5e5ea;
@@ -630,6 +630,30 @@
 .replyInput:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+.replyCalc {
+  position: absolute;
+  right: 48px;
+  bottom: 8px;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #3a3a3c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.replyCalc:active {
+  opacity: 0.7;
 }
 
 .replySend {

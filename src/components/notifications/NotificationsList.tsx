@@ -33,7 +33,6 @@ import { bankTileForItem } from '@/lib/activity/bankTiles'
 import {
   DESK_TEAM,
   deskAgentFor,
-  activeDeskAgent,
   addressedDeskAgent,
   isDeskVoiceItem,
 } from '@/lib/desk/threadModel'
@@ -914,6 +913,9 @@ function ActivityItemCard({
       className={styles.activityItem}
       data-desk-item-at={item.createdAt}
       data-desk-item-cycle={typeof item.cycleNumber === 'number' ? item.cycleNumber : undefined}
+      data-desk-speaker={
+        deskAgent || (isDeskVoiceItem(item) ? deskAgentFor(item) : undefined) || undefined
+      }
       data-routing-action={item.routingAction || undefined}
     >
       <div className={[styles.activityAvatar, bankTile ? styles.activityAvatarBank : ''].filter(Boolean).join(' ')}>
@@ -1650,41 +1652,18 @@ export function NotificationsList({
     return pending ? deskAgentFor(pending) : 'sam'
   }, [pagedItems, reveal.showDots, reveal.visibleIds])
 
-  // Header ring: centre face follows the agent currently typing / about to speak.
+  // Header ring during catch-up: follow the agent typing / about to speak.
+  // Once settled, scroll sync owns the centre face.
   useEffect(() => {
     if (reveal.typingId) {
       const typing = pagedItems.find((item) => item.id === reveal.typingId)
-      if (typing) {
-        setActiveAgent(deskAgentFor(typing))
-        return
-      }
+      if (typing) setActiveAgent(deskAgentFor(typing))
+      return
     }
     if (reveal.showDots && nextRevealSpeaker) {
       setActiveAgent(nextRevealSpeaker)
-      return
     }
-    const latestVisible = [...pagedItems]
-      .reverse()
-      .find(
-        (item) =>
-          reveal.visibleIds.has(item.id) &&
-          item.thinking !== true &&
-          isDeskVoiceItem(item)
-      )
-    if (latestVisible) {
-      setActiveAgent(deskAgentFor(latestVisible))
-      return
-    }
-    setActiveAgent(activeDeskAgent(allItems))
-  }, [
-    allItems,
-    nextRevealSpeaker,
-    pagedItems,
-    reveal.showDots,
-    reveal.typingId,
-    reveal.visibleIds,
-    setActiveAgent,
-  ])
+  }, [nextRevealSpeaker, pagedItems, reveal.showDots, reveal.typingId, setActiveAgent])
 
   const applyFocusFromItem = useCallback(
     (item: ActivityItem | null | undefined) => {
@@ -1720,7 +1699,7 @@ export function NotificationsList({
     reveal.visibleIds,
   ])
 
-  // Settled + manual scroll: pick the bubble nearest the lower focus line of the feed.
+  // Settled + manual scroll: date focus + header speaker from the bubble on the focus line.
   useEffect(() => {
     const feed = listRootRef.current?.closest('[data-desk-feed]')
     if (!(feed instanceof HTMLElement)) return
@@ -1734,6 +1713,7 @@ export function NotificationsList({
       const focusY = feedRect.top + feed.clientHeight * 0.72
       let bestAt: number | null = null
       let bestCycle: number | null = null
+      let bestSpeaker: DeskAgent | null = null
       let bestDist = Number.POSITIVE_INFINITY
       nodes.forEach((node) => {
         const rect = node.getBoundingClientRect()
@@ -1744,11 +1724,18 @@ export function NotificationsList({
         if (!Number.isFinite(at)) return
         const cycleRaw = node.getAttribute('data-desk-item-cycle')
         const cycle = cycleRaw ? Number(cycleRaw) : NaN
+        const speakerRaw = node.getAttribute('data-desk-speaker')
+        const speaker =
+          speakerRaw === 'sam' || speakerRaw === 'leo' || speakerRaw === 'amina'
+            ? speakerRaw
+            : null
         bestDist = dist
         bestAt = at
         bestCycle = Number.isFinite(cycle) && cycle > 0 ? cycle : null
+        bestSpeaker = speaker
       })
       if (bestAt != null) setDeskFocus(bestAt, bestCycle)
+      if (bestSpeaker) setActiveAgent(bestSpeaker)
     }
 
     const onScroll = () => {
@@ -1763,7 +1750,7 @@ export function NotificationsList({
       feed.removeEventListener('scroll', onScroll)
       if (frame) cancelAnimationFrame(frame)
     }
-  }, [pagedItems.length, reveal.showDots, reveal.typingId, setDeskFocus])
+  }, [pagedItems.length, reveal.showDots, reveal.typingId, setActiveAgent, setDeskFocus])
 
   // Keep the latest post pinned while the desk opens and while content grows
   // (typewriter text, grouped ledgers, images). Manual upward scrolling releases the pin.
@@ -2053,17 +2040,6 @@ export function NotificationsList({
       </div>
       <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
         <div className={listStyles.deskAskRow}>
-          <button
-            type="button"
-            className={listStyles.deskAskCalc}
-            aria-label="Open calculator"
-            onClick={(event) => {
-              event.preventDefault()
-              openHeaderFundCalculator()
-            }}
-          >
-            <Calculator size={22} strokeWidth={2.1} aria-hidden />
-          </button>
           <div className={listStyles.deskAskAvatar} aria-hidden={!askProfile.fullName && !askProfile.userHandle}>
             <Avatar
               avatarUrl={askProfile.avatarUrl || null}
@@ -2107,6 +2083,17 @@ export function NotificationsList({
                   }
                 }}
               />
+              <button
+                type="button"
+                className={styles.replyCalc}
+                aria-label="Open calculator"
+                onClick={(event) => {
+                  event.preventDefault()
+                  openHeaderFundCalculator()
+                }}
+              >
+                <Calculator size={20} strokeWidth={2} aria-hidden />
+              </button>
               <button
                 type="submit"
                 className={styles.replySend}
