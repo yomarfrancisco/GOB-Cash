@@ -293,9 +293,9 @@ export async function refreshNextOpenBookings(params?: {
       .doc(booking.userId)
       .collection('wallets')
       .doc('cashMZN')
-    // Booking used to create a cashMZN doc with only nextOpen* fields (no fiatBalance).
-    // Keep the wallet shape intact whenever we touch the doc.
     const existing = await ref.get()
+    // Never create cashMZN from booking — that produced docs missing fiatBalance.
+    if (!existing.exists) continue
     const data = existing.data() || {}
     const patch: Record<string, unknown> = {
       nextOpenBookedZar: booking.bookedZar,
@@ -311,7 +311,8 @@ export async function refreshNextOpenBookings(params?: {
       nextOpenComputedAtMs: nowMs,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     }
-    if (!existing.exists || data.fiatBalance == null || data.walletId == null) {
+    // Repair incomplete wallets in place (do not invent a new balance).
+    if (data.fiatBalance == null || data.walletId == null) {
       patch.walletId = 'cashMZN'
       patch.kind = 'cash'
       patch.displayCurrency = 'MZN'
@@ -328,31 +329,55 @@ export async function refreshNextOpenBookings(params?: {
     ops++
   }
 
-  // Clear booking fields for wallets that left the queue since last plan.
-  // Best-effort: only clear users we still know about via pointer collection.
+  // Clear booking fields for wallets that left the queue — never create cashMZN.
+  // Drop orphan queue pointers (deleted users) so they cannot recreate broken wallets.
   try {
     const pointers = await db().collection('liquidityQueueMzn').limit(80).get()
     for (const pointer of pointers.docs) {
       const userId = String(pointer.data()?.uid || pointer.id || '')
-      if (!userId || bookedIds.has(userId)) continue
+      if (!userId) continue
+      if (bookedIds.has(userId)) continue
+      const userSnap = await db().collection('users').doc(userId).get()
+      if (!userSnap.exists) {
+        batch.delete(pointer.ref)
+        ops++
+        continue
+      }
       const ref = db()
         .collection('users')
         .doc(userId)
         .collection('wallets')
         .doc('cashMZN')
-      batch.set(
-        ref,
-        {
-          nextOpenBookedZar: 0,
-          nextOpenBookedMzn: 0,
-          nextOpenWantZar: 0,
-          nextOpenQueueRank: admin.firestore.FieldValue.delete(),
-          nextOpenSkipReason: 'not_queued',
-          nextOpenComputedAtMs: nowMs,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      )
+      const existing = await ref.get()
+      if (!existing.exists) {
+        batch.delete(pointer.ref)
+        ops++
+        continue
+      }
+      const data = existing.data() || {}
+      const patch: Record<string, unknown> = {
+        nextOpenBookedZar: 0,
+        nextOpenBookedMzn: 0,
+        nextOpenWantZar: 0,
+        nextOpenQueueRank: admin.firestore.FieldValue.delete(),
+        nextOpenSkipReason: 'not_queued',
+        nextOpenComputedAtMs: nowMs,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }
+      if (data.fiatBalance == null || data.walletId == null) {
+        patch.walletId = 'cashMZN'
+        patch.kind = 'cash'
+        patch.displayCurrency = 'MZN'
+        patch.fiatBalance =
+          typeof data.fiatBalance === 'number' && Number.isFinite(data.fiatBalance)
+            ? data.fiatBalance
+            : 0
+        patch.usdtBalance =
+          typeof data.usdtBalance === 'number' && Number.isFinite(data.usdtBalance)
+            ? data.usdtBalance
+            : 0
+      }
+      batch.set(ref, patch, { merge: true })
       ops++
     }
   } catch {
