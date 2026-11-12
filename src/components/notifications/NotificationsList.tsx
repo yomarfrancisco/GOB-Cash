@@ -11,7 +11,6 @@ import {
   downloadWeeklySettlementProof,
   downloadSettlementInvoice,
   admin_submitConversionRoutingFeedback,
-  admin_publishLiquidityStatus,
   admin_exitDeskPlan,
   desk_submitPayoutBankDetails,
 } from '@/lib/transactions/clientFunctions'
@@ -54,7 +53,6 @@ import Avatar from '@/components/Avatar'
 import { useNotificationsStore } from '@/state/notifications'
 import { useRouter } from 'next/navigation'
 import { useIsAdminUser, useSignedInKycAccess } from '@/lib/restrictions'
-import { useWalletStore } from '@/store/wallets'
 import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerification'
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
@@ -69,10 +67,8 @@ import {
   resolveYoureSetUpCumulativeZar,
 } from '@/components/notifications/YoureSetUpVisual'
 import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCard'
-import { LiquidityReportCard } from '@/components/notifications/LiquidityReportCard'
 import {
   fundIntroLine,
-  fundIntroSecondaryLabel,
   fundIntroTitle,
   type FundIntroLocale,
 } from '@/components/notifications/FundMznIntroCard'
@@ -535,9 +531,7 @@ function ActivityItemCard({
   planBusy,
   catchupActive,
   planMode,
-  showStatus,
   showRealtime,
-  onStatus,
   onRealtime,
   liveSellMznPerZar,
   paidOutItems,
@@ -555,9 +549,7 @@ function ActivityItemCard({
   planBusy?: boolean
   catchupActive?: boolean
   planMode?: 'live' | 'planned'
-  showStatus?: boolean
   showRealtime?: boolean
-  onStatus?: () => void
   onRealtime?: () => void
   liveSellMznPerZar?: number | null
   paidOutItems?: ActivityItem[]
@@ -606,7 +598,6 @@ function ActivityItemCard({
   const showFundMznKeypad = !lockDeskActions && actionsUnlocked && isMznShortStepCard(item)
   const isFundIntro = item.routingAction === 'fund_intro'
   const isFundWire = item.routingAction === 'fund_wire'
-  const showFundIntroActions = actionsUnlocked && isFundIntro
   const showInlinePayoutForm =
     actionsUnlocked &&
     !item.userReply &&
@@ -616,12 +607,6 @@ function ActivityItemCard({
       (item.routingAction === 'routing_plan' &&
         Number(item.routingPlan?.zarLiquid || 0) > 0.005 &&
         !item.routingPlan?.payoutBankTag))
-  const wallets = useWalletStore((s) => s.wallets)
-  const accountIsFunded =
-    Number(wallets?.cashMZN?.fiatBalance || 0) > 0.005 ||
-    Number(wallets?.cashZAR?.fiatBalance || 0) > 0.005 ||
-    Number(wallets?.earnings?.fiatBalance || 0) > 0.005
-  const showFundIntroLiquidity = showFundIntroActions && accountIsFunded && showStatus === true
   const showProposalActions =
     !lockDeskActions &&
     actionsUnlocked &&
@@ -908,19 +893,16 @@ function ActivityItemCard({
     }
   }
 
-  const isLiquidityReport = Boolean(item.liquidityReport)
   const displaySentence = isFundIntro
     ? ''
     : isFundWire
       ? fundIntroLine(fundLocale, item)
-      : isLiquidityReport
-        ? ''
-        : isPaidOut
-          ? paidOutDisplaySentence(item)
-          : youreSetUpSentence ||
-            routingPlanSentence ||
-            sentence ||
-            (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
+      : isPaidOut
+        ? paidOutDisplaySentence(item)
+        : youreSetUpSentence ||
+          routingPlanSentence ||
+          sentence ||
+          (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
     ? 'Download invoices'
     : /^Step\s*6\b/i.test(title)
@@ -934,9 +916,7 @@ function ActivityItemCard({
       <DeskEventGroupCard
         item={item}
         planBusy={planBusy}
-        showStatus={showStatus}
         showRealtime={showRealtime}
-        onStatus={onStatus}
         onRealtime={onRealtime}
       />
     )
@@ -1021,7 +1001,7 @@ function ActivityItemCard({
           </div>
         ) : (
           <>
-            {!isLiquidityReport && (statusChip || item.deskPendingChip || planChip) && (
+            {(statusChip || item.deskPendingChip || planChip) && (
               <div className={styles.chipRow}>
                 {statusChip ? <StatusChip label={statusChip} /> : null}
                 {item.deskPendingChip ? (
@@ -1044,13 +1024,6 @@ function ActivityItemCard({
                 ) : null}
               </div>
             )}
-            {isLiquidityReport && (!typing || titleDone) ? (
-              <LiquidityReportCard
-                item={item}
-                onNewReport={showStatus ? () => onStatus?.() : undefined}
-                newReportBusy={planBusy === true}
-              />
-            ) : null}
             {askCard && item.userReply ? (
               <div className={styles.activityUserReply}>
                 <div className={styles.activityUserReplyLabel}>
@@ -1083,8 +1056,7 @@ function ActivityItemCard({
                 Ledger: {ledgerFailures[0]}
               </div>
             ) : null}
-            {!isLiquidityReport &&
-              (item.routingStepMessage ||
+            {(item.routingStepMessage ||
               item.deskLedgerRows ||
               item.deskPipes ||
               isFundIntro ||
@@ -1139,7 +1111,6 @@ function ActivityItemCard({
           showSendKeypad ||
           showRestockKeypad ||
           showFundMznKeypad ||
-          showFundIntroLiquidity ||
           showYoureSetUpHistory ||
           showStepContinue ||
           showStartNextRun ||
@@ -1147,10 +1118,6 @@ function ActivityItemCard({
           showProposalActions ||
           showExecuted ||
           showKycLink ||
-          (showStatus &&
-            !isLiquidityReport &&
-            !isFundIntro &&
-            !showInlinePayoutForm) ||
           showRealtime) && (
           <div className={styles.activityActionRow}>
             {isKycGate && (
@@ -1180,23 +1147,6 @@ function ActivityItemCard({
                 Fund MZN
               </button>
             )}
-            {showFundIntroLiquidity ? (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label={fundIntroSecondaryLabel(fundLocale)}
-                aria-busy={planBusy === true}
-                disabled={planBusy === true}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onStatus?.()
-                }}
-              >
-                {fundIntroSecondaryLabel(fundLocale)}
-              </button>
-            ) : null}
             {showYoureSetUpHistory && (
               <button
                 type="button"
@@ -1344,26 +1294,6 @@ function ActivityItemCard({
                 </button>
               </>
             )}
-            {showStatus &&
-              !isLiquidityReport &&
-              !isFundIntro &&
-              !showInlinePayoutForm && (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Show liquidity report"
-                aria-busy={planBusy === true}
-                disabled={planBusy === true || confirmState !== 'idle'}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onStatus?.()
-                }}
-              >
-                Liquidity Report
-              </button>
-            )}
             {showRealtime && (
               <button
                 type="button"
@@ -1447,7 +1377,6 @@ function ActivitySection({
   plannedAnchorCycle,
   planBusy,
   catchupActive,
-  onStatus,
   onRealtime,
   liveSellMznPerZar,
   paidOutItems,
@@ -1470,7 +1399,6 @@ function ActivitySection({
   plannedAnchorCycle: number | null
   planBusy: boolean
   catchupActive: boolean
-  onStatus: () => void
   onRealtime: () => void
   liveSellMznPerZar?: number | null
   paidOutItems?: ActivityItem[]
@@ -1501,7 +1429,7 @@ function ActivitySection({
       <div className={styles.activityList}>
         {visibleItems.map((item) => {
           const settled = item.thinking === true || isSettled(item.id)
-          // Next 24h / Status always ride the newest feed post — not an older awaiting card.
+          // Real-time exit rides the newest feed post — not an older awaiting card.
           const isPlanHost =
             Boolean(latestActivityId) && item.id === latestActivityId && item.thinking !== true
           return (
@@ -1519,10 +1447,7 @@ function ActivitySection({
                 planBusy={planBusy}
                 catchupActive={catchupActive}
                 planMode={planMode}
-                // Liquidity is a live status report — only on the latest desk message.
-                showStatus={isPlanHost}
                 showRealtime={!lockDeskActions && isPlanHost && planMode === 'planned'}
-                onStatus={onStatus}
                 onRealtime={onRealtime}
                 liveSellMznPerZar={liveSellMznPerZar}
                 paidOutItems={paidOutItems}
@@ -1617,6 +1542,14 @@ export function NotificationsList({
     const normalizedQuery = searchQuery.trim().toLowerCase()
     const items = allItems.filter((item) => {
       if (item.id === KYC_GATE_ID) return false
+      // Routing plan already covers liquidity summary — hide legacy report posts.
+      if (
+        item.routingAction === 'liquidity_report' ||
+        item.routingAction === 'liquidity_status' ||
+        Boolean(item.liquidityReport)
+      ) {
+        return false
+      }
       if (item.thinking) return !normalizedQuery || searchableText(item).includes(normalizedQuery)
       if (!isPaymentActivity(item)) return false
       return !normalizedQuery || searchableText(item).includes(normalizedQuery)
@@ -1659,7 +1592,7 @@ export function NotificationsList({
   )
   const latestActivityId = useMemo(() => {
     // Newest real desk post. Never use the synthetic KYC gate — it is excluded from
-    // progressive reveal, so Liquidity Report / plan actions would never appear.
+    // progressive reveal, so plan actions would never appear.
     return (
       feedItems.find((item) => item.thinking !== true && item.id !== KYC_GATE_ID)?.id ?? null
     )
@@ -1832,15 +1765,6 @@ export function NotificationsList({
   )
 
   const handleRoutingAsk = async (source: ActivityItem, message: string) => {
-    const trimmed = message.trim().toLowerCase()
-    if (/^(status|liquidity)\b/.test(trimmed) || trimmed === 'liquidity report') {
-      await admin_publishLiquidityStatus()
-      requestAnimationFrame(() => {
-        const el = listRootRef.current?.querySelector('[data-liquidity-live="true"]')
-        el?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-      })
-      return
-    }
     // First-payout hold: SA bank details via chat (any user) — sheet preferred.
     const awaitingPayoutDetails = allItems.some(
       (item) =>
@@ -1867,9 +1791,7 @@ export function NotificationsList({
     // Conversion-routing desk planner stays admin-only. Everyone else can fund,
     // convert via keypad, and complete first-payout details above.
     if (!isRoutingAdmin) {
-      throw new Error(
-        'Send SA bank details here to complete payout, or ask for a liquidity report.'
-      )
+      throw new Error('Send SA bank details here to complete payout.')
     }
     const routing =
       allItems.find(isAwaitingRoutingItem) ||
@@ -1952,23 +1874,6 @@ export function NotificationsList({
     })
   }
 
-  const handleStatus = async () => {
-    if (planBusy) return
-    setPlanBusy(true)
-    try {
-      await admin_publishLiquidityStatus()
-      bottomPinnedRef.current = true
-      requestAnimationFrame(() => {
-        const el = listRootRef.current?.querySelector('[data-liquidity-live="true"]')
-        el?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-      })
-    } catch (error) {
-      console.error('[Activity] Liquidity report failed:', error)
-    } finally {
-      setPlanBusy(false)
-    }
-  }
-
   const handleRealtime = async () => {
     if (planBusy) return
     setPlanBusy(true)
@@ -2007,7 +1912,6 @@ export function NotificationsList({
     plannedAnchorCycle,
     planBusy,
     catchupActive: reveal.catchupActive,
-    onStatus: () => void handleStatus(),
     onRealtime: () => void handleRealtime(),
     liveSellMznPerZar,
     paidOutItems,

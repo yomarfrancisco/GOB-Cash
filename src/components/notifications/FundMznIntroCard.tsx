@@ -391,10 +391,6 @@ export function fundIntroPrimaryLabel(locale: FundIntroLocale, watching: boolean
   return watching ? 'Watching for your transfer' : "I've sent it"
 }
 
-export function fundIntroSecondaryLabel(locale: FundIntroLocale): string {
-  return locale === 'pt' ? 'Relatório de liquidez' : 'Liquidity report'
-}
-
 export function fundIntroTitle(locale: FundIntroLocale, item?: ActivityItem): string {
   if (item?.routingAction === 'fund_wire') {
     const { mzn } = resolveWireAmounts(item, null)

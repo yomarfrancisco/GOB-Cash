@@ -170,16 +170,12 @@ function LedgerBody({ group }: { group: DeskEventGroup }) {
 export function DeskEventGroupCard({
   item,
   planBusy,
-  showStatus,
   showRealtime,
-  onStatus,
   onRealtime,
 }: {
   item: ActivityItem
   planBusy?: boolean
-  showStatus?: boolean
   showRealtime?: boolean
-  onStatus?: () => void
   onRealtime?: () => void
 }) {
   const group = item.deskEventGroup
@@ -193,7 +189,7 @@ export function DeskEventGroupCard({
       ? '≡'
       : group.source.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase())
   const isBankFeed = group.source !== 'wallet'
-  const showPlanActions = Boolean(showStatus || showRealtime)
+  const showPlanActions = Boolean(showRealtime)
 
   return (
     <article
@@ -245,23 +241,6 @@ export function DeskEventGroupCard({
         <LedgerBody group={group} />
         {showPlanActions ? (
           <div className={styles.activityActionRow}>
-            {showStatus ? (
-              <button
-                type="button"
-                className={[styles.replyButton, planBusy ? styles.confirmButtonLoading : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label="Show liquidity report"
-                aria-busy={planBusy === true}
-                disabled={planBusy === true}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onStatus?.()
-                }}
-              >
-                Liquidity Report
-              </button>
-            ) : null}
             {showRealtime ? (
               <button
                 type="button"
