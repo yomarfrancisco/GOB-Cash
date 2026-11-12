@@ -635,7 +635,10 @@ function ActivityItemCard({
     !item.userReply &&
     (item.routingAction === 'liquid_now' ||
       item.routingAction === 'payout_details_request' ||
-      (item.routingAction === 'routing_plan' && Number(item.routingPlan?.zarLiquid || 0) > 0.005))
+      // After You're set up, routing plans keep the bank tag and must not re-ask for details.
+      (item.routingAction === 'routing_plan' &&
+        Number(item.routingPlan?.zarLiquid || 0) > 0.005 &&
+        !item.routingPlan?.payoutBankTag))
   const wallets = useWalletStore((s) => s.wallets)
   const accountIsFunded =
     Number(wallets?.cashMZN?.fiatBalance || 0) > 0.005 ||
@@ -1170,7 +1173,6 @@ function ActivityItemCard({
           (showStatus &&
             !isLiquidityReport &&
             !isFundIntro &&
-            !isYoureSetUp &&
             !showInlinePayoutForm) ||
           showRealtime) && (
           <div className={styles.activityActionRow}>
@@ -1368,7 +1370,6 @@ function ActivityItemCard({
             {showStatus &&
               !isLiquidityReport &&
               !isFundIntro &&
-              !isYoureSetUp &&
               !showInlinePayoutForm && (
               <button
                 type="button"

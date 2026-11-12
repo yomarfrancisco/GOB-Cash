@@ -370,6 +370,62 @@ async function publishLiquidNow(params: {
   })
 }
 
+/**
+ * After auto-payout: Routing Manager plan for residual MZN still queued.
+ * Uses routing_plan (not liquid_now) so we don't re-ask for a payout account.
+ */
+async function publishPostPayoutRoutingPlan(params: {
+  userId: string
+  fundedMzn: number
+  zarLiquid: number
+  mznResidual: number
+  sellRate: number
+  groupId: string
+  bankTag: string | null
+}): Promise<void> {
+  if (!(params.mznResidual > 0.005)) return
+  const booking = await readUserNextOpenBooking(params.userId)
+  const routingPlan = assembleRoutingPlan({
+    nowMs: Date.now(),
+    fundedMzn: params.fundedMzn,
+    zarLiquid: params.zarLiquid,
+    mznResidual: params.mznResidual,
+    rate: params.sellRate,
+    nextOpenBookedZar: booking?.bookedZar ?? 0,
+    nextOpenAtMs: booking?.openAtMs ?? null,
+    reservePoolZar: booking?.reservePoolZar ?? null,
+    queueAheadZar: booking?.queueAheadZar ?? 0,
+    payoutBankTag: params.bankTag,
+  })
+  if (!routingPlan) return
+  const id = `routing-plan-${params.groupId}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
+  await publishActivity(params.userId, id, {
+    kind: CONVERSION_ROUTING_KIND,
+    title: 'Your routing plan',
+    body: routingPlan.sentence,
+    deskSentence: routingPlan.sentence,
+    dropdownTitle: 'Routing plan',
+    dropdownBody: routingPlan.sentence,
+    actorType: 'ai_manager',
+    avatarKind: 'convert_zar',
+    amountCurrency: 'MZN',
+    amountValue: roundMajor(params.mznResidual),
+    amountSign: 'debit',
+    txId: id,
+    groupId: params.groupId,
+    hasDownloadButton: false,
+    awaitingConfirm: false,
+    routingBlocked: false,
+    status: 'recorded',
+    routingAction: 'routing_plan',
+    deskSpeaker: 'sam',
+    mznResidual: roundMajor(params.mznResidual),
+    mznConverted: roundMajor(Math.max(0, params.fundedMzn - params.mznResidual)),
+    liquidNowMode: 'partial',
+    routingPlan,
+  })
+}
+
 /** Sum ZAR already paid out to a bank tag (Paid out / daily liquid, excluding scheduled). */
 async function sumPaidZarToBank(userId: string, bankTag: string): Promise<number> {
   const tag = bankTag.trim()
@@ -645,6 +701,24 @@ export async function handleCashMznCredit(params: {
         userId: params.userId,
         proofNote: 'Payment confirmation',
       })
+      // Auto-payout used to return here and skip the Routing Manager plan for residual
+      // MZN. Still publish the plan when funds remain queued past today's instant slice.
+      if (args.mode !== 'full' && args.mznResidual > 0.005) {
+        await publishPostPayoutRoutingPlan({
+          userId: params.userId,
+          fundedMzn: totalMzn,
+          zarLiquid: args.zarAmount,
+          mznResidual: args.mznResidual,
+          sellRate,
+          groupId,
+          bankTag:
+            linked?.bankName && linked?.accountNumber
+              ? `${linked.bankName} ${maskAccount(linked.accountNumber)}`
+              : linked?.bankName
+                ? String(linked.bankName)
+                : null,
+        })
+      }
       return
     }
 
