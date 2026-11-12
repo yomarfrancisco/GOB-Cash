@@ -1062,16 +1062,11 @@ export async function confirmFirstPayout(params: {
     const bankName = String(details.bankName || 'SA Bank')
     const holder = String(details.accountHolderName || 'account holder')
     const masked = maskAccount(String(details.accountNumber || '****'))
-    const landedAt = Number(zarData.firstPayoutMznLandedAtMs || 0)
-    const lagMinutes =
-      landedAt > 0 ? Math.max(1, Math.round((nowMs - landedAt) / 60_000)) : null
-    const speedLine =
-      lagMinutes != null
-        ? `Instant, ${lagMinutes} minute${lagMinutes === 1 ? '' : 's'} after your MZN landed.`
-        : 'Instant.'
-    const sentence = `${zarLabel} is in your account. ${speedLine}`
+    const bankTag = `${bankName} ${masked}`.trim()
+    const sentence = `In ${bankTag}. From now on we pay out automatically.`
     const instantLeft = roundMajor(Math.max(0, SUB_R100K_CAP - amount))
     void holder
+    void nowMs
 
     t.update(zarRef, {
       fiatBalance: 0,
@@ -1121,14 +1116,14 @@ export async function confirmFirstPayout(params: {
     t.set(deskRef, {
       id: deskRef.id,
       kind: CONVERSION_ROUTING_KIND,
-      title: 'Paid out',
+      title: `${fmtZarMajor(amount)} paid out.`,
       body: sentence,
       deskSentence: sentence,
-      dropdownTitle: 'Paid out',
-      dropdownBody: `${zarLabel} · ${bankName} ${masked}`,
+      dropdownTitle: `${fmtZarMajor(amount)} paid out.`,
+      dropdownBody: `${zarLabel} · ${bankTag}`,
       deskLedgerRows: [
         { label: 'Paid', value: zarLabel },
-        { label: 'To', value: `${bankName} ${masked}` },
+        { label: 'To', value: bankTag },
       ],
       deskStatusChip: 'Paid',
       deskPipes: [
@@ -1152,7 +1147,7 @@ export async function confirmFirstPayout(params: {
           tone: 'mzn',
         },
         { id: 'zar', label: 'ZAR', title: 'R0 · paid out', fillPct: 0, tone: 'zar' },
-        { id: 'bank', label: 'BANK', title: `${bankName} ${masked}`, fillPct: 0, tone: 'bank' },
+        { id: 'bank', label: 'BANK', title: bankTag, fillPct: 0, tone: 'bank' },
       ],
       deskPipeCaption:
         Number(mznSnap.data()?.liquidityQueueMzn || mznSnap.data()?.fiatBalance || 0) > 0.005
@@ -1171,7 +1166,7 @@ export async function confirmFirstPayout(params: {
       status: 'recorded',
       routingAction: 'payout_confirmed',
       deskSpeaker: 'leo',
-      payoutBankTag: `${bankName} ${masked}`.trim(),
+      payoutBankTag: bankTag,
       createdAt: now,
       recordingSource: 'SYSTEM',
     })

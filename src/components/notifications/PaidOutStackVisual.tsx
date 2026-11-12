@@ -74,7 +74,7 @@ export function paidOutDisplayTitle(item: ActivityItem): string {
   const zar =
     parseMajor(item.deskLedgerRows?.find((row) => /^paid$/i.test(row.label))?.value) ??
     (typeof item.amount?.value === 'number' ? Math.abs(item.amount.value) : null)
-  if (zar != null && zar > 0) return `${formatDeskMajorZar(zar)} paid.`
+  if (zar != null && zar > 0) return `${formatDeskMajorZar(zar)} paid out.`
   return displayDeskPaidTitle(item.title)
 }
 
@@ -90,7 +90,7 @@ export function paidOutDisplaySentence(item: ActivityItem): string {
     item.deskPipes?.find((pipe) => pipe.tone === 'bank' || pipe.id === 'bank')?.title?.trim() ||
     ''
   if (bankTag) {
-    return `In ${bankTag}, shortly after your MZN landed.`
+    return `In ${bankTag}. From now on we pay out automatically.`
   }
   return item.deskSentence || item.body || ''
 }
