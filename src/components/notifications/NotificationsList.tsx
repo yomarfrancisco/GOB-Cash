@@ -522,16 +522,6 @@ function isPaidOutActivity(item: ActivityItem): boolean {
   return true
 }
 
-function bankTagForPayout(item: ActivityItem): string {
-  return (
-    String(item.payoutBankTag || '').trim() ||
-    item.deskLedgerRows?.find((row) => /^Payout to$/i.test(row.label) || /^to$/i.test(row.label))
-      ?.value?.trim() ||
-    item.deskPipes?.find((pipe) => pipe.tone === 'bank' || pipe.id === 'bank')?.title?.trim() ||
-    ''
-  )
-}
-
 function ActivityItemCard({
   item,
   showRoutingActions,
