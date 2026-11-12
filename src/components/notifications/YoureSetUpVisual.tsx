@@ -10,6 +10,7 @@ function bankTagFromItem(item: ActivityItem): string {
     String((item as { payoutBankTag?: string }).payoutBankTag || '').trim() ||
     item.deskLedgerRows?.find((row) => /^Payout to$/i.test(row.label) || /^to$/i.test(row.label))
       ?.value?.trim() ||
+    item.deskPipes?.find((pipe) => pipe.tone === 'bank' || pipe.id === 'bank')?.title?.trim() ||
     ''
   )
 }
@@ -20,25 +21,56 @@ export function formatYoureSetUpSentence(item: ActivityItem): string {
   return 'Send MZN any time. We pay your bank automatically.'
 }
 
-export function resolveYoureSetUpCumulativeZar(
-  item: ActivityItem,
-  bankTotals?: Map<string, number>
-): number {
-  const tag = bankTagFromItem(item)
-  const fromBank =
-    tag && bankTotals?.has(tag) ? Number(bankTotals.get(tag) || 0) : 0
-  const stored = Number((item as { payoutCumulativeZar?: number }).payoutCumulativeZar)
-  const fromStored = Number.isFinite(stored) && stored > 0 ? stored : 0
-  const fromAmount =
-    typeof item.amount?.value === 'number' && item.amount.value > 0
-      ? Math.abs(item.amount.value)
-      : 0
-  // Prefer the live sum of Paid out cards — stored can lag when a new
-  // You're set up is published with only that payment's amount.
-  return Math.max(fromBank, fromStored, fromAmount)
+function isPaidOutForCumulative(item: ActivityItem): boolean {
+  if (item.routingAction === 'payout_confirmed') return true
+  if (item.routingAction !== 'daily_liquid_zar_payout') return false
+  if (item.payoutScheduled === true) return false
+  if (/^scheduled$/i.test(String(item.deskPendingChip || ''))) return false
+  return true
 }
 
-/** White bank card: cumulative ZAR paid to this payout account. */
+/** Sum Paid out to this bank with createdAt ≤ asOfMs (snapshot at that You're set up). */
+export function sumPaidZarToBankAsOf(
+  paidOutItems: ActivityItem[],
+  bankTag: string,
+  asOfMs: number
+): number {
+  const tag = bankTag.trim()
+  if (!tag || !(asOfMs > 0)) return 0
+  let total = 0
+  for (const paid of paidOutItems) {
+    if (!isPaidOutForCumulative(paid)) continue
+    if ((paid.createdAt || 0) > asOfMs) continue
+    if (bankTagFromItem(paid) !== tag) continue
+    const amt = typeof paid.amount?.value === 'number' ? Math.abs(paid.amount.value) : 0
+    if (amt > 0) total += amt
+  }
+  return Math.round(total * 100) / 100
+}
+
+/**
+ * Cumulative on a You're set up card = paid to that bank up to this card's time.
+ * Do not use a live all-time bank total (that would rewrite historic cards).
+ */
+export function resolveYoureSetUpCumulativeZar(
+  item: ActivityItem,
+  paidOutItems?: ActivityItem[]
+): number {
+  const tag = bankTagFromItem(item)
+  const asOfMs = typeof item.createdAt === 'number' && item.createdAt > 0 ? item.createdAt : 0
+  if (paidOutItems && tag && asOfMs > 0) {
+    const asOf = sumPaidZarToBankAsOf(paidOutItems, tag, asOfMs)
+    if (asOf > 0.005) return asOf
+  }
+  const stored = Number((item as { payoutCumulativeZar?: number }).payoutCumulativeZar)
+  if (Number.isFinite(stored) && stored > 0) return stored
+  if (typeof item.amount?.value === 'number' && item.amount.value > 0) {
+    return Math.abs(item.amount.value)
+  }
+  return 0
+}
+
+/** White bank card: cumulative ZAR paid to this payout account as of this message. */
 export function YoureSetUpVisual({
   item,
   cumulativeZar,
@@ -47,7 +79,8 @@ export function YoureSetUpVisual({
   cumulativeZar?: number
 }) {
   const tag = bankTagFromItem(item) || 'Your bank'
-  const total = cumulativeZar != null && cumulativeZar > 0 ? cumulativeZar : resolveYoureSetUpCumulativeZar(item)
+  const total =
+    cumulativeZar != null && cumulativeZar > 0 ? cumulativeZar : resolveYoureSetUpCumulativeZar(item)
   return (
     <div className={styles.root} aria-label="Automatic payout set up">
       <section className={styles.watch} aria-label="Paid to this account">

@@ -532,19 +532,6 @@ function bankTagForPayout(item: ActivityItem): string {
   )
 }
 
-function bankPayoutTotals(items: ActivityItem[]): Map<string, number> {
-  const totals = new Map<string, number>()
-  for (const item of items) {
-    if (!isPaidOutActivity(item)) continue
-    const tag = bankTagForPayout(item)
-    if (!tag) continue
-    const amt = typeof item.amount?.value === 'number' ? Math.abs(item.amount.value) : 0
-    if (!(amt > 0)) continue
-    totals.set(tag, (totals.get(tag) || 0) + amt)
-  }
-  return totals
-}
-
 function ActivityItemCard({
   item,
   showRoutingActions,
@@ -563,7 +550,7 @@ function ActivityItemCard({
   onStatus,
   onRealtime,
   liveSellMznPerZar,
-  bankPayoutTotalsByTag,
+  paidOutItems,
   latestYoureSetUpId,
 }: {
   item: ActivityItem
@@ -583,7 +570,7 @@ function ActivityItemCard({
   onStatus?: () => void
   onRealtime?: () => void
   liveSellMznPerZar?: number | null
-  bankPayoutTotalsByTag?: Map<string, number>
+  paidOutItems?: ActivityItem[]
   latestYoureSetUpId?: string | null
 }) {
   const router = useRouter()
@@ -662,7 +649,7 @@ function ActivityItemCard({
     actionsUnlocked && isYoureSetUp && Boolean(latestYoureSetUpId) && item.id === latestYoureSetUpId
   const youreSetUpSentence = isYoureSetUp ? formatYoureSetUpSentence(item) : null
   const cumulativeBankPayoutZar = isYoureSetUp
-    ? resolveYoureSetUpCumulativeZar(item, bankPayoutTotalsByTag)
+    ? resolveYoureSetUpCumulativeZar(item, paidOutItems)
     : null
   const title =
     isFundIntro || isFundWire
@@ -1473,7 +1460,7 @@ function ActivitySection({
   onStatus,
   onRealtime,
   liveSellMznPerZar,
-  bankPayoutTotalsByTag,
+  paidOutItems,
   latestYoureSetUpId,
 }: {
   title: string
@@ -1496,7 +1483,7 @@ function ActivitySection({
   onStatus: () => void
   onRealtime: () => void
   liveSellMznPerZar?: number | null
-  bankPayoutTotalsByTag?: Map<string, number>
+  paidOutItems?: ActivityItem[]
   latestYoureSetUpId?: string | null
 }) {
   const visibleItems = items.filter((item) => {
@@ -1548,7 +1535,7 @@ function ActivitySection({
                 onStatus={onStatus}
                 onRealtime={onRealtime}
                 liveSellMznPerZar={liveSellMznPerZar}
-                bankPayoutTotalsByTag={bankPayoutTotalsByTag}
+                paidOutItems={paidOutItems}
                 latestYoureSetUpId={latestYoureSetUpId}
               />
             </div>
@@ -2008,7 +1995,7 @@ export function NotificationsList({
     }
   }
 
-  const bankPayoutTotalsByTag = useMemo(() => bankPayoutTotals(allItems), [allItems])
+  const paidOutItems = useMemo(() => allItems.filter(isPaidOutActivity), [allItems])
   const latestYoureSetUpId = useMemo(() => {
     const latest = allItems.find((item) => item.routingAction === 'youre_set_up')
     return latest?.id ?? null
@@ -2033,7 +2020,7 @@ export function NotificationsList({
     onStatus: () => void handleStatus(),
     onRealtime: () => void handleRealtime(),
     liveSellMznPerZar,
-    bankPayoutTotalsByTag,
+    paidOutItems,
     latestYoureSetUpId,
   }
 
