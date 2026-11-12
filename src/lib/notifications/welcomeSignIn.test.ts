@@ -24,22 +24,20 @@ describe('welcomeSignIn', () => {
       userEmail: 'ops@example.com',
       displayName: 'Ygor Francisco',
     })
-    assert.equal(payload.title, 'Fund your MZN account')
-    assert.match(payload.deskSentence, /^Hi Ygor\./)
-    assert.match(payload.deskSentence, /PAGA turns your meticais into rand you can pay out/)
-    assert.match(payload.deskSentence, /1\. Send MZN to the account below/)
-    assert.match(payload.deskSentence, /first R100,000 each day/)
-    assert.match(payload.deskSentence, /09:00 the next day/)
-    assert.match(payload.deskSentence, /2\. Tell us where to pay/)
-    assert.match(payload.deskSentence, /Routing Manager will ask for your South African bank account once/)
-    assert.match(payload.deskSentence, /Your PAGA MZN account:/)
+    assert.equal(payload.title, 'Send MZN here.')
+    assert.equal(
+      payload.deskSentence,
+      'The first R100,000 a day is instant. The rest is ready by 09:00.'
+    )
     assert.doesNotMatch(payload.deskSentence, /dollar|USD|24 hours/i)
     assert.equal(payload.dropdownBody, WELCOME_PAGA_DROPDOWN_BODY)
     assert.ok(payload.dropdownBody.length < 90)
     assert.equal(payload.deskLedgerRows.length, 4)
     assert.equal(payload.deskLedgerRows[0]?.value, FUND_MZN_RECIPIENT)
     assert.equal(payload.deskLedgerRows[1]?.value, FUND_MZN_BANK)
+    assert.equal(payload.deskLedgerRows[2]?.label, 'NIB')
     assert.equal(payload.deskLedgerRows[2]?.value, FUND_MZN_ACCOUNT_NUMBER)
+    assert.equal(FUND_MZN_ACCOUNT_NUMBER.length, 13)
     assert.equal(payload.deskLedgerRows[2]?.copyable, true)
     assert.equal(payload.deskLedgerRows[3]?.value, 'WOLFMOZA20261101123')
     assert.equal(payload.deskLedgerRows[3]?.copyable, true)

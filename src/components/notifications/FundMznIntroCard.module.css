@@ -317,3 +317,59 @@
   line-height: 1.4;
   color: var(--desk-muted, #5e5e66);
 }
+
+.how {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.howToggle {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--desk-ink, #18181b);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.howChevron {
+  transition: transform 160ms ease;
+}
+
+.howChevronOpen {
+  transform: rotate(180deg);
+}
+
+.howList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.howItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--desk-ink-2, #3a3a40);
+}
+
+.howIndex {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--desk-ink, #18181b);
+}

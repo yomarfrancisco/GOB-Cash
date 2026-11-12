@@ -9,8 +9,9 @@ import type { ActivityItem } from '@/store/activity'
 import { useNotificationStore } from '@/store/notifications'
 
 /** Bumped when the Day-1 fund card copy/layout changes. */
-export const WELCOME_PAGA_EVENT_ID = 'welcome-fund-mzn-v4'
+export const WELCOME_PAGA_EVENT_ID = 'welcome-fund-mzn-v5'
 
+/** Moza NIB (13 digits). */
 export const FUND_MZN_ACCOUNT_NUMBER = '4841111710001'
 export const FUND_MZN_RECIPIENT = 'WOLF DIGITAL, LDA.'
 export const FUND_MZN_BANK = 'Moza Banco'
@@ -45,27 +46,13 @@ export function firstNameFromUser(params: {
 }
 
 export function buildFundMznDeskSentence(firstName: string): string {
-  const name = firstName.trim() || 'there'
-  return (
-    `Hi ${name}. PAGA turns your meticais into rand you can pay out in South Africa.\n\n` +
-    `1. Send MZN to the account below. The first R100,000 each day is converted instantly and ready to pay out. ` +
-    `Anything above that is ready at 09:00 the next day.\n\n` +
-    `2. Tell us where to pay. The Routing Manager will ask for your South African bank account once. ` +
-    `After that, we pay out automatically.\n\n` +
-    `Your PAGA MZN account:`
-  )
+  void firstName
+  return 'The first R100,000 a day is instant. The rest is ready by 09:00.'
 }
 
 export function buildFundMznDeskSentencePt(firstName: string): string {
-  const name = firstName.trim() || 'aí'
-  return (
-    `Olá ${name}. O PAGA converte os seus meticais em rands que pode pagar na África do Sul.\n\n` +
-    `1. Envie MZN para a conta abaixo. Os primeiros R100.000 de cada dia são convertidos de imediato e ficam prontos a pagar. ` +
-    `O que ultrapassar esse valor fica pronto às 09:00 do dia seguinte.\n\n` +
-    `2. Diga-nos para onde pagar. O Routing Manager pede-lhe a sua conta bancária sul-africana uma única vez. ` +
-    `A partir daí, pagamos automaticamente.\n\n` +
-    `A sua conta MZN no PAGA:`
-  )
+  void firstName
+  return 'Os primeiros R100.000 por dia são instantâneos. O resto fica pronto às 09:00.'
 }
 
 /** @deprecated Prefer buildFundMznDeskSentence(firstName). */
@@ -156,8 +143,9 @@ export function buildWelcomePagaDeskPayload(params: {
     email: params.userEmail,
     handle: params.handle,
   })
+  void firstName
   return {
-    title: 'Fund your MZN account',
+    title: 'Send MZN here.',
     deskSentence: buildFundMznDeskSentence(firstName),
     deskLedgerRows: [
       {
@@ -170,7 +158,7 @@ export function buildWelcomePagaDeskPayload(params: {
         value: FUND_MZN_BANK,
       },
       {
-        label: 'Account',
+        label: 'NIB',
         value: FUND_MZN_ACCOUNT_NUMBER,
         valueStrong: true,
         copyable: true,

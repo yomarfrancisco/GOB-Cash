@@ -893,16 +893,14 @@ function ActivityItemCard({
     }
   }
 
-  const displaySentence = isFundIntro
-    ? ''
-    : isFundWire
-      ? fundIntroLine(fundLocale, item)
-      : isPaidOut
-        ? paidOutDisplaySentence(item)
-        : youreSetUpSentence ||
-          routingPlanSentence ||
-          sentence ||
-          (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
+  const displaySentence = isFundIntro || isFundWire
+    ? fundIntroLine(fundLocale, item)
+    : isPaidOut
+      ? paidOutDisplaySentence(item)
+      : youreSetUpSentence ||
+        routingPlanSentence ||
+        sentence ||
+        (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
     ? 'Download invoices'
     : /^Step\s*6\b/i.test(title)

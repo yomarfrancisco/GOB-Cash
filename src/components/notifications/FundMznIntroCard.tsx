@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, ChevronDown, Copy } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
 import {
   FUND_MZN_ACCOUNT_NUMBER,
@@ -14,31 +14,31 @@ import {
   formatDeskMajorZar,
   formatDeskMinorZar,
 } from '@/lib/desk/deskMoneyFormat'
+import { useWalletStore } from '@/store/wallets'
 import styles from './FundMznIntroCard.module.css'
 
 /**
- * Educational demo: count R0 → R160k.
- * Phase 1 (to R100k): green bar fills as liquid grows.
- * Phase 2 (to R160k): liquid stays R100k, so the bar share shrinks.
- * Wire mode animates 0 → the quoted fund target instead.
+ * Watch-card demo.
+ * Unfunded: start and end at R0 / Mt 0 (empty green bar).
+ * After MZN lands: start at R0 and fill to the first funding amount.
+ * Wire mode animates 0 → the quoted fund target.
  */
-const DEMO_START_ZAR = 0
-const DEMO_END_ZAR = 160_000
 const DEMO_LIQUID_ZAR = 100_000
 const DEMO_LIQUID_PHASE = 0.58
 const DEMO_ANIM_MS = 2800
 const DEMO_LOOP_GAP_MS = 10_000
 
-function demoZarForProgress(progress: number, endZar = DEMO_END_ZAR): number {
+function demoZarForProgress(progress: number, endZar: number): number {
   const t = Math.max(0, Math.min(1, progress))
-  const end = Math.max(DEMO_START_ZAR, endZar)
+  const end = Math.max(0, endZar)
+  if (!(end > 0.005)) return 0
   const liquidCap = Math.min(DEMO_LIQUID_ZAR, end)
   if (end <= liquidCap + 0.005) {
-    return DEMO_START_ZAR + (end - DEMO_START_ZAR) * t
+    return end * t
   }
   if (t <= DEMO_LIQUID_PHASE) {
     const local = DEMO_LIQUID_PHASE <= 0 ? 1 : t / DEMO_LIQUID_PHASE
-    return DEMO_START_ZAR + (liquidCap - DEMO_START_ZAR) * local
+    return liquidCap * local
   }
   const local = (t - DEMO_LIQUID_PHASE) / Math.max(1e-6, 1 - DEMO_LIQUID_PHASE)
   return liquidCap + (end - liquidCap) * local
@@ -55,47 +55,8 @@ function demoLiquidFillPct(demoZar: number): number {
 
 export type FundIntroLocale = 'en' | 'pt'
 
-function fundIntroBodyEn(name: string): ReactNode {
-  return (
-    <>
-      Hi {name}. PAGA turns meticais into rand.
-      <br />
-      <br />
-      <strong>1. Send MZN to the account below.</strong> R100,000 is converted instantly and ready to
-      pay out. Anything above that is ready at 09:00 daily.
-      <br />
-      <br />
-      <strong>2. Tell us where to pay.</strong> The Routing Manager will ask for a South African bank
-      account. After that, we pay out automatically.
-      <br />
-      <br />
-      Your PAGA MZN account:
-    </>
-  )
-}
-
-function fundIntroBodyPt(name: string): ReactNode {
-  return (
-    <>
-      Olá {name}. O PAGA converte meticais em rand.
-      <br />
-      <br />
-      <strong>1. Envie MZN para a conta abaixo.</strong> R100.000 são convertidos de imediato e ficam
-      prontos a pagar. O que ultrapassar esse valor fica pronto às 09:00 todos os dias.
-      <br />
-      <br />
-      <strong>2. Diga-nos para onde pagar.</strong> O Routing Manager pede uma conta bancária
-      sul-africana. A partir daí, pagamos automaticamente.
-      <br />
-      <br />
-      A sua conta MZN no PAGA:
-    </>
-  )
-}
-
 const COPY = {
   en: {
-    body: fundIntroBodyEn,
     accountLabel: 'NIB',
     refPrefix: 'REF:',
     watchTitle: 'Watch it become liquid',
@@ -105,12 +66,17 @@ const COPY = {
         <strong>R100,000</strong> fills it instantly; the rest fills at <strong>09:00</strong>.
       </>
     ),
+    howTitle: 'How it works',
+    howSteps: [
+      'Send MZN to the account above. Always add the reference.',
+      'The first R100,000 each day is converted and paid out straight away. Anything above that follows, and we tell you when all of it will arrive.',
+      'The first time, we ask for your South African bank account. After that, payouts are automatic.',
+    ],
     copied: 'Copied',
     copyAccount: 'Copy NIB',
     copyReference: 'Copy reference',
   },
   pt: {
-    body: fundIntroBodyPt,
     accountLabel: 'NIB',
     refPrefix: 'REF:',
     watchTitle: 'Veja ficar líquido',
@@ -120,11 +86,17 @@ const COPY = {
         <strong>R100.000</strong> enche-a de imediato; o restante às <strong>09:00</strong>.
       </>
     ),
+    howTitle: 'Como funciona',
+    howSteps: [
+      'Envie MZN para a conta acima. Inclua sempre a referência.',
+      'Os primeiros R100.000 de cada dia são convertidos e pagos de imediato. O que ultrapassar segue depois, e dizemos-lhe quando chega tudo.',
+      'Na primeira vez pedimos a sua conta bancária sul-africana. Depois disso, os pagamentos são automáticos.',
+    ],
     copied: 'Copiado',
     copyAccount: 'Copiar NIB',
     copyReference: 'Copiar referência',
   },
-}
+} as const
 
 async function copyText(value: string): Promise<boolean> {
   try {
@@ -148,12 +120,27 @@ function resolveWireAmounts(
       ? item.fundTargetZar
       : typeof item.amount?.value === 'number'
         ? item.amount.value
-        : DEMO_END_ZAR
+        : 0
   const mzn =
     typeof item.fundTargetMzn === 'number' && item.fundTargetMzn > 0
       ? item.fundTargetMzn
       : zarToMzn(zar, liveSell)
   return { zar, mzn }
+}
+
+/** Prefer the configured 13-digit NIB over any shorter account-shaped value. */
+function resolveFundNib(item: ActivityItem): string {
+  const candidates = [
+    item.fundAccountNumber,
+    item.deskLedgerRows?.find((row) => /^nib$/i.test(row.label))?.value,
+    item.deskLedgerRows?.find((row) => /^account$/i.test(row.label))?.value,
+    FUND_MZN_ACCOUNT_NUMBER,
+  ]
+  for (const raw of candidates) {
+    const digits = String(raw || '').replace(/\s/g, '')
+    if (/^\d{13}$/.test(digits)) return digits
+  }
+  return FUND_MZN_ACCOUNT_NUMBER
 }
 
 export function FundMznIntroCard({
@@ -171,7 +158,10 @@ export function FundMznIntroCard({
   const [locale, setLocale] = useState<FundIntroLocale>(localeProp)
   const [animProgress, setAnimProgress] = useState(0)
   const [inView, setInView] = useState(true)
+  const [howOpen, setHowOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const wallets = useWalletStore((s) => s.wallets)
+  const walletsHydrated = useWalletStore((s) => s.walletsHydrated)
 
   useEffect(() => {
     setLocale(localeProp)
@@ -233,10 +223,7 @@ export function FundMznIntroCard({
   }, [inView])
 
   const copy = COPY[locale]
-  const account =
-    item.fundAccountNumber ||
-    item.deskLedgerRows?.find((row) => /^account$/i.test(row.label))?.value ||
-    FUND_MZN_ACCOUNT_NUMBER
+  const account = resolveFundNib(item)
   const reference =
     item.paymentReference ||
     item.deskLedgerRows?.find((row) => /^reference$/i.test(row.label))?.value ||
@@ -252,15 +239,26 @@ export function FundMznIntroCard({
       ? sellMznPerZar(sellMznPerZarProp)
       : sellMznPerZar(MZN_PER_ZAR)
   const { zar: wireZar, mzn: wireMzn } = resolveWireAmounts(item, sellMznPerZarProp)
-  const demoZar = demoZarForProgress(animProgress, isWire ? wireZar : DEMO_END_ZAR)
+
+  const cashMzn = walletsHydrated ? Number(wallets?.cashMZN?.fiatBalance || 0) : 0
+  const cashZar = walletsHydrated ? Number(wallets?.cashZAR?.fiatBalance || 0) : 0
+  const earningsZar = walletsHydrated ? Number(wallets?.earnings?.fiatBalance || 0) : 0
+  const fundedZarFromWallets =
+    cashZar +
+    earningsZar +
+    (liveSell > 0 ? Math.round((cashMzn / liveSell) * 100) / 100 : 0)
+  // Unfunded intro stays R0. After MZN lands, fill 0 → first funding.
+  const animEndZar = isWire
+    ? wireZar
+    : fundedZarFromWallets > 0.005
+      ? fundedZarFromWallets
+      : 0
+
+  const demoZar = demoZarForProgress(animProgress, animEndZar)
   const demoMzn = isWire
     ? wireMzn * (wireZar > 0 ? demoZar / wireZar : 0)
     : zarToMzn(demoZar, liveSell)
   const liquidFillPct = demoLiquidFillPct(demoZar)
-  const firstName =
-    item.deskSentence?.match(/^(?:Hi|Olá)\s+([^.,]+)/i)?.[1]?.trim() ||
-    item.actor?.name?.trim().split(/\s+/)[0] ||
-    (locale === 'pt' ? 'aí' : 'there')
 
   const markCopied = (key: 'account' | 'reference') => {
     setCopiedKey(key)
@@ -283,9 +281,7 @@ export function FundMznIntroCard({
             </>
           )}
         </p>
-      ) : (
-        <p className={styles.body}>{copy.body(firstName)}</p>
-      )}
+      ) : null}
 
       <section className={styles.watch} aria-label={bank}>
         <h3 className={styles.watchTitle}>{bank}</h3>
@@ -382,6 +378,40 @@ export function FundMznIntroCard({
           </span>
         </p>
       </section>
+
+      <div className={styles.how}>
+        <button
+          type="button"
+          className={styles.howToggle}
+          aria-expanded={howOpen}
+          onClick={(event) => {
+            event.stopPropagation()
+            setHowOpen((v) => !v)
+          }}
+        >
+          <span>{copy.howTitle}</span>
+          <ChevronDown
+            className={[styles.howChevron, howOpen ? styles.howChevronOpen : '']
+              .filter(Boolean)
+              .join(' ')}
+            size={16}
+            strokeWidth={2.4}
+            aria-hidden
+          />
+        </button>
+        {howOpen ? (
+          <ol className={styles.howList}>
+            {copy.howSteps.map((step, i) => (
+              <li key={i} className={styles.howItem}>
+                <span className={styles.howIndex} aria-hidden>
+                  {i + 1}.
+                </span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+      </div>
     </div>
   )
 }
