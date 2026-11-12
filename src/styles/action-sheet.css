@@ -77,38 +77,47 @@
   max-height: 85vh;
 }
 
-/* Financial inbox sheet - unified height for both inbox and chat views */
+/* Financial inbox sheet - rises to home G logo top (desk). */
 .as-sheet.financialInboxSheet {
-  height: 85vh; /* Fallback for browsers without dvh support */
-  max-height: 85vh;
-  min-height: 85vh;
-  height: 85dvh; /* Use dynamic viewport height for mobile */
-  max-height: 85dvh;
-  min-height: 85dvh;
+  height: var(--sheet-cover-logo-h); /* Fallback for browsers without dvh support */
+  max-height: var(--sheet-cover-logo-h);
+  min-height: var(--sheet-cover-logo-h);
+  height: var(--sheet-cover-logo-h-dvh); /* Use dynamic viewport height for mobile */
+  max-height: var(--sheet-cover-logo-h-dvh);
+  min-height: var(--sheet-cover-logo-h-dvh);
   overflow: hidden; /* Prevent square background from showing */
   background: #fff;
 }
 
 /* Override the tall class max-height when combined with financialInboxSheet */
 .as-sheet-tall.financialInboxSheet {
-  height: 85vh !important;
-  max-height: 85vh !important;
-  min-height: 85vh !important;
+  height: var(--sheet-cover-logo-h) !important;
+  max-height: var(--sheet-cover-logo-h) !important;
+  min-height: var(--sheet-cover-logo-h) !important;
+  height: var(--sheet-cover-logo-h-dvh) !important;
+  max-height: var(--sheet-cover-logo-h-dvh) !important;
+  min-height: var(--sheet-cover-logo-h-dvh) !important;
 }
 
-/* Inbox tall sheet - matches keypad / auth popup height (85vh) */
+/* Inbox tall sheet - matches desk / signup / FX calculator cover-logo height */
 .as-sheet.inboxTallSheet {
   border-radius: 32px 32px 0 0;
-  height: 85vh;
-  max-height: 85vh;
-  min-height: 85vh;
+  height: var(--sheet-cover-logo-h);
+  max-height: var(--sheet-cover-logo-h);
+  min-height: var(--sheet-cover-logo-h);
+  height: var(--sheet-cover-logo-h-dvh);
+  max-height: var(--sheet-cover-logo-h-dvh);
+  min-height: var(--sheet-cover-logo-h-dvh);
   padding-bottom: 0; /* Flush with bottom, same as handAuthSheet */
 }
 
 .as-sheet.inboxTallSheet.as-sheet-tall {
-  height: 85vh !important;
-  max-height: 85vh !important;
-  min-height: 85vh !important;
+  height: var(--sheet-cover-logo-h) !important;
+  max-height: var(--sheet-cover-logo-h) !important;
+  min-height: var(--sheet-cover-logo-h) !important;
+  height: var(--sheet-cover-logo-h-dvh) !important;
+  max-height: var(--sheet-cover-logo-h-dvh) !important;
+  min-height: var(--sheet-cover-logo-h-dvh) !important;
 }
 
 /* Remove default as-body padding for financial inbox sheet - let internal container control spacing */
@@ -142,13 +151,6 @@
   margin: 0;
 }
 
-.as-sheet.handAuthSheet {
-  border-radius: 32px 32px 0 0;
-  height: 85vh;
-  max-height: 85vh;
-  padding-bottom: 0; /* Remove default bottom padding to prevent white space */
-}
-
 /* Compact sheets (default) - for Edit Profile, Name & Handle, Social Links, Help & Support, etc. */
 .as-sheet-compact {
   max-height: 65vh;
@@ -162,9 +164,19 @@
   min-height: auto;
 }
 
-/* Amount sheet container - ensure it uses tall variant */
-.as-sheet.amount {
-  max-height: 85vh;
+/* Signup + FX calculator: rise to home G logo top (after .as-sheet-tall so max-height wins). */
+.as-sheet.handAuthSheet,
+.as-sheet.handAuthSheet.as-sheet-tall,
+.as-sheet.amount,
+.as-sheet.amount.as-sheet-tall {
+  border-radius: 32px 32px 0 0;
+  height: var(--sheet-cover-logo-h);
+  max-height: var(--sheet-cover-logo-h);
+  min-height: var(--sheet-cover-logo-h);
+  height: var(--sheet-cover-logo-h-dvh);
+  max-height: var(--sheet-cover-logo-h-dvh);
+  min-height: var(--sheet-cover-logo-h-dvh);
+  padding-bottom: 0;
 }
 
 /* Cash Transactions sheet - faster slide-up + fade-in animation */

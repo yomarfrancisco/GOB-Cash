@@ -12,6 +12,10 @@
   --bottom-safe: 132px;
   --sheet-max-h: 520px;
   --sheet-header-offset: 64px;
+  /* Home G logo top — desk / signup / FX calculator sheets rise to cover it. */
+  --gob-logo-top: 38px;
+  --sheet-cover-logo-h: calc(100vh - var(--gob-logo-top));
+  --sheet-cover-logo-h-dvh: calc(100dvh - var(--gob-logo-top));
   --font-dm-sans: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
@@ -162,7 +166,7 @@ body {
 
 .gobankless-logo {
   position: absolute;
-  top: 38px; /* 10px closer to the top edge than the glass icon row */
+  top: var(--gob-logo-top); /* 10px closer to the top edge than the glass icon row */
   left: 16px;
   width: 64px; /* Distressed charcoal G monogram */
   height: 64px;
@@ -174,7 +178,7 @@ body {
 /* Mirror of G logo band: same top/height, opposite side of the header glass. */
 .header-calculator-btn {
   position: absolute;
-  top: 38px;
+  top: var(--gob-logo-top);
   right: 16px;
   z-index: 3;
   display: inline-flex;

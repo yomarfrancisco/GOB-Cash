@@ -1,9 +1,12 @@
 /* Financial Inbox Sheet - unified for both inbox and chat views */
 
 .financialInboxSheet {
-  height: 85vh !important;
-  max-height: 85vh !important;
-  min-height: 85vh !important;
+  height: var(--sheet-cover-logo-h) !important;
+  max-height: var(--sheet-cover-logo-h) !important;
+  min-height: var(--sheet-cover-logo-h) !important;
+  height: var(--sheet-cover-logo-h-dvh) !important;
+  max-height: var(--sheet-cover-logo-h-dvh) !important;
+  min-height: var(--sheet-cover-logo-h-dvh) !important;
 }
 
 .financialInboxSheet :global(.as-title) {
