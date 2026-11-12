@@ -9,6 +9,7 @@ import { LiquidNowConvertVisual } from './LiquidNowConvertVisual'
 import { isMznReceivedNotice, MznReceivedVisual } from './MznReceivedVisual'
 import { PaidOutStackVisual } from './PaidOutStackVisual'
 import { YoureSetUpVisual } from './YoureSetUpVisual'
+import { LiquidityOpenVisual } from './LiquidityOpenVisual'
 import { hasRoutingPlan, RoutingPlanVisual } from './RoutingPlanVisual'
 import {
   isPaidLiquidPayout,
@@ -204,6 +205,9 @@ export function DeskCardVisuals({
         }
       />
     )
+  }
+  if (item.routingAction === 'liquidity_open') {
+    return <LiquidityOpenVisual item={item} />
   }
   if (item.routingAction === 'fund_intro' || item.routingAction === 'fund_wire') {
     return (

@@ -1109,6 +1109,7 @@ function ActivityItemCard({
               isFundWire ||
               isYoureSetUp ||
               item.routingAction === 'liquid_now' ||
+              item.routingAction === 'liquidity_open' ||
               item.routingAction === 'routing_plan' ||
               item.routingAction === 'liquidity_queue_residual' ||
               Boolean(item.routingPlan) ||
