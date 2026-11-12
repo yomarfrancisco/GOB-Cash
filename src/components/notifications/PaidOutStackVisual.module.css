@@ -1,3 +1,4 @@
+/* Beige casing + three-layer stack: MZN → ZAR → white bank receipt. */
 .root {
   display: flex;
   flex-direction: column;
@@ -14,43 +15,45 @@
 .stack {
   position: relative;
   width: 100%;
-  /* Full card + two peek strips behind it */
-  padding-top: 52px;
+  /* Two peek bands behind the ID-1 front card. */
+  padding-top: 56px;
 }
 
-.strip,
+.peek,
 .front {
   width: 100%;
   border-radius: 14px;
   box-sizing: border-box;
 }
 
-.strip {
+.peek {
   position: absolute;
   left: 0;
   right: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px;
+  gap: 10px;
+  height: 44px;
   padding: 0 16px;
   color: rgba(255, 255, 255, 0.95);
   font-variant-numeric: tabular-nums;
 }
 
-.stripMzn {
+.peekMzn {
   top: 0;
   background: #5a2f4a;
   z-index: 1;
 }
 
-.stripZar {
-  top: 26px;
+.peekZar {
+  top: 28px;
   background: #2c2c2e;
   z-index: 2;
 }
 
-.stripLane {
+.peekLane {
+  flex-shrink: 0;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -58,12 +61,17 @@
   opacity: 0.8;
 }
 
-.stripValue {
-  font-size: 14px;
+.peekValue {
+  min-width: 0;
+  font-size: 15px;
   font-weight: 650;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Same ID-1 ratio as Fund / Liquid now cards. */
+/* Same ID-1 ratio as Fund / MZN received / routing-plan cards. */
 .front {
   position: relative;
   z-index: 3;
@@ -74,8 +82,8 @@
   padding: 16px 16px 52px;
   background: #fffffe;
   color: #18181b;
-  box-shadow: 0 8px 24px rgba(24, 24, 27, 0.12);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 10px 28px rgba(24, 24, 27, 0.14);
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .frontLane {
@@ -112,16 +120,20 @@
   bottom: 18px;
   display: inline-flex;
   align-items: center;
+  max-width: calc(100% - 72px);
   height: 28px;
   padding: 0 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(24, 24, 27, 0.2);
-  background: #fff;
+  border-radius: 8px;
+  border: 0;
+  background: #ececf0;
   color: #18181b;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.09px;
   box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .check {
@@ -131,17 +143,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--desk-mint, #9bdbc1);
   color: #18181b;
-}
-
-.caption {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.4;
-  font-weight: 600;
-  color: var(--desk-ink-2, #3a3a40);
 }

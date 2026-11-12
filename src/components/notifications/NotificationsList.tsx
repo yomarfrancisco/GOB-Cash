@@ -60,7 +60,10 @@ import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
 import { formatRoutingPlanDeskSentence } from '@/components/notifications/RoutingPlanVisual'
-import { paidOutDisplaySentence } from '@/components/notifications/PaidOutStackVisual'
+import {
+  paidOutDisplaySentence,
+  paidOutDisplayTitle,
+} from '@/components/notifications/PaidOutStackVisual'
 import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCard'
 import { LiquidityReportCard } from '@/components/notifications/LiquidityReportCard'
 import {
@@ -611,10 +614,21 @@ function ActivityItemCard({
     Boolean(item.proposalId)
   const askCard = isAskCard(item)
   const typing = animateEntrance === true
+  const isPaidOut =
+    item.routingAction === 'payout_confirmed' ||
+    (item.routingAction === 'daily_liquid_zar_payout' &&
+      !/^scheduled$/i.test(String(item.deskPendingChip || '')) &&
+      (item as { payoutScheduled?: boolean }).payoutScheduled !== true)
+  const isScheduledPayout =
+    item.routingAction === 'daily_liquid_zar_payout' &&
+    ((item as { payoutScheduled?: boolean }).payoutScheduled === true ||
+      /^scheduled$/i.test(String(item.deskPendingChip || '')))
   const title =
     isFundIntro || isFundWire
       ? fundIntroTitle(fundLocale, item)
-      : displayDeskTitle(item.title)
+      : isPaidOut
+        ? paidOutDisplayTitle(item)
+        : displayDeskTitle(item.title)
   const bankTile = bankTileForItem({ title: title || item.title, routingAction: item.routingAction })
   // Bank · notices keep bank tiles — not Routing Manager / liaison portraits.
   // Buy Steps 3–4 are EN_ROUTE_* with deskStep; still use desk team faces.
@@ -875,15 +889,6 @@ function ActivityItemCard({
   }
 
   const isLiquidityReport = Boolean(item.liquidityReport)
-  const isPaidOut =
-    item.routingAction === 'payout_confirmed' ||
-    (item.routingAction === 'daily_liquid_zar_payout' &&
-      !/^scheduled$/i.test(String(item.deskPendingChip || '')) &&
-      (item as { payoutScheduled?: boolean }).payoutScheduled !== true)
-  const isScheduledPayout =
-    item.routingAction === 'daily_liquid_zar_payout' &&
-    ((item as { payoutScheduled?: boolean }).payoutScheduled === true ||
-      /^scheduled$/i.test(String(item.deskPendingChip || '')))
   const displaySentence = isFundIntro
     ? ''
     : isFundWire
