@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Calculator, Check, Download, ExternalLink } from 'lucide-react'
+import { Calculator, Check, Clock, Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -652,6 +652,7 @@ function ActivityItemCard({
     item.routingAction === 'daily_liquid_zar_payout' &&
     (item.payoutScheduled === true || /^scheduled$/i.test(String(item.deskPendingChip || '')))
   const isYoureSetUp = item.routingAction === 'youre_set_up'
+  const showYoureSetUpHistory = actionsUnlocked && isYoureSetUp
   const youreSetUpSentence = isYoureSetUp ? formatYoureSetUpSentence(item) : null
   const cumulativeBankPayoutZar = isYoureSetUp
     ? resolveYoureSetUpCumulativeZar(item, bankPayoutTotalsByTag)
@@ -1155,6 +1156,7 @@ function ActivityItemCard({
           showRestockKeypad ||
           showFundMznKeypad ||
           showFundIntroLiquidity ||
+          showYoureSetUpHistory ||
           showStepContinue ||
           showStartNextRun ||
           showDownload ||
@@ -1212,6 +1214,23 @@ function ActivityItemCard({
                 {fundIntroSecondaryLabel(fundLocale)}
               </button>
             ) : null}
+            {showYoureSetUpHistory && (
+              <button
+                type="button"
+                className={styles.replyButton}
+                aria-label="History"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  const paid =
+                    document.querySelector('[data-routing-action="payout_confirmed"]') ||
+                    document.querySelector('[data-routing-action="daily_liquid_zar_payout"]')
+                  paid?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }}
+              >
+                <Clock size={16} strokeWidth={2.2} />
+                History
+              </button>
+            )}
             {showDownload && (
               <button
                 type="button"
