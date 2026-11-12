@@ -68,6 +68,10 @@ import {
   mznReceivedDisplayTitle,
 } from '@/components/notifications/MznReceivedVisual'
 import {
+  liquidNowDisplaySentence,
+  liquidNowDisplayTitle,
+} from '@/components/notifications/LiquidNowConvertVisual'
+import {
   formatYoureSetUpSentence,
   resolveYoureSetUpCumulativeZar,
 } from '@/components/notifications/YoureSetUpVisual'
@@ -622,6 +626,7 @@ function ActivityItemCard({
   const typing = animateEntrance === true
   const isPaidOut = isPaidOutActivity(item)
   const isMznReceived = isMznReceivedNotice(item)
+  const isLiquidNow = item.routingAction === 'liquid_now'
   const isScheduledPayout =
     item.routingAction === 'daily_liquid_zar_payout' &&
     (item.payoutScheduled === true || /^scheduled$/i.test(String(item.deskPendingChip || '')))
@@ -639,7 +644,9 @@ function ActivityItemCard({
         ? paidOutDisplayTitle(item)
         : isMznReceived
           ? mznReceivedDisplayTitle(item)
-          : displayDeskTitle(item.title)
+          : isLiquidNow
+            ? liquidNowDisplayTitle(item)
+            : displayDeskTitle(item.title)
   const bankTile = bankTileForItem({ title: title || item.title, routingAction: item.routingAction })
   // Bank · notices keep bank tiles — not Routing Manager / liaison portraits.
   // Buy Steps 3–4 are EN_ROUTE_* with deskStep; still use desk team faces.
@@ -907,10 +914,12 @@ function ActivityItemCard({
       ? paidOutDisplaySentence(item)
       : isMznReceived
         ? mznReceivedDisplaySentence(item)
-        : youreSetUpSentence ||
-          routingPlanSentence ||
-          sentence ||
-          (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
+        : isLiquidNow
+          ? liquidNowDisplaySentence(item)
+          : youreSetUpSentence ||
+            routingPlanSentence ||
+            sentence ||
+            (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
     ? 'Download invoices'
     : /^Step\s*6\b/i.test(title)

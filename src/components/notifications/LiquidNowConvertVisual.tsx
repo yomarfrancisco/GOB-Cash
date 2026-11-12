@@ -94,6 +94,23 @@ function resolveLiquidNowFigures(item: ActivityItem): {
   return { mznIn, zarOut, mznResidual, rate, mode, fillPct, caption }
 }
 
+export function liquidNowDisplayTitle(item: ActivityItem): string {
+  const { zarOut } = resolveLiquidNowFigures(item)
+  return `${formatDeskMajorZar(zarOut)} liquid now.`
+}
+
+export function liquidNowDisplaySentence(item: ActivityItem): string {
+  const label = String(item.routingPlan?.fullLiquidLabel || '').trim()
+  if (label && label !== '—') {
+    return `The rest lands by ${label}. Where should we pay?`
+  }
+  const { mode, mznResidual } = resolveLiquidNowFigures(item)
+  if (mode === 'full' || !(mznResidual > 0.005)) {
+    return 'Where should we pay?'
+  }
+  return 'The rest lands at the next 09:00 open. Where should we pay?'
+}
+
 /**
  * Cascading Liquid now stack (Paid out / Liquidity open language):
  * narrower MZN peek behind a full-size ZAR card + slim green liquidity track.

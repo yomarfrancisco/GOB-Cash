@@ -74,6 +74,21 @@ function fmtZar(n: number): string {
   })}`
 }
 
+/** Home-card major for titles: "R 100 000". */
+function fmtZarMajor(n: number): string {
+  const abs = Math.abs(roundMajor(n))
+  if (abs > 999.99) {
+    const major = Math.round(abs)
+      .toFixed(0)
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+    return `${n < 0 ? '-' : ''}R ${major}`
+  }
+  return `${n < 0 ? '-' : ''}R ${abs.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
 function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
@@ -281,20 +296,12 @@ async function publishLiquidNow(params: {
         })
       : null
 
-  const title = routingPlan
-    ? 'Your routing plan'
-    : mode === 'none'
-      ? 'Queued for liquidity'
-      : mode === 'partial'
-        ? 'Part liquid'
-        : 'Liquid now'
-  const body = routingPlan
-    ? routingPlan.sentence
-    : mode === 'none'
-      ? `No instant liquidity left today. ${residualLabel} is queued for 09:00 tomorrow (first come, first served on the reserve). Add your South African account once so we can pay out as soon as it clears.`
-      : mode === 'partial'
-        ? `${zarLabel} is liquid and ready to pay out. ${residualLabel} is queued for 09:00 tomorrow. Add your South African account once and we’ll pay out straight away, every time.`
-        : `${zarLabel} is liquid and ready to pay out. Add your South African account once and we’ll pay out straight away, every time.`
+  const title = `${fmtZarMajor(params.zarAmount)} liquid now.`
+  const restBy = routingPlan?.fullLiquidLabel?.trim()
+  const body =
+    restBy && restBy !== '—'
+      ? `The rest lands by ${restBy}. Where should we pay?`
+      : 'Where should we pay?'
   const wantZar = params.sellRate > 0 ? roundMajor(params.mznReceived / params.sellRate) : 0
   const fillPct =
     mode === 'full'
