@@ -8,7 +8,7 @@
   color: var(--desk-ink, #18181b);
 }
 
-/* Paid-out cascade casing */
+/* 2-stack casing — same language as Liquid now (MZN peek + ZAR front). */
 .stackWrap {
   padding: 14px;
   border-radius: 16px;
@@ -18,7 +18,7 @@
 .stack {
   position: relative;
   width: 100%;
-  padding-top: 88px;
+  padding-top: 48px;
 }
 
 .peek,
@@ -43,16 +43,9 @@
 
 .peekMzn {
   top: 0;
-  width: 72%;
+  width: 78%;
   background: #5a2f4a;
   z-index: 1;
-}
-
-.peekZar {
-  top: 40px;
-  width: 86%;
-  background: #2c2c2e;
-  z-index: 2;
 }
 
 .peekLane {
@@ -78,17 +71,16 @@
 
 .front {
   position: relative;
-  z-index: 3;
+  z-index: 2;
   width: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
   aspect-ratio: 86 / 54;
-  padding: 16px 16px 52px;
-  background: #fffffe;
-  color: #18181b;
+  padding: 16px 16px 28px;
+  background: #2c2c2e;
+  color: #f5f5f5;
   box-shadow: 0 12px 32px rgba(24, 24, 27, 0.16);
-  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .frontLane {
@@ -96,7 +88,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #8a8a8f;
+  opacity: 0.72;
   margin-bottom: 4px;
 }
 
@@ -107,7 +99,7 @@
   letter-spacing: 0.21px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  color: #18181b;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .frontSub {
@@ -115,69 +107,12 @@
   font-size: 19px;
   font-weight: 400;
   letter-spacing: 0.01em;
-  color: #6b6b70;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
   font-variant-numeric: tabular-nums;
 }
 
-.bankTag {
-  position: absolute;
-  left: 16px;
-  bottom: 18px;
-  display: inline-flex;
-  align-items: center;
-  max-width: calc(100% - 120px);
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 0;
-  background: #ececf0;
-  color: #18181b;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.09px;
-  box-sizing: border-box;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.check {
-  position: absolute;
-  right: 16px;
-  bottom: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--desk-mint, #9bdbc1);
-  color: #18181b;
-}
-
-.liqTrack {
-  position: absolute;
-  right: 16px;
-  bottom: 24px;
-  width: 42%;
-  max-width: 168px;
-  min-width: 96px;
-  height: 6px;
-  border-radius: 9999px;
-  background: rgba(24, 24, 27, 0.1);
-  border: 1px solid rgba(155, 219, 193, 0.55);
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.liqFill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #9bdbc1;
-}
-
-/* Arrival panel — same border language as the old legs list */
+/* Arrival panel */
 .panel {
   background: #fffffe;
   border: 1px solid #e2ded3;
@@ -280,75 +215,4 @@
   font-size: 13px;
   line-height: 1.4;
   color: #5e5e66;
-}
-
-.parts {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.partsToggle {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  align-self: flex-start;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--desk-ink, #18181b);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.partsChevron {
-  transition: transform 160ms ease;
-}
-
-.partsChevronOpen {
-  transform: rotate(180deg);
-}
-
-.partsList {
-  list-style: none;
-  margin: 0;
-  padding: 4px 0 0;
-  border-top: 1px solid #ece8dd;
-}
-
-.partsRow {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 10px;
-  align-items: baseline;
-  padding: 10px 0;
-  border-bottom: 1px solid #ece8dd;
-  font-size: 14px;
-}
-
-.partsRow:last-child {
-  border-bottom: 0;
-}
-
-.partsWhen {
-  font-weight: 700;
-  min-width: 0;
-}
-
-.partsStatus {
-  font-weight: 500;
-  color: #8e8e93;
-}
-
-.partsAmt {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }

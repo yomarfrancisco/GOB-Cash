@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
 import {
   formatDeskMajorMzn,
@@ -11,6 +10,7 @@ import {
 } from '@/lib/desk/deskMoneyFormat'
 import { nextSettleAt09hSastExclusive } from '@/lib/fx/transitDayClock'
 import { sastParts } from '@/lib/routing/routingTime'
+import { useWalletStore } from '@/store/wallets'
 import styles from './RoutingPlanVisual.module.css'
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
@@ -79,22 +79,6 @@ function formatCountdown(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-function legStatus(confidence: string, channel?: string): string {
-  if (confidence === 'now' || channel === 'instant') return 'Ready'
-  if (confidence === 'reserved') return 'Booked'
-  return 'Estimated'
-}
-
-function legsByLanding(
-  legs: NonNullable<ActivityItem['routingPlan']>['legs']
-): NonNullable<ActivityItem['routingPlan']>['legs'] {
-  return [...legs].sort((a, b) => {
-    const aMs = a.landsAtMs == null ? 0 : a.landsAtMs
-    const bMs = b.landsAtMs == null ? 0 : b.landsAtMs
-    return aMs - bMs
-  })
-}
-
 function resolveArrivalMs(plan: NonNullable<ActivityItem['routingPlan']>, nowMs: number): number {
   if (typeof plan.fullLiquidAtMs === 'number' && plan.fullLiquidAtMs > 0) {
     return plan.fullLiquidAtMs
@@ -109,14 +93,17 @@ function resolveArrivalMs(plan: NonNullable<ActivityItem['routingPlan']>, nowMs:
 function resolvePlanState(params: {
   nowMs: number
   arriveAtMs: number
-  zarInBank: number
+  zarLiquid: number
   zarTotal: number
   mznResidual: number
 }): PlanState {
-  const { nowMs, arriveAtMs, zarInBank, zarTotal, mznResidual } = params
+  const { nowMs, arriveAtMs, zarLiquid, zarTotal, mznResidual } = params
   const fullyPaid =
-    zarTotal > 0.005 && zarInBank + 0.5 >= zarTotal && !(mznResidual > 0.005)
-  if (fullyPaid || (nowMs >= arriveAtMs && !(mznResidual > 0.005) && zarInBank + 0.5 >= zarTotal * 0.98)) {
+    zarTotal > 0.005 && zarLiquid + 0.5 >= zarTotal && !(mznResidual > 0.005)
+  if (
+    fullyPaid ||
+    (nowMs >= arriveAtMs && !(mznResidual > 0.005) && zarLiquid + 0.5 >= zarTotal * 0.98)
+  ) {
     return 'arrived'
   }
   if (nowMs > arriveAtMs) return 'late'
@@ -130,10 +117,10 @@ export function formatRoutingPlanDeskSentence(
 ): string {
   const nowMs = Date.now()
   const arriveAtMs = resolveArrivalMs(plan, nowMs)
-  const zarInBank = Math.max(0, Number(plan.zarLiquid) || 0)
-  const zarTotal = Math.max(zarInBank, Number(plan.zarTotal) || 0)
+  const zarLiquid = Math.max(0, Number(plan.zarLiquid) || 0)
+  const zarTotal = Math.max(zarLiquid, Number(plan.zarTotal) || 0)
   const mznResidual = Math.max(0, Number(plan.mznResidual) || 0)
-  const state = resolvePlanState({ nowMs, arriveAtMs, zarInBank, zarTotal, mznResidual })
+  const state = resolvePlanState({ nowMs, arriveAtMs, zarLiquid, zarTotal, mznResidual })
   const bankTag =
     String(plan.payoutBankTag || item?.payoutBankTag || '').trim() || 'your bank'
 
@@ -143,14 +130,14 @@ export function formatRoutingPlanDeskSentence(
     return `Arrived ${formatWhenFull(nowMs).replace(' · ', ' ')}.${lateBit}`
   }
   if (state === 'late') {
-    const remainingZar = Math.max(0, zarTotal - zarInBank)
+    const remainingZar = Math.max(0, zarTotal - zarLiquid)
     return `One bank is slow with ${formatDeskMinorZar(remainingZar)}. We moved it to another route. Nothing for you to do.`
   }
   if (state === 'final') {
     return `Booked with the bank. It goes to ${bankTag} when it clears.`
   }
-  if (zarInBank > 0.005) {
-    return `${formatDeskMinorZar(zarInBank)} is in your bank now. The rest is on its way.`
+  if (zarLiquid > 0.005) {
+    return `${formatDeskMinorZar(zarLiquid)} is in your bank now. The rest is on its way.`
   }
   return 'The rest is on its way.'
 }
@@ -162,16 +149,15 @@ export function routingPlanDisplayTitle(
   void item
   const nowMs = Date.now()
   const arriveAtMs = resolveArrivalMs(plan, nowMs)
-  const zarInBank = Math.max(0, Number(plan.zarLiquid) || 0)
-  const zarTotal = Math.max(zarInBank, Number(plan.zarTotal) || 0)
+  const zarLiquid = Math.max(0, Number(plan.zarLiquid) || 0)
+  const zarTotal = Math.max(zarLiquid, Number(plan.zarTotal) || 0)
   const mznResidual = Math.max(0, Number(plan.mznResidual) || 0)
-  const state = resolvePlanState({ nowMs, arriveAtMs, zarInBank, zarTotal, mznResidual })
-  const remainingZar = Math.max(0, zarTotal - zarInBank)
+  const state = resolvePlanState({ nowMs, arriveAtMs, zarLiquid, zarTotal, mznResidual })
+  const remainingZar = Math.max(0, zarTotal - zarLiquid)
 
   if (state === 'arrived') return `All ${formatDeskMajorZar(zarTotal)} paid.`
   if (state === 'late') {
-    const nextEta =
-      arriveAtMs > nowMs ? arriveAtMs : nextSettleAt09hSastExclusive(nowMs)
+    const nextEta = arriveAtMs > nowMs ? arriveAtMs : nextSettleAt09hSastExclusive(nowMs)
     return `Running late. Now ${formatWhenShort(nextEta)}.`
   }
   if (state === 'final') {
@@ -180,11 +166,15 @@ export function routingPlanDisplayTitle(
   return `${formatDeskMajorZar(zarTotal)} by ${formatWhenShort(arriveAtMs)}.`
 }
 
-/** Arrival-time routing plan: Paid-out stack + arrival panel. */
+/**
+ * Arrival-time routing plan while funds are still moving:
+ * 2-stack (MZN peek + liquid ZAR card). Fully paid uses the separate Paid out 3-stack.
+ */
 export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
   const plan = item.routingPlan
   const [nowMs, setNowMs] = useState(() => Date.now())
-  const [partsOpen, setPartsOpen] = useState(false)
+  const wallets = useWalletStore((s) => s.wallets)
+  const walletsHydrated = useWalletStore((s) => s.walletsHydrated)
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 250)
@@ -193,18 +183,24 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
 
   if (!plan) return null
 
-  const zarInBank = Math.max(0, Number(plan.zarLiquid) || 0)
-  const zarTotal = Math.max(zarInBank, Number(plan.zarTotal) || 0)
-  const mznResidual = Math.max(0, Number(plan.mznResidual) || 0)
-  const bankTag =
-    String(plan.payoutBankTag || item.payoutBankTag || '').trim() || 'Your bank'
+  const planZarLiquid = Math.max(0, Number(plan.zarLiquid) || 0)
+  const zarTotal = Math.max(planZarLiquid, Number(plan.zarTotal) || 0)
+  const planMznResidual = Math.max(0, Number(plan.mznResidual) || 0)
+
+  // Live with home micro-cycles: plan liquid already paid/recorded + wallet ZAR still held.
+  const cashZar = walletsHydrated ? Number(wallets?.cashZAR?.fiatBalance || 0) : 0
+  const earningsZar = walletsHydrated ? Number(wallets?.earnings?.fiatBalance || 0) : 0
+  const cashMzn = walletsHydrated ? Number(wallets?.cashMZN?.fiatBalance || 0) : planMznResidual
+  const zarLiquid = Math.round((planZarLiquid + cashZar + earningsZar) * 100) / 100
+  const mznResidual = walletsHydrated ? Math.max(0, cashMzn) : planMznResidual
+
   const sentAtMs =
     typeof item.createdAt === 'number' && item.createdAt > 0 ? item.createdAt : nowMs
   const originalArriveAtMs = resolveArrivalMs(plan, nowMs)
   const state = resolvePlanState({
     nowMs,
     arriveAtMs: originalArriveAtMs,
-    zarInBank,
+    zarLiquid,
     zarTotal,
     mznResidual,
   })
@@ -217,7 +213,7 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
   const latestAtMs = originalArriveAtMs + 2 * DAY_MS
   const pct =
     zarTotal > 0.005
-      ? Math.max(0, Math.min(100, Math.round((zarInBank / zarTotal) * 100)))
+      ? Math.max(0, Math.min(100, Math.round((zarLiquid / zarTotal) * 100)))
       : 0
   const remainingMs = Math.max(0, displayArriveAtMs - nowMs)
   const spanMs = Math.max(1, displayArriveAtMs - sentAtMs)
@@ -226,10 +222,7 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
       ? 100
       : Math.max(0, Math.min(100, ((nowMs - sentAtMs) / spanMs) * 100))
   const lateMs = Math.max(0, nowMs - originalArriveAtMs)
-  const legs = legsByLanding(plan.legs || [])
-  const partsCount = Math.max(1, legs.length)
-  const arrived =
-    state === 'arrived' || (pct >= 100 && !(mznResidual > 0.005))
+  const arrived = state === 'arrived'
 
   const pill =
     state === 'arrived'
@@ -238,11 +231,9 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
         : { text: 'On time', tone: 'ok' as const }
       : state === 'late'
         ? { text: `${formatDuration(lateMs)} late`, tone: 'late' as const }
-        : state === 'final' && originalArriveAtMs !== displayArriveAtMs
+        : state === 'final'
           ? { text: 'On the new time', tone: 'ok' as const }
-          : state === 'final'
-            ? { text: 'On the new time', tone: 'ok' as const }
-            : { text: 'On time', tone: 'ok' as const }
+          : { text: 'On time', tone: 'ok' as const }
 
   const underLeft = formatSentLabel(sentAtMs)
   const underRight =
@@ -259,9 +250,7 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
         ? `Still inside our latest, ${formatDayLabel(latestAtMs)}.`
         : state === 'final'
           ? 'After this, everything you sent has been paid.'
-          : `Latest ${formatDayLabel(latestAtMs)}. If a bank is slow, we switch route.`
-
-  const partsToggleLabel = state === 'late' ? 'What changed' : 'When each part lands'
+          : null
 
   return (
     <div className={styles.root} aria-label="Arrival plan">
@@ -269,36 +258,17 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
         <div className={styles.stack}>
           <div className={[styles.peek, styles.peekMzn].join(' ')} aria-hidden>
             <span className={styles.peekLane}>MZN</span>
-            <span className={styles.peekValue}>
-              {formatDeskMajorMzn(mznResidual)} left
-            </span>
+            <span className={styles.peekValue}>{formatDeskMajorMzn(mznResidual)} left</span>
           </div>
-          <div className={[styles.peek, styles.peekZar].join(' ')} aria-hidden>
-            <span className={styles.peekLane}>ZAR</span>
-            <span className={styles.peekValue}>R 0 · all paid out</span>
-          </div>
+
           <div className={styles.front}>
-            <div className={styles.frontLane}>Your bank</div>
-            <div className={styles.frontAmt}>{formatDeskMajorZar(zarInBank)}</div>
+            <div className={styles.frontLane}>ZAR</div>
+            <div className={styles.frontAmt}>{formatDeskMajorZar(zarLiquid)}</div>
             <div className={styles.frontSub}>
               {arrived
-                ? `received · ${partsCount} part${partsCount === 1 ? '' : 's'} · last ${String(sastParts(displayArriveAtMs).hour).padStart(2, '0')}:${String(sastParts(displayArriveAtMs).minute).padStart(2, '0')}`
-                : `in your bank · ${pct}% of ${formatDeskMinorZar(zarTotal)}`}
+                ? 'all liquid'
+                : `${pct}% of ${formatDeskMinorZar(zarTotal)}`}
             </div>
-            <span className={styles.bankTag}>{bankTag}</span>
-            {arrived ? (
-              <span className={styles.check} aria-hidden>
-                <Check size={16} strokeWidth={2.8} />
-              </span>
-            ) : (
-              <span
-                className={styles.liqTrack}
-                role="img"
-                aria-label={`${pct} percent in your bank`}
-              >
-                <span className={styles.liqFill} style={{ width: `${pct}%` }} />
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -335,45 +305,8 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
           <span>{underLeft}</span>
           <span>{underRight}</span>
         </div>
-        <p className={styles.panelNote}>{panelNote}</p>
+        {panelNote ? <p className={styles.panelNote}>{panelNote}</p> : null}
       </section>
-
-      {legs.length ? (
-        <div className={styles.parts}>
-          <button
-            type="button"
-            className={styles.partsToggle}
-            aria-expanded={partsOpen}
-            onClick={(event) => {
-              event.stopPropagation()
-              setPartsOpen((v) => !v)
-            }}
-          >
-            <span>{partsToggleLabel}</span>
-            <ChevronDown
-              className={[styles.partsChevron, partsOpen ? styles.partsChevronOpen : '']
-                .filter(Boolean)
-                .join(' ')}
-              size={16}
-              strokeWidth={2.4}
-              aria-hidden
-            />
-          </button>
-          {partsOpen ? (
-            <ul className={styles.partsList}>
-              {legs.map((leg, i) => (
-                <li key={`${leg.whenLabel}-${leg.amountZar}-${i}`} className={styles.partsRow}>
-                  <span className={styles.partsWhen}>{leg.whenLabel.replace(/\s*·\s*/g, ' ')}</span>
-                  <span className={styles.partsStatus}>
-                    {legStatus(leg.confidence, leg.channel)}
-                  </span>
-                  <span className={styles.partsAmt}>{formatDeskMajorZar(leg.amountZar)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   )
 }
