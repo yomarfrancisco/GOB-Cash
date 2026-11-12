@@ -374,27 +374,25 @@ async function publishYoureSetUp(params: {
   userId: string
   bankName: string
   accountMasked: string
-  instantLeftZar: number
+  paidZar: number
   groupId: string
 }): Promise<void> {
-  const left = fmtZar(params.instantLeftZar)
+  const tag = `${params.bankName} ${params.accountMasked}`.trim()
+  const paid = roundMajor(params.paidZar)
   const id = `youre-set-up-${params.groupId}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
-  const body = `From now on: send MZN, and liquid ZAR lands in ${params.bankName} ${params.accountMasked} automatically. ${left} instant left today.`
+  const body = `Send MZN any time. We pay ${tag} automatically.`
   await publishActivity(params.userId, id, {
     kind: CONVERSION_ROUTING_KIND,
     title: "You're set up",
     body,
     deskSentence: body,
     dropdownTitle: "You're set up",
-    dropdownBody: `${params.bankName} ${params.accountMasked} · auto payout`,
-    deskLedgerRows: [
-      { label: 'Payout to', value: `${params.bankName} ${params.accountMasked}` },
-      { label: 'Instant left today', value: left, valueStrong: true },
-    ],
+    dropdownBody: `${tag} · auto payout`,
+    deskLedgerRows: [{ label: 'Payout to', value: tag }],
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
     amountCurrency: 'ZAR',
-    amountValue: roundMajor(params.instantLeftZar),
+    amountValue: paid,
     amountSign: 'credit',
     txId: id,
     groupId: params.groupId,
@@ -404,7 +402,58 @@ async function publishYoureSetUp(params: {
     status: 'recorded',
     routingAction: 'youre_set_up',
     deskSpeaker: 'sam',
+    payoutBankTag: tag,
+    payoutCumulativeZar: paid,
   })
+}
+
+/** Keep the latest You’re set up card’s cumulative paid-to-bank total current. */
+export async function bumpYoureSetUpCumulative(params: {
+  userId: string
+  amountZar: number
+  bankTag: string
+}): Promise<void> {
+  const amount = roundMajor(params.amountZar)
+  const tag = params.bankTag.trim()
+  if (!(amount > 0.005) || !tag) return
+  const snap = await db()
+    .collection('users')
+    .doc(params.userId)
+    .collection('activityEvents')
+    .where('routingAction', '==', 'youre_set_up')
+    .limit(8)
+    .get()
+  if (snap.empty) return
+  const rows = snap.docs
+    .map((doc) => ({ id: doc.id, ref: doc.ref, data: doc.data() || {} }))
+    .filter((row) => {
+      const rowTag = String(row.data.payoutBankTag || '').trim()
+      if (rowTag) return rowTag === tag
+      const ledger = Array.isArray(row.data.deskLedgerRows) ? row.data.deskLedgerRows : []
+      const to = ledger.find(
+        (r: { label?: string; value?: string }) =>
+          /^Payout to$/i.test(String(r?.label || '')) || /^to$/i.test(String(r?.label || ''))
+      )
+      return String(to?.value || '').trim() === tag
+    })
+    .sort((a, b) => {
+      const aMs = Number(a.data.createdAt?.toMillis?.() || a.data.createdAt || 0)
+      const bMs = Number(b.data.createdAt?.toMillis?.() || b.data.createdAt || 0)
+      return bMs - aMs
+    })
+  const latest = rows[0]
+  if (!latest) return
+  await latest.ref.set(
+    {
+      payoutBankTag: tag,
+      payoutCumulativeZar: admin.firestore.FieldValue.increment(amount),
+      amountValue: admin.firestore.FieldValue.increment(amount),
+      deskSentence: `Send MZN any time. We pay ${tag} automatically.`,
+      body: `Send MZN any time. We pay ${tag} automatically.`,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  )
 }
 
 /**
@@ -997,7 +1046,7 @@ export async function confirmFirstPayout(params: {
       userId: params.userId,
       bankName: result.bankName,
       accountMasked: result.accountMasked,
-      instantLeftZar: result.instantLeftZar,
+      paidZar: Number(result.amountZar) || 0,
       groupId: result.groupId,
     })
   }

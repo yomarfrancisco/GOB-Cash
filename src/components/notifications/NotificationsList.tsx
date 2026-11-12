@@ -64,6 +64,10 @@ import {
   paidOutDisplaySentence,
   paidOutDisplayTitle,
 } from '@/components/notifications/PaidOutStackVisual'
+import {
+  formatYoureSetUpSentence,
+  resolveYoureSetUpCumulativeZar,
+} from '@/components/notifications/YoureSetUpVisual'
 import { DeskEventGroupCard } from '@/components/notifications/DeskEventGroupCard'
 import { LiquidityReportCard } from '@/components/notifications/LiquidityReportCard'
 import {
@@ -510,6 +514,36 @@ function confirmTargetForCard(item: ActivityItem): ActivityItem | null {
   return null
 }
 
+function isPaidOutActivity(item: ActivityItem): boolean {
+  if (item.routingAction === 'payout_confirmed') return true
+  if (item.routingAction !== 'daily_liquid_zar_payout') return false
+  if (item.payoutScheduled === true) return false
+  if (/^scheduled$/i.test(String(item.deskPendingChip || ''))) return false
+  return true
+}
+
+function bankTagForPayout(item: ActivityItem): string {
+  return (
+    String(item.payoutBankTag || '').trim() ||
+    item.deskLedgerRows?.find((row) => /^Payout to$/i.test(row.label) || /^to$/i.test(row.label))
+      ?.value?.trim() ||
+    ''
+  )
+}
+
+function bankPayoutTotals(items: ActivityItem[]): Map<string, number> {
+  const totals = new Map<string, number>()
+  for (const item of items) {
+    if (!isPaidOutActivity(item)) continue
+    const tag = bankTagForPayout(item)
+    if (!tag) continue
+    const amt = typeof item.amount?.value === 'number' ? Math.abs(item.amount.value) : 0
+    if (!(amt > 0)) continue
+    totals.set(tag, (totals.get(tag) || 0) + amt)
+  }
+  return totals
+}
+
 function ActivityItemCard({
   item,
   showRoutingActions,
@@ -528,6 +562,7 @@ function ActivityItemCard({
   onStatus,
   onRealtime,
   liveSellMznPerZar,
+  bankPayoutTotalsByTag,
 }: {
   item: ActivityItem
   showRoutingActions: boolean
@@ -546,6 +581,7 @@ function ActivityItemCard({
   onStatus?: () => void
   onRealtime?: () => void
   liveSellMznPerZar?: number | null
+  bankPayoutTotalsByTag?: Map<string, number>
 }) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
@@ -614,15 +650,15 @@ function ActivityItemCard({
     Boolean(item.proposalId)
   const askCard = isAskCard(item)
   const typing = animateEntrance === true
-  const isPaidOut =
-    item.routingAction === 'payout_confirmed' ||
-    (item.routingAction === 'daily_liquid_zar_payout' &&
-      !/^scheduled$/i.test(String(item.deskPendingChip || '')) &&
-      (item as { payoutScheduled?: boolean }).payoutScheduled !== true)
+  const isPaidOut = isPaidOutActivity(item)
   const isScheduledPayout =
     item.routingAction === 'daily_liquid_zar_payout' &&
-    ((item as { payoutScheduled?: boolean }).payoutScheduled === true ||
-      /^scheduled$/i.test(String(item.deskPendingChip || '')))
+    (item.payoutScheduled === true || /^scheduled$/i.test(String(item.deskPendingChip || '')))
+  const isYoureSetUp = item.routingAction === 'youre_set_up'
+  const youreSetUpSentence = isYoureSetUp ? formatYoureSetUpSentence(item) : null
+  const cumulativeBankPayoutZar = isYoureSetUp
+    ? resolveYoureSetUpCumulativeZar(item, bankPayoutTotalsByTag)
+    : null
   const title =
     isFundIntro || isFundWire
       ? fundIntroTitle(fundLocale, item)
@@ -653,15 +689,17 @@ function ActivityItemCard({
     ? formatRoutingPlanDeskSentence(item.routingPlan)
     : null
   const body =
-    routingPlanSentence
-      ? routingPlanSentence
-      : item.routingStepMessage || item.deskLedgerRows || item.deskSentence
-        ? item.deskSentence || ''
-        : isRecycleCard
-          ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
-          : isSendCard
-            ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
-            : displayDeskBody(item.body)
+    youreSetUpSentence
+      ? youreSetUpSentence
+      : routingPlanSentence
+        ? routingPlanSentence
+        : item.routingStepMessage || item.deskLedgerRows || item.deskSentence
+          ? item.deskSentence || ''
+          : isRecycleCard
+            ? enrichRecycleBodyWithLiveCost(item.body, liveSellMznPerZar, item.ticketPath)
+            : isSendCard
+              ? enrichSendBodyWithLiveSpread(item.body, liveSellMznPerZar, item.ticketSplits)
+              : displayDeskBody(item.body)
   const showStepContinue =
     !lockDeskActions &&
     actionsUnlocked &&
@@ -897,7 +935,8 @@ function ActivityItemCard({
         ? ''
         : isPaidOut
           ? paidOutDisplaySentence(item)
-          : routingPlanSentence ||
+          : youreSetUpSentence ||
+            routingPlanSentence ||
             sentence ||
             (!item.routingStepMessage && !item.deskLedgerRows ? body : '')
   const downloadVerb = isInvoiceDownloadItem(item)
@@ -1068,6 +1107,7 @@ function ActivityItemCard({
               item.deskPipes ||
               isFundIntro ||
               isFundWire ||
+              isYoureSetUp ||
               item.routingAction === 'liquid_now' ||
               item.routingAction === 'routing_plan' ||
               item.routingAction === 'liquidity_queue_residual' ||
@@ -1083,6 +1123,7 @@ function ActivityItemCard({
                         onFundLocaleChange={setFundLocale}
                         liveSellMznPerZar={liveSellMznPerZar}
                         showInlinePayoutForm={showInlinePayoutForm}
+                        cumulativeBankPayoutZar={cumulativeBankPayoutZar}
                       />
                     )
                   : null
@@ -1092,6 +1133,7 @@ function ActivityItemCard({
                         item={item}
                         liveSellMznPerZar={liveSellMznPerZar}
                         showInlinePayoutForm={showInlinePayoutForm}
+                        cumulativeBankPayoutZar={cumulativeBankPayoutZar}
                       />
                     )
                   : null)}
@@ -1425,6 +1467,7 @@ function ActivitySection({
   onStatus,
   onRealtime,
   liveSellMznPerZar,
+  bankPayoutTotalsByTag,
 }: {
   title: string
   items: ActivityItem[]
@@ -1446,6 +1489,7 @@ function ActivitySection({
   onStatus: () => void
   onRealtime: () => void
   liveSellMznPerZar?: number | null
+  bankPayoutTotalsByTag?: Map<string, number>
 }) {
   const visibleItems = items.filter((item) => {
     if (item.thinking === true) return true
@@ -1496,6 +1540,7 @@ function ActivitySection({
                 onStatus={onStatus}
                 onRealtime={onRealtime}
                 liveSellMznPerZar={liveSellMznPerZar}
+                bankPayoutTotalsByTag={bankPayoutTotalsByTag}
               />
             </div>
           )
@@ -1963,6 +2008,8 @@ export function NotificationsList({
     }
   }
 
+  const bankPayoutTotalsByTag = useMemo(() => bankPayoutTotals(allItems), [allItems])
+
   const sectionProps = {
     latestAwaitingId,
     latestActivityId,
@@ -1982,6 +2029,7 @@ export function NotificationsList({
     onStatus: () => void handleStatus(),
     onRealtime: () => void handleRealtime(),
     liveSellMznPerZar,
+    bankPayoutTotalsByTag,
   }
 
   const askAnchor =

@@ -722,6 +722,19 @@ export function activityEventToItem(eventId: string, data: ActivityEventDoc): Ac
       : undefined,
     liquidityReport: asLiquidityReport(data.liquidityReport),
     routingPlan: asRoutingPlan(data.routingPlan),
+    payoutBankTag:
+      typeof data.payoutBankTag === 'string' && data.payoutBankTag.trim()
+        ? data.payoutBankTag.trim()
+        : undefined,
+    payoutCumulativeZar:
+      typeof data.payoutCumulativeZar === 'number' && Number.isFinite(data.payoutCumulativeZar)
+        ? data.payoutCumulativeZar
+        : undefined,
+    payoutScheduled: data.payoutScheduled === true,
+    payoutPaidAtMs:
+      typeof data.payoutPaidAtMs === 'number' && data.payoutPaidAtMs > 0
+        ? data.payoutPaidAtMs
+        : undefined,
   }
 }
 

@@ -109,6 +109,7 @@ export type LiquidZarPayoutResult = {
   cycleKey: string
   txId: string | null
   skipped?: string
+  bankTag?: string
 }
 
 /**
@@ -290,8 +291,24 @@ export async function payoutLiquidZarForUser(params: {
       { merge: true }
     )
 
-    return { userId, amountZar: amount, cycleKey, txId: paidId }
+    return { userId, amountZar: amount, cycleKey, txId: paidId, bankTag: toTag }
   })
+
+  if (!result.skipped && result.amountZar > 0.005 && result.bankTag) {
+    try {
+      const { bumpYoureSetUpCumulative } = await import('./firstPayoutFlow')
+      await bumpYoureSetUpCumulative({
+        userId: result.userId,
+        amountZar: result.amountZar,
+        bankTag: result.bankTag,
+      })
+    } catch (error) {
+      console.warn('[payoutLiquidZarForUser] youre_set_up cumulative bump failed', {
+        userId: result.userId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
 
   return result
 }

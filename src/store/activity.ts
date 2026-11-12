@@ -107,6 +107,12 @@ export type ActivityItem = {
   liquidNowMode?: 'full' | 'partial' | 'none'
   mznResidual?: number
   mznConverted?: number
+  /** Linked payout destination tag, e.g. "Absa ··2319". */
+  payoutBankTag?: string
+  /** Running total paid to payoutBankTag (You're set up card). */
+  payoutCumulativeZar?: number
+  payoutScheduled?: boolean
+  payoutPaidAtMs?: number
   /** Numbered next steps under a fund / intro card. */
   deskSteps?: string[]
   /** Fine print under a fund / intro card. */

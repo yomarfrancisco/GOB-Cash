@@ -8,6 +8,7 @@ import { DeskPayoutAccountForm } from './DeskPayoutAccountForm'
 import { LiquidNowConvertVisual } from './LiquidNowConvertVisual'
 import { isMznReceivedNotice, MznReceivedVisual } from './MznReceivedVisual'
 import { PaidOutStackVisual } from './PaidOutStackVisual'
+import { YoureSetUpVisual } from './YoureSetUpVisual'
 import { hasRoutingPlan, RoutingPlanVisual } from './RoutingPlanVisual'
 import {
   isPaidLiquidPayout,
@@ -178,17 +179,31 @@ export function DeskCardVisuals({
   onFundLocaleChange,
   liveSellMznPerZar = null,
   showInlinePayoutForm = false,
+  cumulativeBankPayoutZar = null,
 }: {
   item: ActivityItem
   fundLocale?: FundIntroLocale
   onFundLocaleChange?: (locale: FundIntroLocale) => void
   liveSellMznPerZar?: number | null
   showInlinePayoutForm?: boolean
+  cumulativeBankPayoutZar?: number | null
 }) {
   const [changeAccountOpen, setChangeAccountOpen] = useState(false)
 
   if (item.routingStepMessage) {
     return <RoutingStepCard message={item.routingStepMessage} />
+  }
+  if (item.routingAction === 'youre_set_up') {
+    return (
+      <YoureSetUpVisual
+        item={item}
+        cumulativeZar={
+          typeof cumulativeBankPayoutZar === 'number' && cumulativeBankPayoutZar > 0
+            ? cumulativeBankPayoutZar
+            : undefined
+        }
+      />
+    )
   }
   if (item.routingAction === 'fund_intro' || item.routingAction === 'fund_wire') {
     return (
