@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import type { ActivityItem } from '@/store/activity'
+import {
+  formatDeskMajorMzn,
+  formatDeskMajorZar,
+  formatDeskMinorMzn,
+  formatDeskMinorZar,
+  formatDeskRateMtPerZar,
+} from '@/lib/desk/deskMoneyFormat'
 import styles from './LiquidNowConvertVisual.module.css'
 
 const ANIM_MS = 2200
@@ -11,14 +18,6 @@ function parseMajor(raw: string | undefined | null): number | null {
   const cleaned = String(raw).replace(/[^\d.-]/g, '')
   const n = Number(cleaned)
   return Number.isFinite(n) ? n : null
-}
-
-function fmtMzn(n: number): string {
-  return `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MZN`
-}
-
-function fmtZar(n: number): string {
-  return `R${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 type LiquidMode = 'full' | 'partial' | 'none'
@@ -88,15 +87,16 @@ function resolveLiquidNowFigures(item: ActivityItem): {
   const caption =
     item.deskPipeCaption ||
     (mode === 'full'
-      ? `${fmtMzn(mznIn)} converted at ${rate.toFixed(4)}. Full green bar: everything you sent is liquid.`
+      ? `${formatDeskMinorMzn(mznIn)} converted at ${formatDeskRateMtPerZar(rate)}. Full green bar: everything you sent is liquid.`
       : mode === 'partial'
-        ? `${fmtZar(zarOut)} liquid now · ${fmtMzn(mznResidual)} ready 09:00 tomorrow.`
-        : `No instant liquidity today · ${fmtMzn(mznResidual)} ready 09:00 tomorrow.`)
+        ? `${formatDeskMinorZar(zarOut)} liquid now · ${formatDeskMinorMzn(mznResidual)} ready 09:00 tomorrow.`
+        : `No instant liquidity today · ${formatDeskMinorMzn(mznResidual)} ready 09:00 tomorrow.`)
   return { mznIn, zarOut, mznResidual, rate, mode, fillPct, caption }
 }
 
 /**
- * Overlapped Liquid now: MZN strip behind, full-size ZAR card in front.
+ * Cascading Liquid now stack (Paid out / Liquidity open language):
+ * narrower MZN peek behind a full-size ZAR card + slim green liquidity track.
  * full → MZN drains to 0, ZAR fills; partial → MZN ends on residual; none → ZAR stays R0.
  */
 export function LiquidNowConvertVisual({ item }: { item: ActivityItem }) {
@@ -122,10 +122,10 @@ export function LiquidNowConvertVisual({ item }: { item: ActivityItem }) {
   const zarFillNow = fillPct * progress
   const mznLaneLabel =
     mode === 'full'
-      ? `${fmtMzn(mznNow)} · all converted`
+      ? `${formatDeskMajorMzn(mznNow)} · all converted`
       : mode === 'partial'
-        ? `${fmtMzn(mznNow)} · residual queued`
-        : `${fmtMzn(mznNow)} · waiting for liquidity`
+        ? `${formatDeskMajorMzn(mznNow)} · residual queued`
+        : `${formatDeskMajorMzn(mznNow)} · waiting for liquidity`
   const zarSub =
     mode === 'none' ? 'nothing instant today · queued 09:00' : 'liquid · ready to pay out'
 
@@ -141,19 +141,17 @@ export function LiquidNowConvertVisual({ item }: { item: ActivityItem }) {
       }
     >
       <div className={styles.stack}>
-        <div className={styles.strip}>
-          <span className={styles.stripLane}>MZN</span>
-          <span className={styles.stripValue}>{mznLaneLabel}</span>
+        <div className={[styles.peek, styles.peekMzn].join(' ')} aria-hidden>
+          <span className={styles.peekLane}>MZN</span>
+          <span className={styles.peekValue}>{mznLaneLabel}</span>
         </div>
 
         <div className={styles.front}>
-          <div className={styles.lane}>ZAR</div>
-          <div className={styles.amt}>{fmtZar(zarNow)}</div>
-          <div className={styles.sub}>{zarSub}</div>
-          <span className={styles.barSlot} aria-hidden title="Liquidity bar">
-            <span className={styles.barTrack}>
-              <span className={styles.barFill} style={{ width: `${zarFillNow}%` }} />
-            </span>
+          <div className={styles.frontLane}>ZAR</div>
+          <div className={styles.frontAmt}>{formatDeskMajorZar(zarNow)}</div>
+          <div className={styles.frontSub}>{zarSub}</div>
+          <span className={styles.liqTrack} aria-hidden title="Liquidity bar">
+            <span className={styles.liqFill} style={{ width: `${zarFillNow}%` }} />
           </span>
         </div>
       </div>
