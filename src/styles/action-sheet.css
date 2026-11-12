@@ -312,6 +312,27 @@
   height: 18px;
 }
 
+.as-grab {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0 4px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.as-grab-bar {
+  width: 36px;
+  height: 5px;
+  border-radius: 999px;
+  background: #d4d4d8;
+}
+
+.as-sheet--grab {
+  transition: none;
+}
+
 .as-close-only {
   position: absolute;
   top: 16px;

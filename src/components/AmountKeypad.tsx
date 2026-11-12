@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { Delete } from 'lucide-react'
 
 type AmountKeypadProps = {
   currencySymbol?: string // default 'Mt'
@@ -15,6 +16,8 @@ type AmountKeypadProps = {
   amountMZN?: number // current amount in MZN for dynamic fee note
   customFeeText?: string // custom fee text override (e.g. "excl. 3% transaction fee")
   pressedKey?: string | null
+  /** Soft grey rounded tiles + delete icon (desk calculator). */
+  softKeys?: boolean
 }
 
 export default function AmountKeypad({
@@ -30,7 +33,9 @@ export default function AmountKeypad({
   amountMZN = 0,
   customFeeText,
   pressedKey,
+  softKeys = false,
 }: AmountKeypadProps) {
+  void currencySymbol
   const feeNote = customFeeText
     ?? (isHelicopterConvert
       ? amountMZN > 0
@@ -49,7 +54,7 @@ export default function AmountKeypad({
     
     // Check decimal places
     if (current.includes('.')) {
-      const [whole, decimal] = current.split('.')
+      const [, decimal] = current.split('.')
       if (decimal && decimal.length >= 2) {
         return // Max 2 decimal places
       }
@@ -68,27 +73,47 @@ export default function AmountKeypad({
     }
   }
 
+  const keyClass = (key: string) =>
+    [
+      'amount-keypad__key',
+      softKeys ? 'amount-keypad__key--soft' : '',
+      pressedKey === key ? 'amount-keypad__key--pressed' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
   return (
-    <div className="amount-keypad">
+    <div className={`amount-keypad${softKeys ? ' amount-keypad--soft' : ''}`}>
       <div className="amount-keypad__grid">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
           <button
             key={num}
-            className={`amount-keypad__key${pressedKey === num ? ' amount-keypad__key--pressed' : ''}`}
+            className={keyClass(num)}
             onClick={() => handleKeyClick(num)}
             type="button"
           >
             {num}
           </button>
         ))}
-        <button className={`amount-keypad__key${pressedKey === '.' ? ' amount-keypad__key--pressed' : ''}`} onClick={onDot} type="button">
+        <button className={keyClass('.')} onClick={onDot} type="button">
           .
         </button>
-        <button className={`amount-keypad__key${pressedKey === '0' ? ' amount-keypad__key--pressed' : ''}`} onClick={() => handleKeyClick('0')} type="button">
+        <button className={keyClass('0')} onClick={() => handleKeyClick('0')} type="button">
           0
         </button>
-        <button className="amount-keypad__key" onClick={onBackspace} type="button">
-          &lt;
+        <button
+          className={[
+            'amount-keypad__key',
+            softKeys ? 'amount-keypad__key--soft' : '',
+            'amount-keypad__key--delete',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          onClick={onBackspace}
+          type="button"
+          aria-label="Delete"
+        >
+          {softKeys ? <Delete size={22} strokeWidth={2.2} aria-hidden /> : '<'}
         </button>
       </div>
       {!hideCTA && (
@@ -112,4 +137,3 @@ export default function AmountKeypad({
     </div>
   )
 }
-

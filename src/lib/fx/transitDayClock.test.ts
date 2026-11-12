@@ -10,6 +10,7 @@ import {
   PLANNED_CARD_DAY_TARGET_ZAR,
   formatPayoutEtaLabel,
   fundCalculatorPayoutLabel,
+  fundCalculatorSettlementStatus,
   inventoryBarsArmed,
   inventoryTimeBarPercents,
   lastSettleAt09hSast,
@@ -455,5 +456,44 @@ describe('transitDayClock', () => {
     const days = Number(huge.replace(/\D/g, ''))
     assert.ok(days > 1000)
     assert.equal(nextLiquidBankSendAtMs(morning), sastToUtcMs(2026, 11, 10, 9, 15))
+  })
+
+  it('fund calculator settlement: Immediate / tomorrow / later date', () => {
+    const morning = sastToUtcMs(2026, 11, 10, 8, 0)
+    assert.equal(
+      fundCalculatorSettlementStatus({ amountZar: 0, nowMs: morning, dailyLeftZar: 100_000 }),
+      null
+    )
+    assert.deepEqual(
+      fundCalculatorSettlementStatus({
+        amountZar: 50_000,
+        nowMs: morning,
+        dailyLeftZar: 100_000,
+        reservePoolZar: 100_000,
+        queueAheadZar: 0,
+      }),
+      { kind: 'immediate', label: 'Immediate settlement' }
+    )
+    // Needs one open after today's instant slice → bank send tomorrow morning.
+    const evening = sastToUtcMs(2026, 11, 10, 18, 0)
+    assert.deepEqual(
+      fundCalculatorSettlementStatus({
+        amountZar: 150_000,
+        nowMs: evening,
+        dailyLeftZar: 100_000,
+        reservePoolZar: 100_000,
+        queueAheadZar: 0,
+      }),
+      { kind: 'tomorrow', label: 'Settled tomorrow' }
+    )
+    const later = fundCalculatorSettlementStatus({
+      amountZar: 350_000,
+      nowMs: evening,
+      dailyLeftZar: 100_000,
+      reservePoolZar: 100_000,
+      queueAheadZar: 0,
+    })
+    assert.equal(later?.kind, 'later')
+    assert.match(String(later?.label || ''), /^Settled \w{3} \d{1,2} \w{3}$/)
   })
 })

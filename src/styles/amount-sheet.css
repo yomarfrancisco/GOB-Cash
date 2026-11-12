@@ -502,5 +502,274 @@
   border: 0 !important;
 }
 
+/* —— Desk fund calculator (white sheet + Liquid-now stack) —— */
+.as-sheet.fund-calc {
+  background: #fff !important;
+}
+
+.as-sheet.fund-calc .as-body {
+  padding: 0 16px;
+}
+
+.amount-sheet--fund-calc {
+  font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+}
+
+.amount-sheet--fund-calc .amount-body {
+  background: #fff !important;
+  padding-top: 8px;
+  gap: 8px;
+}
+
+.fund-calc-stack-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 4px 0;
+}
+
+.fund-calc-stack {
+  position: relative;
+  width: 100%;
+  padding: 14px;
+  padding-top: 62px;
+  border-radius: 16px;
+  background: #f3f0e8;
+  box-sizing: border-box;
+}
+
+.fund-calc-peek,
+.fund-calc-front {
+  border-radius: 16px;
+  box-sizing: border-box;
+}
+
+.fund-calc-peek {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  z-index: 1;
+  width: 78%;
+  height: 92px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 0;
+  border: 0;
+  color: rgba(255, 255, 255, 0.95);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fund-calc-peek--mzn {
+  background: #5a2f4a;
+}
+
+.fund-calc-peek--zar {
+  background: #2c2c2e;
+}
+
+.fund-calc-peek-lane {
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.fund-calc-peek-value {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fund-calc-front {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  aspect-ratio: 86 / 54;
+  padding: 16px 16px 52px;
+  color: #f5f5f5;
+  box-shadow: 0 12px 32px rgba(24, 24, 27, 0.16);
+}
+
+.fund-calc-front--zar {
+  background: #2c2c2e;
+}
+
+.fund-calc-front--mzn {
+  background: #5a2f4a;
+}
+
+.fund-calc-front-lane {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.72;
+  margin-bottom: 4px;
+}
+
+.fund-calc-front-amt-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fund-calc-front-amt {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-weight: 600;
+  letter-spacing: 0.21px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
+  opacity: 1;
+}
+
+.fund-calc-front-amt span {
+  color: inherit;
+  font-weight: inherit;
+}
+
+.fund-calc-cursor {
+  flex-shrink: 0;
+  width: 2px;
+  height: 0.9em;
+  min-height: 28px;
+  max-height: 48px;
+  border-radius: 1px;
+  background: #a8e6c3;
+  animation: fundCalcCursorBlink 1.05s steps(1, end) infinite;
+}
+
+@keyframes fundCalcCursorBlink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.fund-calc-rate {
+  position: absolute;
+  left: 16px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.09px;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+
+.fund-calc-settle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 22px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #18181b;
+}
+
+.fund-calc-settle--empty {
+  opacity: 0;
+}
+
+.fund-calc-settle-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid #18181b;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.fund-calc-settle--now .fund-calc-settle-dot {
+  border-color: #34c759;
+  background: #34c759;
+}
+
+.amount-keypad--soft {
+  padding: 0 4px;
+}
+
+.amount-keypad--soft .amount-keypad__grid {
+  row-gap: 10px;
+  column-gap: 10px;
+  padding-top: 4px;
+}
+
+.amount-keypad__key--soft {
+  aspect-ratio: auto;
+  min-height: 52px;
+  height: 52px;
+  width: 100%;
+  border-radius: 14px;
+  background: #ececf0;
+  font-size: 22px;
+  font-weight: 500;
+  color: #18181b;
+}
+
+.amount-keypad__key--soft:hover {
+  background: #e4e4e8;
+}
+
+.amount-keypad__key--soft:active,
+.amount-keypad__key--soft.amount-keypad__key--pressed {
+  background: #d8d8de;
+}
+
+.amount-keypad__key--delete {
+  color: #18181b;
+}
+
+.amount-cta--fund-calc {
+  padding: 8px 16px calc(env(safe-area-inset-bottom) + 12px);
+  background: #fff;
+}
+
+.amount-cta--fund-calc .amount-keypad__cta {
+  border-radius: 16px;
+  font-weight: 600;
+  min-height: 52px;
+}
+
+.amount-cta--fund-calc .amount-keypad__cta:disabled {
+  background: #e5e5ea !important;
+  color: #fff !important;
+}
+
 /* Override ActionSheet height for amount sheet - now handled by .as-sheet.amount */
 

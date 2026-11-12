@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
+import { ArrowUpDown } from 'lucide-react'
 import ActionSheet from './ActionSheet'
 import AmountKeypad from './AmountKeypad'
 import FitAmount from './FitAmount'
@@ -11,8 +12,12 @@ import { formatAgentCashTitle, saveCashPayResume } from '@/lib/agentCashQr'
 import {
   DAILY_LIQUID_ZAR_CAP,
   FUND_CALC_MAX_ZAR,
-  fundCalculatorPayoutLabel,
+  fundCalculatorSettlementStatus,
 } from '@/lib/fx/transitDayClock'
+import {
+  formatDeskMajorMzn,
+  formatDeskMajorZar,
+} from '@/lib/desk/deskMoneyFormat'
 import { sastParts } from '@/lib/routing/routingTime'
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
@@ -472,8 +477,8 @@ export default function AmountSheet({
     return Math.max(0, DAILY_LIQUID_ZAR_CAP - used)
   })()
   const hasNextOpenPlan = Number(mznWalletRaw?.nextOpenComputedAtMs) > 0
-  const fundPayoutEstimate = fundCalculator
-    ? fundCalculatorPayoutLabel({
+  const fundSettlement = fundCalculator
+    ? fundCalculatorSettlementStatus({
         amountZar: amountZAR,
         nowMs: payoutNowMs,
         dailyLeftZar: dailyLiquidLeftZar,
@@ -487,19 +492,41 @@ export default function AmountSheet({
     : null
 
   // Lime when Rand is large; pink when Metical is large.
+  // Fund calculator stays white to match the desk chat sheet.
   const isSponsorButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'sponsorButton'
   const isTintedKeypad =
-    isHelicopterConvert ||
-    isCashButtonConvert ||
-    isSponsorButtonConvert ||
-    isConversionKeypad ||
-    isWithdrawKeypad
+    !fundCalculator &&
+    (isHelicopterConvert ||
+      isCashButtonConvert ||
+      isSponsorButtonConvert ||
+      isConversionKeypad ||
+      isWithdrawKeypad)
   const useLimeGreenBackground = isTintedKeypad && isZarPrimaryKeypad
   const usePinkKeypad = isTintedKeypad && !isZarPrimaryKeypad
 
   const primaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.ZAR : CURRENCY_FLAG.MZN
   const secondaryFlag = isZarPrimaryKeypad ? CURRENCY_FLAG.MZN : CURRENCY_FLAG.ZAR
   const secondaryAmount = formatAmountWithDot(isZarPrimaryKeypad ? amountMZN : amountZAR)
+
+  const handleFundSwap = () => {
+    if (gateGuestPay) {
+      blockGuestPay()
+      return
+    }
+    onToggleConversion?.()
+  }
+
+  const fundFrontIsZar = isZarPrimaryKeypad
+  const fundFrontLabel = fundFrontIsZar ? 'YOU GET' : 'YOU SEND'
+  const fundBackLabel = fundFrontIsZar ? 'YOU SEND' : 'YOU GET'
+  const fundFrontAmount = fundFrontIsZar
+    ? formatDeskMajorZar(amountZAR)
+    : formatDeskMajorMzn(amountMZN)
+  const fundBackAmount = fundFrontIsZar
+    ? formatDeskMajorMzn(amountMZN)
+    : formatDeskMajorZar(amountZAR)
+  const fundRateChip =
+    fxRateMZNperZAR > 0 ? `${fxRateMZNperZAR.toFixed(4)} MZN/ZAR` : '—'
 
   const secondaryChip = isConversionKeypad && onToggleConversion ? (
     <button
@@ -540,36 +567,35 @@ export default function AmountSheet({
       onClose={onClose}
       onOverlayClick={gateGuestPay ? blockGuestPay : undefined}
       title=""
-      className={`amount ${useLimeGreenBackground ? 'cash-keypad' : ''} ${usePinkKeypad ? 'pink-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`}
+      chrome={fundCalculator ? 'grab' : 'close'}
+      className={`amount ${fundCalculator ? 'fund-calc' : ''} ${useLimeGreenBackground ? 'cash-keypad' : ''} ${usePinkKeypad ? 'pink-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`}
       size="tall"
     >
-      <div className={`amount-sheet amount-sheet-wrapper ${isHelicopterConvert ? 'amount-sheet--cash-transactions' : ''}`}>
-        <div
-          className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''} ${fundCalculator ? 'amount-sheet__header--fund-calc' : ''}`}
-          style={{ height: fundCalculator ? 'var(--hdr-h, 72px)' : 'var(--hdr-h, 118px)' }}
-        >
-          {showScanIcon && (
-            <button
-              onClick={() => {
-                if (gateGuestPay) {
-                  blockGuestPay()
-                  return
-                }
-                onScanClick?.()
-              }}
-              className="amount-sheet__scan-button"
-              aria-label="Scan QR code"
-              type="button"
-            >
-              <Image src="/assets/core/scan.svg" alt="Scan" width={24} height={24} />
-            </button>
-          )}
-          <div className="amount-sheet__header-content">
-            {fundCalculator ? (
-              <div className="amount-sheet__balance" aria-live="polite">
-                {fundPayoutEstimate}
-              </div>
-            ) : (
+      <div
+        className={`amount-sheet amount-sheet-wrapper ${fundCalculator ? 'amount-sheet--fund-calc' : ''} ${isHelicopterConvert ? 'amount-sheet--cash-transactions' : ''}`}
+      >
+        {!fundCalculator ? (
+          <div
+            className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''}`}
+            style={{ height: 'var(--hdr-h, 118px)' }}
+          >
+            {showScanIcon && (
+              <button
+                onClick={() => {
+                  if (gateGuestPay) {
+                    blockGuestPay()
+                    return
+                  }
+                  onScanClick?.()
+                }}
+                className="amount-sheet__scan-button"
+                aria-label="Scan QR code"
+                type="button"
+              >
+                <Image src="/assets/core/scan.svg" alt="Scan" width={24} height={24} />
+              </button>
+            )}
+            <div className="amount-sheet__header-content">
               <div
                 className={`amount-sheet__balance${agentCash ? ' amount-sheet__balance--cash-handle' : ''}`}
                 title={agentCash ? formatAgentCashTitle(agentCashHandle) : undefined}
@@ -583,34 +609,97 @@ export default function AmountSheet({
                   </>
                 )}
               </div>
-            )}
-            {!hideModeLabel && <div className="amount-sheet__title">{modeLabel}</div>}
+              {!hideModeLabel && <div className="amount-sheet__title">{modeLabel}</div>}
+            </div>
           </div>
-          {/* Close button is provided by ActionSheet (as-close-only) */}
-        </div>
+        ) : null}
         <div className="amount-body">
-          <div className="amount-sheet__amount-display">
-            <div className="amount-sheet__primary-row">
-              <img
-                src={primaryFlag.src}
-                alt={primaryFlag.alt}
-                className="amount-sheet__flag amount-sheet__flag--lg"
-                draggable={false}
-              />
-              <div className="amount-sheet__primary-amount">
-                <FitAmount
-                  text={formatAmountWithDot(isZarPrimaryKeypad ? amountZAR : amountMZN)}
-                  maxPx={72}
-                  minPx={28}
-                  className="amount-sheet__zar amount-fit"
-                />
+          {fundCalculator ? (
+            <div className="fund-calc-stack-wrap">
+              <div className="fund-calc-stack" aria-label="Fund calculator">
+                <button
+                  type="button"
+                  className={[
+                    'fund-calc-peek',
+                    fundFrontIsZar ? 'fund-calc-peek--mzn' : 'fund-calc-peek--zar',
+                  ].join(' ')}
+                  onClick={handleFundSwap}
+                  aria-label={
+                    fundFrontIsZar
+                      ? 'Switch to type meticais'
+                      : 'Switch to type rand'
+                  }
+                >
+                  <span className="fund-calc-peek-lane">{fundBackLabel}</span>
+                  <span className="fund-calc-peek-value">
+                    {fundBackAmount}
+                    <ArrowUpDown size={16} strokeWidth={2.4} aria-hidden />
+                  </span>
+                </button>
+                <div
+                  className={[
+                    'fund-calc-front',
+                    fundFrontIsZar ? 'fund-calc-front--zar' : 'fund-calc-front--mzn',
+                  ].join(' ')}
+                >
+                  <div className="fund-calc-front-lane">{fundFrontLabel}</div>
+                  <div className="fund-calc-front-amt-row">
+                    <FitAmount
+                      text={fundFrontAmount}
+                      maxPx={52}
+                      minPx={28}
+                      className="fund-calc-front-amt"
+                    />
+                    <span className="fund-calc-cursor" aria-hidden />
+                  </div>
+                  <span className="fund-calc-rate">{fundRateChip}</span>
+                </div>
+              </div>
+              <div
+                className={[
+                  'fund-calc-settle',
+                  fundSettlement?.kind === 'immediate' ? 'fund-calc-settle--now' : '',
+                  !fundSettlement ? 'fund-calc-settle--empty' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-live="polite"
+              >
+                {fundSettlement ? (
+                  <>
+                    <span className="fund-calc-settle-dot" aria-hidden />
+                    <span>{fundSettlement.label}</span>
+                  </>
+                ) : (
+                  <span>&nbsp;</span>
+                )}
               </div>
             </div>
-            {secondaryChip}
-          </div>
+          ) : (
+            <div className="amount-sheet__amount-display">
+              <div className="amount-sheet__primary-row">
+                <img
+                  src={primaryFlag.src}
+                  alt={primaryFlag.alt}
+                  className="amount-sheet__flag amount-sheet__flag--lg"
+                  draggable={false}
+                />
+                <div className="amount-sheet__primary-amount">
+                  <FitAmount
+                    text={formatAmountWithDot(isZarPrimaryKeypad ? amountZAR : amountMZN)}
+                    maxPx={72}
+                    minPx={28}
+                    className="amount-sheet__zar amount-fit"
+                  />
+                </div>
+              </div>
+              {secondaryChip}
+            </div>
+          )}
           <AmountKeypad
             value={displayAmount}
             pressedKey={pressedKey}
+            softKeys={fundCalculator}
             onChange={(next) => {
               if (gateGuestPay) {
                 blockGuestPay()
@@ -647,7 +736,7 @@ export default function AmountSheet({
             customFeeText={keypadFeeText}
           />
         </div>
-        <div className={`amount-cta ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${usePinkKeypad ? 'amount-cta--pink' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+        <div className={`amount-cta ${fundCalculator ? 'amount-cta--fund-calc' : ''} ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${usePinkKeypad ? 'amount-cta--pink' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {withdrawOnly ? (
             // Force single button for withdrawal flow
             <button 

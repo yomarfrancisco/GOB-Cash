@@ -275,6 +275,68 @@ export function fundCalculatorPayoutLabel(params: {
   return formatPayoutEtaLabel(payAt, params.nowMs)
 }
 
+const SETTLEMENT_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+const SETTLEMENT_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const
+
+function sameSastDay(
+  a: { year: number; month: number; day: number },
+  b: { year: number; month: number; day: number }
+): boolean {
+  return a.year === b.year && a.month === b.month && a.day === b.day
+}
+
+function formatSettledDayLabel(ms: number): string {
+  const p = sastParts(ms)
+  return `Settled ${SETTLEMENT_WEEKDAYS[p.weekday]} ${p.day} ${SETTLEMENT_MONTHS[p.month - 1]}`
+}
+
+/**
+ * Desk calculator settlement line under the stacked cards.
+ * Uses the same instant / opens projection as the fund payout estimate
+ * (daily liquid left + zarReserve till + FCFS queue) — never a hard-coded R100k.
+ */
+export function fundCalculatorSettlementStatus(params: {
+  amountZar: number
+  nowMs: number
+  dailyLeftZar?: number | null
+  reservePoolZar?: number | null
+  queueAheadZar?: number | null
+  dailyCapZar?: number
+}): { kind: 'immediate' | 'tomorrow' | 'later'; label: string } | null {
+  const plan = estimateFundPayoutOpens(params)
+  if (!plan) return null
+  if (plan.kind === 'instant') {
+    return { kind: 'immediate', label: 'Immediate settlement' }
+  }
+
+  const nextOpen = nextSettleAt09hSastExclusive(params.nowMs)
+  const payAt =
+    nextOpen +
+    (Math.max(1, plan.opens) - 1) * DAY_MS +
+    LIQUIDITY_PAYOUT_MINUTE_SAST * 60 * 1000
+  const pay = sastParts(payAt)
+  const now = sastParts(params.nowMs)
+  const tomorrow = sastParts(sastToUtcMs(now.year, now.month, now.day, 12, 0) + DAY_MS)
+
+  if (sameSastDay(pay, tomorrow)) {
+    return { kind: 'tomorrow', label: 'Settled tomorrow' }
+  }
+  return { kind: 'later', label: formatSettledDayLabel(payAt) }
+}
+
 /**
  * ZAR card green bar: dripped ÷ this journey's bound (next liquidity event slice).
  * Prefer `journeyBoundZar`; `nextOpenBookedZar` kept as a legacy alias.
