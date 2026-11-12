@@ -52,7 +52,7 @@ import { submitInternalConversion } from '@/lib/transactions/submitInternalConve
 import { submitRoutingConversion } from '@/lib/transactions/submitRoutingConversion'
 import { resumeDeskAfterKeypad } from '@/lib/desk/openDeskKeypad'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
-import { pushFundWireRequest } from '@/lib/notifications/fundWireRequest'
+import { downloadFundQuotePdf } from '@/lib/notifications/fundQuotePdf'
 import { useBankingDetailsSheet } from '@/store/useBankingDetailsSheet'
 import { useCashFlowStateStore } from '@/state/cashFlowState'
 import { prefetchActionSheetIcons } from '@/lib/prefetchActionSheetIcons'
@@ -904,12 +904,14 @@ function HomeContent() {
             useRoutingPlaybackStore.getState().clear()
             return
           }
-          // Header calculator "Fund this": bank-wire instructions, then open desk.
+          // Header calculator "Get a quote": dismiss keypad, reopen desk, download PDF.
           if (play?.routingAction === 'fund_calc') {
             useRoutingPlaybackStore.getState().clear()
             clockPlayRef.current = null
-            void pushFundWireRequest({ amountMZN, amountZAR })
             resumeDeskAfterKeypad()
+            void downloadFundQuotePdf({ amountMZN, amountZAR }).catch((error) => {
+              console.warn('[FundQuote] PDF download failed', error)
+            })
             return
           }
           // Claim play before onClose so dismiss-restore does not race the submit path.
