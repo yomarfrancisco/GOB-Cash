@@ -16,15 +16,40 @@ import {
 const PAGE_W = 210
 const MARGIN = 22
 
-function triggerDownload(blob: Blob, filename: string) {
+/**
+ * Keep the desk on screen. On phones, blob `<a download>` opens a PDF viewer —
+ * prefer the system share/save sheet (or silent download) instead.
+ */
+async function triggerDownload(blob: Blob, filename: string): Promise<void> {
+  const file = new File([blob], filename, { type: 'application/pdf' })
+  const canShareFile =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.canShare === 'function' &&
+    typeof navigator.share === 'function' &&
+    navigator.canShare({ files: [file] })
+
+  if (canShareFile) {
+    try {
+      await navigator.share({ files: [file], title: filename })
+    } catch (error) {
+      // Dismissed or share failed — stay on desk; never fall back to a PDF viewer tab.
+      if ((error as { name?: string } | null)?.name !== 'AbortError') {
+        console.warn('[FundQuote] share failed', error)
+      }
+    }
+    return
+  }
+
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.download = filename
+  link.rel = 'noopener'
+  link.style.display = 'none'
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => URL.revokeObjectURL(url), 2_000)
 }
 
 function row(
@@ -110,5 +135,5 @@ export async function downloadFundQuotePdf(params: {
   const stamp = new Date()
   const ymd = `${stamp.getFullYear()}${String(stamp.getMonth() + 1).padStart(2, '0')}${String(stamp.getDate()).padStart(2, '0')}`
   const blob = doc.output('blob')
-  triggerDownload(blob, `PAGA-fund-quote-${ymd}-${Math.round(amountZAR)}.pdf`)
+  await triggerDownload(blob, `PAGA-fund-quote-${ymd}-${Math.round(amountZAR)}.pdf`)
 }

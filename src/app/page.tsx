@@ -904,12 +904,14 @@ function HomeContent() {
             useRoutingPlaybackStore.getState().clear()
             return
           }
-          // Header calculator "Get a quote": dismiss keypad, reopen desk, download PDF.
+          // Header calculator "Get a quote": dismiss keypad, reopen desk, save PDF in place.
           if (play?.routingAction === 'fund_calc') {
             useRoutingPlaybackStore.getState().clear()
             clockPlayRef.current = null
+            // Start while the tap still counts as a user gesture (needed for share/save on iOS).
+            const quoteDownload = downloadFundQuotePdf({ amountMZN, amountZAR })
             resumeDeskAfterKeypad()
-            void downloadFundQuotePdf({ amountMZN, amountZAR }).catch((error) => {
+            void quoteDownload.catch((error) => {
               console.warn('[FundQuote] PDF download failed', error)
             })
             return
