@@ -293,24 +293,38 @@ export async function refreshNextOpenBookings(params?: {
       .doc(booking.userId)
       .collection('wallets')
       .doc('cashMZN')
-    batch.set(
-      ref,
-      {
-        nextOpenBookedZar: booking.bookedZar,
-        nextOpenBookedMzn: booking.bookedMzn,
-        nextOpenWantZar: booking.wantZar,
-        nextOpenQueueRank: booking.queueRank,
-        nextOpenQueueAheadZar: booking.queueAheadZar,
-        nextOpenReservePoolZar: plan.reservePoolZar,
-        nextOpenAtMs: plan.openAtMs,
-        nextOpenDayKey: plan.dayKey,
-        nextOpenSellRate: plan.sellRate,
-        nextOpenSkipReason: booking.skipped || null,
-        nextOpenComputedAtMs: nowMs,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    )
+    // Booking used to create a cashMZN doc with only nextOpen* fields (no fiatBalance).
+    // Keep the wallet shape intact whenever we touch the doc.
+    const existing = await ref.get()
+    const data = existing.data() || {}
+    const patch: Record<string, unknown> = {
+      nextOpenBookedZar: booking.bookedZar,
+      nextOpenBookedMzn: booking.bookedMzn,
+      nextOpenWantZar: booking.wantZar,
+      nextOpenQueueRank: booking.queueRank,
+      nextOpenQueueAheadZar: booking.queueAheadZar,
+      nextOpenReservePoolZar: plan.reservePoolZar,
+      nextOpenAtMs: plan.openAtMs,
+      nextOpenDayKey: plan.dayKey,
+      nextOpenSellRate: plan.sellRate,
+      nextOpenSkipReason: booking.skipped || null,
+      nextOpenComputedAtMs: nowMs,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }
+    if (!existing.exists || data.fiatBalance == null || data.walletId == null) {
+      patch.walletId = 'cashMZN'
+      patch.kind = 'cash'
+      patch.displayCurrency = 'MZN'
+      patch.fiatBalance =
+        typeof data.fiatBalance === 'number' && Number.isFinite(data.fiatBalance)
+          ? data.fiatBalance
+          : 0
+      patch.usdtBalance =
+        typeof data.usdtBalance === 'number' && Number.isFinite(data.usdtBalance)
+          ? data.usdtBalance
+          : 0
+    }
+    batch.set(ref, patch, { merge: true })
     ops++
   }
 
