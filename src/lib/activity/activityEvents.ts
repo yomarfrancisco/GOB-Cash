@@ -111,6 +111,10 @@ export type ActivityEventDoc = {
   liquidityChanges?: unknown
   liquidityReport?: unknown
   routingPlan?: unknown
+  payoutBankTag?: string
+  payoutCumulativeZar?: number
+  payoutScheduled?: boolean
+  payoutPaidAtMs?: number
 }
 
 function asRoutingPlan(raw: unknown): ActivityItem['routingPlan'] {
