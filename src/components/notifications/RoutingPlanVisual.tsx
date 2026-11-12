@@ -8,7 +8,11 @@ import {
   formatDeskMinorMzn,
   formatDeskMinorZar,
 } from '@/lib/desk/deskMoneyFormat'
-import { nextSettleAt09hSastExclusive } from '@/lib/fx/transitDayClock'
+import {
+  nextSettleAt09hSastExclusive,
+  routingPlanDripCeilingZar,
+  sharedDripProgress,
+} from '@/lib/fx/transitDayClock'
 import { sastParts } from '@/lib/routing/routingTime'
 import { useWalletStore } from '@/store/wallets'
 import styles from './RoutingPlanVisual.module.css'
@@ -88,6 +92,27 @@ function resolveArrivalMs(plan: NonNullable<ActivityItem['routingPlan']>, nowMs:
     .filter((t): t is number => typeof t === 'number' && t > 0)
   if (times.length) return Math.max(...times)
   return nextSettleAt09hSastExclusive(nowMs)
+}
+
+/** Already-liquid ZAR for this order (instant + any legs that have already landed). */
+function orderAlreadyLiquidZar(
+  plan: NonNullable<ActivityItem['routingPlan']>,
+  nowMs: number
+): number {
+  const fromPlan = Math.max(0, Number(plan.zarLiquid) || 0)
+  let fromLegs = 0
+  for (const leg of plan.legs || []) {
+    const amt = Math.max(0, Number(leg.amountZar) || 0)
+    if (!(amt > 0.005)) continue
+    if (leg.channel === 'instant' || leg.confidence === 'now') {
+      fromLegs += amt
+      continue
+    }
+    if (typeof leg.landsAtMs === 'number' && leg.landsAtMs > 0 && leg.landsAtMs <= nowMs) {
+      fromLegs += amt
+    }
+  }
+  return Math.round(Math.max(fromPlan, fromLegs) * 100) / 100
 }
 
 function resolvePlanState(params: {
@@ -173,8 +198,15 @@ export function routingPlanDisplayTitle(
 export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
   const plan = item.routingPlan
   const [nowMs, setNowMs] = useState(() => Date.now())
-  const wallets = useWalletStore((s) => s.wallets)
-  const walletsHydrated = useWalletStore((s) => s.walletsHydrated)
+  const mznWallet = useWalletStore((s) => s.wallets?.cashMZN) as
+    | {
+        liquidityQueuedAtMs?: number
+        nextOpenBookedZar?: number
+        nextOpenQueueAheadZar?: number
+        nextOpenReservePoolZar?: number
+        nextOpenComputedAtMs?: number
+      }
+    | undefined
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 250)
@@ -183,26 +215,59 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
 
   if (!plan) return null
 
-  const planZarLiquid = Math.max(0, Number(plan.zarLiquid) || 0)
-  const zarTotal = Math.max(planZarLiquid, Number(plan.zarTotal) || 0)
+  const zarTotal = Math.max(
+    Math.max(0, Number(plan.zarLiquid) || 0),
+    Number(plan.zarTotal) || 0
+  )
   const planMznResidual = Math.max(0, Number(plan.mznResidual) || 0)
+  const sell = Number(plan.rate) > 0 ? Number(plan.rate) : 0
+  // Order-scoped already-liquid (may include several prior liquid moments / opens).
+  const alreadyLiquidZar = orderAlreadyLiquidZar(plan, nowMs)
+  const remainingZar = Math.max(0, zarTotal - alreadyLiquidZar)
 
-  // Live with home micro-cycles: plan liquid already paid/recorded + wallet ZAR still held.
-  const cashZar = walletsHydrated ? Number(wallets?.cashZAR?.fiatBalance || 0) : 0
-  const earningsZar = walletsHydrated ? Number(wallets?.earnings?.fiatBalance || 0) : 0
-  const cashMzn = walletsHydrated ? Number(wallets?.cashMZN?.fiatBalance || 0) : planMznResidual
-  const zarLiquid = Math.round((planZarLiquid + cashZar + earningsZar) * 100) / 100
-  const mznResidual = walletsHydrated ? Math.max(0, cashMzn) : planMznResidual
+  const hasNextOpenPlan = Number(mznWallet?.nextOpenComputedAtMs) > 0
+  const journeyCeiling = routingPlanDripCeilingZar({
+    queueMzn: planMznResidual,
+    sellMznPerZar: sell,
+    nextOpenBookedZar: hasNextOpenPlan
+      ? Math.max(0, Number(mznWallet?.nextOpenBookedZar) || 0)
+      : null,
+    queueAheadZar: hasNextOpenPlan
+      ? Math.max(0, Number(mznWallet?.nextOpenQueueAheadZar) || 0)
+      : 0,
+    reservePoolZar: hasNextOpenPlan
+      ? Math.max(0, Number(mznWallet?.nextOpenReservePoolZar) || 0)
+      : null,
+  })
+  const sinceMs =
+    Number(mznWallet?.liquidityQueuedAtMs) > 0
+      ? Number(mznWallet?.liquidityQueuedAtMs)
+      : typeof item.createdAt === 'number' && item.createdAt > 0
+        ? item.createdAt
+        : null
+  // Live drip for this order only — capped to remaining until zarTotal, may span many cycles.
+  const drip = sharedDripProgress({
+    walletMzn: planMznResidual,
+    sellMznPerZar: sell,
+    nowMs,
+    sinceMs,
+    maxDripZar: Math.min(journeyCeiling, remainingZar),
+  })
+  const zarLiquid =
+    Math.round(Math.min(zarTotal, alreadyLiquidZar + drip.displayTransitZarOffset) * 100) / 100
+  const mznResidual =
+    Math.round(Math.max(0, planMznResidual + drip.displayMznOffset) * 100) / 100
 
   const sentAtMs =
     typeof item.createdAt === 'number' && item.createdAt > 0 ? item.createdAt : nowMs
   const originalArriveAtMs = resolveArrivalMs(plan, nowMs)
+  // State/copy stay on settled liquid moments — don't flip "arrived" from drip alone.
   const state = resolvePlanState({
     nowMs,
     arriveAtMs: originalArriveAtMs,
-    zarLiquid,
+    zarLiquid: alreadyLiquidZar,
     zarTotal,
-    mznResidual,
+    mznResidual: planMznResidual,
   })
   const displayArriveAtMs =
     state === 'late' && originalArriveAtMs <= nowMs
