@@ -633,9 +633,6 @@ function ActivityItemCard({
     (item.routingAction === 'liquid_now' ||
       item.routingAction === 'payout_details_request' ||
       (item.routingAction === 'routing_plan' && Number(item.routingPlan?.zarLiquid || 0) > 0.005))
-  // Fund again only on the latest You’re set up — not older setup cards.
-  const showYoureSetUpActions =
-    actionsUnlocked && item.routingAction === 'youre_set_up' && showStatus === true
   const wallets = useWalletStore((s) => s.wallets)
   const accountIsFunded =
     Number(wallets?.cashMZN?.fiatBalance || 0) > 0.005 ||
@@ -1216,21 +1213,6 @@ function ActivityItemCard({
                 {fundIntroSecondaryLabel(fundLocale)}
               </button>
             ) : null}
-            {showYoureSetUpActions && (
-              <button
-                type="button"
-                className={styles.confirmButton}
-                aria-label="Fund again"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  document
-                    .querySelector('[data-routing-action="fund_intro"]')
-                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                }}
-              >
-                Fund again
-              </button>
-            )}
             {showDownload && (
               <button
                 type="button"
