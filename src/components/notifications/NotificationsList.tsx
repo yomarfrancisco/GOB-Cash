@@ -57,7 +57,10 @@ import { prefetchDiditSdk, startDiditVerification } from '@/lib/startDiditVerifi
 import styles from '@/app/activity/activity.module.css'
 import listStyles from '@/components/Inbox/FinancialInboxListSheet.module.css'
 import { DeskCardVisuals } from '@/components/notifications/DeskCardVisuals'
-import { formatRoutingPlanDeskSentence } from '@/components/notifications/RoutingPlanVisual'
+import {
+  formatRoutingPlanDeskSentence,
+  routingPlanDisplayTitle,
+} from '@/components/notifications/RoutingPlanVisual'
 import {
   paidOutDisplaySentence,
   paidOutDisplayTitle,
@@ -627,6 +630,7 @@ function ActivityItemCard({
   const isPaidOut = isPaidOutActivity(item)
   const isMznReceived = isMznReceivedNotice(item)
   const isLiquidNow = item.routingAction === 'liquid_now'
+  const isRoutingPlan = Boolean(item.routingPlan) && item.routingAction !== 'liquid_now'
   const isScheduledPayout =
     item.routingAction === 'daily_liquid_zar_payout' &&
     (item.payoutScheduled === true || /^scheduled$/i.test(String(item.deskPendingChip || '')))
@@ -646,7 +650,9 @@ function ActivityItemCard({
           ? mznReceivedDisplayTitle(item)
           : isLiquidNow
             ? liquidNowDisplayTitle(item)
-            : displayDeskTitle(item.title)
+            : isRoutingPlan && item.routingPlan
+              ? routingPlanDisplayTitle(item.routingPlan, item)
+              : displayDeskTitle(item.title)
   const bankTile = bankTileForItem({ title: title || item.title, routingAction: item.routingAction })
   // Bank · notices keep bank tiles — not Routing Manager / liaison portraits.
   // Buy Steps 3–4 are EN_ROUTE_* with deskStep; still use desk team faces.
@@ -667,9 +673,10 @@ function ActivityItemCard({
   const isSendCard =
     item.routingAction === 'deploy' || /^Step\s*4\b/i.test(title) || /^Sell ZAR\b/i.test(item.title || '')
   // Structured step card / ledger owns the copy — skip live Mt/COST overlays on Steps 1–6.
-  const routingPlanSentence = item.routingPlan
-    ? formatRoutingPlanDeskSentence(item.routingPlan)
-    : null
+  const routingPlanSentence =
+    item.routingPlan && item.routingAction !== 'liquid_now'
+      ? formatRoutingPlanDeskSentence(item.routingPlan, item)
+      : null
   const body =
     youreSetUpSentence
       ? youreSetUpSentence

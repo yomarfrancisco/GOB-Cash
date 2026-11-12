@@ -219,6 +219,16 @@ export function DeskCardVisuals({
       />
     )
   }
+  if (item.routingAction === 'liquid_now') {
+    return (
+      <>
+        <LiquidNowConvertVisual item={item} />
+        {showInlinePayoutForm ? (
+          <DeskPayoutAccountForm zarAmount={Number(item.amount?.value || 0)} />
+        ) : null}
+      </>
+    )
+  }
   if (hasRoutingPlan(item) || item.routingAction === 'routing_plan') {
     return (
       <>
@@ -233,16 +243,6 @@ export function DeskCardVisuals({
   }
   if (isMznReceivedNotice(item)) {
     return <MznReceivedVisual item={item} sellMznPerZar={liveSellMznPerZar} />
-  }
-  if (item.routingAction === 'liquid_now') {
-    return (
-      <>
-        <LiquidNowConvertVisual item={item} />
-        {showInlinePayoutForm ? (
-          <DeskPayoutAccountForm zarAmount={Number(item.amount?.value || 0)} />
-        ) : null}
-      </>
-    )
   }
   if (isScheduledLiquidPayout(item)) {
     return (
