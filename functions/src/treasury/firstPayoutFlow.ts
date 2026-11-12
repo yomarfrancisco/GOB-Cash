@@ -370,6 +370,49 @@ async function publishLiquidNow(params: {
   })
 }
 
+/** Sum ZAR already paid out to a bank tag (Paid out / daily liquid, excluding scheduled). */
+async function sumPaidZarToBank(userId: string, bankTag: string): Promise<number> {
+  const tag = bankTag.trim()
+  if (!tag) return 0
+  const snap = await db()
+    .collection('users')
+    .doc(userId)
+    .collection('activityEvents')
+    .orderBy('createdAt', 'desc')
+    .limit(80)
+    .get()
+  let total = 0
+  for (const doc of snap.docs) {
+    const data = doc.data() || {}
+    const action = String(data.routingAction || '')
+    if (action !== 'payout_confirmed' && action !== 'daily_liquid_zar_payout') continue
+    if (data.payoutScheduled === true) continue
+    if (/^scheduled$/i.test(String(data.deskPendingChip || ''))) continue
+    const rowTag =
+      String(data.payoutBankTag || '').trim() ||
+      (Array.isArray(data.deskLedgerRows)
+        ? String(
+            data.deskLedgerRows.find(
+              (r: { label?: string; value?: string }) =>
+                /^Payout to$/i.test(String(r?.label || '')) || /^to$/i.test(String(r?.label || ''))
+            )?.value || ''
+          ).trim()
+        : '') ||
+      (Array.isArray(data.deskPipes)
+        ? String(
+            data.deskPipes.find(
+              (p: { tone?: string; id?: string; title?: string }) =>
+                p?.tone === 'bank' || p?.id === 'bank'
+            )?.title || ''
+          ).trim()
+        : '')
+    if (rowTag !== tag) continue
+    const amt = roundMajor(Math.abs(Number(data.amountValue) || 0))
+    if (amt > 0.005) total = roundMajor(total + amt)
+  }
+  return total
+}
+
 async function publishYoureSetUp(params: {
   userId: string
   bankName: string
@@ -379,6 +422,8 @@ async function publishYoureSetUp(params: {
 }): Promise<void> {
   const tag = `${params.bankName} ${params.accountMasked}`.trim()
   const paid = roundMajor(params.paidZar)
+  // Cumulative = all Paid out to this bank (includes the payout we just wrote).
+  const cumulative = Math.max(paid, await sumPaidZarToBank(params.userId, tag))
   const id = `youre-set-up-${params.groupId}`.replace(/[^\w.-]+/g, '-').slice(0, 180)
   const body = `Send MZN any time. We pay ${tag} automatically.`
   await publishActivity(params.userId, id, {
@@ -392,7 +437,7 @@ async function publishYoureSetUp(params: {
     actorType: 'ai_manager',
     avatarKind: 'convert_zar',
     amountCurrency: 'ZAR',
-    amountValue: paid,
+    amountValue: cumulative,
     amountSign: 'credit',
     txId: id,
     groupId: params.groupId,
@@ -403,7 +448,7 @@ async function publishYoureSetUp(params: {
     routingAction: 'youre_set_up',
     deskSpeaker: 'sam',
     payoutBankTag: tag,
-    payoutCumulativeZar: paid,
+    payoutCumulativeZar: cumulative,
   })
 }
 
@@ -1021,6 +1066,7 @@ export async function confirmFirstPayout(params: {
       status: 'recorded',
       routingAction: 'payout_confirmed',
       deskSpeaker: 'leo',
+      payoutBankTag: `${bankName} ${masked}`.trim(),
       createdAt: now,
       recordingSource: 'SYSTEM',
     })

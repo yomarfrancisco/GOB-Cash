@@ -527,6 +527,7 @@ function bankTagForPayout(item: ActivityItem): string {
     String(item.payoutBankTag || '').trim() ||
     item.deskLedgerRows?.find((row) => /^Payout to$/i.test(row.label) || /^to$/i.test(row.label))
       ?.value?.trim() ||
+    item.deskPipes?.find((pipe) => pipe.tone === 'bank' || pipe.id === 'bank')?.title?.trim() ||
     ''
   )
 }
@@ -563,6 +564,7 @@ function ActivityItemCard({
   onRealtime,
   liveSellMznPerZar,
   bankPayoutTotalsByTag,
+  latestYoureSetUpId,
 }: {
   item: ActivityItem
   showRoutingActions: boolean
@@ -582,6 +584,7 @@ function ActivityItemCard({
   onRealtime?: () => void
   liveSellMznPerZar?: number | null
   bankPayoutTotalsByTag?: Map<string, number>
+  latestYoureSetUpId?: string | null
 }) {
   const router = useRouter()
   const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
@@ -652,7 +655,8 @@ function ActivityItemCard({
     item.routingAction === 'daily_liquid_zar_payout' &&
     (item.payoutScheduled === true || /^scheduled$/i.test(String(item.deskPendingChip || '')))
   const isYoureSetUp = item.routingAction === 'youre_set_up'
-  const showYoureSetUpHistory = actionsUnlocked && isYoureSetUp
+  const showYoureSetUpHistory =
+    actionsUnlocked && isYoureSetUp && Boolean(latestYoureSetUpId) && item.id === latestYoureSetUpId
   const youreSetUpSentence = isYoureSetUp ? formatYoureSetUpSentence(item) : null
   const cumulativeBankPayoutZar = isYoureSetUp
     ? resolveYoureSetUpCumulativeZar(item, bankPayoutTotalsByTag)
@@ -1469,6 +1473,7 @@ function ActivitySection({
   onRealtime,
   liveSellMznPerZar,
   bankPayoutTotalsByTag,
+  latestYoureSetUpId,
 }: {
   title: string
   items: ActivityItem[]
@@ -1491,6 +1496,7 @@ function ActivitySection({
   onRealtime: () => void
   liveSellMznPerZar?: number | null
   bankPayoutTotalsByTag?: Map<string, number>
+  latestYoureSetUpId?: string | null
 }) {
   const visibleItems = items.filter((item) => {
     if (item.thinking === true) return true
@@ -1542,6 +1548,7 @@ function ActivitySection({
                 onRealtime={onRealtime}
                 liveSellMznPerZar={liveSellMznPerZar}
                 bankPayoutTotalsByTag={bankPayoutTotalsByTag}
+                latestYoureSetUpId={latestYoureSetUpId}
               />
             </div>
           )
@@ -2001,6 +2008,10 @@ export function NotificationsList({
   }
 
   const bankPayoutTotalsByTag = useMemo(() => bankPayoutTotals(allItems), [allItems])
+  const latestYoureSetUpId = useMemo(() => {
+    const latest = allItems.find((item) => item.routingAction === 'youre_set_up')
+    return latest?.id ?? null
+  }, [allItems])
 
   const sectionProps = {
     latestAwaitingId,
@@ -2022,6 +2033,7 @@ export function NotificationsList({
     onRealtime: () => void handleRealtime(),
     liveSellMznPerZar,
     bankPayoutTotalsByTag,
+    latestYoureSetUpId,
   }
 
   return (

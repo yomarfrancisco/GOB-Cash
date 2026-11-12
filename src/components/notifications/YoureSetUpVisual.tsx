@@ -24,14 +24,18 @@ export function resolveYoureSetUpCumulativeZar(
   item: ActivityItem,
   bankTotals?: Map<string, number>
 ): number {
-  const stored = Number((item as { payoutCumulativeZar?: number }).payoutCumulativeZar)
-  if (Number.isFinite(stored) && stored > 0) return stored
   const tag = bankTagFromItem(item)
-  if (tag && bankTotals?.has(tag)) return bankTotals.get(tag) || 0
-  if (typeof item.amount?.value === 'number' && item.amount.value > 0) {
-    return Math.abs(item.amount.value)
-  }
-  return 0
+  const fromBank =
+    tag && bankTotals?.has(tag) ? Number(bankTotals.get(tag) || 0) : 0
+  const stored = Number((item as { payoutCumulativeZar?: number }).payoutCumulativeZar)
+  const fromStored = Number.isFinite(stored) && stored > 0 ? stored : 0
+  const fromAmount =
+    typeof item.amount?.value === 'number' && item.amount.value > 0
+      ? Math.abs(item.amount.value)
+      : 0
+  // Prefer the live sum of Paid out cards — stored can lag when a new
+  // You're set up is published with only that payment's amount.
+  return Math.max(fromBank, fromStored, fromAmount)
 }
 
 /** White bank card: cumulative ZAR paid to this payout account. */
