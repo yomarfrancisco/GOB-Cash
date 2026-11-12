@@ -1155,7 +1155,6 @@ function ActivityItemCard({
           showRestockKeypad ||
           showFundMznKeypad ||
           showFundIntroLiquidity ||
-          showYoureSetUpActions ||
           showStepContinue ||
           showStartNextRun ||
           showDownload ||
@@ -1165,7 +1164,7 @@ function ActivityItemCard({
           (showStatus &&
             !isLiquidityReport &&
             !isFundIntro &&
-            !showYoureSetUpActions &&
+            !isYoureSetUp &&
             !showInlinePayoutForm) ||
           showRealtime) && (
           <div className={styles.activityActionRow}>
@@ -1346,7 +1345,7 @@ function ActivityItemCard({
             {showStatus &&
               !isLiquidityReport &&
               !isFundIntro &&
-              !showYoureSetUpActions &&
+              !isYoureSetUp &&
               !showInlinePayoutForm && (
               <button
                 type="button"
