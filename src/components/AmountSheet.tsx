@@ -14,11 +14,17 @@ import {
   FUND_CALC_MAX_ZAR,
   fundCalculatorSettlementStatus,
 } from '@/lib/fx/transitDayClock'
-import {
-  formatDeskMajorMzn,
-  formatDeskMajorZar,
-} from '@/lib/desk/deskMoneyFormat'
 import { sastParts } from '@/lib/routing/routingTime'
+
+/** Calculator card amounts: whole units only (design has no decimals). */
+function formatFundCalcMajor(amount: number, currency: 'ZAR' | 'MZN'): string {
+  const n = Number(amount) || 0
+  const major = Math.round(Math.abs(n))
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+  const sign = n < 0 ? '-' : ''
+  return currency === 'ZAR' ? `${sign}R ${major}` : `${sign}Mt ${major}`
+}
 import { useAuthStore } from '@/store/auth'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
@@ -520,11 +526,11 @@ export default function AmountSheet({
   const fundFrontLabel = fundFrontIsZar ? 'YOU GET' : 'YOU SEND'
   const fundBackLabel = fundFrontIsZar ? 'YOU SEND' : 'YOU GET'
   const fundFrontAmount = fundFrontIsZar
-    ? formatDeskMajorZar(amountZAR)
-    : formatDeskMajorMzn(amountMZN)
+    ? formatFundCalcMajor(amountZAR, 'ZAR')
+    : formatFundCalcMajor(amountMZN, 'MZN')
   const fundBackAmount = fundFrontIsZar
-    ? formatDeskMajorMzn(amountMZN)
-    : formatDeskMajorZar(amountZAR)
+    ? formatFundCalcMajor(amountMZN, 'MZN')
+    : formatFundCalcMajor(amountZAR, 'ZAR')
   const fundRateChip =
     fxRateMZNperZAR > 0 ? `${fxRateMZNperZAR.toFixed(4)} MZN/ZAR` : '—'
 
@@ -649,8 +655,8 @@ export default function AmountSheet({
                       maxPx={52}
                       minPx={28}
                       className="fund-calc-front-amt"
+                      suffix={<span className="fund-calc-cursor" aria-hidden />}
                     />
-                    <span className="fund-calc-cursor" aria-hidden />
                   </div>
                   <span className="fund-calc-rate">{fundRateChip}</span>
                 </div>

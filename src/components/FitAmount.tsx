@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 type Props = {
   text: string // e.g., "R 6 000 000.00"
   maxPx?: number // default 72
   minPx?: number // default 28
   className?: string // for color/weight
+  /** Rendered immediately after the amount (e.g. text cursor). */
+  suffix?: ReactNode
 }
 
-export default function FitAmount({ text, maxPx = 72, minPx = 28, className }: Props) {
+export default function FitAmount({ text, maxPx = 72, minPx = 28, className, suffix }: Props) {
   const boxRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLSpanElement>(null)
   const [size, setSize] = useState(maxPx)
@@ -43,10 +45,21 @@ export default function FitAmount({ text, maxPx = 72, minPx = 28, className }: P
 
   return (
     <div ref={boxRef} className={className} style={{ width: '100%' }}>
-      <span ref={textRef} style={{ fontSize: size, lineHeight: 1, display: 'inline-block' }}>
-        {text}
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+          maxWidth: '100%',
+          fontSize: size,
+          lineHeight: 1,
+        }}
+      >
+        <span ref={textRef} style={{ fontSize: '1em', lineHeight: 1, display: 'inline-block' }}>
+          {text}
+        </span>
+        {suffix}
       </span>
     </div>
   )
 }
-

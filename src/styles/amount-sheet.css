@@ -627,16 +627,14 @@
 }
 
 .fund-calc-front-amt-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  display: block;
   min-width: 0;
+  width: 100%;
 }
 
 .fund-calc-front-amt {
   margin: 0;
   min-width: 0;
-  flex: 1 1 auto;
   font-weight: 600;
   letter-spacing: 0.21px;
   font-variant-numeric: tabular-nums;
@@ -652,10 +650,10 @@
 
 .fund-calc-cursor {
   flex-shrink: 0;
+  align-self: stretch;
   width: 2px;
-  height: 0.9em;
-  min-height: 28px;
-  max-height: 48px;
+  height: 0.92em;
+  min-height: 1em;
   border-radius: 1px;
   background: #a8e6c3;
   animation: fundCalcCursorBlink 1.05s steps(1, end) infinite;
@@ -736,19 +734,19 @@
   height: 52px;
   width: 100%;
   border-radius: 14px;
-  background: #ececf0;
+  background: #f3f0e8;
   font-size: 22px;
   font-weight: 500;
   color: #18181b;
 }
 
 .amount-keypad__key--soft:hover {
-  background: #e4e4e8;
+  background: #ebe6da;
 }
 
 .amount-keypad__key--soft:active,
 .amount-keypad__key--soft.amount-keypad__key--pressed {
-  background: #d8d8de;
+  background: #e2ded3;
 }
 
 .amount-keypad__key--delete {

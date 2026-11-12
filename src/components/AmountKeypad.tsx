@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import { Delete } from 'lucide-react'
 
 type AmountKeypadProps = {
   currencySymbol?: string // default 'Mt'
@@ -113,7 +112,7 @@ export default function AmountKeypad({
           type="button"
           aria-label="Delete"
         >
-          {softKeys ? <Delete size={22} strokeWidth={2.2} aria-hidden /> : '<'}
+          &lt;
         </button>
       </div>
       {!hideCTA && (
