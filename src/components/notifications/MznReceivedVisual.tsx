@@ -21,7 +21,20 @@ function parseMajor(raw: string | undefined | null): number | null {
 export function isMznReceivedNotice(item: ActivityItem): boolean {
   if (typeof item.id === 'string' && item.id.startsWith('mzn-recv-day-')) return true
   if (item.routingAction !== 'bank_notice') return false
-  return /^MZN received$/i.test(String(item.title || item.dropdownTitle || ''))
+  const title = String(item.title || item.dropdownTitle || '')
+  return /^MZN received$/i.test(title) || /^Mt .+ received\.?$/i.test(title)
+}
+
+export function mznReceivedDisplayTitle(item: ActivityItem): string {
+  const totalMzn = resolveTotalMzn(item)
+  if (totalMzn > 0) return `${formatDeskMajorMzn(totalMzn)} received.`
+  const t = String(item.title || '').trim()
+  return t || 'MZN received'
+}
+
+export function mznReceivedDisplaySentence(item: ActivityItem): string {
+  void item
+  return 'At Moza Banco. Converting to rand now.'
 }
 
 function resolveTotalMzn(item: ActivityItem): number {

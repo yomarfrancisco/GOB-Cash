@@ -52,6 +52,21 @@ function fmtMzn(n: number): string {
   })} MZN`
 }
 
+/** Home-card major for titles: "Mt 2 023 000". */
+function fmtMznMajor(n: number): string {
+  const abs = Math.abs(roundMajor(n))
+  if (abs > 999.99) {
+    const major = Math.round(abs)
+      .toFixed(0)
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+    return `${n < 0 ? '-' : ''}Mt ${major}`
+  }
+  return `${n < 0 ? '-' : ''}Mt ${abs.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
 function fmtZar(n: number): string {
   return `R${roundMajor(n).toLocaleString('en-US', {
     minimumFractionDigits: 2,
@@ -186,14 +201,15 @@ export async function upsertDailyMznReceived(params: {
     ...transferRows,
     { label: 'Total today', value: fmtMzn(totalMzn), valueStrong: true },
   ]
-  const body = `${fmtMzn(totalMzn)} received at Moza Banco. Converting now.`
+  const title = `${fmtMznMajor(totalMzn)} received.`
+  const body = 'At Moza Banco. Converting to rand now.'
   const payload = {
     id,
     kind: CONVERSION_ROUTING_KIND,
-    title: 'MZN received',
+    title,
     body,
     deskSentence: body,
-    dropdownTitle: 'MZN received',
+    dropdownTitle: title,
     dropdownBody: `${fmtMzn(amount)} · Moza`,
     deskLedgerRows: rows,
     actorType: 'ai_manager',

@@ -110,7 +110,8 @@
   height: 100%;
   width: 0%;
   border-radius: inherit;
-  background: #9bdbc1;
+  /* Trial pink fill — this message only. */
+  background: #f3dce6;
 }
 
 .explain {
