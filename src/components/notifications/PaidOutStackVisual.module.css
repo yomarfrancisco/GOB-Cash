@@ -1,4 +1,8 @@
-/* Beige casing + three-layer stack: MZN → ZAR → white bank receipt. */
+/*
+ * Cascading stack (matches paid-out mock):
+ * rear cards are narrower + centred, with tall readable header bands;
+ * front bank receipt is full width and ID-1 tall.
+ */
 .root {
   display: flex;
   flex-direction: column;
@@ -15,66 +19,70 @@
 .stack {
   position: relative;
   width: 100%;
-  /* Two peek bands behind the ID-1 front card. */
-  padding-top: 56px;
+  /* Visible staircase above the front card. */
+  padding-top: 88px;
 }
 
 .peek,
 .front {
-  width: 100%;
-  border-radius: 14px;
+  border-radius: 16px;
   box-sizing: border-box;
 }
 
 .peek {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
-  height: 44px;
-  padding: 0 16px;
+  gap: 12px;
+  /* Tall enough that lane + amount sit comfortably before the next card covers. */
+  height: 92px;
+  padding: 14px 16px 0;
   color: rgba(255, 255, 255, 0.95);
   font-variant-numeric: tabular-nums;
 }
 
 .peekMzn {
   top: 0;
+  width: 72%;
   background: #5a2f4a;
   z-index: 1;
 }
 
 .peekZar {
-  top: 28px;
+  top: 40px;
+  width: 86%;
   background: #2c2c2e;
   z-index: 2;
 }
 
 .peekLane {
   flex-shrink: 0;
-  font-size: 11px;
+  margin-top: 2px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .peekValue {
   min-width: 0;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 650;
+  line-height: 1.2;
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Same ID-1 ratio as Fund / MZN received / routing-plan cards. */
 .front {
   position: relative;
   z-index: 3;
+  width: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -82,7 +90,7 @@
   padding: 16px 16px 52px;
   background: #fffffe;
   color: #18181b;
-  box-shadow: 0 10px 28px rgba(24, 24, 27, 0.14);
+  box-shadow: 0 12px 32px rgba(24, 24, 27, 0.16);
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
