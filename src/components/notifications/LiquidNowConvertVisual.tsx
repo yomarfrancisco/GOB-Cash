@@ -9,7 +9,62 @@ import {
   formatDeskMinorZar,
   formatDeskRateMtPerZar,
 } from '@/lib/desk/deskMoneyFormat'
+import { nextSettleAt09hSastExclusive } from '@/lib/fx/transitDayClock'
+import { sastParts } from '@/lib/routing/routingTime'
 import styles from './LiquidNowConvertVisual.module.css'
+
+const LAND_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+const LAND_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const
+
+/** Match routing-plan final label: "Tue 17 Nov 09:00". */
+function formatRestLandsByLabel(ms: number): string {
+  const p = sastParts(ms)
+  const hh = String(p.hour).padStart(2, '0')
+  const mm = String(p.minute).padStart(2, '0')
+  return `${LAND_WEEKDAYS[p.weekday]} ${p.day} ${LAND_MONTHS[p.month - 1]} ${hh}:${mm}`
+}
+
+function resolveRestLandsByLabel(item: ActivityItem): string {
+  const plan = item.routingPlan
+  const stored = String(plan?.fullLiquidLabel || '')
+    .trim()
+    .replace(/\s*·\s*/g, ' ')
+  if (stored && stored !== '—') return stored
+
+  const landTimes = (plan?.legs || [])
+    .map((leg) => leg.landsAtMs)
+    .filter((t): t is number => typeof t === 'number' && t > 0)
+  const fromMs =
+    typeof plan?.fullLiquidAtMs === 'number' && plan.fullLiquidAtMs > 0
+      ? plan.fullLiquidAtMs
+      : landTimes.length
+        ? Math.max(...landTimes)
+        : null
+  if (fromMs != null) return formatRestLandsByLabel(fromMs)
+
+  const lastWhen = [...(plan?.legs || [])]
+    .sort((a, b) => (a.landsAtMs || 0) - (b.landsAtMs || 0))
+    .at(-1)
+    ?.whenLabel?.trim()
+  if (lastWhen) {
+    return lastWhen.replace(/\s*·\s*by\s*/i, ' ').replace(/\s*·\s*/g, ' ')
+  }
+
+  return formatRestLandsByLabel(nextSettleAt09hSastExclusive(Date.now()))
+}
 
 const ANIM_MS = 2200
 
@@ -100,15 +155,7 @@ export function liquidNowDisplayTitle(item: ActivityItem): string {
 }
 
 export function liquidNowDisplaySentence(item: ActivityItem): string {
-  const label = String(item.routingPlan?.fullLiquidLabel || '').trim()
-  if (label && label !== '—') {
-    return `The rest lands by ${label}. Where should we pay?`
-  }
-  const { mode, mznResidual } = resolveLiquidNowFigures(item)
-  if (mode === 'full' || !(mznResidual > 0.005)) {
-    return 'Where should we pay?'
-  }
-  return 'The rest lands at the next 09:00 open. Where should we pay?'
+  return `The rest lands by ${resolveRestLandsByLabel(item)}. Where should we pay?`
 }
 
 /**

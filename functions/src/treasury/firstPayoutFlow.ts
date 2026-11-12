@@ -18,7 +18,7 @@ import { planReserveSplit, payInstantFromReserve } from './reserveConvert'
 import { ensureReserveAtLeast, roundMajor } from './reserveBooks'
 import { DAILY_LIQUID_ZAR_CAP as SUB_R100K_CAP } from './dailyLiquidZar'
 import { readUserNextOpenBooking, refreshNextOpenBookings } from './nextOpenBooking'
-import { assembleRoutingPlan } from './routingPlan'
+import { assembleRoutingPlan, formatPlanWhenLabel } from './routingPlan'
 import {
   looksLikeBankDetails,
   normalizeHandle,
@@ -297,11 +297,19 @@ async function publishLiquidNow(params: {
       : null
 
   const title = `${fmtZarMajor(params.zarAmount)} liquid now.`
-  const restBy = routingPlan?.fullLiquidLabel?.trim()
-  const body =
-    restBy && restBy !== '—'
-      ? `The rest lands by ${restBy}. Where should we pay?`
-      : 'Where should we pay?'
+  const restByMs =
+    typeof routingPlan?.fullLiquidAtMs === 'number' && routingPlan.fullLiquidAtMs > 0
+      ? routingPlan.fullLiquidAtMs
+      : typeof booking?.openAtMs === 'number' && booking.openAtMs > 0
+        ? booking.openAtMs
+        : null
+  const restBy =
+    (routingPlan?.fullLiquidLabel?.trim() && routingPlan.fullLiquidLabel.trim() !== '—'
+      ? routingPlan.fullLiquidLabel.trim()
+      : null) ||
+    (restByMs != null ? formatPlanWhenLabel(restByMs).replace(' · ', ' ') : null) ||
+    'the next 09:00 open'
+  const body = `The rest lands by ${restBy}. Where should we pay?`
   const wantZar = params.sellRate > 0 ? roundMajor(params.mznReceived / params.sellRate) : 0
   const fillPct =
     mode === 'full'
