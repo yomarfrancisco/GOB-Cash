@@ -694,7 +694,9 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 22px;
+  min-height: 28px;
+  margin: 2px 0 6px;
+  padding: 6px 0 12px;
   font-size: 15px;
   font-weight: 600;
   color: #18181b;
@@ -725,7 +727,7 @@
 .amount-keypad--soft .amount-keypad__grid {
   row-gap: 10px;
   column-gap: 10px;
-  padding-top: 4px;
+  padding-top: 10px;
 }
 
 .amount-keypad__key--soft {
@@ -765,8 +767,9 @@
 }
 
 .amount-cta--fund-calc .amount-keypad__cta:disabled {
-  background: #e5e5ea !important;
-  color: #fff !important;
+  background: #f3f0e8 !important;
+  color: #18181b !important;
+  opacity: 1 !important;
 }
 
 /* Override ActionSheet height for amount sheet - now handled by .as-sheet.amount */
