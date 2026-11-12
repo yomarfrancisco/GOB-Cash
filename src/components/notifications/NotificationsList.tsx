@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { ArrowUp, Calculator, Check, Download, ExternalLink } from 'lucide-react'
+import { Calculator, Check, Download, ExternalLink } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -1570,14 +1570,6 @@ export function NotificationsList({
   const remoteItems = prefetchedItems ?? subscribedItems
   const [thinkingItem, setThinkingItem] = useState<ActivityItem | null>(null)
   const [visibleCount, setVisibleCount] = useState(ACTIVITY_PAGE_SIZE)
-  const [askText, setAskText] = useState('')
-  const [askState, setAskState] = useState<'idle' | 'loading'>('idle')
-  const [askError, setAskError] = useState('')
-  const askInputRef = useRef<HTMLTextAreaElement>(null)
-  const askBusy = askState !== 'idle'
-  // Light up as soon as there’s real text — don’t gate the affordance on KYC.
-  const askCanSend = !askBusy && askText.trim().length > 0
-  const askProfile = useUserProfileStore((s) => s.profile)
   // Runtime validator: auto-clear bad data
   useEffect(() => {
     const items = all()
@@ -1635,7 +1627,6 @@ export function NotificationsList({
     return merged.sort((a, b) => b.createdAt - a.createdAt)
   }, [localItems, remoteItems, thinkingItem])
   const setActiveAgent = useDeskSpeakerStore((s) => s.setActive)
-  const flashYouSpeaker = useDeskSpeakerStore((s) => s.flashYou)
   const kycGateStampRef = useRef(Date.now())
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
@@ -2033,38 +2024,6 @@ export function NotificationsList({
     bankPayoutTotalsByTag,
   }
 
-  const askAnchor =
-    allItems.find((item) => item.thinking !== true && item.id === latestActivityId) ||
-    allItems.find((item) => item.thinking !== true && Boolean(item.testRunId)) ||
-    allItems.find((item) => item.thinking !== true)
-
-  const handleSubmitAsk = async (event?: { preventDefault: () => void }) => {
-    event?.preventDefault()
-    const message = askText.trim()
-    if (!message || askState !== 'idle') return
-    if (deskBlocked) {
-      setAskError('Complete KYC to message the desk.')
-      return
-    }
-    if (!askAnchor) {
-      setAskError(`${DESK_TEAM.sam.name} is not ready for that yet.`)
-      return
-    }
-    setAskState('loading')
-    setAskError('')
-    try {
-      await handleRoutingAsk(askAnchor, message)
-      setAskText('')
-      flashYouSpeaker()
-    } catch (error) {
-      setAskError(
-        error instanceof Error ? error.message : `${DESK_TEAM.sam.name} could not take that just now.`
-      )
-    } finally {
-      setAskState('idle')
-    }
-  }
-
   return (
     <>
       <div className={listStyles.conversationList} data-desk-feed>
@@ -2100,75 +2059,16 @@ export function NotificationsList({
           )}
         </div>
       </div>
-      <form className={listStyles.deskAskDock} onSubmit={handleSubmitAsk}>
-        <div className={listStyles.deskAskRow}>
-          <button
-            type="button"
-            className={listStyles.deskAskCalc}
-            aria-label="Open calculator"
-            onClick={(event) => {
-              event.preventDefault()
-              openHeaderFundCalculator()
-            }}
-          >
-            <Calculator size={22} strokeWidth={2} aria-hidden />
-          </button>
-          <div className={listStyles.deskAskAvatar} aria-hidden={!askProfile.fullName && !askProfile.userHandle}>
-            <Avatar
-              avatarUrl={askProfile.avatarUrl || null}
-              name={askProfile.fullName}
-              handle={askProfile.userHandle}
-              email={askProfile.email}
-              size={44}
-              rounded={12}
-            />
-          </div>
-          <div className={listStyles.deskAskComposer}>
-            <div
-              className={styles.replyFrame}
-              onMouseDown={(event) => {
-                // Keep focus on the field when tapping the gray pill chrome.
-                if (event.target === askInputRef.current) return
-                if ((event.target as HTMLElement).closest('button')) return
-                event.preventDefault()
-                askInputRef.current?.focus()
-              }}
-            >
-              <textarea
-                ref={askInputRef}
-                className={styles.replyInput}
-                rows={3}
-                value={askText}
-                placeholder={`Ask ${DESK_TEAM.sam.name}`}
-                inputMode="text"
-                enterKeyHint="send"
-                autoComplete="off"
-                autoCorrect="on"
-                spellCheck
-                // Only lock while a send is in flight — keep focus/keyboard/caret available.
-                disabled={askBusy}
-                onChange={(event) => setAskText(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault()
-                    if (!askCanSend) return
-                    void handleSubmitAsk(event)
-                  }
-                }}
-              />
-              <button
-                type="submit"
-                className={styles.replySend}
-                disabled={!askCanSend}
-                aria-label="Send"
-              >
-                <ArrowUp size={18} strokeWidth={2.8} />
-              </button>
-            </div>
-            {askError ? <p className={styles.replyError}>{askError}</p> : null}
-          </div>
-        </div>
-      </form>
+      <div className={listStyles.deskAskDock}>
+        <button
+          type="button"
+          className={listStyles.deskAskCalc}
+          aria-label="Open calculator"
+          onClick={() => openHeaderFundCalculator()}
+        >
+          <Calculator size={22} strokeWidth={2} aria-hidden />
+        </button>
+      </div>
     </>
   )
 }

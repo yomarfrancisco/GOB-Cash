@@ -333,12 +333,14 @@
   right: 0;
   bottom: 0;
   z-index: 5;
-  /* Same horizontal inset as .conversationList; avatar gutter lives in .deskAskRow. */
+  /* Calculator only for now (Ask composer removed; easy to restore). */
   padding: 4px 16px calc(8px + env(safe-area-inset-bottom));
   /* Compact desk density — matches the shipped Part 1 scale. */
   zoom: 0.8;
   box-sizing: border-box;
   pointer-events: auto;
+  display: flex;
+  justify-content: flex-start;
 }
 
 /* Mirror .activityItem: 44px avatar + 12px gap + content column. */
@@ -398,7 +400,7 @@
   right: 0;
   bottom: 0;
   z-index: 1;
-  padding: 144px 16px 120px;
+  padding: 144px 16px 72px;
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
   zoom: 0.8;
