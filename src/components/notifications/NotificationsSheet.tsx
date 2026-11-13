@@ -201,12 +201,7 @@ export default function NotificationsSheet() {
       <div className={`${listStyles.content} ${listStyles.activityContent} ${listStyles.deskContent}`}>
         <div className={listStyles.deskHeaderChrome} aria-hidden />
         <div
-          className={[
-            listStyles.activitySearchOverlay,
-            showSlim ? listStyles.activitySearchOverlayCompact : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
+          className={listStyles.activitySearchOverlay}
           style={{ ['--desk-header-t' as string]: String(headerCompact) }}
         >
           {showLarge ? (
@@ -265,7 +260,7 @@ export default function NotificationsSheet() {
                       <SpeakerAvatar
                         agent={id}
                         size={speaking ? 36 : 28}
-                        speaking={false}
+                        speaking={speaking}
                         shape="circle"
                         priority
                       />

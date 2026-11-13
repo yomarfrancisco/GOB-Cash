@@ -79,31 +79,22 @@
   display: none;
 }
 
+/* --desk-header-t: 0 rest → 1 scrolled. Overlay itself shrinks so fade starts higher and more feed shows. */
 .activitySearchOverlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 3;
-  height: 156px;
-  padding: 16px 0 48px;
+  height: calc(156px - 88px * var(--desk-header-t, 0));
+  padding: calc(16px - 4px * var(--desk-header-t, 0)) 0 calc(48px - 30px * var(--desk-header-t, 0));
   box-sizing: border-box;
   pointer-events: none;
   border-radius: 32px 32px 0 0;
   background: linear-gradient(
     180deg,
-    var(--desk-bg-page) 0%,
-    var(--desk-bg-page) 68%,
-    rgba(255, 255, 255, 0) 100%
-  );
-}
-
-/* Scrolled: solid white with a short fade so messages tuck under cleanly. */
-.activitySearchOverlayCompact {
-  background: linear-gradient(
-    180deg,
     #ffffff 0%,
-    #ffffff calc(100% - 28px),
+    #ffffff calc(68% + 10% * var(--desk-header-t, 0)),
     rgba(255, 255, 255, 0) 100%
   );
 }
@@ -157,9 +148,8 @@
 
 .deskSlimFace {
   border-radius: 50%;
-  overflow: hidden;
   flex-shrink: 0;
-  background: #fffffe;
+  background: transparent;
   margin-left: -10px;
 }
 
@@ -168,7 +158,6 @@
 }
 
 .deskSlimFaceActive {
-  box-shadow: 0 0 0 2.5px #18181b;
   z-index: 3;
 }
 
