@@ -3,7 +3,7 @@
 import { Check } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
 import { formatDeskMajorMzn, formatDeskMajorZar } from '@/lib/desk/deskMoneyFormat'
-import { formatVisibleSast } from '@/lib/routing/routingTime'
+import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import styles from './PaidOutStackVisual.module.css'
 
 function parseMajor(raw: string | undefined | null): number | null {
@@ -33,7 +33,7 @@ function resolvePaidOutFigures(item: ActivityItem): {
     toRow ||
     bankPipe?.title?.trim() ||
     'Your bank'
-  const receivedClock = formatVisibleSast(item.createdAt) || ''
+  const receivedClock = formatRelativeShort(item.createdAt)
   return { zarPaid: paid, mznLeft, bankTag, receivedClock }
 }
 

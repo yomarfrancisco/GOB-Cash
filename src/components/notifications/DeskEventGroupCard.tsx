@@ -6,7 +6,6 @@ import type { DeskEventGroup, DeskGroupRow } from '@/lib/desk/deskEventGroups'
 import { formatGroupAmount } from '@/lib/desk/deskEventGroups'
 import { bankTileForTitle } from '@/lib/activity/bankTiles'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
-import { formatVisibleSast } from '@/lib/routing/routingTime'
 import styles from '@/app/activity/activity.module.css'
 import cardStyles from './DeskEventGroupCard.module.css'
 
@@ -223,7 +222,7 @@ export function DeskEventGroupCard({
           <div className={styles.activityHeader}>
             <div className={styles.activityTitle}>{group.title}</div>
             <div className={styles.activityTime}>
-              {formatVisibleSast(group.createdAt) || formatRelativeShort(group.createdAt)}
+              {formatRelativeShort(group.createdAt)}
             </div>
           </div>
         </div>

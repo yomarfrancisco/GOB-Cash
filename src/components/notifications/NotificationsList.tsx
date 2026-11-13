@@ -25,7 +25,6 @@ import {
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
-import { formatVisibleSast } from '@/lib/routing/routingTime'
 import { parseRoutingAssignmentsFromBody } from '@/lib/routing/interpretAdminFeedback'
 import { conversionAvatar, TASK_AVATARS } from '@/lib/activity/taskAvatars'
 import { bankTileForItem } from '@/lib/activity/bankTiles'
@@ -1013,11 +1012,7 @@ function ActivityItemCard({
                 {highlightDeskText(title, styles.activityFigure)}
               </div>
             )}
-            <div className={styles.activityTime}>
-              {item.kind === 'CONVERSION_ROUTING_INSTRUCTION'
-                ? formatVisibleSast(item.createdAt)
-                : formatRelativeShort(item.createdAt)}
-            </div>
+            <div className={styles.activityTime}>{formatRelativeShort(item.createdAt)}</div>
           </div>
         </div>
         {item.thinking ? (
@@ -1056,7 +1051,7 @@ function ActivityItemCard({
                 <div className={styles.activityUserReplyLabel}>
                   <span>You</span>
                   {item.userRepliedAt ? (
-                    <span className={styles.activityUserReplyTime}>{formatVisibleSast(item.userRepliedAt)}</span>
+                    <span className={styles.activityUserReplyTime}>{formatRelativeShort(item.userRepliedAt)}</span>
                   ) : null}
                 </div>
                 <div className={styles.activityUserReplyBody}>
@@ -1124,7 +1119,7 @@ function ActivityItemCard({
                 <div className={styles.activityUserReplyLabel}>
                   <span>You</span>
                   {item.userRepliedAt ? (
-                    <span className={styles.activityUserReplyTime}>{formatVisibleSast(item.userRepliedAt)}</span>
+                    <span className={styles.activityUserReplyTime}>{formatRelativeShort(item.userRepliedAt)}</span>
                   ) : null}
                 </div>
                 <div className={styles.activityUserReplyBody}>
