@@ -74,8 +74,7 @@ export default function NotificationsSheet() {
       ? 1
       : 0
     : headerCompactRaw
-  const showSlim = headerCompact > 0.02
-  const showLarge = headerCompact < 0.98
+  const showHeader = headerCompact < 0.98
 
   // A normal desk open must seed history as already settled. Do not remount
   // the list here — on iPhone, remounting the full feed on every reopen OOMs.
@@ -200,16 +199,16 @@ export default function NotificationsSheet() {
     >
       <div className={`${listStyles.content} ${listStyles.activityContent} ${listStyles.deskContent}`}>
         <div className={listStyles.deskHeaderChrome} aria-hidden />
-        <div
-          className={listStyles.activitySearchOverlay}
-          style={{ ['--desk-header-t' as string]: String(headerCompact) }}
-        >
-          {showLarge ? (
-            <div
-              className={listStyles.deskHeader}
-              style={{ opacity: 1 - headerCompact }}
-              aria-hidden={showSlim && headerCompact > 0.6}
-            >
+        {showHeader ? (
+          <div
+            className={listStyles.activitySearchOverlay}
+            style={{
+              ['--desk-header-t' as string]: String(headerCompact),
+              opacity: 1 - headerCompact,
+            }}
+            aria-hidden={headerCompact > 0.6}
+          >
+            <div className={listStyles.deskHeader}>
               <div className={listStyles.deskTeamStack} aria-hidden>
                 {DESK_RING.map((id) => {
                   const speaking = floor !== 'you' && id === floor
@@ -238,40 +237,8 @@ export default function NotificationsSheet() {
               </div>
               <p className={listStyles.deskHeaderDate}>{headerDate}</p>
             </div>
-          ) : null}
-
-          {showSlim ? (
-            <div
-              className={listStyles.deskHeaderSlim}
-              style={{ opacity: headerCompact }}
-              aria-hidden={!showSlim}
-            >
-              <div className={listStyles.deskSlimFaces} aria-hidden>
-                {DESK_RING.map((id) => {
-                  const speaking = floor !== 'you' && id === floor
-                  return (
-                    <div
-                      key={id}
-                      className={[
-                        listStyles.deskSlimFace,
-                        speaking ? listStyles.deskSlimFaceActive : listStyles.deskSlimFaceIdle,
-                      ].join(' ')}
-                    >
-                      <SpeakerAvatar
-                        agent={id}
-                        size={speaking ? 36 : 28}
-                        speaking={speaking}
-                        shape="circle"
-                        priority
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-              <p className={listStyles.deskHeaderSlimDate}>{headerDate}</p>
-            </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         {isAuthed ? (
           <NotificationsList key={deskSessionKey} prefetchedItems={remoteItems} />
         ) : null}

@@ -79,22 +79,22 @@
   display: none;
 }
 
-/* --desk-header-t: 0 rest → 1 scrolled. Overlay itself shrinks so fade starts higher and more feed shows. */
+/* --desk-header-t: 0 rest → 1 scrolled. Scrolled: overlay fades out entirely (close button stays in sheet chrome). */
 .activitySearchOverlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 3;
-  height: calc(156px - 88px * var(--desk-header-t, 0));
-  padding: calc(16px - 4px * var(--desk-header-t, 0)) 0 calc(48px - 30px * var(--desk-header-t, 0));
+  height: 156px;
+  padding: 16px 0 48px;
   box-sizing: border-box;
   pointer-events: none;
   border-radius: 32px 32px 0 0;
   background: linear-gradient(
     180deg,
-    #ffffff 0%,
-    #ffffff calc(68% + 10% * var(--desk-header-t, 0)),
+    var(--desk-bg-page) 0%,
+    var(--desk-bg-page) 68%,
     rgba(255, 255, 255, 0) 100%
   );
 }
@@ -105,10 +105,7 @@
 }
 
 .deskHeader {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 16px;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -119,64 +116,6 @@
   padding: 0 16px;
   box-sizing: border-box;
   pointer-events: none;
-}
-
-/* Slim scrolled header — same overlay footprint, no feed-height jump. */
-.deskHeaderSlim {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 18px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 0 16px;
-  box-sizing: border-box;
-  pointer-events: none;
-}
-
-.deskSlimFaces {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-
-.deskSlimFace {
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: transparent;
-  margin-left: -10px;
-}
-
-.deskSlimFace:first-child {
-  margin-left: 0;
-}
-
-.deskSlimFaceActive {
-  z-index: 3;
-}
-
-.deskSlimFaceIdle {
-  opacity: 0.5;
-  filter: saturate(0.65);
-  z-index: 1;
-}
-
-.deskHeaderSlimDate {
-  margin: 0;
-  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
-  font-size: var(--desk-chip, 12px);
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--desk-muted, #5e5e66);
-  white-space: nowrap;
 }
 
 .deskTeamStack {
@@ -389,7 +328,7 @@
     animation: none;
   }
   .deskHeader,
-  .deskHeaderSlim {
+  .activitySearchOverlay {
     transition: none;
   }
 }
