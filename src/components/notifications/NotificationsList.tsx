@@ -1737,8 +1737,10 @@ export function NotificationsList({
     const onScroll = () => {
       const distanceFromBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight
       bottomPinnedRef.current = distanceFromBottom <= 48
-      // Shrink over the first ~80px away from latest; expand only as we re-enter that band.
-      setHeaderCompact(Math.min(1, Math.max(0, distanceFromBottom / 80)))
+      // Hide while mid-feed; restore the large header near the latest (~bottom) or the start (~top).
+      const awayFromBottom = Math.min(1, Math.max(0, distanceFromBottom / 80))
+      const awayFromTop = Math.min(1, Math.max(0, feed.scrollTop / 80))
+      setHeaderCompact(Math.min(awayFromBottom, awayFromTop))
       if (frame) cancelAnimationFrame(frame)
       frame = requestAnimationFrame(syncFromScroll)
     }

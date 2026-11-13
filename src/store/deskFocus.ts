@@ -3,7 +3,7 @@ import { create } from 'zustand'
 type DeskFocusState = {
   focusAt: number | null
   focusCycle: number | null
-  /** 0 = large rest header, 1 = slim scrolled header. */
+  /** 0 = large header visible (latest or feed start), 1 = header hidden mid-feed. */
   headerCompact: number
   setFocus: (focusAt: number | null, focusCycle?: number | null) => void
   setHeaderCompact: (compact: number) => void
