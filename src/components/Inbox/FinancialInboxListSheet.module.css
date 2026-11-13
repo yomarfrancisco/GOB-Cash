@@ -9,11 +9,6 @@
   min-height: var(--sheet-cover-logo-h-dvh) !important;
 }
 
-/* Desk uses its own floating close (matches exit/calculator); hide ActionSheet default. */
-.deskSheet :global(.as-close-only) {
-  display: none !important;
-}
-
 .financialInboxSheet :global(.as-title) {
   text-align: center !important;
 }
@@ -350,20 +345,6 @@
   flex-direction: row;
   align-items: center;
   gap: 10px;
-  padding: 0;
-  margin: 0;
-  box-sizing: border-box;
-  pointer-events: auto;
-}
-
-/* Floating close on the desk top-right (same chrome as exit/calculator). */
-.deskCloseDock {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  left: auto;
-  bottom: auto;
-  z-index: 5;
   padding: 0;
   margin: 0;
   box-sizing: border-box;

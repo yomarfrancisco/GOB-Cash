@@ -123,7 +123,7 @@ export default function NotificationsSheet() {
       onClose={closeNotifications}
       title=""
       size="tall"
-      className={`${listStyles.financialInboxSheet} ${listStyles.deskSheet} inboxTallSheet`}
+      className={`${listStyles.financialInboxSheet} inboxTallSheet`}
     >
       <div className={`${listStyles.content} ${listStyles.activityContent} ${listStyles.deskContent}`}>
         {isAuthed ? (

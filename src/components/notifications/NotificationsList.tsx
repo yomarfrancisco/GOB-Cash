@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Calculator, Check, Clock, DoorClosed, Download, ExternalLink, X } from 'lucide-react'
+import { Calculator, Check, Clock, DoorClosed, Download, ExternalLink } from 'lucide-react'
 import { logout } from '@/lib/logout'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
@@ -1997,16 +1997,6 @@ export function NotificationsList({
           onClick={() => openHeaderFundCalculator()}
         >
           <Calculator size={22} strokeWidth={2} aria-hidden />
-        </button>
-      </div>
-      <div className={listStyles.deskCloseDock}>
-        <button
-          type="button"
-          className={listStyles.deskAskCalc}
-          aria-label="Close"
-          onClick={() => closeNotifications()}
-        >
-          <X size={22} strokeWidth={2} aria-hidden />
         </button>
       </div>
     </>
