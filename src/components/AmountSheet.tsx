@@ -573,7 +573,7 @@ export default function AmountSheet({
       onClose={onClose}
       onOverlayClick={gateGuestPay ? blockGuestPay : undefined}
       title=""
-      chrome={fundCalculator ? 'grab' : 'close'}
+      chrome="close"
       className={`amount ${fundCalculator ? 'fund-calc' : ''} ${useLimeGreenBackground ? 'cash-keypad' : ''} ${usePinkKeypad ? 'pink-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`}
       size="tall"
     >
