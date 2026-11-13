@@ -1990,8 +1990,6 @@ export function NotificationsList({
         >
           <DoorClosed size={22} strokeWidth={2} aria-hidden />
         </button>
-      </div>
-      <div className={listStyles.deskAskDock}>
         <button
           type="button"
           className={listStyles.deskAskCalc}
