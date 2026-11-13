@@ -1728,14 +1728,9 @@ export function NotificationsList({
       if (bestSpeaker) setActiveAgent(bestSpeaker)
     }
 
-    const setHeaderCompact = useDeskFocusStore.getState().setHeaderCompact
     const onScroll = () => {
       const distanceFromBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight
       bottomPinnedRef.current = distanceFromBottom <= 48
-      // Hide while mid-feed; restore the large header near the latest (~bottom) or the start (~top).
-      const awayFromBottom = Math.min(1, Math.max(0, distanceFromBottom / 80))
-      const awayFromTop = Math.min(1, Math.max(0, feed.scrollTop / 80))
-      setHeaderCompact(Math.min(awayFromBottom, awayFromTop))
       if (frame) cancelAnimationFrame(frame)
       frame = requestAnimationFrame(syncFromScroll)
     }
@@ -1745,7 +1740,6 @@ export function NotificationsList({
     return () => {
       feed.removeEventListener('scroll', onScroll)
       if (frame) cancelAnimationFrame(frame)
-      setHeaderCompact(0)
     }
   }, [pagedItems.length, reveal.showDots, reveal.typingId, setActiveAgent, setDeskFocus])
 
