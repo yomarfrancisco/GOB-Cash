@@ -471,8 +471,8 @@
   right: 0;
   bottom: 0;
   z-index: 1;
-  /* Top clears the sheet close button only — desk header/fade removed. */
-  padding: 56px 16px 16px;
+  /* Top clears floating exit/calc (52px @ 16px) after zoom:0.8 (~90px visual). */
+  padding: 112px 16px 16px;
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
   zoom: 0.8;
