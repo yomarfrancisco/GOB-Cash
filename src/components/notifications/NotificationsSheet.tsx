@@ -60,13 +60,22 @@ export default function NotificationsSheet() {
   const floor = useDeskSpeakerStore((s) => s.floor)
   const askProfile = useUserProfileStore((s) => s.profile)
   const focusAt = useDeskFocusStore((s) => s.focusAt)
+  const headerCompactRaw = useDeskFocusStore((s) => s.headerCompact)
   const applyPlanSummary = useDeskPlanStore((s) => s.applySummary)
   const setLive = useDeskPlanStore((s) => s.setLive)
   const [remoteItems, setRemoteItems] = useState<ActivityItem[]>([])
   const [, setSummary] = useState<ConversionRoutingSummary | null>(null)
   const [deskSessionKey, setDeskSessionKey] = useState(0)
+  const [reduceMotion, setReduceMotion] = useState(false)
   const wasOpenRef = useRef(false)
   const headerDate = formatSastShortDayLabel(focusAt ?? Date.now())
+  const headerCompact = reduceMotion
+    ? headerCompactRaw >= 0.5
+      ? 1
+      : 0
+    : headerCompactRaw
+  const showSlim = headerCompact > 0.02
+  const showLarge = headerCompact < 0.98
 
   // A normal desk open must seed history as already settled. Do not remount
   // the list here — on iPhone, remounting the full feed on every reopen OOMs.
@@ -92,6 +101,20 @@ export default function NotificationsSheet() {
       img.src = src
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const sync = () => setReduceMotion(Boolean(mq.matches))
+    sync()
+    mq.addEventListener?.('change', sync)
+    return () => mq.removeEventListener?.('change', sync)
+  }, [])
+
+  useEffect(() => {
+    if (isNotificationsOpen) return
+    useDeskFocusStore.getState().setHeaderCompact(0)
+  }, [isNotificationsOpen])
 
   // Keep the feed warm while the sheet is closed, so opening the desk is immediate.
   useEffect(() => {
@@ -177,36 +200,82 @@ export default function NotificationsSheet() {
     >
       <div className={`${listStyles.content} ${listStyles.activityContent} ${listStyles.deskContent}`}>
         <div className={listStyles.deskHeaderChrome} aria-hidden />
-        <div className={listStyles.activitySearchOverlay}>
-          <div className={listStyles.deskHeader}>
-            <div className={listStyles.deskTeamStack} aria-hidden>
-              {DESK_RING.map((id) => {
-                const speaking = floor !== 'you' && id === floor
-                return (
-                  <div key={id} className={`${listStyles.deskStackFace} ${slotForAgent(id, floor, active)}`}>
-                    <SpeakerAvatar
-                      agent={id}
-                      size={speaking ? 56 : 40}
-                      speaking={speaking}
-                      shape="circle"
-                      priority
-                    />
-                  </div>
-                )
-              })}
-              <div className={`${listStyles.deskStackFace} ${slotForYou(floor)}`}>
-                <Avatar
-                  avatarUrl={askProfile.avatarUrl || null}
-                  name={askProfile.fullName}
-                  handle={askProfile.userHandle}
-                  email={askProfile.email}
-                  size={floor === 'you' ? 56 : 40}
-                  rounded={999}
-                />
+        <div
+          className={[
+            listStyles.activitySearchOverlay,
+            showSlim ? listStyles.activitySearchOverlayCompact : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          style={{ ['--desk-header-t' as string]: String(headerCompact) }}
+        >
+          {showLarge ? (
+            <div
+              className={listStyles.deskHeader}
+              style={{ opacity: 1 - headerCompact }}
+              aria-hidden={showSlim && headerCompact > 0.6}
+            >
+              <div className={listStyles.deskTeamStack} aria-hidden>
+                {DESK_RING.map((id) => {
+                  const speaking = floor !== 'you' && id === floor
+                  return (
+                    <div key={id} className={`${listStyles.deskStackFace} ${slotForAgent(id, floor, active)}`}>
+                      <SpeakerAvatar
+                        agent={id}
+                        size={speaking ? 56 : 40}
+                        speaking={speaking}
+                        shape="circle"
+                        priority
+                      />
+                    </div>
+                  )
+                })}
+                <div className={`${listStyles.deskStackFace} ${slotForYou(floor)}`}>
+                  <Avatar
+                    avatarUrl={askProfile.avatarUrl || null}
+                    name={askProfile.fullName}
+                    handle={askProfile.userHandle}
+                    email={askProfile.email}
+                    size={floor === 'you' ? 56 : 40}
+                    rounded={999}
+                  />
+                </div>
               </div>
+              <p className={listStyles.deskHeaderDate}>{headerDate}</p>
             </div>
-            <p className={listStyles.deskHeaderDate}>{headerDate}</p>
-          </div>
+          ) : null}
+
+          {showSlim ? (
+            <div
+              className={listStyles.deskHeaderSlim}
+              style={{ opacity: headerCompact }}
+              aria-hidden={!showSlim}
+            >
+              <div className={listStyles.deskSlimFaces} aria-hidden>
+                {DESK_RING.map((id) => {
+                  const speaking = floor !== 'you' && id === floor
+                  return (
+                    <div
+                      key={id}
+                      className={[
+                        listStyles.deskSlimFace,
+                        speaking ? listStyles.deskSlimFaceActive : listStyles.deskSlimFaceIdle,
+                      ].join(' ')}
+                    >
+                      <SpeakerAvatar
+                        agent={id}
+                        size={speaking ? 36 : 28}
+                        speaking={false}
+                        shape="circle"
+                        priority
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+              <p className={listStyles.deskHeaderSlimDate}>{headerDate}</p>
+            </div>
+          ) : null}
         </div>
         {isAuthed ? (
           <NotificationsList key={deskSessionKey} prefetchedItems={remoteItems} />

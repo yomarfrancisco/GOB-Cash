@@ -98,13 +98,26 @@
   );
 }
 
+/* Scrolled: solid white with a short fade so messages tuck under cleanly. */
+.activitySearchOverlayCompact {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #ffffff calc(100% - 28px),
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
 .activitySearchOverlay .searchBar {
   pointer-events: auto;
   margin-bottom: 0;
 }
 
 .deskHeader {
-  position: relative;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -114,6 +127,67 @@
   margin: 0 auto;
   padding: 0 16px;
   box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* Slim scrolled header — same overlay footprint, no feed-height jump. */
+.deskHeaderSlim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 18px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.deskSlimFaces {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.deskSlimFace {
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #fffffe;
+  margin-left: -10px;
+}
+
+.deskSlimFace:first-child {
+  margin-left: 0;
+}
+
+.deskSlimFaceActive {
+  box-shadow: 0 0 0 2.5px #18181b;
+  z-index: 3;
+}
+
+.deskSlimFaceIdle {
+  opacity: 0.5;
+  filter: saturate(0.65);
+  z-index: 1;
+}
+
+.deskHeaderSlimDate {
+  margin: 0;
+  font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
+  font-size: var(--desk-chip, 12px);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--desk-muted, #5e5e66);
+  white-space: nowrap;
 }
 
 .deskTeamStack {
@@ -324,6 +398,10 @@
   }
   .deskHeaderSwap {
     animation: none;
+  }
+  .deskHeader,
+  .deskHeaderSlim {
+    transition: none;
   }
 }
 

@@ -22,7 +22,7 @@ export function SpeakerAvatar({
   shape = 'rounded',
 }: {
   agent: DeskAgent
-  size: 40 | 44 | 56
+  size: number
   speaking?: boolean
   className?: string
   /** Header faces should paint immediately on desk open. */
@@ -32,6 +32,7 @@ export function SpeakerAvatar({
   const who = DESK_TEAM[agent]
   const mono = MONOGRAM[agent]
   const usePhoto = Boolean(who.avatar)
+  const px = Math.max(1, Math.round(size))
   return (
     <div
       className={[
@@ -42,7 +43,7 @@ export function SpeakerAvatar({
       ]
         .filter(Boolean)
         .join(' ')}
-      style={{ width: size, height: size }}
+      style={{ width: px, height: px }}
       aria-label={who.name}
     >
       {usePhoto ? (
@@ -50,14 +51,14 @@ export function SpeakerAvatar({
           src={who.avatar}
           alt=""
           fill
-          sizes={`${size}px`}
+          sizes={`${px}px`}
           className={styles.img}
           unoptimized
           priority={priority}
           loading={priority ? 'eager' : undefined}
         />
       ) : (
-        <span className={styles.mono} style={{ background: mono.fill, fontSize: size >= 56 ? 16 : 12 }}>
+        <span className={styles.mono} style={{ background: mono.fill, fontSize: px >= 56 ? 16 : px >= 40 ? 12 : 10 }}>
           {mono.text}
         </span>
       )}

@@ -1733,17 +1733,22 @@ export function NotificationsList({
       if (bestSpeaker) setActiveAgent(bestSpeaker)
     }
 
+    const setHeaderCompact = useDeskFocusStore.getState().setHeaderCompact
     const onScroll = () => {
       const distanceFromBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight
       bottomPinnedRef.current = distanceFromBottom <= 48
+      // Shrink over the first ~80px away from latest; expand only as we re-enter that band.
+      setHeaderCompact(Math.min(1, Math.max(0, distanceFromBottom / 80)))
       if (frame) cancelAnimationFrame(frame)
       frame = requestAnimationFrame(syncFromScroll)
     }
     feed.addEventListener('scroll', onScroll, { passive: true })
     syncFromScroll()
+    onScroll()
     return () => {
       feed.removeEventListener('scroll', onScroll)
       if (frame) cancelAnimationFrame(frame)
+      setHeaderCompact(0)
     }
   }, [pagedItems.length, reveal.showDots, reveal.typingId, setActiveAgent, setDeskFocus])
 
