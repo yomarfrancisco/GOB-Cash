@@ -2,7 +2,8 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Calculator, Check, Clock, Download, ExternalLink } from 'lucide-react'
+import { Calculator, Check, Clock, DoorClosed, Download, ExternalLink } from 'lucide-react'
+import { logout } from '@/lib/logout'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -1493,6 +1494,7 @@ export function NotificationsList({
   const clear = useActivityStore((s) => s.clear)
   const all = useActivityStore((s) => s.all)
   const isAuthed = useAuthStore((s) => s.isAuthed)
+  const closeNotifications = useNotificationsStore((s) => s.closeNotifications)
   const { rates: fxRates } = useFxRates(['MZN'], { refreshMs: 30_000 })
   const liveSellMznPerZar =
     typeof fxRates?.rates?.MZN === 'number' && fxRates.rates.MZN > 0 ? fxRates.rates.MZN : null
@@ -1975,6 +1977,19 @@ export function NotificationsList({
             </p>
           )}
         </div>
+      </div>
+      <div className={listStyles.deskExitDock}>
+        <button
+          type="button"
+          className={listStyles.deskAskCalc}
+          aria-label="Log out"
+          onClick={() => {
+            closeNotifications()
+            void logout()
+          }}
+        >
+          <DoorClosed size={22} strokeWidth={2} aria-hidden />
+        </button>
       </div>
       <div className={listStyles.deskAskDock}>
         <button

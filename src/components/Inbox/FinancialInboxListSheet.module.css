@@ -345,6 +345,20 @@
   pointer-events: auto;
 }
 
+/* Floating logout on the desk top-left (same chrome as calculator). */
+.deskExitDock {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: auto;
+  bottom: auto;
+  z-index: 5;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
 /* Mirror .activityItem: 44px avatar + 12px gap + content column. */
 .deskAskRow {
   display: flex;
