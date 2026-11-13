@@ -9,6 +9,11 @@
   min-height: var(--sheet-cover-logo-h-dvh) !important;
 }
 
+/* Desk uses its own close control; hide ActionSheet default. */
+.deskSheet :global(.as-close-only) {
+  display: none !important;
+}
+
 .financialInboxSheet :global(.as-title) {
   text-align: center !important;
 }
@@ -349,6 +354,44 @@
   margin: 0;
   box-sizing: border-box;
   pointer-events: auto;
+}
+
+/* Floating close on the desk top-right — same chrome as calc/exit, smaller circle. */
+.deskCloseDock {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  left: auto;
+  bottom: auto;
+  z-index: 5;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.deskAskClose {
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #111111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow:
+    0 8px 24px rgba(24, 24, 27, 0.16),
+    0 2px 6px rgba(24, 24, 27, 0.08);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.deskAskClose:active {
+  opacity: 0.85;
+  transform: scale(0.96);
 }
 
 /* Mirror .activityItem: 44px avatar + 12px gap + content column. */
