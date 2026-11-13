@@ -71,27 +71,38 @@
   color: var(--desk-ink);
 }
 
-/* Soft top exit — slight fade + blur so feed leaves the sheet frame cleanly. */
-.deskContent::after {
-  content: '';
+/* Soft top exit — opaque→clear fade so feed leaves the sheet frame cleanly. */
+.deskTopFade {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 44px;
-  z-index: 4;
+  height: 72px;
+  z-index: 6;
   pointer-events: none;
   border-radius: 32px 32px 0 0;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.88) 0%,
-    rgba(255, 255, 255, 0.4) 50%,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.92) 32%,
+    rgba(255, 255, 255, 0.5) 62%,
     rgba(255, 255, 255, 0) 100%
   );
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 30%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 0%, #000 30%, transparent 100%);
+}
+
+.deskTopFade::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 40%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 40%, transparent 100%);
+}
+
+.deskContent::after {
+  content: none;
 }
 
 .deskHeaderChrome {
