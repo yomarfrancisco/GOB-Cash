@@ -505,14 +505,30 @@
 /* —— Desk fund calculator (white sheet + Liquid-now stack) —— */
 .as-sheet.fund-calc {
   background: #fff !important;
+  overflow: hidden; /* Clip content to the sheet’s rounded top corners */
 }
 
 .as-sheet.fund-calc .as-body {
-  padding: 0 16px;
+  padding: 0 28px;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .amount-sheet--fund-calc {
   font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+  /* Shrink cards + keypad + CTA; close button lives outside this wrapper. */
+  zoom: 0.9;
+  width: 100%;
+  box-sizing: border-box;
+  transform-origin: top center;
+}
+
+@supports not (zoom: 1) {
+  .amount-sheet--fund-calc {
+    transform: scale(0.9);
+    width: 111.111%;
+    margin-left: -5.5555%;
+  }
 }
 
 .amount-sheet--fund-calc .amount-body {
@@ -756,7 +772,7 @@
 }
 
 .amount-cta--fund-calc {
-  padding: 8px 16px calc(env(safe-area-inset-bottom) + 12px);
+  padding: 8px 8px calc(env(safe-area-inset-bottom) + 12px);
   background: #fff;
 }
 
