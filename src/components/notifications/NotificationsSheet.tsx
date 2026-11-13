@@ -126,6 +126,7 @@ export default function NotificationsSheet() {
       className={`${listStyles.financialInboxSheet} ${listStyles.deskSheet} inboxTallSheet`}
     >
       <div className={`${listStyles.content} ${listStyles.activityContent} ${listStyles.deskContent}`}>
+        <div className={listStyles.deskTopFade} aria-hidden />
         {isAuthed ? (
           <NotificationsList key={deskSessionKey} prefetchedItems={remoteItems} />
         ) : null}

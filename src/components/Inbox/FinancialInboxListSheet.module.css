@@ -80,6 +80,24 @@
   content: none;
 }
 
+/* Soft top fade — content eases out under the floating actions (buttons sit above, z:5). */
+.deskTopFade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: 32px 32px 0 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.4) 45%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
 .deskHeaderChrome {
   display: none;
 }
