@@ -3,6 +3,9 @@ import { quoteMznPerZar } from '@/lib/mznZar'
 
 const CACHE_DURATION_MS = 120 * 1000 // 120 seconds (2 minutes)
 
+/** Always keep these in the in-memory cache so Mt/$ and corridor quotes stay live. */
+const CORE_SYMBOLS = ['USD', 'MZN'] as const
+
 function fxLatestZarUrl(): string {
   // EXCHANGE_RATE_API_KEY is set on Vercel; Pro returns conversion_rates.
   const key = process.env.EXCHANGE_RATE_API_KEY
@@ -29,8 +32,25 @@ let rateCache: {
   timestamp: 0,
 }
 
+function pickRates(
+  rawRates: Record<string, number>,
+  symbols: string[]
+): Record<string, number | null> {
+  const rates: Record<string, number | null> = {}
+  symbols.forEach((symbol) => {
+    const rate = rawRates?.[symbol]
+    if (rate !== undefined && rate !== null && typeof rate === 'number' && Number.isFinite(rate)) {
+      rates[symbol] = symbol === 'MZN' ? quoteMznPerZar(rate) : rate
+    } else {
+      rates[symbol] = null
+    }
+  })
+  return rates
+}
+
 /**
  * Fetch ZAR-based rates from ExchangeRate-API Pro, or the free feed if no key is set.
+ * Always pulls CORE_SYMBOLS plus any extras so USD cannot go missing from a MZN-only request.
  */
 async function fetchExchangeRates(symbols: string[]): Promise<{
   base: string
@@ -52,21 +72,25 @@ async function fetchExchangeRates(symbols: string[]): Promise<{
     throw new Error('Exchange rate API returned unsuccessful response')
   }
 
-  const rates: Record<string, number | null> = {}
-  symbols.forEach((symbol) => {
-    const rate = rawRates?.[symbol]
-    if (rate !== undefined && rate !== null && typeof rate === 'number') {
-      rates[symbol] = symbol === 'MZN' ? quoteMznPerZar(rate) : rate
-    } else {
-      rates[symbol] = null
-    }
-  })
-
+  const fetchSymbols = Array.from(new Set([...CORE_SYMBOLS, ...symbols]))
   return {
     base: 'ZAR',
     timestamp: Date.now(),
-    rates,
+    rates: pickRates(rawRates, fetchSymbols),
   }
+}
+
+function cacheHasAllSymbols(symbols: string[]): boolean {
+  if (!rateCache.data) return false
+  return symbols.every((symbol) => Object.prototype.hasOwnProperty.call(rateCache.data!.rates, symbol))
+}
+
+function ratesForSymbols(symbols: string[]): Record<string, number | null> {
+  const out: Record<string, number | null> = {}
+  symbols.forEach((symbol) => {
+    out[symbol] = rateCache.data?.rates[symbol] ?? null
+  })
+  return out
 }
 
 export async function GET(request: NextRequest) {
@@ -102,18 +126,14 @@ export async function GET(request: NextRequest) {
 
   const now = Date.now()
   const cacheAge = now - rateCache.timestamp
-  const isCacheValid = cacheAge < CACHE_DURATION_MS && rateCache.data !== null
+  const isCacheValid =
+    cacheAge < CACHE_DURATION_MS && rateCache.data !== null && cacheHasAllSymbols(symbols)
 
   if (isCacheValid && rateCache.data) {
-    const cachedRates: Record<string, number | null> = {}
-    symbols.forEach((symbol) => {
-      cachedRates[symbol] = rateCache.data!.rates[symbol] ?? null
-    })
-
     return NextResponse.json({
       ok: true,
       base: rateCache.data.base,
-      rates: cachedRates,
+      rates: ratesForSymbols(symbols),
       source: 'cache',
       ts: rateCache.data.timestamp,
     })
@@ -121,31 +141,34 @@ export async function GET(request: NextRequest) {
 
   try {
     const freshData = await fetchExchangeRates(symbols)
+    const mergedRates = {
+      ...(rateCache.data?.rates || {}),
+      ...freshData.rates,
+    }
 
     rateCache = {
-      data: freshData,
+      data: {
+        base: freshData.base,
+        timestamp: freshData.timestamp,
+        rates: mergedRates,
+      },
       timestamp: now,
     }
 
     return NextResponse.json({
       ok: true,
       base: freshData.base,
-      rates: freshData.rates,
+      rates: ratesForSymbols(symbols),
       source: 'api',
       ts: freshData.timestamp,
     })
   } catch (fetchError) {
     if (rateCache.data) {
       console.warn('[FX API] Fetch failed, returning stale cache:', fetchError)
-      const staleRates: Record<string, number | null> = {}
-      symbols.forEach((symbol) => {
-        staleRates[symbol] = rateCache.data!.rates[symbol] ?? null
-      })
-
       return NextResponse.json({
         ok: true,
         base: rateCache.data.base,
-        rates: staleRates,
+        rates: ratesForSymbols(symbols),
         source: 'stale-cache',
         ts: rateCache.data.timestamp,
       })
