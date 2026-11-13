@@ -62,6 +62,7 @@ import {
   routingPlanDisplayTitle,
 } from '@/components/notifications/RoutingPlanVisual'
 import {
+  isFirstPaidOutMessage,
   paidOutDisplaySentence,
   paidOutDisplayTitle,
 } from '@/components/notifications/PaidOutStackVisual'
@@ -918,7 +919,9 @@ function ActivityItemCard({
   const displaySentence = isFundIntro || isFundWire
     ? fundIntroLine(fundLocale, item)
     : isPaidOut
-      ? paidOutDisplaySentence(item)
+      ? paidOutDisplaySentence(item, {
+          isFirstPaidOut: isFirstPaidOutMessage(item, paidOutItems),
+        })
       : isMznReceived
         ? mznReceivedDisplaySentence(item)
         : isLiquidNow

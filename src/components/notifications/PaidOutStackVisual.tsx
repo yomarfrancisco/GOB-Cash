@@ -83,7 +83,28 @@ function displayDeskPaidTitle(title: string | undefined): string {
   return t || 'Paid out'
 }
 
-export function paidOutDisplaySentence(item: ActivityItem): string {
+/** True for the earliest Paid out in the feed — only that one gets the auto-payout promise. */
+export function isFirstPaidOutMessage(
+  item: ActivityItem,
+  paidOutItems?: ActivityItem[]
+): boolean {
+  if (!paidOutItems?.length) return true
+  const myMs = typeof item.createdAt === 'number' ? item.createdAt : Number.POSITIVE_INFINITY
+  for (const other of paidOutItems) {
+    if (other.id === item.id) continue
+    const otherMs = typeof other.createdAt === 'number' ? other.createdAt : Number.POSITIVE_INFINITY
+    if (otherMs < myMs) return false
+    if (otherMs === myMs && String(other.id || '') < String(item.id || '')) return false
+  }
+  return true
+}
+
+export function paidOutDisplaySentence(
+  item: ActivityItem,
+  opts?: { isFirstPaidOut?: boolean }
+): string {
+  // After the first Paid out, title alone is enough — the auto-payout line gets mechanical.
+  if (opts?.isFirstPaidOut === false) return ''
   const bankTag =
     String((item as { payoutBankTag?: string }).payoutBankTag || '').trim() ||
     item.deskLedgerRows?.find((row) => /^to$/i.test(row.label))?.value?.trim() ||
