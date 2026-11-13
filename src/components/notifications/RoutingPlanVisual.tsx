@@ -336,42 +336,42 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
             </div>
           </div>
         </div>
+
+        <section className={styles.panel} aria-label="Arrival">
+          <div className={styles.panelHead}>
+            <span className={styles.panelLabel}>
+              {arrived ? 'Arrived' : 'All of it arrives'}
+            </span>
+            <span
+              className={[
+                styles.pill,
+                pill.tone === 'late' ? styles.pillLate : styles.pillOk,
+              ].join(' ')}
+            >
+              {pill.text}
+            </span>
+          </div>
+
+          {state === 'final' && !arrived ? (
+            <div className={styles.countdown}>{formatCountdown(remainingMs)}</div>
+          ) : null}
+
+          <div className={styles.arriveWhen}>{formatWhenFull(displayArriveAtMs)}</div>
+
+          {state === 'late' && originalArriveAtMs < displayArriveAtMs ? (
+            <div className={styles.wasWhen}>was {formatWhenFull(originalArriveAtMs)}</div>
+          ) : null}
+
+          <div className={styles.timeTrack} aria-hidden>
+            <span className={styles.timeFill} style={{ width: `${elapsedPct}%` }} />
+          </div>
+          <div className={styles.timeMeta}>
+            <span>{underLeft}</span>
+            <span>{underRight}</span>
+          </div>
+          {panelNote ? <p className={styles.panelNote}>{panelNote}</p> : null}
+        </section>
       </div>
-
-      <section className={styles.panel} aria-label="Arrival">
-        <div className={styles.panelHead}>
-          <span className={styles.panelLabel}>
-            {arrived ? 'Arrived' : 'All of it arrives'}
-          </span>
-          <span
-            className={[
-              styles.pill,
-              pill.tone === 'late' ? styles.pillLate : styles.pillOk,
-            ].join(' ')}
-          >
-            {pill.text}
-          </span>
-        </div>
-
-        {state === 'final' && !arrived ? (
-          <div className={styles.countdown}>{formatCountdown(remainingMs)}</div>
-        ) : null}
-
-        <div className={styles.arriveWhen}>{formatWhenFull(displayArriveAtMs)}</div>
-
-        {state === 'late' && originalArriveAtMs < displayArriveAtMs ? (
-          <div className={styles.wasWhen}>was {formatWhenFull(originalArriveAtMs)}</div>
-        ) : null}
-
-        <div className={styles.timeTrack} aria-hidden>
-          <span className={styles.timeFill} style={{ width: `${elapsedPct}%` }} />
-        </div>
-        <div className={styles.timeMeta}>
-          <span>{underLeft}</span>
-          <span>{underRight}</span>
-        </div>
-        {panelNote ? <p className={styles.panelNote}>{panelNote}</p> : null}
-      </section>
     </div>
   )
 }

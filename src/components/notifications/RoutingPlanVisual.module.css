@@ -1,15 +1,17 @@
 .root {
   display: flex;
   flex-direction: column;
-  gap: 12px;
   margin: 10px 0 8px;
   max-width: 600px;
   font-family: var(--desk-font, var(--font-dm-sans), 'DM Sans', system-ui, sans-serif);
   color: var(--desk-ink, #18181b);
 }
 
-/* 2-stack casing — same language as Liquid now (MZN peek + ZAR front). */
+/* Cards + arrival sit in one beige casing (same pattern as 15-min payout watch). */
 .stackWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   padding: 14px;
   border-radius: 16px;
   background: #f3f0e8;
@@ -112,12 +114,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Arrival panel */
+/* Arrival block — content only; beige casing is .stackWrap. */
 .panel {
-  background: #fffffe;
-  border: 1px solid #e2ded3;
-  border-radius: 16px;
-  padding: 14px 14px 12px;
+  padding: 2px 0 0;
 }
 
 .panelHead {
