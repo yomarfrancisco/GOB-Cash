@@ -355,7 +355,7 @@
   width: 0.08em;
   height: 0.82em;
   margin-left: 0.06em;
-  background: #18181b;
+  background: #a8e6c3; /* Same mint as fund-calculator cursor */
   vertical-align: -0.06em;
   animation: landingPayoutCaretBlink 1.05s steps(1, end) infinite;
 }
