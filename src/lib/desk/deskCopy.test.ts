@@ -52,6 +52,7 @@ describe('desk copy display', () => {
     assert.equal(parseDeskZarAmount('R3 854,87'), 3854.87)
     assert.equal(parseDeskZarAmount('R3,854.87'), 3854.87)
     assert.equal(parseDeskZarAmount('R3854.87'), 3854.87)
+    assert.equal(parseDeskZarAmount('R100\u00a0000,00'), 100000)
   })
 
   it('overlays bank-specific live COST Mt on recycle swipe lines', () => {

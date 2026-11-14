@@ -1,3 +1,4 @@
+import { parseDeskMoneyToken } from '@/lib/desk/deskMoneyFormat'
 import { costMznPerZarForBank, weightedBankCostFromSplits } from '@/lib/mznZar'
 
 /** Strip day counters / legacy sell-restock scraps — header owns Day n of 14. */
@@ -76,16 +77,9 @@ export function displayDeskBody(body: string | undefined | null): string {
     .trim()
 }
 
-/** Parse desk ZAR tokens (R3 854,87 / R3,854.87 / R3854.87). */
+/** Parse desk ZAR tokens (R3 854,87 / R3,854.87 / R3854.87 / R100 000,00). */
 export function parseDeskZarAmount(raw: string): number | null {
-  const cleaned = raw.replace(/^R\s*/i, '').trim()
-  if (!cleaned) return null
-  const commaDecimal = /,\d{1,2}$/.test(cleaned) && !/\.\d{1,2}$/.test(cleaned)
-  const normalized = commaDecimal
-    ? cleaned.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
-    : cleaned.replace(/\s/g, '').replace(/,/g, '')
-  const value = Number(normalized)
-  return Number.isFinite(value) ? value : null
+  return parseDeskMoneyToken(raw)
 }
 
 function formatLiveCostMt(amountMzn: number): string {

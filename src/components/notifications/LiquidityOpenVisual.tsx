@@ -5,14 +5,9 @@ import {
   formatDeskMajorMzn,
   formatDeskMajorZar,
   formatDeskRateMtPerZar,
+  parseDeskMoneyToken,
 } from '@/lib/desk/deskMoneyFormat'
 import styles from './LiquidityOpenVisual.module.css'
-
-function parseMajor(raw: string | undefined | null): number | null {
-  if (!raw) return null
-  const n = Number(String(raw).replace(/[^\d.-]/g, ''))
-  return Number.isFinite(n) ? n : null
-}
 
 function parseRate(raw: string | undefined | null): number | null {
   if (!raw) return null
@@ -29,10 +24,13 @@ function resolveLiquidityOpenFigures(item: ActivityItem): {
 } {
   const rows = item.deskLedgerRows || []
   const zarLiquid =
-    parseMajor(rows.find((row) => /^Liquid ZAR$/i.test(row.label))?.value) ??
-    (typeof item.amount?.value === 'number' ? Math.abs(item.amount.value) : null) ??
+    (typeof item.amount?.value === 'number' && item.amount.value > 0
+      ? Math.abs(item.amount.value)
+      : null) ??
+    parseDeskMoneyToken(rows.find((row) => /^Liquid ZAR$/i.test(row.label))?.value) ??
     0
-  const mznConverted = parseMajor(rows.find((row) => /^Converted$/i.test(row.label))?.value) ?? 0
+  const mznConverted =
+    parseDeskMoneyToken(rows.find((row) => /^Converted$/i.test(row.label))?.value) ?? 0
   const rate = parseRate(rows.find((row) => /^Rate$/i.test(row.label))?.value)
   return { zarLiquid, mznConverted, rate }
 }

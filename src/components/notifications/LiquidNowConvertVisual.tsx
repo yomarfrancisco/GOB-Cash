@@ -8,6 +8,7 @@ import {
   formatDeskMinorMzn,
   formatDeskMinorZar,
   formatDeskRateMtPerZar,
+  parseDeskMoneyToken,
 } from '@/lib/desk/deskMoneyFormat'
 import { nextSettleAt09hSastExclusive } from '@/lib/fx/transitDayClock'
 import { sastParts } from '@/lib/routing/routingTime'
@@ -69,10 +70,7 @@ function resolveRestLandsByLabel(item: ActivityItem): string {
 const ANIM_MS = 2200
 
 function parseMajor(raw: string | undefined | null): number | null {
-  if (!raw) return null
-  const cleaned = String(raw).replace(/[^\d.-]/g, '')
-  const n = Number(cleaned)
-  return Number.isFinite(n) ? n : null
+  return parseDeskMoneyToken(raw)
 }
 
 type LiquidMode = 'full' | 'partial' | 'none'

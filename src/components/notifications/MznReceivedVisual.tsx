@@ -7,15 +7,14 @@ import {
   formatDeskMajorMzn,
   formatDeskMajorZar,
   formatDeskRateMtPerZar,
+  parseDeskMoneyToken,
 } from '@/lib/desk/deskMoneyFormat'
 import styles from './MznReceivedVisual.module.css'
 
 const ANIM_MS = 2400
 
 function parseMajor(raw: string | undefined | null): number | null {
-  if (!raw) return null
-  const n = Number(String(raw).replace(/[^\d.-]/g, ''))
-  return Number.isFinite(n) ? n : null
+  return parseDeskMoneyToken(raw)
 }
 
 export function isMznReceivedNotice(item: ActivityItem): boolean {

@@ -2,16 +2,13 @@
 
 import { Check } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
-import { formatDeskMajorMzn, formatDeskMajorZar } from '@/lib/desk/deskMoneyFormat'
+import {
+  formatDeskMajorMzn,
+  formatDeskMajorZar,
+  parseDeskMoneyToken,
+} from '@/lib/desk/deskMoneyFormat'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import styles from './PaidOutStackVisual.module.css'
-
-function parseMajor(raw: string | undefined | null): number | null {
-  if (!raw) return null
-  const cleaned = String(raw).replace(/[^\d.-]/g, '')
-  const n = Number(cleaned)
-  return Number.isFinite(n) ? n : null
-}
 
 function resolvePaidOutFigures(item: ActivityItem): {
   zarPaid: number
@@ -21,11 +18,13 @@ function resolvePaidOutFigures(item: ActivityItem): {
 } {
   const rows = item.deskLedgerRows || []
   const paid =
-    parseMajor(rows.find((row) => /^paid$/i.test(row.label))?.value) ??
-    (typeof item.amount?.value === 'number' ? Math.abs(item.amount.value) : null) ??
+    (typeof item.amount?.value === 'number' && item.amount.value > 0
+      ? Math.abs(item.amount.value)
+      : null) ??
+    parseDeskMoneyToken(rows.find((row) => /^paid$/i.test(row.label))?.value) ??
     0
   const mznPipe = item.deskPipes?.find((pipe) => pipe.tone === 'mzn' || pipe.id === 'mzn')
-  const mznLeft = parseMajor(mznPipe?.title) ?? 0
+  const mznLeft = parseDeskMoneyToken(mznPipe?.title) ?? 0
   const toRow = rows.find((row) => /^to$/i.test(row.label))?.value?.trim()
   const bankPipe = item.deskPipes?.find((pipe) => pipe.tone === 'bank' || pipe.id === 'bank')
   const bankTag =
@@ -72,8 +71,10 @@ export function PaidOutStackVisual({ item }: { item: ActivityItem }) {
 
 export function paidOutDisplayTitle(item: ActivityItem): string {
   const zar =
-    parseMajor(item.deskLedgerRows?.find((row) => /^paid$/i.test(row.label))?.value) ??
-    (typeof item.amount?.value === 'number' ? Math.abs(item.amount.value) : null)
+    (typeof item.amount?.value === 'number' && item.amount.value > 0
+      ? Math.abs(item.amount.value)
+      : null) ??
+    parseDeskMoneyToken(item.deskLedgerRows?.find((row) => /^paid$/i.test(row.label))?.value)
   if (zar != null && zar > 0) return `${formatDeskMajorZar(zar)} paid out.`
   return displayDeskPaidTitle(item.title)
 }

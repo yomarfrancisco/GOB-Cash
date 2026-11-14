@@ -14,6 +14,27 @@ function enUsFixed(amount: number): string {
   })
 }
 
+/**
+ * Parse desk money tokens from ledger/pipe copy.
+ * Handles en-ZA (`R100 000,00`) and en-US (`R100,000.00` / `436,660.13 MZN`).
+ * Do not strip all non-digits — that turns `R100 000,00` into 10_000_000.
+ */
+export function parseDeskMoneyToken(raw: string | undefined | null): number | null {
+  if (raw == null) return null
+  const cleaned = String(raw)
+    .replace(/^(?:R|Mt|\$)\s*/i, '')
+    .replace(/\s*(?:MZN|ZAR|USD)\b.*$/i, '')
+    .trim()
+  if (!cleaned) return null
+  const compact = cleaned.replace(/\s/g, '')
+  const commaDecimal = /,\d{1,2}$/.test(compact) && !/\.\d{1,2}$/.test(compact)
+  const normalized = commaDecimal
+    ? compact.replace(/\./g, '').replace(',', '.')
+    : compact.replace(/,/g, '')
+  const value = Number(normalized.replace(/[^\d.-]/g, ''))
+  return Number.isFinite(value) ? value : null
+}
+
 /** Home-card major for meticais. */
 export function formatDeskMajorMzn(amount: number): string {
   const n = Number(amount) || 0
