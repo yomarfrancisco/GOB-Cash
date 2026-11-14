@@ -48,6 +48,8 @@ export default function AuthEntrySheet() {
   
   // Throttle: max 3 OTP attempts per 60 seconds
   const [otpAttempts, setOtpAttempts] = useState<number[]>([])
+  const payoutPhrases = ['Rand out.', 'Dollars out.'] as const
+  const [payoutPhraseIndex, setPayoutPhraseIndex] = useState(0)
 
   // Reset mode when sheet opens - default to signup, unless explicitly set to login
   useEffect(() => {
@@ -60,8 +62,17 @@ export default function AuthEntrySheet() {
       setPhoneNumber('')
       setIsResolving(false)
       setResolveStatus(null)
+      setPayoutPhraseIndex(0)
     }
   }, [authEntryOpen])
+
+  useEffect(() => {
+    if (!authEntryOpen || authMode !== 'signup') return
+    const id = window.setInterval(() => {
+      setPayoutPhraseIndex((i) => (i + 1) % payoutPhrases.length)
+    }, 2800)
+    return () => window.clearInterval(id)
+  }, [authEntryOpen, authMode, payoutPhrases.length])
 
   const isDisabled = identifier.trim().length === 0
 
@@ -346,7 +357,20 @@ export default function AuthEntrySheet() {
               <h1 id={headlineId} className={styles.landingHeadline}>
                 Meticais in.
                 <br />
-                Rand out.
+                <span className={styles.landingPayoutSwap} aria-live="polite">
+                  {payoutPhrases.map((phrase, i) => (
+                    <span
+                      key={phrase}
+                      className={clsx(
+                        styles.landingPayoutPhrase,
+                        i === payoutPhraseIndex && styles.landingPayoutPhraseActive
+                      )}
+                      aria-hidden={i !== payoutPhraseIndex}
+                    >
+                      {phrase}
+                    </span>
+                  ))}
+                </span>
               </h1>
               <button
                 type="button"
