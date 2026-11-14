@@ -11,8 +11,8 @@ export function generateMetadata({ params }: Props): Metadata {
   const handle = normalizeCashHandle(params.handle)
   const titleHandle = handle ? `@${handle}` : 'Cash ID'
   return {
-    title: `Pay ${titleHandle} — GoBankless`,
-    description: `Send cash to ${titleHandle} with GoBankless.`,
+    title: `Pay ${titleHandle} — PAGA`,
+    description: `Send cash to ${titleHandle} with PAGA.`,
   }
 }
 

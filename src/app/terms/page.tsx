@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Terms — GoBankless',
-  description: 'Terms that apply to GoBankless / PAGA FX services for licensed operators.',
+  title: 'Terms — PAGA',
+  description: 'Terms that apply to PAGA FX services for licensed operators.',
 }
 
 export default function TermsPage() {

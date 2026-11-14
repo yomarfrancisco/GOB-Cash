@@ -33,20 +33,19 @@ import ProfilePreviewSheetWrapper from '@/components/ProfilePreviewSheetWrapper'
 import FirebaseAuthListener from '@/components/FirebaseAuthListener'
 
 export const metadata: Metadata = {
-  title: 'GoBankless — Global Money Movement in Cash & Stablecoins',
-  description:
-    'GoBankless helps people and businesses move money globally — in cash or stablecoins via our agent network. Fast, low-cost, compliant.',
+  title: 'Liquidity for closed-currency corridors',
+  description: 'Settlement-liquidity for closed-currency corridors.',
+  applicationName: 'PAGA',
   metadataBase: new URL('https://www.gobankless.app'),
   keywords: [
-    'GoBankless',
-    'money transfer',
-    'cash agents',
-    'stablecoins',
-    'USDT',
-    'cross-border payments',
-    'remittances',
+    'PAGA',
+    'settlement liquidity',
+    'closed-currency corridors',
+    'African FX',
+    'FX operators',
+    'liquidity',
+    'dollars',
     'Africa',
-    'global payments',
     'fintech',
   ],
   icons: {
@@ -62,17 +61,17 @@ export const metadata: Metadata = {
   },
   manifest: '/site.webmanifest',
   openGraph: {
-    title: 'GoBankless — Global Money Movement',
-    description:
-      'Move money globally in cash or stablecoins via our agent network. Fast, low-cost, compliant.',
+    title: 'PAGA — Liquidity for African FX Operators',
+    description: 'Dollars for closed-currency corridors',
     url: 'https://www.gobankless.app',
+    siteName: 'PAGA',
     type: 'website',
     images: ['/assets/core/gobankless-logo.png'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'GoBankless — Global Money Movement',
-    description: 'Move money globally in cash or stablecoins via local cash agents.',
+    title: 'PAGA — Liquidity for African FX Operators',
+    description: 'Dollars for closed-currency corridors',
     images: ['/assets/core/gobankless-logo.png'],
   },
   alternates: {
@@ -113,9 +112,8 @@ export default function RootLayout({
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'FinancialService',
-              name: 'GoBankless',
-              description:
-                'Move money globally in cash or stablecoins through our agent network.',
+              name: 'PAGA',
+              description: 'Settlement-liquidity for closed-currency corridors.',
               url: 'https://www.gobankless.app',
               logo: 'https://www.gobankless.app/assets/core/gobankless-logo.png',
             }),
