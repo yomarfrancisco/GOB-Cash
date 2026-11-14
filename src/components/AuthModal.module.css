@@ -338,33 +338,43 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Second headline line: fade swap between Rand / Dollars out. */
+/* Second headline line: typewriter scrub between Rand / Dollars out. */
 .landingPayoutSwap {
-  display: block;
-  position: relative;
-  height: 1.04em;
-  overflow: hidden;
+  display: inline-flex;
+  align-items: baseline;
+  min-height: 1.04em;
+  white-space: nowrap;
 }
 
-.landingPayoutPhrase {
-  position: absolute;
-  left: 0;
-  top: 0;
-  display: block;
-  width: 100%;
-  opacity: 0;
-  transition: opacity 700ms ease;
-  pointer-events: none;
+.landingPayoutTyped {
+  display: inline;
 }
 
-.landingPayoutPhraseActive {
-  opacity: 1;
-  pointer-events: auto;
+.landingPayoutCaret {
+  display: inline-block;
+  width: 0.08em;
+  height: 0.82em;
+  margin-left: 0.06em;
+  background: #18181b;
+  vertical-align: -0.06em;
+  animation: landingPayoutCaretBlink 1.05s steps(1, end) infinite;
+}
+
+@keyframes landingPayoutCaretBlink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landingPayoutPhrase {
-    transition: none;
+  .landingPayoutCaret {
+    animation: none;
+    opacity: 0;
   }
 }
 

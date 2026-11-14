@@ -49,7 +49,7 @@ export default function AuthEntrySheet() {
   // Throttle: max 3 OTP attempts per 60 seconds
   const [otpAttempts, setOtpAttempts] = useState<number[]>([])
   const payoutPhrases = ['Rand out.', 'Dollars out.'] as const
-  const [payoutPhraseIndex, setPayoutPhraseIndex] = useState(0)
+  const [payoutTyped, setPayoutTyped] = useState<string>(payoutPhrases[0])
 
   // Reset mode when sheet opens - default to signup, unless explicitly set to login
   useEffect(() => {
@@ -62,17 +62,70 @@ export default function AuthEntrySheet() {
       setPhoneNumber('')
       setIsResolving(false)
       setResolveStatus(null)
-      setPayoutPhraseIndex(0)
+      setPayoutTyped(payoutPhrases[0])
     }
   }, [authEntryOpen])
 
+  // Typewriter scrub: hold → delete letters → type next phrase → repeat.
   useEffect(() => {
     if (!authEntryOpen || authMode !== 'signup') return
-    const id = window.setInterval(() => {
-      setPayoutPhraseIndex((i) => (i + 1) % payoutPhrases.length)
-    }, 2800)
-    return () => window.clearInterval(id)
-  }, [authEntryOpen, authMode, payoutPhrases.length])
+
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    let phraseIndex = 0
+    let cancelled = false
+    let timer = 0
+
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        timer = window.setTimeout(resolve, ms)
+      })
+
+    const run = async () => {
+      setPayoutTyped(payoutPhrases[0])
+      while (!cancelled) {
+        const current = payoutPhrases[phraseIndex]
+        const next = payoutPhrases[(phraseIndex + 1) % payoutPhrases.length]
+
+        if (reduceMotion) {
+          await wait(2800)
+          if (cancelled) return
+          phraseIndex = (phraseIndex + 1) % payoutPhrases.length
+          setPayoutTyped(payoutPhrases[phraseIndex])
+          continue
+        }
+
+        await wait(2200)
+        if (cancelled) return
+
+        for (let i = current.length; i >= 0; i -= 1) {
+          setPayoutTyped(current.slice(0, i))
+          await wait(38)
+          if (cancelled) return
+        }
+
+        await wait(180)
+        if (cancelled) return
+
+        for (let i = 1; i <= next.length; i += 1) {
+          setPayoutTyped(next.slice(0, i))
+          await wait(52)
+          if (cancelled) return
+        }
+
+        phraseIndex = (phraseIndex + 1) % payoutPhrases.length
+      }
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+      if (timer) window.clearTimeout(timer)
+    }
+  }, [authEntryOpen, authMode])
 
   const isDisabled = identifier.trim().length === 0
 
@@ -358,18 +411,8 @@ export default function AuthEntrySheet() {
                 Meticais in.
                 <br />
                 <span className={styles.landingPayoutSwap} aria-live="polite">
-                  {payoutPhrases.map((phrase, i) => (
-                    <span
-                      key={phrase}
-                      className={clsx(
-                        styles.landingPayoutPhrase,
-                        i === payoutPhraseIndex && styles.landingPayoutPhraseActive
-                      )}
-                      aria-hidden={i !== payoutPhraseIndex}
-                    >
-                      {phrase}
-                    </span>
-                  ))}
+                  <span className={styles.landingPayoutTyped}>{payoutTyped}</span>
+                  <span className={styles.landingPayoutCaret} aria-hidden />
                 </span>
               </h1>
               <button
