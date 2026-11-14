@@ -366,7 +366,7 @@ export default function AuthEntrySheet() {
                 <span className={styles.landingGoogleLabel}>Continue with Google</span>
               </button>
               <p className={styles.landingTerms}>
-                Liquidity for African FX operators.{' '}
+                Liquidity for Closed-currency markets.{' '}
                 <a href={TERMS_URL} className={styles.landingTermsLink}>
                   Terms apply.
                 </a>
