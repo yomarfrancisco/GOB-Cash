@@ -91,14 +91,15 @@ export default function AuthEntrySheet() {
         const next = payoutPhrases[(phraseIndex + 1) % payoutPhrases.length]
 
         if (reduceMotion) {
-          await wait(2800)
+          await wait(5200)
           if (cancelled) return
           phraseIndex = (phraseIndex + 1) % payoutPhrases.length
           setPayoutTyped(payoutPhrases[phraseIndex])
           continue
         }
 
-        await wait(2200)
+        // Hold long enough to read; scrub/type timings below stay as-is.
+        await wait(4800)
         if (cancelled) return
 
         for (let i = current.length; i >= 0; i -= 1) {
