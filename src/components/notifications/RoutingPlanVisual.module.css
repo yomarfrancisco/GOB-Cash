@@ -248,39 +248,89 @@
   transform: rotate(180deg);
 }
 
-.partsList {
+.when {
+  background: #fffffe;
+  border: 1px solid #e2ded3;
+  border-radius: 16px;
+  padding: 4px 14px 8px;
+}
+
+.whenList {
   list-style: none;
   margin: 0;
-  padding: 4px 0 0;
-  border-top: 1px solid #ece8dd;
+  padding: 0;
 }
 
-.partsRow {
+.whenRow {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 18px 1fr;
   gap: 10px;
-  align-items: baseline;
+  align-items: start;
   padding: 10px 0;
   border-bottom: 1px solid #ece8dd;
-  font-size: 14px;
 }
 
-.partsRow:last-child {
+.whenRow:last-child {
   border-bottom: 0;
 }
 
-.partsWhen {
+.whenIcon {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: #8e8e93;
+}
+
+.whenIconNow {
+  color: #2f7a57;
+}
+
+.whenBody {
+  min-width: 0;
+}
+
+.whenTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.whenWhen {
+  font-size: 14px;
   font-weight: 700;
   min-width: 0;
 }
 
-.partsStatus {
+.whenAmt {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.whenSub {
+  margin-top: 2px;
+  font-size: 12px;
   font-weight: 500;
   color: #8e8e93;
 }
 
-.partsAmt {
+.whenTotal {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0 4px;
+  border-top: 1px solid #ece8dd;
+  font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+}
+
+.note {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #5e5e66;
 }

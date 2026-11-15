@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, CircleDashed } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
 import {
   formatDeskMajorMzn,
@@ -88,6 +88,22 @@ function legStatus(confidence: string, channel?: string): string {
   if (confidence === 'now' || channel === 'instant') return 'Ready'
   if (confidence === 'reserved') return 'Booked'
   return 'Estimated'
+}
+
+function LegIcon({ confidence, channel }: { confidence: string; channel?: string }) {
+  if (confidence === 'now' || channel === 'instant') {
+    return (
+      <Check
+        className={`${styles.whenIcon} ${styles.whenIconNow}`}
+        size={16}
+        strokeWidth={2.6}
+        aria-hidden
+      />
+    )
+  }
+  return (
+    <CircleDashed className={styles.whenIcon} size={16} strokeWidth={2.2} aria-hidden />
+  )
 }
 
 function legsByLanding(
@@ -415,19 +431,40 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
             />
           </button>
           {partsOpen ? (
-            <ul className={styles.partsList}>
-              {legs.map((leg, i) => (
-                <li key={`${leg.whenLabel}-${leg.amountZar}-${i}`} className={styles.partsRow}>
-                  <span className={styles.partsWhen}>
-                    {leg.whenLabel.replace(/\s*·\s*/g, ' ')}
-                  </span>
-                  <span className={styles.partsStatus}>
-                    {legStatus(leg.confidence, leg.channel)}
-                  </span>
-                  <span className={styles.partsAmt}>{formatDeskMajorZar(leg.amountZar)}</span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <section className={styles.when} aria-label={partsToggleLabel}>
+                <ul className={styles.whenList}>
+                  {legs.map((leg, i) => {
+                    const status = legStatus(leg.confidence, leg.channel)
+                    return (
+                      <li
+                        key={`${leg.whenLabel}-${leg.amountZar}-${i}`}
+                        className={styles.whenRow}
+                      >
+                        <LegIcon confidence={leg.confidence} channel={leg.channel} />
+                        <div className={styles.whenBody}>
+                          <div className={styles.whenTop}>
+                            <span className={styles.whenWhen}>{leg.whenLabel}</span>
+                            <span className={styles.whenAmt}>
+                              {formatDeskMinorZar(leg.amountZar)}
+                            </span>
+                          </div>
+                          <div className={styles.whenSub}>{status}</div>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+                <div className={styles.whenTotal}>
+                  <span>Total</span>
+                  <span>{formatDeskMinorZar(zarTotal)}</span>
+                </div>
+              </section>
+              <p className={styles.note}>
+                Each part pays out to your bank as it lands. If a time moves, we&apos;ll tell
+                you.
+              </p>
+            </>
           ) : null}
         </div>
       ) : null}
