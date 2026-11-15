@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import type { ActivityItem } from '@/store/activity'
 import {
   formatDeskMajorMzn,
@@ -81,6 +82,22 @@ function formatCountdown(ms: number): string {
   const m = Math.floor(total / 60)
   const s = total % 60
   return `${m}:${String(s).padStart(2, '0')}`
+}
+
+function legStatus(confidence: string, channel?: string): string {
+  if (confidence === 'now' || channel === 'instant') return 'Ready'
+  if (confidence === 'reserved') return 'Booked'
+  return 'Estimated'
+}
+
+function legsByLanding(
+  legs: NonNullable<ActivityItem['routingPlan']>['legs']
+): NonNullable<ActivityItem['routingPlan']>['legs'] {
+  return [...legs].sort((a, b) => {
+    const aMs = a.landsAtMs == null ? 0 : a.landsAtMs
+    const bMs = b.landsAtMs == null ? 0 : b.landsAtMs
+    return aMs - bMs
+  })
 }
 
 function resolveArrivalMs(plan: NonNullable<ActivityItem['routingPlan']>, nowMs: number): number {
@@ -198,6 +215,7 @@ export function routingPlanDisplayTitle(
 export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
   const plan = item.routingPlan
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const [partsOpen, setPartsOpen] = useState(false)
   const mznWallet = useWalletStore((s) => s.wallets?.cashMZN) as
     | {
         liquidityQueuedAtMs?: number
@@ -287,7 +305,9 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
       ? 100
       : Math.max(0, Math.min(100, ((nowMs - sentAtMs) / spanMs) * 100))
   const lateMs = Math.max(0, nowMs - originalArriveAtMs)
+  const legs = legsByLanding(plan.legs || [])
   const arrived = state === 'arrived'
+  const partsToggleLabel = state === 'late' ? 'What changed' : 'When each part lands'
 
   const pill =
     state === 'arrived'
@@ -372,6 +392,45 @@ export function RoutingPlanVisual({ item }: { item: ActivityItem }) {
           {panelNote ? <p className={styles.panelNote}>{panelNote}</p> : null}
         </section>
       </div>
+
+      {legs.length ? (
+        <div className={styles.parts}>
+          <button
+            type="button"
+            className={styles.partsToggle}
+            aria-expanded={partsOpen}
+            onClick={(event) => {
+              event.stopPropagation()
+              setPartsOpen((v) => !v)
+            }}
+          >
+            <span>{partsToggleLabel}</span>
+            <ChevronDown
+              className={[styles.partsChevron, partsOpen ? styles.partsChevronOpen : '']
+                .filter(Boolean)
+                .join(' ')}
+              size={16}
+              strokeWidth={2.4}
+              aria-hidden
+            />
+          </button>
+          {partsOpen ? (
+            <ul className={styles.partsList}>
+              {legs.map((leg, i) => (
+                <li key={`${leg.whenLabel}-${leg.amountZar}-${i}`} className={styles.partsRow}>
+                  <span className={styles.partsWhen}>
+                    {leg.whenLabel.replace(/\s*·\s*/g, ' ')}
+                  </span>
+                  <span className={styles.partsStatus}>
+                    {legStatus(leg.confidence, leg.channel)}
+                  </span>
+                  <span className={styles.partsAmt}>{formatDeskMajorZar(leg.amountZar)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

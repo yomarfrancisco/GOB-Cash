@@ -215,3 +215,72 @@
   line-height: 1.4;
   color: #5e5e66;
 }
+
+.parts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.partsToggle {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #18181b;
+  cursor: pointer;
+}
+
+.partsChevron {
+  transition: transform 160ms ease;
+}
+
+.partsChevronOpen {
+  transform: rotate(180deg);
+}
+
+.partsList {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0 0;
+  border-top: 1px solid #ece8dd;
+}
+
+.partsRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid #ece8dd;
+  font-size: 14px;
+}
+
+.partsRow:last-child {
+  border-bottom: 0;
+}
+
+.partsWhen {
+  font-weight: 700;
+  min-width: 0;
+}
+
+.partsStatus {
+  font-weight: 500;
+  color: #8e8e93;
+}
+
+.partsAmt {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
