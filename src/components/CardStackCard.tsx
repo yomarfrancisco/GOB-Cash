@@ -11,7 +11,6 @@ import {
   zarToUsd,
   costMznPerZar,
   sellMznPerZar,
-  sellMznPerUsd,
 } from '@/lib/mznZar'
 import { useWalletAlloc } from '@/state/walletAlloc'
 import { useWalletStore } from '@/store/wallets'
@@ -466,10 +465,9 @@ export default function CardStackCard({
     }
 
     if (card.type === 'mzn') {
-      // Sell Mt/R × API R/$ (via USD/ZAR mid) → Mt per $.
-      const mtPerUsd = sellMznPerUsd(liveMzn, liveUsdPerZar)
+      // Moz inventory quotes COST Mt/R (ZAR card keeps SELL).
       return {
-        strong: `${mtPerUsd.toFixed(2)}$Mt/$`,
+        strong: `${costRate.toFixed(2)}Mt/R`,
         label: '',
       }
     }
