@@ -99,7 +99,7 @@ export default function AuthEntrySheet() {
         }
 
         // Hold long enough to read; scrub/type timings below stay as-is.
-        await wait(4800)
+        await wait(10000)
         if (cancelled) return
 
         for (let i = current.length; i >= 0; i -= 1) {
