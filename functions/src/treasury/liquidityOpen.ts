@@ -11,6 +11,7 @@ import {
 } from '../fx/quotedMznZar'
 import { CONVERSION_ROUTING_KIND } from '../routing/conversionRouter'
 import { ensureReserveAtLeast, roundMajor } from './reserveBooks'
+import { absorbMznConvertDust } from './mznConvertDust'
 import { planReserveSplit, payInstantFromReserve } from './reserveConvert'
 import { DAILY_LIQUID_ZAR_CAP } from './dailyLiquidZar'
 import { readUserNextOpenBooking, refreshNextOpenBookings } from './nextOpenBooking'
@@ -438,12 +439,17 @@ export async function drainLiquidityQueues(params?: {
     }
 
     const groupId = `liquidity-open-${windowKey}-${row.userId}`.replace(/[^\w.-]+/g, '-').slice(0, 120)
+    const absorbed = absorbMznConvertDust({
+      mznBalance,
+      instantMzn: split.instantSource,
+      instantZar: split.instantDest,
+    })
     try {
       const instant = await payInstantFromReserve({
         userId: row.userId,
         sourceCurrency: 'MZN',
         destCurrency: 'ZAR',
-        sourceMajor: split.instantSource,
+        sourceMajor: absorbed.instantMzn,
         destMajor: split.instantDest,
         fxRateMZNperZar: sellRate,
         costRate,
@@ -452,7 +458,7 @@ export async function drainLiquidityQueues(params?: {
         skipLiquidAccrue: false,
         setFirstPayoutHold: false,
       })
-      const residualMzn = roundMajor(Math.max(0, mznBalance - split.instantSource))
+      const residualMzn = absorbed.residualMzn
       await zarRef.set(
         {
           liquidityWindowKey: windowKey,
@@ -507,7 +513,7 @@ export async function drainLiquidityQueues(params?: {
             dropdownTitle: 'Liquidity open',
             dropdownBody: `${zarLabel} · liquid`,
             deskLedgerRows: [
-              { label: 'Converted', value: fmtMzn(split.instantSource) },
+              { label: 'Converted', value: fmtMzn(absorbed.instantMzn) },
               { label: 'Rate', value: `${sellRate.toFixed(4)} MZN/ZAR` },
               { label: 'Liquid ZAR', value: zarLabel, valueStrong: true },
             ],
@@ -549,7 +555,7 @@ export async function drainLiquidityQueues(params?: {
       results.push({
         userId: row.userId,
         zarAmount: instant.destMajor,
-        mznConverted: split.instantSource,
+        mznConverted: absorbed.instantMzn,
         mznResidual: residualMzn,
       })
     } catch (error) {

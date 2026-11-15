@@ -15,6 +15,7 @@ import {
   MZN_ZAR_MARKUP_RECEIVE_MZN,
 } from '../fx/quotedMznZar'
 import { planReserveSplit, payInstantFromReserve } from './reserveConvert'
+import { absorbMznConvertDust } from './mznConvertDust'
 import { ensureReserveAtLeast, roundMajor } from './reserveBooks'
 import { DAILY_LIQUID_ZAR_CAP as SUB_R100K_CAP } from './dailyLiquidZar'
 import { readUserNextOpenBooking, refreshNextOpenBookings } from './nextOpenBooking'
@@ -723,14 +724,14 @@ export async function handleCashMznCredit(params: {
   })
 
   const instantZar = roundMajor(split.instantDest)
-  const instantMzn = roundMajor(split.instantSource)
-  const residualMzn = roundMajor(Math.max(0, mznBalance - instantMzn))
-  const mode: LiquidNowMode =
-    instantZar > 0.005 && residualMzn <= 0.005
-      ? 'full'
-      : instantZar > 0.005
-        ? 'partial'
-        : 'none'
+  const absorbed = absorbMznConvertDust({
+    mznBalance,
+    instantMzn: split.instantSource,
+    instantZar,
+  })
+  const instantMzn = absorbed.instantMzn
+  const residualMzn = absorbed.residualMzn
+  const mode: LiquidNowMode = absorbed.mode
 
   if (!(instantZar > 0.005) || !(instantMzn > 0.005)) {
     await finishDesk({
