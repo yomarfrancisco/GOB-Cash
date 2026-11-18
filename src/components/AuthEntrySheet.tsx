@@ -434,7 +434,7 @@ export default function AuthEntrySheet() {
                 <span className={styles.landingGoogleLabel}>Continue with Google</span>
               </button>
               <p className={styles.landingTerms}>
-                Dollar liquidity for closed-currency corridors.{' '}
+                Liquidity-aware USD for closed-currency corridors.{' '}
                 <a href={TERMS_URL} className={styles.landingTermsLink}>
                   Terms apply.
                 </a>
