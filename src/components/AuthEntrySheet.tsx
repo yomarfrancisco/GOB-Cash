@@ -434,7 +434,9 @@ export default function AuthEntrySheet() {
                 <span className={styles.landingGoogleLabel}>Continue with Google</span>
               </button>
               <p className={styles.landingTerms}>
-                Liquidity-aware USD for closed-currency corridors.{' '}
+                <strong className={styles.landingTermsLead}>Dollars that find a way through</strong>
+                . PAGA routes your payments to wherever banks can actually pay, and delivers within
+                24 hours.{' '}
                 <a href={TERMS_URL} className={styles.landingTermsLink}>
                   Terms apply.
                 </a>
