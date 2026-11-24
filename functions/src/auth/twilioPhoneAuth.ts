@@ -168,6 +168,13 @@ async function twilioVerifyRequest(
     if (res.status === 429) {
       throw new functions.https.HttpsError('resource-exhausted', 'Too many requests. Please try again later.')
     }
+    // 20404 = verification already checked / expired / unknown
+    if (res.status === 404 || String(json.code) === '20404') {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Invalid or expired code. Request a new SMS and try again.'
+      )
+    }
     throw new functions.https.HttpsError('internal', message)
   }
   return json
@@ -240,9 +247,22 @@ export const auth_twilioVerifyOtp = functions
     }
 
     const uid = await getOrCreateUserForPhone(phone)
-    const customToken = await admin.auth().createCustomToken(uid, {
-      phoneAuthProvider: 'twilio',
-    })
+
+    let customToken: string
+    try {
+      customToken = await admin.auth().createCustomToken(uid, {
+        phoneAuthProvider: 'twilio',
+      })
+    } catch (error: any) {
+      console.error('[twilioPhoneAuth] createCustomToken failed', {
+        code: error?.errorInfo?.code || error?.code || null,
+        message: error?.message || String(error),
+      })
+      throw new functions.https.HttpsError(
+        'internal',
+        'Signed in with SMS, but account session could not be created. Please try again in a minute.'
+      )
+    }
 
     console.log('[twilioPhoneAuth] verify ok', {
       uid,
