@@ -48,7 +48,12 @@ import {
   executedPillLabel,
 } from '@/lib/desk/deskCopy'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
-import { isUserPlaceholderAvatar, MOZPAGA_ADMIN_AVATAR, USER_PLACEHOLDER_AVATAR } from '@/lib/notifications/identityResolver'
+import {
+  isUserPlaceholderAvatar,
+  MOZPAGA_ADMIN_AVATAR,
+  resolveAdminAvatarUrl,
+  USER_PLACEHOLDER_AVATAR,
+} from '@/lib/notifications/identityResolver'
 import { useUserProfileStore } from '@/store/userProfile'
 import Avatar from '@/components/Avatar'
 import { useNotificationsStore } from '@/state/notifications'
@@ -405,7 +410,7 @@ function resolveTaskAvatar(item: ActivityItem): string {
   if (text.includes('delivered') || text.includes('received') || text.includes('sent') || text.includes('paid')) {
     return USER_PLACEHOLDER_AVATAR
   }
-  return item.actor.avatarUrl || USER_PLACEHOLDER_AVATAR
+  return resolveAdminAvatarUrl(item.actor.avatarUrl || USER_PLACEHOLDER_AVATAR)
 }
 
 function isInvoiceDownloadItem(item: ActivityItem): boolean {
