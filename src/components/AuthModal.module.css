@@ -378,6 +378,7 @@
   }
 }
 
+/* Kept for loginEntry Google CTA / any residual refs */
 .landingGoogleButton {
   display: inline-flex;
   align-items: center;
@@ -418,6 +419,115 @@
   font-style: normal;
   white-space: nowrap;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Landing phone field — WhatsApp-style national entry, same shell as Google CTA */
+.landingPhoneField {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: min(100%, 320px);
+  min-height: 52px;
+  margin: 0 0 12px;
+  padding: 0 8px 0 14px;
+  box-sizing: border-box;
+  border-radius: 26px;
+  border: 1px solid #747775;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.landingPhoneField:focus-within {
+  border-color: #1f1f1f;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+}
+
+.landingPhonePrefix {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-right: 2px;
+}
+
+.landingPhoneFlag {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.landingPhoneCode {
+  font-family: var(--font-dm-sans);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.2;
+  color: #1f1f1f;
+  letter-spacing: -0.2px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.landingPhoneDivider {
+  width: 1px;
+  height: 22px;
+  margin: 0 10px;
+  background: #c6c6c6;
+  flex-shrink: 0;
+}
+
+.landingPhoneInput {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  min-height: 52px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-dm-sans);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.2;
+  letter-spacing: -0.2px;
+  color: #1f1f1f;
+  -webkit-font-smoothing: antialiased;
+}
+
+.landingPhoneInput::placeholder {
+  color: #8e8e93;
+  font-weight: 500;
+}
+
+.landingPhoneSubmit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-left: 4px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: #1f1f1f;
+  color: #ffffff;
+  cursor: pointer;
+  transition: transform 0.1s ease, opacity 0.15s ease;
+}
+
+.landingPhoneSubmit:hover {
+  opacity: 0.9;
+}
+
+.landingPhoneSubmit:active {
+  transform: scale(0.96);
+}
+
+.landingPhoneSubmitIcon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.4;
 }
 
 .landingTerms {

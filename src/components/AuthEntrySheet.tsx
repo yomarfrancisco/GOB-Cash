@@ -128,6 +128,13 @@ export default function AuthEntrySheet() {
     }
   }, [authEntryOpen, authMode])
 
+  /** Display Moz national digits as 84 123 4567 while keeping raw digits in state. */
+  const formatMzNational = (digits: string) => {
+    if (digits.length <= 2) return digits
+    if (digits.length <= 5) return `${digits.slice(0, 2)} ${digits.slice(2)}`
+    return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5)}`
+  }
+
   const isDisabled = identifier.trim().length === 0
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -416,23 +423,52 @@ export default function AuthEntrySheet() {
                   <span className={styles.landingPayoutCaret} aria-hidden />
                 </span>
               </h1>
-              <button
-                type="button"
-                className={styles.landingGoogleButton}
-                onClick={handleGoogleClick}
-                aria-label="Continue with Google"
+              {/* Phone entry UI preview — Firebase OTP not wired from landing yet */}
+              <form
+                className={styles.landingPhoneField}
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  // Frontend preview only: no sendVerificationCode / navigation yet
+                }}
               >
-                <Image
-                  src="/assets/Group.svg"
-                  alt=""
-                  width={20}
-                  height={20}
-                  sizes="20px"
-                  quality={92}
-                  className={styles.landingGoogleIcon}
+                <span className={styles.landingPhonePrefix} aria-hidden={false}>
+                  <Image
+                    src="/assets/mozambique.png"
+                    alt=""
+                    width={22}
+                    height={22}
+                    sizes="22px"
+                    quality={92}
+                    className={styles.landingPhoneFlag}
+                  />
+                  <span className={styles.landingPhoneCode}>+258</span>
+                </span>
+                <span className={styles.landingPhoneDivider} aria-hidden />
+                <input
+                  ref={phoneInputRef}
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  name="phoneNational"
+                  className={styles.landingPhoneInput}
+                  value={formatMzNational(phoneNumber)}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 9)
+                    setPhoneNumber(digits)
+                  }}
+                  placeholder="84 123 4567"
+                  aria-label="Mozambique mobile number"
                 />
-                <span className={styles.landingGoogleLabel}>Continue with Google</span>
-              </button>
+                {phoneNumber.length >= 8 && (
+                  <button
+                    type="submit"
+                    className={styles.landingPhoneSubmit}
+                    aria-label="Continue"
+                  >
+                    <ArrowUp className={styles.landingPhoneSubmitIcon} />
+                  </button>
+                )}
+              </form>
               <p className={styles.landingTerms}>
                 <strong className={styles.landingTermsLead}>Dollars that find a way through</strong>
                 . PAGA gets your payments through where banks and stablecoins stall, and delivers
