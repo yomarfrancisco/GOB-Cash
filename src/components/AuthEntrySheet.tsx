@@ -48,8 +48,6 @@ export default function AuthEntrySheet() {
   
   // Throttle: max 3 OTP attempts per 60 seconds
   const [otpAttempts, setOtpAttempts] = useState<number[]>([])
-  const payoutPhrases = ['Rand out.', 'Dollars out.'] as const
-  const [payoutTyped, setPayoutTyped] = useState<string>(payoutPhrases[0])
 
   // Reset mode when sheet opens - default to signup, unless explicitly set to login
   useEffect(() => {
@@ -62,71 +60,8 @@ export default function AuthEntrySheet() {
       setPhoneNumber('')
       setIsResolving(false)
       setResolveStatus(null)
-      setPayoutTyped(payoutPhrases[0])
     }
   }, [authEntryOpen])
-
-  // Typewriter scrub: hold → delete letters → type next phrase → repeat.
-  useEffect(() => {
-    if (!authEntryOpen || authMode !== 'signup') return
-
-    const reduceMotion =
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    let phraseIndex = 0
-    let cancelled = false
-    let timer = 0
-
-    const wait = (ms: number) =>
-      new Promise<void>((resolve) => {
-        timer = window.setTimeout(resolve, ms)
-      })
-
-    const run = async () => {
-      setPayoutTyped(payoutPhrases[0])
-      while (!cancelled) {
-        const current = payoutPhrases[phraseIndex]
-        const next = payoutPhrases[(phraseIndex + 1) % payoutPhrases.length]
-
-        if (reduceMotion) {
-          await wait(5200)
-          if (cancelled) return
-          phraseIndex = (phraseIndex + 1) % payoutPhrases.length
-          setPayoutTyped(payoutPhrases[phraseIndex])
-          continue
-        }
-
-        // Hold long enough to read; scrub/type timings below stay as-is.
-        await wait(10000)
-        if (cancelled) return
-
-        for (let i = current.length; i >= 0; i -= 1) {
-          setPayoutTyped(current.slice(0, i))
-          await wait(38)
-          if (cancelled) return
-        }
-
-        await wait(180)
-        if (cancelled) return
-
-        for (let i = 1; i <= next.length; i += 1) {
-          setPayoutTyped(next.slice(0, i))
-          await wait(52)
-          if (cancelled) return
-        }
-
-        phraseIndex = (phraseIndex + 1) % payoutPhrases.length
-      }
-    }
-
-    void run()
-    return () => {
-      cancelled = true
-      if (timer) window.clearTimeout(timer)
-    }
-  }, [authEntryOpen, authMode])
 
   /** Display Moz national digits as 84 123 4567 while keeping raw digits in state. */
   const formatMzNational = (digits: string) => {
@@ -418,10 +353,7 @@ export default function AuthEntrySheet() {
               <h1 id={headlineId} className={styles.landingHeadline}>
                 Meticais in.
                 <br />
-                <span className={styles.landingPayoutSwap} aria-live="polite">
-                  <span className={styles.landingPayoutTyped}>{payoutTyped}</span>
-                  <span className={styles.landingPayoutCaret} aria-hidden />
-                </span>
+                Rand out.
               </h1>
               {/* Phone entry UI preview — Firebase OTP not wired from landing yet */}
               <form
@@ -435,9 +367,9 @@ export default function AuthEntrySheet() {
                   <Image
                     src="/assets/mozambique.png"
                     alt=""
-                    width={22}
-                    height={22}
-                    sizes="22px"
+                    width={20}
+                    height={20}
+                    sizes="20px"
                     quality={92}
                     className={styles.landingPhoneFlag}
                   />

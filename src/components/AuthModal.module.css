@@ -421,17 +421,18 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Landing phone field — WhatsApp-style national entry, same shell as Google CTA */
+/* Landing phone field — hug content like the old Google CTA */
 .landingPhoneField {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0;
-  width: min(100%, 320px);
-  min-height: 52px;
+  width: auto;
+  max-width: 100%;
+  min-height: 48px;
   margin: 0 0 12px;
-  padding: 0 8px 0 14px;
+  padding: 0 14px 0 14px;
   box-sizing: border-box;
-  border-radius: 26px;
+  border-radius: 24px;
   border: 1px solid #747775;
   background: #ffffff;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
@@ -448,12 +449,11 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  padding-right: 2px;
 }
 
 .landingPhoneFlag {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
@@ -472,17 +472,17 @@
 
 .landingPhoneDivider {
   width: 1px;
-  height: 22px;
-  margin: 0 10px;
+  height: 20px;
+  margin: 0 8px;
   background: #c6c6c6;
   flex-shrink: 0;
 }
 
 .landingPhoneInput {
-  flex: 1;
-  min-width: 0;
+  width: 11ch;
+  flex: 0 0 auto;
   height: 100%;
-  min-height: 52px;
+  min-height: 48px;
   border: none;
   outline: none;
   background: transparent;
@@ -504,9 +504,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  margin-left: 4px;
+  width: 32px;
+  height: 32px;
+  margin-left: 6px;
   flex-shrink: 0;
   border: none;
   border-radius: 50%;
