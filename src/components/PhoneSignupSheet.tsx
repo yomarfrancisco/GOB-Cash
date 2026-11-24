@@ -19,6 +19,20 @@ import {
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
+/** Display E.164 as +27 60 857 8513 / +258 84 123 4567 */
+function formatPhoneDisplay(phone: string | null): string {
+  if (!phone) return ''
+  if (phone.startsWith('+258') && phone.length >= 12) {
+    const n = phone.slice(4)
+    return `+258 ${n.slice(0, 2)} ${n.slice(2, 5)} ${n.slice(5)}`.trim()
+  }
+  if (phone.startsWith('+27') && phone.length >= 11) {
+    const n = phone.slice(3)
+    return `+27 ${n.slice(0, 2)} ${n.slice(2, 5)} ${n.slice(5)}`.trim()
+  }
+  return phone
+}
+
 export default function PhoneSignupSheet() {
   const {
     phoneSignupOpen,
@@ -142,6 +156,8 @@ export default function PhoneSignupSheet() {
         <div className={clsx(styles.content, styles.authEntryContent)}>
           <div className={styles.landingSignIn}>
             <h1 id={headlineId} className={styles.landingHeadline}>
+              Check your SMS.
+              <br />
               Enter the code.
             </h1>
             <form className={styles.landingOtpField} onSubmit={handleSubmit}>
@@ -178,6 +194,12 @@ export default function PhoneSignupSheet() {
                 </button>
               )}
             </form>
+            {phoneSignupPhone && (
+              <p className={styles.landingTerms}>
+                A One-Time-Pin has been sent via SMS to{' '}
+                {formatPhoneDisplay(phoneSignupPhone)}.
+              </p>
+            )}
           </div>
         </div>
       </div>
