@@ -1,6 +1,7 @@
 /**
  * PhoneSignupSheet - OTP verification after landing phone SMS send.
  * Matches AuthEntrySheet landing language, backdrop, and left-aligned layout.
+ * Codes are verified via Twilio Verify → Firebase custom token.
  */
 
 'use client'
@@ -11,7 +12,10 @@ import clsx from 'clsx'
 import { ArrowUp } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { useNotificationStore } from '@/store/notifications'
-import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth'
+import {
+  mapTwilioCallableError,
+  twilioVerifyOtpAndSignIn,
+} from '@/lib/auth/twilioPhoneAuth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
@@ -19,20 +23,18 @@ export default function PhoneSignupSheet() {
   const {
     phoneSignupOpen,
     closePhoneSignup,
-    closeAllAuth,
     dismissAuth,
     openAuthEntrySignup,
-    phoneConfirmationResult,
+    phoneSignupPhone,
     clearPhoneAuth,
   } = useAuthStore()
   const { pushNotification } = useNotificationStore()
-  const { verifyCode } = useFirebasePhoneAuth()
   const [otpCode, setOtpCode] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const otpInputRef = useRef<HTMLInputElement>(null)
 
   const canSubmit =
-    otpCode.trim().length === 6 && !isSubmitting && phoneConfirmationResult !== null
+    otpCode.trim().length === 6 && !isSubmitting && Boolean(phoneSignupPhone)
 
   useEffect(() => {
     if (phoneSignupOpen) {
@@ -73,14 +75,13 @@ export default function PhoneSignupSheet() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!canSubmit || !phoneConfirmationResult) return
+    if (!canSubmit || !phoneSignupPhone) return
 
     setIsSubmitting(true)
 
     try {
-      await verifyCode(phoneConfirmationResult, otpCode.trim())
+      await twilioVerifyOtpAndSignIn(phoneSignupPhone, otpCode.trim())
       clearPhoneAuth()
-      closeAllAuth()
       setIsSubmitting(false)
     } catch (error: any) {
       setIsSubmitting(false)
@@ -88,7 +89,7 @@ export default function PhoneSignupSheet() {
       pushNotification({
         kind: 'payment_failed',
         title: 'Verification failed',
-        body: error.message || 'Please try again',
+        body: mapTwilioCallableError(error),
         actor: { type: 'system' },
       })
     }

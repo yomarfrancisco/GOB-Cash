@@ -17,6 +17,7 @@ import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth'
 import { useNotificationStore } from '@/store/notifications'
 import { usePhoneSignals } from '@/hooks/usePhoneSignals'
 import { resolveSadcPhone } from '@/lib/phone/resolveSadcPhone'
+import { mapTwilioCallableError, twilioSendOtp } from '@/lib/auth/twilioPhoneAuth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
@@ -56,8 +57,7 @@ export default function AuthEntrySheet() {
     setPhoneResolutionMetadata
   } = useAuthStore()
   const { signInWithGoogle } = useFirebaseAuth()
-  const { sendVerificationCode, normalizePhoneNumber, isSendingCode } =
-    useFirebasePhoneAuth()
+  const { sendVerificationCode, normalizePhoneNumber } = useFirebasePhoneAuth()
   const { pushNotification } = useNotificationStore()
   const phoneSignals = usePhoneSignals()
   const [identifier, setIdentifier] = useState('')
@@ -72,8 +72,7 @@ export default function AuthEntrySheet() {
   // Throttle: max 3 OTP attempts per 60 seconds
   const [otpAttempts, setOtpAttempts] = useState<number[]>([])
   const landingPhone = LANDING_PHONE_COUNTRIES[phoneCountry]
-  const canSendLandingOtp =
-    phoneNumber.length >= 8 && !isSendingCode && !isResolving
+  const canSendLandingOtp = phoneNumber.length >= 8 && !isResolving
 
   const buildLandingE164 = () => {
     let national = phoneNumber.replace(/\D/g, '')
@@ -102,6 +101,7 @@ export default function AuthEntrySheet() {
     const e164 = buildLandingE164()
     setIsResolving(true)
     setPhoneSignupPhone(e164)
+    setPhoneConfirmationResult(null)
     if (phoneSignals) {
       setPhoneResolutionMetadata({
         phoneRaw: `${landingPhone.dial} ${phoneNumber}`,
@@ -124,8 +124,7 @@ export default function AuthEntrySheet() {
     }, 220)
 
     try {
-      const confirmationResult = await sendVerificationCode(e164)
-      setPhoneConfirmationResult(confirmationResult)
+      await twilioSendOtp(e164)
       setOtpAttempts([...recentAttempts, now])
       setIsResolving(false)
     } catch (error: any) {
@@ -142,7 +141,7 @@ export default function AuthEntrySheet() {
       pushNotification({
         kind: 'payment_failed',
         title: 'Failed to send SMS',
-        body: error?.message || 'Please check the number and try again',
+        body: mapTwilioCallableError(error),
         actor: { type: 'system' },
       })
     }

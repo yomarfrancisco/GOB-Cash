@@ -90,4 +90,5 @@ export {
   admin_simulateNext72hDesk,
   admin_exitDeskPlan,
 } from './tx/adminConversionRouting'
+export { auth_twilioSendOtp, auth_twilioVerifyOtp } from './auth/twilioPhoneAuth'
 
