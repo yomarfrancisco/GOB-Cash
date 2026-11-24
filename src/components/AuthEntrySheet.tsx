@@ -21,6 +21,27 @@ import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
 type AuthMode = 'loginEntry' | 'signup'
+type LandingPhoneCountry = 'MZ' | 'ZA'
+
+const LANDING_PHONE_COUNTRIES: Record<
+  LandingPhoneCountry,
+  { dial: string; flag: string; placeholder: string; maxDigits: number; label: string }
+> = {
+  MZ: {
+    dial: '+258',
+    flag: '/assets/mozambique.png',
+    placeholder: '84 123 4567',
+    maxDigits: 9,
+    label: 'Mozambique',
+  },
+  ZA: {
+    dial: '+27',
+    flag: '/assets/south-africa.png',
+    placeholder: '82 123 4567',
+    maxDigits: 9,
+    label: 'South Africa',
+  },
+}
 
 export default function AuthEntrySheet() {
   const { 
@@ -42,12 +63,14 @@ export default function AuthEntrySheet() {
   const [authMode, setAuthMode] = useState<AuthMode>('signup')
   const [isPhoneSignupEditing, setIsPhoneSignupEditing] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [phoneCountry, setPhoneCountry] = useState<LandingPhoneCountry>('MZ')
   const [isResolving, setIsResolving] = useState(false)
   const [resolveStatus, setResolveStatus] = useState<string | null>(null)
   const phoneInputRef = useRef<HTMLInputElement>(null)
   
   // Throttle: max 3 OTP attempts per 60 seconds
   const [otpAttempts, setOtpAttempts] = useState<number[]>([])
+  const landingPhone = LANDING_PHONE_COUNTRIES[phoneCountry]
 
   // Reset mode when sheet opens - default to signup, unless explicitly set to login
   useEffect(() => {
@@ -58,16 +81,23 @@ export default function AuthEntrySheet() {
       setIdentifier('')
       setIsPhoneSignupEditing(false)
       setPhoneNumber('')
+      setPhoneCountry('MZ')
       setIsResolving(false)
       setResolveStatus(null)
     }
   }, [authEntryOpen])
 
-  /** Display Moz national digits as 84 123 4567 while keeping raw digits in state. */
-  const formatMzNational = (digits: string) => {
+  /** Display national digits as 84 123 4567 while keeping raw digits in state. */
+  const formatNationalDigits = (digits: string) => {
     if (digits.length <= 2) return digits
     if (digits.length <= 5) return `${digits.slice(0, 2)} ${digits.slice(2)}`
     return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5)}`
+  }
+
+  const toggleLandingPhoneCountry = () => {
+    setPhoneCountry((prev) => (prev === 'MZ' ? 'ZA' : 'MZ'))
+    setPhoneNumber('')
+    setTimeout(() => phoneInputRef.current?.focus(), 0)
   }
 
   const isDisabled = identifier.trim().length === 0
@@ -363,9 +393,16 @@ export default function AuthEntrySheet() {
                   // Frontend preview only: no sendVerificationCode / navigation yet
                 }}
               >
-                <span className={styles.landingPhonePrefix} aria-hidden={false}>
+                <button
+                  type="button"
+                  className={styles.landingPhonePrefix}
+                  onClick={toggleLandingPhoneCountry}
+                  aria-label={`Country ${landingPhone.label}. Tap to switch to ${
+                    phoneCountry === 'MZ' ? 'South Africa' : 'Mozambique'
+                  }`}
+                >
                   <Image
-                    src="/assets/mozambique.png"
+                    src={landingPhone.flag}
                     alt=""
                     width={20}
                     height={20}
@@ -373,8 +410,8 @@ export default function AuthEntrySheet() {
                     quality={92}
                     className={styles.landingPhoneFlag}
                   />
-                  <span className={styles.landingPhoneCode}>+258</span>
-                </span>
+                  <span className={styles.landingPhoneCode}>{landingPhone.dial}</span>
+                </button>
                 <span className={styles.landingPhoneDivider} aria-hidden />
                 <input
                   ref={phoneInputRef}
@@ -383,13 +420,15 @@ export default function AuthEntrySheet() {
                   autoComplete="tel-national"
                   name="phoneNational"
                   className={styles.landingPhoneInput}
-                  value={formatMzNational(phoneNumber)}
+                  value={formatNationalDigits(phoneNumber)}
                   onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, '').slice(0, 9)
+                    const digits = e.target.value
+                      .replace(/\D/g, '')
+                      .slice(0, landingPhone.maxDigits)
                     setPhoneNumber(digits)
                   }}
-                  placeholder="84 123 4567"
-                  aria-label="Mozambique mobile number"
+                  placeholder={landingPhone.placeholder}
+                  aria-label={`${landingPhone.label} mobile number`}
                 />
                 {phoneNumber.length >= 8 && (
                   <button
