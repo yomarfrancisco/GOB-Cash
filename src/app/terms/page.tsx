@@ -8,12 +8,13 @@ export const metadata: Metadata = {
 }
 
 const page: React.CSSProperties = {
-  minHeight: '100vh',
+  minHeight: '100%',
   padding: '48px 24px 96px',
   maxWidth: 720,
   margin: '0 auto',
   fontFamily: "'DM Sans', system-ui, sans-serif",
   color: '#18181b',
+  background: '#fff',
 }
 
 const muted: React.CSSProperties = {
