@@ -505,9 +505,9 @@ export default function AuthEntrySheet() {
                   <button
                     type="submit"
                     className={styles.landingPhoneSubmit}
-                    aria-label={isSendingCode || isResolving ? 'Sending code' : 'Continue'}
+                    aria-label={isResolving ? 'Sending code' : 'Continue'}
                     disabled={!canSendLandingOtp}
-                    aria-busy={isSendingCode || isResolving}
+                    aria-busy={isResolving}
                   >
                     <ArrowUp className={styles.landingPhoneSubmitIcon} />
                   </button>
