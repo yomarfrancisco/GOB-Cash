@@ -1,8 +1,6 @@
 /**
- * PhoneSignupSheet - Phone sign-up sheet with OTP verification
- * 
- * Form sheet for phone sign-up flow. Uses sign_up - phone.png background.
- * Contains OTP code input for SMS verification.
+ * PhoneSignupSheet - OTP verification after landing phone SMS send.
+ * Matches AuthEntrySheet landing language, backdrop, and left-aligned layout.
  */
 
 'use client'
@@ -17,16 +15,29 @@ import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
+const TERMS_URL = '/terms'
+
+function formatPhoneHint(phone: string | null): string {
+  if (!phone) return 'your phone'
+  // Keep dial code + last 3 digits readable
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length < 4) return phone
+  const last3 = digits.slice(-3)
+  if (phone.startsWith('+258')) return `+258 ··· ··· ${last3}`
+  if (phone.startsWith('+27')) return `+27 ··· ··· ${last3}`
+  return `${phone.slice(0, 4)} ··· ${last3}`
+}
+
 export default function PhoneSignupSheet() {
-  const { 
-    phoneSignupOpen, 
+  const {
+    phoneSignupOpen,
     closePhoneSignup,
     closeAllAuth,
     dismissAuth,
     openAuthEntrySignup,
     phoneSignupPhone,
     phoneConfirmationResult,
-    clearPhoneAuth
+    clearPhoneAuth,
   } = useAuthStore()
   const { pushNotification } = useNotificationStore()
   const { verifyCode } = useFirebasePhoneAuth()
@@ -34,18 +45,25 @@ export default function PhoneSignupSheet() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const otpInputRef = useRef<HTMLInputElement>(null)
 
-  const canSubmit = otpCode.trim().length === 6 && !isSubmitting && phoneConfirmationResult !== null
-  const isDisabled = !canSubmit
+  const canSubmit =
+    otpCode.trim().length === 6 && !isSubmitting && phoneConfirmationResult !== null
 
-  // Detect autofill - check periodically if input has value but state doesn't
+  useEffect(() => {
+    if (phoneSignupOpen) {
+      setOtpCode('')
+      setIsSubmitting(false)
+      setTimeout(() => otpInputRef.current?.focus(), 280)
+    }
+  }, [phoneSignupOpen])
+
+  // Detect autofill — iOS sometimes fills without firing onChange
   useEffect(() => {
     if (!phoneSignupOpen || !otpInputRef.current) return
 
     const checkAutofill = () => {
       const input = otpInputRef.current
       if (input && input.value && !otpCode) {
-        const numericValue = input.value.replace(/\D/g, '').slice(0, 6)
-        setOtpCode(numericValue)
+        setOtpCode(input.value.replace(/\D/g, '').slice(0, 6))
       }
     }
 
@@ -69,7 +87,7 @@ export default function PhoneSignupSheet() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (isDisabled || !phoneConfirmationResult) return
+    if (!canSubmit || !phoneConfirmationResult) return
 
     setIsSubmitting(true)
 
@@ -80,7 +98,7 @@ export default function PhoneSignupSheet() {
       setIsSubmitting(false)
     } catch (error: any) {
       setIsSubmitting(false)
-      
+
       pushNotification({
         kind: 'payment_failed',
         title: 'Verification failed',
@@ -90,15 +108,6 @@ export default function PhoneSignupSheet() {
     }
   }
 
-  const handleGoToLogin = () => {
-    closePhoneSignup()
-    clearPhoneAuth()
-    setTimeout(() => {
-      const { openAuthEntryLogin } = useAuthStore.getState()
-      openAuthEntryLogin()
-    }, 220)
-  }
-
   const handleCloseAll = () => {
     clearPhoneAuth()
     dismissAuth()
@@ -106,113 +115,94 @@ export default function PhoneSignupSheet() {
 
   if (!phoneSignupOpen) return null
 
+  const headlineId = 'phone-otp-headline'
+
   return (
-    <ActionSheet 
-      open={phoneSignupOpen} 
-      onClose={handleCloseAll} 
-      title="" 
-      size="tall" 
-      className="handAuthSheet phoneSignupSheet"
+    <ActionSheet
+      open={phoneSignupOpen}
+      onClose={handleCloseAll}
+      title=""
+      size="tall"
+      className="handAuthSheet"
+      ariaLabelledBy={headlineId}
     >
       <div className={styles.handAuthWrapper}>
-        <div className={styles.handAuthRootPhone}>
+        <div className={styles.handAuthRoot}>
           <Image
-            src="/assets/sign_up - phone.png"
+            src="/assets/sign up_first contact091120264.png"
             alt=""
             fill
             quality={92}
             sizes="100vw"
-            style={{ objectFit: 'cover', objectPosition: 'center' }}
+            style={{ objectFit: 'cover', objectPosition: 'center 15%' }}
           />
         </div>
         <button
           type="button"
           className={styles.passwordBackButton}
           onClick={handleBackToSignupOptions}
-          aria-label="Back to sign up options"
+          aria-label="Back to phone number"
         >
           <Image
             src="/assets/back_ui.svg"
-            alt="Back"
+            alt=""
             width={24}
             height={24}
             sizes="24px"
             quality={92}
           />
         </button>
-        <div className={clsx(styles.content, styles.passwordContent)}>
-          <form className={clsx(styles.form, styles.passwordForm)} onSubmit={handleSubmit}>
-            <label className={styles.field}>
-              <div className={clsx(styles.inputShellPill, styles.passwordInputShellPill)}>
-                <input
-                  ref={otpInputRef}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  className={styles.inputPill}
-                  value={otpCode}
-                  onChange={(e) => {
-                    // Only allow digits, max 6
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 6)
-                    setOtpCode(value)
-                  }}
-                  onInput={(e) => {
-                    const input = e.currentTarget
-                    const numericValue = input.value.replace(/\D/g, '').slice(0, 6)
-                    if (numericValue !== otpCode) {
-                      setOtpCode(numericValue)
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && canSubmit) {
-                      e.preventDefault()
-                      handleSubmit(e)
-                    }
-                  }}
-                  placeholder="Enter 6-digit code"
-                />
-                <button
-                  type="button"
-                  className={clsx(styles.submitButton, {
-                    [styles.submitButtonDisabled]: !canSubmit,
-                  })}
-                  onClick={canSubmit ? (e) => {
+        <div className={clsx(styles.content, styles.authEntryContent)}>
+          <div className={styles.landingSignIn}>
+            <h1 id={headlineId} className={styles.landingHeadline}>
+              Check your SMS.
+              <br />
+              Enter the code.
+            </h1>
+            <form className={styles.landingOtpField} onSubmit={handleSubmit}>
+              <input
+                ref={otpInputRef}
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                name="otp"
+                className={styles.landingOtpInput}
+                value={otpCode}
+                onChange={(e) => {
+                  setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && canSubmit) {
                     e.preventDefault()
-                    handleSubmit(e)
-                  } : undefined}
-                  aria-label="Submit"
-                  aria-disabled={!canSubmit}
+                    void handleSubmit(e)
+                  }
+                }}
+                placeholder="6-digit code"
+                aria-label="SMS verification code"
+              />
+              {otpCode.length === 6 && (
+                <button
+                  type="submit"
+                  className={styles.landingPhoneSubmit}
+                  aria-label={isSubmitting ? 'Verifying' : 'Continue'}
+                  disabled={!canSubmit}
+                  aria-busy={isSubmitting}
                 >
-                  <ArrowUp className={styles.submitButtonIcon} />
+                  <ArrowUp className={styles.landingPhoneSubmitIcon} />
                 </button>
-              </div>
-            </label>
-            <div className={styles.legalBlock}>
-              <p className={styles.legal}>
-                We sell <strong>dollars to closed-currency markets</strong>.
-              </p>
-              <p className={styles.legalAuth}>
-                <em>
-                  Authorised FSP 52815 and Co-op bank{' '}
-                  <a
-                    href="https://drive.google.com/file/d/1vy3Cr0R4Up3hXC5L1cezYA2PPc1f1LCg/view?usp=sharing"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >CFI0024</a>.
-                </em>
-              </p>
-            </div>
-            <p className={styles.switchAuthText}>
-              Already have an account?{' '}
-              <button
-                type="button"
-                className={styles.switchAuthLink}
-                onClick={handleGoToLogin}
-              >
-                Log in
-              </button>
+              )}
+            </form>
+            <p className={styles.landingTerms}>
+              Sent to {formatPhoneHint(phoneSignupPhone)}.{' '}
+              <strong className={styles.landingTermsLead}>Dollars that find a way through</strong>
+              . PAGA gets your payments through where banks and stablecoins stall, and delivers
+              within 24 hours.{' '}
+              <a href={TERMS_URL} className={styles.landingTermsLink}>
+                Terms apply.
+              </a>
             </p>
-          </form>
+          </div>
         </div>
       </div>
     </ActionSheet>

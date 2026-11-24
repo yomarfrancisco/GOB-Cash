@@ -560,6 +560,52 @@
   stroke-width: 2.4;
 }
 
+/* OTP field — same white pill language as landing phone entry */
+.landingOtpField {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  width: auto;
+  max-width: 100%;
+  min-height: 48px;
+  margin: 0 0 12px;
+  padding: 0 8px 0 18px;
+  box-sizing: border-box;
+  border-radius: 24px;
+  border: 1px solid #747775;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.landingOtpField:focus-within {
+  border-color: #1f1f1f;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+}
+
+.landingOtpInput {
+  width: 9.5ch;
+  flex: 0 0 auto;
+  height: 100%;
+  min-height: 48px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-dm-sans);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  color: #1f1f1f;
+  -webkit-font-smoothing: antialiased;
+}
+
+.landingOtpInput::placeholder {
+  color: #8e8e93;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+}
+
 .landingTerms {
   margin: 0;
   padding: 0;
