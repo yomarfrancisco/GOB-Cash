@@ -516,7 +516,7 @@ export default function AuthEntrySheet() {
               <p className={styles.landingTerms}>
                 <strong className={styles.landingTermsLead}>Dollars that find a way through</strong>
                 . PAGA gets your payments through where banks and stablecoins stall, and delivers
-                within 24 hours.{' '}
+                within 18 hours.{' '}
                 <a href={TERMS_URL} className={styles.landingTermsLink}>
                   Terms apply.
                 </a>
