@@ -14,6 +14,7 @@ import { useAuthStore } from '@/store/auth'
 import { useNotificationStore } from '@/store/notifications'
 import {
   mapTwilioCallableError,
+  twilioSendOtp,
   twilioVerifyOtpAndSignIn,
 } from '@/lib/auth/twilioPhoneAuth'
 import ActionSheet from './ActionSheet'
@@ -45,6 +46,7 @@ export default function PhoneSignupSheet() {
   const { pushNotification } = useNotificationStore()
   const [otpCode, setOtpCode] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isResending, setIsResending] = useState(false)
   const otpInputRef = useRef<HTMLInputElement>(null)
 
   const canSubmit =
@@ -54,6 +56,7 @@ export default function PhoneSignupSheet() {
     if (phoneSignupOpen) {
       setOtpCode('')
       setIsSubmitting(false)
+      setIsResending(false)
       setTimeout(() => otpInputRef.current?.focus(), 280)
     }
   }, [phoneSignupOpen])
@@ -112,6 +115,32 @@ export default function PhoneSignupSheet() {
   const handleCloseAll = () => {
     clearPhoneAuth()
     dismissAuth()
+  }
+
+  const handleResendOtp = async () => {
+    if (!phoneSignupPhone || isResending || isSubmitting) return
+
+    setIsResending(true)
+    try {
+      await twilioSendOtp(phoneSignupPhone)
+      setOtpCode('')
+      pushNotification({
+        kind: 'proof_of_payment',
+        title: 'Code resent',
+        body: `A new One-Time-Pin was sent to ${formatPhoneDisplay(phoneSignupPhone)}.`,
+        actor: { type: 'system' },
+      })
+      setTimeout(() => otpInputRef.current?.focus(), 0)
+    } catch (error: any) {
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Could not resend code',
+        body: mapTwilioCallableError(error),
+        actor: { type: 'system' },
+      })
+    } finally {
+      setIsResending(false)
+    }
   }
 
   if (!phoneSignupOpen) return null
@@ -197,7 +226,17 @@ export default function PhoneSignupSheet() {
             {phoneSignupPhone && (
               <p className={styles.landingTerms}>
                 A One-Time-Pin has been sent via SMS to{' '}
-                {formatPhoneDisplay(phoneSignupPhone)}.
+                {formatPhoneDisplay(phoneSignupPhone)}. Didn&apos;t get a code?{' '}
+                <button
+                  type="button"
+                  className={clsx(styles.landingTermsLink, styles.landingTermsLead)}
+                  onClick={() => void handleResendOtp()}
+                  disabled={isResending || isSubmitting}
+                  aria-busy={isResending}
+                >
+                  Resend
+                </button>{' '}
+                the OTP.
               </p>
             )}
           </div>
