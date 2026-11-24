@@ -101,39 +101,44 @@ export default function AuthEntrySheet() {
 
     const e164 = buildLandingE164()
     setIsResolving(true)
-    setResolveStatus('Sending verification code…')
+    setPhoneSignupPhone(e164)
+    if (phoneSignals) {
+      setPhoneResolutionMetadata({
+        phoneRaw: `${landingPhone.dial} ${phoneNumber}`,
+        phoneE164: e164,
+        phoneCountry: phoneCountry,
+        phoneCountryConfidence: 1,
+        phoneCountryCandidates: [
+          { iso2: phoneCountry, score: 1, reasons: ['landing_toggle'] },
+        ],
+        signupTimezone: phoneSignals.timezone || null,
+        signupLocale: phoneSignals.locale || null,
+        geoAtSignup: phoneSignals.geo || null,
+      })
+    }
+
+    // Leave signup copy unchanged — go straight to OTP sheet while SMS sends.
+    closeAuthEntry()
+    setTimeout(() => {
+      openPhoneSignup()
+    }, 220)
 
     try {
-      setPhoneSignupPhone(e164)
-      if (phoneSignals) {
-        setPhoneResolutionMetadata({
-          phoneRaw: `${landingPhone.dial} ${phoneNumber}`,
-          phoneE164: e164,
-          phoneCountry: phoneCountry,
-          phoneCountryConfidence: 1,
-          phoneCountryCandidates: [
-            { iso2: phoneCountry, score: 1, reasons: ['landing_toggle'] },
-          ],
-          signupTimezone: phoneSignals.timezone || null,
-          signupLocale: phoneSignals.locale || null,
-          geoAtSignup: phoneSignals.geo || null,
-        })
-      }
-
       const confirmationResult = await sendVerificationCode(e164)
       setPhoneConfirmationResult(confirmationResult)
       setOtpAttempts([...recentAttempts, now])
       setIsResolving(false)
-      setResolveStatus(null)
-
-      closeAuthEntry()
-      setTimeout(() => {
-        openPhoneSignup()
-      }, 220)
     } catch (error: any) {
       setIsResolving(false)
-      setResolveStatus(null)
       setOtpAttempts([...recentAttempts, now])
+      // Return to signup if SMS failed after we already opened OTP.
+      const { closePhoneSignup, clearPhoneAuth, openAuthEntrySignup } =
+        useAuthStore.getState()
+      closePhoneSignup()
+      clearPhoneAuth()
+      setTimeout(() => {
+        openAuthEntrySignup()
+      }, 220)
       pushNotification({
         kind: 'payment_failed',
         title: 'Failed to send SMS',
@@ -509,11 +514,6 @@ export default function AuthEntrySheet() {
                   </button>
                 )}
               </form>
-              {resolveStatus && (
-                <p className={styles.landingPhoneStatus} role="status">
-                  {resolveStatus}
-                </p>
-              )}
               <p className={styles.landingTerms}>
                 <strong className={styles.landingTermsLead}>Dollars that find a way through</strong>
                 . PAGA gets your payments through where banks and stablecoins stall, and delivers

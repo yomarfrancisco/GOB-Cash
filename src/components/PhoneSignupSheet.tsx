@@ -15,17 +15,18 @@ import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth'
 import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
-const TERMS_URL = '/terms'
-
-function formatPhoneHint(phone: string | null): string {
-  if (!phone) return 'your phone'
-  // Keep dial code + last 3 digits readable
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length < 4) return phone
-  const last3 = digits.slice(-3)
-  if (phone.startsWith('+258')) return `+258 ··· ··· ${last3}`
-  if (phone.startsWith('+27')) return `+27 ··· ··· ${last3}`
-  return `${phone.slice(0, 4)} ··· ${last3}`
+/** Display E.164 as +27 60 857 8513 / +258 84 123 4567 */
+function formatPhoneDisplay(phone: string | null): string {
+  if (!phone) return ''
+  if (phone.startsWith('+258') && phone.length >= 12) {
+    const n = phone.slice(4)
+    return `+258 ${n.slice(0, 2)} ${n.slice(2, 5)} ${n.slice(5)}`.trim()
+  }
+  if (phone.startsWith('+27') && phone.length >= 11) {
+    const n = phone.slice(3)
+    return `+27 ${n.slice(0, 2)} ${n.slice(2, 5)} ${n.slice(5)}`.trim()
+  }
+  return phone
 }
 
 export default function PhoneSignupSheet() {
@@ -194,13 +195,11 @@ export default function PhoneSignupSheet() {
               )}
             </form>
             <p className={styles.landingTerms}>
-              Sent to {formatPhoneHint(phoneSignupPhone)}.{' '}
-              <strong className={styles.landingTermsLead}>Dollars that find a way through</strong>
-              . PAGA gets your payments through where banks and stablecoins stall, and delivers
-              within 24 hours.{' '}
-              <a href={TERMS_URL} className={styles.landingTermsLink}>
-                Terms apply.
-              </a>
+              {phoneConfirmationResult
+                ? `Code sent to ${formatPhoneDisplay(phoneSignupPhone)}.`
+                : phoneSignupPhone
+                  ? `Sending to ${formatPhoneDisplay(phoneSignupPhone)}…`
+                  : 'Sending code…'}
             </p>
           </div>
         </div>
