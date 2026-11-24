@@ -117,7 +117,7 @@ export default function PhoneSignupSheet() {
       <div className={styles.handAuthWrapper}>
         <div className={styles.handAuthRootPhone}>
           <Image
-            src="/assets/sign_up - phone2.png"
+            src="/assets/sign_up - phone.png"
             alt=""
             fill
             quality={92}

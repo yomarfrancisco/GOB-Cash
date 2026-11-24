@@ -56,7 +56,8 @@ export default function AuthEntrySheet() {
     setPhoneResolutionMetadata
   } = useAuthStore()
   const { signInWithGoogle } = useFirebaseAuth()
-  const { sendVerificationCode, normalizePhoneNumber } = useFirebasePhoneAuth()
+  const { sendVerificationCode, normalizePhoneNumber, isSendingCode } =
+    useFirebasePhoneAuth()
   const { pushNotification } = useNotificationStore()
   const phoneSignals = usePhoneSignals()
   const [identifier, setIdentifier] = useState('')
@@ -71,6 +72,76 @@ export default function AuthEntrySheet() {
   // Throttle: max 3 OTP attempts per 60 seconds
   const [otpAttempts, setOtpAttempts] = useState<number[]>([])
   const landingPhone = LANDING_PHONE_COUNTRIES[phoneCountry]
+  const canSendLandingOtp =
+    phoneNumber.length >= 8 && !isSendingCode && !isResolving
+
+  const buildLandingE164 = () => {
+    let national = phoneNumber.replace(/\D/g, '')
+    if (phoneCountry === 'ZA' && national.startsWith('0')) {
+      national = national.slice(1)
+    }
+    return `${landingPhone.dial}${national}`
+  }
+
+  const handleLandingPhoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canSendLandingOtp) return
+
+    const now = Date.now()
+    const recentAttempts = otpAttempts.filter((timestamp) => now - timestamp < 60000)
+    if (recentAttempts.length >= 3) {
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Too many attempts',
+        body: 'Please try again in a minute',
+        actor: { type: 'system' },
+      })
+      return
+    }
+
+    const e164 = buildLandingE164()
+    setIsResolving(true)
+    setResolveStatus('Sending verification code…')
+
+    try {
+      setPhoneSignupPhone(e164)
+      if (phoneSignals) {
+        setPhoneResolutionMetadata({
+          phoneRaw: `${landingPhone.dial} ${phoneNumber}`,
+          phoneE164: e164,
+          phoneCountry: phoneCountry,
+          phoneCountryConfidence: 1,
+          phoneCountryCandidates: [
+            { iso2: phoneCountry, score: 1, reasons: ['landing_toggle'] },
+          ],
+          signupTimezone: phoneSignals.timezone || null,
+          signupLocale: phoneSignals.locale || null,
+          geoAtSignup: phoneSignals.geo || null,
+        })
+      }
+
+      const confirmationResult = await sendVerificationCode(e164)
+      setPhoneConfirmationResult(confirmationResult)
+      setOtpAttempts([...recentAttempts, now])
+      setIsResolving(false)
+      setResolveStatus(null)
+
+      closeAuthEntry()
+      setTimeout(() => {
+        openPhoneSignup()
+      }, 220)
+    } catch (error: any) {
+      setIsResolving(false)
+      setResolveStatus(null)
+      setOtpAttempts([...recentAttempts, now])
+      pushNotification({
+        kind: 'payment_failed',
+        title: 'Failed to send SMS',
+        body: error?.message || 'Please check the number and try again',
+        actor: { type: 'system' },
+      })
+    }
+  }
 
   // Reset mode when sheet opens - default to signup, unless explicitly set to login
   useEffect(() => {
@@ -385,13 +456,9 @@ export default function AuthEntrySheet() {
                 <br />
                 Rand out.
               </h1>
-              {/* Phone entry UI preview — Firebase OTP not wired from landing yet */}
               <form
                 className={styles.landingPhoneField}
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  // Frontend preview only: no sendVerificationCode / navigation yet
-                }}
+                onSubmit={handleLandingPhoneSubmit}
               >
                 <button
                   type="button"
@@ -434,12 +501,19 @@ export default function AuthEntrySheet() {
                   <button
                     type="submit"
                     className={styles.landingPhoneSubmit}
-                    aria-label="Continue"
+                    aria-label={isSendingCode || isResolving ? 'Sending code' : 'Continue'}
+                    disabled={!canSendLandingOtp}
+                    aria-busy={isSendingCode || isResolving}
                   >
                     <ArrowUp className={styles.landingPhoneSubmitIcon} />
                   </button>
                 )}
               </form>
+              {resolveStatus && (
+                <p className={styles.landingPhoneStatus} role="status">
+                  {resolveStatus}
+                </p>
+              )}
               <p className={styles.landingTerms}>
                 <strong className={styles.landingTermsLead}>Dollars that find a way through</strong>
                 . PAGA gets your payments through where banks and stablecoins stall, and delivers
