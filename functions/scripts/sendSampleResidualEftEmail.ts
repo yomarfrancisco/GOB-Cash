@@ -156,24 +156,12 @@ async function main() {
     '',
     `Please find attached invoice ${invoiceNumber} issued by ${issuerName} (South Africa).`,
     '',
-    'Kindly arrange the EFT below for today’s residual settlement corridor:',
+    'Kindly arrange the EFT below for settlement today ideally:',
+    `*Invoice total: ${formatZarEn(amountZar)}*.`,
     '',
-    `Invoice total: ${formatZarEn(amountZar)}`,
-    `Residual covered: ${residualMzn.toFixed(2)} MZN at ${sellRate.toFixed(4)} MZN/ZAR`,
-    `Credit required by: ${formatPtDate(creditByMs)}`,
-    `Route: ${route.label}`,
+    `Amount: ${residualMzn.toFixed(2)} MZN (expected rate approximately ${sellRate.toFixed(4)} MZN/ZAR)`,
     '',
-    'Remitting party (Mozambique)',
-    `Entity: ${payerName}`,
-    route.payer.nuit ? `NUIT: ${route.payer.nuit}` : null,
-    `Bank: ${route.payerAccount.bankName}`,
-    `Account name: ${route.payerAccount.accountName}`,
-    `Account number: ${route.payerAccount.accountNumber}`,
-    route.payerAccount.nib ? `NIB: ${route.payerAccount.nib}` : null,
-    route.payerAccount.iban ? `IBAN: ${route.payerAccount.iban}` : null,
-    route.payerAccount.swift ? `SWIFT: ${route.payerAccount.swift}` : null,
-    '',
-    'Beneficiary (South Africa)',
+    '*Recipient (South Africa)*',
     `Entity: ${issuerName}`,
     route.beneficiaryCompany.registrationNumber
       ? `Registration: ${route.beneficiaryCompany.registrationNumber}`
@@ -188,11 +176,10 @@ async function main() {
     'Please confirm if this amount can be processed on these terms, and advise once instructed.',
     '',
     'Kind regards,',
-    'Settlement Desk',
+    'Ygor Francisco',
     'Econometrica (Pty) Ltd trading as Paga',
-    'FSP 52815 · desk@mozpaga.xyz',
   ]
-    .filter(Boolean)
+    .filter((line) => line !== null)
     .join('\n')
 
   const bodyPt = [
@@ -200,24 +187,12 @@ async function main() {
     '',
     `Junto enviamos a factura ${invoiceNumber} emitida por ${issuerName} (África do Sul).`,
     '',
-    'Solicitamos a organização da seguinte EFT no corredor de liquidação residual de hoje:',
+    'Solicitamos a organização da seguinte EFT para liquidação preferencialmente ainda hoje:',
+    `*Total da factura: ${formatPtZar(amountZar)}*.`,
     '',
-    `Total da factura: ${formatPtZar(amountZar)}`,
-    `Residual coberto: ${residualMzn.toFixed(2)} MZN à taxa ${sellRate.toFixed(4)} MZN/ZAR`,
-    `Crédito previsto até: ${formatPtDate(creditByMs)}`,
-    `Rota: ${route.label}`,
+    `Montante: ${residualMzn.toFixed(2)} MZN (taxa esperada aproximadamente ${sellRate.toFixed(4)} MZN/ZAR)`,
     '',
-    'Parte remetente (Moçambique)',
-    `Entidade: ${payerName}`,
-    route.payer.nuit ? `NUIT: ${route.payer.nuit}` : null,
-    `Banco: ${route.payerAccount.bankName}`,
-    `Nome da conta: ${route.payerAccount.accountName}`,
-    `Número da conta: ${route.payerAccount.accountNumber}`,
-    route.payerAccount.nib ? `NIB: ${route.payerAccount.nib}` : null,
-    route.payerAccount.iban ? `IBAN: ${route.payerAccount.iban}` : null,
-    route.payerAccount.swift ? `SWIFT: ${route.payerAccount.swift}` : null,
-    '',
-    'Beneficiário (África do Sul)',
+    '*Beneficiário (África do Sul)*',
     `Entidade: ${issuerName}`,
     route.beneficiaryCompany.registrationNumber
       ? `Registo: ${route.beneficiaryCompany.registrationNumber}`
@@ -234,11 +209,10 @@ async function main() {
     'Agradecemos confirmação se o montante pode ser processado nestas condições, e aviso após a instrução.',
     '',
     'Com os melhores cumprimentos,',
-    'Secretariado de Liquidação',
+    'Ygor Francisco',
     'Econometrica (Pty) Ltd trading as Paga',
-    'FSP 52815 · desk@mozpaga.xyz',
   ]
-    .filter(Boolean)
+    .filter((line) => line !== null)
     .join('\n')
 
   const pdf = await renderInvoice({
@@ -263,12 +237,24 @@ async function main() {
     issuedAtMs: clockMs,
   })
 
-  const esc = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')
-  const html = `<!DOCTYPE html><html><body style="font-family:Arial;line-height:1.55;color:#222;max-width:640px">
-<p style="font-size:12px;color:#666">English</p><div>${esc(bodyEn)}</div>
-<hr/><p style="font-size:12px;color:#666">Português</p><div>${esc(bodyPt)}</div>
-<hr/><p style="font-size:12px;color:#884400">[TEST] Intended banker: ${route.banker.email}. Route ${route.key}.</p>
+  const markdownishToHtml = (text: string) => {
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    return text
+      .split('\n')
+      .map((line) => {
+        if (!line.trim()) return '<div style="height:12px"></div>'
+        return `<div style="margin:0 0 2px">${esc(line).replace(/\*([^*]+)\*/g, '<strong>$1</strong>')}</div>`
+      })
+      .join('')
+  }
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;line-height:1.55;color:#222;max-width:640px">
+<p style="font-size:12px;color:#666;margin:0 0 12px">English</p>
+<div style="margin-bottom:28px">${markdownishToHtml(bodyEn)}</div>
+<hr style="border:none;border-top:1px solid #ddd;margin:24px 0" />
+<p style="font-size:12px;color:#666;margin:0 0 12px">Português</p>
+<div style="margin-bottom:28px">${markdownishToHtml(bodyPt)}</div>
+<hr style="border:none;border-top:1px solid #ddd;margin:24px 0" />
+<p style="font-size:12px;color:#884400">[TEST] Intended banker: ${route.banker.email}. Route ${route.key}.</p>
 </body></html>`
 
   const apiKey = loadResendKey()

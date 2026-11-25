@@ -2,8 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Calculator, Check, Clock, Download, ExternalLink, X } from 'lucide-react'
-import { DoorStairwell } from '@/components/icons/DoorStairwell'
+import { Calculator, Check, Clock, Download, ExternalLink, LogOut, X } from 'lucide-react'
 import { logout } from '@/lib/logout'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
@@ -1994,7 +1993,7 @@ export function NotificationsList({
             void logout()
           }}
         >
-          <DoorStairwell size={22} strokeWidth={2} aria-hidden />
+          <LogOut size={22} strokeWidth={2} aria-hidden />
         </button>
         <button
           type="button"

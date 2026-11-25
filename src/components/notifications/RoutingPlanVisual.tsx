@@ -169,16 +169,82 @@ function resolvePlanState(params: {
   return 'on_time'
 }
 
+/** Live liquid (ZAR card) vs settled / already paid to bank — same math as the stack. */
+function resolveRoutingPlanLiquidVsBank(
+  plan: NonNullable<ActivityItem['routingPlan']>,
+  item: ActivityItem | undefined,
+  nowMs: number
+): { liquidZar: number; inBankZar: number; zarTotal: number; mznResidual: number } {
+  const zarTotal = Math.max(
+    Math.max(0, Number(plan.zarLiquid) || 0),
+    Number(plan.zarTotal) || 0
+  )
+  const planMznResidual = Math.max(0, Number(plan.mznResidual) || 0)
+  const sell = Number(plan.rate) > 0 ? Number(plan.rate) : 0
+  const inBankZar = orderAlreadyLiquidZar(plan, nowMs)
+  const remainingZar = Math.max(0, zarTotal - inBankZar)
+
+  const mznWallet = useWalletStore.getState().wallets?.cashMZN as
+    | {
+        liquidityQueuedAtMs?: number
+        nextOpenBookedZar?: number
+        nextOpenQueueAheadZar?: number
+        nextOpenReservePoolZar?: number
+        nextOpenComputedAtMs?: number
+      }
+    | undefined
+
+  const hasNextOpenPlan = Number(mznWallet?.nextOpenComputedAtMs) > 0
+  const journeyCeiling = routingPlanDripCeilingZar({
+    queueMzn: planMznResidual,
+    sellMznPerZar: sell,
+    nextOpenBookedZar: hasNextOpenPlan
+      ? Math.max(0, Number(mznWallet?.nextOpenBookedZar) || 0)
+      : null,
+    queueAheadZar: hasNextOpenPlan
+      ? Math.max(0, Number(mznWallet?.nextOpenQueueAheadZar) || 0)
+      : 0,
+    reservePoolZar: hasNextOpenPlan
+      ? Math.max(0, Number(mznWallet?.nextOpenReservePoolZar) || 0)
+      : null,
+  })
+  const sinceMs =
+    Number(mznWallet?.liquidityQueuedAtMs) > 0
+      ? Number(mznWallet?.liquidityQueuedAtMs)
+      : typeof item?.createdAt === 'number' && item.createdAt > 0
+        ? item.createdAt
+        : null
+  const drip = sharedDripProgress({
+    walletMzn: planMznResidual,
+    sellMznPerZar: sell,
+    nowMs,
+    sinceMs,
+    maxDripZar: Math.min(journeyCeiling, remainingZar),
+  })
+  const liquidZar =
+    Math.round(Math.min(zarTotal, inBankZar + drip.displayTransitZarOffset) * 100) / 100
+
+  return { liquidZar, inBankZar, zarTotal, mznResidual: planMznResidual }
+}
+
 export function formatRoutingPlanDeskSentence(
   plan: NonNullable<ActivityItem['routingPlan']>,
   item?: ActivityItem
 ): string {
   const nowMs = Date.now()
   const arriveAtMs = resolveArrivalMs(plan, nowMs)
-  const zarLiquid = Math.max(0, Number(plan.zarLiquid) || 0)
-  const zarTotal = Math.max(zarLiquid, Number(plan.zarTotal) || 0)
-  const mznResidual = Math.max(0, Number(plan.mznResidual) || 0)
-  const state = resolvePlanState({ nowMs, arriveAtMs, zarLiquid, zarTotal, mznResidual })
+  const { liquidZar, inBankZar, zarTotal, mznResidual } = resolveRoutingPlanLiquidVsBank(
+    plan,
+    item,
+    nowMs
+  )
+  const state = resolvePlanState({
+    nowMs,
+    arriveAtMs,
+    zarLiquid: inBankZar,
+    zarTotal,
+    mznResidual,
+  })
   const bankTag =
     String(plan.payoutBankTag || item?.payoutBankTag || '').trim() || 'your bank'
 
@@ -188,14 +254,20 @@ export function formatRoutingPlanDeskSentence(
     return `Arrived ${formatWhenFull(nowMs).replace(' · ', ' ')}.${lateBit}`
   }
   if (state === 'late') {
-    const remainingZar = Math.max(0, zarTotal - zarLiquid)
+    const remainingZar = Math.max(0, zarTotal - inBankZar)
     return `One bank is slow with ${formatDeskMinorZar(remainingZar)}. We moved it to another route. Nothing for you to do.`
   }
   if (state === 'final') {
     return `Booked with the bank. It goes to ${bankTag} when it clears.`
   }
-  if (zarLiquid > 0.005) {
-    return `${formatDeskMinorZar(zarLiquid)} is in your bank now. The rest is on its way.`
+  if (liquidZar > 0.005) {
+    if (!(inBankZar > 0.005)) {
+      return `${formatDeskMinorZar(liquidZar)} is liquid.`
+    }
+    if (Math.abs(liquidZar - inBankZar) < 0.005) {
+      return `${formatDeskMinorZar(liquidZar)} is liquid and in your bank.`
+    }
+    return `${formatDeskMinorZar(liquidZar)} is liquid. ${formatDeskMinorZar(inBankZar)} of it is already in your bank.`
   }
   return 'The rest is on its way.'
 }

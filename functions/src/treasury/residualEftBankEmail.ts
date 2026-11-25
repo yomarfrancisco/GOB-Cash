@@ -72,63 +72,55 @@ export function residualEftOutboundAllowlist(): string[] {
   return [...new Set<string>([...TEST_ALLOWLIST, ...configured])]
 }
 
+/** `*text*` → bold markers for HTML rendering. */
 function buildBodyEn(params: {
   route: EftRoute
   amountZar: number
   residualMzn: number
   sellRate: number
   invoiceNumber: string
-  creditByMs: number
 }): string {
   const { route } = params
-  const pay = route.payerAccount
   const ben = route.beneficiaryBank
+  const issuer = companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)
   const dear =
-    route.banker.salutation === 'Exma. Sra.' ? `Dear Ms ${route.banker.banker}` : `Dear Mr ${route.banker.banker}`
-  return [
+    route.banker.salutation === 'Exma. Sra.'
+      ? `Dear Ms ${route.banker.banker}`
+      : `Dear Mr ${route.banker.banker}`
+
+  const lines: string[] = [
     `${dear},`,
     '',
-    `Please find attached invoice ${params.invoiceNumber} issued by ${companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)} (South Africa).`,
+    `Please find attached invoice ${params.invoiceNumber} issued by ${issuer} (South Africa).`,
     '',
-    'Kindly arrange the EFT below for today’s residual settlement corridor:',
+    'Kindly arrange the EFT below for settlement today ideally:',
+    `*Invoice total: ${formatZarEn(params.amountZar)}*.`,
     '',
-    `Invoice total: ${formatZarEn(params.amountZar)}`,
-    `Residual covered: ${formatMznEn(params.residualMzn)} at ${params.sellRate.toFixed(4)} MZN/ZAR`,
-    `Credit required by: ${formatPtDate(params.creditByMs)}`,
-    `Route: ${route.label}`,
+    `Amount: ${formatMznEn(params.residualMzn)} (expected rate approximately ${params.sellRate.toFixed(4)} MZN/ZAR)`,
     '',
-    'Remitting party (Mozambique)',
-    `Entity: ${companyLabel(route.payer.legalName, route.payer.tradingAs)}`,
-    route.payer.nuit ? `NUIT: ${route.payer.nuit}` : null,
-    `Bank: ${pay.bankName}`,
-    `Account name: ${pay.accountName}`,
-    `Account number: ${pay.accountNumber}`,
-    pay.nib ? `NIB: ${pay.nib}` : null,
-    pay.iban ? `IBAN: ${pay.iban}` : null,
-    pay.swift ? `SWIFT: ${pay.swift}` : null,
-    '',
-    'Beneficiary (South Africa)',
-    `Entity: ${companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)}`,
-    route.beneficiaryCompany.registrationNumber
-      ? `Registration: ${route.beneficiaryCompany.registrationNumber}`
-      : null,
+    '*Recipient (South Africa)*',
+    `Entity: ${issuer}`,
+  ]
+  if (route.beneficiaryCompany.registrationNumber) {
+    lines.push(`Registration: ${route.beneficiaryCompany.registrationNumber}`)
+  }
+  lines.push(
     `Bank: ${ben.bankName}`,
     `Account name: ${ben.accountName}`,
-    `Account number: ${ben.accountNumber}`,
-    ben.branchCode ? `Branch code: ${ben.branchCode}` : null,
-    ben.swift ? `SWIFT: ${ben.swift}` : null,
-    ben.accountType ? `Account type: ${ben.accountType}` : null,
+    `Account number: ${ben.accountNumber}`
+  )
+  if (ben.branchCode) lines.push(`Branch code: ${ben.branchCode}`)
+  if (ben.swift) lines.push(`SWIFT: ${ben.swift}`)
+  lines.push(
     `Payment reference: ${params.invoiceNumber}`,
     '',
     'Please confirm if this amount can be processed on these terms, and advise once instructed.',
     '',
     'Kind regards,',
-    'Settlement Desk',
-    'Econometrica (Pty) Ltd trading as Paga',
-    'FSP 52815 · desk@mozpaga.xyz',
-  ]
-    .filter((line) => line !== null)
-    .join('\n')
+    'Ygor Francisco',
+    'Econometrica (Pty) Ltd trading as Paga'
+  )
+  return lines.join('\n')
 }
 
 function buildBodyPt(params: {
@@ -137,69 +129,69 @@ function buildBodyPt(params: {
   residualMzn: number
   sellRate: number
   invoiceNumber: string
-  creditByMs: number
 }): string {
   const { route } = params
-  const pay = route.payerAccount
   const ben = route.beneficiaryBank
-  return [
+  const issuer = companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)
+
+  const lines: string[] = [
     `${route.banker.salutation} ${route.banker.banker},`,
     '',
-    `Junto enviamos a factura ${params.invoiceNumber} emitida por ${companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)} (África do Sul).`,
+    `Junto enviamos a factura ${params.invoiceNumber} emitida por ${issuer} (África do Sul).`,
     '',
-    'Solicitamos a organização da seguinte EFT no corredor de liquidação residual de hoje:',
+    'Solicitamos a organização da seguinte EFT para liquidação preferencialmente ainda hoje:',
+    `*Total da factura: ${formatPtZar(params.amountZar)}*.`,
     '',
-    `Total da factura: ${formatPtZar(params.amountZar)}`,
-    `Residual coberto: ${params.residualMzn.toFixed(2)} MZN à taxa ${params.sellRate.toFixed(4)} MZN/ZAR`,
-    `Crédito previsto até: ${formatPtDate(params.creditByMs)}`,
-    `Rota: ${route.label}`,
+    `Montante: ${params.residualMzn.toFixed(2)} MZN (taxa esperada aproximadamente ${params.sellRate.toFixed(4)} MZN/ZAR)`,
     '',
-    'Parte remetente (Moçambique)',
-    `Entidade: ${companyLabel(route.payer.legalName, route.payer.tradingAs)}`,
-    route.payer.nuit ? `NUIT: ${route.payer.nuit}` : null,
-    `Banco: ${pay.bankName}`,
-    `Nome da conta: ${pay.accountName}`,
-    `Número da conta: ${pay.accountNumber}`,
-    pay.nib ? `NIB: ${pay.nib}` : null,
-    pay.iban ? `IBAN: ${pay.iban}` : null,
-    pay.swift ? `SWIFT: ${pay.swift}` : null,
-    '',
-    'Beneficiário (África do Sul)',
-    `Entidade: ${companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)}`,
-    route.beneficiaryCompany.registrationNumber
-      ? `Registo: ${route.beneficiaryCompany.registrationNumber}`
-      : null,
+    '*Beneficiário (África do Sul)*',
+    `Entidade: ${issuer}`,
+  ]
+  if (route.beneficiaryCompany.registrationNumber) {
+    lines.push(`Registo: ${route.beneficiaryCompany.registrationNumber}`)
+  }
+  lines.push(
     `Banco: ${ben.bankName}`,
     `Nome da conta: ${ben.accountName}`,
-    `Número da conta: ${ben.accountNumber}`,
-    ben.branchCode ? `Código de agência: ${ben.branchCode}` : null,
-    ben.swift ? `SWIFT: ${ben.swift}` : null,
-    ben.accountType ? `Tipo de conta: ${ben.accountType}` : null,
+    `Número da conta: ${ben.accountNumber}`
+  )
+  if (ben.branchCode) lines.push(`Código de agência: ${ben.branchCode}`)
+  if (ben.swift) lines.push(`SWIFT: ${ben.swift}`)
+  lines.push(
     `Referência de pagamento: ${params.invoiceNumber}`,
     '',
     'Agradecemos confirmação se o montante pode ser processado nestas condições, e aviso após a instrução.',
     '',
     'Com os melhores cumprimentos,',
-    'Secretariado de Liquidação',
-    'Econometrica (Pty) Ltd trading as Paga',
-    'FSP 52815 · desk@mozpaga.xyz',
-  ]
-    .filter((line) => line !== null)
-    .join('\n')
+    'Ygor Francisco',
+    'Econometrica (Pty) Ltd trading as Paga'
+  )
+  return lines.join('\n')
+}
+
+/** Escape HTML, turn *bold* into <strong>, preserve blank lines as paragraph gaps. */
+function markdownishToHtml(text: string): string {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return text
+    .split('\n')
+    .map((line) => {
+      if (!line.trim()) return '<div style="height:12px"></div>'
+      const withBold = esc(line).replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+      return `<div style="margin:0 0 2px">${withBold}</div>`
+    })
+    .join('')
 }
 
 function buildHtml(bodyEn: string, bodyPt: string, testNote: string): string {
-  const esc = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')
   return `<!DOCTYPE html>
 <html><body style="font-family:Arial,Helvetica,sans-serif;line-height:1.55;color:#222;max-width:640px">
 <p style="font-size:12px;color:#666;margin:0 0 12px">English</p>
-<div style="margin-bottom:24px">${esc(bodyEn)}</div>
-<hr style="border:none;border-top:1px solid #ddd;margin:20px 0" />
+<div style="margin-bottom:28px">${markdownishToHtml(bodyEn)}</div>
+<hr style="border:none;border-top:1px solid #ddd;margin:24px 0" />
 <p style="font-size:12px;color:#666;margin:0 0 12px">Português</p>
-<div style="margin-bottom:24px">${esc(bodyPt)}</div>
-<hr style="border:none;border-top:1px solid #ddd;margin:20px 0" />
-<p style="font-size:12px;color:#884400">${esc(testNote)}</p>
+<div style="margin-bottom:28px">${markdownishToHtml(bodyPt)}</div>
+<hr style="border:none;border-top:1px solid #ddd;margin:24px 0" />
+<p style="font-size:12px;color:#884400">${markdownishToHtml(testNote)}</p>
 </body></html>`
 }
 
@@ -388,7 +380,6 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
     residualMzn,
     sellRate,
     invoiceNumber,
-    creditByMs,
   })
   const bodyPt = buildBodyPt({
     route,
@@ -396,7 +387,6 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
     residualMzn,
     sellRate,
     invoiceNumber,
-    creditByMs,
   })
   const testNote = `[TEST] Intended banker inbox: ${route.banker.email} (${route.banker.shortBank}). Delivered to allow-list ${to}.`
   const subject = `[TEST] EFT instruct · ${invoiceNumber} · ${formatZarEn(amountZar)} · ${route.banker.shortBank}`
