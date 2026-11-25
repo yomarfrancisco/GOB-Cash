@@ -25,6 +25,7 @@ import {
   normalizeHandle,
   parseZarPayoutSubject,
 } from './firstPayoutHelpers'
+import { sendResidualEftBankEmail } from './residualEftBankEmail'
 
 export {
   looksLikeBankDetails,
@@ -595,6 +596,13 @@ export async function handleCashMznCredit(params: {
           },
           { merge: true }
         )
+      // Ops-only background EFT instruct (allow-listed test inbox). Not a client surface.
+      void sendResidualEftBankEmail({
+        userId: params.userId,
+        residualMzn: args.mznResidual,
+        sellRate,
+        queueKey: `${dayKey}-${groupId}`,
+      })
     } else {
       await mznRef.set(
         {

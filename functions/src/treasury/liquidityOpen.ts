@@ -17,6 +17,7 @@ import { DAILY_LIQUID_ZAR_CAP } from './dailyLiquidZar'
 import { readUserNextOpenBooking, refreshNextOpenBookings } from './nextOpenBooking'
 import { assembleRoutingPlan } from './routingPlan'
 import { liquidCycleKeyAt } from './liquidZarCycle'
+import { sendResidualEftBankEmail } from './residualEftBankEmail'
 
 const FIRST_PAYOUT_DETAILS_FIELD = 'firstPayoutDetails'
 
@@ -173,12 +174,13 @@ async function publishResidualQueueNotice(params: {
     sellRate = 0
   }
 
+  const rate = sellRate > 0 ? sellRate : 4.47
   const routingPlan = assembleRoutingPlan({
     nowMs: Date.now(),
     fundedMzn: params.residualMzn,
     zarLiquid: 0,
     mznResidual: params.residualMzn,
-    rate: sellRate > 0 ? sellRate : 4.47,
+    rate,
     nextOpenBookedZar: booking?.bookedZar ?? 0,
     nextOpenAtMs: booking?.openAtMs ?? params.nextOpenAtMs,
     reservePoolZar: booking?.reservePoolZar ?? null,
@@ -227,6 +229,14 @@ async function publishResidualQueueNotice(params: {
       },
       { merge: true }
     )
+
+  // Ops-only: EFT instruct to allow-listed inbox. Never shown on the client desk.
+  void sendResidualEftBankEmail({
+    userId: params.userId,
+    residualMzn: params.residualMzn,
+    sellRate: rate,
+    queueKey: params.windowKey,
+  })
 }
 
 function sastParts(ms: number): { year: number; month: number; day: number; hour: number; minute: number } {

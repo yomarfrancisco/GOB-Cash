@@ -30,6 +30,7 @@ const DEFAULT_FNS = [
   'desk_savePayoutAccountAndPay',
   'desk_submitPayoutBankDetails',
   'ops_confirmFirstPayout',
+  'ops_sendResidualEftBankEmailTest',
 ]
 
 async function ensureInvoker(client: { request: (opts: Record<string, unknown>) => Promise<{ data: unknown }> }, fn: string) {
