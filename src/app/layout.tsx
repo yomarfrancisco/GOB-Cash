@@ -50,16 +50,38 @@ export const metadata: Metadata = {
   ],
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/assets/core/favicon_io_G/favicon.ico', sizes: 'any' },
+      {
+        url: '/assets/core/favicon_io_G/favicon-16x16.png',
+        sizes: '16x16',
+        type: 'image/png',
+      },
+      {
+        url: '/assets/core/favicon_io_G/favicon-32x32.png',
+        sizes: '32x32',
+        type: 'image/png',
+      },
+      {
+        url: '/assets/core/favicon_io_G/android-chrome-192x192.png',
+        sizes: '192x192',
+        type: 'image/png',
+      },
+      {
+        url: '/assets/core/favicon_io_G/android-chrome-512x512.png',
+        sizes: '512x512',
+        type: 'image/png',
+      },
     ],
-    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
-    shortcut: '/favicon.ico',
+    apple: [
+      {
+        url: '/assets/core/favicon_io_G/apple-touch-icon.png',
+        sizes: '180x180',
+        type: 'image/png',
+      },
+    ],
+    shortcut: '/assets/core/favicon_io_G/favicon.ico',
   },
-  manifest: '/site.webmanifest',
+  manifest: '/assets/core/favicon_io_G/site.webmanifest',
   openGraph: {
     title: 'PAGA — Liquidity for African FX Operators',
     description: 'Dollars for closed-currency corridors',
