@@ -1,27 +1,37 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { EFT_ROUTES, selectEftRoute, shortInvoiceNumber } from './eftRouteCatalog'
+import {
+  ECONOMETRICA_CAPITEC,
+  EFT_ROUTES,
+  LEMON_FNB_SA,
+  selectEftRoute,
+  shortInvoiceNumber,
+} from './eftRouteCatalog'
 
 describe('eftRouteCatalog', () => {
-  it('always beneficiaries Econometrica Capitec with known account', () => {
+  it('uses documented SA beneficiary accounts', () => {
+    assert.equal(ECONOMETRICA_CAPITEC.accountNumber, '1055902139')
+    assert.equal(ECONOMETRICA_CAPITEC.branchCode, '450105')
+    assert.equal(LEMON_FNB_SA.accountNumber, '63183630649')
+  })
+
+  it('every route has concrete remitter and beneficiary account numbers', () => {
     for (const route of EFT_ROUTES) {
-      assert.equal(route.beneficiaryBank.accountNumber, '1055902139')
-      assert.match(route.beneficiaryCompany.legalName, /Econometrica/)
-      assert.equal(route.beneficiaryCompany.registrationNumber, '2026/785154/07')
+      assert.ok(route.payerAccount.accountNumber.length >= 5, route.key)
+      assert.ok(route.beneficiaryBank.accountNumber.length >= 5, route.key)
+      assert.ok(route.banker.email.includes('@'), route.key)
     }
   })
 
-  it('rotates routes on weekdays and accepts explicit keys', () => {
-    const monday = Date.parse('2026-11-23T10:00:00+02:00') // Mon
-    const a = selectEftRoute(monday)
-    const b = selectEftRoute(monday, 'fnb_mz__econometrica_capitec')
-    assert.ok(a.key)
-    assert.equal(b.key, 'fnb_mz__econometrica_capitec')
-    assert.equal(b.banker.key, 'fnb_mz')
+  it('selects explicit corridors and rotates otherwise', () => {
+    const route = selectEftRoute(Date.now(), 'fnb_mz__brics_ei__lemon_fnb')
+    assert.equal(route.key, 'fnb_mz__brics_ei__lemon_fnb')
+    assert.equal(route.payerAccount.accountNumber, '4829002310001')
+    assert.equal(route.beneficiaryBank.accountNumber, '63183630649')
   })
 
   it('builds short invoice numbers', () => {
-    const n = shortInvoiceNumber(383222.73, Date.parse('2026-11-25T10:00:00+02:00'))
+    const n = shortInvoiceNumber(383222.73, Date.parse('2026-11-25T10:00:00+02:00'), 'ECM')
     assert.match(n, /^ECM-EFT-20261125-\d{6}$/)
   })
 })

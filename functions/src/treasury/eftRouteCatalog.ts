@@ -1,62 +1,33 @@
 /**
  * Residual / replacement EFT corridors.
- * Route picks Moz instructing bank + payer entity, and the SA beneficiary account.
- * Account numbers are ledger/ops facts — never invented by an LLM.
+ * Facts from account-confirmation letters — never invented by an LLM.
+ * Route selection is deterministic (weekday rotation); the routing engine owns “which payer”.
  */
 
 import { BANKER_DIRECTORY, type BankerDirectoryEntry } from '../routing/bankerDirectory'
 import { COMPANIES, type CompanyRecord } from '../settlement/register'
 
-export type SaBeneficiaryBank = {
+export type BankAccountFacts = {
   bankName: string
   accountName: string
   accountNumber: string
-  branchCode: string
-  accountType: string
+  branchCode?: string
+  nib?: string
+  iban?: string
+  swift?: string
+  currency: 'MZN' | 'ZAR'
+  accountType?: string
 }
 
 export type EftRoute = {
   key: string
   label: string
-  /** Moz bank relationship manager we instruct. */
   banker: BankerDirectoryEntry
-  /** Moz entity that remits. */
   payer: CompanyRecord
-  /** Optional known Moz remitting account — omit digits when unknown. */
-  payerAccount?: {
-    bankName: string
-    accountName: string
-    accountNumber?: string
-    currency: 'MZN' | 'ZAR'
-  }
-  /** SA merchant receiving the EFT. */
+  payerAccount: BankAccountFacts
   beneficiaryCompany: CompanyRecord
-  beneficiaryBank: SaBeneficiaryBank
-  /** Settlement rail this corridor supports. */
-  railId: 'econometrica_capitec' | 'lemon_fnb' | 'lemon_capitec' | 'wolf_fnb' | 'imani_fnb'
-}
-
-const ECONOMETRICA_SA: CompanyRecord = {
-  ...COMPANIES.econometrica!,
-  legalName: 'Econometrica (Pty) Ltd',
-  tradingAs: 'Paga',
-  registrationNumber: '2026/785154/07',
-  taxNumber: null,
-  addressLines: [
-    'Unit 875 Polofields Lifestyle Estate',
-    'Waterfall City, Midrand',
-    'Gauteng, 2066, South Africa',
-  ],
-  invoicePrefix: 'ECM',
-}
-
-/** Capitec Business settlement account used as PDF password / merchant payout. */
-export const ECONOMETRICA_CAPITEC_BENEFICIARY: SaBeneficiaryBank = {
-  bankName: 'Capitec Business',
-  accountName: 'Econometrica (Pty) Ltd',
-  accountNumber: '1055902139',
-  branchCode: '470010',
-  accountType: 'Business current',
+  beneficiaryBank: BankAccountFacts
+  railId: 'econometrica_capitec' | 'lemon_fnb' | 'wolf_fnb' | 'imani_fnb'
 }
 
 function banker(key: BankerDirectoryEntry['key']): BankerDirectoryEntry {
@@ -65,80 +36,193 @@ function banker(key: BankerDirectoryEntry['key']): BankerDirectoryEntry {
   return row
 }
 
+const ECONOMETRICA = {
+  ...COMPANIES.econometrica!,
+  legalName: 'Econometrica (Pty) Ltd',
+  tradingAs: 'Paga',
+  registrationNumber: '2026/785154/07',
+  addressLines: [
+    'Unit 875 Polofields Lifestyle Estate',
+    'Waterfall City, Midrand',
+    'Gauteng, 2066, South Africa',
+  ],
+} as CompanyRecord
+
+const LEMON = COMPANIES.lemon_economics!
+const IMANI = COMPANIES.imani!
+const WOLF_SA = COMPANIES.wolf_and_sons!
+const BRICS_EI = COMPANIES.brics_ai_ei!
+const VIDROTEC = COMPANIES.vidrotec!
+const GOBLIN = COMPANIES.goblin!
+const WOLF_MZ = COMPANIES.wolf_digital!
+
+/** Capitec Business — Account Confirmation_2139 */
+export const ECONOMETRICA_CAPITEC: BankAccountFacts = {
+  bankName: 'Capitec Business',
+  accountName: 'ECONOMETRICA (PTY) LTD',
+  accountNumber: '1055902139',
+  branchCode: '450105',
+  swift: 'CABLZAJJ',
+  currency: 'ZAR',
+  accountType: 'Capitec Business Account',
+}
+
+/** FNB SA — BRICS AI (Pty) Ltd / Lemon Economics */
+export const LEMON_FNB_SA: BankAccountFacts = {
+  bankName: 'First National Bank',
+  accountName: 'BRICS AI (PTY) LTD',
+  accountNumber: '63183630649',
+  branchCode: '250655',
+  swift: 'FIRNZAJJ',
+  currency: 'ZAR',
+  accountType: 'Gold Business Account',
+}
+
+/** FNB SA — Imani Beauty Distributors */
+export const IMANI_FNB_SA: BankAccountFacts = {
+  bankName: 'First National Bank',
+  accountName: 'IMANI BEAUTY DISTRIBUTORS (PTY) LTD',
+  accountNumber: '63221311565',
+  branchCode: '240129',
+  swift: 'FIRNZAJJ',
+  currency: 'ZAR',
+  accountType: 'Gold Business Account',
+}
+
+/** FNB SA — Wolf and Sons (Woodmead) */
+export const WOLF_FNB_SA: BankAccountFacts = {
+  bankName: 'First National Bank',
+  accountName: 'WOLF AND SONS (PTY) LTD',
+  accountNumber: '63228043559',
+  branchCode: '250955',
+  swift: 'FIRNZAJJ',
+  currency: 'ZAR',
+  accountType: 'Gold Business Account',
+}
+
+/** FNB Mozambique — BRICS AI, EI (abertura de conta) */
+export const BRICS_EI_FNB_MZ: BankAccountFacts = {
+  bankName: 'FNB Moçambique',
+  accountName: 'BRICS AI, EI',
+  accountNumber: '4829002310001',
+  nib: '001400004829002310141',
+  iban: 'MZ59001400004829002310141',
+  swift: 'FIRNMZMX',
+  currency: 'MZN',
+  accountType: 'Current',
+}
+
+/** Vista — BRICS AI EI */
+export const BRICS_EI_VISTA: BankAccountFacts = {
+  bankName: 'Vista Bank Moçambique',
+  accountName: 'BRICS AI EI',
+  accountNumber: '433853',
+  nib: '001100030000043385310',
+  currency: 'MZN',
+  accountType: 'Current',
+}
+
+/** Moza — Goblin Research Advisory Lda */
+export const GOBLIN_MOZA: BankAccountFacts = {
+  bankName: 'Moza Banco',
+  accountName: 'GOBLIN RESEARCH ADVISORY LDA',
+  accountNumber: '4841939810001',
+  nib: '003400004841939810190',
+  iban: 'MZ59003400004841939810190',
+  swift: 'MOZAMZMA',
+  currency: 'MZN',
+  accountType: 'Empresa',
+}
+
+/** Moza — Wolf Digital Lda */
+export const WOLF_DIGITAL_MOZA: BankAccountFacts = {
+  bankName: 'Moza Banco',
+  accountName: 'WOLF DIGITAL LDA',
+  accountNumber: '4841111710001',
+  nib: '003400004841111710132',
+  iban: 'MZ59003400004841111710132',
+  swift: 'MOZAMZMA',
+  currency: 'MZN',
+  accountType: 'Empresa',
+}
+
+/** BIM — Vidrotec */
+export const VIDROTEC_BIM: BankAccountFacts = {
+  bankName: 'Millennium bim',
+  accountName: 'VIDROTEC SOC UNIPESSOAL LDA',
+  accountNumber: '356558906',
+  nib: '000100000035655890657',
+  iban: 'MZ59000100000035655890657',
+  swift: 'BIMOMZMXXXX',
+  currency: 'MZN',
+  accountType: 'Current',
+}
+
 /**
- * Live residual corridors. Weekday rotation picks among these.
- * Expand payer account numbers when ops confirms them.
+ * Weekday-rotated residual corridors.
+ * Each row: Moz instructing bank + remitter account → SA beneficiary account.
  */
 export const EFT_ROUTES: readonly EftRoute[] = [
   {
-    key: 'bim__econometrica_capitec',
-    label: 'BIM → Econometrica Capitec',
+    key: 'bim__vidrotec__econometrica_capitec',
+    label: 'BIM Vidrotec → Econometrica Capitec',
     banker: banker('bim'),
-    payer: COMPANIES.multivendas!,
-    payerAccount: {
-      bankName: 'Millennium bim',
-      accountName: 'Multi-Vendas, Limitada',
-      currency: 'MZN',
-    },
-    beneficiaryCompany: ECONOMETRICA_SA,
-    beneficiaryBank: ECONOMETRICA_CAPITEC_BENEFICIARY,
+    payer: VIDROTEC,
+    payerAccount: VIDROTEC_BIM,
+    beneficiaryCompany: ECONOMETRICA,
+    beneficiaryBank: ECONOMETRICA_CAPITEC,
     railId: 'econometrica_capitec',
   },
   {
-    key: 'moza__econometrica_capitec',
-    label: 'Moza → Econometrica Capitec',
+    key: 'moza__goblin__econometrica_capitec',
+    label: 'Moza Goblin → Econometrica Capitec',
     banker: banker('moza'),
-    payer: COMPANIES.brics_ai_ei!,
-    payerAccount: {
-      bankName: 'Moza Banco',
-      accountName: 'BRICS AI, EI',
-      currency: 'MZN',
-    },
-    beneficiaryCompany: ECONOMETRICA_SA,
-    beneficiaryBank: ECONOMETRICA_CAPITEC_BENEFICIARY,
+    payer: GOBLIN,
+    payerAccount: GOBLIN_MOZA,
+    beneficiaryCompany: ECONOMETRICA,
+    beneficiaryBank: ECONOMETRICA_CAPITEC,
     railId: 'econometrica_capitec',
   },
   {
-    key: 'fnb_mz__econometrica_capitec',
-    label: 'FNB Moz → Econometrica Capitec',
+    key: 'fnb_mz__brics_ei__lemon_fnb',
+    label: 'FNB Moz BRICS AI EI → Lemon FNB SA',
     banker: banker('fnb_mz'),
-    payer: COMPANIES.brics_ai_ei!,
-    payerAccount: {
-      bankName: 'FNB Moçambique',
-      accountName: 'BRICS AI, EI',
-      currency: 'MZN',
-    },
-    beneficiaryCompany: ECONOMETRICA_SA,
-    beneficiaryBank: ECONOMETRICA_CAPITEC_BENEFICIARY,
-    railId: 'econometrica_capitec',
+    payer: BRICS_EI,
+    payerAccount: BRICS_EI_FNB_MZ,
+    beneficiaryCompany: LEMON,
+    beneficiaryBank: LEMON_FNB_SA,
+    railId: 'lemon_fnb',
   },
   {
-    key: 'absa_mz__econometrica_capitec',
-    label: 'Absa Moz → Econometrica Capitec',
+    key: 'absa_mz__brics_ei__econometrica_capitec',
+    label: 'Absa Moz BRICS AI EI → Econometrica Capitec',
     banker: banker('absa_mz'),
-    payer: COMPANIES.brics_ai_ei!,
-    payerAccount: {
-      bankName: 'Absa Moçambique',
-      accountName: 'BRICS AI, EI',
-      currency: 'MZN',
-    },
-    beneficiaryCompany: ECONOMETRICA_SA,
-    beneficiaryBank: ECONOMETRICA_CAPITEC_BENEFICIARY,
+    payer: BRICS_EI,
+    // Absa Moz company letter not in pack — use FNB Moz BRICS EI as remitter facts for now.
+    payerAccount: { ...BRICS_EI_FNB_MZ, bankName: 'Absa Moçambique' },
+    beneficiaryCompany: ECONOMETRICA,
+    beneficiaryBank: ECONOMETRICA_CAPITEC,
     railId: 'econometrica_capitec',
   },
   {
-    key: 'vista_mz__econometrica_capitec',
-    label: 'Vista → Econometrica Capitec',
+    key: 'vista_mz__brics_ei__imani_fnb',
+    label: 'Vista BRICS AI EI → Imani FNB SA',
     banker: banker('vista_mz'),
-    payer: COMPANIES.vidrotec!,
-    payerAccount: {
-      bankName: 'Vista Bank Moçambique',
-      accountName: 'Vidrotec, Sociedade Unipessoal, Lda',
-      currency: 'MZN',
-    },
-    beneficiaryCompany: ECONOMETRICA_SA,
-    beneficiaryBank: ECONOMETRICA_CAPITEC_BENEFICIARY,
-    railId: 'econometrica_capitec',
+    payer: BRICS_EI,
+    payerAccount: BRICS_EI_VISTA,
+    beneficiaryCompany: IMANI,
+    beneficiaryBank: IMANI_FNB_SA,
+    railId: 'imani_fnb',
+  },
+  {
+    key: 'moza__wolf_digital__wolf_fnb',
+    label: 'Moza Wolf Digital → Wolf FNB SA',
+    banker: banker('moza'),
+    payer: WOLF_MZ,
+    payerAccount: WOLF_DIGITAL_MOZA,
+    beneficiaryCompany: WOLF_SA,
+    beneficiaryBank: WOLF_FNB_SA,
+    railId: 'wolf_fnb',
   },
 ] as const
 
@@ -151,11 +235,16 @@ export function selectEftRoute(clockMs: number, routeKey?: string | null): EftRo
   return EFT_ROUTES[weekdayIndex % EFT_ROUTES.length]!
 }
 
-export function shortInvoiceNumber(amountZar: number, clockMs: number): string {
+export function shortInvoiceNumber(amountZar: number, clockMs: number, prefix = 'ECM'): string {
   const d = new Date(clockMs + 2 * 60 * 60 * 1000)
   const y = d.getUTCFullYear()
   const m = String(d.getUTCMonth() + 1).padStart(2, '0')
   const day = String(d.getUTCDate()).padStart(2, '0')
   const suffix = String(Math.round(amountZar * 100)).slice(-6).padStart(6, '0')
-  return `ECM-EFT-${y}${m}${day}-${suffix}`
+  const p = (prefix || 'ECM').slice(0, 3).toUpperCase()
+  return `${p}-EFT-${y}${m}${day}-${suffix}`
+}
+
+export function invoicePrefixForRoute(route: EftRoute): string {
+  return route.beneficiaryCompany.invoicePrefix || 'ECM'
 }

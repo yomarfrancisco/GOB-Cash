@@ -1,26 +1,25 @@
 /**
  * Background EFT instruct email when MZN residual is queued.
- * Client never sees this — ops/test outbound only. Amounts are ledger-fixed (no LLM).
- * Invoice issuer = South African Econometrica (Pty) Ltd t/a Paga.
- * Route selects Moz instructing bank + payer and SA beneficiary account.
+ * Client never sees this. Amounts ledger-fixed. Invoice PDF matches PoP/deposit style:
+ * logo top-left, title, hairline, bold labels + values.
  */
 
+import * as fs from 'fs'
+import * as path from 'path'
 import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
 import PDFDocument from 'pdfkit'
 import { sendEmailViaResend } from '../utils/resendEmail'
 import { formatPtDate, formatPtZar } from '../routing/bankEmailRound'
 import {
+  invoicePrefixForRoute,
   selectEftRoute,
   shortInvoiceNumber,
   type EftRoute,
 } from './eftRouteCatalog'
 
 const db = () => admin.firestore()
-
-/** Phase-1 allow-list — never send to real bankers until this expands. */
 const TEST_ALLOWLIST = ['ygor@brics.ninja'] as const
-
 const OUTBOUND_COLLECTION = 'opsBankEftEmails'
 
 function roundMajor(n: number): number {
@@ -47,6 +46,19 @@ function formatMznEn(amount: number): string {
   })} MZN`
 }
 
+function assetPath(filename: string): string | null {
+  const candidates = [
+    path.join(__dirname, '../../assets', filename),
+    path.join(process.cwd(), 'assets', filename),
+    path.join(process.cwd(), 'functions/assets', filename),
+  ]
+  return candidates.find((candidate) => fs.existsSync(candidate)) || null
+}
+
+function companyLabel(legalName: string, tradingAs?: string | null): string {
+  return tradingAs ? `${legalName} trading as ${tradingAs}` : legalName
+}
+
 export function residualEftOutboundAllowlist(): string[] {
   let configured: string[] = []
   try {
@@ -57,18 +69,66 @@ export function residualEftOutboundAllowlist(): string[] {
   } catch {
     configured = []
   }
-  const merged = new Set<string>([...TEST_ALLOWLIST, ...configured])
-  return [...merged]
+  return [...new Set<string>([...TEST_ALLOWLIST, ...configured])]
 }
 
-function payerLabel(route: EftRoute): string {
-  const c = route.payer
-  return c.tradingAs ? `${c.legalName} (t/a ${c.tradingAs})` : c.legalName
-}
-
-function beneficiaryLabel(route: EftRoute): string {
-  const c = route.beneficiaryCompany
-  return c.tradingAs ? `${c.legalName} trading as ${c.tradingAs}` : c.legalName
+function buildBodyEn(params: {
+  route: EftRoute
+  amountZar: number
+  residualMzn: number
+  sellRate: number
+  invoiceNumber: string
+  creditByMs: number
+}): string {
+  const { route } = params
+  const pay = route.payerAccount
+  const ben = route.beneficiaryBank
+  const dear =
+    route.banker.salutation === 'Exma. Sra.' ? `Dear Ms ${route.banker.banker}` : `Dear Mr ${route.banker.banker}`
+  return [
+    `${dear},`,
+    '',
+    `Please find attached invoice ${params.invoiceNumber} issued by ${companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)} (South Africa).`,
+    '',
+    'Kindly arrange the EFT below for today’s residual settlement corridor:',
+    '',
+    `Invoice total: ${formatZarEn(params.amountZar)}`,
+    `Residual covered: ${formatMznEn(params.residualMzn)} at ${params.sellRate.toFixed(4)} MZN/ZAR`,
+    `Credit required by: ${formatPtDate(params.creditByMs)}`,
+    `Route: ${route.label}`,
+    '',
+    'Remitting party (Mozambique)',
+    `Entity: ${companyLabel(route.payer.legalName, route.payer.tradingAs)}`,
+    route.payer.nuit ? `NUIT: ${route.payer.nuit}` : null,
+    `Bank: ${pay.bankName}`,
+    `Account name: ${pay.accountName}`,
+    `Account number: ${pay.accountNumber}`,
+    pay.nib ? `NIB: ${pay.nib}` : null,
+    pay.iban ? `IBAN: ${pay.iban}` : null,
+    pay.swift ? `SWIFT: ${pay.swift}` : null,
+    '',
+    'Beneficiary (South Africa)',
+    `Entity: ${companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)}`,
+    route.beneficiaryCompany.registrationNumber
+      ? `Registration: ${route.beneficiaryCompany.registrationNumber}`
+      : null,
+    `Bank: ${ben.bankName}`,
+    `Account name: ${ben.accountName}`,
+    `Account number: ${ben.accountNumber}`,
+    ben.branchCode ? `Branch code: ${ben.branchCode}` : null,
+    ben.swift ? `SWIFT: ${ben.swift}` : null,
+    ben.accountType ? `Account type: ${ben.accountType}` : null,
+    `Payment reference: ${params.invoiceNumber}`,
+    '',
+    'Please confirm if this amount can be processed on these terms, and advise once instructed.',
+    '',
+    'Kind regards,',
+    'Settlement Desk',
+    'Econometrica (Pty) Ltd trading as Paga',
+    'FSP 52815 · desk@mozpaga.xyz',
+  ]
+    .filter((line) => line !== null)
+    .join('\n')
 }
 
 function buildBodyPt(params: {
@@ -80,46 +140,44 @@ function buildBodyPt(params: {
   creditByMs: number
 }): string {
   const { route } = params
-  const payAcc = route.payerAccount
+  const pay = route.payerAccount
   const ben = route.beneficiaryBank
   return [
     `${route.banker.salutation} ${route.banker.banker},`,
     '',
-    `Junto enviamos a factura comercial ${params.invoiceNumber} emitida por ${beneficiaryLabel(route)} (África do Sul, FSP 52815).`,
+    `Junto enviamos a factura ${params.invoiceNumber} emitida por ${companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)} (África do Sul).`,
     '',
-    'Solicitamos a organização da seguinte transferência EFT no corredor de liquidação residual seleccionado para hoje:',
+    'Solicitamos a organização da seguinte EFT no corredor de liquidação residual de hoje:',
     '',
-    `Total da factura · ${formatPtZar(params.amountZar)}`,
-    `Residual coberto · ${params.residualMzn.toFixed(2)} MZN à taxa ${params.sellRate.toFixed(4)} MZN/ZAR`,
-    `Crédito previsto · até ${formatPtDate(params.creditByMs)}`,
-    `Rota · ${route.label}`,
+    `Total da factura: ${formatPtZar(params.amountZar)}`,
+    `Residual coberto: ${params.residualMzn.toFixed(2)} MZN à taxa ${params.sellRate.toFixed(4)} MZN/ZAR`,
+    `Crédito previsto até: ${formatPtDate(params.creditByMs)}`,
+    `Rota: ${route.label}`,
     '',
     'Parte remetente (Moçambique)',
-    `· Entidade · ${payerLabel(route)}`,
-    route.payer.nuit
-      ? `· NUIT · ${route.payer.nuit}`
-      : route.payer.registrationNumber
-        ? `· Registo · ${route.payer.registrationNumber}`
-        : null,
-    payAcc ? `· Banco · ${payAcc.bankName}` : `· Banco · ${route.banker.bank}`,
-    payAcc ? `· Nome da conta · ${payAcc.accountName}` : null,
-    payAcc?.accountNumber
-      ? `· Número da conta · ${payAcc.accountNumber}`
-      : '· Número da conta · (a confirmar pelo vosso lado / nosso ficheiro operacional)',
+    `Entidade: ${companyLabel(route.payer.legalName, route.payer.tradingAs)}`,
+    route.payer.nuit ? `NUIT: ${route.payer.nuit}` : null,
+    `Banco: ${pay.bankName}`,
+    `Nome da conta: ${pay.accountName}`,
+    `Número da conta: ${pay.accountNumber}`,
+    pay.nib ? `NIB: ${pay.nib}` : null,
+    pay.iban ? `IBAN: ${pay.iban}` : null,
+    pay.swift ? `SWIFT: ${pay.swift}` : null,
     '',
     'Beneficiário (África do Sul)',
-    `· Entidade · ${beneficiaryLabel(route)}`,
+    `Entidade: ${companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)}`,
     route.beneficiaryCompany.registrationNumber
-      ? `· Registo · ${route.beneficiaryCompany.registrationNumber}`
+      ? `Registo: ${route.beneficiaryCompany.registrationNumber}`
       : null,
-    `· Banco · ${ben.bankName}`,
-    `· Nome da conta · ${ben.accountName}`,
-    `· Número da conta · ${ben.accountNumber}`,
-    `· Código de agência · ${ben.branchCode}`,
-    `· Tipo de conta · ${ben.accountType}`,
-    `· Referência de pagamento · ${params.invoiceNumber}`,
+    `Banco: ${ben.bankName}`,
+    `Nome da conta: ${ben.accountName}`,
+    `Número da conta: ${ben.accountNumber}`,
+    ben.branchCode ? `Código de agência: ${ben.branchCode}` : null,
+    ben.swift ? `SWIFT: ${ben.swift}` : null,
+    ben.accountType ? `Tipo de conta: ${ben.accountType}` : null,
+    `Referência de pagamento: ${params.invoiceNumber}`,
     '',
-    'Agradecemos que nos confirmem se o montante pode ser processado nestas condições e que nos informem após a instrução da transferência.',
+    'Agradecemos confirmação se o montante pode ser processado nestas condições, e aviso após a instrução.',
     '',
     'Com os melhores cumprimentos,',
     'Secretariado de Liquidação',
@@ -132,25 +190,20 @@ function buildBodyPt(params: {
 
 function buildHtml(bodyEn: string, bodyPt: string, testNote: string): string {
   const esc = (s: string) =>
-    s
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/\n/g, '<br/>')
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')
   return `<!DOCTYPE html>
-<html>
-  <body style="font-family:Arial,Helvetica,sans-serif;line-height:1.55;color:#222;max-width:640px">
-    <p style="font-size:12px;color:#666;margin:0 0 16px">English (assessment copy)</p>
-    <div style="margin-bottom:28px">${esc(bodyEn)}</div>
-    <hr style="border:none;border-top:1px solid #ddd;margin:24px 0" />
-    <p style="font-size:12px;color:#666;margin:0 0 16px">Português</p>
-    <div style="margin-bottom:28px">${esc(bodyPt)}</div>
-    <hr style="border:none;border-top:1px solid #ddd;margin:24px 0" />
-    <p style="font-size:12px;color:#884400">${esc(testNote)}</p>
-  </body>
-</html>`
+<html><body style="font-family:Arial,Helvetica,sans-serif;line-height:1.55;color:#222;max-width:640px">
+<p style="font-size:12px;color:#666;margin:0 0 12px">English</p>
+<div style="margin-bottom:24px">${esc(bodyEn)}</div>
+<hr style="border:none;border-top:1px solid #ddd;margin:20px 0" />
+<p style="font-size:12px;color:#666;margin:0 0 12px">Português</p>
+<div style="margin-bottom:24px">${esc(bodyPt)}</div>
+<hr style="border:none;border-top:1px solid #ddd;margin:20px 0" />
+<p style="font-size:12px;color:#884400">${esc(testNote)}</p>
+</body></html>`
 }
 
+/** Simple PoP-style commercial invoice — logo top-left, title, hairline, bold labels. */
 async function renderSaCommercialInvoicePdf(params: {
   route: EftRoute
   amountZar: number
@@ -163,201 +216,120 @@ async function renderSaCommercialInvoicePdf(params: {
   const { route } = params
   const issuer = route.beneficiaryCompany
   const buyer = route.payer
+  const pay = route.payerAccount
   const ben = route.beneficiaryBank
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 48 })
-    const chunks: Buffer[] = []
-    doc.on('data', (chunk) => chunks.push(chunk as Buffer))
-    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: 50, bottom: 50, left: 50, right: 50 },
+    })
+    const buffers: Buffer[] = []
+    doc.on('data', (c) => buffers.push(c as Buffer))
+    doc.on('end', () => resolve(Buffer.concat(buffers)))
     doc.on('error', reject)
 
-    doc.rect(0, 0, doc.page.width, 72).fill('#111')
-    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(14)
-    doc.text('ECONOMETRICA (PTY) LTD', 48, 22)
-    doc.font('Helvetica').fontSize(9)
-    doc.text('trading as Paga · FSP 52815 · South Africa', 48, 42)
+    const left = 50
+    let y = 48
+    const logo = assetPath('MoZ-logo.png')
+    if (logo) {
+      try {
+        doc.image(logo, left, y, { width: 88 })
+        y += 58
+      } catch {
+        // optional
+      }
+    }
 
-    let y = 96
-    doc.fillColor('#111').font('Helvetica-Bold').fontSize(18)
-    doc.text('COMMERCIAL INVOICE', 48, y)
-    y += 28
-    doc.font('Helvetica').fontSize(10)
-    doc.text(`Invoice ${params.invoiceNumber}`, 48, y)
-    doc.text(`Date ${formatPtDate(params.issuedAtMs)}`, 360, y)
-    y += 14
-    doc.fillColor('#0a7a3e').font('Helvetica-Bold').text('ISSUED · AWAITING EFT', 48, y)
-    y += 28
-
-    doc.fillColor('#555').font('Helvetica-Bold').fontSize(9)
-    doc.text('FROM (SOUTH AFRICA)', 48, y)
-    doc.text('BILL TO (MOZAMBIQUE)', 320, y)
-    y += 14
-    doc.fillColor('#111').font('Helvetica').fontSize(10)
-    const fromLines = [
-      issuer.legalName,
-      issuer.tradingAs ? `trading as ${issuer.tradingAs}` : null,
-      issuer.registrationNumber ? `Reg. ${issuer.registrationNumber}` : null,
-      'FSP 52815',
-      ...issuer.addressLines,
-    ].filter(Boolean) as string[]
-    const toLines = [
-      buyer.tradingAs ? `${buyer.legalName} (t/a ${buyer.tradingAs})` : buyer.legalName,
-      buyer.nuit ? `NUIT ${buyer.nuit}` : null,
-      buyer.registrationNumber ? `Reg. ${buyer.registrationNumber}` : null,
-      ...buyer.addressLines,
-    ].filter(Boolean) as string[]
-    const fromH = doc.heightOfString(fromLines.join('\n'), { width: 240 })
-    const toH = doc.heightOfString(toLines.join('\n'), { width: 220 })
-    doc.text(fromLines.join('\n'), 48, y, { width: 240 })
-    doc.text(toLines.join('\n'), 320, y, { width: 220 })
-    y += Math.max(fromH, toH) + 20
-
-    doc.fillColor('#555').font('Helvetica-Bold').fontSize(9)
-    doc.text('ROUTE', 48, y)
-    doc.text('CURRENCY', 220, y)
-    doc.text('CREDIT BY', 320, y)
-    y += 12
-    doc.fillColor('#111').font('Helvetica').fontSize(10)
-    doc.text(route.label, 48, y, { width: 160 })
-    doc.text('ZAR', 220, y)
-    doc.text(formatPtDate(params.creditByMs), 320, y)
-    y += 24
-
-    doc.fillColor('#555').font('Helvetica-Bold').fontSize(9)
-    doc.text('DESCRIPTION', 48, y)
-    doc.text('AMOUNT', 470, y)
-    y += 12
-    doc.moveTo(48, y).lineTo(547, y).strokeColor('#ddd').stroke()
-    y += 10
-    doc.fillColor('#111').font('Helvetica').fontSize(10)
-    const desc = `FX settlement facilitation — residual liquidity cover (${formatMznEn(params.residualMzn)} @ ${params.sellRate.toFixed(4)} MZN/ZAR)`
-    const descH = doc.heightOfString(desc, { width: 400 })
-    doc.text(desc, 48, y, { width: 400 })
-    doc.text(formatZarEn(params.amountZar), 470, y, { width: 80 })
-    y += Math.max(descH, 14) + 16
-    doc.moveTo(48, y).lineTo(547, y).strokeColor('#ddd').stroke()
-    y += 14
-    doc.font('Helvetica').text('Subtotal', 380, y)
-    doc.text(formatZarEn(params.amountZar), 470, y)
-    y += 14
-    doc.text('VAT', 380, y)
-    doc.text(formatZarEn(0), 470, y)
-    y += 16
-    doc.font('Helvetica-Bold').fontSize(12)
-    doc.text('TOTAL DUE', 380, y)
-    doc.text(formatZarEn(params.amountZar), 470, y)
-    y += 28
-
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#555').text('EFT PAYMENT INSTRUCTIONS', 48, y)
-    y += 14
-    doc.font('Helvetica').fontSize(10).fillColor('#111')
-    const payLines = [
-      `Debit / remit via · ${route.banker.bank} (${route.banker.shortBank})`,
-      `Remitter · ${payerLabel(route)}${route.payerAccount?.accountNumber ? ` · ${route.payerAccount.accountNumber}` : ''}`,
-      `Beneficiary bank · ${ben.bankName}`,
-      `Beneficiary name · ${ben.accountName}`,
-      `Account · ${ben.accountNumber} · Branch ${ben.branchCode} · ${ben.accountType}`,
-      `Reference · ${params.invoiceNumber}`,
-    ]
-    doc.text(payLines.join('\n'), 48, y, { width: 500 })
-    y += doc.heightOfString(payLines.join('\n'), { width: 500 }) + 20
-
-    doc.font('Helvetica').fontSize(8).fillColor('#666')
-    doc.text(
-      'Amounts are ledger-fixed from the residual queue. This invoice is an ops / bank instruct document and is not shown to the end client.',
-      48,
-      Math.max(y, 720),
-      { width: 500 }
-    )
+    doc.font('Helvetica-Bold').fontSize(16).fillColor('#111').text('Commercial Invoice', left, y)
+    y = doc.y + 6
     doc
-      .fontSize(8)
-      .fillColor('#888')
+      .font('Helvetica')
+      .fontSize(10)
+      .fillColor('#444')
+      .text(companyLabel(issuer.legalName, issuer.tradingAs), left, y)
+    y = doc.y + 4
+    if (issuer.registrationNumber) {
+      doc.text(`Reg. ${issuer.registrationNumber} · FSP 52815`, left, y)
+      y = doc.y + 10
+    }
+
+    doc
+      .moveTo(left, y)
+      .lineTo(545, y)
+      .strokeColor('#111')
+      .lineWidth(1)
+      .stroke()
+    y += 18
+
+    const lineHeight = 22
+    const labelWidth = 200
+    const addRow = (label: string, value: string, boldValue = false) => {
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#111').text(label, left, y, { width: labelWidth })
+      doc
+        .font(boldValue ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(11)
+        .text(value, left + labelWidth, y, { width: 280 })
+      y += lineHeight
+    }
+
+    addRow('Invoice number:', params.invoiceNumber, true)
+    addRow('Invoice date:', formatPtDate(params.issuedAtMs))
+    addRow('Amount due:', formatZarEn(params.amountZar), true)
+    addRow('Residual covered:', formatMznEn(params.residualMzn))
+    addRow('Rate:', `${params.sellRate.toFixed(4)} MZN/ZAR`)
+    addRow('Credit by:', formatPtDate(params.creditByMs))
+    addRow('Route:', route.label)
+
+    y += 8
+    doc.font('Helvetica-Bold').fontSize(12).text('Bill to', left, y)
+    y += lineHeight
+    addRow('Entity:', companyLabel(buyer.legalName, buyer.tradingAs))
+    if (buyer.nuit) addRow('NUIT:', buyer.nuit)
+    addRow('Bank:', pay.bankName)
+    addRow('Account name:', pay.accountName)
+    addRow('Account number:', pay.accountNumber, true)
+    if (pay.nib) addRow('NIB:', pay.nib)
+    if (pay.iban) addRow('IBAN:', pay.iban)
+    if (pay.swift) addRow('SWIFT:', pay.swift)
+
+    y += 8
+    doc.font('Helvetica-Bold').fontSize(12).text('Pay to', left, y)
+    y += lineHeight
+    addRow('Entity:', companyLabel(issuer.legalName, issuer.tradingAs))
+    if (issuer.registrationNumber) addRow('Registration:', issuer.registrationNumber)
+    addRow('Bank:', ben.bankName)
+    addRow('Account name:', ben.accountName)
+    addRow('Account number:', ben.accountNumber, true)
+    if (ben.branchCode) addRow('Branch code:', ben.branchCode)
+    if (ben.swift) addRow('SWIFT:', ben.swift)
+    if (ben.accountType) addRow('Account type:', ben.accountType)
+    addRow('Payment reference:', params.invoiceNumber, true)
+
+    y += 16
+    doc
+      .font('Helvetica')
+      .fontSize(9)
+      .fillColor('#666')
       .text(
-        `${issuer.legalName} · Reg. ${issuer.registrationNumber || '—'} · ${params.invoiceNumber}`,
-        48,
-        780,
-        { width: 500, align: 'center' }
+        'Amounts are ledger-fixed from the residual queue. Ops / bank instruct document — not shown to the end client.',
+        left,
+        y,
+        { width: 495 }
       )
+
     doc.end()
   })
-}
-
-function buildBodyEn(params: {
-  route: EftRoute
-  amountZar: number
-  residualMzn: number
-  sellRate: number
-  invoiceNumber: string
-  creditByMs: number
-}): string {
-  const { route } = params
-  const payAcc = route.payerAccount
-  const ben = route.beneficiaryBank
-  const lines: string[] = [
-    `${route.banker.salutation === 'Exma. Sra.' ? 'Dear Ms' : 'Dear Mr'} ${route.banker.banker},`,
-    '',
-    `Please find attached commercial invoice ${params.invoiceNumber} issued by ${beneficiaryLabel(route)} (South Africa, FSP 52815).`,
-    '',
-    'We kindly ask you to arrange the following EFT under the residual settlement corridor selected for today:',
-    '',
-    `Invoice total · ${formatZarEn(params.amountZar)}`,
-    `Residual covered · ${formatMznEn(params.residualMzn)} at ${params.sellRate.toFixed(4)} MZN/ZAR`,
-    `Credit required by · ${formatPtDate(params.creditByMs)}`,
-    `Route · ${route.label}`,
-    '',
-    'Remitting party (Mozambique)',
-    `· Entity · ${payerLabel(route)}`,
-  ]
-  if (route.payer.nuit) lines.push(`· NUIT · ${route.payer.nuit}`)
-  else if (route.payer.registrationNumber) lines.push(`· Registration · ${route.payer.registrationNumber}`)
-  lines.push(payAcc ? `· Bank · ${payAcc.bankName}` : `· Bank · ${route.banker.bank}`)
-  if (payAcc) lines.push(`· Account name · ${payAcc.accountName}`)
-  lines.push(
-    payAcc?.accountNumber
-      ? `· Account number · ${payAcc.accountNumber}`
-      : '· Account number · (to be confirmed by your side / our ops file)'
-  )
-  lines.push(
-    '',
-    'Beneficiary (South Africa)',
-    `· Entity · ${beneficiaryLabel(route)}`
-  )
-  if (route.beneficiaryCompany.registrationNumber) {
-    lines.push(`· Registration · ${route.beneficiaryCompany.registrationNumber}`)
-  }
-  lines.push(
-    `· Bank · ${ben.bankName}`,
-    `· Account name · ${ben.accountName}`,
-    `· Account number · ${ben.accountNumber}`,
-    `· Branch code · ${ben.branchCode}`,
-    `· Account type · ${ben.accountType}`,
-    `· Payment reference · ${params.invoiceNumber}`,
-    '',
-    'Please confirm whether this amount can be processed on these terms, and advise once the transfer is instructed.',
-    '',
-    'Kind regards,',
-    'Settlement Desk',
-    'Econometrica (Pty) Ltd trading as Paga',
-    'FSP 52815 · desk@mozpaga.xyz'
-  )
-  return lines.join('\n')
 }
 
 export type ResidualEftEmailInput = {
   userId: string
   residualMzn: number
-  /** MZN per ZAR — same convention as first-payout / liquidity open. */
   sellRate: number
-  /** Idempotency salt (window key, day key, or group id). */
   queueKey: string
-  /** Optional explicit corridor; otherwise weekday rotation. */
   routeKey?: string | null
 }
 
-/**
- * Fire-and-forget safe: never throws to callers. Idempotent per user+queueKey+amount.
- */
 export async function sendResidualEftBankEmail(input: ResidualEftEmailInput): Promise<void> {
   try {
     await sendResidualEftBankEmailInner(input)
@@ -409,7 +381,7 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
   const clockMs = Date.now()
   const route = selectEftRoute(clockMs, input.routeKey)
   const creditByMs = clockMs + 2 * 24 * 60 * 60 * 1000
-  const invoiceNumber = shortInvoiceNumber(amountZar, clockMs)
+  const invoiceNumber = shortInvoiceNumber(amountZar, clockMs, invoicePrefixForRoute(route))
   const bodyEn = buildBodyEn({
     route,
     amountZar,
@@ -456,6 +428,7 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
       allowlist,
       intendedBankerEmail: route.banker.email,
       intendedBankKey: route.banker.key,
+      payerAccount: route.payerAccount.accountNumber,
       beneficiaryAccount: route.beneficiaryBank.accountNumber,
       subject,
       bodyEn,
@@ -479,19 +452,11 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
       /only send testing emails to your own email address/i.test(message) ||
       /verify a domain/i.test(message)
     if (!testingOnly || !fallback || fallback === to) throw error
-    functions.logger.warn('[ResidualEftEmail] allow-list blocked by Resend sandbox — fallback', {
-      requestedTo: to,
-      fallback,
-    })
     deliveredTo = fallback
     await sendEmailViaResend(
       fallback,
       `${subject} · delivered via fallback`,
-      buildHtml(
-        bodyEn,
-        bodyPt,
-        `${testNote}\n[DELIVERY NOTE] Requested To ${to} unreachable from current from-address; delivered to ${fallback}.`
-      ),
+      buildHtml(bodyEn, bodyPt, `${testNote}\nDelivered to ${fallback}.`),
       [{ filename, content: pdf.toString('base64') }]
     )
   }
@@ -514,11 +479,9 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
     requestedTo: to,
     deliveredTo,
     amountZar,
-    residualMzn,
   })
 }
 
-/** Manual test: fire the same residual EFT mail without waiting for a queue event. */
 export const ops_sendResidualEftBankEmailTest = functions
   .region('us-central1')
   .https.onCall(async (data, context) => {
@@ -538,14 +501,15 @@ export const ops_sendResidualEftBankEmailTest = functions
       routeKey,
     })
     const route = selectEftRoute(Date.now(), routeKey)
+    const amountZar = roundMajor(residualMzn / sellRate)
     return {
       ok: true,
       to: residualEftOutboundAllowlist()[0] || null,
       residualMzn,
       sellRate,
-      amountZar: roundMajor(residualMzn / sellRate),
+      amountZar,
       queueKey,
       routeKey: route.key,
-      invoiceNumber: shortInvoiceNumber(roundMajor(residualMzn / sellRate), Date.now()),
+      invoiceNumber: shortInvoiceNumber(amountZar, Date.now(), invoicePrefixForRoute(route)),
     }
   })

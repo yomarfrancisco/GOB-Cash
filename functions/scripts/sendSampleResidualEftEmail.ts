@@ -1,11 +1,17 @@
 /**
- * One-shot assessment send of the new EN+PT residual EFT email + SA invoice PDF.
- *   cd functions && npx tsx scripts/sendSampleResidualEftEmail.ts
+ * Assessment send of residual EFT EN+PT email + simple PoP-style SA invoice.
+ *   cd functions && npx tsx scripts/sendSampleResidualEftEmail.ts [routeKey]
  */
+import * as fs from 'fs'
+import * as path from 'path'
 import { execSync } from 'child_process'
 import PDFDocument from 'pdfkit'
 import { formatPtDate, formatPtZar } from '../src/routing/bankEmailRound'
-import { selectEftRoute, shortInvoiceNumber } from '../src/treasury/eftRouteCatalog'
+import {
+  invoicePrefixForRoute,
+  selectEftRoute,
+  shortInvoiceNumber,
+} from '../src/treasury/eftRouteCatalog'
 
 function formatZarEn(amount: number): string {
   return `R ${amount.toLocaleString('en-ZA', {
@@ -22,90 +28,164 @@ function loadResendKey(): string {
   return String(cfg.resend?.api_key || '')
 }
 
-async function renderSimpleInvoice(params: {
+function logoPath(): string | null {
+  const candidates = [
+    path.join(__dirname, '../assets/MoZ-logo.png'),
+    path.join(process.cwd(), 'assets/MoZ-logo.png'),
+  ]
+  return candidates.find((p) => fs.existsSync(p)) || null
+}
+
+async function renderInvoice(params: {
   invoiceNumber: string
   amountZar: number
+  residualMzn: number
+  sellRate: number
   routeLabel: string
+  issuerName: string
+  issuerReg: string | null
   payerName: string
   payerNuit: string | null
-  accountNumber: string
-  branchCode: string
+  payBank: string
+  payAccountName: string
+  payAccountNumber: string
+  payNib?: string
+  benBank: string
+  benAccountName: string
+  benAccountNumber: string
+  benBranch?: string
+  creditByMs: number
+  issuedAtMs: number
 }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 48 })
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: 50, bottom: 50, left: 50, right: 50 },
+    })
     const chunks: Buffer[] = []
     doc.on('data', (c) => chunks.push(c as Buffer))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
-    doc.rect(0, 0, doc.page.width, 72).fill('#111')
-    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(14).text('ECONOMETRICA (PTY) LTD', 48, 22)
-    doc.font('Helvetica').fontSize(9).text('trading as Paga · FSP 52815 · South Africa', 48, 42)
-    doc.fillColor('#111').font('Helvetica-Bold').fontSize(18).text('COMMERCIAL INVOICE', 48, 96)
-    doc
-      .font('Helvetica')
-      .fontSize(10)
-      .text(`${params.invoiceNumber} · ${formatZarEn(params.amountZar)} · ${params.routeLabel}`, 48, 124)
-    doc.text(
-      `Beneficiary Capitec ${params.accountNumber} / branch ${params.branchCode}`,
-      48,
-      144
+
+    const left = 50
+    let y = 48
+    const logo = logoPath()
+    if (logo) {
+      try {
+        doc.image(logo, left, y, { width: 88 })
+        y += 58
+      } catch {
+        // optional
+      }
+    }
+    doc.font('Helvetica-Bold').fontSize(16).text('Commercial Invoice', left, y)
+    y = doc.y + 6
+    doc.font('Helvetica').fontSize(10).fillColor('#444').text(params.issuerName, left, y)
+    y = doc.y + 4
+    if (params.issuerReg) {
+      doc.text(`Reg. ${params.issuerReg} · FSP 52815`, left, y)
+      y = doc.y + 10
+    }
+    doc.moveTo(left, y).lineTo(545, y).strokeColor('#111').lineWidth(1).stroke()
+    y += 18
+
+    const lineHeight = 22
+    const labelWidth = 200
+    const addRow = (label: string, value: string, boldValue = false) => {
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#111').text(label, left, y, { width: labelWidth })
+      doc
+        .font(boldValue ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(11)
+        .text(value, left + labelWidth, y, { width: 280 })
+      y += lineHeight
+    }
+
+    addRow('Invoice number:', params.invoiceNumber, true)
+    addRow('Invoice date:', formatPtDate(params.issuedAtMs))
+    addRow('Amount due:', formatZarEn(params.amountZar), true)
+    addRow(
+      'Residual covered:',
+      `${params.residualMzn.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} MZN`
     )
-    doc.text(
-      `Bill to ${params.payerName}${params.payerNuit ? ` · NUIT ${params.payerNuit}` : ''}`,
-      48,
-      164
-    )
-    doc
-      .fontSize(8)
-      .fillColor('#666')
-      .text(
-        'Assessment sample. Full layout is rendered by residualEftBankEmail in production.',
-        48,
-        200
-      )
+    addRow('Rate:', `${params.sellRate.toFixed(4)} MZN/ZAR`)
+    addRow('Credit by:', formatPtDate(params.creditByMs))
+    addRow('Route:', params.routeLabel)
+
+    y += 8
+    doc.font('Helvetica-Bold').fontSize(12).text('Bill to', left, y)
+    y += lineHeight
+    addRow('Entity:', params.payerName)
+    if (params.payerNuit) addRow('NUIT:', params.payerNuit)
+    addRow('Bank:', params.payBank)
+    addRow('Account name:', params.payAccountName)
+    addRow('Account number:', params.payAccountNumber, true)
+    if (params.payNib) addRow('NIB:', params.payNib)
+
+    y += 8
+    doc.font('Helvetica-Bold').fontSize(12).text('Pay to', left, y)
+    y += lineHeight
+    addRow('Entity:', params.issuerName)
+    if (params.issuerReg) addRow('Registration:', params.issuerReg)
+    addRow('Bank:', params.benBank)
+    addRow('Account name:', params.benAccountName)
+    addRow('Account number:', params.benAccountNumber, true)
+    if (params.benBranch) addRow('Branch code:', params.benBranch)
+    addRow('Payment reference:', params.invoiceNumber, true)
+
     doc.end()
   })
 }
 
 async function main() {
   const clockMs = Date.now()
-  const route = selectEftRoute(clockMs, process.argv[2] || 'bim__econometrica_capitec')
+  const route = selectEftRoute(clockMs, process.argv[2] || 'fnb_mz__brics_ei__lemon_fnb')
   const amountZar = 383222.73
   const residualMzn = 1601973.3
   const sellRate = 4.1803
-  const invoiceNumber = shortInvoiceNumber(amountZar, clockMs)
+  const invoiceNumber = shortInvoiceNumber(amountZar, clockMs, invoicePrefixForRoute(route))
   const creditByMs = clockMs + 2 * 86400000
+  const issuerName = route.beneficiaryCompany.tradingAs
+    ? `${route.beneficiaryCompany.legalName} trading as ${route.beneficiaryCompany.tradingAs}`
+    : route.beneficiaryCompany.legalName
+  const payerName = route.payer.tradingAs
+    ? `${route.payer.legalName} trading as ${route.payer.tradingAs}`
+    : route.payer.legalName
 
   const bodyEn = [
-    `Dear Ms ${route.banker.banker},`,
+    `Dear ${route.banker.salutation === 'Exma. Sra.' ? 'Ms' : 'Mr'} ${route.banker.banker},`,
     '',
-    `Please find attached commercial invoice ${invoiceNumber} issued by Econometrica (Pty) Ltd trading as Paga (South Africa, FSP 52815).`,
+    `Please find attached invoice ${invoiceNumber} issued by ${issuerName} (South Africa).`,
     '',
-    'We kindly ask you to arrange the following EFT under the residual settlement corridor selected for today:',
+    'Kindly arrange the EFT below for today’s residual settlement corridor:',
     '',
-    `Invoice total · ${formatZarEn(amountZar)}`,
-    `Residual covered · ${residualMzn.toFixed(2)} MZN at ${sellRate.toFixed(4)} MZN/ZAR`,
-    `Credit required by · ${formatPtDate(creditByMs)}`,
-    `Route · ${route.label}`,
+    `Invoice total: ${formatZarEn(amountZar)}`,
+    `Residual covered: ${residualMzn.toFixed(2)} MZN at ${sellRate.toFixed(4)} MZN/ZAR`,
+    `Credit required by: ${formatPtDate(creditByMs)}`,
+    `Route: ${route.label}`,
     '',
     'Remitting party (Mozambique)',
-    `· Entity · ${route.payer.legalName}`,
-    route.payer.nuit ? `· NUIT · ${route.payer.nuit}` : null,
-    `· Bank · ${route.payerAccount?.bankName}`,
-    `· Account name · ${route.payerAccount?.accountName}`,
-    '· Account number · (to be confirmed by your side / our ops file)',
+    `Entity: ${payerName}`,
+    route.payer.nuit ? `NUIT: ${route.payer.nuit}` : null,
+    `Bank: ${route.payerAccount.bankName}`,
+    `Account name: ${route.payerAccount.accountName}`,
+    `Account number: ${route.payerAccount.accountNumber}`,
+    route.payerAccount.nib ? `NIB: ${route.payerAccount.nib}` : null,
+    route.payerAccount.iban ? `IBAN: ${route.payerAccount.iban}` : null,
+    route.payerAccount.swift ? `SWIFT: ${route.payerAccount.swift}` : null,
     '',
     'Beneficiary (South Africa)',
-    '· Entity · Econometrica (Pty) Ltd trading as Paga',
-    `· Registration · ${route.beneficiaryCompany.registrationNumber}`,
-    `· Bank · ${route.beneficiaryBank.bankName}`,
-    `· Account name · ${route.beneficiaryBank.accountName}`,
-    `· Account number · ${route.beneficiaryBank.accountNumber}`,
-    `· Branch code · ${route.beneficiaryBank.branchCode}`,
-    `· Account type · ${route.beneficiaryBank.accountType}`,
-    `· Payment reference · ${invoiceNumber}`,
+    `Entity: ${issuerName}`,
+    route.beneficiaryCompany.registrationNumber
+      ? `Registration: ${route.beneficiaryCompany.registrationNumber}`
+      : null,
+    `Bank: ${route.beneficiaryBank.bankName}`,
+    `Account name: ${route.beneficiaryBank.accountName}`,
+    `Account number: ${route.beneficiaryBank.accountNumber}`,
+    route.beneficiaryBank.branchCode ? `Branch code: ${route.beneficiaryBank.branchCode}` : null,
+    route.beneficiaryBank.swift ? `SWIFT: ${route.beneficiaryBank.swift}` : null,
+    `Payment reference: ${invoiceNumber}`,
     '',
-    'Please confirm whether this amount can be processed on these terms, and advise once the transfer is instructed.',
+    'Please confirm if this amount can be processed on these terms, and advise once instructed.',
     '',
     'Kind regards,',
     'Settlement Desk',
@@ -118,33 +198,40 @@ async function main() {
   const bodyPt = [
     `${route.banker.salutation} ${route.banker.banker},`,
     '',
-    `Junto enviamos a factura comercial ${invoiceNumber} emitida por Econometrica (Pty) Ltd trading as Paga (África do Sul, FSP 52815).`,
+    `Junto enviamos a factura ${invoiceNumber} emitida por ${issuerName} (África do Sul).`,
     '',
-    'Solicitamos a organização da seguinte transferência EFT no corredor de liquidação residual seleccionado para hoje:',
+    'Solicitamos a organização da seguinte EFT no corredor de liquidação residual de hoje:',
     '',
-    `Total da factura · ${formatPtZar(amountZar)}`,
-    `Residual coberto · ${residualMzn.toFixed(2)} MZN à taxa ${sellRate.toFixed(4)} MZN/ZAR`,
-    `Crédito previsto · até ${formatPtDate(creditByMs)}`,
-    `Rota · ${route.label}`,
+    `Total da factura: ${formatPtZar(amountZar)}`,
+    `Residual coberto: ${residualMzn.toFixed(2)} MZN à taxa ${sellRate.toFixed(4)} MZN/ZAR`,
+    `Crédito previsto até: ${formatPtDate(creditByMs)}`,
+    `Rota: ${route.label}`,
     '',
     'Parte remetente (Moçambique)',
-    `· Entidade · ${route.payer.legalName}`,
-    route.payer.nuit ? `· NUIT · ${route.payer.nuit}` : null,
-    `· Banco · ${route.payerAccount?.bankName}`,
-    `· Nome da conta · ${route.payerAccount?.accountName}`,
-    '· Número da conta · (a confirmar pelo vosso lado / nosso ficheiro operacional)',
+    `Entidade: ${payerName}`,
+    route.payer.nuit ? `NUIT: ${route.payer.nuit}` : null,
+    `Banco: ${route.payerAccount.bankName}`,
+    `Nome da conta: ${route.payerAccount.accountName}`,
+    `Número da conta: ${route.payerAccount.accountNumber}`,
+    route.payerAccount.nib ? `NIB: ${route.payerAccount.nib}` : null,
+    route.payerAccount.iban ? `IBAN: ${route.payerAccount.iban}` : null,
+    route.payerAccount.swift ? `SWIFT: ${route.payerAccount.swift}` : null,
     '',
     'Beneficiário (África do Sul)',
-    '· Entidade · Econometrica (Pty) Ltd trading as Paga',
-    `· Registo · ${route.beneficiaryCompany.registrationNumber}`,
-    `· Banco · ${route.beneficiaryBank.bankName}`,
-    `· Nome da conta · ${route.beneficiaryBank.accountName}`,
-    `· Número da conta · ${route.beneficiaryBank.accountNumber}`,
-    `· Código de agência · ${route.beneficiaryBank.branchCode}`,
-    `· Tipo de conta · ${route.beneficiaryBank.accountType}`,
-    `· Referência de pagamento · ${invoiceNumber}`,
+    `Entidade: ${issuerName}`,
+    route.beneficiaryCompany.registrationNumber
+      ? `Registo: ${route.beneficiaryCompany.registrationNumber}`
+      : null,
+    `Banco: ${route.beneficiaryBank.bankName}`,
+    `Nome da conta: ${route.beneficiaryBank.accountName}`,
+    `Número da conta: ${route.beneficiaryBank.accountNumber}`,
+    route.beneficiaryBank.branchCode
+      ? `Código de agência: ${route.beneficiaryBank.branchCode}`
+      : null,
+    route.beneficiaryBank.swift ? `SWIFT: ${route.beneficiaryBank.swift}` : null,
+    `Referência de pagamento: ${invoiceNumber}`,
     '',
-    'Agradecemos que nos confirmem se o montante pode ser processado nestas condições e que nos informem após a instrução da transferência.',
+    'Agradecemos confirmação se o montante pode ser processado nestas condições, e aviso após a instrução.',
     '',
     'Com os melhores cumprimentos,',
     'Secretariado de Liquidação',
@@ -154,20 +241,32 @@ async function main() {
     .filter(Boolean)
     .join('\n')
 
-  const pdf = await renderSimpleInvoice({
+  const pdf = await renderInvoice({
     invoiceNumber,
     amountZar,
+    residualMzn,
+    sellRate,
     routeLabel: route.label,
-    payerName: route.payer.legalName,
+    issuerName,
+    issuerReg: route.beneficiaryCompany.registrationNumber,
+    payerName,
     payerNuit: route.payer.nuit,
-    accountNumber: route.beneficiaryBank.accountNumber,
-    branchCode: route.beneficiaryBank.branchCode,
+    payBank: route.payerAccount.bankName,
+    payAccountName: route.payerAccount.accountName,
+    payAccountNumber: route.payerAccount.accountNumber,
+    payNib: route.payerAccount.nib,
+    benBank: route.beneficiaryBank.bankName,
+    benAccountName: route.beneficiaryBank.accountName,
+    benAccountNumber: route.beneficiaryBank.accountNumber,
+    benBranch: route.beneficiaryBank.branchCode,
+    creditByMs,
+    issuedAtMs: clockMs,
   })
 
   const esc = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')
   const html = `<!DOCTYPE html><html><body style="font-family:Arial;line-height:1.55;color:#222;max-width:640px">
-<p style="font-size:12px;color:#666">English (assessment copy)</p><div>${esc(bodyEn)}</div>
+<p style="font-size:12px;color:#666">English</p><div>${esc(bodyEn)}</div>
 <hr/><p style="font-size:12px;color:#666">Português</p><div>${esc(bodyPt)}</div>
 <hr/><p style="font-size:12px;color:#884400">[TEST] Intended banker: ${route.banker.email}. Route ${route.key}.</p>
 </body></html>`
@@ -185,7 +284,16 @@ async function main() {
     }),
   })
   const text = await res.text()
-  console.log(JSON.stringify({ status: res.status, body: text.slice(0, 400), invoiceNumber, route: route.key }))
+  console.log(
+    JSON.stringify({
+      status: res.status,
+      body: text.slice(0, 300),
+      invoiceNumber,
+      route: route.key,
+      payerAccount: route.payerAccount.accountNumber,
+      beneficiaryAccount: route.beneficiaryBank.accountNumber,
+    })
+  )
 }
 
 main().catch((error) => {
