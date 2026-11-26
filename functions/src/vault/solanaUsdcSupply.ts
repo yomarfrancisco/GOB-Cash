@@ -162,29 +162,75 @@ function senderFromTx(tx: ParsedTx): string | null {
   return accountKeyString(keys[0]) || null
 }
 
-async function findConfirmedSupply(reference: string): Promise<{
+async function isSignatureClaimed(signature: string): Promise<boolean> {
+  const snap = await db().collection('vaultClaimedSigs').doc(signature).get()
+  return snap.exists
+}
+
+async function parseInboundFromSig(signature: string): Promise<{
   signature: string
   amountUsdc: number
   sender: string
 } | null> {
-  const sigs = await solanaRpc<Array<{ signature: string; err: unknown }>>(
-    'getSignaturesForAddress',
-    [reference, { limit: 5 }]
-  )
-  if (!sigs?.length) return null
+  const tx = await solanaRpc<ParsedTx | null>('getTransaction', [
+    signature,
+    { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0, commitment: 'confirmed' },
+  ])
+  if (!tx || tx.meta?.err) return null
+  const amountUsdc = usdcReceivedByTreasury(tx)
+  if (!(amountUsdc > 0)) return null
+  if (await isSignatureClaimed(signature)) return null
+  const sender = senderFromTx(tx) || 'unknown'
+  // Prefer non-treasury signer as the user's wallet
+  const keys = tx.transaction.message.accountKeys.map(accountKeyString)
+  const fromUser = keys.find((k) => k && k !== TREASURY) || sender
+  return { signature, amountUsdc, sender: fromUser }
+}
 
-  for (const s of sigs) {
-    if (s.err) continue
-    const tx = await solanaRpc<ParsedTx | null>('getTransaction', [
-      s.signature,
-      { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0, commitment: 'confirmed' },
-    ])
-    if (!tx || tx.meta?.err) continue
-    const amountUsdc = usdcReceivedByTreasury(tx)
-    if (!(amountUsdc > 0)) continue
-    const sender = senderFromTx(tx) || 'unknown'
-    return { signature: s.signature, amountUsdc, sender }
+/**
+ * 1) Solana Pay reference account (preferred)
+ * 2) Fallback: any unclaimed USDC credit to treasury after the pending was created
+ *    (covers Phantom sends that omit the reference account)
+ */
+async function findConfirmedSupply(params: {
+  reference: string
+  createdAtMs?: number
+}): Promise<{
+  signature: string
+  amountUsdc: number
+  sender: string
+} | null> {
+  const { reference, createdAtMs } = params
+
+  try {
+    const refSigs = await solanaRpc<Array<{ signature: string; err: unknown }>>(
+      'getSignaturesForAddress',
+      [reference, { limit: 8 }]
+    )
+    for (const s of refSigs || []) {
+      if (s.err) continue
+      const found = await parseInboundFromSig(s.signature)
+      if (found) return found
+    }
+  } catch (err) {
+    functions.logger.warn('findConfirmedSupply reference scan', err)
   }
+
+  const sinceSec = Math.floor(((createdAtMs && createdAtMs > 0 ? createdAtMs : Date.now()) - 120_000) / 1000)
+  try {
+    const treasurySigs = await solanaRpc<
+      Array<{ signature: string; err: unknown; blockTime?: number | null }>
+    >('getSignaturesForAddress', [TREASURY, { limit: 20 }])
+    for (const s of treasurySigs || []) {
+      if (s.err) continue
+      if (s.blockTime != null && s.blockTime < sinceSec) continue
+      const found = await parseInboundFromSig(s.signature)
+      if (found) return found
+    }
+  } catch (err) {
+    functions.logger.warn('findConfirmedSupply treasury scan', err)
+  }
+
   return null
 }
 
@@ -289,6 +335,20 @@ async function creditSupply(params: {
     .collection('vaultSupplyByRef')
     .doc(reference)
     .set({ status: 'confirmed', confirmedAtMs: atMs }, { merge: true })
+
+  await db()
+    .collection('vaultClaimedSigs')
+    .doc(signature)
+    .set(
+      {
+        uid,
+        supplyId,
+        amountUsdc,
+        sender,
+        claimedAtMs: atMs,
+      },
+      { merge: true }
+    )
 }
 
 export const vault_createUsdcSupply = functions
@@ -372,10 +432,11 @@ export const vault_checkUsdcSupply = functions
 
     const reference = String(supply.reference || '')
     if (!reference) return { status: 'pending' as const }
+    const createdAtMs = Number(supply.createdAtMs) || 0
 
     let found: Awaited<ReturnType<typeof findConfirmedSupply>> = null
     try {
-      found = await findConfirmedSupply(reference)
+      found = await findConfirmedSupply({ reference, createdAtMs })
     } catch (err) {
       functions.logger.warn('vault_checkUsdcSupply rpc', err)
       return { status: 'pending' as const }
@@ -420,7 +481,10 @@ export const vault_pollUsdcSupplies = functions
       const reference = doc.id
       if (!uid || !supplyId || !reference) continue
       try {
-        const found = await findConfirmedSupply(reference)
+        const found = await findConfirmedSupply({
+          reference,
+          createdAtMs: Number(data.createdAtMs) || 0,
+        })
         if (!found) continue
         await creditSupply({
           uid,

@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import { Check, ChevronDown, CircleDashed } from 'lucide-react'
 import {
   formatDeskMajorUsd,
   formatDeskMajorZar,
 } from '@/lib/desk/deskMoneyFormat'
+import { formatCardTopline } from '@/lib/formatCurrency'
 import { sastParts } from '@/lib/routing/routingTime'
 import {
   checkUsdcSupplyRequest,
@@ -152,15 +152,19 @@ export function EarnVaultVisual({
       onClick={onClick}
       disabled={supplyBusy}
       style={{
-        flex: 1,
+        boxSizing: 'border-box',
+        flex: primary ? undefined : 1,
         width: primary ? '100%' : undefined,
+        minHeight: 52,
         height: 52,
+        padding: '0 18px',
         borderRadius: 16,
         border: primary ? 0 : '1px solid #d4d0c6',
         background: primary ? '#111' : '#fff',
         color: primary ? '#fff' : '#111',
         fontSize: 16,
         fontWeight: 650,
+        lineHeight: '52px',
         cursor: supplyBusy ? 'wait' : 'pointer',
         display: 'inline-flex',
         alignItems: 'center',
@@ -170,9 +174,16 @@ export function EarnVaultVisual({
       }}
     >
       {primary ? (
-        <Image src="/assets/phantom-icon.png" alt="" width={22} height={22} />
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src="/assets/phantom-icon.png"
+          alt=""
+          width={22}
+          height={22}
+          style={{ width: 22, height: 22, flexShrink: 0, display: 'block', borderRadius: 6 }}
+        />
       ) : null}
-      {label}
+      <span style={{ lineHeight: 1 }}>{label}</span>
     </button>
   )
 
@@ -191,8 +202,15 @@ export function EarnVaultVisual({
 
           <div className={[styles.front, styles.frontUsdc].join(' ')}>
             <div className={styles.frontLane}>USDC</div>
-            <div className={styles.frontAmt}>{formatDeskMajorUsd(position.suppliedUsdc)}</div>
-            <div className={styles.frontSub}>Earning {apyLabel}% yearly</div>
+            <div className={styles.frontAmt}>
+              {(() => {
+                const { major, cents } = formatCardTopline(
+                  Math.max(0, Number(position.suppliedUsdc) || 0)
+                )
+                return cents != null ? `$${major}.${cents}` : `$${major}`
+              })()}
+            </div>
+            <div className={styles.frontSub}>{apyLabel}% APY</div>
             <div className={styles.frontBarTrack} aria-hidden>
               <span
                 className={styles.frontBarFill}
@@ -380,14 +398,18 @@ export function EarnVaultVisual({
               onClick={() => void handleSupply()}
               disabled={supplyBusy}
               style={{
+                boxSizing: 'border-box',
                 flex: 1,
+                minHeight: 52,
                 height: 52,
+                padding: '0 18px',
                 borderRadius: 16,
                 border: 0,
                 background: '#111',
                 color: '#fff',
                 fontSize: 16,
                 fontWeight: 650,
+                lineHeight: '52px',
                 cursor: supplyBusy ? 'wait' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -396,8 +418,15 @@ export function EarnVaultVisual({
                 opacity: supplyBusy ? 0.7 : 1,
               }}
             >
-              <Image src="/assets/phantom-icon.png" alt="" width={22} height={22} />
-              Supply more
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/assets/phantom-icon.png"
+                alt=""
+                width={22}
+                height={22}
+                style={{ width: 22, height: 22, flexShrink: 0, display: 'block', borderRadius: 6 }}
+              />
+              <span style={{ lineHeight: 1 }}>Supply more</span>
             </button>
             <button
               type="button"

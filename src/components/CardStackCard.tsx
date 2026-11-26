@@ -30,10 +30,8 @@ import {
 import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
 import { useVaultStore } from '@/store/vault'
-import {
-  formatDeskMajorUsd,
-  formatDeskUsdcSuppliedMinor,
-} from '@/lib/desk/deskMoneyFormat'
+import { formatDeskUsdcSuppliedMinor } from '@/lib/desk/deskMoneyFormat'
+import { formatCardTopline } from '@/lib/formatCurrency'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -483,9 +481,9 @@ export default function CardStackCard({
         Number.isFinite(vaultPosition.trailingApyPct)
           ? vaultPosition.trailingApyPct
           : null
-      if (apy == null) return { strong: 'Earn', label: '' }
+      if (apy == null) return { strong: 'APY', label: '' }
       const shown = Number.isInteger(apy) ? String(apy) : apy.toFixed(1)
-      return { strong: `Earn ${shown}%/yr`, label: '' }
+      return { strong: `${shown}%`, label: 'APY' }
     }
 
     if (card.type === 'yieldSurprise') {
@@ -620,17 +618,40 @@ export default function CardStackCard({
         )
       })()}
 
-      {/* Earn: amount stack whenever this card is on top — including $0.00 empty. */}
+      {/* Earn: same DM Sans topline structure as ZAR/MZN cards (incl. $0.00). */}
       {showEarnAmounts ? (
         <div className="card-amounts card-amounts--earn card-amounts--shifted" suppressHydrationWarning>
-          <div className="card-amounts__zar amount-headline amount-topline" suppressHydrationWarning>
-            <span className="amt-int card-amounts__whole">
-              {formatDeskMajorUsd(vaultPosition.suppliedUsdc)}
-            </span>
-          </div>
-          <div className="card-amounts__usdt" suppressHydrationWarning>
-            <span>{formatDeskUsdcSuppliedMinor(vaultPosition.suppliedUsdc)}</span>
-          </div>
+          {(() => {
+            const earnAmt = Math.max(0, Number(vaultPosition.suppliedUsdc) || 0)
+            const { major, cents } = formatCardTopline(earnAmt)
+            return (
+              <>
+                <div
+                  className="card-amounts__zar amount-headline amount-topline"
+                  aria-label={`${earnAmt.toFixed(2)} US dollars`}
+                  suppressHydrationWarning
+                >
+                  <span className="amt-int card-amounts__whole" suppressHydrationWarning>
+                    ${' '}
+                    {major}
+                  </span>
+                  {cents != null ? (
+                    <>
+                      <span className="amt-dot card-amounts__dot" suppressHydrationWarning>
+                        .
+                      </span>
+                      <span className="amt-cents card-amounts__cents" suppressHydrationWarning>
+                        {cents}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+                <div className="card-amounts__usdt" suppressHydrationWarning>
+                  <span>{formatDeskUsdcSuppliedMinor(earnAmt)}</span>
+                </div>
+              </>
+            )
+          })()}
         </div>
       ) : null}
 
