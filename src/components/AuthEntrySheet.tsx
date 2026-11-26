@@ -22,7 +22,10 @@ import ActionSheet from './ActionSheet'
 import styles from './AuthModal.module.css'
 
 type AuthMode = 'loginEntry' | 'signup'
-type LandingPhoneCountry = 'MZ' | 'ZA'
+type LandingPhoneCountry = 'MZ' | 'ZA' | 'US'
+
+/** Tap cycle: Mozambique → South Africa → United States → Mozambique. */
+const LANDING_PHONE_CYCLE: LandingPhoneCountry[] = ['MZ', 'ZA', 'US']
 
 const LANDING_PHONE_COUNTRIES: Record<
   LandingPhoneCountry,
@@ -41,6 +44,13 @@ const LANDING_PHONE_COUNTRIES: Record<
     placeholder: '82 123 4567',
     maxDigits: 9,
     label: 'South Africa',
+  },
+  US: {
+    dial: '+1',
+    flag: '/assets/united_states.png',
+    placeholder: '415 555 2671',
+    maxDigits: 10,
+    label: 'United States',
   },
 }
 
@@ -77,6 +87,10 @@ export default function AuthEntrySheet() {
   const buildLandingE164 = () => {
     let national = phoneNumber.replace(/\D/g, '')
     if (phoneCountry === 'ZA' && national.startsWith('0')) {
+      national = national.slice(1)
+    }
+    // US: if they typed country code + national (11 digits starting with 1), drop the leading 1.
+    if (phoneCountry === 'US' && national.length === 11 && national.startsWith('1')) {
       national = national.slice(1)
     }
     return `${landingPhone.dial}${national}`
@@ -162,18 +176,32 @@ export default function AuthEntrySheet() {
     }
   }, [authEntryOpen])
 
-  /** Display national digits as 84 123 4567 while keeping raw digits in state. */
+  /** Display national digits while keeping raw digits in state. */
   const formatNationalDigits = (digits: string) => {
+    if (phoneCountry === 'US') {
+      if (digits.length <= 3) return digits
+      if (digits.length <= 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`
+      return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`
+    }
     if (digits.length <= 2) return digits
     if (digits.length <= 5) return `${digits.slice(0, 2)} ${digits.slice(2)}`
     return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5)}`
   }
 
   const toggleLandingPhoneCountry = () => {
-    setPhoneCountry((prev) => (prev === 'MZ' ? 'ZA' : 'MZ'))
+    setPhoneCountry((prev) => {
+      const i = LANDING_PHONE_CYCLE.indexOf(prev)
+      return LANDING_PHONE_CYCLE[(i + 1) % LANDING_PHONE_CYCLE.length]
+    })
     setPhoneNumber('')
     setTimeout(() => phoneInputRef.current?.focus(), 0)
   }
+
+  const nextLandingPhoneCountry =
+    LANDING_PHONE_CYCLE[
+      (LANDING_PHONE_CYCLE.indexOf(phoneCountry) + 1) % LANDING_PHONE_CYCLE.length
+    ]
+  const nextLandingPhoneLabel = LANDING_PHONE_COUNTRIES[nextLandingPhoneCountry].label
 
   const isDisabled = identifier.trim().length === 0
 
@@ -468,9 +496,7 @@ export default function AuthEntrySheet() {
                   type="button"
                   className={styles.landingPhonePrefix}
                   onClick={toggleLandingPhoneCountry}
-                  aria-label={`Country ${landingPhone.label}. Tap to switch to ${
-                    phoneCountry === 'MZ' ? 'South Africa' : 'Mozambique'
-                  }`}
+                  aria-label={`Country ${landingPhone.label}. Tap to switch to ${nextLandingPhoneLabel}`}
                 >
                   <Image
                     src={landingPhone.flag}

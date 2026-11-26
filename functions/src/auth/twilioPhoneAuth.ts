@@ -1,5 +1,5 @@
 /**
- * Twilio Verify OTP for phone sign-in (MZ/ZA).
+ * Twilio Verify OTP for phone sign-in (MZ / ZA / US).
  * Unauthenticated callables → custom Firebase token after successful check.
  */
 
@@ -13,7 +13,8 @@ const twilioApiKeySid = defineSecret('TWILIO_API_KEY_SID')
 const twilioApiKeySecret = defineSecret('TWILIO_API_KEY_SECRET')
 const twilioVerifyServiceSid = defineSecret('TWILIO_VERIFY_SERVICE_SID')
 
-const ALLOWED_E164 = /^\+(258\d{8,9}|27\d{9})$/
+/** MZ (+258), ZA (+27), US (+1 NANP 10-digit). */
+const ALLOWED_E164 = /^\+(258\d{8,9}|27\d{9}|1\d{10})$/
 const SEND_COOLDOWN_MS = 45_000
 const MAX_SENDS_PER_PHONE_HOUR = 8
 const MAX_SENDS_PER_IP_HOUR = 20
@@ -38,7 +39,7 @@ function normalizeE164(raw: unknown): string {
   if (!ALLOWED_E164.test(phone)) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'Use a Mozambique (+258) or South Africa (+27) mobile number'
+      'Use a Mozambique (+258), South Africa (+27), or US (+1) mobile number'
     )
   }
   return phone
