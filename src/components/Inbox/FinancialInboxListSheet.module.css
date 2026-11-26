@@ -64,10 +64,11 @@
   --desk-chip: 12px;
   --desk-eyebrow: 11px;
   /*
-   * Floating lamp/piggy row is 16px + 52px = 68px on screen.
-   * .conversationList uses zoom: 0.8, so pad in local coords: 68 / 0.8 ≈ 85.
+   * Floating lamp/piggy row is 16px + 52px = 68px on screen, plus a small
+   * buffer so feed (Rewards Manager / routing) does not hug the buttons.
+   * .conversationList uses zoom: 0.8, so pad in local coords: ~84 / 0.8 ≈ 105.
    */
-  --desk-header-h: 85px;
+  --desk-header-h: 105px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -518,20 +519,20 @@
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
   zoom: 0.8;
-  /* Top: transparent → 72px, opaque from 128px. Bottom: 120px fade out. */
+  /* Top: clear header band, then soft fade into feed. Bottom: 120px fade out. */
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    transparent 72px,
-    #000 128px,
+    transparent 88px,
+    #000 148px,
     #000 calc(100% - 120px),
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    transparent 72px,
-    #000 128px,
+    transparent 88px,
+    #000 148px,
     #000 calc(100% - 120px),
     transparent 100%
   );
