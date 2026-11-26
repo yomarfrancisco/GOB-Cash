@@ -2,7 +2,8 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Check, Clock, Download, ExternalLink, LampDesk, PiggyBank, X } from 'lucide-react'
+import { Check, Clock, Download, ExternalLink, LampDesk, X } from 'lucide-react'
+import { PhantomGhostIcon } from '@/components/icons/PhantomGhostIcon'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -2080,7 +2081,7 @@ export function NotificationsList({
           aria-pressed={deskChromeMode === 'earn'}
           onClick={() => setDeskChromeMode('earn')}
         >
-          <PiggyBank size={22} strokeWidth={2} aria-hidden />
+          <PhantomGhostIcon width={30} />
         </button>
       </div>
       <div className={listStyles.deskCloseDock}>

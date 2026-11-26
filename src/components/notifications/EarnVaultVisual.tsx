@@ -251,22 +251,6 @@ export function EarnVaultVisual({
             opacity: supplyBusy ? 0.7 : 1,
           }}
         >
-          {view.supplyEnabled ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src="/assets/phantom-icon.png"
-              alt=""
-              width={18}
-              height={18}
-              style={{
-                width: 18,
-                height: 18,
-                flexShrink: 0,
-                display: 'block',
-                borderRadius: 4,
-              }}
-            />
-          ) : null}
           <span style={{ lineHeight: 1 }}>{view.supplyLabel}</span>
         </button>
       </div>

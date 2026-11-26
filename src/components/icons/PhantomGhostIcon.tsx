@@ -1,0 +1,36 @@
+/** Phantom ghost mark — purple square dropped; eyes are evenodd cut-outs. */
+export function PhantomGhostIcon({
+  className,
+  width = 30,
+}: {
+  className?: string
+  /** Optical width inside the header control (~30px). */
+  width?: number
+}) {
+  // Cropped ghost aspect ≈ 92 × 84 (viewBox below).
+  const height = Math.round((width * 84) / 92)
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="18 22 92 84"
+      width={width}
+      height={height}
+      className={className}
+      aria-hidden
+      focusable="false"
+    >
+      {/*
+        Official app-icon ghost (309 grid), scaled into the 128 grid.
+        Purple <rect fill="#AB9FF2"> omitted; eyes stay transparent via evenodd.
+      */}
+      <g transform="scale(0.414239482)">
+        <path
+          fill="currentColor"
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M133.12 200.08c-12.94 19.82-34.61 44.9-63.46 44.9-13.63 0-26.74-5.61-26.74-30 0-62.09 84.78-158.22 163.44-158.22 44.75 0 62.58 31.05 62.58 66.31 0 45.26-29.36 97-58.56 97-9.26 0-13.8-5.08-13.8-13.15q0-3.16 1.04-6.84c-9.96 17.01-29.2 32.8-47.2 32.8-13.1 0-19.75-8.25-19.75-19.82 0-4.21.87-8.6 2.45-12.98m67.76-78.24c0 10.28-6.06 15.42-12.85 15.42-6.88 0-12.84-5.14-12.84-15.41s5.96-15.42 12.84-15.42c6.78 0 12.85 5.14 12.85 15.41m38.52 0c0 10.28-6.06 15.42-12.84 15.42-6.88 0-12.84-5.14-12.84-15.41s5.96-15.42 12.84-15.42c6.78 0 12.84 5.14 12.84 15.41"
+        />
+      </g>
+    </svg>
+  )
+}
