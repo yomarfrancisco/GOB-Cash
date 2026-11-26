@@ -454,7 +454,7 @@ async function creditSupply(params: {
     )
 
     const title = formatUsdcReceivedTitle(amountUsdc)
-    const body = `Your rate is locked at ${blended}%. Back by 04:00 with return only on the USDC used for deliveries.`
+    const body = `Your rate is locked at ${blended}%. Back by 15:00 SAST (13:00 GMT) with return only on the USDC used for deliveries.`
 
     tx.set(eventRef, {
       id: eventId,

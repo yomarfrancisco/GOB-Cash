@@ -193,13 +193,15 @@ export function EarnVaultVisual({
             style={{
               marginTop: 12,
               width: '100%',
-              height: 48,
-              borderRadius: 16,
-              border: '1px solid #111',
+              // Match desk `.replyButton` / Download proof (44px).
+              height: 44,
+              minHeight: 44,
+              borderRadius: 10,
+              border: '1px solid #18181b',
               background: '#fff',
-              color: '#111',
-              fontSize: 15,
-              fontWeight: 650,
+              color: '#18181b',
+              fontSize: 14,
+              fontWeight: 600,
               cursor: 'pointer',
             }}
           >
@@ -230,21 +232,22 @@ export function EarnVaultVisual({
           style={{
             boxSizing: 'border-box',
             width: '100%',
-            minHeight: 52,
-            height: 52,
-            padding: '0 18px',
-            borderRadius: 16,
+            // Match desk `.primaryAction` / `.replyButton` height (Download proof = 44px).
+            minHeight: 44,
+            height: 44,
+            padding: '0 14px',
+            borderRadius: 10,
             border: 0,
-            background: view.supplyEnabled ? '#111' : '#c7c7cc',
+            background: view.supplyEnabled ? '#18181b' : '#c7c7cc',
             color: '#fff',
-            fontSize: 16,
-            fontWeight: 650,
-            lineHeight: '52px',
+            fontSize: 14,
+            fontWeight: 600,
+            lineHeight: '16px',
             cursor: supplyBusy ? 'wait' : view.supplyEnabled ? 'pointer' : 'not-allowed',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 10,
+            gap: 6,
             opacity: supplyBusy ? 0.7 : 1,
           }}
         >
@@ -253,14 +256,14 @@ export function EarnVaultVisual({
             <img
               src="/assets/phantom-icon.png"
               alt=""
-              width={22}
-              height={22}
+              width={18}
+              height={18}
               style={{
-                width: 22,
-                height: 22,
+                width: 18,
+                height: 18,
                 flexShrink: 0,
                 display: 'block',
-                borderRadius: 6,
+                borderRadius: 4,
               }}
             />
           ) : null}

@@ -1997,14 +1997,24 @@ export function NotificationsList({
                     alt=""
                     width={44}
                     height={44}
-                    style={{ borderRadius: 12, objectFit: 'cover' }}
+                    className={styles.avatarImg}
+                    style={{
+                      // Face-forward crop — canvas avatar reads tighter than full bust.
+                      objectFit: 'cover',
+                      objectPosition: '50% 22%',
+                      transform: 'scale(1.55)',
+                      transformOrigin: '50% 28%',
+                    }}
+                    unoptimized
                   />
                 </div>
                 <div className={styles.activityContent}>
-                  <div className={styles.activitySpeaker}>{rewardsManager.name}</div>
-                  <div className={styles.activityHeader}>
-                    <div className={styles.activityTitle}>{earnTitle}</div>
-                    <div className={styles.activityTime}>now</div>
+                  <div className={styles.msgHeaderText}>
+                    <div className={styles.activitySpeaker}>{rewardsManager.name}</div>
+                    <div className={styles.activityHeader}>
+                      <div className={styles.activityTitle}>{earnTitle}</div>
+                      <div className={styles.activityTime}>now</div>
+                    </div>
                   </div>
                   <p className={styles.activityBody}>{earnSentence}</p>
                   <EarnVaultVisual

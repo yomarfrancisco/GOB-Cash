@@ -7,7 +7,8 @@ import type { VaultPosition } from '@/store/vault'
 
 export const DELIVERY_NOTE = {
   openTime: { hour: 9, minute: 0 },
-  returnTime: { hour: 4, minute: 0 },
+  /** USDC returned next calendar day at this SAST clock (was 04:00). */
+  returnTime: { hour: 15, minute: 0 },
   cutoffTime: { hour: 21, minute: 0 },
   openRatePct: 6.5,
   stepDownPct: 0.25,
@@ -89,11 +90,10 @@ function todayCutoffMs(nowMs: number): number {
   )
 }
 
-/** Return deadline: 04:00 next calendar day after today's open. */
+/** Return deadline: 15:00 SAST next calendar day after today's open. */
 export function noteReturnAtMs(nowMs: number): number {
   const open = todayOpenMs(nowMs)
   const p = sastParts(open)
-  // Next day 04:00 SAST
   const nextDay = new Date(Date.UTC(p.year, p.month - 1, p.day) + 24 * 3600 * 1000)
   return sastToUtcMs(
     nextDay.getUTCFullYear(),
@@ -102,6 +102,30 @@ export function noteReturnAtMs(nowMs: number): number {
     DELIVERY_NOTE.returnTime.hour,
     DELIVERY_NOTE.returnTime.minute
   )
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+/** Absolute return clock for prose: "15:00 SAST (13:00 GMT)". */
+export function formatReturnAbsolute(): string {
+  const h = DELIVERY_NOTE.returnTime.hour
+  const m = DELIVERY_NOTE.returnTime.minute
+  const gmtH = (h - 2 + 24) % 24
+  return `${pad2(h)}:${pad2(m)} SAST (${pad2(gmtH)}:${pad2(m)} GMT)`
+}
+
+/** Card sub: relative "back in 23 hours" from now → return. */
+export function formatBackInRough(msUntil: number): string {
+  const totalMin = Math.max(0, Math.round(msUntil / 60_000))
+  if (totalMin < 1) return 'back soon'
+  if (totalMin < 60) return `back in ${totalMin} min`
+  const hours = Math.round(totalMin / 60)
+  if (hours === 1) return 'back in 1 hour'
+  if (hours < 48) return `back in ${hours} hours`
+  const days = Math.round(hours / 24)
+  return days === 1 ? 'back in 1 day' : `back in ${days} days`
 }
 
 export function noteOpenAtMs(nowMs: number): number {
@@ -147,7 +171,7 @@ function formatWhenShort(ms: number): string {
 
 function formatReturnLabel(ms: number): string {
   const p = sastParts(ms)
-  return `BACK BY ${WD_SHORT[p.weekday].toUpperCase()} ${String(DELIVERY_NOTE.returnTime.hour).padStart(2, '0')}:${String(DELIVERY_NOTE.returnTime.minute).padStart(2, '0')}`
+  return `BACK BY ${WD_SHORT[p.weekday].toUpperCase()} ${pad2(DELIVERY_NOTE.returnTime.hour)}:${pad2(DELIVERY_NOTE.returnTime.minute)} SAST`
 }
 
 function usedUsdc(position: VaultPosition): number {
@@ -263,7 +287,10 @@ export function deriveDeliveryNoteView(
     }
   }
 
-  // Late (past 04:00 with supply still out)
+  const backIn = formatBackInRough(Math.max(0, returnAt - nowMs))
+  const returnAbs = formatReturnAbsolute()
+
+  // Late (past return with supply still out)
   if ((lateFlag || (hasSupply && pastReturn && !settled)) && hasSupply) {
     const rate = locked ?? live
     const earnCap =
@@ -321,9 +348,9 @@ export function deriveDeliveryNoteView(
       lockedRatePct: rate,
       displayRatePct: rate,
       rateLabel: `${formatNoteRate(rate)}% locked`,
-      cardSub: `${formatNoteRate(rate)}% locked · back by ${String(DELIVERY_NOTE.returnTime.hour).padStart(2, '0')}:${String(DELIVERY_NOTE.returnTime.minute).padStart(2, '0')}`,
+      cardSub: `${formatNoteRate(rate)}% locked · ${backIn}`,
       title: `${formatDeskTitleMoney(supplied)} funding today's deliveries.`,
-      sentence: `Your rate is locked at ${formatNoteRate(rate)}%. ${formatDeskTitleMoney(used)} is already in use. Back by ${String(DELIVERY_NOTE.returnTime.hour).padStart(2, '0')}:${String(DELIVERY_NOTE.returnTime.minute).padStart(2, '0')} with up to ${formatDeskTitleMoney(earnCap)}.`,
+      sentence: `Your rate is locked at ${formatNoteRate(rate)}%. ${formatDeskTitleMoney(used)} is already in use. Back by ${returnAbs} with up to ${formatDeskTitleMoney(earnCap)}.`,
       panelLabel: formatReturnLabel(returnAt),
       pill: 'On time',
       pillTone: 'ok',
@@ -351,7 +378,7 @@ export function deriveDeliveryNoteView(
   // Closed / before open / past cutoff without supply
   if (closedFlag || pastCutoff || beforeOpen) {
     const nextOpenLabel = beforeOpen
-      ? `Opens ${String(DELIVERY_NOTE.openTime.hour).padStart(2, '0')}:${String(DELIVERY_NOTE.openTime.minute).padStart(2, '0')}`
+      ? `Opens ${pad2(DELIVERY_NOTE.openTime.hour)}:${pad2(DELIVERY_NOTE.openTime.minute)}`
       : 'Opens 09:00'
     return {
       phase: 'closed',
@@ -359,10 +386,10 @@ export function deriveDeliveryNoteView(
       lockedRatePct: null,
       displayRatePct: live,
       rateLabel: `${formatNoteRate(live)}% if used`,
-      cardSub: `${formatNoteRate(live)}% if used · back by 04:00`,
+      cardSub: `${formatNoteRate(live)}% if used · ${backIn}`,
       title: "Fund today's deliveries.",
       sentence: beforeOpen
-        ? `Today's note opens at ${String(DELIVERY_NOTE.openTime.hour).padStart(2, '0')}:${String(DELIVERY_NOTE.openTime.minute).padStart(2, '0')}. Fund early, earn more: the rate steps down every hour.`
+        ? `Today's note opens at ${pad2(DELIVERY_NOTE.openTime.hour)}:${pad2(DELIVERY_NOTE.openTime.minute)} SAST. Fund early, earn more: the rate steps down every hour.`
         : "Today's note is full. Next one opens 09:00.",
       panelLabel: "TODAY'S RATE",
       pill: 'Closed',
@@ -403,10 +430,9 @@ export function deriveDeliveryNoteView(
     lockedRatePct: null,
     displayRatePct: live,
     rateLabel: `${formatNoteRate(live)}% if used`,
-    cardSub: `${formatNoteRate(live)}% if used · back by 04:00`,
+    cardSub: `${formatNoteRate(live)}% if used · ${backIn}`,
     title: "Fund today's deliveries.",
-    sentence:
-      'Your USDC is back by 04:00 tomorrow. Fund early, earn more: the rate steps down every hour.',
+    sentence: `Your USDC is back by ${returnAbs} tomorrow. Fund early, earn more: the rate steps down every hour.`,
     panelLabel: "TODAY'S RATE",
     pill: 'Open',
     pillTone: 'open',
