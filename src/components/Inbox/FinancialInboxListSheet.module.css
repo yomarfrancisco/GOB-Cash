@@ -63,6 +63,11 @@
   --desk-meta: 13px;
   --desk-chip: 12px;
   --desk-eyebrow: 11px;
+  /*
+   * Floating lamp/piggy row is 16px + 52px = 68px on screen.
+   * .conversationList uses zoom: 0.8, so pad in local coords: 68 / 0.8 ≈ 85.
+   */
+  --desk-header-h: 85px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -80,22 +85,9 @@
   content: none;
 }
 
-/* Soft top fade — content eases out under the floating actions (buttons sit above, z:5). */
+/* Overlay fade removed — scroll mask on .conversationList handles soft edges. */
 .deskTopFade {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 64px;
-  z-index: 4;
-  pointer-events: none;
-  border-radius: 32px 32px 0 0;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.72) 0%,
-    rgba(255, 255, 255, 0.4) 45%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  display: none;
 }
 
 .deskHeaderChrome {
@@ -495,11 +487,32 @@
   right: 0;
   bottom: 0;
   z-index: 1;
-  /* Top clears floating exit/calc (52px @ 16px) after zoom:0.8 (~90px visual). */
-  padding: 112px 16px 16px;
+  /* Clear floating header chrome; soft edges via mask (no overlay behind buttons). */
+  padding: var(--desk-header-h, 68px) 16px 16px;
   box-sizing: border-box;
   background: var(--desk-bg-page, #ffffff);
   zoom: 0.8;
+  /* Top: transparent → 72px, opaque from 128px. Bottom: 120px fade out. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 72px,
+    #000 128px,
+    #000 calc(100% - 120px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 72px,
+    #000 128px,
+    #000 calc(100% - 120px),
+    transparent 100%
+  );
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 .activityContent::after {
