@@ -84,9 +84,18 @@ export function formatDeskTitleUsd(amount: number): string {
   return `${sign}$${abs.toFixed(2)}`
 }
 
-/** Minor earn line: "≈ 5,000 MZN earned" (24h note premium in metical). */
+/**
+ * Earn-card minor only: "≈ 0.42 MZN earned" while ≤ 10; whole units above
+ * ("≈ 1,234 MZN earned"). Other cards keep integer equivalence.
+ */
 export function formatDeskEarnMznMinor(amount: number): string {
   const n = Math.max(0, Number(amount) || 0)
+  if (n <= 10) {
+    return `≈ ${n.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} MZN earned`
+  }
   return `≈ ${Math.round(n).toLocaleString('en-US')} MZN earned`
 }
 

@@ -643,7 +643,7 @@ export default function CardStackCard({
                 </div>
                 <div
                   className="card-amounts__usdt"
-                  aria-label={`approximately ${Math.round(earnMzn).toLocaleString('en-US')} meticais earned`}
+                  aria-label={formatDeskEarnMznMinor(earnMzn)}
                   suppressHydrationWarning
                 >
                   <span>{formatDeskEarnMznMinor(earnMzn)}</span>
