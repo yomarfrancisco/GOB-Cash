@@ -126,7 +126,8 @@ body {
 .overlay-glass .nav-container,
 .overlay-glass .dollar-sign-contained,
 .overlay-glass .nav-item,
-.overlay-glass .header-calculator-btn {
+.overlay-glass .header-calculator-btn,
+.overlay-glass .gobankless-logo {
   pointer-events: auto;
 }
 
@@ -173,6 +174,10 @@ body {
   object-fit: contain;
   z-index: 2;
   background: transparent !important;
+  /* Glass overlay is pointer-events: none — logo must opt back in (same as calculator). */
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Mirror of G logo band: same top/height, opposite side of the header glass. */
