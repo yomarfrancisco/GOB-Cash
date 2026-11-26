@@ -12,6 +12,7 @@ import {
 import { checkUsdcSupplyRequest } from '@/lib/vault/supplyUsdcClient'
 import { useVaultStore, type VaultPosition } from '@/store/vault'
 import { useSupplyUsdcSheet } from '@/store/useSupplyUsdcSheet'
+import deskStyles from '@/app/activity/activity.module.css'
 import styles from './RoutingPlanVisual.module.css'
 
 const SOLSCAN_TX = 'https://solscan.io/tx/'
@@ -185,28 +186,17 @@ export function EarnVaultVisual({
         )}
 
         {view.showSolscan && last?.signature ? (
-          <button
-            type="button"
-            onClick={() => {
-              window.open(`${SOLSCAN_TX}${last.signature}`, '_blank', 'noopener,noreferrer')
-            }}
-            style={{
-              marginTop: 12,
-              width: '100%',
-              // Match desk `.replyButton` / Download proof (44px).
-              height: 44,
-              minHeight: 44,
-              borderRadius: 10,
-              border: '1px solid #18181b',
-              background: '#fff',
-              color: '#18181b',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            View on Solscan
-          </button>
+          <div className={deskStyles.activityActionRow}>
+            <button
+              type="button"
+              className={deskStyles.replyButton}
+              onClick={() => {
+                window.open(`${SOLSCAN_TX}${last.signature}`, '_blank', 'noopener,noreferrer')
+              }}
+            >
+              View on Solscan
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -224,34 +214,20 @@ export function EarnVaultVisual({
         </p>
       ) : null}
 
-      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className={deskStyles.activityActionRow}>
         <button
           type="button"
+          className={[
+            deskStyles.primaryAction,
+            supplyBusy || !view.supplyEnabled ? deskStyles.confirmButtonLoading : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           onClick={() => void handleSupply()}
           disabled={supplyBusy || !view.supplyEnabled}
-          style={{
-            boxSizing: 'border-box',
-            width: '100%',
-            // Match desk `.primaryAction` / `.replyButton` height (Download proof = 44px).
-            minHeight: 44,
-            height: 44,
-            padding: '0 14px',
-            borderRadius: 10,
-            border: 0,
-            background: view.supplyEnabled ? '#18181b' : '#c7c7cc',
-            color: '#fff',
-            fontSize: 14,
-            fontWeight: 600,
-            lineHeight: '16px',
-            cursor: supplyBusy ? 'wait' : view.supplyEnabled ? 'pointer' : 'not-allowed',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            opacity: supplyBusy ? 0.7 : 1,
-          }}
+          aria-busy={supplyBusy}
         >
-          <span style={{ lineHeight: 1 }}>{view.supplyLabel}</span>
+          {view.supplyLabel}
         </button>
       </div>
     </div>
