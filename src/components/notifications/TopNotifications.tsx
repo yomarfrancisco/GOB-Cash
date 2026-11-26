@@ -12,6 +12,7 @@ import { formatRelativeShort } from '@/lib/formatRelativeTime'
 import { useFinancialInboxStore } from '@/state/financialInbox'
 import { useAuthStore } from '@/store/auth'
 import { useUserProfileStore } from '@/store/userProfile'
+import { useDeskChromeStore } from '@/store/deskChrome'
 import Avatar from '@/components/Avatar'
 import '@/styles/notifications.css'
 
@@ -114,6 +115,9 @@ export default function TopNotifications() {
 
   const handleTap = (notification: NotificationItem) => {
     requireAuth(() => {
+      if (notification.deskMode === 'earn' || notification.deskMode === 'desk') {
+        useDeskChromeStore.getState().setMode(notification.deskMode)
+      }
       // Stay on Home / desk — never send the user to /profile.
       if (notification.routeOnTap) {
         const raw = notification.routeOnTap

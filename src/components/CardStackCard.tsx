@@ -30,8 +30,8 @@ import {
 import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
 import { useVaultStore, vaultHasSupply } from '@/store/vault'
-import { homeEarnPill } from '@/lib/vault/deliveryNote'
-import { formatDeskUsdcSuppliedMinor } from '@/lib/desk/deskMoneyFormat'
+import { homeEarnExpectedMzn, homeEarnPill } from '@/lib/vault/deliveryNote'
+import { formatDeskEarnMznMinor } from '@/lib/desk/deskMoneyFormat'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -617,6 +617,7 @@ export default function CardStackCard({
         <div className="card-amounts card-amounts--earn card-amounts--shifted" suppressHydrationWarning>
           {(() => {
             const earnAmt = Math.max(0, Number(vaultPosition.suppliedUsdc) || 0)
+            const earnMzn = homeEarnExpectedMzn(vaultPosition, liveMzn, liveUsdPerZar)
             const { major, cents } = formatCardTopline(earnAmt)
             return (
               <>
@@ -640,8 +641,12 @@ export default function CardStackCard({
                     </>
                   ) : null}
                 </div>
-                <div className="card-amounts__usdt" suppressHydrationWarning>
-                  <span>{formatDeskUsdcSuppliedMinor(earnAmt)}</span>
+                <div
+                  className="card-amounts__usdt"
+                  aria-label={`approximately ${Math.round(earnMzn).toLocaleString('en-US')} meticais earned`}
+                  suppressHydrationWarning
+                >
+                  <span>{formatDeskEarnMznMinor(earnMzn)}</span>
                 </div>
               </>
             )

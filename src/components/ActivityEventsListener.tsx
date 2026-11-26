@@ -25,12 +25,34 @@ const DROPDOWN_KINDS = new Set([
   'CONVERSION_ROUTING_INSTRUCTION',
   'EN_ROUTE_BOOKED',
   'EN_ROUTE_CLEARED',
+  'VAULT_USDC_RECEIVED',
 ])
 const DEPOSIT_AVATAR = '/assets/avatar - profile (4).png'
 const WITHDRAW_AVATAR = '/assets/avatar - profile (2).png'
 const SA_LIAISON_AVATAR = DESK_TEAM.leo.avatar
+const REWARDS_MANAGER_AVATAR = '/assets/bear_square.jpg'
 const toastedWeeklyIds = new Set<string>()
 const toastedRoutingIds = new Set<string>()
+const toastedVaultIds = new Set<string>()
+
+function toastVaultFunded(id: string, title: string, body?: string) {
+  if (!id || toastedVaultIds.has(id)) return
+  toastedVaultIds.add(id)
+  useNotificationStore.getState().pushNotification({
+    id,
+    kind: 'ai_trade',
+    title,
+    body,
+    skipActivityStore: true,
+    actor: {
+      type: 'ai_manager',
+      avatar: REWARDS_MANAGER_AVATAR,
+      name: 'Rewards Manager',
+    },
+    routeOnTap: '/?desk=1',
+    deskMode: 'earn',
+  })
+}
 
 function toastWeeklyStatement(id: string, title: string, body?: string) {
   if (!id || toastedWeeklyIds.has(id)) return
@@ -96,6 +118,14 @@ export default function ActivityEventsListener() {
               item.kind === 'MONTHLY_SETTLEMENT_STATEMENT'
             ) {
               toastWeeklyStatement(item.id, item.title, item.body)
+              continue
+            }
+            if (item.kind === 'VAULT_USDC_RECEIVED') {
+              toastVaultFunded(
+                item.id,
+                item.dropdownTitle || item.title,
+                item.dropdownBody || item.body
+              )
               continue
             }
             if (

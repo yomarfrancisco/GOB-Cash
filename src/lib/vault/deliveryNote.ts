@@ -2,6 +2,7 @@
  * Earn delivery note — 24h USDC note with hourly step-down rates (Part 19).
  * All schedule/rate knobs live here; UI must not hard-code them.
  */
+import { sellMznPerUsd } from '@/lib/mznZar'
 import { sastParts, sastToUtcMs } from '@/lib/routing/routingTime'
 import type { VaultPosition } from '@/store/vault'
 
@@ -198,6 +199,37 @@ export function homeEarnPill(position: VaultPosition, nowMs = Date.now()): {
       ? locked
       : liveNoteRatePct(nowMs)
   return { strong: `${formatNoteRate(rate)}%`, label: 'in 24h' }
+}
+
+/** USD return at the locked (or live) 24h note premium on supplied USDC. */
+export function homeEarnExpectedUsd(position: VaultPosition, nowMs = Date.now()): number {
+  const supplied = Math.max(0, Number(position.suppliedUsdc) || 0)
+  if (!(supplied > 0.005)) return 0
+  const stored = Math.max(0, Number(position.expectedEarnedUsd) || 0)
+  if (stored > 0.005) return Math.round(stored * 100) / 100
+  const locked = position.lockedRatePct
+  const rate =
+    typeof locked === 'number' && Number.isFinite(locked) && locked > 0
+      ? locked
+      : liveNoteRatePct(nowMs)
+  return maxEarnUsd(supplied, rate)
+}
+
+/**
+ * Home Earn minor: MZN value of the 24h note premium (SELL Mt/$ × expected USD earn).
+ * `sellMznQuote` / `usdPerZarQuote` are `/api/fx/latest` raws.
+ */
+export function homeEarnExpectedMzn(
+  position: VaultPosition,
+  sellMznQuote: number,
+  usdPerZarQuote: number,
+  nowMs = Date.now()
+): number {
+  const usd = homeEarnExpectedUsd(position, nowMs)
+  if (!(usd > 0.005)) return 0
+  const mtPerUsd = sellMznPerUsd(sellMznQuote, usdPerZarQuote)
+  if (!(mtPerUsd > 0)) return 0
+  return Math.round(usd * mtPerUsd * 100) / 100
 }
 
 /** Share of supply currently in use (home + funded card bar). */

@@ -84,10 +84,15 @@ export function formatDeskTitleUsd(amount: number): string {
   return `${sign}$${abs.toFixed(2)}`
 }
 
-/** Minor earn line: "≈ 5,000 USD earned" */
-export function formatDeskUsdcSuppliedMinor(amount: number): string {
+/** Minor earn line: "≈ 5,000 MZN earned" (24h note premium in metical). */
+export function formatDeskEarnMznMinor(amount: number): string {
   const n = Math.max(0, Number(amount) || 0)
-  return `≈ ${Math.round(n).toLocaleString('en-US')} USD earned`
+  return `≈ ${Math.round(n).toLocaleString('en-US')} MZN earned`
+}
+
+/** @deprecated Use formatDeskEarnMznMinor — Earn minor is MZN, not USD. */
+export function formatDeskUsdcSuppliedMinor(amount: number): string {
+  return formatDeskEarnMznMinor(amount)
 }
 
 /** Minor equivalence line on mock cards (comma grouping). */

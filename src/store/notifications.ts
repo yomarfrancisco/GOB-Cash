@@ -87,6 +87,8 @@ export type NotificationItem = {
   routeOnTap?: string // e.g., '/transactions' or deep link
   hasKycLink?: boolean
   autoDismissMs?: number
+  /** When set, open the Phantom desk in this chrome mode on tap. */
+  deskMode?: 'desk' | 'earn'
 }
 
 type NotificationState = {

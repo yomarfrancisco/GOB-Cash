@@ -455,6 +455,9 @@ async function creditSupply(params: {
 
     const title = formatUsdcReceivedTitle(amountUsdc)
     const body = `Your rate is locked at ${blended}%. Back by 15:00 SAST (13:00 GMT) with return only on the USDC used for deliveries.`
+    // Dropdown toast (Rewards Manager) — desk message stays the live Earn note.
+    const dropdownTitle = title
+    const dropdownBody = `Vault funded. Open Earn for the delivery note.`
 
     tx.set(eventRef, {
       id: eventId,
@@ -462,6 +465,9 @@ async function creditSupply(params: {
       title,
       body,
       deskSentence: body,
+      dropdownTitle,
+      dropdownBody,
+      routeOnTap: '/?desk=1',
       // Vault / Earn piggy feed only — never the desk (lamp) timeline.
       deskHidden: true,
       amountCurrency: 'USDC',
