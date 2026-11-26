@@ -40,9 +40,14 @@ function generateReferencePubkey(): string {
 }
 
 function formatUsdcReceivedTitle(amountUsdc: number): string {
-  const whole = Math.round(Math.max(0, amountUsdc))
-  const spaced = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-  return `${spaced} USDC received.`
+  const n = Math.max(0, Number(amountUsdc) || 0)
+  // Keep fractional dust visible (self-fund tests were rounding 0.01 → "0 USDC").
+  const label =
+    n >= 999.995
+      ? String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+      : n.toLocaleString('en-US', { maximumFractionDigits: 6 })
+          .replace(/,/g, ' ')
+  return `${label} USDC received.`
 }
 
 async function solanaRpc<T>(method: string, params: unknown[]): Promise<T> {
@@ -399,6 +404,8 @@ async function creditSupply(params: {
       title,
       body,
       deskSentence: body,
+      // Vault / Earn piggy feed only — never the desk (lamp) timeline.
+      deskHidden: true,
       amountCurrency: 'USDC',
       amountValue: amountUsdc,
       amountSign: 'credit',

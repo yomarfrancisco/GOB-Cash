@@ -32,10 +32,12 @@ export function shortenTxSignature(signature: string): string {
   return `··${s.slice(-4)}`
 }
 
-/** "5 000 USDC received." */
+/** "5 000 USDC received." (keeps fractional amounts under 1,000) */
 export function formatUsdcReceivedTitle(amountUsdc: number): string {
   const n = Math.max(0, Number(amountUsdc) || 0)
-  const whole = Math.round(n)
-  const spaced = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-  return `${spaced} USDC received.`
+  const label =
+    n >= 999.995
+      ? String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+      : n.toLocaleString('en-US', { maximumFractionDigits: 6 }).replace(/,/g, ' ')
+  return `${label} USDC received.`
 }

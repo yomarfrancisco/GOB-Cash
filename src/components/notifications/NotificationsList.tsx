@@ -254,8 +254,15 @@ function isDeskStepCard(item: ActivityItem): boolean {
   return /^Step\s*\d\b/i.test(title)
 }
 
+function isVaultUsdcReceived(item: ActivityItem): boolean {
+  if (item.kind === 'VAULT_USDC_RECEIVED') return true
+  // Legacy rows before deskHidden was set — still vault-only.
+  return /\bUSDC\s+received\b/i.test(item.title || '')
+}
+
 function isStandaloneConversionPop(item: ActivityItem): boolean {
   if (item.deskHidden === true) return true
+  if (isVaultUsdcReceived(item)) return true
   if (item.routingAction === 'pop_pack') return true
   // EN ROUTE book/clear must stay visible on $-Route (manual / capital-shock).
   if (item.kind === 'EN_ROUTE_BOOKED' || item.kind === 'EN_ROUTE_CLEARED') return false
@@ -267,6 +274,8 @@ function isStandaloneConversionPop(item: ActivityItem): boolean {
 }
 
 function isPaymentActivity(item: ActivityItem): boolean {
+  // Vault USDC credits belong on the piggy / Earn feed, not the desk timeline.
+  if (isVaultUsdcReceived(item) || item.deskHidden === true) return false
   // Conversion POPs live on Step 4/5 as a zip, not as extra bubbles.
   if (isStandaloneConversionPop(item)) return false
   // Desk Steps / Send / Recycle must always stay in the feed.
