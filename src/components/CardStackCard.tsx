@@ -651,10 +651,10 @@ export default function CardStackCard({
                 </div>
                 <div
                   className="card-amounts__usdt"
-                  aria-label={formatDeskEarnMznMinor(earnMzn)}
+                  aria-label={formatDeskEarnMznMinor(earnMzn, earnUsd)}
                   suppressHydrationWarning
                 >
-                  <span>{formatDeskEarnMznMinor(earnMzn)}</span>
+                  <span>{formatDeskEarnMznMinor(earnMzn, earnUsd)}</span>
                 </div>
               </>
             )
