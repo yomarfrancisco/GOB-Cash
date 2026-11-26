@@ -201,10 +201,11 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const [order, setOrder] = useState<number[]>(initialOrder)
   const { wallets, demoMode } = useWalletStore()
   const vaultPosition = useVaultStore((s) => s.position)
-  const earnShowPill = vaultHasSupply(vaultPosition)
-  const earnBarPercent = earnShowPill
+  // Earn pill + bar when the card is relevant; empty vault still shows $0 amounts on the card face.
+  const earnShowPill = true
+  const earnBarPercent = vaultHasSupply(vaultPosition)
     ? Math.round(vaultWithdrawableShare(vaultPosition) * 100)
-    : null
+    : 0
   const isBalanceReady = useAppModeStore((s) => s.isBalanceReady())
   const walletMzn = Number(wallets?.cashMZN?.fiatBalance || 0)
   const walletZar = Number(wallets?.cashZAR?.fiatBalance || 0)

@@ -29,11 +29,7 @@ import {
 } from '@/lib/fx/enRouteSettlementTimer'
 import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
-import {
-  useVaultStore,
-  vaultHasSupply,
-  vaultWithdrawableShare,
-} from '@/store/vault'
+import { useVaultStore } from '@/store/vault'
 import {
   formatDeskMajorUsd,
   formatDeskUsdcSuppliedMinor,
@@ -467,10 +463,9 @@ export default function CardStackCard({
   }
 
   const vaultPosition = useVaultStore((s) => s.position)
-  const earnSupplied = vaultHasSupply(vaultPosition)
-  const earnWithdrawablePct = Math.round(vaultWithdrawableShare(vaultPosition) * 100)
   const isEarnCard = card.type === 'earn'
-  const showEarnAmounts = isEarnCard && isTop && earnSupplied
+  // Always show $0 / supplied stack when Earn is on top (empty vault included).
+  const showEarnAmounts = isEarnCard && isTop
 
   // Get card definition for annual yield (fallback)
   // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
@@ -625,7 +620,7 @@ export default function CardStackCard({
         )
       })()}
 
-      {/* Earn: static (no amounts) until supplied; then own position only when in front. */}
+      {/* Earn: amount stack whenever this card is on top — including $0.00 empty. */}
       {showEarnAmounts ? (
         <div className="card-amounts card-amounts--earn card-amounts--shifted" suppressHydrationWarning>
           <div className="card-amounts__zar amount-headline amount-topline" suppressHydrationWarning>

@@ -23,6 +23,7 @@ import {
   routingKeypadOfferKey,
   wasDeskKeypadOffered,
 } from '@/lib/desk/openDeskKeypad'
+import { startSupplyUsdcWithPhantom } from '@/lib/vault/supplyUsdcClient'
 import { useDeskChromeStore } from '@/store/deskChrome'
 import { useVaultStore } from '@/store/vault'
 import {
@@ -1994,7 +1995,7 @@ export function NotificationsList({
                   </div>
                   <p className={styles.activityBody}>{earnSentence}</p>
                   <EarnVaultVisual
-                    onSupply={() => openEarnSupplyCalculator()}
+                    onSupply={() => startSupplyUsdcWithPhantom()}
                     onWithdraw={() => {
                       /* Vault withdraw — ledger not wired yet */
                     }}

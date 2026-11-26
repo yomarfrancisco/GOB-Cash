@@ -92,4 +92,9 @@ export {
   admin_exitDeskPlan,
 } from './tx/adminConversionRouting'
 export { auth_twilioSendOtp, auth_twilioVerifyOtp } from './auth/twilioPhoneAuth'
+export {
+  vault_createUsdcSupply,
+  vault_checkUsdcSupply,
+  vault_pollUsdcSupplies,
+} from './vault/solanaUsdcSupply'
 

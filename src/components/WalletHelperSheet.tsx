@@ -209,9 +209,9 @@ const HELPER_COPY: Record<WalletKey, HelperCopy> = {
         line2: 'Funds pre-paid corridor deliveries',
       },
       {
-        title: 'Daily',
-        line1: 'Redeem limit',
-        line2: 'Withdraw up to the live daily cap',
+        title: 'Withdraw',
+        line1: 'Uncommitted float',
+        line2: 'Anything not funding a delivery can leave any time',
       },
       {
         title: 'Evidence',

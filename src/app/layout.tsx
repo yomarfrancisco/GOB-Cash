@@ -21,6 +21,8 @@ import FullNameEditSheet from '@/components/FullNameEditSheet'
 import CardDetailsSheet from '@/components/CardDetailsSheet'
 import BankingDetailsSheet from '@/components/BankingDetailsSheet'
 import UsdtWalletAddressSheet from '@/components/UsdtWalletAddressSheet'
+import SupplyUsdcSheet from '@/components/SupplyUsdcSheet'
+import VaultPositionListener from '@/components/VaultPositionListener'
 import ProfileDescriptionSheet from '@/components/ProfileDescriptionSheet'
 import SupportSheet from '@/components/SupportSheet'
 import ShareProfileSheet from '@/components/ShareProfileSheet'
@@ -193,6 +195,9 @@ export default function RootLayout({
               <BankingDetailsSheet />
               {/* Global USDT Wallet Address Sheet */}
               <UsdtWalletAddressSheet />
+              {/* Earn: Solana Pay USDC supply (desktop QR) */}
+              <SupplyUsdcSheet />
+              <VaultPositionListener />
               {/* Global Profile Description Sheet */}
               <ProfileDescriptionSheet />
               {/* Global Support Sheet */}
