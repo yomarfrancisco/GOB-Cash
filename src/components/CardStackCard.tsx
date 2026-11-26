@@ -29,7 +29,7 @@ import {
 } from '@/lib/fx/enRouteSettlementTimer'
 import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
-import { useVaultStore } from '@/store/vault'
+import { useVaultStore, vaultHasSupply } from '@/store/vault'
 import { formatDeskUsdcSuppliedMinor } from '@/lib/desk/deskMoneyFormat'
 
 const FX_USD_ZAR_DEFAULT = 18.1
@@ -461,8 +461,8 @@ export default function CardStackCard({
 
   const vaultPosition = useVaultStore((s) => s.position)
   const isEarnCard = card.type === 'earn'
-  // Always show $0 / supplied stack when Earn is on top (empty vault included).
-  const showEarnAmounts = isEarnCard && isTop
+  // Earn only reaches the front after vault funding — then show the amount stack.
+  const showEarnAmounts = isEarnCard && isTop && vaultHasSupply(vaultPosition)
 
   // Get card definition for annual yield (fallback)
   // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)

@@ -128,6 +128,32 @@ function homeCardsForAdmin(_isAdmin: boolean): CardData[] {
   })
 }
 
+/** While Earn is unfunded it stays pinned at the back — MZN/ZAR keep flipping alone. */
+function cycleStackOrder(
+  prevOrder: number[],
+  cardsData: CardData[],
+  earnUnlocked: boolean
+): number[] {
+  if (prevOrder.length <= 1) return prevOrder
+  const earnIdx = cardsData.findIndex((c) => c.type === 'earn')
+  if (earnUnlocked || earnIdx < 0) {
+    return [...prevOrder.slice(1), prevOrder[0]]
+  }
+  const rotatable = prevOrder.filter((i) => i !== earnIdx)
+  if (rotatable.length <= 1) {
+    return earnIdx >= 0 ? [...rotatable, earnIdx] : rotatable
+  }
+  const nextRotatable = [...rotatable.slice(1), rotatable[0]]
+  return [...nextRotatable, earnIdx]
+}
+
+function pinEarnAtBack(order: number[], cardsData: CardData[]): number[] {
+  const earnIdx = cardsData.findIndex((c) => c.type === 'earn')
+  if (earnIdx < 0) return order
+  const rest = order.filter((i) => i !== earnIdx)
+  return [...rest, earnIdx]
+}
+
 // Card labels mapping
 const CARD_LABELS: Record<CardType, string> = {
   savings: 'CASH CARD', // ZAR fiat card
@@ -201,11 +227,14 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const [order, setOrder] = useState<number[]>(initialOrder)
   const { wallets, demoMode } = useWalletStore()
   const vaultPosition = useVaultStore((s) => s.position)
-  // Earn pill + bar when the card is relevant; empty vault still shows $0 amounts on the card face.
-  const earnShowPill = true
-  const earnBarPercent = vaultHasSupply(vaultPosition)
+  const earnUnlocked = vaultHasSupply(vaultPosition)
+  // Earn enters the flip rotation only after USDC has been supplied.
+  const earnShowPill = earnUnlocked
+  const earnBarPercent = earnUnlocked
     ? Math.round(vaultWithdrawableShare(vaultPosition) * 100)
     : 0
+  const earnUnlockedRef = useRef(earnUnlocked)
+  earnUnlockedRef.current = earnUnlocked
   const isBalanceReady = useAppModeStore((s) => s.isBalanceReady())
   const walletMzn = Number(wallets?.cashMZN?.fiatBalance || 0)
   const walletZar = Number(wallets?.cashZAR?.fiatBalance || 0)
@@ -328,6 +357,17 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
         : [dominantIdx, ...middle]
     })
   }, [isAuthed, isBalanceReady, demoMode, liveMzn, walletMzn, walletZar, walletTransitZar, cardsData])
+
+  // Unfunded Earn must never sit on top / mid-stack from a prior flip.
+  useEffect(() => {
+    if (earnUnlocked) return
+    setOrder((prev) => {
+      const next = pinEarnAtBack(prev, cardsData)
+      if (next.every((v, i) => v === prev[i])) return prev
+      orderRef.current = next
+      return next
+    })
+  }, [earnUnlocked, cardsData])
 
   const [flashDirection, setFlashDirection] = useState<Record<CardType, 'up' | 'down' | null>>({
     savings: null,
@@ -466,6 +506,9 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   // Flip to a specific card type
   const flipToCard = useCallback(
     async (targetCardType: CardType, _direction: 'forward' | 'back' = 'forward'): Promise<void> => {
+      // Earn is not reachable until vault has supply — conversion stories stay on MZN/ZAR.
+      if (targetCardType === 'earn' && !earnUnlockedRef.current) return
+
       const targetIndex = getCardIndex(targetCardType)
       if (targetIndex === -1) return
 
@@ -479,7 +522,14 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       const targetPosition = liveOrder.indexOf(targetIndex)
       if (targetPosition <= 0) return
 
-      const cyclesNeeded = targetPosition
+      // When Earn is locked, count cycles only among rotatable cards (Earn stays last).
+      const earnIdx = cardsData.findIndex((c) => c.type === 'earn')
+      const earnLocked = !earnUnlockedRef.current && earnIdx >= 0
+      const rotatable = earnLocked ? liveOrder.filter((i) => i !== earnIdx) : liveOrder
+      const targetInRotatable = rotatable.indexOf(targetIndex)
+      if (targetInRotatable < 0) return
+      const cyclesNeeded = targetInRotatable
+      if (cyclesNeeded <= 0) return
 
       return new Promise((resolve) => {
         let pollCount = 0
@@ -513,7 +563,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
 
           setTimeout(() => {
             setOrder((prevOrder) => {
-              const next = [...prevOrder.slice(1), prevOrder[0]]
+              const next = cycleStackOrder(prevOrder, cardsData, earnUnlockedRef.current)
               orderRef.current = next
               return next
             })
@@ -533,7 +583,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
         performCycle(cyclesNeeded)
       })
     },
-    [getCardIndex]
+    [getCardIndex, cardsData]
   )
 
   const cycle = () => {
@@ -543,7 +593,11 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     setPhase('animating')
 
     setTimeout(() => {
-      setOrder((prevOrder) => [...prevOrder.slice(1), prevOrder[0]])
+      setOrder((prevOrder) => {
+        const next = cycleStackOrder(prevOrder, cardsData, earnUnlockedRef.current)
+        orderRef.current = next
+        return next
+      })
       setPhase('idle')
       setIsAnimating(false)
     }, FLIP_DURATION_MS)
