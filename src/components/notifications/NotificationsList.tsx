@@ -1948,7 +1948,11 @@ export function NotificationsList({
   const vaultPosition = useVaultStore((s) => s.position)
   const earnTitle = earnVaultTitle(vaultPosition)
   const earnSentence = earnVaultSentence(vaultPosition)
-  const routingManager = DESK_TEAM.sam
+  // Vault / Earn feed speaker — same square casing as desk agents, bear face.
+  const rewardsManager = {
+    name: 'Rewards Manager',
+    avatar: '/assets/bear_square.jpg',
+  } as const
 
   const sectionProps = {
     latestAwaitingId,
@@ -1986,10 +1990,10 @@ export function NotificationsList({
         <div className={`${styles.activityContainer} ${styles.deskFeed}`} ref={listRootRef}>
           {deskChromeMode === 'earn' ? (
             <div className={styles.activityList}>
-              <article className={styles.activityItem} data-desk-speaker="sam">
+              <article className={styles.activityItem} data-desk-speaker="rewards">
                 <div className={styles.activityAvatar}>
                   <Image
-                    src={routingManager.avatar}
+                    src={rewardsManager.avatar}
                     alt=""
                     width={44}
                     height={44}
@@ -1997,7 +2001,7 @@ export function NotificationsList({
                   />
                 </div>
                 <div className={styles.activityContent}>
-                  <div className={styles.activitySpeaker}>{routingManager.name}</div>
+                  <div className={styles.activitySpeaker}>{rewardsManager.name}</div>
                   <div className={styles.activityHeader}>
                     <div className={styles.activityTitle}>{earnTitle}</div>
                     <div className={styles.activityTime}>now</div>

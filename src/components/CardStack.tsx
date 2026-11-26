@@ -1072,7 +1072,8 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
                         : null
                     : null
             }
-            showRatePill={card.type === 'earn' ? Boolean(isTop && earnShowPill) : true}
+            // Earn APY sticks out at every stack depth (same as other cards' pills).
+            showRatePill
             displayMajorOffset={
               // Shared drip projection (deterministic) + brief story holds.
               card.type === 'mzn'
