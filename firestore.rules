@@ -65,6 +65,19 @@ service cloud.firestore {
       allow update: if request.auth != null && request.auth.uid == userId;
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Earn delivery-note ledger: users/{userId}/vault/position
+    // Cloud Functions (Admin SDK) write credits; the client only listens.
+    match /users/{userId}/vault/{docId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // Pending / confirmed Solana Pay supply requests for this user.
+    match /users/{userId}/vaultSupplies/{supplyId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
     
     // Transactions collection: transactions/{txId}
     match /transactions/{txId} {
