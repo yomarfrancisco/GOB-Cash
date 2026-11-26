@@ -5,18 +5,11 @@
  */
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-import {
-  Connection,
-  Keypair,
-  PublicKey,
-  type ParsedTransactionWithMeta,
-} from '@solana/web3.js'
 
 const TREASURY = '2pVRNVuUekuTgpY7nCj7aUD1mZ7LApBNspxVCiuTYHyh'
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 const LABEL = 'PAGA'
 const MESSAGE = 'Supply USDC to PAGA'
-const USDC_DECIMALS = 6
 
 function db() {
   return admin.firestore()
@@ -28,8 +21,9 @@ function solanaRpcUrl(): string {
   return process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
 }
 
-function connection(): Connection {
-  return new Connection(solanaRpcUrl(), 'confirmed')
+/** Lazy-load Solana — top-level import times out Firebase deploy analysis. */
+async function loadSolana() {
+  return import('@solana/web3.js')
 }
 
 function buildSolanaPayUrl(reference: string): string {
@@ -79,7 +73,23 @@ function emptyPosition() {
 }
 
 /** USDC amount received by treasury in this tx (major units). */
-function usdcReceivedByTreasury(tx: ParsedTransactionWithMeta): number {
+function usdcReceivedByTreasury(tx: {
+  meta: {
+    preTokenBalances?: Array<{
+      mint: string
+      owner?: string
+      accountIndex: number
+      uiTokenAmount?: { uiAmountString?: string | null; uiAmount?: number | null }
+    }> | null
+    postTokenBalances?: Array<{
+      mint: string
+      owner?: string
+      accountIndex: number
+      uiTokenAmount?: { uiAmountString?: string | null; uiAmount?: number | null }
+    }> | null
+  } | null
+  transaction: { message: { accountKeys: Array<string | { pubkey: { toBase58(): string } }> } }
+}): number {
   const meta = tx.meta
   if (!meta) return 0
   const pre = meta.preTokenBalances || []
@@ -98,7 +108,6 @@ function usdcReceivedByTreasury(tx: ParsedTransactionWithMeta): number {
       postAmt = Number(b.uiTokenAmount?.uiAmountString ?? b.uiTokenAmount?.uiAmount ?? 0)
     }
   }
-  // Fallback: match by account index if owner missing on older metas
   if (!(postAmt > preAmt)) {
     const keys = tx.transaction.message.accountKeys.map((k) =>
       typeof k === 'string' ? k : k.pubkey.toBase58()
@@ -122,7 +131,9 @@ function usdcReceivedByTreasury(tx: ParsedTransactionWithMeta): number {
   return delta > 0 ? Math.round(delta * 1e6) / 1e6 : 0
 }
 
-function senderFromTx(tx: ParsedTransactionWithMeta): string | null {
+function senderFromTx(tx: {
+  transaction: { message: { accountKeys: Array<string | { pubkey: { toBase58(): string } }> } }
+}): string | null {
   const keys = tx.transaction.message.accountKeys
   if (!keys.length) return null
   const first = keys[0]
@@ -134,7 +145,8 @@ async function findConfirmedSupply(reference: string): Promise<{
   amountUsdc: number
   sender: string
 } | null> {
-  const conn = connection()
+  const { Connection, PublicKey } = await loadSolana()
+  const conn = new Connection(solanaRpcUrl(), 'confirmed')
   const refPk = new PublicKey(reference)
   const sigs = await conn.getSignaturesForAddress(refPk, { limit: 5 })
   if (!sigs.length) return null
@@ -146,9 +158,9 @@ async function findConfirmedSupply(reference: string): Promise<{
       commitment: 'confirmed',
     })
     if (!tx) continue
-    const amountUsdc = usdcReceivedByTreasury(tx)
+    const amountUsdc = usdcReceivedByTreasury(tx as never)
     if (!(amountUsdc > 0)) continue
-    const sender = senderFromTx(tx) || 'unknown'
+    const sender = senderFromTx(tx as never) || 'unknown'
     return { signature: s.signature, amountUsdc, sender }
   }
   return null
@@ -264,6 +276,7 @@ export const vault_createUsdcSupply = functions
       throw new functions.https.HttpsError('unauthenticated', 'Sign in required')
     }
     const uid = context.auth.uid
+    const { Keypair } = await loadSolana()
     const keypair = Keypair.generate()
     const reference = keypair.publicKey.toBase58()
     const supplyId = `sup_${Date.now().toString(36)}_${reference.slice(0, 8)}`
@@ -403,6 +416,3 @@ export const vault_pollUsdcSupplies = functions
     }
     return null
   })
-
-// silence unused — decimals documented for parsers
-void USDC_DECIMALS
