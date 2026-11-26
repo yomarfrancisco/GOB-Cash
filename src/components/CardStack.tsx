@@ -30,6 +30,11 @@ import {
 } from '@/lib/animations/conversionStoryBus'
 import { conversionStoryFromWalletTransition } from '@/lib/animations/settlementPlayback'
 import { useActivityStore } from '@/store/activity'
+import {
+  useVaultStore,
+  vaultHasSupply,
+  vaultWithdrawableShare,
+} from '@/store/vault'
 
 // Temporary FX rate (will be wired to real API later)
 const FX_USD_ZAR_DEFAULT = 18.1
@@ -44,10 +49,11 @@ const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> =
   yield: { level: 'moderate', percent: 60 },
   mzn: { level: 'good', percent: 100 },
   btc: { level: 'moderate', percent: 15 },
-  yieldSurprise: { level: 'moderate', percent: 60 }, // Reuse yield card health config
+  yieldSurprise: { level: 'moderate', percent: 60 },
+  earn: { level: 'good', percent: 100 },
 }
 
-export type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
+export type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise' | 'earn'
 
 interface CardData {
   type: CardType
@@ -69,6 +75,13 @@ const allCardsData: CardData[] = [
     type: 'mzn',
     image: '/assets/cards/card-MZN_231026.jpg',
     alt: 'MZN Cash Card',
+    width: 342,
+    height: 213,
+  },
+  {
+    type: 'earn',
+    image: '/assets/cards/card-PAGA_311026.jpg',
+    alt: 'Earn Card',
     width: 342,
     height: 213,
   },
@@ -102,14 +115,15 @@ const allCardsData: CardData[] = [
   },
 ]
 
-// Home: MZN + ZAR only. ROUTE (yieldSurprise) is collapsed into the ZAR card.
+// Home: MZN + ZAR + Earn. ROUTE (yieldSurprise) stays collapsed into ZAR.
 const ALWAYS_HIDDEN_CARD_TYPES: CardType[] = ['yield', 'btc', 'zwd', 'yieldSurprise']
 
 function homeCardsForAdmin(_isAdmin: boolean): CardData[] {
   const visible = allCardsData.filter((card) => !ALWAYS_HIDDEN_CARD_TYPES.includes(card.type))
-  // ZAR ↔ MZN (ROUTE balance is included on the ZAR card).
+  // Front → back: MZN, ZAR, Earn (USDC supply behind the corridor).
   return [...visible].sort((a, b) => {
-    const rank = (type: CardType) => (type === 'savings' ? 0 : type === 'mzn' ? 1 : 2)
+    const rank = (type: CardType) =>
+      type === 'mzn' ? 0 : type === 'savings' ? 1 : type === 'earn' ? 2 : 3
     return rank(a.type) - rank(b.type)
   })
 }
@@ -118,6 +132,7 @@ function homeCardsForAdmin(_isAdmin: boolean): CardData[] {
 const CARD_LABELS: Record<CardType, string> = {
   savings: 'CASH CARD', // ZAR fiat card
   mzn: 'CASH CARD', // MZN fiat card
+  earn: 'EARN', // Vault USDC supply
   zwd: 'CASH CARD', // ZWD fiat card
   yield: 'INVESTMENT CARD', // ETH crypto card
   btc: 'INVESTMENT CARD', // BTC crypto card
@@ -125,23 +140,28 @@ const CARD_LABELS: Record<CardType, string> = {
 }
 
 // Map card type to allocation key
-const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'earningsCents' | 'mznCents' | 'btcCents'> = {
+const CARD_TO_ALLOC_KEY: Record<
+  CardType,
+  'cashCents' | 'ethCents' | 'zwdCents' | 'earningsCents' | 'mznCents' | 'btcCents'
+> = {
   savings: 'cashCents',
   zwd: 'zwdCents',
   yield: 'ethCents',
   mzn: 'mznCents',
   btc: 'btcCents',
-  yieldSurprise: 'earningsCents', // Earnings card has its own balance (never starts at 0)
+  yieldSurprise: 'earningsCents',
+  earn: 'earningsCents', // unused for Earn — vault store owns the balance
 }
 
 // Map card type to portfolio symbol
-const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC'> = {
+const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC' | 'USD'> = {
   savings: 'CASH',
   zwd: 'ZWD',
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
   yieldSurprise: 'CASH',
+  earn: 'USD',
 }
 
 interface CardStackProps {
@@ -180,6 +200,11 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const initialOrder = Array.from({ length: cardsData.length }, (_, i) => i)
   const [order, setOrder] = useState<number[]>(initialOrder)
   const { wallets, demoMode } = useWalletStore()
+  const vaultPosition = useVaultStore((s) => s.position)
+  const earnShowPill = vaultHasSupply(vaultPosition)
+  const earnBarPercent = earnShowPill
+    ? Math.round(vaultWithdrawableShare(vaultPosition) * 100)
+    : null
   const isBalanceReady = useAppModeStore((s) => s.isBalanceReady())
   const walletMzn = Number(wallets?.cashMZN?.fiatBalance || 0)
   const walletZar = Number(wallets?.cashZAR?.fiatBalance || 0)
@@ -292,8 +317,14 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     const dominantIdx = cardsData.findIndex((c) => c.type === dominant)
     if (dominantIdx < 0) return
     setOrder(() => {
-      const rest = cardsData.map((_, i) => i).filter((i) => i !== dominantIdx)
-      return [dominantIdx, ...rest]
+      const earnIdx = cardsData.findIndex((c) => c.type === 'earn')
+      const middle = cardsData
+        .map((_, i) => i)
+        .filter((i) => i !== dominantIdx && i !== earnIdx)
+      // Earn stays at the back — USDC supply behind MZN → ZAR.
+      return earnIdx >= 0
+        ? [dominantIdx, ...middle, earnIdx]
+        : [dominantIdx, ...middle]
     })
   }, [isAuthed, isBalanceReady, demoMode, liveMzn, walletMzn, walletZar, walletTransitZar, cardsData])
 
@@ -302,6 +333,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     zwd: null,
     yield: null,
     mzn: null,
+    earn: null,
     btc: null,
     yieldSurprise: null,
   })
@@ -314,7 +346,8 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
     yield: isAuthed ? 0 : alloc.ethCents / 100,
     mzn: isAuthed ? 0 : ((alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0),
     btc: isAuthed ? 0 : ((alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0),
-    yieldSurprise: isAuthed ? 0 : alloc.earningsCents / 100, // Earnings card has its own balance
+    yieldSurprise: isAuthed ? 0 : alloc.earningsCents / 100,
+    earn: 0,
   })
   
   // Track if this is the first hydration for authenticated users (skip flash on first sync)
@@ -332,6 +365,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
         mzn: 0,
         btc: 0,
         yieldSurprise: 0,
+        earn: 0,
       }
       isFirstHydrationRef.current = true
     } else {
@@ -343,6 +377,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
         mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
         btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
         yieldSurprise: alloc.earningsCents / 100,
+        earn: 0,
       }
       isFirstHydrationRef.current = false
     }
@@ -356,7 +391,8 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       yield: alloc.ethCents / 100,
       mzn: (alloc as any).mznCents ? (alloc as any).mznCents / 100 : 0,
       btc: (alloc as any).btcCents ? (alloc as any).btcCents / 100 : 0,
-      yieldSurprise: alloc.earningsCents / 100, // Earnings card has its own balance
+      yieldSurprise: alloc.earningsCents / 100,
+      earn: 0, // Vault amounts — no SlotCounter flash until ledger is live
     }
 
     const newFlashDirection: Record<CardType, 'up' | 'down' | null> = {
@@ -366,6 +402,7 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
       mzn: null,
       btc: null,
       yieldSurprise: null,
+      earn: null,
     }
 
     // Skip flash animation on first hydration for authenticated users
@@ -972,8 +1009,15 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
                 ? mznCyclePercent
                 : card.type === 'savings'
                   ? zarLiquidBarPercent
-                  : null
+                  : card.type === 'earn'
+                    ? isTop && earnShowPill
+                      ? earnBarPercent
+                      : isTop
+                        ? 0
+                        : null
+                    : null
             }
+            showRatePill={card.type === 'earn' ? Boolean(isTop && earnShowPill) : true}
             displayMajorOffset={
               // Shared drip projection (deterministic) + brief story holds.
               card.type === 'mzn'

@@ -2,17 +2,14 @@
 
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useRef } from 'react'
 import clsx from 'clsx'
 import { useAiFabHighlightStore } from '@/state/aiFabHighlight'
 import { useAuthStore } from '@/store/auth'
 import { CHARACTERS } from '@/lib/demo/templates/characters'
 import { prefetchAuthImages } from '@/lib/prefetchAuthImages'
 import { useNotificationsStore } from '@/state/notifications'
-import { logout } from '@/lib/logout'
+import { useDeskChromeStore } from '@/store/deskChrome'
 import '@/styles/bottom-glass.css'
-
-const DESK_DOUBLE_TAP_MS = 350
 
 interface BottomGlassBarProps {
   currentPath?: string
@@ -27,16 +24,15 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
   const isHome = currentPath === '/'
   const { isAuthed, requireAuth } = useAuthStore()
   const openNotifications = useNotificationsStore((state) => state.openNotifications)
-  const closeNotifications = useNotificationsStore((state) => state.closeNotifications)
   const isHighlighted = useAiFabHighlightStore((state) => state.isHighlighted)
   const lastAvatar = useAiFabHighlightStore((state) => state.lastAvatar)
-  const lastDeskTapAtRef = useRef(0)
-  const deskOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const openRoutingDesk = () => {
     if (!isHome) {
       router.replace('/')
     }
+    // $ always opens Desk mode (lamp selected).
+    useDeskChromeStore.getState().resetToDesk()
     openNotifications()
   }
 
@@ -53,27 +49,7 @@ export default function BottomGlassBar({ currentPath = '/', onDollarClick }: Bot
       return
     }
 
-    const now = Date.now()
-    const gap = now - lastDeskTapAtRef.current
-    lastDeskTapAtRef.current = now
-
-    // Double-tap $ → sign out (same hidden affordance as the old desk icon).
-    if (gap > 0 && gap <= DESK_DOUBLE_TAP_MS) {
-      if (deskOpenTimerRef.current) {
-        clearTimeout(deskOpenTimerRef.current)
-        deskOpenTimerRef.current = null
-      }
-      lastDeskTapAtRef.current = 0
-      closeNotifications()
-      void logout()
-      return
-    }
-
-    if (deskOpenTimerRef.current) clearTimeout(deskOpenTimerRef.current)
-    deskOpenTimerRef.current = setTimeout(() => {
-      deskOpenTimerRef.current = null
-      openRoutingDesk()
-    }, DESK_DOUBLE_TAP_MS)
+    openRoutingDesk()
   }
 
   const fab = (

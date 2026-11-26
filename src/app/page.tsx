@@ -32,6 +32,8 @@ import InternalTransferSheet from '@/components/InternalTransferSheet'
 import { useFxRates } from '@/lib/exchangeRates/useFxRates'
 import { useNotificationStore } from '@/store/notifications'
 import { useNotificationsStore } from '@/state/notifications'
+import { useVaultStore } from '@/store/vault'
+import { useDeskChromeStore } from '@/store/deskChrome'
 import HomeStreamSection from '@/components/HomeStreamSection'
 import { DEMO_ANIMATIONS_ENABLED } from '@/lib/flags'
 import { startDemoNotificationEngine, stopDemoNotificationEngine } from '@/lib/demo/demoNotificationEngine'
@@ -77,6 +79,8 @@ function HomeContent() {
   
   // Fetch exchange rates once for all cards (USD and MZN)
   const { rates: fxRates } = useFxRates(['USD', 'MZN'])
+  const vaultTrailingApy = useVaultStore((s) => s.position.trailingApyPct)
+  const applyVaultDemoSupply = useVaultStore((s) => s.applyDemoSupply)
   const cardStackRef = useRef<CardStackHandle>(null)
   const flipControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
   const scrollContentRef = useRef<HTMLDivElement | null>(null)
@@ -259,6 +263,7 @@ function HomeContent() {
           mzn: 'mzn',
           btc: 'savings',
           yieldSurprise: 'savings',
+          earn: 'savings',
         }
         setTransferFromWalletId(cardTypeToWalletId[topCardType])
         setTimeout(() => setOpenInternalTransfer(true), 220)
@@ -778,7 +783,10 @@ function HomeContent() {
           const pendingPlay = useRoutingPlaybackStore.getState().play || clockPlayRef.current
           clockPlayRef.current = null
           if (!pendingPlay) return
-          if (pendingPlay.routingAction === 'fund_calc') {
+          if (
+            pendingPlay.routingAction === 'fund_calc' ||
+            pendingPlay.routingAction === 'earn_supply_calc'
+          ) {
             useRoutingPlaybackStore.getState().clear()
           }
           resumeDeskAfterKeypad()
@@ -791,10 +799,18 @@ function HomeContent() {
         balanceMZN={0}
         playbackOnly={Boolean(routingPlay?.playbackOnly)}
         fundCalculator={routingPlay?.routingAction === 'fund_calc'}
+        earnSupplyCalculator={routingPlay?.routingAction === 'earn_supply_calc'}
+        fxRateZARperUSD={
+          typeof fxRates?.rates?.USD === 'number' && fxRates.rates.USD > 0
+            ? 1 / fxRates.rates.USD
+            : 18.24
+        }
+        earnTrailingApyPct={vaultTrailingApy}
         autoPlayAmount={
           routingPlay &&
           amountEntryPoint === 'conversionKeypad' &&
-          routingPlay.routingAction !== 'fund_calc'
+          routingPlay.routingAction !== 'fund_calc' &&
+          routingPlay.routingAction !== 'earn_supply_calc'
             ? routingPlay.destination === 'ZAR'
               ? routingPlay.amountMZN
               : routingPlay.amountZAR > 0
@@ -863,7 +879,9 @@ function HomeContent() {
         }
         onScanClick={
           amountEntryPoint === 'cashButton' ||
-          (amountEntryPoint === 'conversionKeypad' && routingPlay?.routingAction !== 'fund_calc')
+          (amountEntryPoint === 'conversionKeypad' &&
+            routingPlay?.routingAction !== 'fund_calc' &&
+            routingPlay?.routingAction !== 'earn_supply_calc')
             ? () => {
                 guardAuthed(() => {
                   setOpenAmount(false)
@@ -914,6 +932,16 @@ function HomeContent() {
             void quoteDownload.catch((error) => {
               console.warn('[FundQuote] PDF download failed', error)
             })
+            return
+          }
+          // Earn calculator "Supply USDC": apply placeholder vault position, reopen Earn mode.
+          if (play?.routingAction === 'earn_supply_calc') {
+            useRoutingPlaybackStore.getState().clear()
+            clockPlayRef.current = null
+            const usdc = Math.max(amountZAR, amountMZN, 0)
+            applyVaultDemoSupply(usdc > 0.005 ? usdc : 5000)
+            useDeskChromeStore.getState().setMode('earn')
+            resumeDeskAfterKeypad()
             return
           }
           // Claim play before onClose so dismiss-restore does not race the submit path.

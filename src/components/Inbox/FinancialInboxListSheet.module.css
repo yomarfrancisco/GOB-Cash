@@ -457,6 +457,16 @@
   transform: scale(0.96);
 }
 
+/* Selected chrome — dark fill matching Part 17 desk / earn header. */
+.deskAskCalcSelected {
+  background: #111111;
+  color: #ffffff;
+}
+
+.deskAskCalcSelected:active {
+  opacity: 0.9;
+}
+
 .deskAskComposer {
   flex: 1;
   min-width: 0;

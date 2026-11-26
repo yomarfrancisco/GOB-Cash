@@ -7,8 +7,10 @@ import * as path from 'path'
 import { execSync } from 'child_process'
 import PDFDocument from 'pdfkit'
 import { formatPtDate, formatPtZar } from '../src/routing/bankEmailRound'
+import { loadComplianceAttachmentsForCompany } from '../src/treasury/companyComplianceDocs'
 import {
   invoicePrefixForRoute,
+  resolveEftSignatory,
   selectEftRoute,
   shortInvoiceNumber,
 } from '../src/treasury/eftRouteCatalog'
@@ -150,6 +152,7 @@ async function main() {
   const payerName = route.payer.tradingAs
     ? `${route.payer.legalName} trading as ${route.payer.tradingAs}`
     : route.payer.legalName
+  const signatory = resolveEftSignatory(route)
 
   const bodyEn = [
     `Dear ${route.banker.salutation === 'Exma. Sra.' ? 'Ms' : 'Mr'} ${route.banker.banker},`,
@@ -176,8 +179,9 @@ async function main() {
     'Please confirm if this amount can be processed on these terms, and advise once instructed.',
     '',
     'Kind regards,',
-    'Ygor Francisco',
-    'Econometrica (Pty) Ltd trading as Paga',
+    signatory.name,
+    signatory.titleEn,
+    payerName,
   ]
     .filter((line) => line !== null)
     .join('\n')
@@ -209,8 +213,9 @@ async function main() {
     'Agradecemos confirmação se o montante pode ser processado nestas condições, e aviso após a instrução.',
     '',
     'Com os melhores cumprimentos,',
-    'Ygor Francisco',
-    'Econometrica (Pty) Ltd trading as Paga',
+    signatory.name,
+    signatory.titlePt,
+    payerName,
   ]
     .filter((line) => line !== null)
     .join('\n')
@@ -257,6 +262,12 @@ async function main() {
 <p style="font-size:12px;color:#884400">[TEST] Intended banker: ${route.banker.email}. Route ${route.key}.</p>
 </body></html>`
 
+  const compliance = loadComplianceAttachmentsForCompany(route.beneficiaryCompany.id)
+  const attachments = [
+    { filename: `${invoiceNumber}.pdf`, content: pdf.toString('base64') },
+    ...compliance.map((doc) => ({ filename: doc.filename, content: doc.content })),
+  ]
+
   const apiKey = loadResendKey()
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -266,7 +277,7 @@ async function main() {
       to: ['ygor@brics.ninja'],
       subject: `[TEST] EFT instruct · ${invoiceNumber} · ${formatZarEn(amountZar)} · ${route.banker.shortBank}`,
       html,
-      attachments: [{ filename: `${invoiceNumber}.pdf`, content: pdf.toString('base64') }],
+      attachments,
     }),
   })
   const text = await res.text()
@@ -276,6 +287,8 @@ async function main() {
       body: text.slice(0, 300),
       invoiceNumber,
       route: route.key,
+      beneficiary: route.beneficiaryCompany.id,
+      attachments: attachments.map((a) => a.filename),
       payerAccount: route.payerAccount.accountNumber,
       beneficiaryAccount: route.beneficiaryBank.accountNumber,
     })

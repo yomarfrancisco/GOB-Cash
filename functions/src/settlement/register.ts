@@ -109,7 +109,7 @@ export const COMPANIES: Record<string, CompanyRecord> = {
     legalName: 'Econometrica (Pty) Ltd',
     tradingAs: 'Paga',
     registrationNumber: '2026/785154/07',
-    taxNumber: null,
+    taxNumber: '9573800225',
     nuit: null,
     addressLines: [
       'Unit 875 Polofields Lifestyle Estate',

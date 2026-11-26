@@ -65,6 +65,31 @@ export function formatDeskMinorZar(amount: number): string {
   return `${sign}R${enUsFixed(n)}`
 }
 
+/** Home/desk major for dollars: "$5 000" (no cents ≥ 1000) or "$0.00". */
+export function formatDeskMajorUsd(amount: number): string {
+  const n = Number(amount) || 0
+  const sign = n < 0 ? '-' : ''
+  const { major, cents } = formatCardTopline(Math.abs(n))
+  return cents != null ? `${sign}$${major}.${cents}` : `${sign}$${major}`
+}
+
+/** Compact USD for titles with comma grouping when ≥ 1000: "$5,000". */
+export function formatDeskTitleUsd(amount: number): string {
+  const n = Number(amount) || 0
+  const sign = n < 0 ? '-' : ''
+  const abs = Math.abs(n)
+  if (abs > 999.99) {
+    return `${sign}$${Math.round(abs).toLocaleString('en-US')}`
+  }
+  return `${sign}$${abs.toFixed(2)}`
+}
+
+/** Minor earn line: "≈ 5,000 USDC supplied" */
+export function formatDeskUsdcSuppliedMinor(amount: number): string {
+  const n = Math.max(0, Number(amount) || 0)
+  return `≈ ${Math.round(n).toLocaleString('en-US')} USDC supplied`
+}
+
 /** Minor equivalence line on mock cards (comma grouping). */
 export function formatDeskMinorUsd(amount: number): string {
   return `${formatEquivalenceAmount(Math.abs(Number(amount) || 0))} USD`

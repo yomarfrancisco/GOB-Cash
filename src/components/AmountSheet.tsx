@@ -104,6 +104,15 @@ type AmountSheetProps = {
    * No balance gate, no scan, CTA is "Get a quote".
    */
   fundCalculator?: boolean
+  /**
+   * Earn-mode calculator: type USDC to supply. CTA is "Supply USDC".
+   * Uses the same soft keypad chrome as fundCalculator.
+   */
+  earnSupplyCalculator?: boolean
+  /** ZAR per 1 USD for Earn supply quote (OPERATORS GET). */
+  fxRateZARperUSD?: number
+  /** Trailing APY % for the Earn ~$/mo line. */
+  earnTrailingApyPct?: number | null
 }
 
 export default function AmountSheet({
@@ -137,7 +146,11 @@ export default function AmountSheet({
   autoPlayAmount,
   playbackOnly = false,
   fundCalculator = false,
+  earnSupplyCalculator = false,
+  fxRateZARperUSD = 18.24,
+  earnTrailingApyPct = null,
 }: AmountSheetProps) {
+  const deskCalc = fundCalculator || earnSupplyCalculator
   const [amount, setAmount] = useState('0')
   const [conversionBusy, setConversionBusy] = useState(false)
   const [pressedKey, setPressedKey] = useState<string | null>(null)
@@ -501,7 +514,7 @@ export default function AmountSheet({
   // Fund calculator stays white to match the desk chat sheet.
   const isSponsorButtonConvert = !withdrawOnly && mode === 'convert' && entryPoint === 'sponsorButton'
   const isTintedKeypad =
-    !fundCalculator &&
+    !deskCalc &&
     (isHelicopterConvert ||
       isCashButtonConvert ||
       isSponsorButtonConvert ||
@@ -533,6 +546,33 @@ export default function AmountSheet({
     : formatFundCalcMajor(amountZAR, 'ZAR')
   const fundRateChip =
     fxRateMZNperZAR > 0 ? `${fxRateMZNperZAR.toFixed(4)} MZN/ZAR` : '—'
+
+  const earnUsdcAmount = Math.max(0, Number.parseFloat(amount) || 0)
+  const earnOperatorsZar = Math.round(earnUsdcAmount * Math.max(0, fxRateZARperUSD))
+  const earnApy =
+    typeof earnTrailingApyPct === 'number' && Number.isFinite(earnTrailingApyPct)
+      ? earnTrailingApyPct
+      : null
+  const earnMonthlyUsd =
+    earnApy != null && earnUsdcAmount > 0.005
+      ? (earnUsdcAmount * earnApy) / 100 / 12
+      : 0
+  const earnMonthlyLabel =
+    earnApy == null
+      ? 'Earn ~$[x] a month'
+      : earnUsdcAmount > 0.005
+        ? `Earn ~$${earnMonthlyUsd < 10 ? earnMonthlyUsd.toFixed(2) : Math.round(earnMonthlyUsd).toLocaleString('en-US')} a month at ${Number.isInteger(earnApy) ? earnApy : earnApy.toFixed(1)}%/yr`
+        : `Earn ~$[x] a month at ${Number.isInteger(earnApy) ? earnApy : earnApy.toFixed(1)}%/yr`
+  const earnRateChip =
+    fxRateZARperUSD > 0 ? `${fxRateZARperUSD.toFixed(2)} ZAR/USD` : '—'
+  const earnFrontAmount =
+    earnUsdcAmount > 999.99
+      ? `${Math.round(earnUsdcAmount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} USDC`
+      : `${earnUsdcAmount.toFixed(2)} USDC`
+  const earnBackAmount =
+    earnOperatorsZar > 999.99
+      ? `R ${Math.round(earnOperatorsZar).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}`
+      : `R ${earnOperatorsZar.toFixed(2)}`
 
   const secondaryChip = isConversionKeypad && onToggleConversion ? (
     <button
@@ -574,13 +614,13 @@ export default function AmountSheet({
       onOverlayClick={gateGuestPay ? blockGuestPay : undefined}
       title=""
       chrome="close"
-      className={`amount ${fundCalculator ? 'fund-calc' : ''} ${useLimeGreenBackground ? 'cash-keypad' : ''} ${usePinkKeypad ? 'pink-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`}
+      className={`amount ${deskCalc ? 'fund-calc' : ''} ${useLimeGreenBackground ? 'cash-keypad' : ''} ${usePinkKeypad ? 'pink-keypad' : ''} ${isHelicopterConvert ? 'cash-transactions' : ''}`}
       size="tall"
     >
       <div
-        className={`amount-sheet amount-sheet-wrapper ${fundCalculator ? 'amount-sheet--fund-calc' : ''} ${isHelicopterConvert ? 'amount-sheet--cash-transactions' : ''}`}
+        className={`amount-sheet amount-sheet-wrapper ${deskCalc ? 'amount-sheet--fund-calc' : ''} ${isHelicopterConvert ? 'amount-sheet--cash-transactions' : ''}`}
       >
-        {!fundCalculator ? (
+        {!deskCalc ? (
           <div
             className={`amount-sheet__header ${showScanIcon ? 'amount-sheet__header--with-scan' : ''}`}
             style={{ height: 'var(--hdr-h, 118px)' }}
@@ -620,7 +660,36 @@ export default function AmountSheet({
           </div>
         ) : null}
         <div className="amount-body">
-          {fundCalculator ? (
+          {earnSupplyCalculator ? (
+            <div className="fund-calc-stack-wrap">
+              <div className="fund-calc-stack" aria-label="Earn supply calculator">
+                <div className="fund-calc-peek fund-calc-peek--zar" aria-hidden>
+                  <span className="fund-calc-peek-lane">OPERATORS GET</span>
+                  <span className="fund-calc-peek-value">
+                    {earnBackAmount}
+                    <ArrowUpDown size={16} strokeWidth={2.4} aria-hidden />
+                  </span>
+                </div>
+                <div className="fund-calc-front fund-calc-front--usdc">
+                  <div className="fund-calc-front-lane">YOU FUND</div>
+                  <div className="fund-calc-front-amt-row">
+                    <FitAmount
+                      text={earnFrontAmount}
+                      maxPx={52}
+                      minPx={28}
+                      className="fund-calc-front-amt"
+                      suffix={<span className="fund-calc-cursor" aria-hidden />}
+                    />
+                  </div>
+                  <span className="fund-calc-rate">{earnRateChip}</span>
+                </div>
+              </div>
+              <div className="fund-calc-settle fund-calc-settle--now" aria-live="polite">
+                <span className="fund-calc-settle-dot" aria-hidden />
+                <span>{earnMonthlyLabel}</span>
+              </div>
+            </div>
+          ) : fundCalculator ? (
             <div className="fund-calc-stack-wrap">
               <div className="fund-calc-stack" aria-label="Fund calculator">
                 <button
@@ -705,7 +774,7 @@ export default function AmountSheet({
           <AmountKeypad
             value={displayAmount}
             pressedKey={pressedKey}
-            softKeys={fundCalculator}
+            softKeys={deskCalc}
             onChange={(next) => {
               if (gateGuestPay) {
                 blockGuestPay()
@@ -742,7 +811,7 @@ export default function AmountSheet({
             customFeeText={keypadFeeText}
           />
         </div>
-        <div className={`amount-cta ${fundCalculator ? 'amount-cta--fund-calc' : ''} ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${usePinkKeypad ? 'amount-cta--pink' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
+        <div className={`amount-cta ${deskCalc ? 'amount-cta--fund-calc' : ''} ${(!withdrawOnly && (entryPoint === 'cashButton' || entryPoint === 'sponsorButton' || isHelicopterConvert || showDualButtons)) ? 'amount-cta--dual' : ''} ${useLimeGreenBackground ? 'amount-cta--lime-green' : ''} ${usePinkKeypad ? 'amount-cta--pink' : ''} ${isHelicopterConvert ? 'amount-cta--cash-transactions' : ''}`} style={{ ['--cta-h' as any]: '88px' }}>
           {withdrawOnly ? (
             // Force single button for withdrawal flow
             <button 
@@ -831,10 +900,16 @@ export default function AmountSheet({
               disabled={
                 !isPositive ||
                 conversionBusy ||
-                (!fundCalculator && (exceedsZarBalance || exceedsMznBalance))
+                (!deskCalc && (exceedsZarBalance || exceedsMznBalance))
               }
             >
-              {fundCalculator ? 'Get a quote' : isZarPrimaryKeypad ? 'Sell ZAR' : 'Buy ZAR'}
+              {earnSupplyCalculator
+                ? 'Supply USDC'
+                : fundCalculator
+                  ? 'Get a quote'
+                  : isZarPrimaryKeypad
+                    ? 'Sell ZAR'
+                    : 'Buy ZAR'}
             </button>
           ) : entryPoint === 'cashButton' ? (
             // Dual buttons for $ button entry point: "Request" and "Pay"

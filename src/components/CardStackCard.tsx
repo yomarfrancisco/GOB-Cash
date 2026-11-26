@@ -29,10 +29,19 @@ import {
 } from '@/lib/fx/enRouteSettlementTimer'
 import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
+import {
+  useVaultStore,
+  vaultHasSupply,
+  vaultWithdrawableShare,
+} from '@/store/vault'
+import {
+  formatDeskMajorUsd,
+  formatDeskUsdcSuppliedMinor,
+} from '@/lib/desk/deskMoneyFormat'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
-type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise'
+type CardType = 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc' | 'yieldSurprise' | 'earn'
 
 type HealthLevel = 'good' | 'moderate' | 'caution' | 'fragile'
 
@@ -42,7 +51,8 @@ const HEALTH_CONFIG: Record<CardType, { level: HealthLevel; percent: number }> =
   yield: { level: 'moderate', percent: 60 },
   mzn: { level: 'good', percent: 100 },
   btc: { level: 'moderate', percent: 15 },
-  yieldSurprise: { level: 'moderate', percent: 60 }, // Reuse yield card health config
+  yieldSurprise: { level: 'moderate', percent: 60 },
+  earn: { level: 'good', percent: 100 },
 }
 
 // Derive health level from percent value
@@ -61,13 +71,17 @@ const HEALTH_STATUS: Record<HealthLevel, string> = {
   fragile: 'High risk',
 }
 
-const CARD_TO_ALLOC_KEY: Record<CardType, 'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents' | 'earningsCents'> = {
+const CARD_TO_ALLOC_KEY: Record<
+  CardType,
+  'cashCents' | 'ethCents' | 'zwdCents' | 'mznCents' | 'btcCents' | 'earningsCents'
+> = {
   savings: 'cashCents',
   zwd: 'zwdCents',
   yield: 'ethCents',
   mzn: 'mznCents',
   btc: 'btcCents',
   yieldSurprise: 'earningsCents',
+  earn: 'earningsCents',
 }
 
 const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC' | 'USD'> = {
@@ -76,7 +90,8 @@ const CARD_TO_SYMBOL: Record<CardType, 'CASH' | 'ETH' | 'ZWD' | 'MZN' | 'BTC' | 
   yield: 'ETH',
   mzn: 'MZN',
   btc: 'BTC',
-  yieldSurprise: 'CASH', // ZAR booked / in transit until settlement clears
+  yieldSurprise: 'CASH',
+  earn: 'USD',
 }
 
 // Coin mapping for crypto cards
@@ -87,6 +102,7 @@ const COIN_BY_CARD: Record<CardType, { src: string; id: string; label: string } 
   mzn: null,
   btc: { src: '/assets/Bitcoin-Logo.png', id: 'coin-btc', label: 'BTC' },
   yieldSurprise: null,
+  earn: null,
 }
 
 type CardStackCardProps = {
@@ -447,16 +463,36 @@ export default function CardStackCard({
     yield: null, // Crypto card, keep APY
     btc: null, // Crypto card, keep APY
     yieldSurprise: null, // Rewards pill, skip exchange rate
+    earn: null,
   }
+
+  const vaultPosition = useVaultStore((s) => s.position)
+  const earnSupplied = vaultHasSupply(vaultPosition)
+  const earnWithdrawablePct = Math.round(vaultWithdrawableShare(vaultPosition) * 100)
+  const isEarnCard = card.type === 'earn'
+  const showEarnAmounts = isEarnCard && isTop && earnSupplied
 
   // Get card definition for annual yield (fallback)
   // Map yieldSurprise to yield for card definition (yieldSurprise reuses yield card config)
-  const cardDef = getCardDefinition(card.type === 'yieldSurprise' ? 'yield' : card.type)
+  const cardDef = getCardDefinition(
+    card.type === 'yieldSurprise' || card.type === 'earn' ? 'yield' : card.type
+  )
   const annualYield = (cardDef.annualYieldBps ?? 938) / 100 // default 9.38% if undefined
   const formattedAnnualYield = annualYield.toFixed(2) // "9.38"
 
   // Determine what to display in the pill
   const getPillContent = (): { strong: string; label: string } => {
+    if (card.type === 'earn') {
+      const apy =
+        typeof vaultPosition.trailingApyPct === 'number' &&
+        Number.isFinite(vaultPosition.trailingApyPct)
+          ? vaultPosition.trailingApyPct
+          : null
+      if (apy == null) return { strong: 'Earn', label: '' }
+      const shown = Number.isInteger(apy) ? String(apy) : apy.toFixed(1)
+      return { strong: `Earn ${shown}%/yr`, label: '' }
+    }
+
     if (card.type === 'yieldSurprise') {
       return {
         strong: 'ROUTE@',
@@ -511,9 +547,12 @@ export default function CardStackCard({
 
   const pillContent = getPillContent()
 
-  // COST@ / SELL@ / ROUTE@ pills are display-only — never open the keypad.
+  // COST@ / SELL@ / ROUTE@ / Earn pills are display-only — never open the keypad.
   const isRateDisplayPill =
-    card.type === 'savings' || card.type === 'mzn' || card.type === 'yieldSurprise'
+    card.type === 'savings' ||
+    card.type === 'mzn' ||
+    card.type === 'yieldSurprise' ||
+    card.type === 'earn'
   const pillInteractive = Boolean(onApyPillClick) && !isRateDisplayPill
 
   const handlePillClick = (e: React.MouseEvent | React.TouchEvent) => {
@@ -586,8 +625,22 @@ export default function CardStackCard({
         )
       })()}
 
+      {/* Earn: static (no amounts) until supplied; then own position only when in front. */}
+      {showEarnAmounts ? (
+        <div className="card-amounts card-amounts--earn card-amounts--shifted" suppressHydrationWarning>
+          <div className="card-amounts__zar amount-headline amount-topline" suppressHydrationWarning>
+            <span className="amt-int card-amounts__whole">
+              {formatDeskMajorUsd(vaultPosition.suppliedUsdc)}
+            </span>
+          </div>
+          <div className="card-amounts__usdt" suppressHydrationWarning>
+            <span>{formatDeskUsdcSuppliedMinor(vaultPosition.suppliedUsdc)}</span>
+          </div>
+        </div>
+      ) : null}
+
       {/* Amount display with SlotCounter (shifted down) - only show for top card */}
-      {depth === 0 && (
+      {depth === 0 && !isEarnCard && (
         <div className={`card-amounts card-amounts--${card.type} card-amounts--shifted`} suppressHydrationWarning>
           {showPlaceholder ? (
             // Placeholder/skeleton while auth state is loading

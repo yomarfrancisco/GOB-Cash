@@ -10,9 +10,10 @@ export type RoutingPlayback = {
   /**
    * deploy / replenish confirm the open desk card;
    * mzn_fund tops up the MZN wallet;
-   * fund_calc is the desk calculator → bank-wire fund instructions (no convert).
+   * fund_calc is the desk calculator → bank-wire fund instructions (no convert);
+   * earn_supply_calc is the Earn-mode USDC supply calculator.
    */
-  routingAction?: 'replenish' | 'deploy' | 'mzn_fund' | 'fund_calc'
+  routingAction?: 'replenish' | 'deploy' | 'mzn_fund' | 'fund_calc' | 'earn_supply_calc'
   /**
    * Catch-up / replay: animate the keypad then dismiss without submitting.
    * Live awaiting cards leave this unset so Sell confirms the open step.

@@ -11,8 +11,10 @@ import * as functions from 'firebase-functions'
 import PDFDocument from 'pdfkit'
 import { sendEmailViaResend } from '../utils/resendEmail'
 import { formatPtDate, formatPtZar } from '../routing/bankEmailRound'
+import { loadComplianceAttachmentsForCompany } from './companyComplianceDocs'
 import {
   invoicePrefixForRoute,
+  resolveEftSignatory,
   selectEftRoute,
   shortInvoiceNumber,
   type EftRoute,
@@ -83,6 +85,8 @@ function buildBodyEn(params: {
   const { route } = params
   const ben = route.beneficiaryBank
   const issuer = companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)
+  const payer = companyLabel(route.payer.legalName, route.payer.tradingAs)
+  const signatory = resolveEftSignatory(route)
   const dear =
     route.banker.salutation === 'Exma. Sra.'
       ? `Dear Ms ${route.banker.banker}`
@@ -117,8 +121,9 @@ function buildBodyEn(params: {
     'Please confirm if this amount can be processed on these terms, and advise once instructed.',
     '',
     'Kind regards,',
-    'Ygor Francisco',
-    'Econometrica (Pty) Ltd trading as Paga'
+    signatory.name,
+    signatory.titleEn,
+    payer
   )
   return lines.join('\n')
 }
@@ -133,6 +138,8 @@ function buildBodyPt(params: {
   const { route } = params
   const ben = route.beneficiaryBank
   const issuer = companyLabel(route.beneficiaryCompany.legalName, route.beneficiaryCompany.tradingAs)
+  const payer = companyLabel(route.payer.legalName, route.payer.tradingAs)
+  const signatory = resolveEftSignatory(route)
 
   const lines: string[] = [
     `${route.banker.salutation} ${route.banker.banker},`,
@@ -163,8 +170,9 @@ function buildBodyPt(params: {
     'Agradecemos confirmação se o montante pode ser processado nestas condições, e aviso após a instrução.',
     '',
     'Com os melhores cumprimentos,',
-    'Ygor Francisco',
-    'Econometrica (Pty) Ltd trading as Paga'
+    signatory.name,
+    signatory.titlePt,
+    payer
   )
   return lines.join('\n')
 }
@@ -400,6 +408,11 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
     creditByMs,
     issuedAtMs: clockMs,
   })
+  const compliance = loadComplianceAttachmentsForCompany(route.beneficiaryCompany.id)
+  const attachments = [
+    { filename, content: pdf.toString('base64') },
+    ...compliance.map((doc) => ({ filename: doc.filename, content: doc.content })),
+  ]
 
   await ref.set(
     {
@@ -424,6 +437,8 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
       bodyEn,
       bodyPt,
       filename,
+      attachmentNames: attachments.map((a) => a.filename),
+      complianceDocKinds: compliance.map((d) => d.kind),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     },
@@ -432,9 +447,7 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
 
   let deliveredTo = to
   try {
-    await sendEmailViaResend(to, subject, buildHtml(bodyEn, bodyPt, testNote), [
-      { filename, content: pdf.toString('base64') },
-    ])
+    await sendEmailViaResend(to, subject, buildHtml(bodyEn, bodyPt, testNote), attachments)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     const fallback = normalizeEmail(String(functions.config().email?.to || ''))
@@ -447,7 +460,7 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
       fallback,
       `${subject} · delivered via fallback`,
       buildHtml(bodyEn, bodyPt, `${testNote}\nDelivered to ${fallback}.`),
-      [{ filename, content: pdf.toString('base64') }]
+      attachments
     )
   }
 
@@ -469,6 +482,7 @@ async function sendResidualEftBankEmailInner(input: ResidualEftEmailInput): Prom
     requestedTo: to,
     deliveredTo,
     amountZar,
+    attachments: attachments.map((a) => a.filename),
   })
 }
 

@@ -2,8 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Calculator, Check, Clock, Download, ExternalLink, LogOut, X } from 'lucide-react'
-import { logout } from '@/lib/logout'
+import { Calculator, Check, Clock, Download, ExternalLink, LampDesk, PiggyBank, X } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -19,10 +18,18 @@ import { isConversionInFlight } from '@/lib/transactions/submitInternalConversio
 import {
   markDeskKeypadOffered,
   openDeskKeypad,
+  openEarnSupplyCalculator,
   openHeaderFundCalculator,
   routingKeypadOfferKey,
   wasDeskKeypadOffered,
 } from '@/lib/desk/openDeskKeypad'
+import { useDeskChromeStore } from '@/store/deskChrome'
+import { useVaultStore } from '@/store/vault'
+import {
+  EarnVaultVisual,
+  earnVaultSentence,
+  earnVaultTitle,
+} from '@/components/notifications/EarnVaultVisual'
 import { useRoutingPlaybackStore } from '@/store/routingPlayback'
 import { useAuthStore } from '@/store/auth'
 import { formatRelativeShort } from '@/lib/formatRelativeTime'
@@ -1926,6 +1933,13 @@ export function NotificationsList({
     return latest?.id ?? null
   }, [allItems])
 
+  const deskChromeMode = useDeskChromeStore((s) => s.mode)
+  const setDeskChromeMode = useDeskChromeStore((s) => s.setMode)
+  const vaultPosition = useVaultStore((s) => s.position)
+  const earnTitle = earnVaultTitle(vaultPosition)
+  const earnSentence = earnVaultSentence(vaultPosition)
+  const routingManager = DESK_TEAM.sam
+
   const sectionProps = {
     latestAwaitingId,
     latestActivityId,
@@ -1948,60 +1962,119 @@ export function NotificationsList({
     latestYoureSetUpId,
   }
 
+  const handleDeskCalculator = () => {
+    if (deskChromeMode === 'earn') {
+      openEarnSupplyCalculator()
+      return
+    }
+    openHeaderFundCalculator()
+  }
+
   return (
     <>
       <div className={listStyles.conversationList} data-desk-feed>
         <div className={`${styles.activityContainer} ${styles.deskFeed}`} ref={listRootRef}>
-          {hasMore && (
+          {deskChromeMode === 'earn' ? (
             <div className={styles.activityList}>
-              <button
-                type="button"
-                className={styles.moreButton}
-                onClick={() => {
-                  skipScrollRef.current = true
-                  setVisibleCount((count) => count + ACTIVITY_PAGE_SIZE)
-                }}
-              >
-                Older
-              </button>
+              <article className={styles.activityItem} data-desk-speaker="sam">
+                <div className={styles.activityAvatar}>
+                  <Image
+                    src={routingManager.avatar}
+                    alt=""
+                    width={44}
+                    height={44}
+                    style={{ borderRadius: 12, objectFit: 'cover' }}
+                  />
+                </div>
+                <div className={styles.activityContent}>
+                  <div className={styles.activitySpeaker}>{routingManager.name}</div>
+                  <div className={styles.activityHeader}>
+                    <div className={styles.activityTitle}>{earnTitle}</div>
+                    <div className={styles.activityTime}>now</div>
+                  </div>
+                  <p className={styles.activityBody}>{earnSentence}</p>
+                  <EarnVaultVisual
+                    onSupply={() => openEarnSupplyCalculator()}
+                    onWithdraw={() => {
+                      /* Vault withdraw — ledger not wired yet */
+                    }}
+                  />
+                </div>
+              </article>
             </div>
-          )}
-          <ActivitySection title="Older" items={older} {...sectionProps} />
-          <ActivitySection title="Last 30 days" items={last30Days} {...sectionProps} />
-          <ActivitySection title="Last 7 days" items={last7Days} {...sectionProps} />
-          <ActivitySection title="Yesterday" items={yesterday} {...sectionProps} />
-          <ActivitySection title="Today" items={today} {...sectionProps} />
-          {reveal.showDots && !thinkingItem ? (
-            <div className={styles.activityList}>
-              <ThinkingPlaceholder speaker={nextRevealSpeaker} />
-            </div>
-          ) : null}
-          {feedItems.length === 0 && (
-            <p className={styles.emptyState}>
-              {searchQuery.trim() ? 'No matching payment activity.' : 'No payment activity yet.'}
-            </p>
+          ) : (
+            <>
+              {hasMore && (
+                <div className={styles.activityList}>
+                  <button
+                    type="button"
+                    className={styles.moreButton}
+                    onClick={() => {
+                      skipScrollRef.current = true
+                      setVisibleCount((count) => count + ACTIVITY_PAGE_SIZE)
+                    }}
+                  >
+                    Older
+                  </button>
+                </div>
+              )}
+              <ActivitySection title="Older" items={older} {...sectionProps} />
+              <ActivitySection title="Last 30 days" items={last30Days} {...sectionProps} />
+              <ActivitySection title="Last 7 days" items={last7Days} {...sectionProps} />
+              <ActivitySection title="Yesterday" items={yesterday} {...sectionProps} />
+              <ActivitySection title="Today" items={today} {...sectionProps} />
+              {reveal.showDots && !thinkingItem ? (
+                <div className={styles.activityList}>
+                  <ThinkingPlaceholder speaker={nextRevealSpeaker} />
+                </div>
+              ) : null}
+              {feedItems.length === 0 && (
+                <p className={styles.emptyState}>
+                  {searchQuery.trim()
+                    ? 'No matching payment activity.'
+                    : 'No payment activity yet.'}
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>
       <div className={listStyles.deskExitDock}>
         <button
           type="button"
-          className={listStyles.deskAskCalc}
-          aria-label="Log out"
-          onClick={() => {
-            closeNotifications()
-            void logout()
-          }}
+          className={[
+            listStyles.deskAskCalc,
+            deskChromeMode === 'desk' ? listStyles.deskAskCalcSelected : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          aria-label="Desk"
+          aria-pressed={deskChromeMode === 'desk'}
+          onClick={() => setDeskChromeMode('desk')}
         >
-          <LogOut size={22} strokeWidth={2} aria-hidden />
+          <LampDesk size={22} strokeWidth={2} aria-hidden />
         </button>
         <button
           type="button"
           className={listStyles.deskAskCalc}
           aria-label="Open calculator"
-          onClick={() => openHeaderFundCalculator()}
+          onClick={handleDeskCalculator}
         >
           <Calculator size={22} strokeWidth={2} aria-hidden />
+        </button>
+        <button
+          type="button"
+          className={[
+            listStyles.deskAskCalc,
+            deskChromeMode === 'earn' ? listStyles.deskAskCalcSelected : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          aria-label="Earn"
+          aria-pressed={deskChromeMode === 'earn'}
+          onClick={() => setDeskChromeMode('earn')}
+        >
+          <PiggyBank size={22} strokeWidth={2} aria-hidden />
         </button>
       </div>
       <div className={listStyles.deskCloseDock}>

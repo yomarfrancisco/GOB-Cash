@@ -86,3 +86,23 @@ export function openHeaderFundCalculator(): boolean {
   useNotificationsStore.getState().closeNotifications()
   return true
 }
+
+/**
+ * Earn-mode calculator: USDC supply keypad over home.
+ * Dismiss or "Supply USDC" reopen the desk in Earn mode.
+ */
+export function openEarnSupplyCalculator(): boolean {
+  if (isConversionInFlight()) return false
+  const play: RoutingPlayback = {
+    destination: 'ZAR',
+    amountZAR: 0,
+    amountMZN: 0,
+    routingAction: 'earn_supply_calc',
+  }
+  const current = useRoutingPlaybackStore.getState().play
+  if (current && sameRoutingPlay(current, play)) return false
+
+  useRoutingPlaybackStore.getState().requestPlay(play)
+  useNotificationsStore.getState().closeNotifications()
+  return true
+}

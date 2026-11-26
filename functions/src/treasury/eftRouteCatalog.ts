@@ -19,6 +19,24 @@ export type BankAccountFacts = {
   accountType?: string
 }
 
+/**
+ * Person the agent substitutes when instructing the Moz bank.
+ * Signs for the Mozambican initiating company (route.payer), not Paga/Econometrica.
+ * Override per route when the appointed signatory changes.
+ */
+export type EftSignatory = {
+  name: string
+  titleEn: string
+  titlePt: string
+}
+
+/** Default until a different appointee is set on a route. */
+export const DEFAULT_EFT_SIGNATORY: EftSignatory = {
+  name: 'Ygor Francisco',
+  titleEn: 'Managing Director',
+  titlePt: 'Director Geral',
+}
+
 export type EftRoute = {
   key: string
   label: string
@@ -28,6 +46,12 @@ export type EftRoute = {
   beneficiaryCompany: CompanyRecord
   beneficiaryBank: BankAccountFacts
   railId: 'econometrica_capitec' | 'lemon_fnb' | 'wolf_fnb' | 'imani_fnb'
+  /** Optional override; defaults to DEFAULT_EFT_SIGNATORY. */
+  signatory?: EftSignatory
+}
+
+export function resolveEftSignatory(route: EftRoute): EftSignatory {
+  return route.signatory || DEFAULT_EFT_SIGNATORY
 }
 
 function banker(key: BankerDirectoryEntry['key']): BankerDirectoryEntry {

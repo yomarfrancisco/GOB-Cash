@@ -32,6 +32,7 @@ const walletTitleMap: Record<WalletKey, string> = {
   yield: 'ETH wallet',
   btc: 'BTC wallet',
   yieldSurprise: 'En route wallet',
+  earn: 'Earn vault',
 }
 
 const cardImages: Record<WalletKey, string> = {
@@ -41,6 +42,7 @@ const cardImages: Record<WalletKey, string> = {
   mzn: '/assets/cards/card-MZN_231026.jpg',
   btc: '/assets/cards/card-BTC.jpg',
   yieldSurprise: '/assets/cards/card_PAGA_SA2.jpg',
+  earn: '/assets/cards/card-PAGA_311026.jpg',
 }
 
 // Helper tile structure
@@ -194,6 +196,30 @@ const HELPER_COPY: Record<WalletKey, HelperCopy> = {
       },
     ],
   },
+  earn: {
+    description:
+      'Your USDC funds corridor float. You earn a share of the fee on every delivery it funds.',
+    apyHeading: 'Trailing 30-day earn rate',
+    apySubtext: 'Realized — never a promised rate',
+    tiles: [
+      { title: 'APY_CARD' },
+      {
+        title: 'Supply',
+        line1: 'USDC behind MZN → ZAR',
+        line2: 'Funds pre-paid corridor deliveries',
+      },
+      {
+        title: 'Daily',
+        line1: 'Redeem limit',
+        line2: 'Withdraw up to the live daily cap',
+      },
+      {
+        title: 'Evidence',
+        line1: 'Bank-backed',
+        line2: 'Every delivery confirmed by bank evidence',
+      },
+    ],
+  },
 }
 
 // Get APY from card definitions (single source of truth)
@@ -204,7 +230,10 @@ const getApyForWallet = (walletKey: WalletKey): number => {
     const zarCard = getCardDefinition('savings')
     return zarCard.annualYieldBps ? zarCard.annualYieldBps / 100 : 9.38
   }
-  
+  if (walletKey === 'earn') {
+    return 8.4
+  }
+
   // For other wallets, use their own APY from card definitions
   // Note: walletKey from CardStack may include 'yieldSurprise', but cardDefinitions only has: 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc'
   const cardDef = getCardDefinition(walletKey as 'zwd' | 'savings' | 'yield' | 'mzn' | 'btc')
