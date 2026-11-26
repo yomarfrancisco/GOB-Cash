@@ -42,7 +42,7 @@ const cardImages: Record<WalletKey, string> = {
   mzn: '/assets/cards/card-MZN_231026.jpg',
   btc: '/assets/cards/card-BTC.jpg',
   yieldSurprise: '/assets/cards/card_PAGA_SA2.jpg',
-  earn: '/assets/cards/card-PAGA_311026.jpg',
+  earn: '/assets/cards/card-ROUTE_23102026.jpg',
 }
 
 // Helper tile structure

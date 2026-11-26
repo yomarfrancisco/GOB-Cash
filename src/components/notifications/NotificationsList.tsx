@@ -2057,14 +2057,6 @@ export function NotificationsList({
         </button>
         <button
           type="button"
-          className={listStyles.deskAskCalc}
-          aria-label="Open calculator"
-          onClick={handleDeskCalculator}
-        >
-          <Calculator size={22} strokeWidth={2} aria-hidden />
-        </button>
-        <button
-          type="button"
           className={[
             listStyles.deskAskCalc,
             deskChromeMode === 'earn' ? listStyles.deskAskCalcSelected : '',
@@ -2076,6 +2068,16 @@ export function NotificationsList({
           onClick={() => setDeskChromeMode('earn')}
         >
           <PiggyBank size={22} strokeWidth={2} aria-hidden />
+        </button>
+      </div>
+      <div className={listStyles.deskCalcDock}>
+        <button
+          type="button"
+          className={listStyles.deskAskCalc}
+          aria-label="Open calculator"
+          onClick={handleDeskCalculator}
+        >
+          <Calculator size={22} strokeWidth={2} aria-hidden />
         </button>
       </div>
       <div className={listStyles.deskCloseDock}>

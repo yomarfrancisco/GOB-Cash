@@ -80,7 +80,7 @@ const allCardsData: CardData[] = [
   },
   {
     type: 'earn',
-    image: '/assets/cards/card-PAGA_311026.jpg',
+    image: '/assets/cards/card-ROUTE_23102026.jpg',
     alt: 'Earn Card',
     width: 342,
     height: 213,

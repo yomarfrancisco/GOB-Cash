@@ -374,6 +374,20 @@
   pointer-events: auto;
 }
 
+/* Floating calculator — bottom-right hover, separate from lamp/piggy chrome. */
+.deskCalcDock {
+  position: absolute;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  left: auto;
+  top: auto;
+  z-index: 6;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
 /* Floating close on the desk top-right — same chrome as calc/exit, smaller circle. */
 .deskCloseDock {
   position: absolute;

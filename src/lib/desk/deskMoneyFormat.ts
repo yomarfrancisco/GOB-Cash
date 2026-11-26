@@ -84,10 +84,10 @@ export function formatDeskTitleUsd(amount: number): string {
   return `${sign}$${abs.toFixed(2)}`
 }
 
-/** Minor earn line: "≈ 5,000 USDC supplied" */
+/** Minor earn line: "≈ 5,000 USD earned" */
 export function formatDeskUsdcSuppliedMinor(amount: number): string {
   const n = Math.max(0, Number(amount) || 0)
-  return `≈ ${Math.round(n).toLocaleString('en-US')} USDC supplied`
+  return `≈ ${Math.round(n).toLocaleString('en-US')} USD earned`
 }
 
 /** Minor equivalence line on mock cards (comma grouping). */

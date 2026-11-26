@@ -121,7 +121,7 @@ export function EarnVaultVisual({
       }
     }
     void tick()
-    const t = window.setInterval(() => void tick(), 4000)
+    const t = window.setInterval(() => void tick(), 2500)
     return () => {
       cancelled = true
       window.clearInterval(t)

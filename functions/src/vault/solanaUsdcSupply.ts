@@ -68,18 +68,40 @@ type TokenBalance = {
   uiTokenAmount?: { uiAmountString?: string | null; uiAmount?: number | null }
 }
 
+type ParsedIx = {
+  program?: string
+  programId?: string
+  parsed?: {
+    type?: string
+    info?: {
+      source?: string
+      destination?: string
+      authority?: string
+      multisigAuthority?: string
+      mint?: string
+      amount?: string
+      tokenAmount?: { uiAmount?: number | null; uiAmountString?: string | null; amount?: string }
+    }
+  }
+}
+
 type ParsedTx = {
   meta: {
     err: unknown
     preTokenBalances?: TokenBalance[] | null
     postTokenBalances?: TokenBalance[] | null
+    innerInstructions?: Array<{ instructions?: ParsedIx[] }> | null
   } | null
   transaction: {
     message: {
       accountKeys: Array<string | { pubkey: string; signer?: boolean }>
+      instructions?: ParsedIx[]
     }
   }
 }
+
+/** Observed treasury USDC ATA (owner = TREASURY). */
+const TREASURY_USDC_ATA = '3BWBdkrcQ2o51927WAniP1hSjhcaECF9px3EZcABPA74'
 
 function emptyPosition() {
   return {
@@ -167,11 +189,57 @@ async function isSignatureClaimed(signature: string): Promise<boolean> {
   return snap.exists
 }
 
+function allParsedInstructions(tx: ParsedTx): ParsedIx[] {
+  const top = tx.transaction.message.instructions || []
+  const inner =
+    tx.meta?.innerInstructions?.flatMap((group) => group.instructions || []) || []
+  return [...top, ...inner]
+}
+
+/** USDC amount from transfer / transferChecked that touches the treasury ATA. */
+function usdcInstructionAmountToTreasury(tx: ParsedTx): number {
+  let best = 0
+  for (const ix of allParsedInstructions(tx)) {
+    const parsed = ix.parsed
+    if (!parsed || typeof parsed !== 'object') continue
+    const type = String(parsed.type || '')
+    if (!/transfer/i.test(type)) continue
+    const info = parsed.info || {}
+    const mint = info.mint || ''
+    if (mint && mint !== USDC_MINT) continue
+    const dest = String(info.destination || '')
+    const src = String(info.source || '')
+    // Destination or source is treasury ATA (self-fund still counts while pending).
+    if (dest !== TREASURY_USDC_ATA && src !== TREASURY_USDC_ATA) continue
+    let amt = 0
+    if (info.tokenAmount) {
+      amt = Number(info.tokenAmount.uiAmountString ?? info.tokenAmount.uiAmount ?? 0)
+    } else if (info.amount != null) {
+      amt = Number(info.amount) / 1e6
+    }
+    if (amt > best) best = amt
+  }
+  return best > 0 ? Math.round(best * 1e6) / 1e6 : 0
+}
+
+function signerPubkeys(tx: ParsedTx): string[] {
+  return tx.transaction.message.accountKeys
+    .map((k, i) => {
+      if (typeof k === 'string') return i === 0 ? k : ''
+      return k.signer ? k.pubkey : ''
+    })
+    .filter(Boolean)
+}
+
 /**
- * Net USDC into treasury only. Self-transfers (same ATA → same ATA) have delta 0
- * and must not credit Earn — that was the 0.010001 Solscan case.
+ * Resolve a credit amount for a signature.
+ * Prefers net treasury USDC increase; falls back to transferChecked instruction
+ * amount (covers treasury self-fund / Phantom omitting Solana Pay reference).
  */
-async function parseInboundFromSig(signature: string): Promise<{
+async function parseInboundFromSig(
+  signature: string,
+  opts?: { allowSelfFund?: boolean; reference?: string }
+): Promise<{
   signature: string
   amountUsdc: number
   sender: string
@@ -181,24 +249,30 @@ async function parseInboundFromSig(signature: string): Promise<{
     { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0, commitment: 'confirmed' },
   ])
   if (!tx || tx.meta?.err) return null
-  const amountUsdc = usdcReceivedByTreasury(tx)
-  if (!(amountUsdc > 0.0000005)) return null
   if (await isSignatureClaimed(signature)) return null
+
   const keys = tx.transaction.message.accountKeys.map(accountKeyString)
-  const signers = keys.filter((_, i) => {
-    const raw = tx.transaction.message.accountKeys[i]
-    return typeof raw !== 'string' && Boolean((raw as { signer?: boolean }).signer)
-  })
-  // Must be funded by an external wallet — treasury self-moves never count.
-  const fromUser = signers.find((k) => k && k !== TREASURY) || keys.find((k) => k && k !== TREASURY)
-  if (!fromUser || fromUser === TREASURY) return null
-  return { signature, amountUsdc, sender: fromUser }
+  const hasReference =
+    Boolean(opts?.reference) && keys.some((k) => k === opts!.reference)
+
+  const delta = usdcReceivedByTreasury(tx)
+  const instructed = usdcInstructionAmountToTreasury(tx)
+  const amountUsdc = Math.max(delta, instructed)
+  if (!(amountUsdc > 0.0000005)) return null
+
+  const signers = signerPubkeys(tx)
+  const external = signers.find((k) => k && k !== TREASURY)
+  const allowSelf = Boolean(opts?.allowSelfFund) || hasReference
+  if (!external && !allowSelf) return null
+
+  const sender = external || signers[0] || TREASURY
+  return { signature, amountUsdc, sender }
 }
 
 /**
  * 1) Solana Pay reference account (preferred)
- * 2) Fallback: any unclaimed USDC credit to treasury after the pending was created
- *    (covers Phantom sends that omit the reference account)
+ * 2) Fallback: treasury txs after pending created — net credit OR instruction
+ *    amount (self-fund / missing reference still attributes while pending)
  */
 async function findConfirmedSupply(params: {
   reference: string
@@ -217,22 +291,31 @@ async function findConfirmedSupply(params: {
     )
     for (const s of refSigs || []) {
       if (s.err) continue
-      const found = await parseInboundFromSig(s.signature)
+      const found = await parseInboundFromSig(s.signature, {
+        allowSelfFund: true,
+        reference,
+      })
       if (found) return found
     }
   } catch (err) {
     functions.logger.warn('findConfirmedSupply reference scan', err)
   }
 
-  const sinceSec = Math.floor(((createdAtMs && createdAtMs > 0 ? createdAtMs : Date.now()) - 120_000) / 1000)
+  // Look back from pending create (or last 24h) so a late Phantom confirm still matches.
+  const sinceMs =
+    createdAtMs && createdAtMs > 0 ? Math.min(createdAtMs, Date.now()) - 60_000 : Date.now() - 86_400_000
+  const sinceSec = Math.floor(sinceMs / 1000)
   try {
     const treasurySigs = await solanaRpc<
       Array<{ signature: string; err: unknown; blockTime?: number | null }>
-    >('getSignaturesForAddress', [TREASURY, { limit: 20 }])
+    >('getSignaturesForAddress', [TREASURY, { limit: 25 }])
     for (const s of treasurySigs || []) {
       if (s.err) continue
       if (s.blockTime != null && s.blockTime < sinceSec) continue
-      const found = await parseInboundFromSig(s.signature)
+      const found = await parseInboundFromSig(s.signature, {
+        allowSelfFund: true,
+        reference,
+      })
       if (found) return found
     }
   } catch (err) {
