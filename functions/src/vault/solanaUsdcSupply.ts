@@ -2,9 +2,13 @@
  * Vault: Solana Pay USDC supply to PAGA treasury.
  * Create a unique reference pubkey per request; watch it for confirmation;
  * credit users/{uid}/vault/position and post the Earn "received" activity event.
+ *
+ * Uses JSON-RPC + bs58 (no @solana/web3.js — keeps Cloud Functions cold start / deploy light).
  */
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
+import * as crypto from 'crypto'
+import bs58 from 'bs58'
 
 const TREASURY = '2pVRNVuUekuTgpY7nCj7aUD1mZ7LApBNspxVCiuTYHyh'
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
@@ -21,11 +25,6 @@ function solanaRpcUrl(): string {
   return process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
 }
 
-/** Lazy-load Solana — top-level import times out Firebase deploy analysis. */
-async function loadSolana() {
-  return import('@solana/web3.js')
-}
-
 function buildSolanaPayUrl(reference: string): string {
   const params = new URLSearchParams()
   params.set('spl-token', USDC_MINT)
@@ -35,10 +34,51 @@ function buildSolanaPayUrl(reference: string): string {
   return `solana:${TREASURY}?${params.toString()}`
 }
 
+/** Random 32-byte pubkey as base58 — Solana Pay reference account. */
+function generateReferencePubkey(): string {
+  return bs58.encode(crypto.randomBytes(32))
+}
+
 function formatUsdcReceivedTitle(amountUsdc: number): string {
   const whole = Math.round(Math.max(0, amountUsdc))
   const spaced = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
   return `${spaced} USDC received.`
+}
+
+async function solanaRpc<T>(method: string, params: unknown[]): Promise<T> {
+  const res = await fetch(solanaRpcUrl(), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  })
+  if (!res.ok) {
+    throw new Error(`Solana RPC HTTP ${res.status}`)
+  }
+  const json = (await res.json()) as { result?: T; error?: { message?: string } }
+  if (json.error) {
+    throw new Error(json.error.message || 'Solana RPC error')
+  }
+  return json.result as T
+}
+
+type TokenBalance = {
+  mint: string
+  owner?: string
+  accountIndex: number
+  uiTokenAmount?: { uiAmountString?: string | null; uiAmount?: number | null }
+}
+
+type ParsedTx = {
+  meta: {
+    err: unknown
+    preTokenBalances?: TokenBalance[] | null
+    postTokenBalances?: TokenBalance[] | null
+  } | null
+  transaction: {
+    message: {
+      accountKeys: Array<string | { pubkey: string; signer?: boolean }>
+    }
+  }
 }
 
 function emptyPosition() {
@@ -72,24 +112,13 @@ function emptyPosition() {
   }
 }
 
-/** USDC amount received by treasury in this tx (major units). */
-function usdcReceivedByTreasury(tx: {
-  meta: {
-    preTokenBalances?: Array<{
-      mint: string
-      owner?: string
-      accountIndex: number
-      uiTokenAmount?: { uiAmountString?: string | null; uiAmount?: number | null }
-    }> | null
-    postTokenBalances?: Array<{
-      mint: string
-      owner?: string
-      accountIndex: number
-      uiTokenAmount?: { uiAmountString?: string | null; uiAmount?: number | null }
-    }> | null
-  } | null
-  transaction: { message: { accountKeys: Array<string | { pubkey: { toBase58(): string } }> } }
-}): number {
+function accountKeyString(
+  k: string | { pubkey: string }
+): string {
+  return typeof k === 'string' ? k : String(k.pubkey || '')
+}
+
+function usdcReceivedByTreasury(tx: ParsedTx): number {
   const meta = tx.meta
   if (!meta) return 0
   const pre = meta.preTokenBalances || []
@@ -109,20 +138,16 @@ function usdcReceivedByTreasury(tx: {
     }
   }
   if (!(postAmt > preAmt)) {
-    const keys = tx.transaction.message.accountKeys.map((k) =>
-      typeof k === 'string' ? k : k.pubkey.toBase58()
-    )
+    const keys = tx.transaction.message.accountKeys.map(accountKeyString)
     for (const b of pre) {
       if (b.mint !== USDC_MINT) continue
-      const addr = keys[b.accountIndex]
-      if (addr === treasury) {
+      if (keys[b.accountIndex] === treasury) {
         preAmt = Number(b.uiTokenAmount?.uiAmountString ?? b.uiTokenAmount?.uiAmount ?? 0)
       }
     }
     for (const b of post) {
       if (b.mint !== USDC_MINT) continue
-      const addr = keys[b.accountIndex]
-      if (addr === treasury) {
+      if (keys[b.accountIndex] === treasury) {
         postAmt = Number(b.uiTokenAmount?.uiAmountString ?? b.uiTokenAmount?.uiAmount ?? 0)
       }
     }
@@ -131,13 +156,10 @@ function usdcReceivedByTreasury(tx: {
   return delta > 0 ? Math.round(delta * 1e6) / 1e6 : 0
 }
 
-function senderFromTx(tx: {
-  transaction: { message: { accountKeys: Array<string | { pubkey: { toBase58(): string } }> } }
-}): string | null {
+function senderFromTx(tx: ParsedTx): string | null {
   const keys = tx.transaction.message.accountKeys
   if (!keys.length) return null
-  const first = keys[0]
-  return typeof first === 'string' ? first : first.pubkey.toBase58()
+  return accountKeyString(keys[0]) || null
 }
 
 async function findConfirmedSupply(reference: string): Promise<{
@@ -145,22 +167,22 @@ async function findConfirmedSupply(reference: string): Promise<{
   amountUsdc: number
   sender: string
 } | null> {
-  const { Connection, PublicKey } = await loadSolana()
-  const conn = new Connection(solanaRpcUrl(), 'confirmed')
-  const refPk = new PublicKey(reference)
-  const sigs = await conn.getSignaturesForAddress(refPk, { limit: 5 })
-  if (!sigs.length) return null
+  const sigs = await solanaRpc<Array<{ signature: string; err: unknown }>>(
+    'getSignaturesForAddress',
+    [reference, { limit: 5 }]
+  )
+  if (!sigs?.length) return null
 
   for (const s of sigs) {
     if (s.err) continue
-    const tx = await conn.getParsedTransaction(s.signature, {
-      maxSupportedTransactionVersion: 0,
-      commitment: 'confirmed',
-    })
-    if (!tx) continue
-    const amountUsdc = usdcReceivedByTreasury(tx as never)
+    const tx = await solanaRpc<ParsedTx | null>('getTransaction', [
+      s.signature,
+      { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0, commitment: 'confirmed' },
+    ])
+    if (!tx || tx.meta?.err) continue
+    const amountUsdc = usdcReceivedByTreasury(tx)
     if (!(amountUsdc > 0)) continue
-    const sender = senderFromTx(tx as never) || 'unknown'
+    const sender = senderFromTx(tx) || 'unknown'
     return { signature: s.signature, amountUsdc, sender }
   }
   return null
@@ -276,9 +298,7 @@ export const vault_createUsdcSupply = functions
       throw new functions.https.HttpsError('unauthenticated', 'Sign in required')
     }
     const uid = context.auth.uid
-    const { Keypair } = await loadSolana()
-    const keypair = Keypair.generate()
-    const reference = keypair.publicKey.toBase58()
+    const reference = generateReferencePubkey()
     const supplyId = `sup_${Date.now().toString(36)}_${reference.slice(0, 8)}`
     const solanaPayUrl = buildSolanaPayUrl(reference)
     const createdAtMs = Date.now()
