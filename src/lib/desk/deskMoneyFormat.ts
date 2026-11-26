@@ -106,13 +106,10 @@ export function formatEarnCardMajorUsd(amount: number): { major: string; cents?:
 
 /**
  * Earn-card minor only: MZN equivalent of $ earn.
- * When $ earn is under $0.01 → "≈ 0 MZN earned" (no decimals).
- * Else: ≤ 10 → 2dp; > 10 → whole units. Other cards unchanged.
+ * Independent of the $ major floor — dust $ can still show positive MZN cents.
+ * < 0.01 MZN → "≈ 0 MZN earned"; ≤ 10 → 2dp; > 10 → whole units.
  */
-export function formatDeskEarnMznMinor(amountMzn: number, earnUsd?: number): string {
-  if (typeof earnUsd === 'number' && earnUsd < 0.01) {
-    return '≈ 0 MZN earned'
-  }
+export function formatDeskEarnMznMinor(amountMzn: number): string {
   const n = Math.max(0, Number(amountMzn) || 0)
   if (n < 0.01) {
     return '≈ 0 MZN earned'
