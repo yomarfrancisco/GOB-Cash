@@ -33,6 +33,7 @@ import { useFxRates } from '@/lib/exchangeRates/useFxRates'
 import { useNotificationStore } from '@/store/notifications'
 import { useNotificationsStore } from '@/state/notifications'
 import { useVaultStore } from '@/store/vault'
+import { liveNoteRatePct } from '@/lib/vault/deliveryNote'
 import { useDeskChromeStore } from '@/store/deskChrome'
 import HomeStreamSection from '@/components/HomeStreamSection'
 import { DEMO_ANIMATIONS_ENABLED } from '@/lib/flags'
@@ -79,7 +80,7 @@ function HomeContent() {
   
   // Fetch exchange rates once for all cards (USD and MZN)
   const { rates: fxRates } = useFxRates(['USD', 'MZN'])
-  const vaultTrailingApy = useVaultStore((s) => s.position.trailingApyPct)
+  const vaultPositionForEarn = useVaultStore((s) => s.position)
   const applyVaultDemoSupply = useVaultStore((s) => s.applyDemoSupply)
   const cardStackRef = useRef<CardStackHandle>(null)
   const flipControllerRef = useRef<{ pause: () => void; resume: () => void } | null>(null)
@@ -805,7 +806,12 @@ function HomeContent() {
             ? 1 / fxRates.rates.USD
             : 18.24
         }
-        earnTrailingApyPct={vaultTrailingApy}
+        earnTrailingApyPct={
+          typeof vaultPositionForEarn.lockedRatePct === 'number' &&
+          Number.isFinite(vaultPositionForEarn.lockedRatePct)
+            ? vaultPositionForEarn.lockedRatePct
+            : liveNoteRatePct(Date.now())
+        }
         autoPlayAmount={
           routingPlay &&
           amountEntryPoint === 'conversionKeypad' &&

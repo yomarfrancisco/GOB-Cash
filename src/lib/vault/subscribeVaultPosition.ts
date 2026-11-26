@@ -33,14 +33,28 @@ function asPending(raw: unknown): VaultPendingSupply | null {
 function mapPosition(data: Record<string, unknown> | undefined): VaultPosition {
   const suppliedUsdc = Math.max(0, Number(data?.suppliedUsdc) || 0)
   const withdrawableNowUsd = Math.max(0, Number(data?.withdrawableNowUsd) || 0)
+  const usedUsdc = Math.max(
+    0,
+    Number(data?.usedUsdc) ||
+      Number(data?.committedUsdc) ||
+      Math.max(0, suppliedUsdc - withdrawableNowUsd)
+  )
   const committedUsdc = Math.max(
     0,
-    Number(data?.committedUsdc) || Math.max(0, suppliedUsdc - withdrawableNowUsd)
+    Number(data?.committedUsdc) || usedUsdc
   )
+  const lockedRaw = data?.lockedRatePct
+  const lockedRatePct =
+    lockedRaw == null || lockedRaw === ''
+      ? null
+      : Number(lockedRaw)
   return {
     suppliedUsdc,
     trailingApyPct:
-      data?.trailingApyPct == null ? 8.4 : Number(data.trailingApyPct) || null,
+      data?.trailingApyPct == null ? null : Number(data.trailingApyPct) || null,
+    lockedRatePct:
+      lockedRatePct != null && Number.isFinite(lockedRatePct) ? lockedRatePct : null,
+    usedUsdc,
     withdrawableNowUsd,
     committedUsdc,
     zarFunded: Math.max(0, Number(data?.zarFunded) || 0),
@@ -50,6 +64,18 @@ function mapPosition(data: Record<string, unknown> | undefined): VaultPosition {
     deliveriesZarToday: Math.max(0, Number(data?.deliveriesZarToday) || 0),
     suppliedAtMs: data?.suppliedAtMs == null ? null : Number(data.suppliedAtMs) || null,
     backAtMs: data?.backAtMs == null ? null : Number(data.backAtMs) || null,
+    settledAtMs: data?.settledAtMs == null ? null : Number(data.settledAtMs) || null,
+    returnedUsdc:
+      data?.returnedUsdc == null ? null : Math.max(0, Number(data.returnedUsdc) || 0),
+    notePhase:
+      data?.notePhase === 'open' ||
+      data?.notePhase === 'funded' ||
+      data?.notePhase === 'settled' ||
+      data?.notePhase === 'closed' ||
+      data?.notePhase === 'late'
+        ? data.notePhase
+        : null,
+    noteFull: data?.noteFull === true,
     legs: Array.isArray(data?.legs) ? (data!.legs as VaultPosition['legs']) : [],
     expectedEarnedUsd: Math.max(0, Number(data?.expectedEarnedUsd) || 0),
     linkedSolanaWallet:

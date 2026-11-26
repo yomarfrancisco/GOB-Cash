@@ -30,6 +30,7 @@ import {
 import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
 import { useVaultStore, vaultHasSupply } from '@/store/vault'
+import { homeEarnPill } from '@/lib/vault/deliveryNote'
 import { formatDeskUsdcSuppliedMinor } from '@/lib/desk/deskMoneyFormat'
 
 const FX_USD_ZAR_DEFAULT = 18.1
@@ -475,14 +476,8 @@ export default function CardStackCard({
   // Determine what to display in the pill
   const getPillContent = (): { strong: string; label: string } => {
     if (card.type === 'earn') {
-      const apy =
-        typeof vaultPosition.trailingApyPct === 'number' &&
-        Number.isFinite(vaultPosition.trailingApyPct)
-          ? vaultPosition.trailingApyPct
-          : null
-      if (apy == null) return { strong: 'APY', label: '' }
-      const shown = Number.isInteger(apy) ? String(apy) : apy.toFixed(1)
-      return { strong: `${shown}%`, label: 'APY' }
+      // Part 19: "6.25% in 24h" — locked if funded, else live note rate. Never APY.
+      return homeEarnPill(vaultPosition)
     }
 
     if (card.type === 'yieldSurprise') {

@@ -33,8 +33,8 @@ import { useActivityStore } from '@/store/activity'
 import {
   useVaultStore,
   vaultHasSupply,
-  vaultWithdrawableShare,
 } from '@/store/vault'
+import { noteInUseShare } from '@/lib/vault/deliveryNote'
 
 // Temporary FX rate (will be wired to real API later)
 const FX_USD_ZAR_DEFAULT = 18.1
@@ -228,10 +228,9 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
   const { wallets, demoMode } = useWalletStore()
   const vaultPosition = useVaultStore((s) => s.position)
   const earnUnlocked = vaultHasSupply(vaultPosition)
-  // Earn enters the flip rotation only after USDC has been supplied.
-  const earnShowPill = earnUnlocked
+  // Home Earn pill always shows "N% in 24h"; bar = share in use once funded.
   const earnBarPercent = earnUnlocked
-    ? Math.round(vaultWithdrawableShare(vaultPosition) * 100)
+    ? Math.round(noteInUseShare(vaultPosition) * 100)
     : 0
   const earnUnlockedRef = useRef(earnUnlocked)
   earnUnlockedRef.current = earnUnlocked
@@ -1065,14 +1064,12 @@ const CardStack = forwardRef<CardStackHandle, CardStackProps>(function CardStack
                 : card.type === 'savings'
                   ? zarLiquidBarPercent
                   : card.type === 'earn'
-                    ? isTop && earnShowPill
+                    ? isTop
                       ? earnBarPercent
-                      : isTop
-                        ? 0
-                        : null
+                      : null
                     : null
             }
-            // Earn APY sticks out at every stack depth (same as other cards' pills).
+            // Earn "N% in 24h" sticks out at every stack depth.
             showRatePill
             displayMajorOffset={
               // Shared drip projection (deterministic) + brief story holds.

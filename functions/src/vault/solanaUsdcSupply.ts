@@ -108,10 +108,53 @@ type ParsedTx = {
 /** Observed treasury USDC ATA (owner = TREASURY). */
 const TREASURY_USDC_ATA = '3BWBdkrcQ2o51927WAniP1hSjhcaECF9px3EZcABPA74'
 
+/** Part 19 note schedule (SAST). Keep in sync with src/lib/vault/deliveryNote.ts. */
+const NOTE = {
+  openHour: 9,
+  cutoffHour: 21,
+  openRatePct: 6.5,
+  stepDownPct: 0.25,
+  stepEveryMinutes: 60,
+  floorRatePct: 3.5,
+  sastOffsetMs: 2 * 60 * 60 * 1000,
+} as const
+
+function liveNoteRatePctAt(atMs: number): number {
+  const shifted = new Date(atMs + NOTE.sastOffsetMs)
+  const y = shifted.getUTCFullYear()
+  const m = shifted.getUTCMonth() + 1
+  const d = shifted.getUTCDate()
+  const openMs =
+    Date.UTC(y, m - 1, d, NOTE.openHour, 0, 0) - NOTE.sastOffsetMs
+  const cutoffMs =
+    Date.UTC(y, m - 1, d, NOTE.cutoffHour, 0, 0) - NOTE.sastOffsetMs
+  if (atMs < openMs) return NOTE.openRatePct
+  const end = Math.min(atMs, cutoffMs)
+  const steps = Math.floor((end - openMs) / (NOTE.stepEveryMinutes * 60_000))
+  const rate = NOTE.openRatePct - steps * NOTE.stepDownPct
+  return Math.max(NOTE.floorRatePct, Math.round(rate * 100) / 100)
+}
+
+function blendLockedRate(
+  prevRate: number | null,
+  prevSupplied: number,
+  nextRate: number,
+  addUsdc: number
+): number {
+  if (!(prevSupplied > 0.005) || prevRate == null || !Number.isFinite(prevRate)) {
+    return nextRate
+  }
+  const total = prevSupplied + addUsdc
+  if (!(total > 0.005)) return nextRate
+  return Math.round(((prevRate * prevSupplied + nextRate * addUsdc) / total) * 100) / 100
+}
+
 function emptyPosition() {
   return {
     suppliedUsdc: 0,
-    trailingApyPct: 8.4,
+    trailingApyPct: null as number | null,
+    lockedRatePct: null as number | null,
+    usedUsdc: 0,
     withdrawableNowUsd: 0,
     committedUsdc: 0,
     zarFunded: 0,
@@ -121,6 +164,10 @@ function emptyPosition() {
     deliveriesZarToday: 0,
     suppliedAtMs: null as number | null,
     backAtMs: null as number | null,
+    settledAtMs: null as number | null,
+    returnedUsdc: null as number | null,
+    notePhase: null as string | null,
+    noteFull: false,
     legs: [] as unknown[],
     expectedEarnedUsd: 0,
     linkedSolanaWallet: null as string | null,
@@ -357,6 +404,12 @@ async function creditSupply(params: {
     const prevFree = Number(prev.withdrawableNowUsd) || 0
     const nextSupplied = Math.round((prevSupplied + amountUsdc) * 1e6) / 1e6
     const nextFree = Math.round((prevFree + amountUsdc) * 1e6) / 1e6
+    const depositRate = liveNoteRatePctAt(atMs)
+    const prevLocked =
+      prev.lockedRatePct == null ? null : Number(prev.lockedRatePct)
+    const blended = blendLockedRate(prevLocked, prevSupplied, depositRate, amountUsdc)
+    const expectedEarnedUsd =
+      Math.round(nextSupplied * (blended / 100) * 100) / 100
 
     tx.set(
       positionRef,
@@ -366,7 +419,12 @@ async function creditSupply(params: {
         suppliedUsdc: nextSupplied,
         withdrawableNowUsd: nextFree,
         committedUsdc: Math.max(0, nextSupplied - nextFree),
-        trailingApyPct: prev.trailingApyPct ?? 8.4,
+        usedUsdc: Math.max(0, Number(prev.usedUsdc) || Number(prev.committedUsdc) || 0),
+        trailingApyPct: null,
+        lockedRatePct: blended,
+        notePhase: 'funded',
+        noteFull: false,
+        expectedEarnedUsd,
         suppliedAtMs: prev.suppliedAtMs || atMs,
         linkedSolanaWallet: sender,
         lastSupply: {
@@ -388,6 +446,7 @@ async function creditSupply(params: {
         amountUsdc,
         sender,
         signature,
+        lockedRatePct: depositRate,
         confirmedAt: admin.firestore.FieldValue.serverTimestamp(),
         confirmedAtMs: atMs,
       },
@@ -395,8 +454,7 @@ async function creditSupply(params: {
     )
 
     const title = formatUsdcReceivedTitle(amountUsdc)
-    const body =
-      'It starts funding deliveries in the 09:00 cycle. Anything not funding a delivery can be withdrawn any time.'
+    const body = `Your rate is locked at ${blended}%. Back by 04:00 with return only on the USDC used for deliveries.`
 
     tx.set(eventRef, {
       id: eventId,
@@ -488,7 +546,6 @@ export const vault_createUsdcSupply = functions
       .set(
         {
           pendingSupply: { id: supplyId, reference, createdAtMs },
-          trailingApyPct: 8.4,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true }

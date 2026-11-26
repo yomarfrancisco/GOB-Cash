@@ -111,7 +111,7 @@ type AmountSheetProps = {
   earnSupplyCalculator?: boolean
   /** ZAR per 1 USD for Earn supply quote (OPERATORS GET). */
   fxRateZARperUSD?: number
-  /** Trailing APY % for the Earn ~$/mo line. */
+  /** Note rate % for the Earn "in 24h if used" line (live or locked). */
   earnTrailingApyPct?: number | null
 }
 
@@ -549,20 +549,26 @@ export default function AmountSheet({
 
   const earnUsdcAmount = Math.max(0, Number.parseFloat(amount) || 0)
   const earnOperatorsZar = Math.round(earnUsdcAmount * Math.max(0, fxRateZARperUSD))
-  const earnApy =
+  const earnNoteRate =
     typeof earnTrailingApyPct === 'number' && Number.isFinite(earnTrailingApyPct)
       ? earnTrailingApyPct
       : null
-  const earnMonthlyUsd =
-    earnApy != null && earnUsdcAmount > 0.005
-      ? (earnUsdcAmount * earnApy) / 100 / 12
+  const earnNoteRateLabel =
+    earnNoteRate == null
+      ? '[x]'
+      : Number.isInteger(earnNoteRate)
+        ? String(earnNoteRate)
+        : earnNoteRate.toFixed(2).replace(/0$/, '').replace(/\.$/, '')
+  const earnIfUsedUsd =
+    earnNoteRate != null && earnUsdcAmount > 0.005
+      ? (earnUsdcAmount * earnNoteRate) / 100
       : 0
   const earnMonthlyLabel =
-    earnApy == null
-      ? 'Earn ~$[x] a month'
+    earnNoteRate == null
+      ? 'Up to $[x] in 24h if used'
       : earnUsdcAmount > 0.005
-        ? `Earn ~$${earnMonthlyUsd < 10 ? earnMonthlyUsd.toFixed(2) : Math.round(earnMonthlyUsd).toLocaleString('en-US')} a month at ${Number.isInteger(earnApy) ? earnApy : earnApy.toFixed(1)}%/yr`
-        : `Earn ~$[x] a month at ${Number.isInteger(earnApy) ? earnApy : earnApy.toFixed(1)}%/yr`
+        ? `Up to $${earnIfUsedUsd < 10 ? earnIfUsedUsd.toFixed(2) : Math.round(earnIfUsedUsd).toLocaleString('en-US')} in 24h at ${earnNoteRateLabel}% if used`
+        : `Up to $[x] in 24h at ${earnNoteRateLabel}% if used`
   const earnRateChip =
     fxRateZARperUSD > 0 ? `${fxRateZARperUSD.toFixed(2)} ZAR/USD` : '—'
   const earnFrontAmount =
