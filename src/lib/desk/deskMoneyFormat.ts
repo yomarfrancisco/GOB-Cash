@@ -4,7 +4,11 @@
  * Minor (one-liners, sub-lines, rows): "8,918,639.00 MZN" / "R100,000.00"
  */
 
-import { formatCardTopline, formatEquivalenceAmount } from '@/lib/formatCurrency'
+import {
+  formatCardTopline,
+  formatEquivalenceAmount,
+  formatMoneyFixed,
+} from '@/lib/formatCurrency'
 
 function enUsFixed(amount: number): string {
   const n = Number(amount) || 0
@@ -85,18 +89,45 @@ export function formatDeskTitleUsd(amount: number): string {
 }
 
 /**
- * Earn-card minor only: "≈ 0.42 MZN earned" while ≤ 10; whole units above
- * ("≈ 1,234 MZN earned"). Other cards keep integer equivalence.
+ * Earn-card major only: $ earned (not supply).
+ * ≥ $1000 → whole dollars; ≥ $0.01 → 2dp; dust → up to 6dp so tiny earn is visible.
+ */
+export function formatEarnCardMajorUsd(amount: number): { major: string; cents?: string } {
+  const n = Math.max(0, Number(amount) || 0)
+  if (n > 999.99) {
+    const rounded = Math.round(n).toFixed(0)
+    return { major: rounded.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') }
+  }
+  if (n === 0 || n >= 0.01) {
+    const { groups, cents } = formatMoneyFixed(n, 2)
+    return { major: groups, cents }
+  }
+  // Dust under a cent — keep enough fraction digits to show a non-zero earn.
+  const trimmed = n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')
+  const [intPart, frac = ''] = trimmed.split('.')
+  const cents = (frac.length >= 2 ? frac : `${frac}00`).slice(0, 6)
+  return { major: intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' '), cents }
+}
+
+/**
+ * Earn-card minor only: MZN equivalent of $ earn.
+ * > 10 → whole units; ≥ 0.01 → 2dp; dust → up to 6dp. Other cards unchanged.
  */
 export function formatDeskEarnMznMinor(amount: number): string {
   const n = Math.max(0, Number(amount) || 0)
-  if (n <= 10) {
+  if (n > 10) {
+    return `≈ ${Math.round(n).toLocaleString('en-US')} MZN earned`
+  }
+  if (n === 0 || n >= 0.01) {
     return `≈ ${n.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })} MZN earned`
   }
-  return `≈ ${Math.round(n).toLocaleString('en-US')} MZN earned`
+  const trimmed = n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')
+  const [intPart, frac = ''] = trimmed.split('.')
+  const decimals = (frac.length >= 2 ? frac : `${frac}00`).slice(0, 6)
+  return `≈ ${intPart}.${decimals} MZN earned`
 }
 
 /** @deprecated Use formatDeskEarnMznMinor — Earn minor is MZN, not USD. */

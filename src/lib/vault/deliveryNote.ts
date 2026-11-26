@@ -216,7 +216,12 @@ export function homeEarnPill(position: VaultPosition, nowMs = Date.now()): {
   return { strong: `${formatNoteRate(rate)}%`, label: 'in 24h' }
 }
 
-/** USD return at the locked (or live) 24h note premium on supplied USDC. */
+/** Full-precision USD earn for the Earn card major (may be dust ≪ $0.01). */
+export function homeEarnExpectedUsdRaw(position: VaultPosition, nowMs = Date.now()): number {
+  return noteEarnUsdRaw(position, nowMs)
+}
+
+/** USD return at the locked (or live) 24h note premium — cents for desk/copy. */
 export function homeEarnExpectedUsd(position: VaultPosition, nowMs = Date.now()): number {
   return Math.round(noteEarnUsdRaw(position, nowMs) * 100) / 100
 }
@@ -236,7 +241,8 @@ export function homeEarnExpectedMzn(
   if (!(usd > 0)) return 0
   const mtPerUsd = sellMznPerUsd(sellMznQuote, usdPerZarQuote)
   if (!(mtPerUsd > 0)) return 0
-  return Math.round(usd * mtPerUsd * 100) / 100
+  // Full precision — Earn minor formatter decides 2dp vs dust decimals.
+  return usd * mtPerUsd
 }
 
 /** Share of supply currently in use (home + funded card bar). */

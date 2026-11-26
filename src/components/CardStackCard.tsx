@@ -30,8 +30,15 @@ import {
 import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
 import { useVaultStore, vaultHasSupply } from '@/store/vault'
-import { homeEarnExpectedMzn, homeEarnPill } from '@/lib/vault/deliveryNote'
-import { formatDeskEarnMznMinor } from '@/lib/desk/deskMoneyFormat'
+import {
+  homeEarnExpectedMzn,
+  homeEarnExpectedUsdRaw,
+  homeEarnPill,
+} from '@/lib/vault/deliveryNote'
+import {
+  formatDeskEarnMznMinor,
+  formatEarnCardMajorUsd,
+} from '@/lib/desk/deskMoneyFormat'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 
@@ -616,14 +623,15 @@ export default function CardStackCard({
       {showEarnAmounts ? (
         <div className="card-amounts card-amounts--earn card-amounts--shifted" suppressHydrationWarning>
           {(() => {
-            const earnAmt = Math.max(0, Number(vaultPosition.suppliedUsdc) || 0)
+            // Major = $ earned at the 24h note premium; minor = MZN equivalent.
+            const earnUsd = homeEarnExpectedUsdRaw(vaultPosition)
             const earnMzn = homeEarnExpectedMzn(vaultPosition, liveMzn, liveUsdPerZar)
-            const { major, cents } = formatCardTopline(earnAmt)
+            const { major, cents } = formatEarnCardMajorUsd(earnUsd)
             return (
               <>
                 <div
                   className="card-amounts__zar amount-headline amount-topline"
-                  aria-label={`${earnAmt.toFixed(2)} US dollars`}
+                  aria-label={`${earnUsd} US dollars earned`}
                   suppressHydrationWarning
                 >
                   <span className="amt-int card-amounts__whole" suppressHydrationWarning>
