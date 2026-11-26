@@ -2073,7 +2073,8 @@ export function NotificationsList({
           type="button"
           className={[
             listStyles.deskAskCalc,
-            deskChromeMode === 'earn' ? listStyles.deskAskCalcSelected : '',
+            listStyles.deskAskCalcEarn,
+            deskChromeMode === 'earn' ? listStyles.deskAskCalcEarnSelected : '',
           ]
             .filter(Boolean)
             .join(' ')}

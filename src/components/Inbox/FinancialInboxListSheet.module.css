@@ -481,6 +481,24 @@
   opacity: 0.9;
 }
 
+/*
+ * Earn toggle — Option B (Phantom brand).
+ * Option A was black selected / ink ghost idle (same as lamp).
+ * Desk mode: grey ghost on white. Earn mode: Phantom purple + white ghost.
+ */
+.deskAskCalcEarn {
+  color: #8a8a92;
+}
+
+.deskAskCalcEarnSelected {
+  background: #ab9ff2;
+  color: #ffffff;
+}
+
+.deskAskCalcEarnSelected:active {
+  opacity: 0.9;
+}
+
 .deskAskComposer {
   flex: 1;
   min-width: 0;
