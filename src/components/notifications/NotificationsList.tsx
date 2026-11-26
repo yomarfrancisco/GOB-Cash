@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Calculator, Check, Clock, Download, ExternalLink, LampDesk, PiggyBank, X } from 'lucide-react'
+import { Check, Clock, Download, ExternalLink, LampDesk, PiggyBank, X } from 'lucide-react'
 import { useActivityStore, type ActivityItem } from '@/store/activity'
 import { subscribeToActivityEvents } from '@/lib/activity/activityEvents'
 import {
@@ -18,8 +18,6 @@ import { isConversionInFlight } from '@/lib/transactions/submitInternalConversio
 import {
   markDeskKeypadOffered,
   openDeskKeypad,
-  openEarnSupplyCalculator,
-  openHeaderFundCalculator,
   routingKeypadOfferKey,
   wasDeskKeypadOffered,
 } from '@/lib/desk/openDeskKeypad'
@@ -1976,14 +1974,6 @@ export function NotificationsList({
     latestYoureSetUpId,
   }
 
-  const handleDeskCalculator = () => {
-    if (deskChromeMode === 'earn') {
-      openEarnSupplyCalculator()
-      return
-    }
-    openHeaderFundCalculator()
-  }
-
   return (
     <>
       <div className={listStyles.conversationList} data-desk-feed>
@@ -2091,16 +2081,6 @@ export function NotificationsList({
           onClick={() => setDeskChromeMode('earn')}
         >
           <PiggyBank size={22} strokeWidth={2} aria-hidden />
-        </button>
-      </div>
-      <div className={listStyles.deskCalcDock}>
-        <button
-          type="button"
-          className={listStyles.deskAskCalc}
-          aria-label="Open calculator"
-          onClick={handleDeskCalculator}
-        >
-          <Calculator size={22} strokeWidth={2} aria-hidden />
         </button>
       </div>
       <div className={listStyles.deskCloseDock}>
