@@ -31,7 +31,6 @@ import { resolveEnRouteBook } from '@/lib/fx/enRouteBook'
 import { useActivityStore } from '@/store/activity'
 import { useVaultStore } from '@/store/vault'
 import { formatDeskUsdcSuppliedMinor } from '@/lib/desk/deskMoneyFormat'
-import { formatCardTopline } from '@/lib/formatCurrency'
 
 const FX_USD_ZAR_DEFAULT = 18.1
 

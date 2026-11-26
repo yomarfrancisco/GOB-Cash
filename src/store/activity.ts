@@ -19,7 +19,7 @@ export type ActivityItem = {
   actor: { type: 'ai' | 'user' | 'counterparty'; name?: string; avatarUrl?: string }
   title: string
   body?: string
-  amount?: { currency: 'MZN' | 'ZAR' | 'USDT'; value: number; sign: 'credit' | 'debit' }
+  amount?: { currency: 'MZN' | 'ZAR' | 'USDT' | 'USDC'; value: number; sign: 'credit' | 'debit' }
   createdAt: number
   routeOnTap?: string
   txId?: string

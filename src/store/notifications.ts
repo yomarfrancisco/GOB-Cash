@@ -73,7 +73,7 @@ export type NotificationItem = {
   reason?: string // e.g., "Fragility increased in crypto markets; preserving purchasing power."
   amount?: {
     // optional: for later Transactions page
-    currency: 'MZN' | 'ZAR' | 'USDT'
+    currency: 'MZN' | 'ZAR' | 'USDT' | 'USDC'
     value: number // positive for inflow, negative for outflow
   }
   direction?: 'up' | 'down' // inflow/outflow (for Transactions derivation)

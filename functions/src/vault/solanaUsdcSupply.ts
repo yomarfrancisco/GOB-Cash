@@ -167,6 +167,10 @@ async function isSignatureClaimed(signature: string): Promise<boolean> {
   return snap.exists
 }
 
+/**
+ * Net USDC into treasury only. Self-transfers (same ATA → same ATA) have delta 0
+ * and must not credit Earn — that was the 0.010001 Solscan case.
+ */
 async function parseInboundFromSig(signature: string): Promise<{
   signature: string
   amountUsdc: number
@@ -178,12 +182,16 @@ async function parseInboundFromSig(signature: string): Promise<{
   ])
   if (!tx || tx.meta?.err) return null
   const amountUsdc = usdcReceivedByTreasury(tx)
-  if (!(amountUsdc > 0)) return null
+  if (!(amountUsdc > 0.0000005)) return null
   if (await isSignatureClaimed(signature)) return null
-  const sender = senderFromTx(tx) || 'unknown'
-  // Prefer non-treasury signer as the user's wallet
   const keys = tx.transaction.message.accountKeys.map(accountKeyString)
-  const fromUser = keys.find((k) => k && k !== TREASURY) || sender
+  const signers = keys.filter((_, i) => {
+    const raw = tx.transaction.message.accountKeys[i]
+    return typeof raw !== 'string' && Boolean((raw as { signer?: boolean }).signer)
+  })
+  // Must be funded by an external wallet — treasury self-moves never count.
+  const fromUser = signers.find((k) => k && k !== TREASURY) || keys.find((k) => k && k !== TREASURY)
+  if (!fromUser || fromUser === TREASURY) return null
   return { signature, amountUsdc, sender: fromUser }
 }
 
@@ -308,7 +316,7 @@ async function creditSupply(params: {
       title,
       body,
       deskSentence: body,
-      amountCurrency: 'USDT',
+      amountCurrency: 'USDC',
       amountValue: amountUsdc,
       amountSign: 'credit',
       actorType: 'ai_manager',

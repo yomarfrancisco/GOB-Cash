@@ -21,7 +21,7 @@ export type ActivityEventDoc = {
   body?: string
   actorType?: string
   avatarKind?: string
-  amountCurrency?: 'MZN' | 'ZAR' | 'USDT'
+  amountCurrency?: 'MZN' | 'ZAR' | 'USDT' | 'USDC'
   amountValue?: number
   amountSign?: 'credit' | 'debit'
   createdAt?: Timestamp | { toMillis?: () => number }
