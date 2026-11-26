@@ -2110,7 +2110,7 @@ export function NotificationsList({
           aria-label="Close"
           onClick={() => closeNotifications()}
         >
-          <X size={18} strokeWidth={2} aria-hidden />
+          <X size={16} strokeWidth={1.8} aria-hidden />
         </button>
       </div>
     </>

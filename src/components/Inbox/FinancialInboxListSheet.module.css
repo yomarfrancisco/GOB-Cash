@@ -380,14 +380,20 @@
   pointer-events: auto;
 }
 
-/* Floating close on the desk top-right — same chrome as calc/exit, smaller circle. */
+/* Floating close on the desk top-right — round, secondary to lamp/piggy. */
 .deskCloseDock {
   position: absolute;
   top: 16px;
+  /* Same inset as .deskExitDock left (first header button). */
   right: 16px;
   left: auto;
   bottom: auto;
   z-index: 5;
+  /* Match header button band height so the circle centres on that line. */
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   margin: 0;
   box-sizing: border-box;
@@ -395,14 +401,16 @@
 }
 
 .deskAskClose {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: #ffffff;
-  color: #111111;
+  color: #18181b;
   display: inline-flex;
   align-items: center;
   justify-content: center;
