@@ -111,11 +111,12 @@ const TREASURY_USDC_ATA = '3BWBdkrcQ2o51927WAniP1hSjhcaECF9px3EZcABPA74'
 /** Part 19 note schedule (SAST). Keep in sync with src/lib/vault/deliveryNote.ts. */
 const NOTE = {
   openHour: 9,
-  cutoffHour: 21,
+  cutoffHour: 15,
+  returnHour: 9,
   openRatePct: 6.5,
   stepDownPct: 0.25,
   stepEveryMinutes: 60,
-  floorRatePct: 3.5,
+  preorderRatePct: 6.0,
   sastOffsetMs: 2 * 60 * 60 * 1000,
 } as const
 
@@ -128,11 +129,12 @@ function liveNoteRatePctAt(atMs: number): number {
     Date.UTC(y, m - 1, d, NOTE.openHour, 0, 0) - NOTE.sastOffsetMs
   const cutoffMs =
     Date.UTC(y, m - 1, d, NOTE.cutoffHour, 0, 0) - NOTE.sastOffsetMs
-  if (atMs < openMs) return NOTE.openRatePct
-  const end = Math.min(atMs, cutoffMs)
-  const steps = Math.floor((end - openMs) / (NOTE.stepEveryMinutes * 60_000))
-  const rate = NOTE.openRatePct - steps * NOTE.stepDownPct
-  return Math.max(NOTE.floorRatePct, Math.round(rate * 100) / 100)
+  if (atMs >= openMs && atMs < cutoffMs) {
+    const steps = Math.floor((atMs - openMs) / (NOTE.stepEveryMinutes * 60_000))
+    const rate = NOTE.openRatePct - steps * NOTE.stepDownPct
+    return Math.round(rate * 100) / 100
+  }
+  return NOTE.preorderRatePct
 }
 
 function blendLockedRate(
@@ -454,7 +456,7 @@ async function creditSupply(params: {
     )
 
     const title = formatUsdcReceivedTitle(amountUsdc)
-    const body = `Your rate is locked at ${blended}%. Back by 15:00 SAST (13:00 GMT) with return only on the USDC used for deliveries.`
+    const body = `Your rate is locked at ${blended}%. Back by 09:00 SAST (07:00 GMT) with return only on the USDC used for deliveries.`
     // Dropdown toast (Rewards Manager) — desk message stays the live Earn note.
     const dropdownTitle = title
     const dropdownBody = `Vault funded. Open Earn for the delivery note.`

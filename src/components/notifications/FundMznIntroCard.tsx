@@ -63,13 +63,14 @@ const COPY = {
     explain: (
       <>
         The <strong>green bar</strong> on your ZAR card shows how much is liquid. Up to{' '}
-        <strong>R100,000</strong> fills it instantly; the rest fills at <strong>09:00</strong>.
+        <strong>R100,000</strong> fills it instantly; the rest fills at <strong>09:00</strong>.{' '}
+        Pay in before <strong>15:00</strong> to convert today.
       </>
     ),
     howTitle: 'How it works',
     howSteps: [
       'Send MZN to the account above. Always add the reference.',
-      'The first R100,000 each day is converted and paid out straight away. Anything above that follows, and we tell you when all of it will arrive.',
+      'Pay in before 15:00 to convert today. The first R100,000 each day is converted and paid out straight away. Anything above that follows, and we tell you when all of it will arrive.',
       'The first time, we ask for your South African bank account. After that, payouts are automatic.',
     ],
     copied: 'Copied',
@@ -83,13 +84,14 @@ const COPY = {
     explain: (
       <>
         A <strong>barra verde</strong> no seu cartão ZAR mostra quanto está líquido. Até{' '}
-        <strong>R100.000</strong> enche-a de imediato; o restante às <strong>09:00</strong>.
+        <strong>R100.000</strong> enche-a de imediato; o restante às <strong>09:00</strong>.{' '}
+        Pague antes das <strong>15:00</strong> para converter hoje.
       </>
     ),
     howTitle: 'Como funciona',
     howSteps: [
       'Envie MZN para a conta acima. Inclua sempre a referência.',
-      'Os primeiros R100.000 de cada dia são convertidos e pagos de imediato. O que ultrapassar segue depois, e dizemos-lhe quando chega tudo.',
+      'Pague antes das 15:00 para converter hoje. Os primeiros R100.000 de cada dia são convertidos e pagos de imediato. O que ultrapassar segue depois, e dizemos-lhe quando chega tudo.',
       'Na primeira vez pedimos a sua conta bancária sul-africana. Depois disso, os pagamentos são automáticos.',
     ],
     copied: 'Copiado',

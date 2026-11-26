@@ -36,7 +36,7 @@ export type VaultPosition = {
   /** USDC currently funding deliveries. */
   usedUsdc: number
   /**
-   * USDC free / unused (comes back at 04:00 with no return).
+   * USDC free / unused (comes back at cycle return with no return).
    */
   withdrawableNowUsd: number
   /** Alias for used float when ledger only has committed. */

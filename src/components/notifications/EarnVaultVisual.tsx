@@ -27,7 +27,7 @@ export function earnVaultSentence(position: VaultPosition, nowMs = Date.now()): 
 function pillClass(tone: DeliveryNoteView['pillTone']): string {
   if (tone === 'late') return styles.pillLate
   if (tone === 'closed') return styles.pillClosed
-  if (tone === 'open') return styles.pillOpen
+  if (tone === 'open' || tone === 'preorder') return styles.pillOpen
   return styles.pillOk
 }
 
@@ -55,7 +55,7 @@ export function EarnVaultVisual({
 
   const view = deriveDeliveryNoteView(position, nowMs)
   const cardBarPct =
-    view.phase === 'open' || view.phase === 'closed'
+    view.phase === 'open' || view.phase === 'preorder'
       ? 0
       : view.phase === 'settled'
         ? 100
