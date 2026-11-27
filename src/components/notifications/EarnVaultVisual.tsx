@@ -186,7 +186,7 @@ export function EarnVaultVisual({
         )}
 
         {view.showSolscan && last?.signature ? (
-          <div className={deskStyles.activityActionRow}>
+          <div className={[deskStyles.activityActionRow, deskStyles.activityActionRowFull].join(' ')}>
             <button
               type="button"
               className={deskStyles.replyButton}
@@ -214,7 +214,7 @@ export function EarnVaultVisual({
         </p>
       ) : null}
 
-      <div className={deskStyles.activityActionRow}>
+      <div className={[deskStyles.activityActionRow, deskStyles.activityActionRowFull].join(' ')}>
         <button
           type="button"
           className={[
